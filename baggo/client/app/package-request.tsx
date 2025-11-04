@@ -1,0 +1,1080 @@
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  Platform,
+  Alert
+} from 'react-native';
+import { useState, useEffect } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { Colors } from '@/constants/Colors';
+import {
+  Package,
+  Weight,
+  DollarSign,
+  User,
+  CheckCircle,
+  XCircle,
+  Shield,
+  MapPin,
+  Clock,
+  Upload,
+} from 'lucide-react-native';
+import { backendomain } from '@/utils/backendDomain';
+import * as FileSystem from "expo-file-system/legacy";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+
+
+export default function PackageRequestScreen() {
+  const router = useRouter();
+  const { id: tripId } = useLocalSearchParams();
+
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // index of currently-displayed request
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [proofImage, setProofImage] = useState(null);
+   const [uploading, setUploading] = useState(false);
+  // date picker state (for iOS or modal fallback, we keep these)
+  const [selectedRequestId, setSelectedRequestId] = useState(null);
+  const [dateField, setDateField] = useState(null); // 'estimatedDeparture' or 'estimatedArrival'
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [balance, setBalance] = useState(0);
+const [escrowBalance, setEscrowBalance] = useState(0);
+  // accept animation/overlay state
+  const [accepting, setAccepting] = useState(false);
+
+  const [symbol, setSymbol] = useState("₦");
+    const [country, setCountry] = useState(null);
+  const [userData, setUserData] = useState(null);
+const [currency, setCurrency] = useState('EUR');
+  const base = (typeof backendomain === 'object' && backendomain.backendomain) ? backendomain.backendomain : backendomain;
+
+
+  // 🌍 Detect user country
+  const currencySymbols = {
+     NGN: "₦",
+     USD: "$",
+     EUR: "€",
+     GBP: "£",
+     GHS: "₵",
+     KES: "KSh",
+     ZAR: "R",
+     INR: "₹",
+     CAD: "CA$",
+     AUD: "A$",
+     JPY: "¥",
+     CNY: "¥",
+   };
+
+   useEffect(() => {
+     (async () => {
+       try {
+         const response = await fetch("https://ipapi.co/json/");
+         const data = await response.json();
+
+         console.log("🌍 Location data:", data);
+
+         const detectedCurrency = data.currency || "USD";
+         const detectedCountry = data.country_name || "Unknown";
+
+         setCurrency(detectedCurrency);
+         setCountry(detectedCountry);
+         setSymbol(currencySymbols[detectedCurrency] || "$");
+       } catch (error) {
+         console.error("Failed to detect location:", error);
+         // Default to Nigeria if IP detection fails
+         setCurrency("NGN");
+         setCountry("Nigeria");
+         setSymbol("₦");
+       } finally {
+         setLoading(false);
+       }
+     })();
+   }, []);
+
+   useEffect(() => {
+     const fetchData = async () => {
+       try {
+         console.log("Fetching wallet and profile data...");
+
+         // 🟢 Fetch profile
+         const profileUrl = `${base}/api/baggo/Profile`;
+         const profileResponse = await fetch(profileUrl, {
+           method: 'GET',
+           credentials: 'include',
+           headers: { 'Content-Type': 'application/json' },
+         });
+
+         const profileData = await profileResponse.json();
+         console.log('profileData:', profileData);
+
+         if (profileData?.data?.findUser) {
+           const user = profileData.data.findUser;
+           setUserData(user);
+
+           // 💰 Balances
+           const pBalance = Number(user.balance ?? 0);
+           const pEscrow = Number(user.escrowBalance ?? user.escrow ?? 0);
+           setBalance(!Number.isNaN(pBalance) ? pBalance : 0);
+           setEscrowBalance(!Number.isNaN(pEscrow) ? pEscrow : 0);
+
+           // 🟩 Balance History → Recent Transactions
+           if (Array.isArray(user.balanceHistory)) {
+             const mappedHistory = user.balanceHistory.map((txn) => ({
+               id: txn._id,
+               type:
+                 txn.type === 'deposit' || txn.type === 'escrow_release'
+                   ? 'credit'
+                   : 'debit',
+               amount: Number(txn.amount ?? 0),
+               date: txn.date,
+               description: txn.description || txn.type,
+               status: txn.status,
+             }));
+
+             console.log('✅ Loaded balance history:', mappedHistory.length, 'transactions');
+           } else {
+
+             console.log('ℹ️ No balance history found');
+           }
+
+
+
+
+         } else {
+           console.warn('Profile returned no user:', profileData);
+           setUserData(null);
+
+           setBalance(0);
+           setEscrowBalance(0);
+
+         }
+       } catch (err) {
+         console.error("🚨 Network or unexpected error:", err);
+         setError("Error connecting to the server: " + err.message);
+       } finally {
+         setLoading(false);
+       }
+     };
+
+     fetchData();
+   }, []);
+
+
+  useEffect(() => {
+      const fetchBalance = async () => {
+        const profileUrl = `${backendomain.backendomain}/api/baggo/Profile`;
+
+        try {
+          const response = await fetch(profileUrl, {
+            method: "GET",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+          });
+
+          const data = await response.json();
+          console.log("profileData:", data);
+
+          if (data?.data?.findUser) {
+            const user = data.data.findUser;
+            const pBalance = Number(user.escrowBalance ?? 0);
+            setBalance(!Number.isNaN(pBalance) ? pBalance : 0);
+          }
+        } catch (error) {
+          console.error("❌ Error fetching balance:", error);
+        }
+      };
+
+      fetchBalance();
+    }, []);
+
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      if (!tripId || tripId === 'undefined') {
+        setError('Invalid or missing trip ID');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${backendomain.backendomain}/api/baggo/getRequests/${tripId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await response.json();
+        // console.log('Raw requests response:', JSON.stringify(data, null, 2));
+
+        if (data.success && Array.isArray(data.data.requests)) {
+        const mappedRequests = data.data.requests
+          .map((request, index) => {
+            if (!request._id || !request.package) {
+              console.warn(`Invalid request at index ${index}:`, request);
+              return null;
+            }
+
+            return {
+              _id: request._id,
+              package: {
+                fromCountry: request.package.fromCountry || 'Unknown',
+                fromCity: request.package.fromCity || 'Unknown',
+                toCountry: request.package.toCountry || 'Unknown',
+                toCity: request.package.toCity || 'Unknown',
+                packageWeight: request.package.packageWeight || 0,
+                receiverName: request.package.receiverName || 'Unknown',
+                receiverPhone: request.package.receiverPhone || 'Unknown',
+                description: request.package.description || 'No description',
+                pickupAddress: request.package.pickupAddress || request.package.fromAddress || '',
+                deliveryAddress: request.package.deliveryAddress || request.package.toAddress || '',
+                packageImage:
+    // package-level image first
+    request.package?.packageImage ||
+    request.package?.image ||
+    // then request-level image (where your log shows it lives)
+    request.image ||
+    // extra safety for nested raw (if needed)
+    request.raw?.image ||
+    null,
+
+                value: request.package.value || request.package.declaredValue || null,
+                shippingFee: request.package.shippingFee || null,
+                appFee: request.package.appFee || null,
+              },
+              sender: {
+                name: (request.sender && (request.sender.name || request.sender.email)) || 'Unknown',
+              },
+              status: request.status || 'pending',
+              insurance: request.insurance || false,
+              insuranceCost: request.insuranceCost || 0,
+              movementTracking: request.movementTracking || [],
+              estimatedDeparture: request.estimatedDeparture,
+              estimatedArrival: request.estimatedArrival,
+              raw: request,
+            };
+          })
+          // 🧹 Filter out completed packages
+          .filter(req => req !== null && req.status !== 'completed');
+
+
+          setRequests(mappedRequests);
+          setCurrentIndex(0);
+
+          if (mappedRequests.length === 0 && data.data.requests.length > 0) {
+            setError('No valid requests found due to missing data');
+          }
+        } else {
+          setError(data.message || 'Failed to fetch requests');
+          setRequests([]);
+        }
+      } catch (err) {
+        console.error('Error fetching requests:', err);
+        setError('Error fetching requests');
+        setRequests([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRequests();
+  }, [tripId]);
+
+
+
+  // Log the currently displayed request and its image whenever requests/currentIndex changes
+useEffect(() => {
+  if (!requests || requests.length === 0) return;
+  const current = requests[currentIndex];
+  if (!current) {
+    console.log('No current request at index', currentIndex);
+    return;
+  }
+
+  console.log('--- Current Request Image Debug ---');
+  console.log('requestId:', current._id);
+  console.log('current.package.packageImage:', current.package?.packageImage ?? null);
+  console.log('current.raw.image (request-level image):', current.raw?.image ?? null);
+  console.log('full raw request object (first 1k chars):', JSON.stringify(current.raw).slice(0, 1000));
+}, [requests, currentIndex]);
+
+
+  // Returns true if update succeeded
+  const handleUpdateStatus = async (requestId, newStatus, location = '') => {
+    console.log("🚀 handleUpdateStatus CALLED:", { requestId, newStatus, location }); // 👈 Add this first
+
+    try {
+
+
+      const response = await fetch(`${backendomain.backendomain}/api/baggo/updateRequestStatus/${requestId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus, location }),
+      });
+
+      const data = await response.json();
+      console.log("✅ Update request status response:", data);
+
+      if (data.success) {
+        // ✅ Update UI state
+        setRequests(prevRequests =>
+          prevRequests.map(req =>
+            req._id === requestId
+              ? {
+                  ...req,
+                  status: newStatus,
+                  movementTracking: data.data.movementTracking || req.movementTracking,
+                }
+              : req
+          )
+        );
+
+        // ✅ Get the full request info
+        const currentReq = data.data || requests.find(r => r._id === requestId);
+
+        // ✅ Safely extract senderId
+        const senderId = currentReq?.sender?._id;
+
+        if (!senderId) {
+          console.log("⚠️ No senderId found in request:", currentReq);
+        } else {
+          console.log("📨 Sending notification to senderId:", senderId);
+          await sendPushNotification(senderId, newStatus, currentReq);
+        }
+
+        return true;
+      } else {
+        console.error('❌ Failed to update request status:', data.message);
+        setError(data.message || 'Failed to update status');
+        return false;
+      }
+    } catch (err) {
+      console.error('🔥 Error updating request status:', err);
+      setError('Error updating request status');
+      return false;
+    }
+  };
+
+
+
+  const sendPushNotification = async (senderId, status, requestData) => {
+    try {
+      console.log("🔔 Sending push notification...");
+      console.log("SenderId:", senderId);
+      console.log("Status:", status);
+      console.log("Request Data (partial):", {
+        packageName: requestData?.raw?.packageName,
+        traveler: requestData?.raw?.traveler?.firstName,
+      });
+
+      const senderName = requestData?.raw?.sender?.firstName || "Dear";
+      const travelerName = requestData?.raw?.traveler?.firstName || "your traveler";
+      const packageName = requestData?.raw?.packageName || "your package";
+      const packageWeight = requestData?.raw?.packageWeight || "";
+      const deliveryLocation = requestData?.raw?.deliveryLocation || "";
+
+      const titles = {
+        accepted: "Package Accepted ✅",
+        intransit: "Package In Transit 🚚",
+        delivering: "Package Out for Delivery 📦",
+        completed: "Package Delivered 🎉",
+      };
+
+      const messages = {
+        accepted: `Hello ${senderName}, ${travelerName} has accepted ${packageName}${
+          packageWeight ? ` (${packageWeight}kg)` : ""
+        } for delivery to ${deliveryLocation}.`,
+        intransit: `Hello ${senderName}, ${packageName} is now in transit with ${travelerName}.`,
+        delivering: `Hello ${senderName}, ${travelerName} is currently delivering ${packageName}.`,
+        completed: `Hello ${senderName}, ${packageName} has been successfully delivered to ${deliveryLocation} by ${travelerName}.`,
+      };
+
+      const title = titles[status] || "Package Update";
+      const body = messages[status] || `Hello ${senderName}, ${packageName} status changed to ${status}.`;
+
+      console.log("📦 Notification Payload:", { userId: senderId, title, body });
+
+      const response = await fetch(`${backendomain.backendomain}/send-notification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          userId: senderId, // ✅ fixed from receiverId
+          title,
+          body,
+        }),
+      });
+
+      const resText = await response.text();
+      console.log("✅ Notification Response:", resText);
+
+    } catch (err) {
+      console.error("❌ Failed to send push notification:", err);
+    }
+  };
+
+
+
+  const handleUpdateDate = async (requestId, field, date) => {
+    try {
+      const response = await fetch(`${backendomain.backendomain}/api/baggo/updateRequestDates/${requestId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [field]: date.toISOString() }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setRequests(prevRequests =>
+          prevRequests.map(req =>
+            req._id === requestId
+              ? { ...req, [field]: data.data[field] }
+              : req
+          )
+        );
+      } else {
+        console.error('Failed to update date:', data.message);
+        setError(data.message || 'Failed to update date');
+      }
+    } catch (err) {
+      console.error('Error updating date:', err);
+      setError(err.message || 'Error updating date');
+    }
+  };
+
+
+  const openDatePicker = (requestId, field, currentDate) => {
+    const date = currentDate ? new Date(currentDate) : new Date();
+    setSelectedRequestId(requestId);
+    setDateField(field);
+    setSelectedDate(date);
+
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: date,
+        mode: 'datetime',
+        minimumDate: new Date(),
+        onChange: (event, selected) => {
+          if (event.type === 'set' && selected) {
+            handleUpdateDate(requestId, field, selected);
+          }
+          DateTimePickerAndroid.dismiss('datetime');
+        },
+      });
+    } else {
+      // iOS: can show a custom modal if you want
+    }
+  };
+
+
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not set';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  // UI helpers: get current request safely
+  const currentRequest = requests.length > 0 && requests[currentIndex] ? requests[currentIndex] : null;
+
+  // derive fields used in UI (with fallbacks)
+  const pkg = currentRequest
+    ? {
+        senderName: currentRequest.sender?.name || 'Unknown',
+        senderRating: currentRequest.raw?.senderRating || 0,
+        from: currentRequest.package?.fromCity || currentRequest.package?.fromCountry || 'Unknown',
+        to: currentRequest.package?.toCity || currentRequest.package?.toCountry || 'Unknown',
+        weight: currentRequest.package?.packageWeight || 0,
+        description: currentRequest.package?.description || 'No description',
+        value: currentRequest.package?.value || currentRequest.raw?.value || null,
+        insurance: currentRequest.insurance || false,
+        insuranceCost: currentRequest.insuranceCost || 0,
+        shippingFee: currentRequest.package?.shippingFee || currentRequest.raw?.shippingFee || 0,
+        appFee: currentRequest.package?.appFee || currentRequest.raw?.appFee || 0,
+        // compute an estimated total earning if fields exist; otherwise 0
+        totalEarning:
+          (currentRequest.raw?.totalEarning ??
+            currentRequest.package?.totalEarning ??
+            // fallback: shippingFee - appFee (if present)
+            ((currentRequest.package?.shippingFee || currentRequest.raw?.shippingFee) - (currentRequest.package?.appFee || currentRequest.raw?.appFee) || 0)) || 0,
+        pickupAddress: currentRequest.package?.pickupAddress || '',
+        deliveryAddress: currentRequest.package?.deliveryAddress || '',
+        packageImage: currentRequest.package?.packageImage || null,
+        status: currentRequest.status || 'pending',
+        estimatedDeparture: currentRequest.estimatedDeparture,
+        estimatedArrival: currentRequest.estimatedArrival,
+        movementTracking: currentRequest.movementTracking || [],
+        _id: currentRequest._id,
+      }
+    : null;
+
+  // Accept wrapper to show overlay when success
+  const handleAccept = async () => {
+    if (!pkg) return;
+    const success = await handleUpdateStatus(pkg._id, 'accepted');
+    if (success) {
+      setAccepting(true);
+      // keep same behavior as example: navigate back after a short delay
+      setTimeout(() => {
+        setAccepting(false);
+        router.back();
+      }, 2000);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!pkg) return;
+    const success = await handleUpdateStatus(pkg._id, 'rejected');
+    if (success) {
+      // optional: stay on page but reflect status; no overlay
+    }
+  };
+
+  const handleMarkInTransit = async () => {
+    if (!pkg) return;
+    await handleUpdateStatus(pkg._id, 'intransit', pkg.from);
+  };
+
+  const handleMarkDelivering = async () => {
+    if (!pkg) return;
+    await handleUpdateStatus(pkg._id, 'delivering', pkg.to);
+  };
+
+  const handleMarkCompleted = async () => {
+    if (!pkg) return;
+    await handleUpdateStatus(pkg._id, 'completed', pkg.to);
+  };
+
+  const handleNext = () => {
+    if (requests.length === 0) return;
+    setCurrentIndex(prev => (prev + 1) % requests.length);
+  };
+
+  const handlePrev = () => {
+    if (requests.length === 0) return;
+    setCurrentIndex(prev => (prev - 1 + requests.length) % requests.length);
+  };
+
+
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker?.MediaType
+          ? [ImagePicker.MediaType.Image]
+          : ImagePicker.MediaTypeOptions.Images, // fallback for older versions
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!result || result.canceled || result.cancelled) return;
+
+      // get the URI
+      const uri = result?.assets?.[0]?.uri ?? result?.uri;
+      setProofImage({ uri }); // keep for preview
+
+      // optional: resize/compress
+      const manipResult = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat?.JPEG ?? "jpeg",
+        }
+      );
+
+      // ensure proper file URI
+      const fileUri = manipResult.uri.startsWith("file://")
+        ? manipResult.uri
+        : `file://${manipResult.uri}`;
+
+      // convert to base64 if you need it for API
+      const base64 = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType?.Base64 ?? "base64",
+      });
+
+      // save the base64 string for upload
+      setProofImage(prev => ({ ...prev, base64: `data:image/jpeg;base64,${base64}` }));
+    } catch (err: any) {
+      console.error("Error picking or converting proof image:", err);
+      Alert.alert("Error", err?.message ?? "Failed to process image.");
+    }
+  };
+
+  // Optional remove function
+  const removeProofImage = () => {
+    setProofImage(null);
+  };
+
+
+
+ // 🆕 Function to upload proof
+ const handleSendProof = async () => {
+   if (!proofImage || !requests[currentIndex]?._id) {
+     Alert.alert('Please select an image first');
+     return;
+   }
+
+   try {
+     setUploading(true);
+     const formData = new FormData();
+     formData.append('senderProof', {
+       uri: proofImage.uri,
+       name: 'proof.jpg',
+       type: 'image/jpeg',
+     });
+
+     const response = await fetch(
+       `${backendomain.backendomain}/api/baggo/request/${requests[currentIndex]._id}/image`,
+       {
+         method: 'PUT',
+         body: formData, // let fetch set Content-Type
+       }
+     );
+
+     const text = await response.text(); // first check raw response
+     console.log('Raw response:', text);
+
+     const data = JSON.parse(text); // parse JSON manually
+     if (data.success) {
+       Alert.alert('Success', 'Proof image uploaded successfully');
+       setProofImage(null);
+     } else {
+       Alert.alert('Error', data.message || 'Upload failed');
+     }
+   } catch (err) {
+     Alert.alert('Error', 'Failed to upload proof image');
+     console.error(err);
+   } finally {
+     setUploading(false);
+   }
+ };
+
+
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>You have no request yet</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!pkg) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.noRequestsText}>There are no requests yet</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Package Request</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.earningCard}>
+        <Text style={styles.earningLabel}>Your Earning</Text>
+
+<Text style={styles.earningValue}>
+  {symbol}{escrowBalance
+    ? escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "0.00"}
+</Text>
+
+          <View style={styles.escrowBadge}>
+            <Shield size={14} color={Colors.white} />
+            <Text style={styles.escrowText}>Held in Escrow Until Pickup</Text>
+          </View>
+        </LinearGradient>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Package Photo</Text>
+          {pkg.packageImage ? (
+            <Image source={{ uri: pkg.packageImage }} style={styles.packageImage} />
+          ) : (
+            <View style={[styles.packageImage, { justifyContent: 'center', alignItems: 'center' }]}>
+              <Package size={48} color={Colors.textLight} />
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Details</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Package size={20} color={Colors.textLight} />
+              <View style={styles.flex}>
+                <Text style={styles.label}>Description</Text>
+                <Text style={styles.value}>{pkg.description}</Text>
+              </View>
+            </View>
+            <View style={styles.row}>
+              <Weight size={20} color={Colors.textLight} />
+              <View style={styles.flex}>
+                <Text style={styles.label}>Weight</Text>
+                <Text style={styles.value}>{pkg.weight} kg</Text>
+              </View>
+            </View>
+            <View style={styles.row}>
+              <DollarSign size={20} color={Colors.textLight} />
+              <View style={styles.flex}>
+                <Text style={styles.label}>Value</Text>
+                <Text style={styles.value}>{pkg.value ? `€${pkg.value}` : 'N/A'}</Text>
+              </View>
+            </View>
+
+            <View style={{ paddingVertical: 12 }}>
+              <Text style={[styles.label, { marginBottom: 8 }]}>Status</Text>
+              <Text style={[styles.value, { color: getStatusColor(pkg.status) }]}>{pkg.status}</Text>
+            </View>
+
+            <View style={{ paddingVertical: 12 }}>
+              <Text style={[styles.sectionTitle, { fontSize: 14 }]}>Tracking Information</Text>
+              <TouchableOpacity
+                style={styles.trackingItem}
+                onPress={() => openDatePicker(currentRequest._id, 'estimatedDeparture', pkg.estimatedDeparture)}
+                disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
+              >
+                <Clock size={16} color={Colors.textLight} />
+                <Text style={styles.trackingText}>
+                  Est. Departure: {formatDate(pkg.estimatedDeparture)}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.trackingItem}
+                onPress={() => openDatePicker(currentRequest._id, 'estimatedArrival', pkg.estimatedArrival)}
+                disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
+              >
+                <Clock size={16} color={Colors.textLight} />
+                <Text style={styles.trackingText}>
+                  Est. Arrival: {formatDate(pkg.estimatedArrival)}
+                </Text>
+              </TouchableOpacity>
+
+              {pkg.movementTracking && pkg.movementTracking.length > 0 && (
+                <View style={styles.trackingHistory}>
+                  <Text style={styles.sectionTitle}>Movement History</Text>
+                  {pkg.movementTracking.map((track, index) => (
+                    <View key={index} style={styles.trackingItem}>
+                      <MapPin size={16} color={Colors.textLight} />
+                      <Text style={styles.trackingText}>
+                        {track.status} {track.location ? `at ${track.location}` : ''} - {formatDate(track.timestamp)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Route</Text>
+          <View style={styles.card}>
+            <View style={styles.routeRow}>
+              <View style={[styles.dot, { backgroundColor: Colors.primary }]} />
+              <View style={styles.flex}>
+                <Text style={styles.label}>Pickup</Text>
+                <Text style={styles.value}>{pkg.from}</Text>
+                {pkg.pickupAddress ? <Text style={styles.address}>{pkg.pickupAddress}</Text> : null}
+              </View>
+            </View>
+            <View style={styles.line} />
+            <View style={styles.routeRow}>
+              <View style={[styles.dot, { backgroundColor: Colors.success }]} />
+              <View style={styles.flex}>
+                <Text style={styles.label}>Delivery</Text>
+                <Text style={styles.value}>{pkg.to}</Text>
+                {pkg.deliveryAddress ? <Text style={styles.address}>{pkg.deliveryAddress}</Text> : null}
+              </View>
+            </View>
+          </View>
+        </View>
+
+
+
+        <View style={styles.section}>
+         <Text style={styles.sectionTitle}>Upload Proof Image</Text>
+         {proofImage ? (
+           <View style={{ alignItems: 'center' }}>
+             <Image source={{ uri: proofImage.uri }} style={styles.proofPreview} />
+             <TouchableOpacity
+               onPress={() => setProofImage(null)}
+               style={styles.removeProofButton}
+             >
+               <Text style={styles.removeProofText}>Remove Image</Text>
+             </TouchableOpacity>
+           </View>
+         ) : (
+           <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
+             <Upload size={24} color={Colors.primary} />
+             <Text style={styles.uploadText}>Tap to select an image</Text>
+           </TouchableOpacity>
+         )}
+
+         <TouchableOpacity
+           onPress={handleSendProof}
+           style={[styles.sendButton, uploading && { opacity: 0.6 }]}
+           disabled={uploading}
+         >
+           {uploading ? (
+             <ActivityIndicator color={Colors.white} />
+           ) : (
+             <Text style={styles.sendButtonText}>Send Proof</Text>
+           )}
+         </TouchableOpacity>
+       </View>
+
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Sender</Text>
+          <View style={styles.senderCard}>
+            <View style={styles.avatar}>
+              <User size={24} color={Colors.white} />
+            </View>
+            <View style={styles.flex}>
+              <Text style={styles.senderName}>{pkg.senderName}</Text>
+              <Text style={styles.senderRating}>⭐ {pkg.senderRating} • Verified</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.infoBox}>
+          <Shield size={20} color={Colors.primary} />
+          <View style={styles.flex}>
+            <Text style={styles.infoTitle}>Escrow Protection</Text>
+            <Text style={styles.infoText}>
+              Payment is held securely. You'll receive it after pickup and delivery.
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ height: 120 }} />
+      </ScrollView>
+
+      {!accepting && (
+    <View style={styles.footer}>
+      <View style={{ flex: 1, flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity style={styles.navButton} onPress={handlePrev} disabled={requests.length <= 1}>
+          <Text style={styles.navButtonText}>Prev</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navButton} onPress={handleNext} disabled={requests.length <= 1}>
+          <Text style={styles.navButtonText}>Next</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ flex: 2, flexDirection: 'row', gap: 12 }}>
+        {/* Show Decline + Accept only when pending */}
+        {pkg.status === 'pending' && (
+          <>
+            <TouchableOpacity style={styles.declineButton} onPress={handleDecline}>
+              <XCircle size={20} color={Colors.error} />
+              <Text style={styles.declineButtonText}>Decline</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.acceptButton} onPress={handleAccept}>
+              <CheckCircle size={20} color={Colors.white} />
+              <Text style={styles.acceptButtonText}>Accept</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Other status-specific actions */}
+        {pkg.status === 'accepted' && (
+          <TouchableOpacity style={styles.statusButton} onPress={handleMarkInTransit}>
+            <MapPin size={18} color={Colors.white} />
+            <Text style={styles.actionButtonText}>Mark In Transit</Text>
+          </TouchableOpacity>
+        )}
+
+        {pkg.status === 'intransit' && (
+          <TouchableOpacity style={styles.statusButton} onPress={handleMarkDelivering}>
+            <MapPin size={18} color={Colors.white} />
+            <Text style={styles.actionButtonText}>Mark Delivering</Text>
+          </TouchableOpacity>
+        )}
+
+        {pkg.status === 'delivering' && (
+          <TouchableOpacity style={styles.statusButton} onPress={handleMarkCompleted}>
+            <CheckCircle size={18} color={Colors.white} />
+            <Text style={styles.actionButtonText}>Mark Completed</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  )}
+
+
+      {accepting && (
+        <View style={styles.overlay}>
+          <View style={styles.successCard}>
+            <CheckCircle size={64} color={Colors.success} />
+            <Text style={styles.successTitle}>Request Accepted!</Text>
+            <Text style={styles.successText}>Payment held in escrow. Pick up to start earning.</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'pending':
+      return Colors.textLight;
+    case 'accepted':
+      return Colors.success;
+    case 'rejected':
+      return Colors.error;
+    case 'intransit':
+      return Colors.warning;
+    case 'delivering':
+      return Colors.info;
+    case 'completed':
+      return Colors.primary;
+    case 'cancelled':
+      return Colors.error;
+    default:
+      return Colors.text;
+  }
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  backIcon: { fontSize: 24, color: Colors.text },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: Colors.text },
+  content: { flex: 1 },
+  earningCard: { margin: 20, borderRadius: 20, padding: 24, alignItems: 'center' },
+  earningLabel: { fontSize: 14, color: Colors.white, opacity: 0.9, marginBottom: 8 },
+  earningValue: { fontSize: 42, fontWeight: 'bold', color: Colors.white, marginBottom: 12 },
+  escrowBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  escrowText: { fontSize: 12, fontWeight: '600', color: Colors.white },
+  section: { paddingHorizontal: 20, marginBottom: 24 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.text, marginBottom: 12 },
+  packageImage: { width: '100%', height: 220, borderRadius: 16, backgroundColor: Colors.backgroundLight },
+  card: { backgroundColor: Colors.white, borderRadius: 16, padding: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  flex: { flex: 1, marginLeft: 12 },
+  label: { fontSize: 13, color: Colors.textLight, marginBottom: 2 },
+  value: { fontSize: 15, fontWeight: '600', color: Colors.text },
+  routeRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  dot: { width: 16, height: 16, borderRadius: 8, marginTop: 4 },
+  line: { width: 2, height: 32, backgroundColor: Colors.border, marginLeft: 7, marginVertical: 8 },
+  address: { fontSize: 14, color: Colors.textLight, marginTop: 4 },
+  senderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: 16, padding: 16 },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  senderName: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 4 },
+  senderRating: { fontSize: 14, color: Colors.textLight },
+  infoBox: { flexDirection: 'row', backgroundColor: Colors.backgroundLight, marginHorizontal: 20, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: Colors.primary },
+  infoTitle: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 4 },
+  infoText: { fontSize: 13, color: Colors.textLight, lineHeight: 18 },
+  footer: { flexDirection: 'row', padding: 12, backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border, gap: 12, alignItems: 'center' },
+  navButton: { backgroundColor: Colors.backgroundLight, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
+  navButtonText: { color: Colors.text, fontWeight: '600' },
+  declineButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.white, borderRadius: 12, height: 56, gap: 8, borderWidth: 2, borderColor: Colors.error },
+  declineButtonText: { fontSize: 16, fontWeight: '600', color: Colors.error },
+  acceptButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: 12, height: 56, gap: 8 },
+  acceptButtonText: { fontSize: 16, fontWeight: '600', color: Colors.white },
+  statusButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: 12, height: 56, gap: 8 },
+  actionButtonText: { fontSize: 14, fontWeight: '600', color: Colors.white },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  successCard: { backgroundColor: Colors.white, borderRadius: 24, padding: 32, alignItems: 'center', maxWidth: 320 },
+  successTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.text, marginTop: 16, marginBottom: 12 },
+  successText: { fontSize: 15, color: Colors.textLight, textAlign: 'center', lineHeight: 22 },
+
+  // tracking styles reused
+  trackingItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
+  trackingText: { fontSize: 13, color: Colors.textLight, flex: 1 },
+  trackingNotes: { fontSize: 12, color: Colors.textLight, marginLeft: 24, marginBottom: 4 },
+  trackingHistory: { marginTop: 8 },
+
+  uploadBox: {
+      height: 160,
+      borderWidth: 2,
+      borderColor: Colors.primary,
+      borderStyle: 'dashed',
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: Colors.backgroundLight,
+    },
+    uploadText: { color: Colors.primary, fontWeight: '600', marginTop: 8 },
+    proofPreview: { width: '100%', height: 200, borderRadius: 16, marginBottom: 12 },
+    removeProofButton: { backgroundColor: Colors.error, borderRadius: 8, padding: 8 },
+    removeProofText: { color: Colors.white, fontWeight: '600' },
+    sendButton: {
+      backgroundColor: Colors.primary,
+      borderRadius: 12,
+      alignItems: 'center',
+      paddingVertical: 14,
+      marginTop: 12,
+    },
+    sendButtonText: { color: Colors.white, fontWeight: '700' },
+
+  // misc
+  noRequestsText: { fontSize: 16, color: Colors.textLight, textAlign: 'center', marginBottom: 20 },
+  errorText: { fontSize: 16,   color: 'gray', textAlign: 'center', marginBottom: 20 },
+  retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: Colors.primary },
+  retryButtonText: { fontSize: 14, fontWeight: '600', color: Colors.white },
+  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+});

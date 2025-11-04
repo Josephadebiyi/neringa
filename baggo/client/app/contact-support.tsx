@@ -1,0 +1,357 @@
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+} from 'react-native';
+import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { Colors } from '@/constants/Colors';
+import { Mail, Phone, MessageCircle, Send, Circle as HelpCircle, FileText, CircleAlert as AlertCircle } from 'lucide-react-native';
+
+const faqs = [
+  {
+    question: 'How long does delivery take?',
+    answer: 'Delivery time depends on the traveler\'s schedule. Most packages are delivered within 3-7 days.',
+  },
+  {
+    question: 'What items are prohibited?',
+    answer: 'Illegal substances, weapons, hazardous materials, and perishable goods without proper packaging are prohibited.',
+  },
+  {
+    question: 'How does insurance work?',
+    answer: 'Insurance costs €0.50 per kg and covers loss or damage up to €500. Claims must be filed within 48 hours.',
+  },
+  {
+    question: 'How do I become a verified traveler?',
+    answer: 'Complete KYC verification by submitting your ID, proof of address, and a selfie. Approval takes 24-48 hours.',
+  },
+];
+
+export default function ContactSupportScreen() {
+  const router = useRouter();
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+
+  const categories = [
+    'Account Issues',
+    'Payment Problems',
+    'Package Delivery',
+    'Technical Support',
+    'Verification',
+    'Other',
+  ];
+
+  const handleSubmit = () => {
+    router.back();
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Contact Support</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.contactMethods}>
+          <TouchableOpacity style={styles.contactCard}>
+            <Mail size={24} color={Colors.primary} />
+            <Text style={styles.contactTitle}>Email Us</Text>
+            <Text style={styles.contactText}>support@baggo.eu</Text>
+            <Text style={styles.contactHours}>Response within 24h</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.contactCard}>
+            <Phone size={24} color={Colors.primary} />
+            <Text style={styles.contactTitle}>Call Us</Text>
+            <Text style={styles.contactText}>+32 2 123 4567</Text>
+            <Text style={styles.contactHours}>Mon-Fri 9AM-6PM CET</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.contactCard}>
+            <MessageCircle size={24} color={Colors.primary} />
+            <Text style={styles.contactTitle}>Live Chat</Text>
+            <Text style={styles.contactText}>Start a conversation</Text>
+            <Text style={styles.contactHours}>Available 24/7</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Send Us a Message</Text>
+
+          <Text style={styles.label}>Category</Text>
+          <View style={styles.categoryGrid}>
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryButton,
+                  selectedCategory === category && styles.categoryButtonActive,
+                ]}
+                onPress={() => setSelectedCategory(category)}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === category && styles.categoryTextActive,
+                  ]}
+                >
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Subject</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Brief description of your issue"
+            placeholderTextColor={Colors.textMuted}
+            value={subject}
+            onChangeText={setSubject}
+          />
+
+          <Text style={styles.label}>Message</Text>
+          <TextInput
+            style={styles.textArea}
+            placeholder="Provide detailed information about your issue..."
+            placeholderTextColor={Colors.textMuted}
+            multiline
+            numberOfLines={6}
+            value={message}
+            onChangeText={setMessage}
+            textAlignVertical="top"
+          />
+
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Send size={20} color={Colors.white} />
+            <Text style={styles.submitButtonText}>Send Message</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+
+          {faqs.map((faq, index) => (
+            <View key={index} style={styles.faqCard}>
+              <View style={styles.faqHeader}>
+                <HelpCircle size={20} color={Colors.primary} />
+                <Text style={styles.faqQuestion}>{faq.question}</Text>
+              </View>
+              <Text style={styles.faqAnswer}>{faq.answer}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Resources</Text>
+
+          <TouchableOpacity style={styles.resourceCard}>
+            <FileText size={20} color={Colors.primary} />
+            <Text style={styles.resourceTitle}>Help Center</Text>
+            <Text style={styles.resourceDesc}>Browse our complete documentation</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.resourceCard}>
+            <AlertCircle size={20} color={Colors.primary} />
+            <Text style={styles.resourceTitle}>Report an Issue</Text>
+            <Text style={styles.resourceDesc}>Report technical problems or bugs</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+  },
+  backIcon: {
+    fontSize: 24,
+    color: Colors.text,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  content: {
+    flex: 1,
+  },
+  contactMethods: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+  },
+  contactCard: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  contactTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  contactText: {
+    fontSize: 12,
+    color: Colors.primary,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  contactHours: {
+    fontSize: 11,
+    color: Colors.textMuted,
+  },
+  section: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  categoryButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  categoryText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  categoryTextActive: {
+    color: Colors.white,
+  },
+  input: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 52,
+    fontSize: 15,
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  textArea: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: Colors.text,
+    minHeight: 120,
+    marginBottom: 20,
+  },
+  submitButton: {
+    flexDirection: 'row',
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    height: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  faqCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  faqHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  faqQuestion: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  faqAnswer: {
+    fontSize: 14,
+    color: Colors.textLight,
+    lineHeight: 20,
+  },
+  resourceCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  resourceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  resourceDesc: {
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+});
