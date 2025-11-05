@@ -850,7 +850,7 @@ app.post("/api/payment/initialize", async (req, res) => {
       email,
       amount: amount * 100, // Paystack expects amount in kobo
       currency,
-       callback_url: "http://localhost:5173/",
+       callback_url: "https://sendwithbago.com/",
       ...(mobile_money ? { mobile_money } : {}),
     };
 
