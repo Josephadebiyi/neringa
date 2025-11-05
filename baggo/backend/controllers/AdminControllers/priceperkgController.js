@@ -1,4 +1,4 @@
-import PricePerKg from "../../models/pricePerKgSchema.js";
+import PricePerKg from "../../models/priceperkgSchema.js";
 
 // CREATE
 export const createPrice = async (req, res) => {
