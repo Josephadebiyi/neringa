@@ -1,5 +1,31 @@
 import mongoose from 'mongoose';
 
+const reviewSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'Reviewer is required'],
+    },
+    rating: {
+      type: Number,
+      required: [true, 'Rating is required'],
+      min: [0, 'Rating cannot be less than 0'],
+      max: [5, 'Rating cannot be more than 5'],
+    },
+    comment: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Comment cannot exceed 500 characters'],
+    },
+    date: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false } // optional: prevents creating separate _id for each review
+);
+
 const tripSchema = new mongoose.Schema(
   {
     user: {
@@ -33,11 +59,11 @@ const tripSchema = new mongoose.Schema(
       min: [0, 'Available weight cannot be negative'],
     },
     travelMeans: {
-        type: String,
-        enum: ['airplane', 'bus', 'train', 'car', 'ship', 'other'],
-        required: [true, 'Travel means is required'],
-        trim: true,
-      },
+      type: String,
+      enum: ['airplane', 'bus', 'train', 'car', 'ship', 'other'],
+      required: [true, 'Travel means is required'],
+      trim: true,
+    },
     status: {
       type: String,
       enum: ['active', 'completed', 'cancelled'],
@@ -48,6 +74,7 @@ const tripSchema = new mongoose.Schema(
       default: 0,
       min: [0, 'Request count cannot be negative'],
     },
+    reviews: [reviewSchema], // ✅ Added reviews field
   },
   { timestamps: true }
 );

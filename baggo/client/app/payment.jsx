@@ -30,16 +30,19 @@ export default function PaymentScreen() {
   const { confirmPayment } = useStripe();
 
   const {
-    travellerName,
-    travellerEmail,
-    amount,
-    travelerId,
-    tripId,
-    packageId,
-    insurance,
-    insuranceCost,
-    image: imageParam,
-  } = useLocalSearchParams();
+  travellerName,
+  travellerEmail,
+  amount,
+  travelerId,
+  tripId,
+  packageId,
+  insurance,
+  insuranceCost,
+  image: imageParam,
+} = useLocalSearchParams();
+
+
+
 
   const [cardDetails, setCardDetails] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -269,7 +272,7 @@ const handlePaystackPress = () => {
   const publishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 
-  // 🖥️ Paystack WebView handler
+
   // 🖥️ Paystack WebView handler with verification
   if (paystackUrl) {
     return (
@@ -352,7 +355,10 @@ const handlePaystackPress = () => {
             <Text style={styles.summaryTitle}>Traveller Info</Text>
             <Text style={styles.summaryText}>Name: {travellerName}</Text>
             <Text style={styles.summaryText}>Email: {travellerEmail}</Text>
-    <Text style={styles.summaryText}>Amount: {currencySymbol}{amount}</Text>
+            <Text style={styles.summaryText}>
+          Amount: {currencySymbol}{Number(amount).toLocaleString('en-US')}
+        </Text>
+
             <Text style={styles.summaryText}>Insurance: {insurance}</Text>
             {insuranceCost && (
     <Text style={styles.summaryText}>

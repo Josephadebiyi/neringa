@@ -27,50 +27,134 @@ export default function TravelerDashboardScreen() {
     const [country, setCountry] = useState(null);
 const [currency, setCurrency] = useState('EUR');
 
+const CURRENCY_KEY = "userCurrency";
+const saveCurrency = async (value: string) => {
+  try {
+    await AsyncStorage.setItem(CURRENCY_KEY, value);
+  } catch (err) {
+    console.error("Error saving currency:", err);
+  }
+};
+
+const loadCurrency = async (): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(CURRENCY_KEY);
+  } catch (err) {
+    console.error("Error loading currency:", err);
+    return null;
+  }
+};
 
 
+const currencySymbols = {
+  // Eurozone countries (EUR)
+  EUR: "€",
+  AT: "€",
+  BE: "€",
+  CY: "€",
+  EE: "€",
+  FI: "€",
+  FR: "€",
+  DE: "€",
+  GR: "€",
+  IE: "€",
+  IT: "€",
+  LV: "€",
+  LT: "€",
+  LU: "€",
+  MT: "€",
+  NL: "€",
+  PT: "€",
+  SK: "€",
+  SI: "€",
+  ES: "€",
 
-  // 🌍 Detect user country
-  const currencySymbols = {
-     NGN: "₦",
-     USD: "$",
-     EUR: "€",
-     GBP: "£",
-     GHS: "₵",
-     KES: "KSh",
-     ZAR: "R",
-     INR: "₹",
-     CAD: "CA$",
-     AUD: "A$",
-     JPY: "¥",
-     CNY: "¥",
-   };
+  // Africa
+  NGN: "₦",
+  GHS: "₵",
+  KES: "KSh",
+  ZAR: "R",
+  EGP: "£",
+  TZS: "TSh",
+  UGX: "USh",
+  MAD: "DH",
+  DZD: "DA",
+  SDG: "£",
+  XOF: "CFA",
+  XAF: "FCFA",
 
-   useEffect(() => {
-     (async () => {
-       try {
-         const response = await fetch("https://ipapi.co/json/");
-         const data = await response.json();
+  // Americas
+  USD: "$",
+  CAD: "CA$",
+  MXN: "$",
+  BRL: "R$",
+  ARS: "$",
+  CLP: "$",
+  COP: "$",
+  PEN: "S/",
+  UYU: "$U",
 
-         console.log("🌍 Location data:", data);
+  // Asia & Others
+  INR: "₹",
+  CNY: "¥",
+  JPY: "¥",
+  RUB: "₽",
+  TRY: "₺",
+  AED: "د.إ",
+  SGD: "S$",
+  AUD: "A$",
+  NZD: "NZ$",
+  CHF: "CHF",
 
-         const detectedCurrency = data.currency || "USD";
-         const detectedCountry = data.country_name || "Unknown";
+  // ✅ Add GBP
+  GBP: "£",   // United Kingdom
+};
 
-         setCurrency(detectedCurrency);
-         setCountry(detectedCountry);
-         setSymbol(currencySymbols[detectedCurrency] || "$");
-       } catch (error) {
-         console.error("Failed to detect location:", error);
-         // Default to Nigeria if IP detection fails
-         setCurrency("NGN");
-         setCountry("Nigeria");
-         setSymbol("₦");
-       } finally {
-         setLoading(false);
-       }
-     })();
-   }, []);
+
+useEffect(() => {
+  (async () => {
+    try {
+      // Load saved currency and country from AsyncStorage
+      const savedCurrency = await loadCurrency();
+      const savedCountry = await AsyncStorage.getItem('userCountry');
+
+      // Fetch current IP location
+      const response = await fetch("https://ipapi.co/json/");
+      const data = await response.json();
+
+      console.log("🌍 Location data:", data);
+
+      const detectedCurrency = data.currency || "USD";
+      const detectedCountry = data.country_name || "Unknown";
+
+      // Check if country has changed
+      if (savedCountry !== detectedCountry) {
+        // Country changed → override currency and country
+        setCurrency(detectedCurrency);
+        setCountry(detectedCountry);
+        setSymbol(currencySymbols[detectedCurrency] || "$");
+
+        // Save new values
+        await saveCurrency(detectedCurrency);
+        await AsyncStorage.setItem('userCountry', detectedCountry);
+      } else {
+        // Country same → use saved values if any
+        if (savedCurrency) setCurrency(savedCurrency);
+        if (savedCountry) setCountry(savedCountry);
+        setSymbol(currencySymbols[savedCurrency || detectedCurrency] || "$");
+      }
+    } catch (error) {
+      console.error("Failed to detect location or load currency:", error);
+      // Fallback defaults
+      setCurrency("NGN");
+      setCountry("Nigeria");
+      setSymbol("₦");
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
+
 
 
   // ✅ Fetch user

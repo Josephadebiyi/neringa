@@ -28,7 +28,8 @@
         "color": "#E91E63",
         "priority": "max",
         "channelId": "default"
-      }
+      },
+      "googleServicesFile": "./google-services.json",
     },
 
     "notification": {

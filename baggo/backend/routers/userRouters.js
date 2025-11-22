@@ -1,6 +1,6 @@
 import express from 'express';
 import { edit, getUser, logout, signIn,verifyEmail,createDelivery,forgotPassword,resendOtp,verifyOtp,resetPassword, signUp,sendToEscrow,releaseFromEscrow,addToEscrow, getWallet,withdrawFunds,addFunds,uploadOrUpdateImage } from '../controllers/userController.js';
-import { AddAtrip, MyTrips } from '../controllers/AddaTripController.js';
+import { AddAtrip, MyTrips, AddReviewToTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
@@ -34,6 +34,7 @@ userRouter.post('/verify-otp', verifyOtp);
 userRouter.post('/reset-password', resetPassword);
 userRouter.post("/resend-otp", resendOtp);
 userRouter.post('/AddAtrip',  isAuthenticated, AddAtrip)
+userRouter.post('/:tripId/reviews', isAuthenticated, AddReviewToTrip);
 userRouter.get("/MyTrips", isAuthenticated,  MyTrips )
 userRouter.get("/getuser", isAuthenticated,  getUser)
 userRouter.get("/getTravelers", getTravelers)

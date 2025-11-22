@@ -13,7 +13,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export default function NotificationManager() {
+export default function PushNotificationSetup() {
   const [expoPushToken, setExpoPushToken] = useState('');
   const [userId, setUserId] = useState('');
 

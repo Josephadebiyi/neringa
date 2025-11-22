@@ -44,54 +44,143 @@ const [userData, setUserData] = useState(null);
   const base = (typeof backendomain === 'object' && backendomain.backendomain) ? backendomain.backendomain : backendomain;
 
 
-  // 🌍 Detect user country
   const currencySymbols = {
-     NGN: "₦",
-     USD: "$",
-     EUR: "€",
-     GBP: "£",
-     GHS: "₵",
-     KES: "KSh",
-     ZAR: "R",
-     INR: "₹",
-     CAD: "CA$",
-     AUD: "A$",
-     JPY: "¥",
-     CNY: "¥",
-   };
 
-   useEffect(() => {
-     (async () => {
-       try {
-         const response = await fetch("https://ipapi.co/json/");
-         const data = await response.json();
+    EUR: "€",
+    AT: "€",
+    BE: "€",
+    CY: "€",
+    EE: "€",
+    FI: "€",
+    FR: "€",
+    DE: "€",
+    GR: "€",
+    IE: "€",
+    IT: "€",
+    LV: "€",
+    LT: "€",
+    LU: "€",
+    MT: "€",
+    NL: "€",
+    PT: "€",
+    SK: "€",
+    SI: "€",
+    ES: "€",
 
-         console.log("🌍 Location data:", data);
 
-         const detectedCurrency = data.currency || "USD";
-         const detectedCountry = data.country_name || "Unknown";
+    NGN: "₦",
+    GHS: "₵",
+    KES: "KSh",
+    ZAR: "R",
+    EGP: "£",
+    TZS: "TSh",
+    UGX: "USh",
+    MAD: "DH",
+    DZD: "DA",
+    SDG: "£",
+    XOF: "CFA",
+    XAF: "FCFA",
 
-         setCurrency(detectedCurrency);
-         setCountry(detectedCountry);
-         setSymbol(currencySymbols[detectedCurrency] || "$");
-       } catch (error) {
-         console.error("Failed to detect location:", error);
-         // Default to Nigeria if IP detection fails
-         setCurrency("NGN");
-         setCountry("Nigeria");
-         setSymbol("₦");
-       } finally {
-         setLoading(false);
-       }
-     })();
-   }, []);
+    USD: "$",
+    CAD: "CA$",
+    MXN: "$",
+    BRL: "R$",
+    ARS: "$",
+    CLP: "$",
+    COP: "$",
+    PEN: "S/",
+    UYU: "$U",
+
+
+    INR: "₹",
+    CNY: "¥",
+    JPY: "¥",
+    RUB: "₽",
+    TRY: "₺",
+    AED: "د.إ",
+    SGD: "S$",
+    AUD: "A$",
+    NZD: "NZ$",
+    CHF: "CHF",
+
+
+    GBP: "£",
+  };
+
+
+
+  const CURRENCY_KEY = "userCurrency";
+
+  const saveCurrency = async (value: string) => {
+  try {
+    await AsyncStorage.setItem(CURRENCY_KEY, value);
+  } catch (err) {
+    console.error("Error saving currency:", err);
+  }
+};
+
+const loadCurrency = async (): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(CURRENCY_KEY);
+  } catch (err) {
+    console.error("Error loading currency:", err);
+    return null;
+  }
+};
+
+
+  useEffect(() => {
+    (async () => {
+      try {
+
+        const savedCurrency = await loadCurrency();
+        const savedCountry = await AsyncStorage.getItem('userCountry');
+
+
+        const response = await fetch("https://ipapi.co/json/");
+        const data = await response.json();
+
+        console.log("🌍 Location data:", data);
+
+        const detectedCurrency = data.currency || "USD";
+        const detectedCountry = data.country_name || "Unknown";
+
+        if (savedCountry !== detectedCountry) {
+
+          setCurrency(detectedCurrency);
+          setCountry(detectedCountry);
+          setSymbol(currencySymbols[detectedCurrency] || "$");
+
+
+          await saveCurrency(detectedCurrency);
+          await AsyncStorage.setItem('userCountry', detectedCountry);
+        } else {
+
+          setCurrency(savedCurrency || detectedCurrency);
+          setCountry(savedCountry || detectedCountry);
+          setSymbol(currencySymbols[savedCurrency || detectedCurrency] || "$");
+        }
+      } catch (error) {
+        console.error("Failed to load or detect currency:", error);
+
+
+        setCurrency("USD");
+        setCountry("US");
+        setSymbol("$");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+
 
    useEffect(() => {
      const fetchData = async () => {
        try {
          console.log("Fetching wallet and profile data...");
 
-         // 🟢 Fetch profile
+
          const profileUrl = `${base}/api/baggo/Profile`;
          const profileResponse = await fetch(profileUrl, {
            method: 'GET',
@@ -107,13 +196,13 @@ const [userData, setUserData] = useState(null);
            setUserData(user);
 
 
-           // 💰 Balances
+
            const pBalance = Number(user.balance ?? 0);
            const pEscrow = Number(user.escrowBalance ?? user.escrow ?? 0);
            setBalance(!Number.isNaN(pBalance) ? pBalance : 0);
 
 
-           // 🟩 Balance History → Recent Transactions
+
            if (Array.isArray(user.balanceHistory)) {
              const mappedHistory = user.balanceHistory.map((txn) => ({
                id: txn._id,
@@ -228,12 +317,12 @@ const [userData, setUserData] = useState(null);
       });
 
       if (response.data.success && Array.isArray(response.data.data)) {
-        // Sort by latest first (assuming 'createdAt' is the date field)
+
         const sortedOrders = response.data.data.sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
 
-        // Limit to 5 most recent
+
         setRecentOrders(sortedOrders.slice(0, 5));
       } else {
         console.warn('Invalid recent orders data from API');
@@ -249,7 +338,7 @@ const [userData, setUserData] = useState(null);
 
   const fetchData = async () => {
     try {
-      // Fetch wallet balance
+
       const walletResponse = await fetch(`${API_BASE_URL}/getWalletBalance`, {
         method: 'GET',
         credentials: 'include',
@@ -264,13 +353,13 @@ const [userData, setUserData] = useState(null);
       }
       setLoadingBalance(false);
 
-      // Fetch trips and user profiles
+
       const response = await fetch(`${API_BASE_URL}/getTravelers`, {
         method: 'GET',
         credentials: 'include',
       });
       const data = await response.json();
-      // console.log('Travelers API response:', data.data);
+
 
       if (data.success && Array.isArray(data.data.gettravelers)) {
         const tripsWithProfiles = data.data.gettravelers.map((trip) => {
@@ -303,7 +392,7 @@ const [userData, setUserData] = useState(null);
             profile,
           };
         });
-        setTrips(tripsWithProfiles.slice(0, 10));
+        setTrips(tripsWithProfiles.slice(0, 20));
       } else {
         console.warn('Invalid trips data from API');
         setTrips([]);
@@ -409,18 +498,23 @@ const [userData, setUserData] = useState(null);
           <Text style={styles.promosTitle}>Special Offers</Text>
 
           <LinearGradient colors={['#D4A574', '#C9934A']} style={styles.promoBanner}>
-            <View style={styles.promoContent}>
-            <Text style={styles.promoBigTitle}>Get 3% Off!</Text>
-<Text style={styles.promoDesc}>
-  Use a referral code and enjoy 3% off{'\n'}your first delivery
-</Text>
-<View style={styles.promoCodeBox}>
-  <Text style={styles.promoCode}>REFERRAL</Text>
-</View>
+          <View style={styles.promoContent}>
+          <Text style={styles.promoBigTitle}>Get 3% Off!</Text>
 
-            </View>
-            <Text style={styles.promoEmoji}>🎁</Text>
-          </LinearGradient>
+        <Text style={styles.promoDesc}>
+          Use a referral code and enjoy 3% off{'\n'}your first delivery
+        </Text>
+
+        <View style={styles.promoCodeBox}>
+          <Text style={styles.promoCode}>REFERRAL</Text>
+        </View>
+      </View>
+
+      <View>
+        <Text style={styles.promoEmoji}>🎁</Text>
+      </View>
+    </LinearGradient>
+
         </View>
 
         {mode === 'send' ? (
@@ -463,7 +557,7 @@ const [userData, setUserData] = useState(null);
                     key={order.requestId}
                     style={styles.orderCard}
                     onPress={() => {
-                      // console.log('Navigating to PackageDetails with requestId:', order.requestId); // Debug navigation
+
                       router.push({
                         pathname: '/package-details',
                         params: { requestId: order.requestId },
@@ -530,8 +624,29 @@ const [userData, setUserData] = useState(null);
                 <Text style={styles.noTripsText}>No travelers available yet</Text>
               ) : (
                 trips.map((trip) => (
-                  <TouchableOpacity key={trip.id} style={styles.tripCard}>
-                    <View style={styles.tripHeader}>
+                  <TouchableOpacity
+    key={trip.id}
+    style={styles.tripCard}
+    onPress={() =>
+      router.push({
+  pathname: `/traveler-details/${trip.id}`,
+  params: {
+      tripId: trip.id,
+    name: trip.profile?.first_name || 'Traveler',
+    travelerId: trip.traveler_id,
+    rating: (trip.profile?.average_rating ?? 0).toString(),
+    trips: (trip.profile?.total_trips ?? 0).toString(),
+    verified: trip.profile?.verified ? 'true' : 'false',
+    from: trip.from_location || '',
+    to: trip.to_location || '',
+    date: trip.departure_date || new Date().toISOString(),
+    availableKg: (trip.remaining_kg ?? 0).toString(),
+    pricePerKg: (trip.price_per_kg ?? 0).toString(),
+    mode: trip.travelMeans || 'flight',
+  },
+})
+    }
+  >                  <View style={styles.tripHeader}>
                       <View style={styles.travelerInfo}>
                         <View style={styles.avatar}>
                           <Text style={styles.avatarText}>
@@ -570,7 +685,7 @@ const [userData, setUserData] = useState(null);
                         <Weight size={14} color={Colors.textLight} />
                         <Text style={styles.metaText}>{trip.remaining_kg} kg available</Text>
                       </View>
-                      
+
                     </View>
                   </TouchableOpacity>
                 ))
@@ -590,8 +705,8 @@ const [userData, setUserData] = useState(null);
                   ) : (
                     <>
                     <Text style={styles.statValue}>
-{symbol}{balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-</Text>
+                      {symbol}{balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
 
                       <Text style={styles.statLabel}>Total Earned</Text>
                     </>
@@ -669,7 +784,7 @@ const [userData, setUserData] = useState(null);
   );
 }
 
-// Styles remain unchanged
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -126,15 +126,15 @@ export default function Login() {
           </form>
 
           {/* Test credentials info */}
-          // <div className="mt-6 pt-6 border-t border-gray-200">
-          //   <div className="bg-gray-50 rounded-lg p-4">
-          //     <h3 className="text-sm font-medium text-gray-900 mb-2">Test Credentials</h3>
-          //     <div className="text-sm text-gray-600 space-y-1">
-          //       // <div><strong>Username:</strong>admin</div>
-          //       // <div><strong>Password:</strong>123456789</div>
-          //     </div>
-          //   </div>
-          // </div>
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-gray-900 mb-2">Test Credentials</h3>
+              <div className="text-sm text-gray-600 space-y-1">
+                <div><strong>Username:</strong>admin</div>
+                <div><strong>Password:</strong>123456789</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}

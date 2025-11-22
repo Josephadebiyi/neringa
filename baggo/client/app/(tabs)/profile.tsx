@@ -17,6 +17,7 @@ import { Colors } from '@/constants/Colors';
 import { User, Shield, CreditCard,Copy, FileText,CheckCircle,XCircle , LogOut, ChevronRight, CircleAlert as AlertCircle, Wallet, CircleArrowUp as ArrowUpCircle, CircleArrowDown as ArrowDownCircle, Building, X, DollarSign, Search, Moon, Sun } from 'lucide-react-native';
 import { walletTransactions } from '@/utils/dummyData';
 import { currencies } from '@/utils/locations';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { backendomain } from '@/utils/backendDomain';
 import { useMemo } from 'react'
@@ -48,13 +49,46 @@ const [isVerifying, setIsVerifying] = useState(false);
   // if you still want the whole bank object elsewhere:
   // const selectedBank = paystackBanks.find(b => String(b.id) === String(selectedBankId)) ?? null;
   const [walletTransactions, setWalletTransactions] = useState([]);
-
+const CURRENCY_KEY = 'userCurrency';
+const COUNTRY_KEY = 'userCountry';
   const [escrowBalance, setEscrowBalance] = useState(0);
   const [symbol, setSymbol] = useState("₦");
     const [country, setCountry] = useState(null);
 
   const [otpInput, setOtpInput] = useState('');
 
+  const saveCurrency = async (currencyCode: string) => {
+    try {
+      await AsyncStorage.setItem(CURRENCY_KEY, currencyCode);
+    } catch (err) {
+      console.error('Error saving currency:', err);
+    }
+  };
+
+  const loadCurrency = async (): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem(CURRENCY_KEY);
+    } catch (err) {
+      console.error('Error loading currency:', err);
+      return null;
+    }
+  };
+  const saveCountry = async (countryCode: string) => {
+    try {
+      await AsyncStorage.setItem(COUNTRY_KEY, countryCode);
+    } catch (err) {
+      console.error('Error saving country:', err);
+    }
+  };
+
+  const loadCountry = async (): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem(COUNTRY_KEY);
+    } catch (err) {
+      console.error('Error loading country:', err);
+      return null;
+    }
+  };
 
 
   const [isNigeria, setIsNigeria] = useState(false);
@@ -169,45 +203,123 @@ const handleStripeConnect = async () => {
 
 // 🌍 Detect user country
 const currencySymbols = {
-   NGN: "₦",
-   USD: "$",
-   EUR: "€",
-   GBP: "£",
-   GHS: "₵",
-   KES: "KSh",
-   ZAR: "R",
-   INR: "₹",
-   CAD: "CA$",
-   AUD: "A$",
-   JPY: "¥",
-   CNY: "¥",
- };
+  // Eurozone countries (EUR)
+  EUR: "€",
+  AT: "€",
+  BE: "€",
+  CY: "€",
+  EE: "€",
+  FI: "€",
+  FR: "€",
+  DE: "€",
+  GR: "€",
+  IE: "€",
+  IT: "€",
+  LV: "€",
+  LT: "€",
+  LU: "€",
+  MT: "€",
+  NL: "€",
+  PT: "€",
+  SK: "€",
+  SI: "€",
+  ES: "€",
 
- useEffect(() => {
-   (async () => {
-     try {
-       const response = await fetch("https://ipapi.co/json/");
-       const data = await response.json();
+  // Africa
+  NGN: "₦",
+  GHS: "₵",
+  KES: "KSh",
+  ZAR: "R",
+  EGP: "£",
+  TZS: "TSh",
+  UGX: "USh",
+  MAD: "DH",
+  DZD: "DA",
+  SDG: "£",
+  XOF: "CFA",
+  XAF: "FCFA",
 
-       console.log("🌍 Location data:", data);
+  // Americas
+  USD: "$",
+  CAD: "CA$",
+  MXN: "$",
+  BRL: "R$",
+  ARS: "$",
+  CLP: "$",
+  COP: "$",
+  PEN: "S/",
+  UYU: "$U",
 
-       const detectedCurrency = data.currency || "USD";
-       const detectedCountry = data.country_name || "Unknown";
+  // Asia & Others
+  INR: "₹",
+  CNY: "¥",
+  JPY: "¥",
+  RUB: "₽",
+  TRY: "₺",
+  AED: "د.إ",
+  SGD: "S$",
+  AUD: "A$",
+  NZD: "NZ$",
+  CHF: "CHF",
 
-       setCurrency(detectedCurrency);
-       setCountry(detectedCountry);
-       setSymbol(currencySymbols[detectedCurrency] || "$");
-     } catch (error) {
-       console.error("Failed to detect location:", error);
-       // Default to Nigeria if IP detection fails
-       setCurrency("NGN");
-       setCountry("Nigeria");
-       setSymbol("₦");
-     } finally {
-       setLoading(false);
-     }
-   })();
- }, []);
+  // ✅ Add GBP
+  GBP: "£",   // United Kingdom
+};
+
+
+useEffect(() => {
+  (async () => {
+    try {
+      // Load saved currency and country
+      const savedCurrency = await loadCurrency();
+      const savedCountry = await loadCountry();
+
+      // Detect current IP/country
+      const response = await fetch("https://ipapi.co/json/");
+      const data = await response.json();
+
+      const detectedCurrency = data.currency || "USD";
+      const detectedCountryCode = data.country_code || "US";
+      const detectedCountry = data.country_name || "Unknown";
+
+      // If country changed, override saved values
+      if (savedCountry !== detectedCountryCode) {
+        setCurrency(detectedCurrency);
+        setCountry(detectedCountry);
+        setSymbol(currencySymbols[detectedCurrency] || "$");
+        setIsNigeria(detectedCountryCode === "NG");
+
+        await saveCurrency(detectedCurrency);
+        await saveCountry(detectedCountryCode);
+      } else if (savedCurrency) {
+        // Same country, use saved currency
+        setCurrency(savedCurrency);
+        setCountry(detectedCountry);
+        setSymbol(currencySymbols[savedCurrency] || "$");
+        setIsNigeria(detectedCountryCode === "NG");
+      } else {
+        // No saved currency, use detected
+        setCurrency(detectedCurrency);
+        setCountry(detectedCountry);
+        setSymbol(currencySymbols[detectedCurrency] || "$");
+        setIsNigeria(detectedCountryCode === "NG");
+
+        await saveCurrency(detectedCurrency);
+        await saveCountry(detectedCountryCode);
+      }
+    } catch (error) {
+      console.error("Failed to detect or load currency:", error);
+
+      // fallback defaults
+      setCurrency("USD");
+      setCountry("US");
+      setSymbol("$");
+      setIsNigeria(false);
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
 
 
 useEffect(() => {
@@ -601,6 +713,12 @@ const handleStripeWithdraw = async () => {
 };
 
 
+const handleCurrencySelect = (newCurrency: string) => {
+  setCurrency(newCurrency);
+  setSymbol(currencySymbols[newCurrency] || "$");
+  saveCurrency(newCurrency); // persist for next app launch
+  setCurrencyModalVisible(false);
+};
 
 
   const handleSignOut = async () => {
@@ -623,6 +741,9 @@ const handleStripeWithdraw = async () => {
     await signOut();
     router.replace('/auth/signin');
   };
+
+
+
 
   const MenuItem = ({
     icon: Icon,
@@ -928,7 +1049,7 @@ const handleStripeWithdraw = async () => {
                 ]}
               >
                 {txn.type === 'credit' ? '+' : '-'}
-                {currencies.find((c) => c.code === currency)?.symbol}
+                {symbol}
                 {txn.amount.toFixed(2)}
               </Text>
             </View>
@@ -1130,11 +1251,7 @@ const handleStripeWithdraw = async () => {
                   <TouchableOpacity
                     key={curr.code}
                     style={styles.currencyItem}
-                    onPress={() => {
-                      setCurrency(curr.code);
-                      setCurrencyModalVisible(false);
-                      setCurrencySearch('');
-                    }}
+                  onPress={() => handleCurrencySelect(curr.code)}
                   >
                     <View style={styles.currencySymbol}>
                       <Text style={styles.currencySymbolText}>{curr.symbol}</Text>

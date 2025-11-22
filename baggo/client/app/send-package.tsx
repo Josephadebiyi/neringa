@@ -8,6 +8,7 @@ import {
   Alert,
   Modal,
   FlatList,
+  Platform ,
   ActivityIndicator,
   Image,
 } from 'react-native';
@@ -19,7 +20,7 @@ import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from 'expo-file-system';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
@@ -242,29 +243,29 @@ const handleSelectCity = (cityName: string) => {
   // pick a single image from gallery
   const pickImage = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Allow access to choose photos.');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker?.MediaType ? [ImagePicker.MediaType.Image] : ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
         quality: 1,
-      });
-      if (!result || result.canceled || result.cancelled) return;
-      const uri = result?.assets?.[0]?.uri ?? result?.uri;
-      setImagePreview(uri);
-
-      const manipResult = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 800 } }], {
-        compress: 0.7,
-        format: ImageManipulator.SaveFormat?.JPEG ?? "jpeg",
+        base64: true,   // <-- THIS FIXES ANDROID
       });
 
-      const fileUri = manipResult.uri.startsWith("file://") ? manipResult.uri : `file://${manipResult.uri}`;
-      const base64 = await FileSystem.readAsStringAsync(fileUri, {
-        encoding: FileSystem.EncodingType?.Base64 ?? "base64",
-      });
+      if (result.canceled || !result.assets?.length) return;
 
-      setImage(`data:image/jpeg;base64,${base64}`);
-    } catch (err: any) {
-      console.error("Error picking or converting image:", err);
-      Alert.alert("Error", err?.message ?? "Failed to process image.");
+      const img = result.assets[0];
+
+      setImagePreview(img.uri);
+      setImage(`data:image/jpeg;base64,${img.base64}`);
+
+    } catch (err) {
+      console.log("Image pick error:", err);
+      Alert.alert("Error picking image", err.message || "Failed to pick image");
     }
   };
 
@@ -274,7 +275,6 @@ const handleSelectCity = (cityName: string) => {
     setImage(null);
     setImagePreview(null);
   };
-
 
 
   useEffect(() => {

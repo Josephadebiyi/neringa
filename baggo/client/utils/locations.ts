@@ -160,6 +160,7 @@ export function getCitiesByCountry(country: string): string[] {
 }
 
 export const currencies = [
+  // Global major currencies
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'EUR', symbol: '€', name: 'Euro' },
   { code: 'GBP', symbol: '£', name: 'British Pound' },
@@ -174,7 +175,11 @@ export const currencies = [
   { code: 'KRW', symbol: '₩', name: 'South Korean Won' },
   { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
   { code: 'MXN', symbol: 'Mex$', name: 'Mexican Peso' },
-  { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+  { code: 'ARS', symbol: '$', name: 'Argentine Peso' },
+  { code: 'CLP', symbol: '$', name: 'Chilean Peso' },
+  { code: 'COP', symbol: '$', name: 'Colombian Peso' },
+  { code: 'PEN', symbol: 'S/', name: 'Peruvian Sol' },
+  { code: 'UYU', symbol: '$U', name: 'Uruguayan Peso' },
   { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
   { code: 'NOK', symbol: 'kr', name: 'Norwegian Krone' },
   { code: 'DKK', symbol: 'kr', name: 'Danish Krone' },
@@ -182,4 +187,18 @@ export const currencies = [
   { code: 'TRY', symbol: '₺', name: 'Turkish Lira' },
   { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
   { code: 'SAR', symbol: 'ر.س', name: 'Saudi Riyal' },
+
+  // African currencies
+  { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+  { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' },
+  { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
+  { code: 'TZS', symbol: 'TSh', name: 'Tanzanian Shilling' },
+  { code: 'UGX', symbol: 'USh', name: 'Ugandan Shilling' },
+  { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+  { code: 'EGP', symbol: '£', name: 'Egyptian Pound' },
+  { code: 'DZD', symbol: 'DA', name: 'Algerian Dinar' },
+  { code: 'MAD', symbol: 'DH', name: 'Moroccan Dirham' },
+  { code: 'SDG', symbol: '£', name: 'Sudanese Pound' },
+  { code: 'XOF', symbol: 'CFA', name: 'West African CFA Franc' },
+  { code: 'XAF', symbol: 'FCFA', name: 'Central African CFA Franc' },
 ];
