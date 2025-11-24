@@ -150,32 +150,24 @@ export const AddReviewToTrip = async (req, res, next) => {
   const { rating, comment } = req.body;
 
   try {
-    // ✅ Validate input
+    // Validate input
     if (rating == null || rating < 0 || rating > 5) {
       return res.status(400).json({ message: "Rating must be between 0 and 5" });
     }
 
-    // ✅ Find the trip
+    // Find the trip
     const trip = await Trip.findById(tripId);
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    // ✅ Check if user has already reviewed
-    const existingReview = trip.reviews.find(r => r.user.toString() === userId);
-    if (existingReview) {
-      // Update existing review
-      existingReview.rating = rating;
-      existingReview.comment = comment || existingReview.comment;
-      existingReview.date = new Date();
-    } else {
-      // Add new review
-      trip.reviews.push({
-        user: userId,
-        rating,
-        comment,
-      });
-    }
+    // Always add a new review
+    trip.reviews.push({
+      user: userId,
+      rating,
+      comment,
+      date: new Date(),
+    });
 
     await trip.save();
 

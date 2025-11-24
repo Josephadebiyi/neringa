@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -25,7 +27,7 @@ export default function TravelerDetailsScreen() {
 
   const initialTraveler = useMemo(() => ({
     id: travelerId,
-      tripId: tripId, 
+      tripId: tripId,
     name: params.name || 'Traveler',
     rating: params.rating ? parseFloat(params.rating) : 0,
     trips: params.trips ? parseInt(params.trips, 10) : 0,
@@ -44,43 +46,58 @@ export default function TravelerDetailsScreen() {
   const [reviewComment, setReviewComment] = useState('');
   const [loadingReviews, setLoadingReviews] = useState(false);
 
+
+  const averageRating = useMemo(() => {
+    if (!reviews.length) return 0;
+    const total = reviews.reduce((sum, r) => sum + (r.rating ?? 0), 0);
+    return total / reviews.length;
+  }, [reviews]);
+
+
+
   const fetchTravelerReviews = async () => {
     setLoadingReviews(true);
     try {
-      const res = await fetch('https://bago-server.onrender.com/api/baggo/getTravelers');
+      const res = await fetch('https://bago-server.onrender.com/api/baggo/MyTrips', {
+        headers: {
+          Authorization: 'Bearer <token>', // make sure to replace <token> with actual token
+        },
+      });
+
       const data = await res.json();
 
-      const travelers = Array.isArray(data)
-        ? data
-        : Array.isArray(data.data?.gettravelers)
-        ? data.data.gettravelers
-        : Array.isArray(data.travelers)
-        ? data.travelers
-        : Array.isArray(data.data?.travelers)
-        ? data.data.travelers
-        : [];
+      if (!res.ok) {
+        console.log('Error fetching trips:', data.message);
+        setReviews([]);
+        return;
+      }
 
-      const found = travelers.find(
-        (t) => t._id === travelerId || t.id === travelerId || t.tripId === tripId
-      );
+      const trips = data.trips || [];
 
-      if (found) {
-        setReviews(Array.isArray(found.reviews) ? found.reviews : []);
+      // Find the specific trip by tripId
+      const foundTrip = trips.find(t => t.id === tripId);
+
+      console.log('Found trip:', foundTrip); // Logs the full trip object
+      console.log('Trip reviews:', foundTrip?.reviews || []); // Logs reviews array
+
+      if (foundTrip) {
+        setReviews(foundTrip.reviews || []);
 
         setTravelerState({
           ...travelerState,
-          name: found.profile?.firstName || travelerState.name,
-          rating: found.profile?.average_rating ?? travelerState.rating,
-          trips: found.profile?.total_trips ?? travelerState.trips,
-          verified: found.profile?.verified ?? travelerState.verified,
-          from: found.fromLocation || found.from || travelerState.from,
-          to: found.toLocation || found.to || travelerState.to,
-          date: found.departureDate || travelerState.date,
-          availableKg: found.availableKg ?? found.remaining_kg ?? travelerState.availableKg,
-          pricePerKg: found.pricePerKg ?? travelerState.pricePerKg,
-          mode: found.travelMeans || found.mode || travelerState.mode,
+          name: travelerState.name, // you can update from trip if needed
+          rating: foundTrip.averageRating ?? travelerState.rating,
+          trips: foundTrip.totalReviews ?? travelerState.trips,
+          verified: travelerState.verified,
+          from: foundTrip.fromLocation ?? travelerState.from,
+          to: foundTrip.toLocation ?? travelerState.to,
+          date: foundTrip.departureDate ?? travelerState.date,
+          availableKg: foundTrip.availableKg ?? travelerState.availableKg,
+          pricePerKg: travelerState.pricePerKg,
+          mode: foundTrip.travelMeans ?? travelerState.mode,
         });
       } else {
+        console.log('No trip found for this tripId');
         setReviews([]);
       }
     } catch (err) {
@@ -99,10 +116,11 @@ export default function TravelerDetailsScreen() {
     if (reviewRating === 0 || reviewComment.trim() === '') {
       return Alert.alert('Error', 'Please provide both rating and comment.');
     }
+    if (!tripId) return Alert.alert('Error', 'Trip ID not available');
 
     try {
       const res = await fetch(
-        `https://bago-server.onrender.com/api/baggo/${travelerId}/reviews`,
+       `https://bago-server.onrender.com/api/baggo/${tripId}/reviews`,
         {
           method: 'POST',
           headers: {
@@ -156,8 +174,11 @@ export default function TravelerDetailsScreen() {
         <Text style={styles.headerTitle}>Traveler Details</Text>
         <View style={{ width: 40 }} />
       </LinearGradient>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
@@ -175,10 +196,11 @@ export default function TravelerDetailsScreen() {
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Star size={16} color={Colors.gold} fill={Colors.gold} />
-                <Text style={styles.statText}>{Number(traveler.rating).toFixed(1)}</Text>
+                <Text style={styles.statText}>{averageRating.toFixed(1)}</Text>
+
               </View>
               <Text style={styles.statDivider}>•</Text>
-              <Text style={styles.statText}>{traveler.trips} trips</Text>
+            <Text style={styles.statText}>{reviews.length} reviews</Text>
             </View>
           </View>
         </View>
@@ -230,7 +252,7 @@ export default function TravelerDetailsScreen() {
               <View key={index} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
                   <View style={styles.reviewAvatar}>
-                    <Text style={styles.reviewAvatarText}>{review.user?.slice(0, 1).toUpperCase() || 'U'}</Text>
+                    <Text style={styles.reviewAvatarText}>{review.user?.firstName?.charAt(0).toUpperCase() || 'U'}</Text>
                   </View>
                   <View style={styles.reviewInfo}>
                     <View style={styles.reviewStars}>
@@ -270,7 +292,7 @@ export default function TravelerDetailsScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
-
+</KeyboardAvoidingView>
       <View style={styles.footer}>
         <TouchableOpacity style={styles.messageButton} onPress={handleMessage}>
           <MessageCircle size={20} color={Colors.primary} />
