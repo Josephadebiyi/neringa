@@ -389,18 +389,33 @@ useEffect(() => {
                   </View>
 
                   <View style={styles.tripFooter}>
-                    <Text style={styles.earningsText}>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={[styles.viewButton, !trip._id && styles.disabledButton]}
+              onPress={() => trip._id && router.push(`/package-request?id=${trip._id}`)}
+              disabled={!trip._id}
+            >
+              <Text style={styles.viewButtonText}>View Details</Text>
+            </TouchableOpacity>
+          </View>
 
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.viewButton, !trip._id && styles.disabledButton]}
-                      onPress={() => trip._id && router.push(`/package-request?id=${trip._id}`)}
-                      disabled={!trip._id}
-                    >
-                      <Text style={styles.viewButtonText}>View Details</Text>
-                    </TouchableOpacity>
-                  </View>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <TouchableOpacity
+              style={[styles.editButton, !trip._id && styles.disabledButton]}
+              onPress={() =>
+                trip._id &&
+                router.push(`/edit-trip?id=${trip._id}&date=${trip.createdAt || trip.date}`)
+              }
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
                 </TouchableOpacity>
+
+
+
               ))
           : completedLoading
           ? <ActivityIndicator />
@@ -520,8 +535,11 @@ const styles = StyleSheet.create({
   earningsText: { fontSize: 14, color: Colors.textLight },
   earningsValue: { fontSize: 16, fontWeight: 'bold', color: Colors.primary },
   viewButton: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     backgroundColor: Colors.backgroundLight,
+    alignSelf: "flex-start",   // ← prevents stretching
   },
   disabledButton: { backgroundColor: Colors.textLight, opacity: 0.5 },
   viewButtonText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
@@ -532,6 +550,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3,
     shadowRadius: 12, elevation: 8,
   },
+  editButton: {
+  paddingHorizontal: 16,
+  paddingVertical: 8,
+  borderRadius: 8,
+  backgroundColor: Colors.primary,
+  marginLeft: 10,
+},
+editButtonText: {
+  color: Colors.white,
+  fontWeight: "600",
+},
+
   centerContent: { justifyContent: 'center', alignItems: 'center' },
   noTripsText: { fontSize: 16, color: Colors.textLight, textAlign: 'center', marginTop: 20 },
 });

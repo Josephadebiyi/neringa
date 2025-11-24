@@ -49,27 +49,141 @@ export const AddAtrip = async (req, res, next) => {
 export const MyTrips = async (req, res) => {
   try {
     const userId = req.user._id;
-    const trips = await Trip.find({ user: userId }).select(
-      '_id fromLocation toLocation departureDate arrivalDate availableKg travelMeans status request'
-    );
 
-    res.status(200).json({
-      message: 'Trips retrieved successfully',
-      trips: trips.map((trip) => ({
+    // Include reviews in the query
+    const trips = await Trip.find({ user: userId }).select(
+      '_id fromLocation toLocation departureDate arrivalDate availableKg travelMeans status request reviews'
+    ).populate('reviews.user', 'name email'); // optional: populate reviewer info
+
+    const formattedTrips = trips.map((trip) => {
+      // Calculate average rating
+      const totalReviews = trip.reviews.length;
+      const averageRating = totalReviews > 0
+        ? trip.reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+        : 0;
+
+      return {
         id: trip._id,
         userId: trip.user,
         fromLocation: trip.fromLocation,
         toLocation: trip.toLocation,
         departureDate: trip.departureDate,
-        arrivalDate: trip.arrivalDate, // <-- added here
+        arrivalDate: trip.arrivalDate,
         availableKg: trip.availableKg,
         travelMeans: trip.travelMeans,
         status: trip.status,
         request: trip.request,
-      })),
+        reviews: trip.reviews,           // full reviews array
+        totalReviews,                    // number of reviews
+        averageRating: parseFloat(averageRating.toFixed(2)), // rounded to 2 decimals
+      };
+    });
+
+    res.status(200).json({
+      message: 'Trips retrieved successfully',
+      trips: formattedTrips,
     });
   } catch (error) {
     console.log(error);
     res.status(400).json({ message: error.message });
+  }
+};
+
+
+
+
+export const UpdateTrip = async (req, res, next) => {
+  const userId = req.user.id;
+  const tripId = req.params.id;
+  const { fromLocation, toLocation, departureDate, arrivalDate, availableKg, pricePerKg, travelMeans } = req.body;
+
+  try {
+    // ✅ Validate required fields
+    if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg || !travelMeans) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // ✅ Find the trip and ensure it belongs to the user
+    const trip = await Trip.findOne({ _id: tripId, user: userId });
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    // ✅ Update fields
+    trip.fromLocation = fromLocation;
+    trip.toLocation = toLocation;
+    trip.departureDate = departureDate; // keep ISO string
+    trip.arrivalDate = arrivalDate;     // keep ISO string
+    trip.availableKg = parseFloat(availableKg);
+    if (pricePerKg) trip.pricePerKg = parseFloat(pricePerKg); // optional
+    trip.travelMeans = travelMeans.trim().toLowerCase();
+
+    await trip.save();
+
+    // ✅ Return updated trip
+    res.status(200).json({
+      message: "Trip updated successfully",
+      trip: {
+        id: trip._id,
+        fromLocation: trip.fromLocation,
+        toLocation: trip.toLocation,
+        departureDate: trip.departureDate,
+        arrivalDate: trip.arrivalDate,
+        availableKg: trip.availableKg,
+        pricePerKg: trip.pricePerKg,
+        travelMeans: trip.travelMeans,
+        status: trip.status,
+        updatedAt: trip.updatedAt,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+
+export const AddReviewToTrip = async (req, res, next) => {
+  const userId = req.user.id;
+  const tripId = req.params.tripId;
+  const { rating, comment } = req.body;
+
+  try {
+    // ✅ Validate input
+    if (rating == null || rating < 0 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be between 0 and 5" });
+    }
+
+    // ✅ Find the trip
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    // ✅ Check if user has already reviewed
+    const existingReview = trip.reviews.find(r => r.user.toString() === userId);
+    if (existingReview) {
+      // Update existing review
+      existingReview.rating = rating;
+      existingReview.comment = comment || existingReview.comment;
+      existingReview.date = new Date();
+    } else {
+      // Add new review
+      trip.reviews.push({
+        user: userId,
+        rating,
+        comment,
+      });
+    }
+
+    await trip.save();
+
+    res.status(200).json({
+      message: "Review added successfully",
+      reviews: trip.reviews,
+    });
+  } catch (error) {
+    next(error);
   }
 };
