@@ -411,7 +411,13 @@ const handlePaystackPress = () => {
         <CardField
           postalCodeEnabled={false}
           placeholders={{ number: "4242 4242 4242 4242" }}
-          cardStyle={styles.cardStyle}
+          cardStyle={{
+    backgroundColor: "#FFFFFF",
+    textColor: "#000000",
+    borderColor: "#d9d9d9",
+    borderWidth: 1,
+    borderRadius: 10,
+  }}
           style={styles.cardField}
           onCardChange={(details) => setCardDetails(details)}
         />

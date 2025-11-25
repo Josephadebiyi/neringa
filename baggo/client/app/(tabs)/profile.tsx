@@ -11,7 +11,7 @@ import {
   Image
 } from 'react-native';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter,useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { User, Shield, CreditCard,Copy, FileText,CheckCircle,XCircle , LogOut, ChevronRight, CircleAlert as AlertCircle, Wallet, CircleArrowUp as ArrowUpCircle, CircleArrowDown as ArrowDownCircle, Building, X, DollarSign, Search, Moon, Sun } from 'lucide-react-native';
@@ -22,6 +22,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { backendomain } from '@/utils/backendDomain';
 import { useMemo } from 'react'
 import * as Clipboard from 'expo-clipboard';
+import { useRef } from 'react';
+import * as Location from 'expo-location';
 
 
 export default function ProfileScreen() {
@@ -45,6 +47,26 @@ export default function ProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
 const [isVerifying, setIsVerifying] = useState(false);
   // state near top
+  const params = useLocalSearchParams();
+  const hasUpdated = useRef(false);
+
+  useEffect(() => {
+    if (!hasUpdated.current && params?.updatedUser) {
+      try {
+        const updated = typeof params.updatedUser === 'string'
+          ? JSON.parse(params.updatedUser)
+          : params.updatedUser;
+
+        setUserData(updated);
+        hasUpdated.current = true; // mark as processed
+      } catch (err) {
+        console.error('Failed to parse updatedUser:', err);
+      }
+    }
+  }, [params]);
+
+
+
   const [selectedBankId, setSelectedBankId] = useState(null); // primitive id
   // if you still want the whole bank object elsewhere:
   // const selectedBank = paystackBanks.find(b => String(b.id) === String(selectedBankId)) ?? null;
@@ -97,6 +119,8 @@ const [paystackBanks, setPaystackBanks] = useState([]);
 const [accountNumber, setAccountNumber] = useState('');
 const [recipientCode, setRecipientCode] = useState(null);
 const [showPaystackSetup, setShowPaystackSetup] = useState(false);
+const [userStars, setUserStars] = useState(0);
+const maxStars = 5;
 
 
 const selectedBank = useMemo(
@@ -113,6 +137,45 @@ const selectedBank = useMemo(
 
 
  const base = (typeof backendomain === 'object' && backendomain.backendomain) ? backendomain.backendomain : backendomain;
+
+
+
+
+ // Load stars from AsyncStorage on mount
+  useEffect(() => {
+    const loadStars = async () => {
+      try {
+        const storedStars = await AsyncStorage.getItem('userStars');
+        if (storedStars !== null) {
+          setUserStars(parseInt(storedStars, 10));
+        }
+      } catch (error) {
+        console.error('Failed to load stars:', error);
+      }
+    };
+    loadStars();
+  }, []);
+
+  // Gradually increase stars
+  const addStarGradually = async () => {
+    if (userStars >= maxStars) return; // cap at maxStars
+
+    let newStars = userStars;
+
+    const interval = setInterval(async () => {
+      if (newStars < maxStars) {
+        newStars += 1;
+        setUserStars(newStars);
+        try {
+          await AsyncStorage.setItem('userStars', newStars.toString());
+        } catch (error) {
+          console.error('Failed to save stars:', error);
+        }
+      } else {
+        clearInterval(interval); // stop when max reached
+      }
+    }, 1000); // 1 second delay between each star
+  };
 
   // 🟢 Fetch Stripe status
   const fetchStripeStatus = async (userId) => {
@@ -270,56 +333,153 @@ const currencySymbols = {
 useEffect(() => {
   (async () => {
     try {
-      // Load saved currency and country
-      const savedCurrency = await loadCurrency();
-      const savedCountry = await loadCountry();
-
-      // Detect current IP/country
-      const response = await fetch("https://ipapi.co/json/");
-      const data = await response.json();
-
-      const detectedCurrency = data.currency || "USD";
-      const detectedCountryCode = data.country_code || "US";
-      const detectedCountry = data.country_name || "Unknown";
-
-      // If country changed, override saved values
-      if (savedCountry !== detectedCountryCode) {
-        setCurrency(detectedCurrency);
-        setCountry(detectedCountry);
-        setSymbol(currencySymbols[detectedCurrency] || "$");
-        setIsNigeria(detectedCountryCode === "NG");
-
-        await saveCurrency(detectedCurrency);
-        await saveCountry(detectedCountryCode);
-      } else if (savedCurrency) {
-        // Same country, use saved currency
-        setCurrency(savedCurrency);
-        setCountry(detectedCountry);
-        setSymbol(currencySymbols[savedCurrency] || "$");
-        setIsNigeria(detectedCountryCode === "NG");
-      } else {
-        // No saved currency, use detected
-        setCurrency(detectedCurrency);
-        setCountry(detectedCountry);
-        setSymbol(currencySymbols[detectedCurrency] || "$");
-        setIsNigeria(detectedCountryCode === "NG");
-
-        await saveCurrency(detectedCurrency);
-        await saveCountry(detectedCountryCode);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+        return;
       }
-    } catch (error) {
-      console.error("Failed to detect or load currency:", error);
 
-      // fallback defaults
-      setCurrency("USD");
-      setCountry("US");
-      setSymbol("$");
-      setIsNigeria(false);
-    } finally {
-      setLoading(false);
+      const loc = await Location.getCurrentPositionAsync({});
+      const reverse = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      if (reverse.length > 0) {
+        const countryCode = reverse[0].isoCountryCode || 'US';
+        const countryName = reverse[0].country || 'Unknown';
+
+        // Use currency symbol mapping
+        let currency = 'USD'; // default
+        switch (countryCode) {
+          case 'NG':
+            currency = 'NGN';
+            break;
+          case 'GH':
+            currency = 'GHS';
+            break;
+          case 'KE':
+            currency = 'KES';
+            break;
+          case 'ZA':
+            currency = 'ZAR';
+            break;
+          case 'EG':
+            currency = 'EGP';
+            break;
+          case 'TZ':
+            currency = 'TZS';
+            break;
+          case 'UG':
+            currency = 'UGX';
+            break;
+          case 'MA':
+            currency = 'MAD';
+            break;
+          case 'DZ':
+            currency = 'DZD';
+            break;
+          case 'SD':
+            currency = 'SDG';
+            break;
+          case 'FR':
+          case 'DE':
+          case 'IT':
+          case 'ES':
+          case 'PT':
+          case 'NL':
+          case 'LU':
+          case 'BE':
+          case 'IE':
+          case 'GR':
+          case 'FI':
+          case 'EE':
+          case 'LT':
+          case 'LV':
+          case 'CY':
+          case 'MT':
+          case 'SK':
+          case 'SI':
+            currency = 'EUR';
+            break;
+          case 'GB':
+            currency = 'GBP';
+            break;
+          case 'CA':
+            currency = 'CAD';
+            break;
+          case 'MX':
+            currency = 'MXN';
+            break;
+          case 'BR':
+            currency = 'BRL';
+            break;
+          case 'AR':
+            currency = 'ARS';
+            break;
+          case 'CL':
+            currency = 'CLP';
+            break;
+          case 'CO':
+            currency = 'COP';
+            break;
+          case 'PE':
+            currency = 'PEN';
+            break;
+          case 'UY':
+            currency = 'UYU';
+            break;
+          case 'IN':
+            currency = 'INR';
+            break;
+          case 'CN':
+            currency = 'CNY';
+            break;
+          case 'JP':
+            currency = 'JPY';
+            break;
+          case 'RU':
+            currency = 'RUB';
+            break;
+          case 'TR':
+            currency = 'TRY';
+            break;
+          case 'AE':
+            currency = 'AED';
+            break;
+          case 'SG':
+            currency = 'SGD';
+            break;
+          case 'AU':
+            currency = 'AUD';
+            break;
+          case 'NZ':
+            currency = 'NZD';
+            break;
+          case 'CH':
+            currency = 'CHF';
+            break;
+          default:
+            currency = 'USD';
+        }
+        // ✅ Set state so UI reacts
+                setCountry(countryCode);
+                setCurrency(currency);
+                setSymbol(currencySymbols[currency] || '$');
+                setIsNigeria(countryCode === 'NG');
+
+                
+        console.log('Detected Country:', countryName);
+        console.log('Country Code:', countryCode);
+        console.log('Currency:', currency, currencySymbols[currency]);
+      }
+    } catch (err) {
+      console.error(err);
     }
   })();
 }, []);
+
+
 
 
 useEffect(() => {
@@ -876,10 +1036,11 @@ const handleCurrencySelect = (newCurrency: string) => {
 
 
         <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>4.8</Text>
-            <Text style={styles.statLabel}>Rating</Text>
-          </View>
+        <View style={styles.statItem}>
+  <Text style={styles.statValue}>{userStars} ⭐</Text>
+  <Text style={styles.statLabel}>Stars</Text>
+</View>
+
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{tripsData.length}</Text>

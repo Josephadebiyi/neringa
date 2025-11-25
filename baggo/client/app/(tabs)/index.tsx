@@ -42,6 +42,9 @@ const [loading, setLoading] = useState(true);
 const [userData, setUserData] = useState(null);
   const [escrowBalance, setEscrowBalance] = useState(0);
   const base = (typeof backendomain === 'object' && backendomain.backendomain) ? backendomain.backendomain : backendomain;
+  const [notifications, setNotifications] = useState([]);
+  const [hasUnread, setHasUnread] = useState(false);
+
 
 
   const currencySymbols = {
@@ -129,51 +132,63 @@ const loadCurrency = async (): Promise<string | null> => {
 };
 
 
-  useEffect(() => {
-    (async () => {
+useEffect(() => {
+  (async () => {
+    try {
+      const savedCurrency = await loadCurrency();
+      const savedCountry = await AsyncStorage.getItem('userCountry');
+
+      let detectedCurrency = "USD";
+      let detectedCountry = "United States";
+
       try {
-
-        const savedCurrency = await loadCurrency();
-        const savedCountry = await AsyncStorage.getItem('userCountry');
-
-
         const response = await fetch("https://ipapi.co/json/");
+        if (!response.ok) throw new Error("Failed to fetch IP location");
+
         const data = await response.json();
+        detectedCurrency = data.currency || detectedCurrency;
+        detectedCountry = data.country_name || detectedCountry;
 
-        console.log("🌍 Location data:", data);
-
-        const detectedCurrency = data.currency || "USD";
-        const detectedCountry = data.country_name || "Unknown";
-
-        if (savedCountry !== detectedCountry) {
-
-          setCurrency(detectedCurrency);
-          setCountry(detectedCountry);
-          setSymbol(currencySymbols[detectedCurrency] || "$");
-
-
-          await saveCurrency(detectedCurrency);
-          await AsyncStorage.setItem('userCountry', detectedCountry);
-        } else {
-
-          setCurrency(savedCurrency || detectedCurrency);
-          setCountry(savedCountry || detectedCountry);
-          setSymbol(currencySymbols[savedCurrency || detectedCurrency] || "$");
-        }
-      } catch (error) {
-        console.error("Failed to load or detect currency:", error);
-
-
-        setCurrency("USD");
-        setCountry("US");
-        setSymbol("$");
-      } finally {
-        setLoading(false);
+      } catch (ipErr) {
+        console.log("⚠️ IPAPI failed -> Using fallback values:", ipErr.message);
       }
-    })();
-  }, []);
+
+      const finalCurrency = savedCurrency || detectedCurrency;
+      const finalCountry = savedCountry || detectedCountry;
+
+      setCurrency(finalCurrency);
+      setCountry(finalCountry);
+      setSymbol(currencySymbols[finalCurrency] || "$");
+
+      await saveCurrency(finalCurrency);
+      await AsyncStorage.setItem("userCountry", finalCountry);
+
+    } catch (error) {
+      console.error("Location detection error:", error);
+      setCurrency("USD");
+      setCountry("United States");
+      setSymbol("$");
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
 
 
+
+const fetchNotifications = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/getNotifications`);
+    const notifs = response.data.data.notifications;
+    setNotifications(notifs);
+
+    // Check if any notification is unread
+    const unread = notifs.some((notif) => !notif.isRead);
+    setHasUnread(unread);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
    useEffect(() => {
      const fetchData = async () => {
@@ -426,13 +441,14 @@ const loadCurrency = async (): Promise<string | null> => {
           </View>
 
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => router.push('/notifications')}
-            >
-              <Bell size={20} color={Colors.white} />
-              <View style={styles.notificationDot} />
-            </TouchableOpacity>
+          <TouchableOpacity
+  style={styles.notificationButton}
+  onPress={() => router.push('/notifications')}
+>
+  <Bell size={20} color={Colors.white} />
+  {hasUnread && <View style={styles.notificationDot} />}
+</TouchableOpacity>
+
             <TouchableOpacity
               style={styles.profileButton}
               onPress={() => router.push('/profile')}

@@ -64,6 +64,17 @@ export default function PersonalDetailsScreen() {
 
 
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    // e.g., May 15, 1990
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
 
 
   const pickImage = async () => {
@@ -140,9 +151,17 @@ export default function PersonalDetailsScreen() {
       });
       const data = await response.json();
 
-      if (data.status === 'success') {
-     Alert.alert('Success', 'Profile updated successfully!');
-   } else {
+      // After saving in PersonalDetailsScreen
+  if (data.status === 'success') {
+    Alert.alert('Success', 'Profile updated successfully!');
+    // Navigate back and pass updated data
+    router.push({
+    pathname: '/profile', // path to ProfileScreen
+    params: { updatedUser: JSON.stringify(updates) }, // must stringify objects
+  });
+
+  }
+ else {
      console.warn('Update API failed:', data.message);
      Alert.alert('Error', data.message || 'Update failed');
    }
@@ -267,12 +286,13 @@ export default function PersonalDetailsScreen() {
             <View style={styles.inputContainer}>
               <Calendar size={20} color={Colors.textLight} />
               <TextInput
-                style={styles.input}
-                value={dateOfBirth}
-                onChangeText={setDateOfBirth}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.textMuted}
-              />
+  style={styles.input}
+  value={formatDate(dateOfBirth)}
+  onChangeText={setDateOfBirth} // optionally, you might need to convert back to 'YYYY-MM-DD' when saving
+  placeholder="Date of Birth"
+  placeholderTextColor={Colors.textMuted}
+/>
+
             </View>
           </View>
 

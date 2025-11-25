@@ -244,31 +244,36 @@ const handleSelectCity = (cityName: string) => {
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Allow access to choose photos.');
+      if (status !== "granted") {
+        Alert.alert("Permission required", "Allow access to choose photos.");
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 1,
-        base64: true,   // <-- THIS FIXES ANDROID
+        allowsEditing: true,
+        quality: 0.4, // initial compression from library
       });
 
-      if (result.canceled || !result.assets?.length) return;
+      if (result.canceled) return;
 
       const img = result.assets[0];
 
-      setImagePreview(img.uri);
-      setImage(`data:image/jpeg;base64,${img.base64}`);
+      // 🔥 Extra compression for Android (much smaller size)
+      const compressed = await ImageManipulator.manipulateAsync(
+        img.uri,
+        [{ resize: { width: 900 } }],
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      setImagePreview(compressed.uri);
+      setImage(compressed.uri); // ✔ file uri (android-safe)
 
     } catch (err) {
       console.log("Image pick error:", err);
       Alert.alert("Error picking image", err.message || "Failed to pick image");
     }
   };
-
 
 
   const removeImage = () => {
@@ -330,75 +335,83 @@ const handleSelectCity = (cityName: string) => {
         // ✅ Step 1: Fetch pricing data
         const { data } = await axios.get(`${backendomain.backendomain}/api/prices/get`);
         const prices = data.prices || data;
-        // console.log("📦 Available route prices (raw):", prices);
 
-        // ✅ Step 2: Normalize and match route
+        // Normalize for matching
         const normalize = (str) => str?.trim().toLowerCase();
+
+        // Find price
         const matchedPrice =
-  prices.find((p) => {
-    const from = normalize(p.from);
-    const to = normalize(p.to);
-    const fromMatch =
-      from.includes(normalize(fromCity)) || from.includes(normalize(fromCountry));
-    const toMatch =
-      to.includes(normalize(toCity)) || to.includes(normalize(toCountry));
-    return fromMatch && toMatch;
-  }) ||
-  prices.find((p) => {
-    const from = normalize(p.from);
-    const to = normalize(p.to);
-    const fromMatch =
-      from.includes(normalize(toCity)) || from.includes(normalize(toCountry));
-    const toMatch =
-      to.includes(normalize(fromCity)) || to.includes(normalize(fromCountry));
-    return fromMatch && toMatch;
-  });
+          prices.find((p) => {
+            const from = normalize(p.from);
+            const to = normalize(p.to);
+            return (
+              (from.includes(normalize(fromCity)) ||
+                from.includes(normalize(fromCountry))) &&
+              (to.includes(normalize(toCity)) ||
+                to.includes(normalize(toCountry)))
+            );
+          }) ||
+          prices.find((p) => {
+            const from = normalize(p.from);
+            const to = normalize(p.to);
+            return (
+              (from.includes(normalize(toCity)) ||
+                from.includes(normalize(toCountry))) &&
+              (to.includes(normalize(fromCity)) ||
+                to.includes(normalize(fromCountry)))
+            );
+          });
 
+        if (!matchedPrice) {
+          Alert.alert(
+            "No Route Found",
+            `No price found for ${fromCity} → ${toCity}. You can still search for travelers.`
+          );
+        }
 
-  if (!matchedPrice) {
-console.log("❌ No match found. Allowing navigation anyway.");
-Alert.alert(
-"No Route Found",
-`No price found for ${fromCity} → ${toCity}. You can still search for travelers.`
-);
-}
-        // ✅ Step 3: Calculate total
         const weightNum = parseFloat(packageWeight);
         const amount = Number(matchedPrice.pricePerKg) * weightNum;
 
+        // ✅ FIX: Create FormData for image upload
+        const formData = new FormData();
 
-        // ✅ Step 4: Create the package
-        const payload = {
-          fromCountry,
-          fromCity,
-          toCountry,
-          toCity,
-          packageWeight: weightNum,
-          receiverName,
-          receiverPhone,
-          description,
-          value: parseFloat(value) || 0,
-          image: image || null,
-        };
+        formData.append("fromCountry", fromCountry);
+        formData.append("fromCity", fromCity);
+        formData.append("toCountry", toCountry);
+        formData.append("toCity", toCity);
+        formData.append("packageWeight", weightNum);
+        formData.append("receiverName", receiverName);
+        formData.append("receiverPhone", receiverPhone);
+        formData.append("description", description);
+        formData.append("value", parseFloat(value) || 0);
 
+        if (image) {
+          formData.append("image", {
+            uri: image,
+            name: "package.jpg",
+            type: "image/jpeg",
+          });
+        }
+
+        // 🔥 REAL file upload here
         const response = await axios.post(
           `${backendomain.backendomain}/api/baggo/createPackage`,
-          payload,
-          { withCredentials: true }
+          formData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+            withCredentials: true,
+          }
         );
 
         const packageId = response.data.package?._id;
-        // console.log("📦 Package created:", packageId);
 
-        // ✅ Step 5: Store image temporarily in AsyncStorage
+        // Store preview for later (optional)
         if (image) {
           await AsyncStorage.setItem("packageImage", image);
-          console.log("🖼️ Image saved to AsyncStorage");
         } else {
           await AsyncStorage.removeItem("packageImage");
         }
 
-        // ✅ Step 6: Navigate to search travelers
         router.push({
           pathname: "/search-travelers",
           params: {
@@ -417,16 +430,17 @@ Alert.alert(
           },
         });
       } catch (error) {
-        console.error("❌ Error fetching or calculating price:", error);
-        const errorMessage =
+        console.error("❌ Error creating package:", error);
+        Alert.alert(
+          "Error",
           error.response?.data?.message ||
-          "Failed to create package. Please try again.";
-        Alert.alert("Error", errorMessage);
+            "Failed to create package. Please try again."
+        );
       } finally {
         setIsLoading(false);
       }
     } else {
-      Alert.alert("Validation", "Please fill all required fields before continuing.");
+      Alert.alert("Validation", "Please fill all required fields.");
     }
   };
 

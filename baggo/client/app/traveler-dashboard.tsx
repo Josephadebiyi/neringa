@@ -114,38 +114,52 @@ const currencySymbols = {
 useEffect(() => {
   (async () => {
     try {
-      // Load saved currency and country from AsyncStorage
-      const savedCurrency = await loadCurrency();
-      const savedCountry = await AsyncStorage.getItem('userCountry');
+      // Load saved storage values
+      const savedCurrency = await loadCurrency();   // e.g. "USD"
+      const savedCountryName = await AsyncStorage.getItem("userCountry"); // e.g. "Nigeria"
 
-      // Fetch current IP location
-      const response = await fetch("https://ipapi.co/json/");
-      const data = await response.json();
+      // Default fallbacks
+      let detectedCurrency = "USD";
+      let detectedCountryName = "United States";
 
-      console.log("🌍 Location data:", data);
+      // --- Try to detect IP location ---
+      try {
+        const response = await fetch("https://ipapi.co/json/");
+        if (response.ok) {
+          const data = await response.json();
+          console.log("🌍 Location data:", data);
 
-      const detectedCurrency = data.currency || "USD";
-      const detectedCountry = data.country_name || "Unknown";
+          detectedCurrency = data.currency || "USD";
+          detectedCountryName = data.country_name || "United States";
+        } else {
+          console.log("⚠️ IPAPI returned non-200:", response.status);
+        }
+      } catch (err) {
+        console.log("⚠️ Failed to fetch IP location:", err.message);
+      }
 
-      // Check if country has changed
-      if (savedCountry !== detectedCountry) {
-        // Country changed → override currency and country
+      const finalCountry = savedCountryName || detectedCountryName;
+      const finalCurrency = savedCurrency || detectedCurrency;
+
+      // If country has changed → update everything & save
+      if (savedCountryName !== detectedCountryName) {
         setCurrency(detectedCurrency);
-        setCountry(detectedCountry);
+        setCountry(detectedCountryName);
         setSymbol(currencySymbols[detectedCurrency] || "$");
 
-        // Save new values
         await saveCurrency(detectedCurrency);
-        await AsyncStorage.setItem('userCountry', detectedCountry);
+        await AsyncStorage.setItem("userCountry", detectedCountryName);
       } else {
-        // Country same → use saved values if any
-        if (savedCurrency) setCurrency(savedCurrency);
-        if (savedCountry) setCountry(savedCountry);
-        setSymbol(currencySymbols[savedCurrency || detectedCurrency] || "$");
+        // Country is same → use saved or detected
+        setCurrency(finalCurrency);
+        setCountry(finalCountry);
+        setSymbol(currencySymbols[finalCurrency] || "$");
       }
+
     } catch (error) {
       console.error("Failed to detect location or load currency:", error);
-      // Fallback defaults
+
+      // SAFE fallback to Nigeria
       setCurrency("NGN");
       setCountry("Nigeria");
       setSymbol("₦");

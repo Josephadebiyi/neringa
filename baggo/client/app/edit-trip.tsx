@@ -202,7 +202,9 @@ setArrivalDate(trip.arrivalDate);     // keep ISO string
         { withCredentials: true }
       );
       if (res.status !== 200) throw new Error("Failed to update trip");
-      router.back();
+      Alert.alert("Success", "Trip updated successfully", [
+     { text: "OK", onPress: () => router.back() }
+   ]);
     } catch (err) {
       console.error("Update trip error:", err);
       setError(err.message || "Network error");

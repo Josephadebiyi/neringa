@@ -1,5 +1,5 @@
 import express from 'express';
-import { edit, getUser, logout, signIn,verifyEmail,createDelivery,forgotPassword,resendOtp,verifyOtp,resetPassword, signUp,sendToEscrow,releaseFromEscrow,addToEscrow, getWallet,withdrawFunds,addFunds,uploadOrUpdateImage } from '../controllers/userController.js';
+import { edit, getUser, logout, signIn,verifyEmail,createDelivery,forgotPassword,resendOtp,verifyOtp,resetPassword, signUp,sendToEscrow,releaseFromEscrow,addToEscrow,handleCancelledRequestEscrow, getWallet,withdrawFunds,addFunds,uploadOrUpdateImage } from '../controllers/userController.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
@@ -70,6 +70,9 @@ userRouter.get('/processPayment', isAuthenticated, addFunds);
 userRouter.post('/send-to-escrow', isAuthenticated, sendToEscrow);
 userRouter.post('/release-from-escrow', isAuthenticated, releaseFromEscrow);
 userRouter.post('/add-to-escrow',addToEscrow);
+userRouter.post("/remove-cancelled-escrow", handleCancelledRequestEscrow);
+
+
 
 userRouter.get('/conversations', isAuthenticated, getConversations);
 userRouter.get('/conversations/:conversationId/messages', isAuthenticated, getMessages);

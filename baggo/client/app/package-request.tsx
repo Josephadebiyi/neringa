@@ -30,6 +30,7 @@ import { backendomain } from '@/utils/backendDomain';
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 export default function PackageRequestScreen() {
@@ -60,47 +61,129 @@ const [currency, setCurrency] = useState('EUR');
   const base = (typeof backendomain === 'object' && backendomain.backendomain) ? backendomain.backendomain : backendomain;
 
 
-  // 🌍 Detect user country
+  const CURRENCY_KEY = "userCurrency";
+
+  const saveCurrency = async (value: string) => {
+    try {
+      await AsyncStorage.setItem(CURRENCY_KEY, value);
+    } catch (err) {
+      console.error("Error saving currency:", err);
+    }
+  };
+
+  const loadCurrency = async (): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem(CURRENCY_KEY);
+    } catch (err) {
+      console.error("Error loading currency:", err);
+      return null;
+    }
+  };
+
   const currencySymbols = {
-     NGN: "₦",
-     USD: "$",
-     EUR: "€",
-     GBP: "£",
-     GHS: "₵",
-     KES: "KSh",
-     ZAR: "R",
-     INR: "₹",
-     CAD: "CA$",
-     AUD: "A$",
-     JPY: "¥",
-     CNY: "¥",
-   };
+    EUR: "€",
+    AT: "€",
+    BE: "€",
+    CY: "€",
+    EE: "€",
+    FI: "€",
+    FR: "€",
+    DE: "€",
+    GR: "€",
+    IE: "€",
+    IT: "€",
+    LV: "€",
+    LT: "€",
+    LU: "€",
+    MT: "€",
+    NL: "€",
+    PT: "€",
+    SK: "€",
+    SI: "€",
+    ES: "€",
 
-   useEffect(() => {
-     (async () => {
-       try {
-         const response = await fetch("https://ipapi.co/json/");
-         const data = await response.json();
+    NGN: "₦",
+    GHS: "₵",
+    KES: "KSh",
+    ZAR: "R",
+    EGP: "£",
+    TZS: "TSh",
+    UGX: "USh",
+    MAD: "DH",
+    DZD: "DA",
+    SDG: "£",
+    XOF: "CFA",
+    XAF: "FCFA",
 
-         console.log("🌍 Location data:", data);
+    USD: "$",
+    CAD: "CA$",
+    MXN: "$",
+    BRL: "R$",
+    ARS: "$",
+    CLP: "$",
+    COP: "$",
+    PEN: "S/",
+    UYU: "$U",
 
-         const detectedCurrency = data.currency || "USD";
-         const detectedCountry = data.country_name || "Unknown";
+    INR: "₹",
+    CNY: "¥",
+    JPY: "¥",
+    RUB: "₽",
+    TRY: "₺",
+    AED: "د.إ",
+    SGD: "S$",
+    AUD: "A$",
+    NZD: "NZ$",
+    CHF: "CHF",
 
-         setCurrency(detectedCurrency);
-         setCountry(detectedCountry);
-         setSymbol(currencySymbols[detectedCurrency] || "$");
-       } catch (error) {
-         console.error("Failed to detect location:", error);
-         // Default to Nigeria if IP detection fails
-         setCurrency("NGN");
-         setCountry("Nigeria");
-         setSymbol("₦");
-       } finally {
-         setLoading(false);
-       }
-     })();
-   }, []);
+    GBP: "£",
+  };
+
+
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // 🟢 First load saved currency, if user selected earlier
+        const saved = await loadCurrency();
+
+        if (saved) {
+          setCurrency(saved);
+          setSymbol(currencySymbols[saved] || "$");
+          console.log("💾 Loaded saved currency:", saved);
+          return; // stop here
+        }
+
+        // 🟡 Otherwise detect via IP
+        const response = await fetch("https://ipapi.co/json/");
+        const data = await response.json();
+
+        console.log("🌍 Location data:", data);
+
+        const detectedCurrency = data.currency || "USD";
+        const detectedCountry = data.country_name || "Unknown";
+
+        setCurrency(detectedCurrency);
+        setCountry(detectedCountry);
+        setSymbol(currencySymbols[detectedCurrency] || "$");
+
+        // 💾 Save detected currency automatically
+        await saveCurrency(detectedCurrency);
+
+      } catch (error) {
+        console.error("Failed to detect location:", error);
+
+        // Default to Nigeria
+        setCurrency("NGN");
+        setCountry("Nigeria");
+        setSymbol("₦");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+
 
    useEffect(() => {
      const fetchData = async () => {
@@ -429,6 +512,43 @@ useEffect(() => {
     }
   };
 
+
+
+
+  const handleCancel = async (requestId, pkg) => {
+    try {
+      if (!requestId) return;
+
+      // 1️⃣ Cancel on backend
+      const response = await fetch(`${backendDomain}/api/baggo/remove-cancelled-escrow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.log("❌ Cancel request failed:", data.message);
+        Alert.alert("Error", data.message || "Failed to cancel request");
+        return;
+      }
+
+      console.log("✅ Request cancelled:", data.message);
+
+      // 2️⃣ Send push notification
+      await sendPushNotification(data.senderId, "cancelled", pkg);
+
+      // 3️⃣ Update local UI/state
+      setRequests(prev => prev.filter(r => r._id !== requestId));
+
+      Alert.alert("Success", "Request has been cancelled successfully");
+
+    } catch (error) {
+      console.error("handleCancel error:", error);
+      Alert.alert("Error", "Something went wrong while cancelling the request");
+    }
+  };
 
 
   const handleUpdateDate = async (requestId, field, date) => {
@@ -912,56 +1032,77 @@ useEffect(() => {
       </ScrollView>
 
       {!accepting && (
-    <View style={styles.footer}>
-      <View style={{ flex: 1, flexDirection: 'row', gap: 8 }}>
-        <TouchableOpacity style={styles.navButton} onPress={handlePrev} disabled={requests.length <= 1}>
-          <Text style={styles.navButtonText}>Prev</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navButton} onPress={handleNext} disabled={requests.length <= 1}>
-          <Text style={styles.navButtonText}>Next</Text>
-        </TouchableOpacity>
-      </View>
+      <View style={styles.footer}>
+        <View style={{ flex: 1, flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={styles.navButton} onPress={handlePrev} disabled={requests.length <= 1}>
+            <Text style={styles.navButtonText}>Prev</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navButton} onPress={handleNext} disabled={requests.length <= 1}>
+            <Text style={styles.navButtonText}>Next</Text>
+          </TouchableOpacity>
+        </View>
 
-      <View style={{ flex: 2, flexDirection: 'row', gap: 12 }}>
-        {/* Show Decline + Accept only when pending */}
-        {pkg.status === 'pending' && (
-          <>
-            <TouchableOpacity style={styles.declineButton} onPress={handleDecline}>
-              <XCircle size={20} color={Colors.error} />
-              <Text style={styles.declineButtonText}>Decline</Text>
+        <View style={{ flex: 2, flexDirection: 'row', gap: 12 }}>
+          {/* Show Decline + Accept only when pending */}
+          {pkg.status === 'pending' && (
+            <>
+              <TouchableOpacity style={styles.declineButton} onPress={handleDecline}>
+                <XCircle size={20} color={Colors.error} />
+                <Text style={styles.declineButtonText}>Decline</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.acceptButton} onPress={handleAccept}>
+                <CheckCircle size={20} color={Colors.white} />
+                <Text style={styles.acceptButtonText}>Accept</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Status actions */}
+          {pkg.status === 'accepted' && (
+            <>
+              <TouchableOpacity style={styles.statusButton} onPress={handleMarkInTransit}>
+                <MapPin size={18} color={Colors.white} />
+                <Text style={styles.actionButtonText}>Mark In Transit</Text>
+              </TouchableOpacity>
+
+              {/* Cancel button only for accepted */}
+              <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancel(pkg._id, pkg)}>
+        <View style={styles.cancelButtonContent}>
+          <XCircle size={18} color={Colors.white} />
+          <Text style={styles.cancelButtonText}> Cancel</Text>
+        </View>
+      </TouchableOpacity>
+
+
+            </>
+          )}
+
+          {pkg.status === 'intransit' && (
+            <>
+              <TouchableOpacity style={styles.statusButton} onPress={handleMarkDelivering}>
+                <MapPin size={18} color={Colors.white} />
+                <Text style={styles.actionButtonText}>Mark Delivering</Text>
+              </TouchableOpacity>
+
+              {/* Cancel button also available in transit */}
+              <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                <XCircle size={18} color={Colors.error} />
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {pkg.status === 'delivering' && (
+            <TouchableOpacity style={styles.statusButton} onPress={handleMarkCompleted}>
+              <CheckCircle size={18} color={Colors.white} />
+              <Text style={styles.actionButtonText}>Mark Completed</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.acceptButton} onPress={handleAccept}>
-              <CheckCircle size={20} color={Colors.white} />
-              <Text style={styles.acceptButtonText}>Accept</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* Other status-specific actions */}
-        {pkg.status === 'accepted' && (
-          <TouchableOpacity style={styles.statusButton} onPress={handleMarkInTransit}>
-            <MapPin size={18} color={Colors.white} />
-            <Text style={styles.actionButtonText}>Mark In Transit</Text>
-          </TouchableOpacity>
-        )}
-
-        {pkg.status === 'intransit' && (
-          <TouchableOpacity style={styles.statusButton} onPress={handleMarkDelivering}>
-            <MapPin size={18} color={Colors.white} />
-            <Text style={styles.actionButtonText}>Mark Delivering</Text>
-          </TouchableOpacity>
-        )}
-
-        {pkg.status === 'delivering' && (
-          <TouchableOpacity style={styles.statusButton} onPress={handleMarkCompleted}>
-            <CheckCircle size={18} color={Colors.white} />
-            <Text style={styles.actionButtonText}>Mark Completed</Text>
-          </TouchableOpacity>
-        )}
+          )}
+        </View>
       </View>
-    </View>
-  )}
+    )}
+
 
 
       {accepting && (
@@ -1041,7 +1182,26 @@ const styles = StyleSheet.create({
   successCard: { backgroundColor: Colors.white, borderRadius: 24, padding: 32, alignItems: 'center', maxWidth: 320 },
   successTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.text, marginTop: 16, marginBottom: 12 },
   successText: { fontSize: 15, color: Colors.textLight, textAlign: 'center', lineHeight: 22 },
-
+  cancelButton: {
+     backgroundColor: Colors.error, // Red background
+     paddingVertical: 10,
+     paddingHorizontal: 16,
+     borderRadius: 8,
+     alignItems: 'center',
+     justifyContent: 'center',
+     flexDirection: 'row', // Icon + Text in a row
+     gap: 8, // Space between icon and text
+   },
+   cancelButtonContent: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'center',
+   },
+   cancelButtonText: {
+     color: Colors.white,
+     fontWeight: 'bold',
+     fontSize: 16,
+   },
   // tracking styles reused
   trackingItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
   trackingText: { fontSize: 13, color: Colors.textLight, flex: 1 },

@@ -110,7 +110,7 @@ export default function TravelerDetailsScreen() {
 
   useEffect(() => {
     fetchTravelerReviews();
-  }, [travelerId]);
+  }, [travelerId, tripId]);
 
   const handleSubmitReview = async () => {
     if (reviewRating === 0 || reviewComment.trim() === '') {

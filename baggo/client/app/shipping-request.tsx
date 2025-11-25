@@ -22,6 +22,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { backendomain } from '@/utils/backendDomain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
+
 export default function ShippingRequestScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -287,34 +289,29 @@ useEffect(() => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 1,
+        quality: 0.4, // compress from picker
       });
 
       if (result.canceled || !result.assets?.length) return;
 
       const selectedImage = result.assets[0];
+
+      // Extra compression for speed + preventing Android crash
       const manipResult = await ImageManipulator.manipulateAsync(
         selectedImage.uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 900 } }],
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
       );
 
-      const fileUri = manipResult.uri;
-      const base64 = await FileSystem.readAsStringAsync(fileUri, {
-        encoding: 'base64',
-      });
+      setImagePreview(manipResult.uri);  // Show in UI
+      setImage(manipResult.uri);         // SAFE: pass to FormData only
 
-      const dataUri = `data:image/jpeg;base64,${base64}`;
-
-      setImagePreview(fileUri); // display in UI (file://)
-      setImage(dataUri); // dataURI to send to backend
-      // persist so user doesn't lose it if the app reloads
-      await AsyncStorage.setItem('packageImage', dataUri);
-    } catch (err: any) {
-      console.error('Error picking or converting image:', err);
-      Alert.alert('Error', err?.message ?? 'Failed to process image.');
+    } catch (err) {
+      console.error("Image error:", err);
+      Alert.alert("Error", err?.message || "Failed to pick image.");
     }
   };
+
 
   const removeImage = async () => {
     setImage(null);
@@ -323,10 +320,11 @@ useEffect(() => {
   };
 
   const handleContinue = async () => {
-    if (!fromCity || !toCity || !weight || !description || !receiverName || !receiverPhone) {
-      Alert.alert('Validation', 'Please fill origin/destination and all required fields.');
-      return;
-    }
+    if (!fromCity || !toCity || !Number(weight) || !receiverName || !receiverPhone) {
+    Alert.alert('Validation', 'Please fill origin/destination and all required fields.');
+    return;
+  }
+
 
     setIsLoading(true);
 
@@ -358,7 +356,8 @@ useEffect(() => {
       const minW = currentMatch ? Number(currentMatch.minWeightKg || 0) : minWeight || 0;
       const disc = currentMatch ? Number(currentMatch.discountRate || 0) : discountRate || 0;
 
-      const weightNum = Math.max(parseFloat(weight || '0'), minW);
+      const weightNum = Math.max(Number(weight) || minW, minW);
+
       let shippingFee = weightNum * pricePerKg;
       if (disc > 0) shippingFee = shippingFee * (1 - disc);
 
@@ -369,7 +368,12 @@ useEffect(() => {
       console.log('Using pricePerKg:', pricePerKg, 'minWeight:', minW, 'discount:', disc);
       console.log('Computed shippingFee:', shippingFee, 'total:', total);
 
-      const dataUri = image || (await AsyncStorage.getItem('packageImage')) || null;
+      let dataUri = image;
+
+if (!dataUri) {
+  dataUri = await AsyncStorage.getItem('packageImage');
+}
+
 
       const packagePayload = {
         travelerId: initialTraveler.id,

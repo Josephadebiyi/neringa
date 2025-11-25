@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import cloudinary from 'cloudinary';
 import { Resend } from 'resend';
-
+import Request from '../models/RequestScheme.js';
 
 dotenv.config();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -1028,6 +1028,70 @@ export const releaseFromEscrow = async (req, res) => {
    } catch (error) {
      console.error("🔥 Add to Escrow Error:", error.message);
      console.error("📜 Full Error Stack:", error);
+     res.status(500).json({ message: error.message });
+   }
+ };
+
+
+
+
+
+
+ export const handleCancelledRequestEscrow = async (req, res) => {
+   try {
+     const { requestId, description } = req.body;
+
+     if (!requestId) {
+       return res.status(400).json({ message: "requestId is required" });
+     }
+
+     // Find the request
+     const request = await Request.findById(requestId).populate("sender");
+     if (!request) {
+       return res.status(404).json({ message: "Request not found" });
+     }
+
+     const user = request.sender;
+     if (!user) return res.status(404).json({ message: "Sender not found" });
+
+     // Only cancel if not already cancelled
+     if (request.status === "cancelled") {
+       return res.status(400).json({ message: "Request is already cancelled" });
+     }
+
+     // Update status to cancelled
+     request.status = "cancelled";
+     await request.save();
+
+     // Deduct escrow if any
+     const escrowAmount = request.amount || 0;
+     if (escrowAmount > 0) {
+       if (user.escrowBalance < escrowAmount) {
+         return res.status(400).json({ message: "User escrow balance insufficient" });
+       }
+
+       user.escrowBalance -= escrowAmount;
+       user.escrowHistory.push({
+         type: "escrow_removed",
+         amount: escrowAmount,
+         description: description || `Removed escrow for cancelled request ${requestId}`,
+       });
+
+       await user.save();
+
+       // Optional: mark escrow cleared on request
+       request.escrowCleared = true;
+       await request.save();
+     }
+
+     res.status(200).json({
+       success: true,
+       message: `Request cancelled and escrow of ${escrowAmount} removed`,
+       escrowBalance: user.escrowBalance,
+     });
+
+   } catch (error) {
+     console.error("Escrow removal error:", error);
      res.status(500).json({ message: error.message });
    }
  };

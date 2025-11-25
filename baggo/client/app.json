@@ -13,8 +13,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.deracali.boltexponativewind",
       "infoPlist": {
-        "NSUserTrackingUsageDescription": "This identifier will be used to send you personalized notifications."
-      }
+        "NSUserTrackingUsageDescription": "This identifier will be used to send you personalized notifications.",
+"NSLocationWhenInUseUsageDescription": "This app needs access to your location to detect your country and currency"
+      },
+
     },
 
     "android": {
@@ -23,6 +25,8 @@
         "foregroundImage": "./assets/images/logo.jpeg",
         "backgroundColor": "#FFFFFF"
       },
+       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+       "usesCleartextTraffic": true,
       "notification": {
         "icon": "./assets/images/logo.jpeg",
         "color": "#E91E63",
