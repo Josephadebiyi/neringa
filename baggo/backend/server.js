@@ -97,6 +97,7 @@ app.use("/api/prices", priceRoutes);
 // ✅ Stripe Payment Intent Route (Standard Payment)
 app.post('/api/payment/create-intent', async (req, res) => {
   const { amount, travellerName, travellerEmail } = req.body;
+
   try {
     if (!amount) {
       return res.status(400).json({ error: 'Missing required parameter: amount.' });
@@ -113,8 +114,12 @@ app.post('/api/payment/create-intent', async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: { clientSecret: paymentIntent.client_secret },
+      data: {
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id   // IMPORTANT
+      },
     });
+
   } catch (error) {
     console.error('❌ Stripe Payment Intent Error:', error.message);
     res.status(500).json({ error: error.message });

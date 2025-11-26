@@ -162,6 +162,7 @@ const finalAmount = baseAmount - discount;
     }
 
     setPaymentLoading(true);
+
     try {
       const response = await axios.post(PAYMENT_INTENT_URL, {
         amount: finalAmount,
@@ -169,18 +170,28 @@ const finalAmount = baseAmount - discount;
         travellerEmail,
       });
 
-      const { clientSecret } = response.data.data;
+      const { clientSecret, paymentIntentId } = response.data.data;
+
       const { error, paymentIntent } = await confirmPayment(clientSecret, {
         paymentMethodType: "Card",
-        paymentMethodData: { billingDetails: { email: travellerEmail, name: travellerName } },
+        paymentMethodData: {
+          billingDetails: {
+            email: travellerEmail,
+            name: travellerName
+          }
+        },
       });
 
       if (error) throw new Error(error.message);
 
       if (paymentIntent.status === "Succeeded" || paymentIntent.status === "succeeded") {
+
+        // ✅ SAVE PAYMENT INTENT ID FOR REFUND
+        await AsyncStorage.setItem("lastPaymentIntentId", paymentIntentId);
+
         Alert.alert("✅ Payment Successful", "Your payment was completed.");
         await handleRequestPackage();
-         router.replace("/success-page");
+        router.replace("/success-page");
       } else {
         Alert.alert("⚠️ Payment status:", paymentIntent.status);
       }
@@ -191,6 +202,8 @@ const finalAmount = baseAmount - discount;
       setPaymentLoading(false);
     }
   };
+
+
 
   // 💰 Handle Paystack Payment
   const handlePaystackPayment = async () => {
@@ -431,7 +444,10 @@ const handlePaystackPress = () => {
           {paymentLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.payButtonText}>Pay {finalAmount.toFixed(2)}</Text>
+            <Text style={styles.payButtonText}>
+  Pay {finalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+</Text>
+
           )}
         </TouchableOpacity>
       </>
@@ -489,8 +505,9 @@ const handlePaystackPress = () => {
 </Modal>
 </>
   );
-
 }
+
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fb" },

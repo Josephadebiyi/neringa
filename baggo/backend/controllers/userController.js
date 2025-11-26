@@ -639,20 +639,15 @@ export const signIn = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, email: user.email }, // Use 'id' to match isAuthenticated
+      { id: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      sameSite: 'strict',
-    });
-
+    // Return token in JSON response instead of cookie
     res.status(200).json({
       message: 'Sign-in successful',
+      token,  // <-- send token
       user: {
         id: user._id,
         firstName: user.firstName,
@@ -665,6 +660,8 @@ export const signIn = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+
 
  export const  getUser = async (req, res) => {
   try {

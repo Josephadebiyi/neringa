@@ -94,14 +94,22 @@ export default function Dashboard() {
     try {
       setLoading(true);
       setError(null);
+
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        // No token, redirect to login
+        window.location.href = '/';
+        return;
+      }
+
       const response = await fetch(
         `https://bago-server.onrender.com/api/Adminbaggo/dashboard?page=${currentPage}&limit=${limit}`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`, // Send token for auth
           },
-          credentials: 'include',
         }
       );
 
@@ -136,6 +144,8 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+
 
   if (loading) {
     return (

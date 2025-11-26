@@ -17,6 +17,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
 import { Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
 
 const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 
@@ -467,15 +470,63 @@ export default function PackageDetailsScreen() {
 
 
 
-  {/* Raise Dispute Button */}
-  {!request?.dispute && (
-    <TouchableOpacity
-      style={[styles.disputeButton]}
-      onPress={() => setDisputeModalVisible(true)}
-    >
-      <Text style={styles.disputeButtonText}>Raise a Dispute</Text>
-    </TouchableOpacity>
+
+  {/* If cancelled → hide dispute button & show refund button */}
+  {status === "cancelled" ? (
+    <View style={styles.cancelledBox}>
+      <Text style={styles.cancelledText}>
+        Traveller cancelled this order.
+      </Text>
+
+      <TouchableOpacity
+    style={styles.refundButton}
+    onPress={async () => {
+      try {
+        // Get userId and paymentIntentId from AsyncStorage
+        const userId = await AsyncStorage.getItem('userId');
+        const paymentIntentId = await AsyncStorage.getItem('paymentIntentId');
+
+        if (!userId || !paymentIntentId) {
+          return alert('User or payment info missing.');
+        }
+
+        const reason = "Order cancelled by traveler"; // You can allow input if you want
+
+        const response = await axios.post(
+          `${API_BASE_URL}/request`,
+          { userId, paymentIntentId, reason },
+          { withCredentials: true }
+        );
+
+        if (response.data.success) {
+          alert('✅ Refund request submitted successfully!');
+        } else {
+          alert('❌ Failed to submit refund: ' + (response.data.message || 'Unknown error'));
+        }
+
+      } catch (err) {
+        console.error('Refund request error:', err.response?.data || err.message);
+        alert('❌ Error submitting refund. Check console for details.');
+      }
+    }}
+  >
+    <Text style={styles.refundButtonText}>Request Refund</Text>
+  </TouchableOpacity>
+
+    </View>
+  ) : (
+    /* If NOT cancelled → show dispute button (only if dispute doesn't already exist) */
+    !request?.dispute && (
+      <TouchableOpacity
+        style={[styles.disputeButton]}
+        onPress={() => setDisputeModalVisible(true)}
+      >
+        <Text style={styles.disputeButtonText}>Raise a Dispute</Text>
+      </TouchableOpacity>
+    )
   )}
+
+
 
 
   {/* Dispute Modal */}
@@ -704,6 +755,37 @@ receivedCard: {
   elevation: 3,
   alignItems: 'center',
 },
+cancelledBox: {
+  backgroundColor: "#FFE8E8",
+  padding: 15,
+  borderRadius: 10,
+  marginTop: 15,
+  borderWidth: 1,
+  borderColor: "#FFB3B3",
+  alignItems: "center",
+},
+
+cancelledText: {
+  color: "#B00000",
+  fontSize: 15,
+  fontWeight: "600",
+  marginBottom: 10,
+  textAlign: "center",
+},
+
+refundButton: {
+  backgroundColor: Colors.primary,
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+  borderRadius: 10,
+},
+
+refundButtonText: {
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: "600",
+},
+
 receivedInfo: {
   fontSize: 14,
   color: Colors.textLight,

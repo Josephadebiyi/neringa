@@ -10,6 +10,11 @@ import { getNotifications,getCompletedRequests,getDisputes, updateDispute,getReq
 import { recentOrder } from '../controllers/getRecentRequest.js';
 import { getConversations, getMessages } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
+import {
+  requestRefund,
+  approveRefund,
+  rejectRefund
+} from "../controllers/refundController.js";
 import fileUpload from 'express-fileupload';
 
 
@@ -43,7 +48,9 @@ userRouter.get("/logout",  logout )
 userRouter.put("/edit", isAuthenticated, edit)
 userRouter.put("/Trip/:id", isAuthenticated, UpdateTrip);
 
-
+userRouter.post("/request", requestRefund);
+userRouter.post("/approve/:id", approveRefund);
+userRouter.post("/reject/:id", rejectRefund);
 
 userRouter.post("/KycVerifications", isAuthenticated,  KycVerifications)
 userRouter.get("/getKyc", isAuthenticated,  getKyc)

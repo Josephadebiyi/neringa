@@ -16,14 +16,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch('https://bago-server.onrender.com/api/Adminbaggo/AdminLogin', {
-        method: 'POST', // Changed to POST to match backend
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for adminToken
-        body: JSON.stringify({ username, password }), // Send credentials in body
-      });
+      const response = await fetch(
+        'https://bago-server.onrender.com/api/Adminbaggo/AdminLogin',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username, password }), // send credentials in body
+        }
+      );
 
       const data = await response.json();
 
@@ -31,13 +33,12 @@ export default function Login() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Assuming backend returns { message, token, admin }
-      if (data.message === 'Login successful') {
-        // Store token in localStorage or rely on cookie (since backend sets httpOnly cookie)
-        localStorage.setItem('adminToken', data.token); // Optional, if you need token client-side
-        navigate('/dashboard');
+      // Store token in localStorage
+      if (data.token) {
+        localStorage.setItem('adminToken', data.token);
+        navigate('/dashboard'); // navigate to dashboard
       } else {
-        throw new Error(data.message || 'Login failed');
+        throw new Error('Token not returned from server');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');

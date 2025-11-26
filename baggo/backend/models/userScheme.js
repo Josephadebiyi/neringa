@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 const transactionSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['deposit', 'withdrawal', 'escrow_hold', 'escrow_release'],
+    enum: ['deposit', 'withdrawal', 'escrow_hold', 'escrow_release', 'escrow_removed'],
     required: true,
   },
   amount: {

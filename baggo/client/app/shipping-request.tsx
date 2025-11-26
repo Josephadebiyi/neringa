@@ -22,8 +22,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { backendomain } from '@/utils/backendDomain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-
-
 export default function ShippingRequestScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -289,29 +287,34 @@ useEffect(() => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.4, // compress from picker
+        quality: 0.5, // lower quality for faster upload
       });
 
       if (result.canceled || !result.assets?.length) return;
 
       const selectedImage = result.assets[0];
 
-      // Extra compression for speed + preventing Android crash
+      // Resize and compress image
       const manipResult = await ImageManipulator.manipulateAsync(
         selectedImage.uri,
-        [{ resize: { width: 900 } }],
-        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 800 } }], // reduce resolution
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG } // reduce quality
       );
 
-      setImagePreview(manipResult.uri);  // Show in UI
-      setImage(manipResult.uri);         // SAFE: pass to FormData only
+      const fileUri = manipResult.uri;
 
-    } catch (err) {
-      console.error("Image error:", err);
-      Alert.alert("Error", err?.message || "Failed to pick image.");
+      setImagePreview(fileUri); // show preview
+
+      // Instead of converting to Base64, just send the file URI
+      // Backend should accept file uploads (multipart/form-data)
+      setImage(fileUri);
+
+      await AsyncStorage.setItem('packageImage', fileUri); // store URI instead of Base64
+    } catch (err: any) {
+      console.error('Error picking or converting image:', err);
+      Alert.alert('Error', err?.message ?? 'Failed to process image.');
     }
   };
-
 
   const removeImage = async () => {
     setImage(null);
@@ -320,44 +323,21 @@ useEffect(() => {
   };
 
   const handleContinue = async () => {
-    if (!fromCity || !toCity || !Number(weight) || !receiverName || !receiverPhone) {
-    Alert.alert('Validation', 'Please fill origin/destination and all required fields.');
-    return;
-  }
-
+    if (!fromCity || !toCity || !weight || !description || !receiverName || !receiverPhone) {
+      Alert.alert('Validation', 'Please fill origin/destination and all required fields.');
+      return;
+    }
 
     setIsLoading(true);
 
     try {
-      // Use matchedPriceObj from state if available; otherwise fetch now
-      let currentMatch = matchedPriceObj;
-      if (!currentMatch) {
-        const resp = await axios.get(`${backendomain.backendomain}/api/prices/get`);
-        const prices = resp.data?.prices || resp.data || [];
-
-        const normalizedFromCity = normalize(fromCity);
-        const normalizedToCity = normalize(toCity);
-
-        currentMatch =
-          prices.find((p: any) => (p.from || '').trim().toLowerCase() === normalizedFromCity &&
-                                  (p.to || '').trim().toLowerCase() === normalizedToCity) ||
-          prices.find((p: any) => (p.from || '').trim().toLowerCase().includes(normalizedFromCity) &&
-                                  (p.to || '').trim().toLowerCase().includes(normalizedToCity)) ||
-          prices[0] || null;
-
-        // update preview state so UI stays consistent after continue
-        setMatchedPriceObj(currentMatch);
-        setFetchedPricePerKg(currentMatch ? Number(currentMatch.pricePerKg) : null);
-        setMinWeight(currentMatch ? Number(currentMatch.minWeightKg || 0) : 0);
-        setDiscountRate(currentMatch ? Number(currentMatch.discountRate || 0) : 0);
-      }
-
+      // Price logic
+      const currentMatch = matchedPriceObj;
       const pricePerKg = currentMatch ? Number(currentMatch.pricePerKg) : (fetchedPricePerKg ?? initialTraveler.pricePerKg ?? 7);
       const minW = currentMatch ? Number(currentMatch.minWeightKg || 0) : minWeight || 0;
       const disc = currentMatch ? Number(currentMatch.discountRate || 0) : discountRate || 0;
 
-      const weightNum = Math.max(Number(weight) || minW, minW);
-
+      const weightNum = Math.max(parseFloat(weight || '0'), minW);
       let shippingFee = weightNum * pricePerKg;
       if (disc > 0) shippingFee = shippingFee * (1 - disc);
 
@@ -365,49 +345,42 @@ useEffect(() => {
       const serviceFee = shippingFee * 0.15;
       const total = shippingFee + insuranceFee + serviceFee;
 
-      console.log('Using pricePerKg:', pricePerKg, 'minWeight:', minW, 'discount:', disc);
-      console.log('Computed shippingFee:', shippingFee, 'total:', total);
+      const dataUri = image || (await AsyncStorage.getItem('packageImage')) || null;
 
-      let dataUri = image;
+      // Create FormData
+      const formData = new FormData();
+      formData.append('travelerId', initialTraveler.id);
+      formData.append('travelerName', initialTraveler.name);
+      formData.append('fromCountry', fromCountry || '');
+      formData.append('fromCity', fromCity);
+      formData.append('toCountry', toCountry || '');
+      formData.append('toCity', toCity);
+      formData.append('packageWeight', weightNum.toString());
+      formData.append('receiverName', receiverName);
+      formData.append('receiverPhone', receiverPhone);
+      formData.append('description', description);
+      formData.append('value', parseFloat(itemValue || '0').toString());
+      formData.append('amount', total.toFixed(2));
+      formData.append('pricePerKg', pricePerKg.toString());
+      formData.append('tripId', initialTraveler.tripId || '');
 
-if (!dataUri) {
-  dataUri = await AsyncStorage.getItem('packageImage');
-}
+      if (dataUri) {
+        // @ts-ignore
+        formData.append('image', { uri: dataUri, name: 'package.jpg', type: 'image/jpeg' });
+      }
 
-
-      const packagePayload = {
-        travelerId: initialTraveler.id,
-        travelerName: initialTraveler.name,
-        fromCountry: fromCountry || '',
-        fromCity,
-        toCountry: toCountry || '',
-        toCity,
-        packageWeight: weightNum,
-        receiverName,
-        receiverPhone,
-        description,
-        value: parseFloat(itemValue) || 0,
-        image: dataUri,
-        amount: total.toFixed(2),
-        pricePerKg: pricePerKg,
-        tripId: initialTraveler.tripId,
-      };
-
-      const createResp = await axios.post(
-        `${backendomain.backendomain}/api/baggo/createPackage`,
-        packagePayload,
-        { withCredentials: true }
-      );
+      const createResp = await axios.post(`${backendomain.backendomain}/api/baggo/createPackage`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
+      });
 
       const packageId = createResp.data?.package?._id;
       if (!packageId) throw new Error('Package ID not returned');
 
       console.log('Package created, redirecting to payment page:', packageId);
 
-      // Persist image if available
       if (dataUri) await AsyncStorage.setItem('packageImage', dataUri);
 
-      // Navigate to payment page with everything needed
       const out = {
         packageId,
         travelerId: initialTraveler.id,
@@ -420,10 +393,7 @@ if (!dataUri) {
         image: dataUri,
       };
 
-      const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v == null ? '' : String(v)]))
-      ).toString();
-
+      const qs = new URLSearchParams(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v == null ? '' : String(v)]))).toString();
       router.push(`/payment?${qs}`);
     } catch (err: any) {
       console.error('Error creating package:', err);
@@ -432,6 +402,7 @@ if (!dataUri) {
       setIsLoading(false);
     }
   };
+
 
   return (
     <View style={styles.container}>
