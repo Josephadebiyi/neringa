@@ -40,7 +40,7 @@ export default function KYCVerificationManager() {
   const fetchKYCData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://bago-server.onrender.com/api/Adminbaggo/getAllkyc', {
+      const response = await fetch('http://localhost:3000/api/Adminbaggo/getAllkyc', {
         credentials: 'include'
       });
 
@@ -72,7 +72,7 @@ export default function KYCVerificationManager() {
 
     try {
       setProcessing(true);
-      const response = await fetch('https://bago-server.onrender.com/api/Adminbaggo/Verifykyc', {
+      const response = await fetch('http://localhost:3000/api/Adminbaggo/Verifykyc', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

@@ -6,7 +6,7 @@ import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
 import { createPackage } from '../controllers/PackageController.js';
-import { getNotifications,getCompletedRequests,getDisputes, updateDispute,getRequests, uploadRequestImage,confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
+import { getNotifications,getCompletedRequests,getDisputes,updatePaymentStatus, updateDispute,getRequests, uploadRequestImage,confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
 import { recentOrder } from '../controllers/getRecentRequest.js';
 import { getConversations, getMessages } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
@@ -57,6 +57,7 @@ userRouter.get("/getKyc", isAuthenticated,  getKyc)
 
 
 userRouter.post('/request/:requestId/raise-dispute', raiseDispute);
+userRouter.put("/request/:requestId/payment", updatePaymentStatus);
 
 // userRouter.get("/getWalletBalance", isAuthenticated,  getWalletBalance)
 userRouter.post("/createPackage", isAuthenticated,  createPackage)

@@ -479,43 +479,45 @@ export default function PackageDetailsScreen() {
       </Text>
 
       <TouchableOpacity
-    style={styles.refundButton}
-    onPress={async () => {
-      try {
-        const userId = request?.sender?._id || request?.sender?.id; // or whatever your DB field is
-        const stripePaymentIntentId = request?.payment?.stripePaymentIntentId;
-        const paystackReference = request?.payment?.paystackReference;
+      style={styles.refundButton}
+      onPress={async () => {
+        try {
+          const userId = request?.sender?._id || request?.sender?.id; // Sender ID
+          const paymentInfo = request?.paymentInfo;
 
-        if (!userId || (!stripePaymentIntentId && !paystackReference)) {
-          return alert('User or payment info missing.');
+          if (!userId || !paymentInfo?.method) {
+            return alert('User or payment info missing.');
+          }
+
+          const reason = "Order cancelled by traveler"; // Or let user input
+
+          const payload = {
+            userId,
+            reason,
+            paymentMethod: paymentInfo.method,
+            paymentStatus: paymentInfo.status,
+            requestId: paymentInfo.requestId,
+          };
+
+          const response = await axios.post(
+            `${API_BASE_URL}/request`,
+            payload,
+            { withCredentials: true }
+          );
+
+          if (response.data.success) {
+            alert('✅ Refund request submitted successfully!');
+          } else {
+            alert('❌ Failed to submit refund: ' + (response.data.message || 'Unknown error'));
+          }
+        } catch (err) {
+          console.error('Refund request error:', err.response?.data || err.message);
+          alert('❌ Error submitting refund. Check console for details.');
         }
-
-        const reason = "Order cancelled by traveler"; // or let user input
-
-        const payload: any = { userId, reason };
-        if (stripePaymentIntentId) payload.paymentIntentId = stripePaymentIntentId;
-        if (paystackReference) payload.paystackReference = paystackReference;
-
-        const response = await axios.post(
-          `${API_BASE_URL}/request`,
-          payload,
-          { withCredentials: true }
-        );
-
-        if (response.data.success) {
-          alert('✅ Refund request submitted successfully!');
-        } else {
-          alert('❌ Failed to submit refund: ' + (response.data.message || 'Unknown error'));
-        }
-
-      } catch (err) {
-        console.error('Refund request error:', err.response?.data || err.message);
-        alert('❌ Error submitting refund. Check console for details.');
-      }
-    }}
-  >
-    <Text style={styles.refundButtonText}>Request Refund</Text>
-  </TouchableOpacity>
+      }}
+    >
+      <Text style={styles.refundButtonText}>Request Refund</Text>
+    </TouchableOpacity>
 
 
     </View>

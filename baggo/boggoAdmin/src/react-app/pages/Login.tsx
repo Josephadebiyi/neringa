@@ -17,7 +17,7 @@ export default function Login() {
 
     try {
       const response = await fetch(
-        'https://bago-server.onrender.com/api/Adminbaggo/AdminLogin',
+        'http://localhost:3000/api/Adminbaggo/AdminLogin',
         {
           method: 'POST',
           headers: {

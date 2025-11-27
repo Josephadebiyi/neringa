@@ -62,7 +62,7 @@ async function createStripeAccountForUser(user) {
 // ✅ Middleware setup
 app.use(
   cors({
-    origin:"http://localhost:5173",
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -96,35 +96,34 @@ app.use("/api/prices", priceRoutes);
 
 // ✅ Stripe Payment Intent Route (Standard Payment)
 app.post('/api/payment/create-intent', async (req, res) => {
-const { amount, travellerName, travellerEmail } = req.body;
+  const { amount, travellerName, travellerEmail } = req.body;
 
-try {
-if (!amount) {
-return res.status(400).json({ error: 'Missing required parameter: amount.' });
-}
+  try {
+    if (!amount) {
+      return res.status(400).json({ error: 'Missing required parameter: amount.' });
+    }
 
+    const stripeAmount = Math.round(Number(amount) * 100);
 
-const stripeAmount = Math.round(Number(amount) * 100);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: stripeAmount,
+      currency: 'usd',
+      metadata: { travellerName, travellerEmail },
+      automatic_payment_methods: { enabled: true },
+    });
 
-const paymentIntent = await stripe.paymentIntents.create({
-  amount: stripeAmount,
-  currency: 'usd',
-  metadata: { travellerName, travellerEmail },
-  automatic_payment_methods: { enabled: true },
-});
+    res.status(200).json({
+      success: true,
+      data: {
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id   // IMPORTANT
+      },
+    });
 
-res.status(200).json({
-  success: true,
-  data: {
-    clientSecret: paymentIntent.client_secret
-  },
-});
-
-
-} catch (error) {
-console.error('❌ Stripe Payment Intent Error:', error.message);
-res.status(500).json({ error: error.message });
-}
+  } catch (error) {
+    console.error('❌ Stripe Payment Intent Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 

@@ -1019,3 +1019,51 @@ export const raiseDispute = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+
+
+
+
+
+export const updatePaymentStatus = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { paymentInfo } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(requestId)) {
+      return res.status(400).json({ message: "Invalid request ID" });
+    }
+
+    if (!paymentInfo || !paymentInfo.status || !paymentInfo.method) {
+      return res.status(400).json({ message: "Missing payment status or method" });
+    }
+
+    // Find request
+    const request = await Request.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    // Save payment status inside request
+    request.payment = {
+      method: paymentInfo.method,
+      status: paymentInfo.status,
+      updatedAt: new Date(),
+    };
+
+    await request.save();
+
+    return res.status(200).json({
+      message: "Payment updated successfully",
+      payment: request.payment,
+      success: true,
+    });
+
+  } catch (err) {
+    console.error("Error updating payment:", err);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: err.message,
+    });
+  }
+};

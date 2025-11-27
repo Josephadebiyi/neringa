@@ -14,7 +14,7 @@ export default function SettingsPage() {
  const fetchAutoVerification = async () => {
  try {
  setLoading(true);
- const response = await fetch('https://bago-server.onrender.com/api/Adminbaggo/getCurrentSetting', {
+ const response = await fetch('http://localhost:3000/api/Adminbaggo/getCurrentSetting', {
  method: 'GET',
  credentials: 'include', // Include cookies/credentials
  });
@@ -39,7 +39,7 @@ export default function SettingsPage() {
  const newValue = !autoVerification;
  try {
  setSaving(true);
- const response = await fetch('https://bago-server.onrender.com/api/Adminbaggo/toggleAutoVerification', {
+ const response = await fetch('http://localhost:3000/api/Adminbaggo/toggleAutoVerification', {
  method: 'PUT',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({ autoVerification: newValue }),

@@ -157,17 +157,19 @@ const finalAmount = baseAmount - discount;
 
 
   // ✅ Update request payment
-  const updatePaymentStatus = async ({ requestId, method, stripePaymentIntentId, paystackReference }) => {
+  // ✅ Update request payment
+  const updatePaymentStatus = async ({ requestId, method, status }) => {
     if (!requestId) return;
 
     try {
       await axios.put(
         `${backendomain.backendomain}/api/request/${requestId}/payment`,
         {
-          method,
-          stripePaymentIntentId,
-          paystackReference,
-          status: "paid",
+          paymentInfo: {
+            requestId,
+            method,
+            status, // "paid" or "failed"
+          },
         },
         { withCredentials: true }
       );
@@ -176,8 +178,6 @@ const finalAmount = baseAmount - discount;
       console.error("❌ Failed to update request payment:", err.response?.data || err.message);
     }
   };
-
-
 
   // 🧾 Handle Stripe Payment
   const handleStripePayment = async () => {
@@ -195,35 +195,36 @@ const finalAmount = baseAmount - discount;
         travellerEmail,
       });
 
-      const { clientSecret, paymentIntentId } = response.data.data;
+      const { clientSecret } = response.data.data;
 
       const { error, paymentIntent } = await confirmPayment(clientSecret, {
         paymentMethodType: "Card",
         paymentMethodData: {
           billingDetails: {
             email: travellerEmail,
-            name: travellerName
-          }
+            name: travellerName,
+          },
         },
       });
 
       if (error) throw new Error(error.message);
 
-      if (paymentIntent.status === "Succeeded" || paymentIntent.status === "succeeded") {
+      const requestId = await handleRequestPackage();
 
+      if (paymentIntent.status === "succeeded") {
         Alert.alert("✅ Payment Successful", "Your payment was completed.");
 
-        // ✅ 1. Send package request and get request ID
-        const requestId = await handleRequestPackage();
-
-        // ✅ 2. Update payment info for that request
         if (requestId) {
-          await updatePaymentStatus({ requestId, method: "stripe", stripePaymentIntentId: paymentIntentId });
+          await updatePaymentStatus({ requestId, method: "stripe", status: "paid" });
         }
 
         router.replace("/success-page");
       } else {
         Alert.alert("⚠️ Payment status:", paymentIntent.status);
+
+        if (requestId) {
+          await updatePaymentStatus({ requestId, method: "stripe", status: "failed" });
+        }
       }
     } catch (error) {
       console.error("❌ Payment Error:", error);
@@ -239,7 +240,7 @@ const finalAmount = baseAmount - discount;
     try {
       setPaymentLoading(true);
       const res = await axios.post(PAYSTACK_INIT_URL, {
-        amount: finalAmount,
+        amount: Math.round(Number(finalAmount) * 100),
         email: travellerEmail,
       });
 
@@ -333,36 +334,48 @@ const handleRequestPackage = async () => {
         // ✅ User completed payment
         if (url.includes("reference=")) {
           setPaystackUrl(null);
-
-          // Extract reference from URL
           const reference = url.split("reference=")[1].split("&")[0];
           console.log("Paystack payment reference:", reference);
 
-
           try {
-            // Verify payment on backend
             const verifyRes = await axios.get(
               `${backendomain.backendomain}/api/payment/verify/${reference}`
             );
 
-            if (verifyRes.data.status) {
-              Alert.alert("✅ Payment Successful", "Your Paystack payment was successful.");
+            const requestId = await handleRequestPackage();
 
-              // 1️⃣ Send package request and get request ID
-              const requestId = await handleRequestPackage();
+            if (requestId) {
+              if (verifyRes.data.status) {
+                Alert.alert("✅ Payment Successful", "Your Paystack payment was successful.");
 
-              // 2️⃣ Update payment info for that request in backend
-              if (requestId) {
-                await updatePaymentStatus({ requestId, method: "paystack", paystackReference: reference });
+                await updatePaymentStatus({
+                  requestId,
+                  method: "paystack",
+                  status: "paid",
+                });
+
+                router.replace("/success-page");
+              } else {
+                await updatePaymentStatus({
+                  requestId,
+                  method: "paystack",
+                  status: "failed",
+                });
+
+                router.replace("/failed-page");
               }
-
-              router.replace("/success-page");
-            } else {
-              router.replace("/failed-page");
             }
           } catch (err) {
             console.error("❌ Verification error:", err.response?.data || err.message);
             Alert.alert("❌ Error", "Could not verify payment.");
+
+            if (requestId) {
+              await updatePaymentStatus({
+                requestId,
+                method: "paystack",
+                status: "failed",
+              });
+            }
           }
         }
 
@@ -373,6 +386,7 @@ const handleRequestPackage = async () => {
         }
       }}
     />
+
 
 
     );
