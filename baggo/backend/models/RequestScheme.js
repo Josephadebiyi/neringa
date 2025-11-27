@@ -63,6 +63,24 @@ const RequestSchema = new mongoose.Schema(
         },
       },
     ],
+    paymentInfo: {
+    requestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Request',
+      required: false, // optional, can be null if not set yet
+    },
+    method: {
+      type: String,
+      enum: ['stripe', 'paystack', null],
+      default: null,
+    },
+    status: {
+      type: String,
+      enum: ['paid', 'failed', null],
+      default: null,
+    },
+  },
+
     estimatedDeparture: {
       type: Date,
     },

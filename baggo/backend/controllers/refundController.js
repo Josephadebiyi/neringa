@@ -1,18 +1,20 @@
 import Refund from "../models/refundModel.js";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // USER: Request refund
 export const requestRefund = async (req, res) => {
   try {
-    const { userId, paymentIntentId, reason } = req.body;
+    const { userId, reason, paymentInfo } = req.body;
+    // paymentInfo should have: method, status, requestId
 
     const refundRequest = await Refund.create({
       userId,
-      paymentIntentId,
       reason,
       status: "pending",
+      paymentInfo: {
+        method: paymentInfo?.method || null,
+        status: paymentInfo?.status || null,
+        requestId: paymentInfo?.requestId || null,
+      },
     });
 
     res.status(201).json({
@@ -26,7 +28,6 @@ export const requestRefund = async (req, res) => {
   }
 };
 
-
 // ADMIN: Approve refund
 export const approveRefund = async (req, res) => {
   try {
@@ -37,17 +38,13 @@ export const approveRefund = async (req, res) => {
       return res.status(404).json({ message: "Refund request not found" });
     }
 
-    const refund = await stripe.refunds.create({
-      payment_intent: refundRequest.paymentIntentId,
-    });
-
+    // Simply mark as refunded; no Stripe/Paystack calls
     refundRequest.status = "refunded";
-    refundRequest.refundId = refund.id;
     await refundRequest.save();
 
     res.json({
       success: true,
-      message: "Refund approved and processed",
+      message: "Refund approved",
       data: refundRequest
     });
 
@@ -55,7 +52,6 @@ export const approveRefund = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 // ADMIN: Reject refund
 export const rejectRefund = async (req, res) => {
@@ -72,30 +68,6 @@ export const rejectRefund = async (req, res) => {
     res.json({
       success: true,
       message: "Refund request rejected"
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
-
-
-
-// ADMIN: Get all refunds
-export const getAllRefunds = async (req, res) => {
-  try {
-    const { status } = req.query; // optional ?status=pending
-
-    const filter = status ? { status } : {};
-
-    const refunds = await Refund.find(filter).sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      count: refunds.length,
-      data: refunds
     });
 
   } catch (error) {
