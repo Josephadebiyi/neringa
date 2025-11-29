@@ -13,6 +13,10 @@ import { Colors } from '@/constants/Colors';
 import { Plus, Plane, Calendar, Package, TrendingUp } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+
+
+
 
 export default function TravelerDashboardScreen() {
   const router = useRouter();
@@ -25,6 +29,8 @@ export default function TravelerDashboardScreen() {
   const [completedLoading, setCompletedLoading] = useState(false);
   const [symbol, setSymbol] = useState("₦");
     const [country, setCountry] = useState(null);
+    const [isNigeria, setIsNigeria] = useState(false);
+
 const [currency, setCurrency] = useState('EUR');
 
 const CURRENCY_KEY = "userCurrency";
@@ -118,48 +124,94 @@ useEffect(() => {
       const savedCurrency = await loadCurrency();   // e.g. "USD"
       const savedCountryName = await AsyncStorage.getItem("userCountry"); // e.g. "Nigeria"
 
-      // Default fallbacks
-      let detectedCurrency = "USD";
-      let detectedCountryName = "United States";
+      // Request location permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission denied');
 
-      // --- Try to detect IP location ---
-      try {
-        const response = await fetch("https://ipapi.co/json/");
-        if (response.ok) {
-          const data = await response.json();
-          console.log("🌍 Location data:", data);
+        // fallback to saved or default
+        setCurrency(savedCurrency || "NGN");
+        setCountry(savedCountryName || "Nigeria");
+        setSymbol(currencySymbols[savedCurrency] || "₦");
+        setLoading(false);
+        return;
+      }
 
-          detectedCurrency = data.currency || "USD";
-          detectedCountryName = data.country_name || "United States";
-        } else {
-          console.log("⚠️ IPAPI returned non-200:", response.status);
+      // Get current position
+      const loc = await Location.getCurrentPositionAsync({});
+
+      // Reverse geocode to get country info
+      const reverse = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      let detectedCountryName = savedCountryName || "Nigeria";
+      let detectedCurrency = savedCurrency || "NGN";
+
+      if (reverse.length > 0) {
+        const countryCode = reverse[0].isoCountryCode || 'NG';
+        const countryName = reverse[0].country || 'Nigeria';
+
+        // Map country code to currency
+        switch (countryCode) {
+          case 'NG': detectedCurrency = 'NGN'; break;
+          case 'GH': detectedCurrency = 'GHS'; break;
+          case 'KE': detectedCurrency = 'KES'; break;
+          case 'ZA': detectedCurrency = 'ZAR'; break;
+          case 'EG': detectedCurrency = 'EGP'; break;
+          case 'TZ': detectedCurrency = 'TZS'; break;
+          case 'UG': detectedCurrency = 'UGX'; break;
+          case 'MA': detectedCurrency = 'MAD'; break;
+          case 'DZ': detectedCurrency = 'DZD'; break;
+          case 'SD': detectedCurrency = 'SDG'; break;
+          case 'FR': case 'DE': case 'IT': case 'ES': case 'PT': case 'NL':
+          case 'LU': case 'BE': case 'IE': case 'GR': case 'FI': case 'EE':
+          case 'LT': case 'LV': case 'CY': case 'MT': case 'SK': case 'SI':
+            detectedCurrency = 'EUR'; break;
+          case 'GB': detectedCurrency = 'GBP'; break;
+          case 'CA': detectedCurrency = 'CAD'; break;
+          case 'MX': detectedCurrency = 'MXN'; break;
+          case 'BR': detectedCurrency = 'BRL'; break;
+          case 'AR': detectedCurrency = 'ARS'; break;
+          case 'CL': detectedCurrency = 'CLP'; break;
+          case 'CO': detectedCurrency = 'COP'; break;
+          case 'PE': detectedCurrency = 'PEN'; break;
+          case 'UY': detectedCurrency = 'UYU'; break;
+          case 'IN': detectedCurrency = 'INR'; break;
+          case 'CN': detectedCurrency = 'CNY'; break;
+          case 'JP': detectedCurrency = 'JPY'; break;
+          case 'RU': detectedCurrency = 'RUB'; break;
+          case 'TR': detectedCurrency = 'TRY'; break;
+          case 'AE': detectedCurrency = 'AED'; break;
+          case 'SG': detectedCurrency = 'SGD'; break;
+          case 'AU': detectedCurrency = 'AUD'; break;
+          case 'NZ': detectedCurrency = 'NZD'; break;
+          case 'CH': detectedCurrency = 'CHF'; break;
+          default: detectedCurrency = 'NGN';
         }
-      } catch (err) {
-        console.log("⚠️ Failed to fetch IP location:", err.message);
+
+        detectedCountryName = countryName;
+
+        // Update AsyncStorage only if country changed
+        if (savedCountryName !== countryName) {
+          await saveCurrency(detectedCurrency);
+          await AsyncStorage.setItem("userCountry", countryName);
+        }
       }
 
-      const finalCountry = savedCountryName || detectedCountryName;
-      const finalCurrency = savedCurrency || detectedCurrency;
+      // Update state
+      setCountry(detectedCountryName);
+      setCurrency(detectedCurrency);
+      setSymbol(currencySymbols[detectedCurrency] || '₦');
+      setIsNigeria(detectedCurrency === 'NGN');
 
-      // If country has changed → update everything & save
-      if (savedCountryName !== detectedCountryName) {
-        setCurrency(detectedCurrency);
-        setCountry(detectedCountryName);
-        setSymbol(currencySymbols[detectedCurrency] || "$");
+      console.log('Detected Country:', detectedCountryName);
+      console.log('Currency:', detectedCurrency, currencySymbols[detectedCurrency]);
 
-        await saveCurrency(detectedCurrency);
-        await AsyncStorage.setItem("userCountry", detectedCountryName);
-      } else {
-        // Country is same → use saved or detected
-        setCurrency(finalCurrency);
-        setCountry(finalCountry);
-        setSymbol(currencySymbols[finalCurrency] || "$");
-      }
-
-    } catch (error) {
-      console.error("Failed to detect location or load currency:", error);
-
-      // SAFE fallback to Nigeria
+    } catch (err) {
+      console.error('Location detection error:', err);
+      // fallback to saved or default
       setCurrency("NGN");
       setCountry("Nigeria");
       setSymbol("₦");
@@ -168,7 +220,6 @@ useEffect(() => {
     }
   })();
 }, []);
-
 
 
   // ✅ Fetch user
@@ -402,29 +453,30 @@ useEffect(() => {
                     </View>
                   </View>
 
-                  <View style={styles.tripFooter}>
-          <View style={{ flex: 1 }}>
-            <TouchableOpacity
-              style={[styles.viewButton, !trip._id && styles.disabledButton]}
-              onPress={() => trip._id && router.push(`/package-request?id=${trip._id}`)}
-              disabled={!trip._id}
-            >
-              <Text style={styles.viewButtonText}>View Details</Text>
-            </TouchableOpacity>
-          </View>
+                  <View style={[styles.tripFooter, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
 
-          <View style={{ flex: 1, alignItems: 'flex-end' }}>
-            <TouchableOpacity
-              style={[styles.editButton, !trip._id && styles.disabledButton]}
-              onPress={() =>
-                trip._id &&
-                router.push(`/edit-trip?id=${trip._id}&date=${trip.createdAt || trip.date}`)
-              }
-            >
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.editButton, !trip._id && styles.disabledButton]}
+            onPress={() =>
+              trip._id &&
+              router.push(`/edit-trip?id=${trip._id}&date=${trip.createdAt || trip.date}`)
+            }
+            disabled={!trip._id}
+          >
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.viewButton, { alignSelf: "flex-end" }, !trip._id && styles.disabledButton]}
+            onPress={() => trip._id && router.push(`/package-request?id=${trip._id}`)}
+            disabled={!trip._id}
+          >
+            <Text style={styles.viewButtonText}>View Details</Text>
+          </TouchableOpacity>
+
         </View>
+
+
 
                 </TouchableOpacity>
 
@@ -552,11 +604,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: Colors.primary,
     alignSelf: "flex-start",   // ← prevents stretching
   },
   disabledButton: { backgroundColor: Colors.textLight, opacity: 0.5 },
-  viewButtonText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+  viewButtonText: { fontSize: 13, fontWeight: '600', color: Colors.white, },
   fab: {
     position: 'absolute', bottom: 24, right: 24, width: 56, height: 56,
     borderRadius: 28, backgroundColor: Colors.primary, justifyContent: 'center',

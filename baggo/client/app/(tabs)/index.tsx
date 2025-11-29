@@ -7,7 +7,8 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback  } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
@@ -18,7 +19,6 @@ import { backendomain } from '@/utils/backendDomain';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import PushNotificationSetup from '@/utils/PushNotificationSetup';
-
 
 const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 
@@ -37,6 +37,8 @@ export default function HomeScreen() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [symbol, setSymbol] = useState("₦");
     const [country, setCountry] = useState(null);
+    const [isNigeria, setIsNigeria] = useState(false);
+
 const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 const [userData, setUserData] = useState(null);
@@ -135,45 +137,80 @@ const loadCurrency = async (): Promise<string | null> => {
 useEffect(() => {
   (async () => {
     try {
-      const savedCurrency = await loadCurrency();
-      const savedCountry = await AsyncStorage.getItem('userCountry');
-
-      let detectedCurrency = "USD";
-      let detectedCountry = "United States";
-
-      try {
-        const response = await fetch("https://ipapi.co/json/");
-        if (!response.ok) throw new Error("Failed to fetch IP location");
-
-        const data = await response.json();
-        detectedCurrency = data.currency || detectedCurrency;
-        detectedCountry = data.country_name || detectedCountry;
-
-      } catch (ipErr) {
-        console.log("⚠️ IPAPI failed -> Using fallback values:", ipErr.message);
+      // Request location permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+        return;
       }
 
-      const finalCurrency = savedCurrency || detectedCurrency;
-      const finalCountry = savedCountry || detectedCountry;
+      // Get current position
+      const loc = await Location.getCurrentPositionAsync({});
 
-      setCurrency(finalCurrency);
-      setCountry(finalCountry);
-      setSymbol(currencySymbols[finalCurrency] || "$");
+      // Reverse geocode to get country info
+      const reverse = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
 
-      await saveCurrency(finalCurrency);
-      await AsyncStorage.setItem("userCountry", finalCountry);
+      if (reverse.length > 0) {
+        const countryCode = reverse[0].isoCountryCode || 'US';
+        const countryName = reverse[0].country || 'Unknown';
 
-    } catch (error) {
-      console.error("Location detection error:", error);
-      setCurrency("USD");
-      setCountry("United States");
-      setSymbol("$");
-    } finally {
-      setLoading(false);
+        // Map country code to currency
+        let currency = 'USD'; // default
+        switch (countryCode) {
+          case 'NG': currency = 'NGN'; break;
+          case 'GH': currency = 'GHS'; break;
+          case 'KE': currency = 'KES'; break;
+          case 'ZA': currency = 'ZAR'; break;
+          case 'EG': currency = 'EGP'; break;
+          case 'TZ': currency = 'TZS'; break;
+          case 'UG': currency = 'UGX'; break;
+          case 'MA': currency = 'MAD'; break;
+          case 'DZ': currency = 'DZD'; break;
+          case 'SD': currency = 'SDG'; break;
+          case 'FR': case 'DE': case 'IT': case 'ES': case 'PT': case 'NL':
+          case 'LU': case 'BE': case 'IE': case 'GR': case 'FI': case 'EE':
+          case 'LT': case 'LV': case 'CY': case 'MT': case 'SK': case 'SI':
+            currency = 'EUR'; break;
+          case 'GB': currency = 'GBP'; break;
+          case 'CA': currency = 'CAD'; break;
+          case 'MX': currency = 'MXN'; break;
+          case 'BR': currency = 'BRL'; break;
+          case 'AR': currency = 'ARS'; break;
+          case 'CL': currency = 'CLP'; break;
+          case 'CO': currency = 'COP'; break;
+          case 'PE': currency = 'PEN'; break;
+          case 'UY': currency = 'UYU'; break;
+          case 'IN': currency = 'INR'; break;
+          case 'CN': currency = 'CNY'; break;
+          case 'JP': currency = 'JPY'; break;
+          case 'RU': currency = 'RUB'; break;
+          case 'TR': currency = 'TRY'; break;
+          case 'AE': currency = 'AED'; break;
+          case 'SG': currency = 'SGD'; break;
+          case 'AU': currency = 'AUD'; break;
+          case 'NZ': currency = 'NZD'; break;
+          case 'CH': currency = 'CHF'; break;
+          default: currency = 'USD';
+        }
+
+        // Update state
+        setCountry(countryCode);
+        setCurrency(currency);
+        setSymbol(currencySymbols[currency] || '$');
+        setIsNigeria(countryCode === 'NG');
+
+        console.log('Detected Country:', countryName);
+        console.log('Country Code:', countryCode);
+        console.log('Currency:', currency, currencySymbols[currency]);
+      }
+    } catch (err) {
+      console.error('Location detection error:', err);
     }
   })();
 }, []);
-
 
 
 const fetchNotifications = async () => {
@@ -264,8 +301,15 @@ const fetchNotifications = async () => {
     loadMode();
     fetchData();
     fetchUserLocation();
-    fetchRecentOrders();
   }, []);
+
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecentOrders();  // refresh orders whenever screen focuses
+    }, [])
+  );
+
 
   const loadMode = async () => {
     try {
@@ -659,6 +703,7 @@ const fetchNotifications = async () => {
     availableKg: (trip.remaining_kg ?? 0).toString(),
     pricePerKg: (trip.price_per_kg ?? 0).toString(),
     mode: trip.travelMeans || 'flight',
+    travellerEmail: trip.profile?.email || '',
   },
 })
     }

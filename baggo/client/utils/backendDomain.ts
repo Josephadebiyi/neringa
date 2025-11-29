@@ -1,3 +1,3 @@
 export const backendomain = {
-  backendomain: "https://bago-server.onrender.com"
+  backendomain: "http://172.20.10.3:3000"
 };

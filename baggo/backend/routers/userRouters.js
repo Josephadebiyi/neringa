@@ -1,5 +1,5 @@
 import express from 'express';
-import { edit, getUser, logout, signIn,verifyEmail,createDelivery,forgotPassword,resendOtp,verifyOtp,resetPassword, signUp,sendToEscrow,releaseFromEscrow,addToEscrow,handleCancelledRequestEscrow, getWallet,withdrawFunds,addFunds,uploadOrUpdateImage } from '../controllers/userController.js';
+import { edit, getUser, logout,useReferralDiscount, signIn,verifyEmail,createDelivery,forgotPassword,resendOtp,verifyOtp,resetPassword, signUp,sendToEscrow,releaseFromEscrow,addToEscrow,handleCancelledRequestEscrow, getWallet,withdrawFunds,addFunds,uploadOrUpdateImage } from '../controllers/userController.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
@@ -13,7 +13,9 @@ import { GetDetials } from '../controllers/GetProductDetails.js';
 import {
   requestRefund,
   approveRefund,
-  rejectRefund
+  rejectRefund,
+  getAllRefunds,
+  getRefundByRequestId
 } from "../controllers/refundController.js";
 import fileUpload from 'express-fileupload';
 
@@ -38,7 +40,7 @@ userRouter.post('/forgot-password', forgotPassword);
 userRouter.post('/verify-otp', verifyOtp);
 userRouter.post('/reset-password', resetPassword);
 userRouter.post("/resend-otp", resendOtp);
-userRouter.post('/AddAtrip',  isAuthenticated, AddAtrip)
+userRouter.post('/AddAtrip', AddAtrip)
 userRouter.post('/:tripId/reviews', isAuthenticated, AddReviewToTrip);
 userRouter.get("/MyTrips", isAuthenticated,  MyTrips )
 userRouter.get("/getuser", isAuthenticated,  getUser)
@@ -48,13 +50,16 @@ userRouter.get("/logout",  logout )
 userRouter.put("/edit", isAuthenticated, edit)
 userRouter.put("/Trip/:id", isAuthenticated, UpdateTrip);
 
-userRouter.post("/request", requestRefund);
-userRouter.post("/approve/:id", approveRefund);
-userRouter.post("/reject/:id", rejectRefund);
+userRouter.post("/request/refund", requestRefund);
+userRouter.put("/approve/:id", approveRefund);
+userRouter.put("/reject/:id", rejectRefund);
+userRouter.get("/get-refund", getAllRefunds);
+userRouter.get("/request/:requestId", getRefundByRequestId);
+
 
 userRouter.post("/KycVerifications", isAuthenticated,  KycVerifications)
 userRouter.get("/getKyc", isAuthenticated,  getKyc)
-
+userRouter.post('/use-referral-discount', useReferralDiscount);
 
 userRouter.post('/request/:requestId/raise-dispute', raiseDispute);
 userRouter.put("/request/:requestId/payment", updatePaymentStatus);

@@ -33,7 +33,8 @@ export default function PackageDetailsScreen() {
   const [disputeModalVisible, setDisputeModalVisible] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [submittingDispute, setSubmittingDispute] = useState(false);
-
+  const [refundStatus, setRefundStatus] = useState(null);
+  const [loadingRefund, setLoadingRefund] = useState(true);
 
 
   const fetchRequestDetails = async () => {
@@ -43,15 +44,18 @@ export default function PackageDetailsScreen() {
       if (!requestId || typeof requestId !== 'string' || requestId === 'undefined') {
         throw new Error('Invalid or missing request ID');
       }
+
       const response = await axios.get(`${API_BASE_URL}/GetDetails/${requestId}`, {
         withCredentials: true,
       });
 
-      // log the entire payload so you can inspect structure in Metro / console
-      // console.log('GetDetails response (full):', JSON.stringify(response.data, null, 2));
+      console.log("===== FULL RESPONSE DATA =====");
+      console.log(JSON.stringify(response.data, null, 2)); // <-- this prints everything
 
       if (response.data.success && response.data.data) {
         setRequest(response.data.data);
+        console.log("===== FULL REQUEST OBJECT =====");
+        console.log(JSON.stringify(response.data.data, null, 2)); // <-- this prints the request object
       } else {
         setError('No request details found');
       }
@@ -63,13 +67,49 @@ export default function PackageDetailsScreen() {
     }
   };
 
+
   useEffect(() => {
     // console.log('Received params in PackageDetailsScreen:', params);
     // console.log('Using requestId:', requestId);
     fetchRequestDetails();
   }, [requestId]);
 
-  const formatDate = (dateString) => {
+
+
+
+  useEffect(() => {
+    const fetchRefundStatus = async () => {
+      if (!request?.paymentInfo?.requestId) return;
+
+      setLoadingRefund(true);
+      try {
+        const res = await axios.get(
+          `${API_BASE_URL}/request/${request.paymentInfo.requestId}`,
+          { withCredentials: true }
+        );
+
+        if (res.data.success && res.data.data) {
+          setRefundStatus(res.data.data.status); // "pending", "refunded", etc.
+        } else {
+          setRefundStatus(null); // No refund found, just ignore
+        }
+      } catch (err) {
+        // Ignore the "Refund not found" error
+        console.log("No refund available for this request."); // optional
+        setRefundStatus(null);
+      } finally {
+        setLoadingRefund(false);
+      }
+    };
+
+    fetchRefundStatus();
+  }, [request?.paymentInfo?.requestId]);
+
+
+
+
+
+  const formatDate = (dateString, timeZone) => {
     if (!dateString) return 'Not set';
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
@@ -79,9 +119,10 @@ export default function PackageDetailsScreen() {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'Africa/Lagos',
+      timeZone: timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone, // default to device timezone
     });
   };
+
 
   if (loading) {
     return (
@@ -478,60 +519,82 @@ export default function PackageDetailsScreen() {
         Traveller cancelled this order.
       </Text>
 
-      <TouchableOpacity
-      style={styles.refundButton}
-      onPress={async () => {
-        try {
-          const userId = request?.sender?._id || request?.sender?.id; // Sender ID
-          const paymentInfo = request?.paymentInfo;
+      {loadingRefund ? (
+        <Text>Loading refund status...</Text>
+      ) : refundStatus ? (
+        <Text
+          style={[
+            styles.refundStatusText,
+            refundStatus === "refunded"
+              ? { color: "green" }
+              : refundStatus === "rejected"
+              ? { color: "red" }
+              : {}
+          ]}
+        >
+          {"Refund Status: " + refundStatus}
+        </Text>
+      ) : (
+        <TouchableOpacity
+          style={styles.refundButton}
+          onPress={async () => {
+            try {
+              console.log("===== FULL REQUEST OBJECT =====");
+              console.log(JSON.stringify(request, null, 2));
 
-          if (!userId || !paymentInfo?.method) {
-            return alert('User or payment info missing.');
-          }
+              const userId = request?.sender?._id;
+              const paymentInfo = request?.paymentInfo;
 
-          const reason = "Order cancelled by traveler"; // Or let user input
+              if (!userId || !paymentInfo?.method || !paymentInfo?.requestId) {
+                return alert("User or payment info missing.");
+              }
 
-          const payload = {
-            userId,
-            reason,
-            paymentMethod: paymentInfo.method,
-            paymentStatus: paymentInfo.status,
-            requestId: paymentInfo.requestId,
-          };
+              const payload = {
+                userId,
+                reason: "Order cancelled by traveler",
+                paymentInfo: {
+                  method: paymentInfo.method,
+                  status: paymentInfo.status,
+                  requestId: paymentInfo.requestId,
+                },
+              };
 
-          const response = await axios.post(
-            `${API_BASE_URL}/request`,
-            payload,
-            { withCredentials: true }
-          );
+              const response = await axios.post(
+                `${API_BASE_URL}/request/refund`,
+                payload,
+                { withCredentials: true }
+              );
 
-          if (response.data.success) {
-            alert('✅ Refund request submitted successfully!');
-          } else {
-            alert('❌ Failed to submit refund: ' + (response.data.message || 'Unknown error'));
-          }
-        } catch (err) {
-          console.error('Refund request error:', err.response?.data || err.message);
-          alert('❌ Error submitting refund. Check console for details.');
-        }
-      }}
-    >
-      <Text style={styles.refundButtonText}>Request Refund</Text>
-    </TouchableOpacity>
-
-
+              if (response.data.success) {
+                alert("✅ Refund request submitted successfully!");
+                setRefundStatus("pending"); // immediately update UI
+              } else {
+                alert("❌ " + (response.data.message || "Refund failed"));
+              }
+            } catch (err) {
+              console.error(
+                "Refund request error:",
+                err.response?.data || err.message
+              );
+              alert("❌ Error submitting refund.");
+            }
+          }}
+        >
+          <Text style={styles.refundButtonText}>Request Refund</Text>
+        </TouchableOpacity>
+      )}
     </View>
   ) : (
-    /* If NOT cancelled → show dispute button (only if dispute doesn't already exist) */
     !request?.dispute && (
       <TouchableOpacity
-        style={[styles.disputeButton]}
+        style={styles.disputeButton}
         onPress={() => setDisputeModalVisible(true)}
       >
         <Text style={styles.disputeButtonText}>Raise a Dispute</Text>
       </TouchableOpacity>
     )
   )}
+
 
 
 

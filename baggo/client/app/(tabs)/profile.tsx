@@ -468,7 +468,7 @@ useEffect(() => {
                 setSymbol(currencySymbols[currency] || '$');
                 setIsNigeria(countryCode === 'NG');
 
-                
+
         console.log('Detected Country:', countryName);
         console.log('Country Code:', countryCode);
         console.log('Currency:', currency, currencySymbols[currency]);

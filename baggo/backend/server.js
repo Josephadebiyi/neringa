@@ -98,28 +98,33 @@ app.use("/api/prices", priceRoutes);
 app.post('/api/payment/create-intent', async (req, res) => {
   const { amount, travellerName, travellerEmail } = req.body;
 
+  console.log('💡 /create-intent called with:', { amount, travellerName, travellerEmail });
+
   try {
     if (!amount) {
+      console.warn('⚠️ Missing required parameter: amount');
       return res.status(400).json({ error: 'Missing required parameter: amount.' });
     }
 
     const stripeAmount = Math.round(Number(amount) * 100);
+    console.log('💡 Calculated stripeAmount (in cents):', stripeAmount);
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: stripeAmount,
-      currency: 'usd',
-      metadata: { travellerName, travellerEmail },
-      automatic_payment_methods: { enabled: true },
-    });
+    amount: stripeAmount,
+    currency: 'usd',
+    receipt_email: travellerEmail, // ✅ this is what Stripe dashboard uses
+    metadata: { travellerName },   // optional for reference
+    automatic_payment_methods: { enabled: true },
+  });
+
+
+    console.log('💡 PaymentIntent created successfully:', paymentIntent.id);
+    console.log('💡 Client Secret:', paymentIntent.client_secret);
 
     res.status(200).json({
       success: true,
-      data: {
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id   // IMPORTANT
-      },
+      data: { clientSecret: paymentIntent.client_secret },
     });
-
   } catch (error) {
     console.error('❌ Stripe Payment Intent Error:', error.message);
     res.status(500).json({ error: error.message });

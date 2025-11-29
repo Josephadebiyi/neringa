@@ -287,34 +287,29 @@ useEffect(() => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.5, // lower quality for faster upload
+        quality: 0.5,
+        base64: true, // ⚡ important
       });
 
       if (result.canceled || !result.assets?.length) return;
 
       const selectedImage = result.assets[0];
 
-      // Resize and compress image
-      const manipResult = await ImageManipulator.manipulateAsync(
-        selectedImage.uri,
-        [{ resize: { width: 800 } }], // reduce resolution
-        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG } // reduce quality
-      );
+      // Use base64 from picker (no need for ImageManipulator)
+      const base64Data = `data:image/jpeg;base64,${selectedImage.base64}`;
 
-      const fileUri = manipResult.uri;
+      setImage(base64Data);           // ⚡ send this to backend
+      setImagePreview(selectedImage.uri); // for showing preview
 
-      setImagePreview(fileUri); // show preview
-
-      // Instead of converting to Base64, just send the file URI
-      // Backend should accept file uploads (multipart/form-data)
-      setImage(fileUri);
-
-      await AsyncStorage.setItem('packageImage', fileUri); // store URI instead of Base64
+      await AsyncStorage.setItem('packageImage', base64Data); // optional persist
+      console.log('📸 Saved image base64 for upload:', base64Data.slice(0, 50), '...');
     } catch (err: any) {
-      console.error('Error picking or converting image:', err);
-      Alert.alert('Error', err?.message ?? 'Failed to process image.');
+      console.error('Error picking image:', err);
+      Alert.alert('Error', err?.message ?? 'Failed to pick image.');
     }
   };
+
+
 
   const removeImage = async () => {
     setImage(null);
@@ -345,32 +340,38 @@ useEffect(() => {
       const serviceFee = shippingFee * 0.15;
       const total = shippingFee + insuranceFee + serviceFee;
 
-      const dataUri = image || (await AsyncStorage.getItem('packageImage')) || null;
+      // Get image base64 (or from AsyncStorage)
+      let dataUri = image || (await AsyncStorage.getItem('packageImage')) || null;
 
-      // Create FormData
-      const formData = new FormData();
-      formData.append('travelerId', initialTraveler.id);
-      formData.append('travelerName', initialTraveler.name);
-      formData.append('fromCountry', fromCountry || '');
-      formData.append('fromCity', fromCity);
-      formData.append('toCountry', toCountry || '');
-      formData.append('toCity', toCity);
-      formData.append('packageWeight', weightNum.toString());
-      formData.append('receiverName', receiverName);
-      formData.append('receiverPhone', receiverPhone);
-      formData.append('description', description);
-      formData.append('value', parseFloat(itemValue || '0').toString());
-      formData.append('amount', total.toFixed(2));
-      formData.append('pricePerKg', pricePerKg.toString());
-      formData.append('tripId', initialTraveler.tripId || '');
-
-      if (dataUri) {
-        // @ts-ignore
-        formData.append('image', { uri: dataUri, name: 'package.jpg', type: 'image/jpeg' });
+      // ⚡ If image is a file URI, convert to base64
+      if (dataUri && dataUri.startsWith('file://')) {
+        const base64 = await FileSystem.readAsStringAsync(dataUri, { encoding: FileSystem.EncodingType.Base64 });
+        dataUri = `data:image/jpeg;base64,${base64}`;
       }
 
-      const createResp = await axios.post(`${backendomain.backendomain}/api/baggo/createPackage`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      // Payload for backend (send JSON)
+      const payload = {
+        travelerId: initialTraveler.id,
+        travelerName: initialTraveler.name,
+        fromCountry: fromCountry || '',
+        fromCity,
+        toCountry: toCountry || '',
+        toCity,
+        packageWeight: weightNum.toString(),
+        receiverName,
+        receiverPhone,
+        description,
+        value: parseFloat(itemValue || '0'),
+        amount: total.toFixed(2),
+        pricePerKg: pricePerKg.toString(),
+        tripId: initialTraveler.tripId || '',
+        image: dataUri, // ✅ base64 / Data URI
+        insurance: insurance ? 'yes' : 'no',
+        insuranceCost: insuranceFee.toFixed(2),
+      };
+
+      const createResp = await axios.post(`${backendomain.backendomain}/api/baggo/createPackage`, payload, {
+        headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
 
@@ -393,7 +394,10 @@ useEffect(() => {
         image: dataUri,
       };
 
-      const qs = new URLSearchParams(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v == null ? '' : String(v)]))).toString();
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v == null ? '' : String(v)]))
+      ).toString();
+
       router.push(`/payment?${qs}`);
     } catch (err: any) {
       console.error('Error creating package:', err);
@@ -637,23 +641,20 @@ useEffect(() => {
           <View style={styles.priceCard}>
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>Price / kg</Text>
-              <Text style={styles.priceValue}>{currencySymbol}{pricePerKgUsedForPreview.toFixed(2)}</Text>
+              <Text style={styles.priceValue}>{currencySymbol}{Number(pricePerKgUsedForPreview.toFixed(2)).toLocaleString()}</Text>
             </View>
 
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>Shipping Fee</Text>
-              <Text style={styles.priceValue}>{currencySymbol}{shippingFeePreview.toFixed(2)}</Text>
+              <Text style={styles.priceValue}>{currencySymbol}{Number(shippingFeePreview.toFixed(2)).toLocaleString()}</Text>
             </View>
 
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Service Fee (15%)</Text>
-              <Text style={styles.priceValue}>{currencySymbol}{serviceFeePreview.toFixed(2)}</Text>
-            </View>
+        
 
             {insurance && (
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Insurance</Text>
-                <Text style={styles.priceValue}>{currencySymbol}{insuranceFeePreview.toFixed(2)}</Text>
+                <Text style={styles.priceValue}>{currencySymbol}{Number(insuranceFeePreview.toFixed(2)).toLocaleString()}</Text>
               </View>
             )}
 
@@ -661,7 +662,7 @@ useEffect(() => {
 
             <View style={styles.priceRow}>
               <Text style={styles.totalLabel}>Estimated Total</Text>
-              <Text style={styles.totalValue}>{currencySymbol}{totalPreview.toFixed(2)}</Text>
+              <Text style={styles.totalValue}>{currencySymbol}{Number(totalPreview.toFixed(2)).toLocaleString()}</Text>
             </View>
           </View>
         ) : (

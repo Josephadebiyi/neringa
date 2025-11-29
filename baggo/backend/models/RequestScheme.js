@@ -65,9 +65,8 @@ const RequestSchema = new mongoose.Schema(
     ],
     paymentInfo: {
     requestId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Request',
-      required: false, // optional, can be null if not set yet
+      type: String,   // Stripe/Paystack payment ID must be STRING
+      default: null,
     },
     method: {
       type: String,
@@ -80,6 +79,7 @@ const RequestSchema = new mongoose.Schema(
       default: null,
     },
   },
+
 
     estimatedDeparture: {
       type: Date,

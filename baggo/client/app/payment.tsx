@@ -6,7 +6,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Image,
+  Platform,
   Linking,
   Modal
 } from "react-native";
@@ -19,6 +21,8 @@ import { StripeProvider, CardField, useStripe } from "@stripe/stripe-react-nativ
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WebView } from "react-native-webview";
+import * as FileSystem from 'expo-file-system/legacy';
+
 
 const PAYMENT_INTENT_URL = `${backendomain.backendomain}/api/payment/create-intent`;
 const PAYSTACK_INIT_URL = `${backendomain.backendomain}/api/payment/initialize`;
@@ -55,6 +59,7 @@ export default function PaymentScreen() {
   const [userReferral, setUserReferral] = useState(null);
   const [hasUsedReferralDiscount, setHasUsedReferralDiscount] = useState(false);
   const [currencySymbol, setCurrencySymbol] = useState("€");
+  const [userData, setUserData] = useState(null);
 
 
   const amountNum = parseFloat(amount) || 0;
@@ -74,7 +79,9 @@ const finalAmount = baseAmount - discount;
         });
 
         const user = res.data?.data?.findUser;
-
+        setUserData(user);
+        console.log("🧾 User profile fetched:", user); // log full user object
+            console.log("🔹 hasUsedReferralDiscount:", user?.hasUsedReferralDiscount);
         setUserStatus(user?.status || "pending");
         setUserReferral(user?.referredBy || null);
         setHasUsedReferralDiscount(user?.hasUsedReferralDiscount || false);
@@ -86,6 +93,32 @@ const finalAmount = baseAmount - discount;
 
     fetchUserStatus();
   }, []);
+
+const safeEmail = userData?.email || travellerEmail;
+
+  const markReferralUsed = async (userId) => {
+    if (!userId) {
+      console.warn("⚠️ markReferralUsed: missing userId");
+      return;
+    }
+
+    if (!userReferral || hasUsedReferralDiscount) return;
+
+    try {
+      const res = await axios.post(
+        `${backendomain.backendomain}/api/baggo/use-referral-discount`,
+        { userId },
+        { withCredentials: true }
+      );
+
+      if (res.status === 200) {
+        console.log("Referral discount marked as used");
+        setHasUsedReferralDiscount(true);
+      }
+    } catch (err) {
+      console.error("markReferralUsed error:", err.response?.data || err.message);
+    }
+  };
 
 
 
@@ -146,6 +179,7 @@ const finalAmount = baseAmount - discount;
       if (!imageParam) {
         try {
           const stored = await AsyncStorage.getItem("packageImage");
+          console.log("📸 Retrieved stored image from AsyncStorage:", stored);
           if (stored) setImageState(stored);
         } catch (err) {
           console.warn("Could not load packageImage", err);
@@ -155,15 +189,27 @@ const finalAmount = baseAmount - discount;
   }, [imageParam]);
 
 
+  const publishableKey = "pk_test_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8";
 
-  // ✅ Update request payment
+
   // ✅ Update request payment
   const updatePaymentStatus = async ({ requestId, method, status }) => {
-    if (!requestId) return;
+    if (!requestId) {
+      console.warn("⚠️ Missing requestId, cannot update payment status");
+      return;
+    }
+
+    if (!method) {
+      console.warn("⚠️ Missing payment method");
+    }
+
+    if (!status) {
+      console.warn("⚠️ Missing payment status");
+    }
 
     try {
-      await axios.put(
-        `${backendomain.backendomain}/api/request/${requestId}/payment`,
+      const res = await axios.put(
+        `${backendomain.backendomain}/api/baggo/request/${requestId}/payment`,
         {
           paymentInfo: {
             requestId,
@@ -173,15 +219,24 @@ const finalAmount = baseAmount - discount;
         },
         { withCredentials: true }
       );
-      console.log("✅ Request payment updated successfully");
+
+      if (res.status === 200) {
+        console.log("✅ Request payment updated successfully:", res.data);
+      } else {
+        console.warn("⚠️ Unexpected response status:", res.status, res.data);
+      }
     } catch (err) {
       console.error("❌ Failed to update request payment:", err.response?.data || err.message);
     }
   };
 
+
   // 🧾 Handle Stripe Payment
   const handleStripePayment = async () => {
+    console.log('💡 handleStripePayment called');
+
     if (!cardDetails?.complete) {
+      console.warn('⚠️ Card details incomplete');
       setPaymentError("Please enter valid card details");
       return;
     }
@@ -189,59 +244,88 @@ const finalAmount = baseAmount - discount;
     setPaymentLoading(true);
 
     try {
+      console.log('💡 Sending POST request to create payment intent:', PAYMENT_INTENT_URL, { amount: finalAmount, travellerName, travellerEmail });
+
       const response = await axios.post(PAYMENT_INTENT_URL, {
         amount: finalAmount,
         travellerName,
-        travellerEmail,
+        travellerEmail: safeEmail,
       });
 
+      console.log('💡 Payment intent response:', response.data);
+
       const { clientSecret } = response.data.data;
+      console.log('💡 Received clientSecret from backend:', clientSecret);
+
+      // Check if clientSecret is valid
+      if (!clientSecret || !clientSecret.startsWith("pi_") || !clientSecret.includes("_secret_")) {
+        throw new Error("Invalid clientSecret received from backend");
+      }
 
       const { error, paymentIntent } = await confirmPayment(clientSecret, {
         paymentMethodType: "Card",
         paymentMethodData: {
-          billingDetails: {
-            email: travellerEmail,
-            name: travellerName,
-          },
+          billingDetails: { email: safeEmail, name: travellerName },
         },
       });
+
+      console.log('💡 Stripe confirmPayment result:', { error, paymentIntent });
 
       if (error) throw new Error(error.message);
 
       const requestId = await handleRequestPackage();
+      console.log('💡 requestId after handleRequestPackage:', requestId);
 
-      if (paymentIntent.status === "succeeded") {
-        Alert.alert("✅ Payment Successful", "Your payment was completed.");
+      if (paymentIntent.status?.toLowerCase() === "succeeded") {
+    console.log('✅ Payment succeeded');
+    Alert.alert("✅ Payment Successful", "Your payment was completed.");
 
-        if (requestId) {
-          await updatePaymentStatus({ requestId, method: "stripe", status: "paid" });
-        }
+    if (requestId) {
+      console.log('💡 Updating payment status to paid');
+      await updatePaymentStatus({ requestId, method: "stripe", status: "paid" });
 
-        router.replace("/success-page");
-      } else {
-        Alert.alert("⚠️ Payment status:", paymentIntent.status);
-
-        if (requestId) {
-          await updatePaymentStatus({ requestId, method: "stripe", status: "failed" });
-        }
+      // --- mark referral used if applicable ---
+      if (userReferral && !hasUsedReferralDiscount) {
+        await markReferralUsed(userData?._id);
       }
+    }
+
+    router.replace("/success-page");
+  } else {
+    console.warn('⚠️ Payment not succeeded:', paymentIntent.status);
+    Alert.alert("⚠️ Payment status:", paymentIntent.status);
+
+    if (requestId) {
+      console.log('💡 Updating payment status to failed');
+      await updatePaymentStatus({ requestId, method: "stripe", status: "failed" });
+    }
+  }
+
+
     } catch (error) {
       console.error("❌ Payment Error:", error);
       Alert.alert("Payment Failed", error.message || "Something went wrong.");
     } finally {
       setPaymentLoading(false);
+      console.log('💡 Payment loading set to false');
     }
   };
 
 
   // 💰 Handle Paystack Payment
   const handlePaystackPayment = async () => {
+    if (!userData?.email && !travellerEmail) {
+      Alert.alert("Error", "User email not available. Cannot proceed with Paystack payment.");
+      return;
+    }
+
     try {
       setPaymentLoading(true);
+
+
       const res = await axios.post(PAYSTACK_INIT_URL, {
-        amount: Math.round(Number(finalAmount) * 100),
-        email: travellerEmail,
+        amount: Number(finalAmount),
+        email: safeEmail,
       });
 
       const authUrl = res.data?.data?.authorization_url;
@@ -277,35 +361,64 @@ const handlePaystackPress = () => {
 // 🧩 Request package after successful payment
 const handleRequestPackage = async () => {
   try {
-    const payload = {
-      travelerId,
-      packageId,
-      tripId,
-      amount: finalAmount,
-      insurance,
-      insuranceCost: insurance === "yes" ? insuranceNum : 0,
-      image: imageState ?? null,
-    };
+    let imageUri = imageState;
 
-    const res = await axios.post(REQUEST_PACKAGE_URL, payload, { withCredentials: true });
+    // Convert base64 to file only if it's base64
+    if (imageState && imageState.startsWith("data:image")) {
+      const fileUri = `${FileSystem.cacheDirectory}package_${Date.now()}.jpg`;
+      await FileSystem.writeAsStringAsync(
+        fileUri,
+        imageState.replace(/^data:image\/\w+;base64,/, ""),
+        { encoding: "base64" }
+      );
+      imageUri = fileUri;
+      console.log("📸 Converted base64 image to file URI:", imageUri);
+    }
+
+    const formData = new FormData();
+
+    if (imageUri) {
+      formData.append("image", {
+        uri: imageUri,
+        name: `package_${Date.now()}.jpg`,
+        type: "image/jpeg",
+      });
+    }
+
+    formData.append("travelerId", travelerId);
+    formData.append("packageId", packageId);
+    formData.append("tripId", tripId);
+    formData.append("amount", finalAmount.toString());
+    formData.append("insurance", insurance);
+    formData.append(
+      "insuranceCost",
+      insurance === "yes" ? insuranceNum.toString() : "0"
+    );
+
+    for (let pair of formData._parts) {
+      console.log(`📦 ${pair[0]} =>`, pair[1]);
+    }
+
+    const res = await axios.post(REQUEST_PACKAGE_URL, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      withCredentials: true,
+    });
+
     console.log("✅ Package Request Response:", res.data);
 
     await handleAddToEscrow();
     await AsyncStorage.removeItem("packageImage");
 
-    console.log("✅ Booking completed successfully.");
-
-    // ✅ Return the newly created request ID
-    return res.data?.data?._id;
+    return res.data?.request?._id;
   } catch (error) {
-    console.error("❌ Package request failed:", error);
+    console.log(
+      "❌ Package request failed:",
+      error.response?.data || error.message
+    );
     Alert.alert("Error", "Could not complete booking.");
     return null;
   }
 };
-
-
-
 
   const handleAddToEscrow = async () => {
     try {
@@ -318,8 +431,6 @@ const handleRequestPackage = async () => {
       console.error("❌ Error adding to escrow:", error.message);
     }
   };
-
-  const publishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 
 
@@ -345,26 +456,32 @@ const handleRequestPackage = async () => {
             const requestId = await handleRequestPackage();
 
             if (requestId) {
-              if (verifyRes.data.status) {
-                Alert.alert("✅ Payment Successful", "Your Paystack payment was successful.");
+  if (verifyRes.data.status) {
+    Alert.alert("✅ Payment Successful", "Your Paystack payment was successful.");
 
-                await updatePaymentStatus({
-                  requestId,
-                  method: "paystack",
-                  status: "paid",
-                });
+    await updatePaymentStatus({
+      requestId,
+      method: "paystack",
+      status: "paid",
+    });
 
-                router.replace("/success-page");
-              } else {
-                await updatePaymentStatus({
-                  requestId,
-                  method: "paystack",
-                  status: "failed",
-                });
+    // --- mark referral used if applicable ---
+    if (userReferral && !hasUsedReferralDiscount) {
+      await markReferralUsed(userData?._id);
+    }
 
-                router.replace("/failed-page");
-              }
-            }
+    router.replace("/success-page");
+  } else {
+    await updatePaymentStatus({
+      requestId,
+      method: "paystack",
+      status: "failed",
+    });
+
+    router.replace("/failed-page");
+  }
+}
+
           } catch (err) {
             console.error("❌ Verification error:", err.response?.data || err.message);
             Alert.alert("❌ Error", "Could not verify payment.");
@@ -407,13 +524,24 @@ const handleRequestPackage = async () => {
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerAmount}>{currencySymbol}{finalAmount.toFixed(2)}</Text>
+          <Text style={styles.headerAmount}>
+  {currencySymbol}
+  {Number(finalAmount).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}
+</Text>
+
             <Text style={styles.headerSubtitle}>Pay Invoice</Text>
           </View>
           <View style={{ width: 40 }} />
         </LinearGradient>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={100} // adjust if header covers inputs
+        >
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Image Preview */}
           {imageState && (
             <View style={styles.imageWrapper}>
@@ -425,7 +553,8 @@ const handleRequestPackage = async () => {
           <View style={styles.summaryCard}>
             <Text style={styles.summaryTitle}>Traveller Info</Text>
             <Text style={styles.summaryText}>Name: {travellerName}</Text>
-            <Text style={styles.summaryText}>Email: {travellerEmail}</Text>
+            <Text style={styles.summaryText}>Email: {safeEmail}</Text>
+
             <Text style={styles.summaryText}>
           Amount: {currencySymbol}{Number(amount).toLocaleString('en-US')}
         </Text>
@@ -525,6 +654,7 @@ const handleRequestPackage = async () => {
   </View>
 
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </StripeProvider>
     <Modal

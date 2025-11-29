@@ -244,34 +244,30 @@ const handleSelectCity = (cityName: string) => {
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission required", "Allow access to choose photos.");
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Allow access to choose photos.');
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.4, // initial compression from library
+        quality: 0.5,
+        base64: true,
       });
 
       if (result.canceled) return;
 
-      const img = result.assets[0];
+      const selectedImage = result.assets[0];
+      const base64Data = `data:image/jpeg;base64,${selectedImage.base64}`;
 
-      // 🔥 Extra compression for Android (much smaller size)
-      const compressed = await ImageManipulator.manipulateAsync(
-        img.uri,
-        [{ resize: { width: 900 } }],
-        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
-      );
+      setImage(base64Data);
+      setImagePreview(selectedImage.uri);
 
-      setImagePreview(compressed.uri);
-      setImage(compressed.uri); // ✔ file uri (android-safe)
+      await AsyncStorage.setItem('packageImage', base64Data);
 
     } catch (err) {
-      console.log("Image pick error:", err);
-      Alert.alert("Error picking image", err.message || "Failed to pick image");
+      console.error("Image pick error:", err);
     }
   };
 

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "860736827670",
-    "project_id": "bago-3dd1c",
-    "storage_bucket": "bago-3dd1c.firebasestorage.app"
+    "project_number": "378005649950",
+    "project_id": "bago-335ae",
+    "storage_bucket": "bago-335ae.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:860736827670:android:a2fe0a189d93f91f366037",
+        "mobilesdk_app_id": "1:378005649950:android:1709ccb0e1def9e8adcc0f",
         "android_client_info": {
           "package_name": "com.deracali.boltexponativewind"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBqOXvwqY97TO4GdiH17o1JU8m5pV-Qx4A"
+          "current_key": "AIzaSyCbKDgiAhoWt8jY1u4QrA8nmQLpuq6H6ow"
         }
       ],
       "services": {

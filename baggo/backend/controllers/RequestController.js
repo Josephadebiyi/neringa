@@ -43,6 +43,12 @@ const uploadToCloudinary = async (dataUriOrBuffer, options = {}) => {
 // ✅ Request Package Controller
 export const RequestPackage = async (req, res, next) => {
   try {
+    console.log("--------------------------------------------------");
+    console.log("📥 RAW req.body:", req.body);
+    console.log("📁 RAW req.file:", req.file);
+    console.log("📦 RAW req.files:", req.files);
+    console.log("--------------------------------------------------");
+
     const {
       travelerId,
       packageId,
@@ -52,12 +58,12 @@ export const RequestPackage = async (req, res, next) => {
       estimatedDeparture,
       estimatedArrival,
       amount,
-      image, // ✅ Accept image from frontend
+      image, // base64 image (optional)
     } = req.body;
 
     const senderId = req.user._id;
 
-    console.log('📨 RequestPackage called with:', {
+    console.log("📨 RequestPackage called with:", {
       senderId,
       travelerId,
       packageId,
@@ -68,82 +74,125 @@ export const RequestPackage = async (req, res, next) => {
       estimatedArrival,
       amount,
       imageIncluded: !!image,
+      imageType: typeof image,
+      imageLength: image?.length || 0,
+      imageSample: typeof image === "string" ? image.substring(0, 60) : "Not a string",
     });
 
-    // ✅ Validate required fields
+    // ----------------------------------------------
+    // VALIDATIONS
+    // ----------------------------------------------
+
     if (!senderId || !travelerId || !packageId || !tripId) {
-      return res.status(400).json({ message: 'All required fields must be provided' });
+      return res.status(400).json({ message: "All required fields must be provided" });
     }
 
-    // ✅ Validate ObjectIds
     if (
       !mongoose.Types.ObjectId.isValid(senderId) ||
       !mongoose.Types.ObjectId.isValid(travelerId) ||
       !mongoose.Types.ObjectId.isValid(packageId) ||
       !mongoose.Types.ObjectId.isValid(tripId)
     ) {
-      return res.status(400).json({ message: 'Invalid ID format' });
+      return res.status(400).json({ message: "Invalid ID format" });
     }
 
-    // ✅ Validate amount
     if (!amount || isNaN(amount) || amount <= 0) {
-      return res.status(400).json({ message: 'A valid positive amount must be provided' });
+      return res.status(400).json({ message: "A valid positive amount must be provided" });
     }
 
-    // ✅ Validate insurance cost
     if (insurance && (insuranceCost === undefined || insuranceCost < 0)) {
-      return res
-        .status(400)
-        .json({ message: 'Insurance cost must be a non-negative number when insurance is selected' });
+      return res.status(400).json({
+        message: "Insurance cost must be a non-negative number when insurance is selected",
+      });
     }
 
-    // ✅ Validate estimated dates
     if (estimatedDeparture && isNaN(Date.parse(estimatedDeparture))) {
-      return res.status(400).json({ message: 'Invalid estimated departure date' });
+      return res.status(400).json({ message: "Invalid estimated departure date" });
     }
     if (estimatedArrival && isNaN(Date.parse(estimatedArrival))) {
-      return res.status(400).json({ message: 'Invalid estimated arrival date' });
+      return res.status(400).json({ message: "Invalid estimated arrival date" });
     }
 
-    // ✅ Verify package belongs to sender
     const packageDoc = await Package.findOne({ _id: packageId, userId: senderId });
     if (!packageDoc) {
-      return res.status(404).json({ message: 'Package not found or not owned by sender' });
+      return res.status(404).json({ message: "Package not found or not owned by sender" });
     }
 
-    // ✅ Verify trip belongs to traveler
     const tripDoc = await Trip.findOne({ _id: tripId, user: travelerId });
     if (!tripDoc) {
-      return res.status(404).json({ message: 'Trip not found or not owned by traveler' });
+      return res.status(404).json({ message: "Trip not found or not owned by traveler" });
     }
 
-    // ✅ Check available weight
     if (tripDoc.availableKg < packageDoc.packageWeight) {
-      return res.status(400).json({ message: 'Not enough available weight for this trip' });
+      return res.status(400).json({ message: "Not enough available weight for this trip" });
     }
 
-    // ✅ Upload image to Cloudinary (if provided)
+    // ----------------------------------------------
+    // CLOUDINARY UPLOAD (FULL FIX)
+    // ----------------------------------------------
+
     let uploadedImageUrl = null;
-    if (image) {
+
+    // 🟢 1. Image came from FormData (RN FormData upload)
+    if (req.files?.image) {
       try {
-        console.log('🖼️ Uploading request image to Cloudinary...');
-        uploadedImageUrl = await uploadToCloudinary(image, { folder: 'requests' });
-        console.log('✅ Uploaded image URL:', uploadedImageUrl);
-      } catch (uploadErr) {
-        console.error('❌ Image upload failed:', uploadErr);
-        return res.status(500).json({ message: 'Image upload failed', error: uploadErr.message });
+        const file = req.files.image;
+        console.log("🖼️ Image found in req.files (FormData upload)");
+        console.log("📌 File info:", {
+          name: file.name,
+          mime: file.mimetype,
+          size: file.size,
+        });
+
+        uploadedImageUrl = await uploadToCloudinary(file.data, {
+          mime: file.mimetype,
+          folder: "requests",
+        });
+
+        console.log("✅ Uploaded image URL:", uploadedImageUrl);
+      } catch (err) {
+        console.error("❌ Multer image upload failed:", err);
+        return res.status(500).json({
+          message: "Image upload (form-data) failed",
+          error: err.message,
+        });
       }
     }
 
-    // ✅ Create new request
+    // 🟠 2. Image came as base64 string inside req.body.image
+    else if (typeof image === "string" && image.startsWith("data:")) {
+      try {
+        console.log("🖼️ Image found in req.body as Base64 (Data URI)");
+        uploadedImageUrl = await uploadToCloudinary(image, {
+          folder: "requests",
+        });
+        console.log("✅ Uploaded image URL:", uploadedImageUrl);
+      } catch (err) {
+        console.error("❌ Base64 image upload failed:", err);
+        return res.status(500).json({
+          message: "Image upload (base64) failed",
+          error: err.message,
+        });
+      }
+    }
+
+    // 🔴 3. No image at all
+    else {
+      console.log("⚠️ No valid image found in req.files or req.body.image");
+    }
+
+    // ----------------------------------------------
+    // SAVE REQUEST
+    // ----------------------------------------------
+
     const newRequest = new Request({
       sender: senderId,
       traveler: travelerId,
       package: packageId,
       amount,
       image: uploadedImageUrl || null,
-      status: 'pending',
-      insurance: insurance === 'yes' || insurance === true,
+      status: "pending",
+      insurance: insurance === "yes" || insurance === true,
       insuranceCost: insurance ? parseFloat(insuranceCost) || 0 : 0,
       trip: tripId,
       estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : undefined,
@@ -152,19 +201,20 @@ export const RequestPackage = async (req, res, next) => {
 
     await newRequest.save();
 
-    // ✅ Increment the trip's request count
     await Trip.findByIdAndUpdate(tripId, { $inc: { request: 1 } });
 
-    console.log('✅ New Request created successfully:', newRequest._id);
+    console.log("✅ New Request created successfully:", newRequest._id);
+    console.log("--------------------------------------------------");
 
     return res.status(201).json({
-      message: 'You have successfully sent the request',
+      message: "You have successfully sent the request",
       request: newRequest,
     });
+
   } catch (error) {
-    console.error('❌ Error creating request:', error);
+    console.error("❌ Error creating request:", error);
     return res.status(500).json({
-      message: 'Internal server error',
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -1030,6 +1080,9 @@ export const updatePaymentStatus = async (req, res) => {
     const { requestId } = req.params;
     const { paymentInfo } = req.body;
 
+    console.log("💡 Incoming requestId:", requestId);
+    console.log("💡 Incoming paymentInfo:", paymentInfo);
+
     if (!mongoose.Types.ObjectId.isValid(requestId)) {
       return res.status(400).json({ message: "Invalid request ID" });
     }
@@ -1044,23 +1097,26 @@ export const updatePaymentStatus = async (req, res) => {
       return res.status(404).json({ message: "Request not found" });
     }
 
-    // Save payment status inside request
-    request.payment = {
-      method: paymentInfo.method,
-      status: paymentInfo.status,
-      updatedAt: new Date(),
-    };
+    console.log("💡 Current paymentInfo in DB:", request.paymentInfo);
+
+    // Save payment status inside request.paymentInfo
+    request.paymentInfo.method = paymentInfo.method;
+    request.paymentInfo.status = paymentInfo.status;
+    request.paymentInfo.requestId = requestId; // optional, if you want to store request reference
+    request.updatedAt = new Date();
 
     await request.save();
 
+    console.log("💡 Updated paymentInfo in DB:", request.paymentInfo);
+
     return res.status(200).json({
       message: "Payment updated successfully",
-      payment: request.payment,
+      payment: request.paymentInfo,
       success: true,
     });
 
   } catch (err) {
-    console.error("Error updating payment:", err);
+    console.error("❌ Error updating payment:", err);
     return res.status(500).json({
       message: "Internal server error",
       error: err.message,

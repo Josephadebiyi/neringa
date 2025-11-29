@@ -29,6 +29,7 @@ export default function TravelerDetailsScreen() {
     id: travelerId,
       tripId: tripId,
     name: params.name || 'Traveler',
+    travelerEmail: params.travellerEmail || '',
     rating: params.rating ? parseFloat(params.rating) : 0,
     trips: params.trips ? parseInt(params.trips, 10) : 0,
     verified: params.verified === 'true',
@@ -58,11 +59,7 @@ export default function TravelerDetailsScreen() {
   const fetchTravelerReviews = async () => {
     setLoadingReviews(true);
     try {
-      const res = await fetch('https://bago-server.onrender.com/api/baggo/MyTrips', {
-        headers: {
-          Authorization: 'Bearer <token>', // make sure to replace <token> with actual token
-        },
-      });
+      const res = await fetch('http://172.20.10.3:3000/api/baggo/MyTrips');
 
       const data = await res.json();
 
@@ -74,26 +71,29 @@ export default function TravelerDetailsScreen() {
 
       const trips = data.trips || [];
 
-      // Find the specific trip by tripId
-      const foundTrip = trips.find(t => t.id === tripId);
-
-      console.log('Found trip:', foundTrip); // Logs the full trip object
-      console.log('Trip reviews:', foundTrip?.reviews || []); // Logs reviews array
+      const foundTrip = trips.find(t => t.id?.toString() === tripId); // use 'id', not '_id' since your API returns 'id'
+      console.log('Found trip:', foundTrip);
 
       if (foundTrip) {
+        console.log('Raw reviews array:', foundTrip.reviews);
+
+        foundTrip.reviews.forEach((review, i) => {
+          console.log(`Review #${i + 1}:`);
+          console.log('  User:', review.user?.firstName || review.user?.name || 'Unknown');
+          console.log('  Comment:', review.comment);
+          console.log('  Rating:', review.rating);
+        });
+
         setReviews(foundTrip.reviews || []);
 
         setTravelerState({
           ...travelerState,
-          name: travelerState.name, // you can update from trip if needed
           rating: foundTrip.averageRating ?? travelerState.rating,
           trips: foundTrip.totalReviews ?? travelerState.trips,
-          verified: travelerState.verified,
           from: foundTrip.fromLocation ?? travelerState.from,
           to: foundTrip.toLocation ?? travelerState.to,
           date: foundTrip.departureDate ?? travelerState.date,
           availableKg: foundTrip.availableKg ?? travelerState.availableKg,
-          pricePerKg: travelerState.pricePerKg,
           mode: foundTrip.travelMeans ?? travelerState.mode,
         });
       } else {
@@ -108,6 +108,7 @@ export default function TravelerDetailsScreen() {
     }
   };
 
+
   useEffect(() => {
     fetchTravelerReviews();
   }, [travelerId, tripId]);
@@ -120,7 +121,7 @@ export default function TravelerDetailsScreen() {
 
     try {
       const res = await fetch(
-       `https://bago-server.onrender.com/api/baggo/${tripId}/reviews`,
+       `http://172.20.10.3:3000/api/baggo/${tripId}/reviews`,
         {
           method: 'POST',
           headers: {
@@ -155,6 +156,7 @@ export default function TravelerDetailsScreen() {
         to: travelerState.to,
         date: travelerState.date,
         pricePerKg: travelerState.pricePerKg,
+        travelerEmail: travelerState.travelerEmail,
       },
     });
   };

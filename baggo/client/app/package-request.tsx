@@ -31,7 +31,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import * as Location from 'expo-location';
 
 export default function PackageRequestScreen() {
   const router = useRouter();
@@ -40,7 +40,7 @@ export default function PackageRequestScreen() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+const [loadingButton, setLoadingButton] = useState(null);
   // index of currently-displayed request
   const [currentIndex, setCurrentIndex] = useState(0);
   const [proofImage, setProofImage] = useState(null);
@@ -53,9 +53,12 @@ export default function PackageRequestScreen() {
 const [escrowBalance, setEscrowBalance] = useState(0);
   // accept animation/overlay state
   const [accepting, setAccepting] = useState(false);
+  const [requestLoading, setRequestLoading] = useState(true);
 
   const [symbol, setSymbol] = useState("₦");
     const [country, setCountry] = useState(null);
+    const [isNigeria, setIsNigeria] = useState(false);
+
   const [userData, setUserData] = useState(null);
 const [currency, setCurrency] = useState('EUR');
   const base = (typeof backendomain === 'object' && backendomain.backendomain) ? backendomain.backendomain : backendomain;
@@ -144,36 +147,80 @@ const [currency, setCurrency] = useState('EUR');
   useEffect(() => {
     (async () => {
       try {
-        // 🟢 First load saved currency, if user selected earlier
-        const saved = await loadCurrency();
+        // 🟢 Load saved currency if previously selected
+        const savedCurrency = await loadCurrency();
+        const savedCountry = await AsyncStorage.getItem("userCountry");
 
-        if (saved) {
-          setCurrency(saved);
-          setSymbol(currencySymbols[saved] || "$");
-          console.log("💾 Loaded saved currency:", saved);
+        if (savedCurrency && savedCountry) {
+          setCurrency(savedCurrency);
+          setCountry(savedCountry);
+          setSymbol(currencySymbols[savedCurrency] || "₦");
+          console.log("💾 Loaded saved currency and country:", savedCurrency, savedCountry);
+          setLoading(false);
           return; // stop here
         }
 
-        // 🟡 Otherwise detect via IP
-        const response = await fetch("https://ipapi.co/json/");
-        const data = await response.json();
+        // 🟡 Request location permission
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('Location permission denied');
+          // fallback to defaults
+          setCurrency(savedCurrency || "NGN");
+          setCountry(savedCountry || "Nigeria");
+          setSymbol(currencySymbols[savedCurrency] || "₦");
+          setLoading(false);
+          return;
+        }
 
-        console.log("🌍 Location data:", data);
+        // Get current position
+        const loc = await Location.getCurrentPositionAsync({});
+        const reverse = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
 
-        const detectedCurrency = data.currency || "USD";
-        const detectedCountry = data.country_name || "Unknown";
+        let detectedCurrency = "NGN";
+        let detectedCountry = "Nigeria";
 
+        if (reverse.length > 0) {
+          const countryCode = reverse[0].isoCountryCode || "NG";
+          const countryName = reverse[0].country || "Nigeria";
+
+          // Map country code to currency
+          const currencyMap = {
+            NG: "NGN", GH: "GHS", KE: "KES", ZA: "ZAR", EG: "EGP",
+            TZ: "TZS", UG: "UGX", MA: "MAD", DZ: "DZD", SD: "SDG",
+            FR: "EUR", DE: "EUR", IT: "EUR", ES: "EUR", PT: "EUR",
+            NL: "EUR", LU: "EUR", BE: "EUR", IE: "EUR", GR: "EUR",
+            FI: "EUR", EE: "EUR", LT: "EUR", LV: "EUR", CY: "EUR",
+            MT: "EUR", SK: "EUR", SI: "EUR", GB: "GBP", CA: "CAD",
+            MX: "MXN", BR: "BRL", AR: "ARS", CL: "CLP", CO: "COP",
+            PE: "PEN", UY: "UYU", IN: "INR", CN: "CNY", JP: "JPY",
+            RU: "RUB", TR: "TRY", AE: "AED", SG: "SGD", AU: "AUD",
+            NZ: "NZD", CH: "CHF"
+          };
+
+          detectedCurrency = currencyMap[countryCode] || "NGN";
+          detectedCountry = countryName;
+
+          // Save detected currency/country if different from saved
+          if (savedCurrency !== detectedCurrency || savedCountry !== detectedCountry) {
+            await saveCurrency(detectedCurrency);
+            await AsyncStorage.setItem("userCountry", detectedCountry);
+          }
+        }
+
+        // Update state
         setCurrency(detectedCurrency);
         setCountry(detectedCountry);
-        setSymbol(currencySymbols[detectedCurrency] || "$");
+        setSymbol(currencySymbols[detectedCurrency] || "₦");
+        setIsNigeria(detectedCurrency === "NGN");
 
-        // 💾 Save detected currency automatically
-        await saveCurrency(detectedCurrency);
+        console.log("🌍 Detected Country:", detectedCountry, "Currency:", detectedCurrency);
 
-      } catch (error) {
-        console.error("Failed to detect location:", error);
-
-        // Default to Nigeria
+      } catch (err) {
+        console.error("Location detection error:", err);
+        // Fallback defaults
         setCurrency("NGN");
         setCountry("Nigeria");
         setSymbol("₦");
@@ -182,7 +229,6 @@ const [currency, setCurrency] = useState('EUR');
       }
     })();
   }, []);
-
 
 
    useEffect(() => {
@@ -287,6 +333,7 @@ const [currency, setCurrency] = useState('EUR');
       if (!tripId || tripId === 'undefined') {
         setError('Invalid or missing trip ID');
         setLoading(false);
+        setRequestLoading(false);
         return;
       }
 
@@ -367,7 +414,7 @@ const [currency, setCurrency] = useState('EUR');
         setError('Error fetching requests');
         setRequests([]);
       } finally {
-        setLoading(false);
+        setRequestLoading(false);
       }
     };
 
@@ -515,12 +562,12 @@ useEffect(() => {
 
 
 
-  const handleCancel = async (requestId, pkg) => {
+  const handleCancel = async (pkg) => {
     try {
+      const requestId = pkg?._id;
       if (!requestId) return;
 
-      // 1️⃣ Cancel on backend
-      const response = await fetch(`${backendDomain}/api/baggo/remove-cancelled-escrow`, {
+      const response = await fetch(`${base}/api/baggo/remove-cancelled-escrow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId }),
@@ -536,10 +583,8 @@ useEffect(() => {
 
       console.log("✅ Request cancelled:", data.message);
 
-      // 2️⃣ Send push notification
-      await sendPushNotification(data.senderId, "cancelled", pkg);
+      await sendPushNotification(pkg.senderId, "cancelled", pkg);
 
-      // 3️⃣ Update local UI/state
       setRequests(prev => prev.filter(r => r._id !== requestId));
 
       Alert.alert("Success", "Request has been cancelled successfully");
@@ -663,38 +708,59 @@ useEffect(() => {
   // Accept wrapper to show overlay when success
   const handleAccept = async () => {
     if (!pkg) return;
-    const success = await handleUpdateStatus(pkg._id, 'accepted');
-    if (success) {
-      setAccepting(true);
-      // keep same behavior as example: navigate back after a short delay
-      setTimeout(() => {
-        setAccepting(false);
-        router.back();
-      }, 2000);
+    setLoadingButton('accept');
+    try {
+      const success = await handleUpdateStatus(pkg._id, 'accepted');
+      if (success) {
+        setAccepting(true);
+        setTimeout(() => {
+          setAccepting(false);
+          router.back();
+        }, 2000);
+      }
+    } finally {
+      setLoadingButton(null);
     }
   };
 
   const handleDecline = async () => {
     if (!pkg) return;
-    const success = await handleUpdateStatus(pkg._id, 'rejected');
-    if (success) {
-      // optional: stay on page but reflect status; no overlay
+    setLoadingButton('decline');
+    try {
+      await handleUpdateStatus(pkg._id, 'rejected');
+    } finally {
+      setLoadingButton(null);
     }
   };
 
   const handleMarkInTransit = async () => {
     if (!pkg) return;
-    await handleUpdateStatus(pkg._id, 'intransit', pkg.from);
+    setLoadingButton('intransit');
+    try {
+      await handleUpdateStatus(pkg._id, 'intransit', pkg.from);
+    } finally {
+      setLoadingButton(null);
+    }
   };
 
   const handleMarkDelivering = async () => {
     if (!pkg) return;
-    await handleUpdateStatus(pkg._id, 'delivering', pkg.to);
+    setLoadingButton('delivering');
+    try {
+      await handleUpdateStatus(pkg._id, 'delivering', pkg.to);
+    } finally {
+      setLoadingButton(null);
+    }
   };
 
   const handleMarkCompleted = async () => {
     if (!pkg) return;
-    await handleUpdateStatus(pkg._id, 'completed', pkg.to);
+    setLoadingButton('completed');
+    try {
+      await handleUpdateStatus(pkg._id, 'completed', pkg.to);
+    } finally {
+      setLoadingButton(null);
+    }
   };
 
   const handleNext = () => {
@@ -804,27 +870,24 @@ useEffect(() => {
 
 
 
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
+ if (requestLoading) {
+   return (
+     <View style={{ flex:1 , justifyContent:"center", alignItems:"center" }}>
+       <ActivityIndicator size="large" color="#6C63FF" />
+     </View>
+   );
+ }
 
-  if (error) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>You have no request yet</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+ if (!requestLoading && requests.length === 0) {
+   return (
+     <View style={{ flex:1, justifyContent:"center", alignItems:"center" }}>
+       <Text style={{ fontSize:16, color:"#555" }}>
+         No requests yet
+       </Text>
+     </View>
+   );
+ }
+
 
   if (!pkg) {
     return (
@@ -1046,28 +1109,55 @@ useEffect(() => {
           {/* Show Decline + Accept only when pending */}
           {pkg.status === 'pending' && (
             <>
-              <TouchableOpacity style={styles.declineButton} onPress={handleDecline}>
-                <XCircle size={20} color={Colors.error} />
-                <Text style={styles.declineButtonText}>Decline</Text>
-              </TouchableOpacity>
+            <TouchableOpacity
+  style={styles.declineButton}
+  onPress={handleDecline}
+  disabled={loadingButton === 'decline'}
+>
+  <XCircle size={20} color={Colors.error} />
+  {loadingButton === 'decline' ? (
+    <ActivityIndicator color={Colors.error} style={{ marginLeft: 8 }} />
+  ) : (
+    <Text style={styles.declineButtonText}>Decline</Text>
+  )}
+</TouchableOpacity>
 
-              <TouchableOpacity style={styles.acceptButton} onPress={handleAccept}>
-                <CheckCircle size={20} color={Colors.white} />
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
+
+              <TouchableOpacity
+    style={styles.acceptButton}
+    onPress={handleAccept}
+    disabled={loadingButton === 'accept'} // disable while loading
+  >
+    <CheckCircle size={20} color={Colors.white} />
+    {loadingButton === 'accept' ? (
+      <ActivityIndicator color={Colors.white} style={{ marginLeft: 8 }} />
+    ) : (
+      <Text style={styles.acceptButtonText}>Accept</Text>
+    )}
+  </TouchableOpacity>
+
             </>
           )}
 
           {/* Status actions */}
           {pkg.status === 'accepted' && (
             <>
-              <TouchableOpacity style={styles.statusButton} onPress={handleMarkInTransit}>
-                <MapPin size={18} color={Colors.white} />
-                <Text style={styles.actionButtonText}>Mark In Transit</Text>
-              </TouchableOpacity>
+            <TouchableOpacity
+    style={styles.statusButton}
+    onPress={handleMarkInTransit}
+    disabled={loadingButton === 'intransit'}
+  >
+    <MapPin size={18} color={Colors.white} />
+    {loadingButton === 'intransit' ? (
+      <ActivityIndicator color={Colors.white} style={{ marginLeft: 8 }} />
+    ) : (
+      <Text style={styles.actionButtonText}>Mark In Transit</Text>
+    )}
+  </TouchableOpacity>
+
 
               {/* Cancel button only for accepted */}
-              <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancel(pkg._id, pkg)}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancel(pkg)}>
         <View style={styles.cancelButtonContent}>
           <XCircle size={18} color={Colors.white} />
           <Text style={styles.cancelButtonText}> Cancel</Text>
@@ -1078,27 +1168,61 @@ useEffect(() => {
             </>
           )}
 
-          {pkg.status === 'intransit' && (
-            <>
-              <TouchableOpacity style={styles.statusButton} onPress={handleMarkDelivering}>
-                <MapPin size={18} color={Colors.white} />
-                <Text style={styles.actionButtonText}>Mark Delivering</Text>
-              </TouchableOpacity>
+          {/* In Transit button */}
+  {pkg.status === 'intransit' && (
+    <>
+      <TouchableOpacity
+        style={styles.statusButton}
+        onPress={handleMarkDelivering}
+        disabled={loadingButton === 'delivering'}
+      >
+        <MapPin size={18} color={Colors.white} />
+        {loadingButton === 'delivering' ? (
+          <ActivityIndicator color={Colors.white} style={{ marginLeft: 8 }} />
+        ) : (
+          <Text style={styles.actionButtonText}>Mark Delivering</Text>
+        )}
+      </TouchableOpacity>
 
-              {/* Cancel button also available in transit */}
-              <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-                <XCircle size={18} color={Colors.error} />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </>
-          )}
+      <TouchableOpacity
+    style={styles.cancelButton}
+    onPress={async () => {
+      setLoadingButton('cancel');           // show spinner
+      try {
+        await handleCancel(pkg);
+      } finally {
+        setLoadingButton(null);             // hide spinner
+      }
+    }}
+    disabled={loadingButton === 'cancel'}   // prevent multiple presses
+  >
+    <XCircle size={18} color={Colors.white} />
+    {loadingButton === 'cancel' ? (
+      <ActivityIndicator color={Colors.white} style={{ marginLeft: 8 }} />
+    ) : (
+      <Text style={styles.cancelButtonText}>Cancel</Text>
+    )}
+  </TouchableOpacity>
 
-          {pkg.status === 'delivering' && (
-            <TouchableOpacity style={styles.statusButton} onPress={handleMarkCompleted}>
-              <CheckCircle size={18} color={Colors.white} />
-              <Text style={styles.actionButtonText}>Mark Completed</Text>
-            </TouchableOpacity>
-          )}
+    </>
+  )}
+
+  {/* Delivering button */}
+  {pkg.status === 'delivering' && (
+    <TouchableOpacity
+      style={styles.statusButton}
+      onPress={handleMarkCompleted}
+      disabled={loadingButton === 'completed'}
+    >
+      <CheckCircle size={18} color={Colors.white} />
+      {loadingButton === 'completed' ? (
+        <ActivityIndicator color={Colors.white} style={{ marginLeft: 8 }} />
+      ) : (
+        <Text style={styles.actionButtonText}>Mark Completed</Text>
+      )}
+    </TouchableOpacity>
+  )}
+
         </View>
       </View>
     )}
@@ -1170,8 +1294,8 @@ const styles = StyleSheet.create({
   infoTitle: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 4 },
   infoText: { fontSize: 13, color: Colors.textLight, lineHeight: 18 },
   footer: { flexDirection: 'row', padding: 12, backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border, gap: 12, alignItems: 'center' },
-  navButton: { backgroundColor: Colors.backgroundLight, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
-  navButtonText: { color: Colors.text, fontWeight: '600' },
+  navButton: { backgroundColor: Colors.primary, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
+  navButtonText: { color: Colors.white, fontWeight: '600' },
   declineButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.white, borderRadius: 12, height: 56, gap: 8, borderWidth: 2, borderColor: Colors.error },
   declineButtonText: { fontSize: 16, fontWeight: '600', color: Colors.error },
   acceptButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: 12, height: 56, gap: 8 },
