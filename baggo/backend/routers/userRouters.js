@@ -40,7 +40,7 @@ userRouter.post('/forgot-password', forgotPassword);
 userRouter.post('/verify-otp', verifyOtp);
 userRouter.post('/reset-password', resetPassword);
 userRouter.post("/resend-otp", resendOtp);
-userRouter.post('/AddAtrip', AddAtrip)
+userRouter.post('/AddAtrip',isAuthenticated, AddAtrip)
 userRouter.post('/:tripId/reviews', isAuthenticated, AddReviewToTrip);
 userRouter.get("/MyTrips", isAuthenticated,  MyTrips )
 userRouter.get("/getuser", isAuthenticated,  getUser)
