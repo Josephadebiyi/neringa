@@ -243,28 +243,25 @@ const handleSelectCity = (cityName: string) => {
   // pick a single image from gallery
   const pickImage = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Allow access to choose photos.');
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.5,
-        base64: true,
       });
 
       if (result.canceled) return;
 
       const selectedImage = result.assets[0];
-      const base64Data = `data:image/jpeg;base64,${selectedImage.base64}`;
 
-      setImage(base64Data);
-      setImagePreview(selectedImage.uri);
+      // Compress/resize
+      const manipResult = await ImageManipulator.manipulateAsync(
+        selectedImage.uri,
+        [{ resize: { width: 1024 } }], // resize to 1024px width
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
 
-      await AsyncStorage.setItem('packageImage', base64Data);
+      setImagePreview(manipResult.uri); // for showing preview
+      setImage(manipResult.uri);        // for FormData upload
 
     } catch (err) {
       console.error("Image pick error:", err);
@@ -398,12 +395,13 @@ const handleSelectCity = (cityName: string) => {
         formData.append("value", parseFloat(value) || 0);
 
         if (image) {
-          formData.append("image", {
-            uri: image,
-            name: "package.jpg",
-            type: "image/jpeg",
-          });
-        }
+    formData.append("image", {
+      uri: image,       // now this is a compressed file URI
+      name: "package.jpg",
+      type: "image/jpeg",
+    });
+  }
+
 
         // 🔥 REAL file upload here
         const response = await axios.post(
@@ -446,7 +444,7 @@ const handleSelectCity = (cityName: string) => {
         Alert.alert(
           "Error",
           error.response?.data?.message ||
-            "Failed to create package. Please try again."
+            "No Route Found"
         );
       } finally {
         setIsLoading(false);

@@ -395,9 +395,7 @@ const [currency, setCurrency] = useState('EUR');
               raw: request,
             };
           })
-          // 🧹 Filter out completed packages
-          .filter(req => req !== null && req.status !== 'completed');
-
+      
 
           setRequests(mappedRequests);
           setCurrentIndex(0);

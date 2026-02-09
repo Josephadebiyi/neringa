@@ -7,6 +7,8 @@ import {
   TextInput,
   Alert,
    Image,
+   KeyboardAvoidingView,
+   Platform
 } from 'react-native';
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
@@ -24,7 +26,6 @@ export default function PersonalDetailsScreen() {
   const [profileImage, setProfileImage] = useState(null);
   const [email, setEmail] = useState('sarah.j@email.com');
   const [phone, setPhone] = useState('+1 234 567 8900');
-  const [address, setAddress] = useState('123 Main Street, New York, NY 10016');
   const [dateOfBirth, setDateOfBirth] = useState('1990-05-15');
   const [loading, setLoading] = useState(true); // Loading state
   const [error, setError] = useState(null); // Error state
@@ -48,7 +49,6 @@ export default function PersonalDetailsScreen() {
           setLastName(user.lastName || 'Johnson');
           setEmail(user.email || 'sarah.j@email.com');
           setPhone(user.phone || '+1 234 567 8900');
-          setAddress(user.Address || '123 Main Street, New York, NY 10016');
           setDateOfBirth(user.dateOfBirth || '1990-05-15');
         } else {
           setError('Failed to fetch user data');
@@ -139,7 +139,6 @@ export default function PersonalDetailsScreen() {
         email,
         phone,
         dateOfBirth,
-        Address: address, // Use capitalized 'Address' to match backend
       };
       const response = await fetch(`${backendomain.backendomain}/api/baggo/edit`, {
         method: 'PUT',
@@ -204,6 +203,11 @@ export default function PersonalDetailsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.avatarSection}>
   <View style={styles.avatar}>
@@ -296,25 +300,13 @@ export default function PersonalDetailsScreen() {
             </View>
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Address</Text>
-            <View style={[styles.inputContainer, styles.textAreaContainer]}>
-              <MapPin size={20} color={Colors.textLight} style={styles.textAreaIcon} />
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Full address"
-                placeholderTextColor={Colors.textMuted}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-          </View>
+
         </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>
+</KeyboardAvoidingView>
+
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>

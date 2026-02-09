@@ -10,7 +10,9 @@ import {
   Image,
   Platform,
   Linking,
-  Modal
+  Modal,
+  Keyboard,
+  TouchableWithoutFeedback
 } from "react-native";
 import { useState, useEffect } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -183,7 +185,7 @@ const safeEmail = userData?.email || travellerEmail;
   }, []);
 
 
-  
+
   // Load image from AsyncStorage if not passed
   useEffect(() => {
     (async () => {
@@ -351,23 +353,28 @@ const safeEmail = userData?.email || travellerEmail;
     }
   };
 
+  const isKycVerified =
+    userStatus?.toLowerCase().trim() === "completed" ||
+    userStatus?.toLowerCase().trim() === "verified" ||
+    userData?.isVerified === true;
+
 
   const handleStripePress = () => {
-  if (userStatus !== "verified") {
-    setKycModalVisible(true);
-    return;
-  }
-  handleStripePayment(); // existing function
-};
+    if (!isKycVerified) {
+      setKycModalVisible(true);
+      return;
+    }
+    handleStripePayment();
+  };
 
+  const handlePaystackPress = () => {
+    if (!isKycVerified) {
+      setKycModalVisible(true);
+      return;
+    }
+    handlePaystackPayment();
+  };
 
-const handlePaystackPress = () => {
-  if (userStatus !== "verified") {
-    setKycModalVisible(true);
-    return;
-  }
-  handlePaystackPayment(); // existing function
-};
 
 // 🧩 Request package after successful payment
 const handleRequestPackage = async () => {
@@ -547,6 +554,7 @@ const handleRequestPackage = async () => {
           </View>
           <View style={{ width: 40 }} />
         </LinearGradient>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <KeyboardAvoidingView
     style={{ flex: 1 }}
     behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -619,19 +627,27 @@ const handleRequestPackage = async () => {
           <View style={styles.paymentSection}>
     {paymentProvider === "stripe" ? (
       <>
-        <CardField
-          postalCodeEnabled={false}
-          placeholders={{ number: "4242 4242 4242 4242" }}
-          cardStyle={{
-    backgroundColor: "#FFFFFF",
-    textColor: "#000000",
-    borderColor: "#d9d9d9",
-    borderWidth: 1,
-    borderRadius: 10,
-  }}
-          style={styles.cardField}
-          onCardChange={(details) => setCardDetails(details)}
-        />
+      <CardField
+      postalCodeEnabled={false}
+      placeholders={{ number: "4242 4242 4242 4242" }}
+      style={styles.cardField}
+      cardStyle={{
+        backgroundColor: "#FFFFFF",
+        textColor: "#000000",
+        borderColor: "#d9d9d9",
+        borderWidth: 1,
+        borderRadius: 10,
+      }}
+      onCardChange={(details) => {
+        setCardDetails(details);
+
+        // 👇 dismiss keyboard when card is complete
+        if (details.complete) {
+          Keyboard.dismiss();
+        }
+      }}
+    />
+
         {paymentError && <Text style={styles.errorText}>{paymentError}</Text>}
 
         <TouchableOpacity
@@ -666,6 +682,7 @@ const handleRequestPackage = async () => {
 
         </ScrollView>
         </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </View>
     </StripeProvider>
     <Modal

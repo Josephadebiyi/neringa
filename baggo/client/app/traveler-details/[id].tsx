@@ -14,6 +14,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Star, MessageCircle, Shield, MapPin, Calendar, Plane, Weight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { backendomain } from '@/utils/backendDomain';
+
 
 export default function TravelerDetailsScreen() {
   const router = useRouter();
@@ -59,7 +61,7 @@ export default function TravelerDetailsScreen() {
   const fetchTravelerReviews = async () => {
     setLoadingReviews(true);
     try {
-      const res = await fetch('http://172.20.10.3:3000/api/baggo/MyTrips');
+      const res = await fetch(`${backendomain.backendomain}/api/baggo/MyTrips`);
 
       const data = await res.json();
 
@@ -121,7 +123,7 @@ export default function TravelerDetailsScreen() {
 
     try {
       const res = await fetch(
-       `http://172.20.10.3:3000/api/baggo/${tripId}/reviews`,
+       `${backendomain.backendomain}/api/baggo/${tripId}/reviews`,
         {
           method: 'POST',
           headers: {

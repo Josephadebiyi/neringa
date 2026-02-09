@@ -6,47 +6,46 @@
     "orientation": "portrait",
     "icon": "./assets/images/logo.jpeg",
     "splash": {
-  "image": "./assets/images/logo.jpeg",
-  "resizeMode": "contain",
-  "backgroundColor": "#FFFFFF"
-},
+      "image": "./assets/images/logo.jpeg",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.deracali.boltexponativewind",
       "infoPlist": {
         "NSUserTrackingUsageDescription": "This identifier will be used to send you personalized notifications.",
-"NSLocationWhenInUseUsageDescription": "This app needs access to your location to detect your country and currency"
-      },
-
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to detect your country and currency",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
-
     "android": {
       "package": "com.deracali.boltexponativewind",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.jpeg",
         "backgroundColor": "#FFFFFF"
       },
-       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
-       "usesCleartextTraffic": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "usesCleartextTraffic": true,
       "notification": {
         "icon": "./assets/images/logo.jpeg",
         "color": "#E91E63",
         "priority": "max",
         "channelId": "default"
       },
-      "googleServicesFile": "./google-services.json",
+      "googleServicesFile": "./google-services.json"
     },
-
     "notification": {
       "icon": "./assets/images/logo.jpeg",
       "color": "#E91E63",
       "iosDisplayInForeground": true
     },
-
     "permissions": {
       "location": {
         "ios": {
@@ -57,30 +56,25 @@
         }
       }
     },
-
     "web": {
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/images/logo.jpeg"
     },
-
     "plugins": [
       "expo-router",
       "expo-font",
       "expo-web-browser"
     ],
-
     "experiments": {
       "typedRoutes": true
     },
-
     "extra": {
       "router": {},
       "eas": {
         "projectId": "b11b74ac-d95e-4ea5-8cf7-0bb68eff100e"
       }
     },
-
     "owner": "deracali"
   }
 }

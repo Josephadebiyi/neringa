@@ -382,7 +382,7 @@ const fetchNotifications = async () => {
         );
 
 
-        setRecentOrders(sortedOrders.slice(0, 5));
+        setRecentOrders(sortedOrders.slice(0, 10));
       } else {
         console.warn('Invalid recent orders data from API');
         setRecentOrders([]);

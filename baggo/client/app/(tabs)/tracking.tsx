@@ -27,20 +27,28 @@ export default function TrackingScreen(): JSX.Element {
 
   useEffect(() => {
     const initializeTracking = async () => {
-      await loadTrackingMap();
-      await fetchRecentOrders();
+      const storedMap = await loadTrackingMap(); // 🔴 capture map
+      await fetchRecentOrders(storedMap);
     };
+
     initializeTracking();
   }, []);
 
-  const loadTrackingMap = async () => {
-    try {
-      const stored = await AsyncStorage.getItem('trackingMap');
-      if (stored) setTrackingMap(JSON.parse(stored));
-    } catch (error) {
-      console.error('Error loading tracking map:', error);
+
+  const loadTrackingMap = async (): Promise<Record<string, string>> => {
+  try {
+    const stored = await AsyncStorage.getItem('trackingMap');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setTrackingMap(parsed);
+      return parsed; // 🔴 IMPORTANT
     }
-  };
+  } catch (error) {
+    console.error('Error loading tracking map:', error);
+  }
+  return {};
+};
+
 
   const saveTrackingMap = async (newMap: Record<string, string>) => {
     try {
@@ -67,8 +75,11 @@ export default function TrackingScreen(): JSX.Element {
   };
 
   // Ensure we don't assign multiple short codes to the same requestId
-  const assignTrackingCodesToRecentOrders = async (orders: any[]) => {
-    const newMap = { ...trackingMap };
+  const assignTrackingCodesToRecentOrders = async (
+    orders: any[],
+    currentMap: Record<string, string>
+  ) => {
+    const newMap = { ...currentMap };
     const existingCodes = Object.keys(newMap);
     let hasChanges = false;
 
@@ -90,7 +101,8 @@ export default function TrackingScreen(): JSX.Element {
     return newMap;
   };
 
-  const fetchRecentOrders = async () => {
+  const fetchRecentOrders = async (currentMap: Record<string, string>) => {
+
     setLoadingOrders(true);
     try {
       const response = await axios.get(`${API_BASE_URL}/recentOrder`, {
@@ -99,7 +111,9 @@ export default function TrackingScreen(): JSX.Element {
       if (response.data.success && Array.isArray(response.data.data)) {
         const orders = response.data.data;
         setRecentOrders(orders);
-        await assignTrackingCodesToRecentOrders(orders);
+        const updatedMap = await assignTrackingCodesToRecentOrders(orders, currentMap);
+setTrackingMap(updatedMap);
+
       } else {
         console.warn('Invalid recent orders data from API');
         setRecentOrders([]);
