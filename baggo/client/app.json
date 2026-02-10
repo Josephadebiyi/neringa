@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Baggo",
+    "name": "Bago",
     "slug": "bolt-expo-nativewind",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.jpeg",
+    "icon": "./assets/images/bago-logo.png",
     "splash": {
-      "image": "./assets/images/logo.jpeg",
+      "image": "./assets/images/bago-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#000000"
     },
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
@@ -25,8 +25,8 @@
     "android": {
       "package": "com.deracali.boltexponativewind",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.jpeg",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/images/bago-logo.png",
+        "backgroundColor": "#000000"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -34,16 +34,16 @@
       ],
       "usesCleartextTraffic": true,
       "notification": {
-        "icon": "./assets/images/logo.jpeg",
-        "color": "#E91E63",
+        "icon": "./assets/images/bago-logo.png",
+        "color": "#6366F1",
         "priority": "max",
         "channelId": "default"
       },
       "googleServicesFile": "./google-services.json"
     },
     "notification": {
-      "icon": "./assets/images/logo.jpeg",
-      "color": "#E91E63",
+      "icon": "./assets/images/bago-logo.png",
+      "color": "#6366F1",
       "iosDisplayInForeground": true
     },
     "permissions": {
@@ -59,7 +59,7 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/logo.jpeg"
+      "favicon": "./assets/images/bago-logo.png"
     },
     "plugins": [
       "expo-router",
