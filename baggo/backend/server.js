@@ -921,3 +921,157 @@ app.get("/api/payment/verify/:reference", async (req, res) => {
     res.status(500).json({ status: false, message: "Verification failed", error: err.message });
   }
 });
+
+// ============================================
+// DIDIT.ME KYC VERIFICATION ROUTES
+// ============================================
+const DIDIT_API_KEY = process.env.DIDIT_API_KEY || 'SvXz9y6AR9iJl3PqCB6t0VzWRhUyVacXA6VP4gSnVLU';
+const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '0583ad9d-e666-4875-a85a-ab47812d98a5';
+
+// Create DIDIT verification session
+app.post("/api/baggo/kyc/create-session", async (req, res) => {
+  try {
+    const userId = req.cookies.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Check if user already has pending or approved KYC
+    if (user.kycStatus === 'approved') {
+      return res.status(200).json({ 
+        success: true, 
+        message: "KYC already approved",
+        status: 'approved'
+      });
+    }
+
+    const callbackUrl = `${process.env.BASE_URL}/api/baggo/kyc/callback`;
+
+    const response = await fetch('https://verification.didit.me/v3/session/', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'x-api-key': DIDIT_API_KEY,
+      },
+      body: JSON.stringify({
+        workflow_id: DIDIT_WORKFLOW_ID,
+        vendor_data: userId,
+        callback: callbackUrl,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("DIDIT session creation error:", data);
+      return res.status(400).json({ success: false, message: "Failed to create verification session", error: data });
+    }
+
+    // Store session ID in user record
+    user.diditSessionId = data.session_id || data.id;
+    user.kycStatus = 'pending';
+    await user.save();
+
+    res.json({ 
+      success: true, 
+      sessionId: data.session_id || data.id,
+      sessionUrl: data.url || `https://verify.didit.me/${data.session_id || data.id}`,
+      message: "Verification session created"
+    });
+  } catch (err) {
+    console.error("❌ DIDIT KYC error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to create KYC session", error: err.message });
+  }
+});
+
+// DIDIT webhook callback
+app.post("/api/baggo/kyc/callback", async (req, res) => {
+  try {
+    const { session_id, status, vendor_data } = req.body;
+    
+    console.log("DIDIT Callback received:", { session_id, status, vendor_data });
+
+    const userId = vendor_data;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "No user ID in callback" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Update KYC status based on DIDIT response
+    if (status === 'Approved' || status === 'approved') {
+      user.kycStatus = 'approved';
+      user.kycVerifiedAt = new Date();
+    } else if (status === 'Declined' || status === 'declined') {
+      user.kycStatus = 'declined';
+    } else if (status === 'Pending' || status === 'pending') {
+      user.kycStatus = 'pending';
+    }
+
+    await user.save();
+
+    res.json({ success: true, message: "KYC status updated" });
+  } catch (err) {
+    console.error("❌ DIDIT callback error:", err.message);
+    res.status(500).json({ success: false, message: "Callback processing failed", error: err.message });
+  }
+});
+
+// Get KYC status
+app.get("/api/baggo/kyc/status", async (req, res) => {
+  try {
+    const userId = req.cookies.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      kycStatus: user.kycStatus || 'not_started',
+      kycVerifiedAt: user.kycVerifiedAt || null,
+    });
+  } catch (err) {
+    console.error("❌ KYC status error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to get KYC status", error: err.message });
+  }
+});
+
+// Check session status from DIDIT
+app.get("/api/baggo/kyc/check-session/:sessionId", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const response = await fetch(`https://verification.didit.me/v3/session/${sessionId}`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'x-api-key': DIDIT_API_KEY,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(400).json({ success: false, message: "Failed to check session", error: data });
+    }
+
+    res.json({ success: true, session: data });
+  } catch (err) {
+    console.error("❌ DIDIT session check error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to check session", error: err.message });
+  }
+});
