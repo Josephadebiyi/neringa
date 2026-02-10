@@ -26,7 +26,7 @@
       "package": "com.deracali.boltexponativewind",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/bago-logo.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#FFFFFF"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
