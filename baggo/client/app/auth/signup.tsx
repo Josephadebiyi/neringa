@@ -13,11 +13,13 @@ import {
   Modal,
   FlatList,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { Package,Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type CountryItem = {
   name: string;
