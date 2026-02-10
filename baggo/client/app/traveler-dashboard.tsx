@@ -524,16 +524,23 @@ useEffect(() => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: 20,
   },
-  backButton: { width: 40, height: 40, justifyContent: 'center' },
-  backIcon: { fontSize: 24, color: Colors.white },
+  backButton: { 
+    width: 40, 
+    height: 40, 
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.white },
   statsCard: {
     marginHorizontal: 20,
