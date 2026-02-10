@@ -38,6 +38,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function PackageRequestScreen() {
   const router = useRouter();
   const { id: tripId } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
