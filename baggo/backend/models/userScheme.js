@@ -116,6 +116,21 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false, // ensures 3% discount is applied only once
   },
+  
+  // 🆔 DIDIT.me KYC Verification
+  kycStatus: {
+    type: String,
+    enum: ['not_started', 'pending', 'approved', 'declined'],
+    default: 'not_started',
+  },
+  diditSessionId: {
+    type: String,
+    default: null,
+  },
+  kycVerifiedAt: {
+    type: Date,
+    default: null,
+  },
 });
 
 // 🔒 Hash password before saving
