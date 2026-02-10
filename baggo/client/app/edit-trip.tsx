@@ -9,6 +9,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { Image } from "react-native";
 import { useState, useEffect, useRef } from "react";
@@ -16,19 +17,23 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import axios from "axios";
 import { Colors } from "@/constants/Colors";
-import { MapPin, Calendar, Weight, Plane, Bus, Train, Car, Ship, MoreHorizontal } from "lucide-react-native";
+import { MapPin, Calendar, Weight, Plane, Bus, Train, Car, Ship, MoreHorizontal, ChevronLeft, Trash2 } from "lucide-react-native";
 import { backendomain } from "@/utils/backendDomain";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const RAPID_API_KEY = "764ae3a2d0msh0d44a93e665c289p104415jsn9a0e1853cc6e";
 
 export default function EditTripScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams(); // expects tripId
+  const params = useLocalSearchParams();
   const tripId = params.id;
+  const insets = useSafeAreaInsets();
 
   const [tripData, setTripData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [hasActiveRequests, setHasActiveRequests] = useState(false);
 
   // Form fields
   const [fromCountry, setFromCountry] = useState("");
@@ -43,7 +48,7 @@ export default function EditTripScreen() {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [isArrivalDatePickerVisible, setArrivalDatePickerVisibility] = useState(false);
 
-  // --- Modal state ---
+  // Modal state
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
   const [selectingField, setSelectingField] = useState(null);
@@ -57,22 +62,20 @@ export default function EditTripScreen() {
   useEffect(() => {
     fetchTrip();
     fetchCountries();
+    checkActiveRequests();
   }, []);
 
   const formatDate = (dateString) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-};
-
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  };
 
   const fetchTrip = async () => {
     try {
       const res = await axios.get(`${backendomain.backendomain}/api/baggo/MyTrips`, {
         withCredentials: true,
       });
-      console.log("MyTrips response:", res.data);
-
       const trips = res.data?.trips || [];
       const trip = trips.find((t) => t.id === tripId);
 
@@ -94,15 +97,28 @@ export default function EditTripScreen() {
       setAvailableKg(trip.availableKg?.toString() || "");
       setPricePerKg(trip.pricePerKg?.toString() || "");
       setTravelMeans(trip.travelMeans);
-      setDepartureDate(trip.departureDate); // keep ISO string
-setArrivalDate(trip.arrivalDate);     // keep ISO string
-
-
+      setDepartureDate(trip.departureDate);
+      setArrivalDate(trip.arrivalDate);
     } catch (err) {
       console.error("Fetch trip error:", err);
       Alert.alert("Error", "Failed to fetch trip data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkActiveRequests = async () => {
+    try {
+      const res = await axios.get(`${backendomain.backendomain}/api/baggo/traveler/requests`, {
+        withCredentials: true,
+      });
+      const requests = res.data?.requests || [];
+      const activeForTrip = requests.filter(
+        (r) => r.tripId === tripId && ['pending', 'accepted', 'in_transit'].includes(r.status?.toLowerCase())
+      );
+      setHasActiveRequests(activeForTrip.length > 0);
+    } catch (err) {
+      console.error("Check requests error:", err);
     }
   };
 
@@ -172,6 +188,7 @@ setArrivalDate(trip.arrivalDate);     // keep ISO string
     selectingField === "from" ? setFromCountry(name) : setToCountry(name);
     setShowCountryModal(false);
   };
+
   const handleSelectCity = (name) => {
     selectingField === "from" ? setFromCity(name) : setToCity(name);
     setShowCityModal(false);
@@ -182,6 +199,11 @@ setArrivalDate(trip.arrivalDate);     // keep ISO string
     setDatePickerVisibility(false);
   };
 
+  const handleConfirmArrivalDate = (date) => {
+    setArrivalDate(date.toISOString().split("T")[0]);
+    setArrivalDatePickerVisibility(false);
+  };
+
   const handleUpdate = async () => {
     if (!fromCountry || !fromCity || !toCountry || !toCity || !departureDate || !arrivalDate || !availableKg || !travelMeans) {
       setError("All fields are required");
@@ -189,7 +211,7 @@ setArrivalDate(trip.arrivalDate);     // keep ISO string
     }
     setLoading(true);
     try {
-      const res = await axios.put(
+      await axios.put(
         `${backendomain.backendomain}/api/baggo/Trip/${tripId}`,
         {
           fromLocation: `${fromCity}, ${fromCountry}`,
@@ -198,115 +220,316 @@ setArrivalDate(trip.arrivalDate);     // keep ISO string
           arrivalDate,
           availableKg: parseFloat(availableKg),
           travelMeans,
+          pricePerKg: parseFloat(pricePerKg) || 0,
         },
         { withCredentials: true }
       );
-      if (res.status !== 200) throw new Error("Failed to update trip");
       Alert.alert("Success", "Trip updated successfully", [
-     { text: "OK", onPress: () => router.back() }
-   ]);
+        { text: "OK", onPress: () => router.back() }
+      ]);
     } catch (err) {
-      console.error("Update trip error:", err);
-      setError(err.message || "Network error");
+      console.error("Update error:", err);
+      Alert.alert("Error", err?.response?.data?.message || "Failed to update trip");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1, justifyContent: "center", alignItems: "center" }} />;
+  const handleDelete = async () => {
+    if (hasActiveRequests) {
+      Alert.alert(
+        "Cannot Delete",
+        "This trip has active requests. Please complete or cancel all requests before deleting.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Delete Trip",
+      "Are you sure you want to delete this trip? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await axios.delete(`${backendomain.backendomain}/api/baggo/Trip/${tripId}`, {
+                withCredentials: true,
+              });
+              Alert.alert("Success", "Trip deleted successfully", [
+                { text: "OK", onPress: () => router.replace('/traveler-dashboard') }
+              ]);
+            } catch (err) {
+              console.error("Delete error:", err);
+              Alert.alert("Error", err?.response?.data?.message || "Failed to delete trip");
+            } finally {
+              setDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const travelModes = [
+    { id: "flight", icon: Plane, label: "Flight" },
+    { id: "bus", icon: Bus, label: "Bus" },
+    { id: "train", icon: Train, label: "Train" },
+    { id: "car", icon: Car, label: "Car" },
+    { id: "ship", icon: Ship, label: "Ship" },
+    { id: "other", icon: MoreHorizontal, label: "Other" },
+  ];
+
+  const filteredCountries = countries.filter((c) =>
+    c.name.toLowerCase().includes(countrySearch.toLowerCase())
+  );
+
+  const filteredCities = cities.filter((c) =>
+    c.toLowerCase().includes(citySearch.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.content}>
-        <Text style={styles.title}>Edit Trip</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        {/* From Section */}
-        <Text style={styles.label}>From Country</Text>
-        <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("from")}>
-          <MapPin size={20} color={Colors.textLight} />
-          <Text style={styles.input}>{fromCountry || "Select Country"}</Text>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color={Colors.text} />
         </TouchableOpacity>
-
-        <Text style={styles.label}>From City</Text>
-        <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("from")}>
-          <MapPin size={20} color={Colors.textLight} />
-          <Text style={styles.input}>{fromCity || "Select City"}</Text>
-        </TouchableOpacity>
-
-        {/* To Section */}
-        <Text style={styles.label}>To Country</Text>
-        <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("to")}>
-          <MapPin size={20} color={Colors.textLight} />
-          <Text style={styles.input}>{toCountry || "Select Country"}</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.label}>To City</Text>
-        <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("to")}>
-          <MapPin size={20} color={Colors.textLight} />
-          <Text style={styles.input}>{toCity || "Select City"}</Text>
-        </TouchableOpacity>
-
-        {/* Travel Mode */}
-        <Text style={styles.label}>Travel Method</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeContainer}>
-          {["airplane", "bus", "train", "car", "ship", "other"].map((mode) => {
-            const Icon = { airplane: Plane, bus: Bus, train: Train, car: Car, ship: Ship, other: MoreHorizontal }[mode];
-            return (
-              <TouchableOpacity key={mode} style={[styles.modeButton, travelMeans === mode && styles.modeButtonActive]} onPress={() => setTravelMeans(mode)}>
-                <Icon size={18} color={travelMeans === mode ? Colors.white : Colors.textLight} />
-                <Text style={[styles.modeText, { color: travelMeans === mode ? Colors.white : Colors.text }]}>{mode.charAt(0).toUpperCase() + mode.slice(1)}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Departure & Arrival */}
-        <Text style={styles.label}>Departure Date</Text>
-        <TouchableOpacity style={styles.inputContainer} onPress={() => setDatePickerVisibility(true)}>
-          <Calendar size={20} color={Colors.textLight} />
-          <Text style={styles.input}>{departureDate ? formatDate(departureDate) : "Select Departure Date"}</Text>
-        </TouchableOpacity>
-        <DateTimePickerModal isVisible={isDatePickerVisible} mode="date" onConfirm={handleConfirmDate} onCancel={() => setDatePickerVisibility(false)} minimumDate={new Date()} />
-
-        <Text style={styles.label}>Arrival Date</Text>
-        <TouchableOpacity style={styles.inputContainer} onPress={() => setArrivalDatePickerVisibility(true)}>
-          <Calendar size={20} color={Colors.textLight} />
-          <Text style={styles.input}>{arrivalDate ? formatDate(arrivalDate) : "Select Arrival Date"}</Text>
-        </TouchableOpacity>
-        <DateTimePickerModal
-          isVisible={isArrivalDatePickerVisible}
-          mode="date"
-          onConfirm={(date) => {
-            setArrivalDate(date.toISOString().split("T")[0]);
-            setArrivalDatePickerVisibility(false);
-          }}
-          onCancel={() => setArrivalDatePickerVisibility(false)}
-          minimumDate={new Date(departureDate || new Date())}
-        />
-
-        {/* Available Kg */}
-        <Text style={styles.label}>Available Luggage Space (kg)</Text>
-        <View style={styles.inputContainer}>
-          <Weight size={20} color={Colors.textLight} />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter available weight"
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="numeric"
-            value={availableKg}
-            onChangeText={setAvailableKg}
-          />
-        </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity style={[styles.submitButton, loading && { opacity: 0.6 }]} onPress={handleUpdate} disabled={loading}>
-          {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.submitButtonText}>Update Trip</Text>}
+        <Text style={styles.headerTitle}>Edit Trip</Text>
+        <TouchableOpacity 
+          onPress={handleDelete} 
+          style={[styles.deleteButton, hasActiveRequests && styles.deleteButtonDisabled]}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color="#EF4444" />
+          ) : (
+            <Trash2 size={20} color={hasActiveRequests ? "#CCC" : "#EF4444"} />
+          )}
         </TouchableOpacity>
       </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {/* From Location */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>From</Text>
+          <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("from")}>
+            <MapPin size={20} color={Colors.textLight} />
+            <Text style={[styles.inputText, !fromCountry && styles.placeholder]}>
+              {fromCountry || "Select Country"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("from")}>
+            <MapPin size={20} color={Colors.textLight} />
+            <Text style={[styles.inputText, !fromCity && styles.placeholder]}>
+              {fromCity || "Select City"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* To Location */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>To</Text>
+          <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("to")}>
+            <MapPin size={20} color={Colors.textLight} />
+            <Text style={[styles.inputText, !toCountry && styles.placeholder]}>
+              {toCountry || "Select Country"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("to")}>
+            <MapPin size={20} color={Colors.textLight} />
+            <Text style={[styles.inputText, !toCity && styles.placeholder]}>
+              {toCity || "Select City"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Dates */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Travel Dates</Text>
+          <TouchableOpacity style={styles.inputContainer} onPress={() => setDatePickerVisibility(true)}>
+            <Calendar size={20} color={Colors.textLight} />
+            <Text style={[styles.inputText, !departureDate && styles.placeholder]}>
+              {departureDate ? formatDate(departureDate) : "Departure Date"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.inputContainer} onPress={() => setArrivalDatePickerVisibility(true)}>
+            <Calendar size={20} color={Colors.textLight} />
+            <Text style={[styles.inputText, !arrivalDate && styles.placeholder]}>
+              {arrivalDate ? formatDate(arrivalDate) : "Arrival Date"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Travel Mode */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Travel Mode</Text>
+          <View style={styles.modeGrid}>
+            {travelModes.map((mode) => {
+              const Icon = mode.icon;
+              const isSelected = travelMeans === mode.id;
+              return (
+                <TouchableOpacity
+                  key={mode.id}
+                  style={[styles.modeCard, isSelected && styles.modeCardSelected]}
+                  onPress={() => setTravelMeans(mode.id)}
+                >
+                  <Icon size={24} color={isSelected ? Colors.primary : Colors.textLight} />
+                  <Text style={[styles.modeLabel, isSelected && styles.modeLabelSelected]}>{mode.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Capacity & Price */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Capacity & Pricing</Text>
+          <View style={styles.inputContainer}>
+            <Weight size={20} color={Colors.textLight} />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Available KG"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="decimal-pad"
+              value={availableKg}
+              onChangeText={setAvailableKg}
+            />
+            <Text style={styles.unit}>kg</Text>
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.currencyIcon}>$</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Price per KG"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="decimal-pad"
+              value={pricePerKg}
+              onChangeText={setPricePerKg}
+            />
+            <Text style={styles.unit}>/kg</Text>
+          </View>
+        </View>
+
+        {/* Update Button */}
+        <TouchableOpacity style={styles.updateButton} onPress={handleUpdate} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color={Colors.white} />
+          ) : (
+            <Text style={styles.updateButtonText}>Update Trip</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Delete Info */}
+        {hasActiveRequests && (
+          <Text style={styles.deleteInfo}>
+            This trip cannot be deleted because it has active requests.
+          </Text>
+        )}
+      </ScrollView>
+
+      {/* Country Modal */}
+      <Modal visible={showCountryModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingTop: insets.top + 10 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Country</Text>
+              <TouchableOpacity onPress={() => setShowCountryModal(false)}>
+                <Text style={styles.modalClose}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search country..."
+              placeholderTextColor={Colors.textMuted}
+              value={countrySearch}
+              onChangeText={setCountrySearch}
+            />
+            <FlatList
+              data={filteredCountries}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.listItem} onPress={() => handleSelectCountry(item.name)}>
+                  {item.flag && <Image source={{ uri: item.flag }} style={styles.flag} />}
+                  <Text style={styles.listItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* City Modal */}
+      <Modal visible={showCityModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingTop: insets.top + 10 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select City</Text>
+              <TouchableOpacity onPress={() => setShowCityModal(false)}>
+                <Text style={styles.modalClose}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search or type city..."
+              placeholderTextColor={Colors.textMuted}
+              value={citySearch}
+              onChangeText={setCitySearch}
+              ref={cityInputRef}
+            />
+            {loadingCities ? (
+              <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+            ) : (
+              <FlatList
+                data={filteredCities}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.listItem} onPress={() => handleSelectCity(item)}>
+                    <Text style={styles.listItemText}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <TouchableOpacity
+                    style={styles.listItem}
+                    onPress={() => {
+                      if (citySearch.trim()) handleSelectCity(citySearch.trim());
+                    }}
+                  >
+                    <Text style={styles.listItemText}>Use "{citySearch}" as city</Text>
+                  </TouchableOpacity>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Date Pickers */}
+      <DateTimePickerModal
+        isVisible={isDatePickerVisible}
+        mode="date"
+        onConfirm={handleConfirmDate}
+        onCancel={() => setDatePickerVisibility(false)}
+      />
+      <DateTimePickerModal
+        isVisible={isArrivalDatePickerVisible}
+        mode="date"
+        onConfirm={handleConfirmArrivalDate}
+        onCancel={() => setArrivalDatePickerVisibility(false)}
+      />
     </View>
   );
 }
@@ -316,80 +539,196 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteButtonDisabled: {
+    backgroundColor: "#F5F5F5",
+  },
   content: {
-    padding: 16,
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 16,
-    color: Colors.text,
+  section: {
+    marginBottom: 24,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginTop: 12,
-    marginBottom: 4,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
     color: Colors.text,
+    marginBottom: 12,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
   },
-  input: {
-    marginLeft: 8,
+  inputText: {
     flex: 1,
+    marginLeft: 12,
     fontSize: 16,
     color: Colors.text,
   },
-  modeContainer: {
-    flexDirection: "row",
-    gap: 8,
-    paddingVertical: 8,
+  placeholder: {
+    color: Colors.textMuted,
   },
-  modeButton: {
+  textInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  unit: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginLeft: 8,
+  },
+  currencyIcon: {
+    fontSize: 18,
+    color: Colors.textLight,
+  },
+  modeGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  modeCard: {
+    width: "30%",
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginRight: 8,
   },
-  modeButtonActive: {
-    backgroundColor: Colors.primary,
+  modeCardSelected: {
     borderColor: Colors.primary,
+    backgroundColor: `${Colors.primary}10`,
   },
-  modeText: {
-    marginLeft: 6,
-    fontSize: 14,
+  modeLabel: {
+    marginTop: 8,
+    fontSize: 12,
+    color: Colors.textLight,
   },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.background,
+  modeLabelSelected: {
+    color: Colors.primary,
+    fontWeight: "600",
   },
-  submitButton: {
+  updateButton: {
     backgroundColor: Colors.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: "center",
+    marginTop: 16,
   },
-  submitButtonText: {
+  updateButtonText: {
     color: Colors.white,
     fontSize: 16,
     fontWeight: "600",
   },
-  error: {
-    color: Colors.danger,
-    marginBottom: 12,
+  deleteInfo: {
+    textAlign: "center",
+    color: Colors.textMuted,
+    fontSize: 12,
+    marginTop: 12,
+  },
+  errorText: {
+    color: "#EF4444",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    marginTop: 60,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  modalClose: {
+    fontSize: 16,
+    color: Colors.primary,
+  },
+  searchInput: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginVertical: 12,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  listItemText: {
+    fontSize: 16,
+    color: Colors.text,
+    marginLeft: 12,
+  },
+  flag: {
+    width: 24,
+    height: 16,
+    borderRadius: 2,
   },
 });
