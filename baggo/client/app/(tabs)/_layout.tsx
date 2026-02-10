@@ -2,19 +2,19 @@ import { Tabs } from "expo-router";
 import { Hop as Home, Package, MessageCircle, User } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import { useWindowDimensions, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   // More stable responsive scaling
   const minSide = Math.min(width, height);
 
   // Responsive values
-  const tabHeight = Math.max(56, height * 0.085); // never too small
-  const iconSize = Math.max(22, minSide * 0.065);
-  const fontSize = Math.max(11, minSide * 0.035);
-  const tabOffset = height * 0.015;
-  const horizontalMargin = width * 0.04;
+  const tabHeight = Platform.OS === 'ios' ? 60 + insets.bottom : Math.max(56, height * 0.085);
+  const iconSize = Math.max(22, minSide * 0.06);
+  const fontSize = Math.max(10, minSide * 0.03);
 
   return (
     <Tabs
@@ -26,26 +26,27 @@ export default function TabLayout() {
           backgroundColor: Colors.white,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
-
           height: tabHeight,
-          paddingBottom: height * 0.015,
-          paddingTop: height * 0.012,
-
-          position: "absolute",
-          bottom: tabOffset,
-          marginHorizontal: horizontalMargin,
-          borderRadius: 20,
-
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 8,
+          paddingTop: 8,
+          // Remove floating style for iOS - keep tab bar at bottom in safe area
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
           // Shadows
           shadowColor: "#000",
           shadowOpacity: 0.08,
-          shadowOffset: { width: 0, height: 2 },
+          shadowOffset: { width: 0, height: -2 },
           shadowRadius: 6,
           elevation: 5,
         },
         tabBarLabelStyle: {
           fontSize,
           fontWeight: "500",
+          marginBottom: Platform.OS === 'ios' ? 0 : 4,
         },
       }}
     >
