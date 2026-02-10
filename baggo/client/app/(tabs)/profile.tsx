@@ -8,7 +8,8 @@ import {
   Modal,
   Alert,
   Linking,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter,useLocalSearchParams } from 'expo-router';
