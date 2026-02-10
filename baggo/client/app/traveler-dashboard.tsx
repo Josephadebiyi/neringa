@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TravelerDashboardScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [trips, setTrips] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
@@ -30,8 +31,8 @@ export default function TravelerDashboardScreen() {
   const [completedTrips, setCompletedTrips] = useState([]);
   const [completedLoading, setCompletedLoading] = useState(false);
   const [symbol, setSymbol] = useState("₦");
-    const [country, setCountry] = useState(null);
-    const [isNigeria, setIsNigeria] = useState(false);
+  const [country, setCountry] = useState(null);
+  const [isNigeria, setIsNigeria] = useState(false);
 
 const [currency, setCurrency] = useState('EUR');
 
