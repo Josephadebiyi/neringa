@@ -223,8 +223,11 @@ export default function SignUp() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
           <View style={styles.header}>
-            <Package size={50} color={Colors.primary} strokeWidth={2} />
-            <Text style={styles.title}>BAGGO</Text>
+            <Image
+              source={require('@/assets/images/bago-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.subtitle}>Create Your Account</Text>
           </View>
 
