@@ -1,14 +1,15 @@
-import 'react-native-url-polyfill/auto';
-import { createClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
+// Supabase is not used - using MongoDB backend instead
+// This file is kept for compatibility but exports nothing functional
 
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
+    getSession: async () => ({ data: { session: null } }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    signInWithPassword: async () => ({ error: null }),
+    signUp: async () => ({ data: null, error: null }),
+    signOut: async () => {},
   },
-});
+  from: () => ({
+    insert: async () => ({ error: null }),
+  }),
+};
