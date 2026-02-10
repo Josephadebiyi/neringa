@@ -1,18 +1,19 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { Package,Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const handleSignIn = async () => {
     setError('');
@@ -43,7 +44,6 @@ export default function SignIn() {
         throw new Error(data.message || 'Sign in failed');
       }
 
-      // Assuming successful sign-in redirects to tabs
       router.replace('/(tabs)');
     } catch (err) {
       setError(err.message || 'An error occurred during sign-in');
@@ -53,13 +53,16 @@ export default function SignIn() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Package size={60} color={Colors.primary} strokeWidth={2} />
-          <Text style={styles.title}>BAGGO</Text>
+          <Image
+            source={require('@/assets/images/bago-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>Connect Travelers & Senders</Text>
         </View>
 
@@ -82,7 +85,7 @@ export default function SignIn() {
               placeholderTextColor={Colors.textLight}
               value={password}
               onChangeText={setPassword}
-              secureTextEntry={!showPassword} // <-- this line fixed
+              secureTextEntry={!showPassword}
               editable={!loading}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -93,6 +96,7 @@ export default function SignIn() {
               )}
             </TouchableOpacity>
           </View>
+          
           <TouchableOpacity
             onPress={() => router.push('/auth/forgot-password')}
             disabled={loading}
@@ -133,7 +137,7 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#000000',
   },
   content: {
     flex: 1,
@@ -144,76 +148,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginTop: 16,
-    letterSpacing: 2,
+  logo: {
+    width: 180,
+    height: 70,
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: '#9CA3AF',
     marginTop: 8,
   },
   form: {
     width: '100%',
   },
   input: {
-    backgroundColor: Colors.white,
+    backgroundColor: '#1F1F1F',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#333333',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: Colors.text,
+    color: '#FFFFFF',
     marginBottom: 16,
   },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333333',
+    borderRadius: 12,
+    backgroundColor: '#1F1F1F',
+    paddingHorizontal: 12,
+    marginBottom: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 12,
+  },
+  forgotPasswordText: {
+    color: '#6366F1',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   button: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#6366F1',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
   },
-  passwordContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  borderWidth: 1,
-  borderColor: Colors.border,
-  borderRadius: 12,
-  backgroundColor: Colors.white,
-  paddingHorizontal: 12,
-  marginBottom: 16,
-},
-passwordInput: {
-  flex: 1,
-  paddingVertical: 14,
-  fontSize: 16,
-  color: Colors.text,
-},
-forgotPasswordButton: {
-  alignSelf: 'flex-end',
-  marginBottom: 12,
-},
-
-forgotPasswordText: {
-  color: Colors.primary,
-  fontSize: 14,
-  fontWeight: '500',
-},
-
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: Colors.white,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
   error: {
-    color: Colors.error,
+    color: '#EF4444',
     fontSize: 14,
     marginBottom: 12,
     textAlign: 'center',
@@ -223,11 +223,11 @@ forgotPasswordText: {
     alignItems: 'center',
   },
   linkText: {
-    color: Colors.textLight,
+    color: '#9CA3AF',
     fontSize: 14,
   },
   linkTextBold: {
-    color: Colors.primary,
+    color: '#6366F1',
     fontWeight: '600',
   },
 });
