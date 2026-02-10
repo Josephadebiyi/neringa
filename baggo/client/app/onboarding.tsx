@@ -79,7 +79,6 @@ export default function OnboardingScreen() {
   };
 
   const renderItem = ({ item, index }: { item: typeof onboardingData[0]; index: number }) => {
-    const Icon = item.icon;
     return (
       <View style={styles.slide}>
         <LinearGradient
@@ -88,7 +87,7 @@ export default function OnboardingScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <Icon size={80} color="#FFFFFF" strokeWidth={1.5} />
+          <Text style={styles.emoji}>{item.emoji}</Text>
         </LinearGradient>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
