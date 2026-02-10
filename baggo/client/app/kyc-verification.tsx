@@ -1,684 +1,323 @@
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
+  Linking,
 } from 'react-native';
-import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { WebView } from 'react-native-webview';
 import { Colors } from '@/constants/Colors';
-import { Shield, FileText, Camera, CircleCheck as CheckCircle, Upload, CircleAlert as AlertCircle } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy'; // Use legacy API
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, Shield, CheckCircle, XCircle, Clock } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
-
-const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
+import axios from 'axios';
 
 export default function KYCVerificationScreen() {
   const router = useRouter();
-  const [userData, setUserData] = useState(null); // Store finduser data
-  const [kycData, setKycData] = useState(null); // Store kyc data
+  const insets = useSafeAreaInsets();
+  const webViewRef = useRef(null);
+  
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [identityDocument, setIdentityDocument] = useState(null);
-  const [proofOfAddress, setProofOfAddress] = useState(null);
-  const [verificationSelfie, setVerificationSelfie] = useState(null);
+  const [kycStatus, setKycStatus] = useState('not_started');
+  const [sessionUrl, setSessionUrl] = useState(null);
+  const [showWebView, setShowWebView] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
 
-  const fetchKycStatus = async () => {
+  useEffect(() => {
+    checkKYCStatus();
+  }, []);
+
+  const checkKYCStatus = async () => {
     try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/getKyc`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Send auth cookie
+      const response = await axios.get(`${backendomain.backendomain}/api/baggo/kyc/status`, {
+        withCredentials: true,
       });
-      const data = await response.json();
-
-      if (data.status === 'success') {
-        setUserData(data.data.finduser); // Store user data
-        setKycData(data.data.kyc); // Store kyc data
-      } else {
-        // Alert.alert('Error', data.message || 'Failed to fetch KYC status');
+      if (response.data.success) {
+        setKycStatus(response.data.kycStatus);
       }
-    } catch (error) {
-      console.error('Fetch KYC error:', error);
-      // Alert.alert('Error', 'Failed to fetch KYC status');
+    } catch (err) {
+      console.error('Error checking KYC status:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchKycStatus();
-  }, []);
-
-  // const handleFileSelect = async (step) => {
-  //   // Prevent uploads if KYC is already submitted
-  //   if (kycData) {
-  //     Alert.alert('Info', 'KYC already submitted and under review');
-  //     return;
-  //   }
-  //
-  //   try {
-  //     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  //     if (status !== 'granted') {
-  //       Alert.alert('Permission denied', 'Please allow access to photos');
-  //       return;
-  //     }
-  //
-  //     const result = await ImagePicker.launchImageLibraryAsync({
-  //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-  //       allowsEditing: true,
-  //       quality: 0.8,
-  //     });
-  //
-  //     if (!result.canceled && result.assets[0].uri) {
-  //       const { uri, mimeType } = result.assets[0];
-  //
-  //       // Validate MIME type (JPEG or PNG only)
-  //       const validMimeTypes = ['image/jpeg', 'image/png'];
-  //       if (!validMimeTypes.includes(mimeType)) {
-  //         Alert.alert('Error', 'Only JPEG or PNG images are allowed');
-  //         return;
-  //       }
-  //
-  //       // Check file size (<10MB) using legacy FileSystem.getInfoAsync
-  //       const fileInfo = await FileSystem.getInfoAsync(uri);
-  //       if (!fileInfo.exists) {
-  //         Alert.alert('Error', 'File does not exist');
-  //         return;
-  //       }
-  //       const fileSizeMB = fileInfo.size / (1024 * 1024); // Convert bytes to MB
-  //       if (fileSizeMB > 10) {
-  //         Alert.alert('Error', 'Image size must be under 10MB');
-  //         return;
-  //       }
-  //
-  //       // Read file as base64
-  //       const base64 = await FileSystem.readAsStringAsync(uri, {
-  //         encoding: FileSystem.EncodingType.Base64,
-  //       });
-  //       const base64String = `data:${mimeType};base64,${base64}`;
-  //       console.log(`Base64 for step ${step} (first 50 chars):`, base64String.substring(0, 50));
-  //
-  //       // Validate base64 format
-  //       const base64Regex = /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/;
-  //       if (!base64Regex.test(base64String)) {
-  //         Alert.alert('Error', 'Invalid base64 format generated');
-  //         return;
-  //       }
-  //
-  //       if (step === 1) {
-  //         setIdentityDocument(base64String);
-  //       } else if (step === 2) {
-  //         setProofOfAddress(base64String);
-  //       } else if (step === 3) {
-  //         setVerificationSelfie(base64String);
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error('ImagePicker error:', error);
-  //     Alert.alert('Error', 'Failed to select file');
-  //   }
-  // };
-
-
-
-  const handleFileSelect = async (step) => {
-    if (kycData) {
-      Alert.alert('Info', 'KYC already submitted and under review');
-      return;
-    }
-
+  const startVerification = async () => {
+    setCreatingSession(true);
     try {
-      // Ask user if they want to use camera or gallery
-      Alert.alert(
-        'Select Option',
-        'Choose how you want to upload your image',
-        [
-          {
-            text: 'Camera',
-            onPress: async () => {
-              const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-              if (cameraPermission.status !== 'granted') {
-                Alert.alert('Permission denied', 'Please allow camera access');
-                return;
-              }
-
-              const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                quality: 0.8,
-              });
-
-              if (!result.canceled && result.assets[0].uri) {
-                await processImage(result.assets[0], step);
-              }
-            },
-          },
-          {
-            text: 'Gallery',
-            onPress: async () => {
-              const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              if (mediaPermission.status !== 'granted') {
-                Alert.alert('Permission denied', 'Please allow access to photos');
-                return;
-              }
-
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 0.8,
-              });
-
-              if (!result.canceled && result.assets[0].uri) {
-                await processImage(result.assets[0], step);
-              }
-            },
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ]
+      const response = await axios.post(
+        `${backendomain.backendomain}/api/baggo/kyc/create-session`,
+        {},
+        { withCredentials: true }
       );
-    } catch (error) {
-      console.error('ImagePicker error:', error);
-      Alert.alert('Error', 'Failed to select image');
-    }
-  };
 
-
-  const processImage = async (asset, step) => {
-    const { uri, mimeType } = asset;
-
-    const validMimeTypes = ['image/jpeg', 'image/png'];
-    if (!validMimeTypes.includes(mimeType)) {
-      Alert.alert('Error', 'Only JPEG or PNG images are allowed');
-      return;
-    }
-
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-    if (!fileInfo.exists) {
-      Alert.alert('Error', 'File does not exist');
-      return;
-    }
-    const fileSizeMB = fileInfo.size / (1024 * 1024);
-    if (fileSizeMB > 10) {
-      Alert.alert('Error', 'Image size must be under 10MB');
-      return;
-    }
-
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const base64String = `data:${mimeType};base64,${base64}`;
-
-    if (step === 1) setIdentityDocument(base64String);
-    else if (step === 2) setProofOfAddress(base64String);
-    else if (step === 3) setVerificationSelfie(base64String);
-  };
-
-
-
-  const handleSubmit = async () => {
-    // Prevent submission if KYC is already submitted
-    if (kycData) {
-      Alert.alert('Info', 'KYC already submitted and under review');
-      return;
-    }
-
-    if (!identityDocument || !proofOfAddress || !verificationSelfie) {
-      Alert.alert('Error', 'Please upload all documents');
-      return;
-    }
-
-    try {
-      setUploading(true);
-
-      const formData = {
-        identityDocument,
-        proofOfAddress,
-        verificationSelfie,
-      };
-
-      console.log('Submitting KYC data:', {
-        identityDocument: identityDocument.substring(0, 50) + '...',
-        proofOfAddress: proofOfAddress.substring(0, 50) + '...',
-        verificationSelfie: verificationSelfie.substring(0, 50) + '...',
-      });
-
-      const response = await fetch(`${API_BASE_URL}/KycVerifications`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert('Success', 'KYC submitted successfully');
-        setIdentityDocument(null);
-        setProofOfAddress(null);
-        setVerificationSelfie(null);
-        fetchKycStatus();
+      if (response.data.success) {
+        if (response.data.status === 'approved') {
+          setKycStatus('approved');
+          Alert.alert('Already Verified', 'Your identity has already been verified.');
+          return;
+        }
+        
+        setSessionUrl(response.data.sessionUrl);
+        setShowWebView(true);
       } else {
-        Alert.alert('Error', data.message || 'Failed to submit KYC');
+        Alert.alert('Error', response.data.message || 'Failed to start verification');
       }
-    } catch (error) {
-      console.error('Submit KYC error:', error);
-      Alert.alert('Error', 'Failed to submit KYC');
+    } catch (err) {
+      console.error('Error starting verification:', err);
+      Alert.alert('Error', err?.response?.data?.message || 'Failed to start verification');
     } finally {
-      setUploading(false);
+      setCreatingSession(false);
     }
   };
 
-  const steps = [
-    {
-      id: 1,
-      title: 'Identity Document',
-      description: 'Upload a government-issued ID (Passport, ID card, or driving license)',
-      icon: FileText,
-      status: kycData?.identityDocument ? 'completed' : identityDocument ? 'uploaded' : 'pending',
-    },
-    {
-      id: 2,
-      title: 'Proof of Address',
-      description: 'Upload a recent utility bill or bank statement (not older than 3 months)',
-      icon: FileText,
-      status: kycData?.proofOfAddress ? 'completed' : proofOfAddress ? 'uploaded' : 'pending',
-    },
-    {
-      id: 3,
-      title: 'Selfie Verification',
-      description: 'Take a selfie holding your ID document',
-      icon: Camera,
-      status: kycData?.verificationSelfie ? 'completed' : verificationSelfie ? 'uploaded' : 'pending',
-    },
-  ];
+  const handleWebViewNavigation = (navState) => {
+    if (navState.url.includes('callback') || navState.url.includes('success') || navState.url.includes('complete')) {
+      setShowWebView(false);
+      checkKYCStatus();
+      Alert.alert('Verification Submitted', 'Your verification is being processed. This usually takes a few minutes.');
+    }
+  };
 
-  const isSubmitEnabled = identityDocument && proofOfAddress && verificationSelfie && !kycData;
+  const renderStatusIcon = () => {
+    switch (kycStatus) {
+      case 'approved':
+        return <CheckCircle size={80} color="#22C55E" />;
+      case 'pending':
+        return <Clock size={80} color="#F59E0B" />;
+      case 'declined':
+        return <XCircle size={80} color="#EF4444" />;
+      default:
+        return <Shield size={80} color={Colors.primary} />;
+    }
+  };
+
+  const renderStatusText = () => {
+    switch (kycStatus) {
+      case 'approved':
+        return {
+          title: 'Verified',
+          subtitle: 'Your identity has been verified. You have full access to all features.',
+          color: '#22C55E',
+        };
+      case 'pending':
+        return {
+          title: 'Under Review',
+          subtitle: 'Your verification is being processed. This usually takes a few minutes.',
+          color: '#F59E0B',
+        };
+      case 'declined':
+        return {
+          title: 'Verification Failed',
+          subtitle: 'Your verification was declined. Please try again with valid documents.',
+          color: '#EF4444',
+        };
+      default:
+        return {
+          title: 'Verify Your Identity',
+          subtitle: 'Complete KYC verification to send packages and create trips.',
+          color: Colors.text,
+        };
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (showWebView && sessionUrl) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setShowWebView(false)} style={styles.backButton}>
+            <ChevronLeft size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Identity Verification</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <WebView
+          ref={webViewRef}
+          source={{ uri: sessionUrl }}
+          style={styles.webview}
+          onNavigationStateChange={handleWebViewNavigation}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.webviewLoading}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          )}
+          javaScriptEnabled
+          domStorageEnabled
+          mediaPlaybackRequiresUserAction={false}
+          allowsInlineMediaPlayback
+        />
+      </View>
+    );
+  }
+
+  const statusInfo = renderStatusText();
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
-        style={styles.header}
-      >
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+          <ChevronLeft size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>KYC Verification</Text>
         <View style={{ width: 40 }} />
-      </LinearGradient>
+      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={styles.content}>
+        <View style={styles.statusCard}>
+          {renderStatusIcon()}
+          <Text style={[styles.statusTitle, { color: statusInfo.color }]}>{statusInfo.title}</Text>
+          <Text style={styles.statusSubtitle}>{statusInfo.subtitle}</Text>
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.infoTitle}>Why Verify?</Text>
+          <View style={styles.infoCard}>
+            <View style={styles.infoItem}>
+              <View style={styles.infoIcon}>
+                <Shield size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.infoText}>
+                <Text style={styles.infoItemTitle}>Security</Text>
+                <Text style={styles.infoItemDesc}>Protect yourself and others from fraud</Text>
+              </View>
+            </View>
+            <View style={styles.infoItem}>
+              <View style={styles.infoIcon}>
+                <CheckCircle size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.infoText}>
+                <Text style={styles.infoItemTitle}>Full Access</Text>
+                <Text style={styles.infoItemDesc}>Send packages and create trips</Text>
+              </View>
+            </View>
           </View>
-        ) : (
-          <>
-            <View style={styles.statusCard}>
-              <Shield size={48} color={Colors.success} />
-              <Text style={styles.statusTitle}>
-                {kycData ? 'Verification Status' : 'Start Verification'}
+        </View>
+
+        {(kycStatus === 'not_started' || kycStatus === 'declined') && (
+          <TouchableOpacity 
+            style={styles.verifyButton} 
+            onPress={startVerification}
+            disabled={creatingSession}
+          >
+            {creatingSession ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <Text style={styles.verifyButtonText}>
+                {kycStatus === 'declined' ? 'Try Again' : 'Start Verification'}
               </Text>
-              {userData && (
-                <View style={styles.userInfo}>
-                  <Text style={styles.userInfoText}>
-                    Name: {userData.firstName} {userData.lastName}
-                  </Text>
-                  <Text style={styles.userInfoText}>Email: {userData.email}</Text>
-                  <Text style={styles.userInfoText}>
-                    Status: {userData.status.charAt(0).toUpperCase() + userData.status.slice(1)}
-                  </Text>
-                </View>
-              )}
-              <Text style={styles.statusSubtitle}>
-                {kycData
-                  ? `KYC submitted on ${new Date(kycData.createdAt || Date.now()).toLocaleDateString()}. Awaiting review.`
-                  : 'Complete all steps to start carrying packages'}
-              </Text>
-            </View>
-
-            <View style={styles.infoCard}>
-              <AlertCircle size={20} color={Colors.primary} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoTitle}>EU GDPR Compliant</Text>
-                <Text style={styles.infoText}>
-                  Your data is processed in accordance with EU General Data Protection Regulation (GDPR).
-                  We use bank-level encryption to protect your personal information.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Verification Steps</Text>
-
-              {steps.map((step, index) => (
-                <View key={step.id} style={styles.stepCard}>
-                  <View style={styles.stepNumber}>
-                    {step.status === 'completed' ? (
-                      <CheckCircle size={24} color={Colors.success} fill={Colors.success} />
-                    ) : step.status === 'uploaded' ? (
-                      <CheckCircle size={24} color={Colors.primary} />
-                    ) : (
-                      <Text style={styles.stepNumberText}>{index + 1}</Text>
-                    )}
-                  </View>
-
-                  <View style={styles.stepContent}>
-                    <View style={styles.stepHeader}>
-                      <step.icon size={20} color={Colors.primary} />
-                      <Text style={styles.stepTitle}>{step.title}</Text>
-                    </View>
-                    <Text style={styles.stepDescription}>{step.description}</Text>
-
-                    {step.status === 'completed' ? (
-                      <View style={styles.completedBadge}>
-                        <CheckCircle size={14} color={Colors.success} />
-                        <Text style={styles.completedText}>Completed</Text>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={[styles.uploadButton, (uploading || kycData) && styles.disabledButton]}
-                        onPress={() => handleFileSelect(step.id)}
-                        disabled={uploading || kycData}
-                      >
-                        <Upload size={16} color={Colors.primary} />
-                        <Text style={styles.uploadButtonText}>
-                          {step.status === 'uploaded' ? 'Uploaded (Replace)' : 'Upload Document'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ))}
-
-              <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  !isSubmitEnabled && styles.disabledButton,
-                ]}
-                onPress={handleSubmit}
-                disabled={!isSubmitEnabled || uploading}
-              >
-                <Text style={styles.submitButtonText}>
-                  {uploading ? 'Submitting...' : 'Submit KYC'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Requirements</Text>
-
-              <View style={styles.requirementCard}>
-                <Text style={styles.requirementTitle}>Document Requirements:</Text>
-                <Text style={styles.requirementText}>• Must be in color</Text>
-                <Text style={styles.requirementText}>• All corners visible</Text>
-                <Text style={styles.requirementText}>• Text clearly readable</Text>
-                <Text style={styles.requirementText}>• Not expired</Text>
-                <Text style={styles.requirementText}>• File size under 10MB</Text>
-                <Text style={styles.requirementText}>• Format: JPG, PNG</Text>
-              </View>
-
-              <View style={styles.requirementCard}>
-                <Text style={styles.requirementTitle}>Processing Time:</Text>
-                <Text style={styles.requirementText}>
-                  Verification typically takes 24-48 hours. You'll receive a notification once your
-                  documents have been reviewed.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Data Protection</Text>
-
-              <View style={styles.dataCard}>
-                <Text style={styles.dataText}>
-                  • Your documents are encrypted and stored securely
-                </Text>
-                <Text style={styles.dataText}>
-                  • We comply with EU GDPR and data protection laws
-                </Text>
-                <Text style={styles.dataText}>
-                  • Your data is never shared with third parties
-                </Text>
-                <Text style={styles.dataText}>
-                  • You can request data deletion at any time
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ height: 100 }} />
-          </>
+            )}
+          </TouchableOpacity>
         )}
-      </ScrollView>
+
+        {kycStatus === 'pending' && (
+          <TouchableOpacity 
+            style={[styles.verifyButton, styles.refreshButton]} 
+            onPress={checkKYCStatus}
+          >
+            <Text style={styles.refreshButtonText}>Refresh Status</Text>
+          </TouchableOpacity>
+        )}
+
+        {kycStatus === 'approved' && (
+          <TouchableOpacity 
+            style={[styles.verifyButton, styles.successButton]} 
+            onPress={() => router.back()}
+          >
+            <Text style={styles.verifyButtonText}>Continue to App</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   backButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: Colors.white,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.white,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  loadingContainer: {
-    flex: 1,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: Colors.text },
+  content: { flex: 1, padding: 20 },
   statusCard: {
     backgroundColor: Colors.white,
     borderRadius: 20,
-    padding: 24,
+    padding: 32,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 5,
   },
-  statusTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  statusSubtitle: {
-    fontSize: 14,
-    color: Colors.textLight,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  userInfo: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  userInfoText: {
-    fontSize: 14,
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.backgroundLight,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 13,
-    color: Colors.textLight,
-    lineHeight: 18,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  stepCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  stepNumber: {
+  statusTitle: { fontSize: 24, fontWeight: 'bold', marginTop: 20, marginBottom: 8 },
+  statusSubtitle: { fontSize: 14, color: Colors.textLight, textAlign: 'center', lineHeight: 20 },
+  infoSection: { marginBottom: 24 },
+  infoTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 12 },
+  infoCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16 },
+  infoItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  infoIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: `${Colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  stepNumberText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.primary,
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  stepDescription: {
-    fontSize: 14,
-    color: Colors.textLight,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  completedText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.success,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.backgroundLight,
-    borderRadius: 8,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  uploadButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  submitButton: {
+  infoText: { flex: 1 },
+  infoItemTitle: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 2 },
+  infoItemDesc: { fontSize: 12, color: Colors.textLight },
+  verifyButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 'auto',
   },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.white,
-  },
-  requirementCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  requirementTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 12,
-  },
-  requirementText: {
-    fontSize: 14,
-    color: Colors.textLight,
-    lineHeight: 22,
-    marginBottom: 4,
-  },
-  dataCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-  },
-  dataText: {
-    fontSize: 14,
-    color: Colors.textLight,
-    lineHeight: 22,
-    marginBottom: 8,
+  verifyButtonText: { color: Colors.white, fontSize: 16, fontWeight: '600' },
+  refreshButton: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.primary },
+  refreshButtonText: { color: Colors.primary, fontSize: 16, fontWeight: '600' },
+  successButton: { backgroundColor: '#22C55E' },
+  webview: { flex: 1 },
+  webviewLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
   },
 });
