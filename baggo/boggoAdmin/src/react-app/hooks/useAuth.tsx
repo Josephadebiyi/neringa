@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 interface AdminUser {
-  id: number;
+  id: string;
   username: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  firstName?: string;
+  lastName?: string;
   role: string;
 }
 
@@ -29,10 +30,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      const response = await fetch('/api/admin/me');
+      const response = await fetch(`${API_BASE_URL}/CheckAdmin`, {
+        credentials: 'include',
+      });
       if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
+        const data = await response.json();
+        if (data.admin) {
+          setUser({
+            id: data.admin._id,
+            username: data.admin.userName || data.admin.email,
+            email: data.admin.email,
+            firstName: data.admin.firstName,
+            lastName: data.admin.lastName,
+            role: 'admin',
+          });
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -42,26 +54,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (username: string, password: string) => {
-    const response = await fetch('/api/admin/login', {
+    const response = await fetch(`${API_BASE_URL}/AdminLogin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password }),
+      credentials: 'include',
+      body: JSON.stringify({ userName: username, password }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Login failed');
+      throw new Error(error.message || 'Login failed');
     }
 
     const data = await response.json();
-    setUser(data.user);
+    setUser({
+      id: data.admin._id,
+      username: data.admin.userName || data.admin.email,
+      email: data.admin.email,
+      firstName: data.admin.firstName,
+      lastName: data.admin.lastName,
+      role: 'admin',
+    });
   };
 
   const logout = async () => {
     try {
-      await fetch('/api/admin/logout', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/Adminlogout`, { 
+        method: 'GET',
+        credentials: 'include',
+      });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
