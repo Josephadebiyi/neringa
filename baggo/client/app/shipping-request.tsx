@@ -557,7 +557,7 @@ useEffect(() => {
               />
             </View>
             {insurance && (
-              <Text style={styles.insuranceText}>2% of item value (€{insuranceFeePreview.toFixed(2)})</Text>
+              <Text style={styles.insuranceText}>2% of item value ({currencySymbol}{insuranceFeePreview.toFixed(2)})</Text>
             )}
           </View>
         </View>
