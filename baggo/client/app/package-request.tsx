@@ -25,6 +25,7 @@ import {
   MapPin,
   Clock,
   Upload,
+  ChevronLeft,
 } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 import * as FileSystem from "expo-file-system/legacy";
@@ -32,6 +33,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PackageRequestScreen() {
   const router = useRouter();
