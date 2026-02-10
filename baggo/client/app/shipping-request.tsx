@@ -128,7 +128,33 @@ const loadCurrency = async (): Promise<string | null> => {
   }
 };
 
+  // Helper: split "City, Country" into { city, country }
+  const parseLocation = (val?: string) => {
+    if (!val) return { city: '', country: '' };
+    const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length === 0) return { city: '', country: '' };
+    if (parts.length === 1) return { city: parts[0], country: '' };
+    const country = parts.pop()!;
+    const city = parts.join(', ');
+    return { city, country };
+  };
 
+  const parsedFrom = parseLocation((params.fromCity as string) || (params.from as string) || '');
+  const parsedTo = parseLocation((params.toCity as string) || (params.to as string) || '');
+
+  // separate city / country states - MUST be declared before useEffect that uses them
+  const [fromCountry, setFromCountry] = useState<string>(
+    (params.fromCountry as string) || parsedFrom.country || ''
+  );
+  const [fromCity, setFromCity] = useState<string>(
+    (params.fromCity as string) || parsedFrom.city || ''
+  );
+  const [toCountry, setToCountry] = useState<string>(
+    (params.toCountry as string) || parsedTo.country || ''
+  );
+  const [toCity, setToCity] = useState<string>(
+    (params.toCity as string) || parsedTo.city || ''
+  );
 
 useEffect(() => {
   if (!fromCountry) return;
@@ -151,20 +177,6 @@ useEffect(() => {
   })();
 }, []);
 
-  // Helper: split "City, Country" into { city, country }
-  const parseLocation = (val?: string) => {
-    if (!val) return { city: '', country: '' };
-    const parts = val.split(',').map(s => s.trim()).filter(Boolean);
-    if (parts.length === 0) return { city: '', country: '' };
-    if (parts.length === 1) return { city: parts[0], country: '' };
-    const country = parts.pop()!;
-    const city = parts.join(', ');
-    return { city, country };
-  };
-
-  const parsedFrom = parseLocation((params.fromCity as string) || (params.from as string) || '');
-  const parsedTo = parseLocation((params.toCity as string) || (params.to as string) || '');
-
   // initial traveler (display only)
   const initialTraveler = useMemo(
     () => ({
@@ -182,20 +194,6 @@ useEffect(() => {
       mode: (params.mode as string) || 'flight',
     }),
     [params, parsedFrom.city, parsedTo.city]
-  );
-
-  // separate city / country states
-  const [fromCountry, setFromCountry] = useState<string>(
-    (params.fromCountry as string) || parsedFrom.country || ''
-  );
-  const [fromCity, setFromCity] = useState<string>(
-    (params.fromCity as string) || parsedFrom.city || ''
-  );
-  const [toCountry, setToCountry] = useState<string>(
-    (params.toCountry as string) || parsedTo.country || ''
-  );
-  const [toCity, setToCity] = useState<string>(
-    (params.toCity as string) || parsedTo.city || ''
   );
 
   // image: `image` holds dataURI (data:image/...); imagePreview holds local file:// for display
