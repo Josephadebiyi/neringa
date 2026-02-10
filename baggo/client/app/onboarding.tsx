@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,15 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
-  FlatList,
-  Animated,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const onboardingData = [
   {
@@ -53,12 +51,9 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
 
   const handleNext = () => {
     if (currentIndex < onboardingData.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
       setCurrentIndex(currentIndex + 1);
     } else {
       completeOnboarding();
@@ -78,51 +73,10 @@ export default function OnboardingScreen() {
     }
   };
 
-  const renderItem = ({ item, index }: { item: typeof onboardingData[0]; index: number }) => {
-    return (
-      <View style={styles.slide}>
-        <LinearGradient
-          colors={item.gradient as [string, string]}
-          style={styles.iconContainer}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.emoji}>{item.emoji}</Text>
-        </LinearGradient>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.description}>{item.description}</Text>
-      </View>
-    );
-  };
-
-  const renderDots = () => {
-    return (
-      <View style={styles.dotsContainer}>
-        {onboardingData.map((_, index) => {
-          const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
-          const dotWidth = scrollX.interpolate({
-            inputRange,
-            outputRange: [8, 24, 8],
-            extrapolate: 'clamp',
-          });
-          const opacity = scrollX.interpolate({
-            inputRange,
-            outputRange: [0.3, 1, 0.3],
-            extrapolate: 'clamp',
-          });
-          return (
-            <Animated.View
-              key={index}
-              style={[styles.dot, { width: dotWidth, opacity }]}
-            />
-          );
-        })}
-      </View>
-    );
-  };
+  const currentSlide = onboardingData[currentIndex];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}>
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
@@ -137,28 +91,35 @@ export default function OnboardingScreen() {
         <Text style={styles.skipText}>Skip</Text>
       </TouchableOpacity>
 
-      {/* Slides */}
-      <Animated.FlatList
-        ref={flatListRef}
-        data={onboardingData}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
-        )}
-        onMomentumScrollEnd={(event) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / width);
-          setCurrentIndex(index);
-        }}
-        scrollEventThrottle={16}
-      />
+      {/* Current Slide Content */}
+      <View style={styles.slideContainer}>
+        <LinearGradient
+          colors={currentSlide.gradient as [string, string]}
+          style={styles.iconContainer}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Text style={styles.emoji}>{currentSlide.emoji}</Text>
+        </LinearGradient>
+        <Text style={styles.title}>{currentSlide.title}</Text>
+        <Text style={styles.description}>{currentSlide.description}</Text>
+      </View>
 
       {/* Dots */}
-      {renderDots()}
+      <View style={styles.dotsContainer}>
+        {onboardingData.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.dot,
+              { 
+                width: index === currentIndex ? 24 : 8,
+                opacity: index === currentIndex ? 1 : 0.3,
+              }
+            ]}
+          />
+        ))}
+      </View>
 
       {/* Bottom buttons */}
       <View style={styles.bottomContainer}>
@@ -197,8 +158,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 10,
   },
   logo: {
     width: 120,
@@ -215,11 +175,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  slide: {
-    width,
+  slideContainer: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 40,
-    paddingTop: 40,
   },
   iconContainer: {
     width: 160,
