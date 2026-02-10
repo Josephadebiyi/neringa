@@ -1266,8 +1266,25 @@ const getStatusColor = (status) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  backIcon: { fontSize: 24, color: Colors.text },
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 16, 
+    paddingVertical: 12, 
+    backgroundColor: Colors.white, 
+    borderBottomWidth: 1, 
+    borderBottomColor: Colors.border 
+  },
+  backButton: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: Colors.background, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
   headerTitle: { fontSize: 18, fontWeight: '600', color: Colors.text },
   content: { flex: 1 },
   earningCard: { margin: 20, borderRadius: 20, padding: 24, alignItems: 'center' },
