@@ -26,6 +26,7 @@ const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'send' | 'earn'>('send');
   const [searchQuery, setSearchQuery] = useState('');
   const [trips, setTrips] = useState([]);
