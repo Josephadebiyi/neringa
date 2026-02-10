@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useState, useEffect, useCallback  } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,6 +20,7 @@ import { backendomain } from '@/utils/backendDomain';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import PushNotificationSetup from '@/utils/PushNotificationSetup';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 
