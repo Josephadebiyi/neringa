@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 10,
+    paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 20,
     paddingHorizontal: 20,
     backgroundColor: Colors.white,
