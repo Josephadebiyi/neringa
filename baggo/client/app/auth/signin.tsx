@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
@@ -56,80 +56,84 @@ export default function SignIn() {
       style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Image
-            source={require('@/assets/images/bago-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.subtitle}>Connect Travelers & Senders</Text>
-        </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Image
+              source={require('@/assets/images/bago-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.subtitle}>Connect Travelers & Senders</Text>
+          </View>
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={Colors.textLight}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            editable={!loading}
-          />
-
-          <View style={styles.passwordContainer}>
+          <View style={styles.form}>
+            <Text style={styles.label}>Email</Text>
             <TextInput
-              style={styles.passwordInput}
-              placeholder="Password"
-              placeholderTextColor={Colors.textLight}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
               editable={!loading}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              {showPassword ? (
-                <EyeOff color={Colors.textLight} size={20} />
+
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter your password"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                editable={!loading}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeOff color="#999" size={20} />
+                ) : (
+                  <Eye color="#999" size={20} />
+                )}
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity
+              onPress={() => router.push('/auth/forgot-password')}
+              disabled={loading}
+              style={styles.forgotPasswordButton}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleSignIn}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Eye color={Colors.textLight} size={20} />
+                <Text style={styles.buttonText}>Sign In</Text>
               )}
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => router.push('/auth/signup')}
+              disabled={loading}
+            >
+              <Text style={styles.linkText}>
+                Don't have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity
-            onPress={() => router.push('/auth/forgot-password')}
-            disabled={loading}
-            style={styles.forgotPasswordButton}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSignIn}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={Colors.white} />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => router.push('/auth/signup')}
-            disabled={loading}
-          >
-            <Text style={styles.linkText}>
-              Don't have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -137,56 +141,66 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#FFFFFF',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 40,
   },
   header: {
     alignItems: 'center',
     marginBottom: 48,
   },
   logo: {
-    width: 180,
-    height: 70,
-    marginBottom: 12,
+    width: 160,
+    height: 60,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#888',
     marginTop: 8,
   },
   form: {
     width: '100%',
   },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
   input: {
-    backgroundColor: '#1F1F1F',
+    backgroundColor: '#F8F8F8',
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: '#E8E8E8',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#333',
     marginBottom: 16,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: '#E8E8E8',
     borderRadius: 12,
-    backgroundColor: '#1F1F1F',
-    paddingHorizontal: 12,
+    backgroundColor: '#F8F8F8',
+    paddingHorizontal: 16,
     marginBottom: 16,
   },
   passwordInput: {
     flex: 1,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#333',
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
@@ -219,11 +233,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   linkButton: {
-    marginTop: 16,
+    marginTop: 20,
     alignItems: 'center',
   },
   linkText: {
-    color: '#9CA3AF',
+    color: '#888',
     fontSize: 14,
   },
   linkTextBold: {
