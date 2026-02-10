@@ -234,6 +234,9 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  emoji: {
+    fontSize: 70,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
