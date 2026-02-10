@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Package, Plane, Shield, DollarSign } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,28 +23,28 @@ const onboardingData = [
     id: '1',
     title: 'Send Packages Worldwide',
     description: 'Connect with trusted travelers heading to your destination. Send packages safely and affordably.',
-    icon: Package,
+    emoji: '📦',
     gradient: ['#6366F1', '#8B5CF6'],
   },
   {
     id: '2',
     title: 'Earn While Traveling',
     description: 'Turn your unused luggage space into extra income. Get paid to deliver packages on your trips.',
-    icon: Plane,
+    emoji: '✈️',
     gradient: ['#8B5CF6', '#A855F7'],
   },
   {
     id: '3',
     title: 'Secure & Verified',
     description: 'All users are KYC verified. Your packages are insured and tracked in real-time.',
-    icon: Shield,
+    emoji: '🛡️',
     gradient: ['#A855F7', '#6366F1'],
   },
   {
     id: '4',
     title: 'Easy Payments',
     description: 'Secure escrow payments protect both senders and travelers. Get paid instantly upon delivery.',
-    icon: DollarSign,
+    emoji: '💰',
     gradient: ['#6366F1', '#4F46E5'],
   },
 ];
