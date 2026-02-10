@@ -7,43 +7,35 @@ import {
   TouchableOpacity,
   Image,
   Platform,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ChevronLeft } from 'lucide-react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const onboardingData = [
   {
     id: '1',
-    title: 'Send Packages Worldwide',
-    description: 'Connect with trusted travelers heading to your destination. Send packages safely and affordably.',
-    emoji: '📦',
-    gradient: ['#6366F1', '#8B5CF6'],
+    title: 'Send packages',
+    titleBold: 'worldwide',
+    description: 'Connect with trusted travelers heading to your destination safely.',
+    image: require('@/assets/images/onboarding-1.jpg'),
   },
   {
     id: '2',
-    title: 'Earn While Traveling',
-    description: 'Turn your unused luggage space into extra income. Get paid to deliver packages on your trips.',
-    emoji: '✈️',
-    gradient: ['#8B5CF6', '#A855F7'],
+    title: 'Earn while',
+    titleBold: 'traveling',
+    description: 'Turn your unused luggage space into extra income on every trip.',
+    image: require('@/assets/images/onboarding-2.jpg'),
   },
   {
     id: '3',
-    title: 'Secure & Verified',
-    description: 'All users are KYC verified. Your packages are insured and tracked in real-time.',
-    emoji: '🛡️',
-    gradient: ['#A855F7', '#6366F1'],
-  },
-  {
-    id: '4',
-    title: 'Easy Payments',
-    description: 'Secure escrow payments protect both senders and travelers. Get paid instantly upon delivery.',
-    emoji: '💰',
-    gradient: ['#6366F1', '#4F46E5'],
+    title: 'Secure and',
+    titleBold: 'verified',
+    description: 'All users are KYC verified. Packages insured and tracked.',
+    image: require('@/assets/images/onboarding-3.jpg'),
   },
 ];
 
@@ -57,6 +49,12 @@ export default function OnboardingScreen() {
       setCurrentIndex(currentIndex + 1);
     } else {
       completeOnboarding();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
     }
   };
 
@@ -76,33 +74,54 @@ export default function OnboardingScreen() {
   const currentSlide = onboardingData[currentIndex];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}>
-      {/* Logo */}
-      <View style={styles.logoContainer}>
+    <View style={[styles.container, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 20 }]}>
+      {/* Header */}
+      <View style={styles.header}>
         <Image
           source={require('@/assets/images/bago-logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
+        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+          <Text style={styles.skipText}>skip</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Skip button */}
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-        <Text style={styles.skipText}>Skip</Text>
-      </TouchableOpacity>
-
-      {/* Current Slide Content */}
-      <View style={styles.slideContainer}>
-        <LinearGradient
-          colors={currentSlide.gradient as [string, string]}
-          style={styles.iconContainer}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.emoji}>{currentSlide.emoji}</Text>
-        </LinearGradient>
-        <Text style={styles.title}>{currentSlide.title}</Text>
+      {/* Title Section */}
+      <View style={styles.titleSection}>
+        <Text style={styles.title}>
+          {currentSlide.title}{'\n'}
+          <Text style={styles.titleBold}>{currentSlide.titleBold}</Text>
+        </Text>
         <Text style={styles.description}>{currentSlide.description}</Text>
+      </View>
+
+      {/* Image Card */}
+      <View style={styles.imageContainer}>
+        <View style={styles.imageCard}>
+          <Image
+            source={currentSlide.image}
+            style={styles.image}
+            resizeMode="cover"
+          />
+        </View>
+      </View>
+
+      {/* Bottom Navigation */}
+      <View style={styles.bottomContainer}>
+        {currentIndex > 0 ? (
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <ChevronLeft size={24} color="#333" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backButtonPlaceholder} />
+        )}
+
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+          <Text style={styles.nextButtonText}>
+            {currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Next'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Dots */}
@@ -112,40 +131,10 @@ export default function OnboardingScreen() {
             key={index}
             style={[
               styles.dot,
-              { 
-                width: index === currentIndex ? 24 : 8,
-                opacity: index === currentIndex ? 1 : 0.3,
-              }
+              index === currentIndex && styles.dotActive,
             ]}
           />
         ))}
-      </View>
-
-      {/* Bottom buttons */}
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <LinearGradient
-            colors={['#6366F1', '#8B5CF6']}
-            style={styles.buttonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Text style={styles.nextButtonText}>
-              {currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Next'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {currentIndex === onboardingData.length - 1 && (
-          <TouchableOpacity
-            style={styles.signInLink}
-            onPress={() => router.push('/auth/signin')}
-          >
-            <Text style={styles.signInText}>
-              Already have an account? <Text style={styles.signInTextBold}>Sign In</Text>
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -154,102 +143,116 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#FFFFFF',
   },
-  logoContainer: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   logo: {
-    width: 120,
-    height: 50,
+    width: 100,
+    height: 40,
   },
   skipButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 20,
-    right: 20,
-    zIndex: 10,
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   skipText: {
-    color: '#9CA3AF',
-    fontSize: 16,
+    color: '#666',
+    fontSize: 14,
     fontWeight: '500',
   },
-  slideContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  iconContainer: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 40,
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  emoji: {
-    fontSize: 70,
+  titleSection: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 16,
+    fontSize: 32,
+    color: '#1A1A2E',
+    fontWeight: '400',
+    lineHeight: 42,
+  },
+  titleBold: {
+    fontWeight: '700',
+    color: '#6366F1',
   },
   description: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 12,
+    lineHeight: 20,
+  },
+  imageContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  imageCard: {
+    flex: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#6366F1',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  bottomContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 12,
+  },
+  backButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonPlaceholder: {
+    width: 50,
+    height: 50,
+  },
+  nextButton: {
+    flex: 1,
+    backgroundColor: '#4ADE80',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  nextButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 24,
+    fontWeight: '600',
   },
   dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 30,
+    paddingVertical: 16,
   },
   dot: {
+    width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#E0E0E0',
     marginHorizontal: 4,
   },
-  bottomContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  nextButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  buttonGradient: {
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  nextButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  signInLink: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  signInText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-  },
-  signInTextBold: {
-    color: '#6366F1',
-    fontWeight: '600',
+  dotActive: {
+    width: 24,
+    backgroundColor: '#6366F1',
   },
 });
