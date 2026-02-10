@@ -19,12 +19,23 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors } from "@/constants/Colors";
 import { backendomain } from "@/utils/backendDomain";
-import { StripeProvider, CardField, useStripe } from "@stripe/stripe-react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WebView } from "react-native-webview";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Location from 'expo-location';
+
+// Conditionally import Stripe only on native platforms
+let StripeProvider: any = ({ children }: any) => children;
+let CardField: any = () => null;
+let useStripe: any = () => ({ confirmPayment: async () => ({ error: { message: 'Stripe not available on web' } }) });
+
+if (Platform.OS !== 'web') {
+  const stripe = require('@stripe/stripe-react-native');
+  StripeProvider = stripe.StripeProvider;
+  CardField = stripe.CardField;
+  useStripe = stripe.useStripe;
+}
 
 const PAYMENT_INTENT_URL = `${backendomain.backendomain}/api/payment/create-intent`;
 const PAYSTACK_INIT_URL = `${backendomain.backendomain}/api/payment/initialize`;
