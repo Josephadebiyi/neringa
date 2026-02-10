@@ -1,6 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { backendomain } from '@/utils/backendDomain';
+
+type User = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+};
+
+type Session = {
+  user: User;
+};
 
 type AuthContextType = {
   session: Session | null;
@@ -28,62 +41,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      })();
-    });
-
-    return () => subscription.unsubscribe();
+    // Check for existing session on mount
+    checkSession();
   }, []);
 
+  const checkSession = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setSession({ user: userData });
+      }
+    } catch (error) {
+      console.error('Error checking session:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const response = await axios.post(`${backendomain.backendomain}/api/baggo/signin`, {
+        email,
+        password,
+      });
+
+      if (response.data.user) {
+        const userData: User = {
+          id: response.data.user.id,
+          firstName: response.data.user.firstName,
+          lastName: response.data.user.lastName,
+          email: response.data.user.email,
+          phone: response.data.user.phone,
+        };
+        
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        setSession({ user: userData });
+        return { error: null };
+      }
+      
+      return { error: { message: response.data.message || 'Sign in failed' } };
+    } catch (error: any) {
+      return { error: { message: error.response?.data?.message || 'Sign in failed' } };
+    }
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string, phone: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      const response = await axios.post(`${backendomain.backendomain}/api/baggo/signup`, {
+        firstName,
+        lastName,
+        email,
+        phone,
+        password,
+        confirmPassword: password,
+      });
 
-    if (error || !data.user) {
-      return { error };
+      return { error: null };
+    } catch (error: any) {
+      return { error: { message: error.response?.data?.message || 'Sign up failed' } };
     }
-
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-    });
-
-    if (profileError) {
-      return { error: profileError };
-    }
-
-    const { error: walletError } = await supabase.from('wallets').insert({
-      user_id: data.user.id,
-    });
-
-    return { error: walletError };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await axios.post(`${backendomain.backendomain}/api/baggo/logout`);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    await AsyncStorage.removeItem('user');
+    setUser(null);
+    setSession(null);
   };
 
   return (
