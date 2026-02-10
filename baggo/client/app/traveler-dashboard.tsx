@@ -364,11 +364,11 @@ useEffect(() => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+          <ChevronLeft size={24} color={Colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Trips</Text>
         <View style={{ width: 40 }} />
