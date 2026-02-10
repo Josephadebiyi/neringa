@@ -892,7 +892,7 @@ useEffect(() => {
 
   if (!pkg) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+      <View style={[styles.container, styles.centerContent, { paddingTop: insets.top }]}>
         <Text style={styles.noRequestsText}>There are no requests yet</Text>
         <TouchableOpacity
           style={styles.retryButton}
@@ -905,10 +905,10 @@ useEffect(() => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backIcon}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Package Request</Text>
         <View style={{ width: 40 }} />
