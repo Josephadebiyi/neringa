@@ -10,21 +10,24 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Alert,
-  Platform
+  Platform,
+  SafeAreaView,
 } from "react-native";
 import { Image } from "react-native";
-import { useState, useEffect,useRef  } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "expo-router";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import axios from "axios";
 import { Colors } from "@/constants/Colors";
-import { MapPin, Calendar, Weight, Plane, Bus,Train, Car, Ship, MoreHorizontal } from "lucide-react-native";
+import { MapPin, Calendar, Weight, Plane, Bus, Train, Car, Ship, MoreHorizontal, ChevronLeft } from "lucide-react-native";
 import { backendomain } from "@/utils/backendDomain";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const RAPID_API_KEY = "764ae3a2d0msh0d44a93e665c289p104415jsn9a0e1853cc6e";
 
 export default function AddTripScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [fromCountry, setFromCountry] = useState("");
   const [fromCity, setFromCity] = useState("");
   const [toCountry, setToCountry] = useState("");
