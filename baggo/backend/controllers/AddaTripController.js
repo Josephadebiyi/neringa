@@ -182,3 +182,31 @@ export const AddReviewToTrip = async (req, res, next) => {
     next(error);
   }
 };
+
+// ✅ Delete a trip
+export const DeleteTrip = async (req, res, next) => {
+  const userId = req.user.id;
+  const tripId = req.params.id;
+
+  try {
+    // Find the trip and ensure it belongs to the user
+    const trip = await Trip.findOne({ _id: tripId, user: userId });
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    // Check if trip has active requests (import Request model if needed)
+    // For now, we'll allow deletion but you can add request checks here
+    
+    // Delete the trip
+    await Trip.findByIdAndDelete(tripId);
+
+    res.status(200).json({
+      message: "Trip deleted successfully",
+      tripId: tripId,
+    });
+  } catch (error) {
+    console.error("Delete trip error:", error);
+    next(error);
+  }
+};
