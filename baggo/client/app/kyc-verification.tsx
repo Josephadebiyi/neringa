@@ -60,9 +60,17 @@ export default function KYCVerificationScreen() {
       if (response.data.success) {
         setKycStatus(response.data.kycStatus);
         setUserId(response.data.userId);
+      } else {
+        setKycStatus('not_started');
       }
-    } catch (err) {
-      console.error('API Error:', err?.response?.data || err?.message);
+    } catch (err: any) {
+      // Handle 401/404 gracefully - user not logged in
+      if (err?.response?.status === 401 || err?.response?.status === 404) {
+        setKycStatus('not_started');
+      } else {
+        console.error('API Error:', err?.response?.data || err?.message);
+        setKycStatus('not_started');
+      }
     } finally {
       setLoading(false);
     }
