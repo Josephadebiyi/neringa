@@ -1,14 +1,14 @@
-// Airbnb uses "Cereal" font, we'll use similar Google Fonts alternatives
-// For React Native, we'll use system fonts with similar weights
+// Using Plus Jakarta Sans - very similar to Airbnb's Cereal font
+// Loaded via @expo-google-fonts/plus-jakarta-sans in _layout.tsx
 
 export const Fonts = {
-  // Font families - using system fonts that match Airbnb's Cereal style
-  regular: 'System',
-  medium: 'System',
-  semiBold: 'System',
-  bold: 'System',
+  // Font families - matching the loaded Google Fonts
+  regular: 'PlusJakartaSans_400Regular',
+  medium: 'PlusJakartaSans_500Medium',
+  semiBold: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
   
-  // Font weights
+  // Font weights (for fallback/system fonts)
   weights: {
     regular: '400' as const,
     medium: '500' as const,
@@ -38,46 +38,46 @@ export const Fonts = {
   },
 };
 
-// Typography presets
+// Typography presets with custom fonts
 export const Typography = {
   h1: {
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 32,
-    fontWeight: '700' as const,
     lineHeight: 40,
   },
   h2: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     fontSize: 24,
-    fontWeight: '600' as const,
     lineHeight: 32,
   },
   h3: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     fontSize: 20,
-    fontWeight: '600' as const,
     lineHeight: 28,
   },
   h4: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     fontSize: 18,
-    fontWeight: '600' as const,
     lineHeight: 24,
   },
   body: {
+    fontFamily: 'PlusJakartaSans_400Regular',
     fontSize: 16,
-    fontWeight: '400' as const,
     lineHeight: 24,
   },
   bodySmall: {
+    fontFamily: 'PlusJakartaSans_400Regular',
     fontSize: 14,
-    fontWeight: '400' as const,
     lineHeight: 20,
   },
   caption: {
+    fontFamily: 'PlusJakartaSans_400Regular',
     fontSize: 12,
-    fontWeight: '400' as const,
     lineHeight: 16,
   },
   button: {
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     fontSize: 16,
-    fontWeight: '600' as const,
     lineHeight: 24,
   },
 };
