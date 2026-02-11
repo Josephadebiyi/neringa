@@ -781,7 +781,7 @@ const handleSelectCity = (cityName: string) => {
               data={cities.filter((city) =>
                 city.toLowerCase().includes(citySearch.toLowerCase())
               )}
-              keyExtractor={(item) => item}
+              keyExtractor={(item, index) => `${item}-${index}`}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={modalStyles.modalItem}
