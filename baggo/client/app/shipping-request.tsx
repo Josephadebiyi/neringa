@@ -29,7 +29,9 @@ import { ALLOWED_ITEM_CATEGORIES, getItemRiskLevel, ITEM_RISK_LEVELS } from '@/c
 export default function ShippingRequestScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-const [currencySymbol, setCurrencySymbol] = useState("€"); // default
+  const insets = useSafeAreaInsets();
+  const [currencySymbol, setCurrencySymbol] = useState("€"); // default
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
 
 
