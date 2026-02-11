@@ -49,6 +49,7 @@ userRouter.get("/Profile",  isAuthenticated, Profile)
 userRouter.get("/logout",  logout )
 userRouter.put("/edit", isAuthenticated, edit)
 userRouter.put("/Trip/:id", isAuthenticated, UpdateTrip);
+userRouter.delete("/Trip/:id", isAuthenticated, DeleteTrip);
 
 userRouter.post("/request/refund", requestRefund);
 userRouter.put("/approve/:id", approveRefund);
