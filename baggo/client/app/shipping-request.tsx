@@ -10,10 +10,12 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { MapPin, Weight, Shield, Calendar } from 'lucide-react-native';
+import { MapPin, Weight, Shield, Calendar, ChevronLeft, Check } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +23,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { backendomain } from '@/utils/backendDomain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ALLOWED_ITEM_CATEGORIES, getItemRiskLevel, ITEM_RISK_LEVELS } from '@/constants/ItemCategories';
 
 export default function ShippingRequestScreen() {
   const router = useRouter();
