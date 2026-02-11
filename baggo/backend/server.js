@@ -1041,6 +1041,7 @@ app.get("/api/baggo/kyc/status", async (req, res) => {
 
     res.json({ 
       success: true, 
+      userId: userId,
       kycStatus: user.kycStatus || 'not_started',
       kycVerifiedAt: user.kycVerifiedAt || null,
     });
