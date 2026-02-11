@@ -17,25 +17,6 @@ import { ChevronLeft, Shield, CheckCircle, XCircle, Clock } from 'lucide-react-n
 import { backendomain } from '@/utils/backendDomain';
 import axios from 'axios';
 
-// KYC Verification Function as per documentation
-async function startKycVerification(userId: string) {
-  try {
-    const response = await axios.post(
-      `${backendomain.backendomain}/api/baggo/kyc/create-session`,
-      { userId },
-      { withCredentials: true }
-    );
-    
-    if (response.data.success) {
-      return { success: true, sessionUrl: response.data.sessionUrl, sessionId: response.data.sessionId };
-    } else {
-      throw new Error(response.data.message || 'Verification failed');
-    }
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.message || 'Verification failed');
-  }
-}
-
 export default function KYCVerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
