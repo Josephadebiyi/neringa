@@ -413,14 +413,14 @@ useEffect(() => {
 
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
+    <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'ios' ? 0 : insets.top }]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+          <ChevronLeft size={24} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Shipping Request</Text>
+        <Text style={styles.headerTitle}>Send Package</Text>
         <View style={{ width: 40 }} />
-      </LinearGradient>
+      </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Traveler info */}
