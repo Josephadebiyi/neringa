@@ -505,6 +505,39 @@ useEffect(() => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Package Details</Text>
 
+          {/* Item Category Selection */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Item Category (select one or more)</Text>
+            <View style={styles.categoryGrid}>
+              {ALLOWED_ITEM_CATEGORIES.map((category) => {
+                const isSelected = selectedCategories.includes(category.id);
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedCategories(selectedCategories.filter(c => c !== category.id));
+                      } else {
+                        setSelectedCategories([...selectedCategories, category.id]);
+                      }
+                    }}
+                  >
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]} numberOfLines={1}>
+                      {category.label}
+                    </Text>
+                    {isSelected && (
+                      <View style={styles.checkIcon}>
+                        <Check size={12} color={Colors.white} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Package Weight</Text>
             <View style={styles.inputContainer}>
