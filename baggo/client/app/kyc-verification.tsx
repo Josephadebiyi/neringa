@@ -79,16 +79,29 @@ export default function KYCVerificationScreen() {
   const startVerification = async () => {
     setCreatingSession(true);
     try {
-      const result = await startKycVerification(userId || '');
-      
-      if (result.success) {
-        setSessionUrl(result.sessionUrl);
-        // Navigate to KycProcessing screen (WebView)
+      const response = await axios.post(
+        `${backendomain.backendomain}/api/baggo/kyc/create-session`,
+        {},
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        if (response.data.status === 'approved') {
+          setKycStatus('approved');
+          Alert.alert('Already Verified', 'Your identity has already been verified.');
+          return;
+        }
+        
+        // Use the session URL from DIDIT
+        const verificationUrl = response.data.sessionUrl;
+        setSessionUrl(verificationUrl);
         setShowWebView(true);
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to start verification');
       }
     } catch (err: any) {
-      // Display error message as per documentation
-      Alert.alert('Error', err.message || 'Verification failed');
+      console.error('Error starting verification:', err);
+      Alert.alert('Error', err?.response?.data?.message || 'Failed to start verification. Please try again.');
     } finally {
       setCreatingSession(false);
     }
