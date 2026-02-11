@@ -102,7 +102,6 @@ export default function TrackingScreen(): JSX.Element {
   };
 
   const fetchRecentOrders = async (currentMap: Record<string, string>) => {
-
     setLoadingOrders(true);
     try {
       const response = await axios.get(`${API_BASE_URL}/recentOrder`, {
@@ -112,14 +111,16 @@ export default function TrackingScreen(): JSX.Element {
         const orders = response.data.data;
         setRecentOrders(orders);
         const updatedMap = await assignTrackingCodesToRecentOrders(orders, currentMap);
-setTrackingMap(updatedMap);
-
+        setTrackingMap(updatedMap);
       } else {
         console.warn('Invalid recent orders data from API');
         setRecentOrders([]);
       }
-    } catch (error) {
-      console.error('Error fetching recent orders:', error);
+    } catch (error: any) {
+      // Don't show error for 404 or 401 - just show empty state
+      if (error?.response?.status !== 404 && error?.response?.status !== 401) {
+        console.error('Error fetching recent orders:', error?.message || error);
+      }
       setRecentOrders([]);
     } finally {
       setLoadingOrders(false);
