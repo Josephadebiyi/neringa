@@ -1,6 +1,6 @@
 import express from 'express';
 import { edit, getUser, logout,useReferralDiscount, signIn,verifyEmail,createDelivery,forgotPassword,resendOtp,verifyOtp,resetPassword, signUp,sendToEscrow,releaseFromEscrow,addToEscrow,handleCancelledRequestEscrow, getWallet,withdrawFunds,addFunds,uploadOrUpdateImage } from '../controllers/userController.js';
-import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip } from '../controllers/AddaTripController.js';
+import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
