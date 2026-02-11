@@ -926,7 +926,7 @@ app.get("/api/payment/verify/:reference", async (req, res) => {
 // DIDIT.ME KYC VERIFICATION ROUTES
 // ============================================
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY || 'SvXz9y6AR9iJl3PqCB6t0VzWRhUyVacXA6VP4gSnVLU';
-const DIDIT_APP_ID = process.env.DIDIT_APP_ID || '0583ad9d-e666-4875-a85a-ab47812d98a5';
+const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '701347c6-bd51-4ab7-8a35-8a442db4b63c';
 
 // Create DIDIT verification session
 app.post("/api/baggo/kyc/create-session", async (req, res) => {
@@ -952,55 +952,46 @@ app.post("/api/baggo/kyc/create-session", async (req, res) => {
 
     const callbackUrl = `${process.env.BASE_URL || 'https://bago-server.onrender.com'}/api/baggo/kyc/callback`;
 
-    // Try to create session with DIDIT API
-    try {
-      const response = await fetch('https://verification.didit.me/v2/session/', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json',
-          'x-api-key': DIDIT_API_KEY,
-        },
-        body: JSON.stringify({
-          vendor_data: userId,
-          callback: callbackUrl,
-        }),
+    // Create session with DIDIT API using v3 endpoint
+    const response = await fetch('https://verification.didit.me/v3/session/', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'x-api-key': DIDIT_API_KEY,
+      },
+      body: JSON.stringify({
+        workflow_id: DIDIT_WORKFLOW_ID,
+        vendor_data: userId,
+        callback: callbackUrl,
+      }),
+    });
+
+    const data = await response.json();
+    console.log("DIDIT Response:", data);
+
+    if (response.ok && (data.session_token || data.url || data.id || data.session_id)) {
+      // Store session ID in user record
+      user.diditSessionId = data.session_id || data.id || data.session_token;
+      user.kycStatus = 'pending';
+      await user.save();
+
+      const sessionUrl = data.url || `https://verify.didit.me/session/${data.session_token || data.session_id || data.id}`;
+
+      return res.json({ 
+        success: true, 
+        sessionId: data.session_id || data.id || data.session_token,
+        sessionUrl: sessionUrl,
+        message: "Verification session created"
       });
-
-      const data = await response.json();
-      console.log("DIDIT Response:", data);
-
-      if (response.ok && (data.session_token || data.url || data.id)) {
-        // Store session ID in user record
-        user.diditSessionId = data.id || data.session_token;
-        user.kycStatus = 'pending';
-        await user.save();
-
-        const sessionUrl = data.url || `https://verify.didit.me/session/${data.session_token || data.id}`;
-
-        return res.json({ 
-          success: true, 
-          sessionId: data.id || data.session_token,
-          sessionUrl: sessionUrl,
-          message: "Verification session created"
-        });
-      }
-    } catch (apiError) {
-      console.error("DIDIT API Error:", apiError);
     }
 
-    // Fallback: Create a manual KYC verification request
-    // For testing, set KYC to pending and provide a placeholder URL
-    user.kycStatus = 'pending';
-    user.diditSessionId = `manual_${Date.now()}`;
-    await user.save();
-
-    res.json({ 
-      success: true, 
-      sessionId: user.diditSessionId,
-      sessionUrl: `https://verify.didit.me/session/demo`,
-      message: "Verification session created (demo mode)",
-      note: "Please complete verification through the DIDIT app"
+    // If API failed, return error with details
+    console.error("DIDIT API Error:", data);
+    return res.status(400).json({ 
+      success: false, 
+      message: data.message || "Failed to create verification session",
+      error: data
     });
   } catch (err) {
     console.error("❌ DIDIT KYC error:", err.message);
