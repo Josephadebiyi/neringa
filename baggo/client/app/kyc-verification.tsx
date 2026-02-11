@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  Linking,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
@@ -17,6 +17,25 @@ import { ChevronLeft, Shield, CheckCircle, XCircle, Clock } from 'lucide-react-n
 import { backendomain } from '@/utils/backendDomain';
 import axios from 'axios';
 
+// KYC Verification Function as per documentation
+async function startKycVerification(userId: string) {
+  try {
+    const response = await axios.post(
+      `${backendomain.backendomain}/api/baggo/kyc/create-session`,
+      { userId },
+      { withCredentials: true }
+    );
+    
+    if (response.data.success) {
+      return { success: true, sessionUrl: response.data.sessionUrl, sessionId: response.data.sessionId };
+    } else {
+      throw new Error(response.data.message || 'Verification failed');
+    }
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.message || 'Verification failed');
+  }
+}
+
 export default function KYCVerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -24,9 +43,10 @@ export default function KYCVerificationScreen() {
   
   const [loading, setLoading] = useState(true);
   const [kycStatus, setKycStatus] = useState('not_started');
-  const [sessionUrl, setSessionUrl] = useState(null);
+  const [sessionUrl, setSessionUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     checkKYCStatus();
@@ -39,9 +59,10 @@ export default function KYCVerificationScreen() {
       });
       if (response.data.success) {
         setKycStatus(response.data.kycStatus);
+        setUserId(response.data.userId);
       }
     } catch (err) {
-      console.error('Error checking KYC status:', err);
+      console.error('API Error:', err?.response?.data || err?.message);
     } finally {
       setLoading(false);
     }
@@ -50,37 +71,36 @@ export default function KYCVerificationScreen() {
   const startVerification = async () => {
     setCreatingSession(true);
     try {
-      const response = await axios.post(
-        `${backendomain.backendomain}/api/baggo/kyc/create-session`,
-        {},
-        { withCredentials: true }
-      );
-
-      if (response.data.success) {
-        if (response.data.status === 'approved') {
-          setKycStatus('approved');
-          Alert.alert('Already Verified', 'Your identity has already been verified.');
-          return;
-        }
-        
-        setSessionUrl(response.data.sessionUrl);
+      const result = await startKycVerification(userId || '');
+      
+      if (result.success) {
+        setSessionUrl(result.sessionUrl);
+        // Navigate to KycProcessing screen (WebView)
         setShowWebView(true);
-      } else {
-        Alert.alert('Error', response.data.message || 'Failed to start verification');
       }
-    } catch (err) {
-      console.error('Error starting verification:', err);
-      Alert.alert('Error', err?.response?.data?.message || 'Failed to start verification');
+    } catch (err: any) {
+      // Display error message as per documentation
+      Alert.alert('Error', err.message || 'Verification failed');
     } finally {
       setCreatingSession(false);
     }
   };
 
-  const handleWebViewNavigation = (navState) => {
-    if (navState.url.includes('callback') || navState.url.includes('success') || navState.url.includes('complete')) {
+  const handleWebViewNavigation = (navState: any) => {
+    // Check if verification is complete
+    if (
+      navState.url.includes('callback') || 
+      navState.url.includes('success') || 
+      navState.url.includes('complete') ||
+      navState.url.includes('approved')
+    ) {
       setShowWebView(false);
+      setKycStatus('pending');
       checkKYCStatus();
-      Alert.alert('Verification Submitted', 'Your verification is being processed. This usually takes a few minutes.');
+      Alert.alert(
+        'Verification Submitted', 
+        'Your verification is being processed. This usually takes a few minutes.'
+      );
     }
   };
 
@@ -128,15 +148,16 @@ export default function KYCVerificationScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centerContent, { paddingTop: insets.top }]}>
+      <SafeAreaView style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
+      </SafeAreaView>
     );
   }
 
+  // KycProcessing Screen - WebView for DIDIT verification
   if (showWebView && sessionUrl) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setShowWebView(false)} style={styles.backButton}>
             <ChevronLeft size={24} color={Colors.text} />
@@ -153,6 +174,7 @@ export default function KYCVerificationScreen() {
           renderLoading={() => (
             <View style={styles.webviewLoading}>
               <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Loading verification...</Text>
             </View>
           )}
           javaScriptEnabled
@@ -160,14 +182,14 @@ export default function KYCVerificationScreen() {
           mediaPlaybackRequiresUserAction={false}
           allowsInlineMediaPlayback
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   const statusInfo = renderStatusText();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ChevronLeft size={24} color={Colors.text} />
@@ -177,12 +199,14 @@ export default function KYCVerificationScreen() {
       </View>
 
       <View style={styles.content}>
+        {/* Status Card */}
         <View style={styles.statusCard}>
           {renderStatusIcon()}
           <Text style={[styles.statusTitle, { color: statusInfo.color }]}>{statusInfo.title}</Text>
           <Text style={styles.statusSubtitle}>{statusInfo.subtitle}</Text>
         </View>
 
+        {/* Info Cards */}
         <View style={styles.infoSection}>
           <Text style={styles.infoTitle}>Why Verify?</Text>
           <View style={styles.infoCard}>
@@ -207,6 +231,7 @@ export default function KYCVerificationScreen() {
           </View>
         </View>
 
+        {/* Action Buttons based on status */}
         {(kycStatus === 'not_started' || kycStatus === 'declined') && (
           <TouchableOpacity 
             style={styles.verifyButton} 
@@ -241,13 +266,19 @@ export default function KYCVerificationScreen() {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  centerContent: { justifyContent: 'center', alignItems: 'center' },
+  container: { 
+    flex: 1, 
+    backgroundColor: Colors.background,
+  },
+  centerContent: { 
+    justifyContent: 'center', 
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -266,26 +297,58 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: Colors.text },
-  content: { flex: 1, padding: 20 },
+  headerTitle: { 
+    fontSize: 18, 
+    fontWeight: '600', 
+    color: Colors.text,
+  },
+  content: { 
+    flex: 1, 
+    padding: 20,
+  },
   statusCard: {
     backgroundColor: Colors.white,
     borderRadius: 20,
     padding: 32,
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: Colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 5,
   },
-  statusTitle: { fontSize: 24, fontWeight: 'bold', marginTop: 20, marginBottom: 8 },
-  statusSubtitle: { fontSize: 14, color: Colors.textLight, textAlign: 'center', lineHeight: 20 },
-  infoSection: { marginBottom: 24 },
-  infoTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 12 },
-  infoCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16 },
-  infoItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  statusTitle: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    marginTop: 20, 
+    marginBottom: 8,
+  },
+  statusSubtitle: { 
+    fontSize: 14, 
+    color: Colors.textLight, 
+    textAlign: 'center', 
+    lineHeight: 20,
+  },
+  infoSection: { 
+    marginBottom: 24,
+  },
+  infoTitle: { 
+    fontSize: 16, 
+    fontWeight: '600', 
+    color: Colors.text, 
+    marginBottom: 12,
+  },
+  infoCard: { 
+    backgroundColor: Colors.white, 
+    borderRadius: 16, 
+    padding: 16,
+  },
+  infoItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 12,
+  },
   infoIcon: {
     width: 40,
     height: 40,
@@ -295,9 +358,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  infoText: { flex: 1 },
-  infoItemTitle: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 2 },
-  infoItemDesc: { fontSize: 12, color: Colors.textLight },
+  infoText: { 
+    flex: 1,
+  },
+  infoItemTitle: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: Colors.text, 
+    marginBottom: 2,
+  },
+  infoItemDesc: { 
+    fontSize: 12, 
+    color: Colors.textLight,
+  },
   verifyButton: {
     backgroundColor: Colors.primary,
     borderRadius: 12,
@@ -305,11 +378,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 'auto',
   },
-  verifyButtonText: { color: Colors.white, fontSize: 16, fontWeight: '600' },
-  refreshButton: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.primary },
-  refreshButtonText: { color: Colors.primary, fontSize: 16, fontWeight: '600' },
-  successButton: { backgroundColor: '#22C55E' },
-  webview: { flex: 1 },
+  verifyButtonText: { 
+    color: Colors.white, 
+    fontSize: 16, 
+    fontWeight: '600',
+  },
+  refreshButton: { 
+    backgroundColor: Colors.white, 
+    borderWidth: 1, 
+    borderColor: Colors.primary,
+  },
+  refreshButtonText: { 
+    color: Colors.primary, 
+    fontSize: 16, 
+    fontWeight: '600',
+  },
+  successButton: { 
+    backgroundColor: '#22C55E',
+  },
+  webview: { 
+    flex: 1,
+  },
   webviewLoading: {
     position: 'absolute',
     top: 0,
@@ -319,5 +408,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textLight,
   },
 });
