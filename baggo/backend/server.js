@@ -93,6 +93,21 @@ app.use('/api/baggo', userRouter);
 app.use('/api/Adminbaggo', AdminRouter);
 app.use("/api/prices", priceRoutes);
 
+// ✅ Simple KYC Test Route (for testing connection)
+app.post('/kyc/start-verification', (req, res) => {
+  console.log("KYC request received from app");
+  res.json({
+    success: true,
+    message: "Verification session created",
+    sessionId: "KYC" + Date.now()
+  });
+});
+
+// ✅ Health check route
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 
 // ✅ Stripe Payment Intent Route (Standard Payment)
 app.post('/api/payment/create-intent', async (req, res) => {
