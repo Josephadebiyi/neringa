@@ -379,19 +379,18 @@ const fetchNotifications = async () => {
       });
 
       if (response.data.success && Array.isArray(response.data.data)) {
-
         const sortedOrders = response.data.data.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+          (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-
-
         setRecentOrders(sortedOrders.slice(0, 10));
       } else {
-        console.warn('Invalid recent orders data from API');
         setRecentOrders([]);
       }
-    } catch (error) {
-      console.error('Error fetching recent orders:', error);
+    } catch (error: any) {
+      // Silent fail for auth/not-found errors
+      if (error?.response?.status !== 404 && error?.response?.status !== 401) {
+        console.error('Error fetching recent orders:', error?.message || error);
+      }
       setRecentOrders([]);
     } finally {
       setLoadingOrders(false);
