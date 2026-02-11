@@ -725,7 +725,7 @@ useEffect(() => {
           {isLoading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.continueButtonText}>Continue to Payment</Text>}
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
