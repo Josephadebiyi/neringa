@@ -1094,3 +1094,61 @@ app.get("/api/baggo/kyc/check-session/:sessionId", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to check session", error: err.message });
   }
 });
+
+// Admin: Manually approve KYC (for testing)
+app.post("/api/baggo/kyc/admin-approve", async (req, res) => {
+  try {
+    const { userId, adminKey } = req.body;
+    
+    // Simple admin key check (you should use proper admin auth)
+    if (adminKey !== 'bago_admin_2024') {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    user.kycStatus = 'approved';
+    user.kycVerifiedAt = new Date();
+    await user.save();
+
+    res.json({ success: true, message: "KYC approved successfully" });
+  } catch (err) {
+    console.error("❌ Admin KYC approve error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to approve KYC", error: err.message });
+  }
+});
+
+// Update KYC status manually (for webhook simulation)
+app.post("/api/baggo/kyc/update-status", async (req, res) => {
+  try {
+    const userId = req.cookies.userId;
+    const { status } = req.body;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+
+    if (!['approved', 'pending', 'declined'].includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    user.kycStatus = status;
+    if (status === 'approved') {
+      user.kycVerifiedAt = new Date();
+    }
+    await user.save();
+
+    res.json({ success: true, message: "KYC status updated", kycStatus: status });
+  } catch (err) {
+    console.error("❌ KYC status update error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to update KYC status", error: err.message });
+  }
+});
