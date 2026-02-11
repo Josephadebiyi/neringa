@@ -127,6 +127,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  diditSessionToken: {
+    type: String,
+    default: null,
+  },
   kycVerifiedAt: {
     type: Date,
     default: null,
