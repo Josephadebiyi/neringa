@@ -138,7 +138,7 @@ const uploadToCloudinary = async (dataUri) => {
       { expiresIn: "1d" }
     );
 
-    const verifyLink = `https://bago-server.onrender.com/api/baggo/verify-email?token=${verificationToken}`;
+    const verifyLink = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/baggo/verify-email?token=${verificationToken}`;
     console.log("📩 Verification link:", verifyLink);
 
     // 🔹 Styled HTML (inline CSS for email clients)
