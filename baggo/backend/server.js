@@ -167,6 +167,9 @@ app.post('/api/payment/create-intent', async (req, res) => {
 
 // ✅ STRIPE CONNECT - Onboarding
 app.post('/api/stripe/connect/onboard', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ success: false, message: 'Payment service not configured' });
+  }
   try {
     const { userId, email } = req.body;
     if (!userId || !email) return res.status(400).json({ success:false, message: 'userId and email are required' });
