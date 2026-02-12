@@ -291,6 +291,9 @@ app.get('/api/stripe/onboarding/refresh', async (req, res) => {
 
 // ✅ STRIPE CONNECT - Check Account Status & Save Verification
 app.get('/api/stripe/connect/status/:userId', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ message: 'Payment service not configured' });
+  }
   try {
     const { userId } = req.params;
     const user = await User.findById(userId);
