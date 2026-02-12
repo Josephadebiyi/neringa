@@ -201,6 +201,9 @@ app.post('/api/stripe/connect/onboard', async (req, res) => {
 
 // ✅ STRIPE CONNECT - Onboarding Complete
 app.get('/api/stripe/onboarding/complete', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).send('Payment service not configured');
+  }
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).send('Missing userId');
