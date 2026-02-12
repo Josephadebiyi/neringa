@@ -1,3 +1,3 @@
 export const backendomain = {
-  backendomain: "https://bago-server.onrender.com"
+  backendomain: "https://neringa.onrender.com"
 };
