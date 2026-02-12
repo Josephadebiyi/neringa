@@ -32,10 +32,24 @@ const io = new Server(httpServer, {
   },
 });
 
-// ✅ Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// ✅ Initialize Stripe (optional - will be null if no key provided)
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️ STRIPE_SECRET_KEY not set - Stripe features disabled');
+}
+
 const expo = new Expo();
-const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Initialize Resend (optional)
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+} else {
+  console.warn('⚠️ RESEND_API_KEY not set - Email features disabled');
+}
+
 startEscrowAutoRelease();
 
 // create or return an existing Stripe account id for a user
