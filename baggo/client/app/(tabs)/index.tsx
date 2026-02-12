@@ -387,10 +387,7 @@ const fetchNotifications = async () => {
         setRecentOrders([]);
       }
     } catch (error: any) {
-      // Silent fail for auth/not-found errors
-      if (error?.response?.status !== 404 && error?.response?.status !== 401) {
-        console.error('Error fetching recent orders:', error?.message || error);
-      }
+      // Silently fail for all errors - just show empty list
       setRecentOrders([]);
     } finally {
       setLoadingOrders(false);
