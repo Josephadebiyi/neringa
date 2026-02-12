@@ -203,12 +203,18 @@ const uploadToCloudinary = async (dataUri) => {
       </html>
     `;
 
-    // 🔹 Send verification email (functionality unchanged)
+    // 🔹 Send verification email with click tracking disabled
     const { data, error } = await resend.emails.send({
       from: "Baggo <no-reply@sendwithbago.com>",
       to: email,
       subject: "Verify your Baggo account",
       html,
+      headers: {
+        'X-Entity-Ref-ID': `verify-${Date.now()}`,
+      },
+      tags: [
+        { name: 'category', value: 'verification' }
+      ]
     });
 
     if (error) {
