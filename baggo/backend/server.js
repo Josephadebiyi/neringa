@@ -125,6 +125,10 @@ app.get('/health', (req, res) => {
 
 // ✅ Stripe Payment Intent Route (Standard Payment)
 app.post('/api/payment/create-intent', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'Payment service not configured' });
+  }
+  
   const { amount, travellerName, travellerEmail } = req.body;
 
   console.log('💡 /create-intent called with:', { amount, travellerName, travellerEmail });
