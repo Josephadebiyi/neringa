@@ -54,6 +54,7 @@ startEscrowAutoRelease();
 
 // create or return an existing Stripe account id for a user
 async function createStripeAccountForUser(user) {
+  if (!stripe) throw new Error('Stripe not configured');
   if (!user) throw new Error('User required');
 
   if (user.stripeAccountId) return user.stripeAccountId;
