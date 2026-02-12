@@ -76,8 +76,11 @@ export default function KYCVerificationScreen() {
         Alert.alert('Error', response.data.message || 'Failed to start verification');
       }
     } catch (err: any) {
-      console.error('Error starting verification:', err);
-      Alert.alert('Error', err?.response?.data?.message || 'Failed to start verification. Please try again.');
+      // Provide user-friendly error message
+      const message = err?.response?.status === 404 
+        ? 'KYC service is currently unavailable. Please try again later.'
+        : (err?.response?.data?.message || 'Failed to start verification. Please try again.');
+      Alert.alert('Verification Unavailable', message);
     } finally {
       setCreatingSession(false);
     }
