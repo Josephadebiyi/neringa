@@ -113,14 +113,10 @@ export default function TrackingScreen(): JSX.Element {
         const updatedMap = await assignTrackingCodesToRecentOrders(orders, currentMap);
         setTrackingMap(updatedMap);
       } else {
-        console.warn('Invalid recent orders data from API');
         setRecentOrders([]);
       }
     } catch (error: any) {
-      // Don't show error for 404 or 401 - just show empty state
-      if (error?.response?.status !== 404 && error?.response?.status !== 401) {
-        console.error('Error fetching recent orders:', error?.message || error);
-      }
+      // Silently handle all errors - just show empty state
       setRecentOrders([]);
     } finally {
       setLoadingOrders(false);
