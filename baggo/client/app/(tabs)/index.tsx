@@ -709,19 +709,20 @@ const fetchNotifications = async () => {
   },
 })
     }
-  >                  <View style={styles.tripHeader}>
+  >
+                    <View style={styles.tripHeader}>
                       <View style={styles.travelerInfo}>
                         <View style={styles.avatar}>
                           <Text style={styles.avatarText}>
-                            {trip.profile?.first_name.charAt(0).toUpperCase()}
+                            {trip.profile?.first_name ? trip.profile.first_name.charAt(0).toUpperCase() : 'T'}
                           </Text>
                         </View>
                         <View style={styles.travelerDetails}>
-                          <Text style={styles.travelerName}>{trip.profile?.first_name}</Text>
+                          <Text style={styles.travelerName}>{trip.profile?.first_name || 'Traveler'}</Text>
                           <View style={styles.ratingRow}>
                             <Star size={12} color={Colors.gold} fill={Colors.gold} />
-                            <Text style={styles.ratingText}>{trip.profile?.average_rating.toFixed(1)}</Text>
-                            <Text style={styles.tripCount}>• {trip.profile?.total_trips} trips</Text>
+                            <Text style={styles.ratingText}>{(trip.profile?.average_rating ?? 0).toFixed(1)}</Text>
+                            <Text style={styles.tripCount}>{`• ${trip.profile?.total_trips ?? 0} trips`}</Text>
                           </View>
                         </View>
                       </View>
@@ -733,7 +734,7 @@ const fetchNotifications = async () => {
                     <View style={styles.tripRoute}>
                       <MapPin size={16} color={Colors.textLight} />
                       <Text style={styles.routeText} numberOfLines={1}>
-                        {trip.from_location} → {trip.to_location}
+                        {`${trip.from_location || 'Origin'} → ${trip.to_location || 'Destination'}`}
                       </Text>
                     </View>
 
@@ -741,14 +742,13 @@ const fetchNotifications = async () => {
                       <View style={styles.metaItem}>
                         <Calendar size={14} color={Colors.textLight} />
                         <Text style={styles.metaText}>
-                          {new Date(trip.departure_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {trip.departure_date ? new Date(trip.departure_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}
                         </Text>
                       </View>
                       <View style={styles.metaItem}>
                         <Weight size={14} color={Colors.textLight} />
-                        <Text style={styles.metaText}>{trip.remaining_kg} kg available</Text>
+                        <Text style={styles.metaText}>{`${trip.remaining_kg ?? 0} kg available`}</Text>
                       </View>
-
                     </View>
                   </TouchableOpacity>
                 ))
