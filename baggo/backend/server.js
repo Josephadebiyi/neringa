@@ -997,7 +997,7 @@ app.post("/api/baggo/kyc/create-session", async (req, res) => {
       });
     }
 
-    const callbackUrl = `${process.env.BASE_URL || 'https://bago-server.onrender.com'}/api/baggo/kyc/callback`;
+    const callbackUrl = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/baggo/kyc/callback`;
 
     // Create session with DIDIT API
     const response = await fetch('https://verification.didit.me/v3/session/', {
