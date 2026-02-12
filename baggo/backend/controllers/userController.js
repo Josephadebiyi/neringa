@@ -205,7 +205,7 @@ const uploadToCloudinary = async (dataUri) => {
 
     // 🔹 Send verification email (functionality unchanged)
     const { data, error } = await resend.emails.send({
-      from: "Baggo <onboarding@resend.dev>",
+      from: "Baggo <no-reply@sendwithbago.com>",
       to: email,
       subject: "Verify your Baggo account",
       html,
@@ -435,7 +435,7 @@ export const forgotPassword = async (req, res) => {
 
     // Send OTP via Resend (functionality unchanged)
     const { error } = await resend.emails.send({
-      from: 'Baggo <onboarding@resend.dev>',
+      from: 'Baggo <no-reply@sendwithbago.com>',
       to: email,
       subject: 'Password Reset OTP',
       html,
@@ -573,7 +573,7 @@ export const resendOtp = async (req, res) => {
 
     // Send via Resend (same pattern you used)
     const { error } = await resend.emails.send({
-      from: "Baggo <onboarding@resend.dev>",
+      from: "Baggo <no-reply@sendwithbago.com>",
       to: normalizedEmail,
       subject: "Your Bago OTP — Resent",
       html,

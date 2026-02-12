@@ -737,7 +737,7 @@ app.post("/send-otp", async (req, res) => {
 
 
     const emailResponse = await resend.emails.send({
-    from: "Baggo <onboarding@resend.dev>",
+    from: "Baggo <no-reply@sendwithbago.com>",
     to: user.email,
     subject: "Your Withdrawal OTP Code",
     html
