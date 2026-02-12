@@ -322,6 +322,9 @@ app.get('/', async (req, res)=>{
 
 // ✅ STRIPE CONNECT - Platform Fee (10%) + Transfer to Traveller
 app.post('/api/stripe/connect/transfer', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ message: 'Payment service not configured' });
+  }
   try {
     const { userId, totalAmount } = req.body;
     if (!userId || !totalAmount)
