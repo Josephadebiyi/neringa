@@ -1086,7 +1086,8 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
 // Get KYC status
 app.get("/api/baggo/kyc/status", async (req, res) => {
   try {
-    const userId = req.cookies.userId;
+    // Get userId from cookies, query params, or headers
+    const userId = req.cookies.userId || req.query.userId || req.headers['x-user-id'];
     if (!userId) {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
