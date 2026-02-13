@@ -34,11 +34,16 @@ export default function SignIn() {
 
       const data = response.data;
 
-      if (!data.success) {
+      // Handle both old and new response formats
+      // Old format: { message: 'success', user: {...} }
+      // New format: { success: true, token: '...', user: {...} }
+      const isSuccess = data.success === true || (data.user && !data.message?.toLowerCase().includes('invalid'));
+      
+      if (!isSuccess) {
         throw new Error(data.message || 'Sign in failed');
       }
 
-      // Save the JWT token
+      // Save the JWT token (new format)
       if (data.token) {
         await saveToken(data.token);
         console.log('Token saved successfully');
