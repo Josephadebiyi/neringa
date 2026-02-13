@@ -169,7 +169,7 @@ export default function ContactSupportScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
