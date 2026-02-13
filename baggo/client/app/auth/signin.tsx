@@ -29,34 +29,15 @@ export default function SignIn() {
     }
 
     try {
-      const response = await api.post('/api/baggo/signin', {
-        email: email.toLowerCase(),
-        password,
-      });
-
-      const data = response.data;
-
-      // Handle both old and new response formats
-      // Old format: { message: 'success', user: {...} }
-      // New format: { success: true, token: '...', user: {...} }
-      const isSuccess = data.success === true || (data.user && !data.message?.toLowerCase().includes('invalid'));
+      // Use the AuthContext signIn method which handles token storage AND updates global state
+      const { error: signInError } = await signIn(email.toLowerCase(), password);
       
-      if (!isSuccess) {
-        throw new Error(data.message || 'Sign in failed');
+      if (signInError) {
+        throw new Error(signInError.message || 'Sign in failed');
       }
 
-      // Save the JWT token (new format)
-      if (data.token) {
-        await saveToken(data.token);
-        console.log('Token saved successfully');
-      }
-
-      // Save user data to AsyncStorage
-      if (data.user) {
-        await AsyncStorage.setItem('user', JSON.stringify(data.user));
-        console.log('User data saved');
-      }
-
+      console.log('Sign in successful - context updated');
+      
       // Reset loading state
       setLoading(false);
       
@@ -64,7 +45,7 @@ export default function SignIn() {
       router.replace('/(tabs)');
     } catch (err: any) {
       console.log('Sign in error:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'An error occurred during sign-in';
+      const errorMessage = err.message || 'An error occurred during sign-in';
       setError(errorMessage);
       setLoading(false);
     }
