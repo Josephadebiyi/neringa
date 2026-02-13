@@ -16,44 +16,53 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { User, Mail, Phone, MapPin, Calendar, Save } from 'lucide-react-native';
-import { backendomain } from '@/utils/backendDomain';
+import { User, Mail, Phone, MapPin, Calendar, Save, Lock } from 'lucide-react-native';
+import api from '@/utils/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PersonalDetailsScreen() {
   const router = useRouter();
-  const [firstName, setFirstName] = useState('Sarah');
-  const [lastName, setLastName] = useState('Johnson');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [profileImage, setProfileImage] = useState(null);
-  const [email, setEmail] = useState('sarah.j@email.com');
-  const [phone, setPhone] = useState('+1 234 567 8900');
-  const [dateOfBirth, setDateOfBirth] = useState('1990-05-15');
-  const [loading, setLoading] = useState(true); // Loading state
-  const [error, setError] = useState(null); // Error state
-
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [country, setCountry] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [kycStatus, setKycStatus] = useState('not_started');
+  const [isKycLocked, setIsKycLocked] = useState(false);
 
   // Fetch user data on mount
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await fetch(`${backendomain.backendomain}/api/baggo/edit`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        const data = await response.json();
-        if (data.status === 'success') {
-          const user = data.data;
-          setFirstName(user.firstName || 'Sarah');
-          setLastName(user.lastName || 'Johnson');
-          setEmail(user.email || 'sarah.j@email.com');
-          setPhone(user.phone || '+1 234 567 8900');
-          setDateOfBirth(user.dateOfBirth || '1990-05-15');
+        const response = await api.get('/api/baggo/Profile');
+        const data = response.data;
+        
+        if (data?.data?.findUser) {
+          const user = data.data.findUser;
+          setFirstName(user.firstName || '');
+          setLastName(user.lastName || '');
+          setEmail(user.email || '');
+          setPhone(user.phone || '');
+          setDateOfBirth(user.dateOfBirth || '');
+          setCountry(user.country || '');
+          setProfileImage(user.image ? { uri: user.image } : null);
+          setKycStatus(user.kycStatus || 'not_started');
+          
+          // Lock fields if KYC is approved
+          setIsKycLocked(user.kycStatus === 'approved');
         } else {
           setError('Failed to fetch user data');
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.response?.status === 401) {
+          Alert.alert('Session Expired', 'Please log in again.');
+          router.replace('/auth/signin');
+          return;
+        }
         setError('Error connecting to the server');
       } finally {
         setLoading(false);
@@ -62,12 +71,9 @@ export default function PersonalDetailsScreen() {
     fetchUserData();
   }, []);
 
-
-
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    // e.g., May 15, 1990
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -75,103 +81,84 @@ export default function PersonalDetailsScreen() {
     });
   };
 
-
-
   const pickImage = async () => {
-  try {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
 
-    if (!result || result.canceled || result.cancelled) return;
+      if (!result || result.canceled || result.cancelled) return;
 
-    const uri = result?.assets?.[0]?.uri ?? result?.uri;
-    setProfileImage({ uri });
+      const uri = result?.assets?.[0]?.uri ?? result?.uri;
+      setProfileImage({ uri });
 
-    const manipResult = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: 800 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-    );
+      const manipResult = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
 
-    const fileUri = manipResult.uri.startsWith("file://")
-      ? manipResult.uri
-      : `file://${manipResult.uri}`;
+      const fileUri = manipResult.uri.startsWith("file://")
+        ? manipResult.uri
+        : `file://${manipResult.uri}`;
 
-    const base64 = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+      const base64 = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-    // Upload the image to your backend
-    const res = await fetch(`${backendomain.backendomain}/api/baggo/user/image`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({
+      // Upload the image using api interceptor
+      const res = await api.post('/api/baggo/user/image', {
         image: `data:image/jpeg;base64,${base64}`,
-      }),
-    });
+      });
 
-    const data = await res.json();
+      const data = res.data;
 
-    if (data.success) {
-      Alert.alert("Success", "Profile image updated!");
-      setProfileImage({ uri: data.image });
-    } else {
-      Alert.alert("Error", data.message || "Upload failed");
+      if (data.success) {
+        Alert.alert("Success", "Profile image updated!");
+        setProfileImage({ uri: data.image });
+      } else {
+        Alert.alert("Error", data.message || "Upload failed");
+      }
+    } catch (err: any) {
+      console.error("Image upload error:", err);
+      Alert.alert("Error", err.message || "Failed to upload image");
     }
-  } catch (err) {
-    console.error("Image upload error:", err);
-    Alert.alert("Error", err.message || "Failed to upload image");
-  }
-};
-
+  };
 
   const handleSave = async () => {
     try {
-      const updates = {
-        firstName,
-        lastName,
-        email,
-        phone,
-        dateOfBirth,
-      };
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/edit`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
-      const data = await response.json();
-
-      // After saving in PersonalDetailsScreen
-  if (data.status === 'success') {
-    Alert.alert('Success', 'Profile updated successfully!');
-    // Navigate back and pass updated data
-    router.push({
-    pathname: '/profile', // path to ProfileScreen
-    params: { updatedUser: JSON.stringify(updates) }, // must stringify objects
-  });
-
-  }
- else {
-     console.warn('Update API failed:', data.message);
-     Alert.alert('Error', data.message || 'Update failed');
-   }
-
-      if (data.status !== 'success') {
-        console.warn('Update API failed:', data.message);
+      const updates: any = { email, phone };
+      
+      // Only include name/DOB if NOT KYC locked
+      if (!isKycLocked) {
+        updates.firstName = firstName;
+        updates.lastName = lastName;
+        updates.dateOfBirth = dateOfBirth;
       }
-    } catch (err) {
-      console.error('Error during update API call:', err);
-    }
+      
+      const response = await api.put('/api/baggo/edit', updates);
+      const data = response.data;
 
+      if (data.status === 'success') {
+        Alert.alert('Success', 'Profile updated successfully!');
+        router.push({
+          pathname: '/profile',
+          params: { updatedUser: JSON.stringify(data.data) },
+        });
+      } else {
+        Alert.alert('Error', data.message || 'Update failed');
+      }
+    } catch (err: any) {
+      console.error('Error during update API call:', err);
+      if (err?.response?.status === 401) {
+        Alert.alert('Session Expired', 'Please log in again.');
+        router.replace('/auth/signin');
+      } else {
+        Alert.alert('Error', 'Failed to update profile');
+      }
+    }
   };
 
   if (loading) {
@@ -190,11 +177,8 @@ export default function PersonalDetailsScreen() {
     );
   }
 
-
-
-
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>
@@ -208,105 +192,138 @@ export default function PersonalDetailsScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.avatarSection}>
-  <View style={styles.avatar}>
-    {profileImage?.uri ? (
-      <Image
-        source={{ uri: profileImage.uri }}
-        style={{ width: 100, height: 100, borderRadius: 50 }}
-      />
-    ) : (
-      <User size={48} color={Colors.white} />
-    )}
-  </View>
-  <TouchableOpacity style={styles.changePhotoButton} onPress={pickImage}>
-    <Text style={styles.changePhotoText}>Change Photo</Text>
-  </TouchableOpacity>
-</View>
-
-
-        <View style={styles.form}>
-          <View style={styles.field}>
-            <Text style={styles.label}>First Name</Text>
-            <View style={styles.inputContainer}>
-              <User size={20} color={Colors.textLight} />
-              <TextInput
-                style={styles.input}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="First name"
-                placeholderTextColor={Colors.textMuted}
-              />
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* KYC Lock Notice */}
+          {isKycLocked && (
+            <View style={styles.kycNotice}>
+              <Lock size={18} color="#F59E0B" />
+              <Text style={styles.kycNoticeText}>
+                Name and Date of Birth are locked after KYC verification
+              </Text>
             </View>
+          )}
+
+          <View style={styles.avatarSection}>
+            <View style={styles.avatar}>
+              {profileImage?.uri ? (
+                <Image
+                  source={{ uri: profileImage.uri }}
+                  style={{ width: 100, height: 100, borderRadius: 50 }}
+                />
+              ) : (
+                <User size={48} color={Colors.white} />
+              )}
+            </View>
+            <TouchableOpacity style={styles.changePhotoButton} onPress={pickImage}>
+              <Text style={styles.changePhotoText}>Change Photo</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Last Name</Text>
-            <View style={styles.inputContainer}>
-              <User size={20} color={Colors.textLight} />
-              <TextInput
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Last name"
-                placeholderTextColor={Colors.textMuted}
-              />
+          <View style={styles.form}>
+            {/* First Name - Locked if KYC approved */}
+            <View style={styles.field}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>First Name</Text>
+                {isKycLocked && <Lock size={14} color={Colors.textLight} />}
+              </View>
+              <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
+                <User size={20} color={Colors.textLight} />
+                <TextInput
+                  style={[styles.input, isKycLocked && styles.inputTextLocked]}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="First name"
+                  placeholderTextColor={Colors.textMuted}
+                  editable={!isKycLocked}
+                />
+              </View>
             </View>
+
+            {/* Last Name - Locked if KYC approved */}
+            <View style={styles.field}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Last Name</Text>
+                {isKycLocked && <Lock size={14} color={Colors.textLight} />}
+              </View>
+              <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
+                <User size={20} color={Colors.textLight} />
+                <TextInput
+                  style={[styles.input, isKycLocked && styles.inputTextLocked]}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Last name"
+                  placeholderTextColor={Colors.textMuted}
+                  editable={!isKycLocked}
+                />
+              </View>
+            </View>
+
+            {/* Email - Always editable */}
+            <View style={styles.field}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputContainer}>
+                <Mail size={20} color={Colors.textLight} />
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email address"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="email-address"
+                />
+              </View>
+            </View>
+
+            {/* Phone - Always editable */}
+            <View style={styles.field}>
+              <Text style={styles.label}>Phone Number</Text>
+              <View style={styles.inputContainer}>
+                <Phone size={20} color={Colors.textLight} />
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Phone number"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+
+            {/* Date of Birth - Locked if KYC approved */}
+            <View style={styles.field}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Date of Birth</Text>
+                {isKycLocked && <Lock size={14} color={Colors.textLight} />}
+              </View>
+              <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
+                <Calendar size={20} color={Colors.textLight} />
+                <TextInput
+                  style={[styles.input, isKycLocked && styles.inputTextLocked]}
+                  value={formatDate(dateOfBirth)}
+                  onChangeText={setDateOfBirth}
+                  placeholder="Date of Birth"
+                  placeholderTextColor={Colors.textMuted}
+                  editable={!isKycLocked}
+                />
+              </View>
+            </View>
+
+            {/* Country - Read only */}
+            {country && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Country</Text>
+                <View style={[styles.inputContainer, styles.inputLocked]}>
+                  <MapPin size={20} color={Colors.textLight} />
+                  <Text style={[styles.input, styles.inputTextLocked]}>{country}</Text>
+                </View>
+              </View>
+            )}
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputContainer}>
-              <Mail size={20} color={Colors.textLight} />
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Email address"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="email-address"
-              />
-            </View>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Phone Number</Text>
-            <View style={styles.inputContainer}>
-              <Phone size={20} color={Colors.textLight} />
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Phone number"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Date of Birth</Text>
-            <View style={styles.inputContainer}>
-              <Calendar size={20} color={Colors.textLight} />
-              <TextInput
-  style={styles.input}
-  value={formatDate(dateOfBirth)}
-  onChangeText={setDateOfBirth} // optionally, you might need to convert back to 'YYYY-MM-DD' when saving
-  placeholder="Date of Birth"
-  placeholderTextColor={Colors.textMuted}
-/>
-
-            </View>
-          </View>
-
-
-        </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
-</KeyboardAvoidingView>
-
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
@@ -314,7 +331,7 @@ export default function PersonalDetailsScreen() {
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
