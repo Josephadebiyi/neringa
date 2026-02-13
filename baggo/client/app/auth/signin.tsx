@@ -41,15 +41,22 @@ export default function SignIn() {
       // Save the JWT token
       if (data.token) {
         await saveToken(data.token);
+        console.log('Token saved successfully');
       }
 
       // Save user data to AsyncStorage
       if (data.user) {
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
+        console.log('User data saved');
       }
 
+      // Reset loading state
+      setLoading(false);
+      
+      // Navigate to main app
       router.replace('/(tabs)');
     } catch (err: any) {
+      console.log('Sign in error:', err);
       const errorMessage = err.response?.data?.message || err.message || 'An error occurred during sign-in';
       setError(errorMessage);
       setLoading(false);
