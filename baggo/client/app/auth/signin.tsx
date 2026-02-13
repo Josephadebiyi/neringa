@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Eye, EyeOff } from 'lucide-react-native';
-import { backendomain } from '@/utils/backendDomain';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api, { saveToken } from '@/utils/api';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -26,27 +27,31 @@ export default function SignIn() {
     }
 
     try {
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+      const response = await api.post('/api/baggo/signin', {
+        email: email.toLowerCase(),
+        password,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.message || 'Sign in failed');
       }
 
+      // Save the JWT token
+      if (data.token) {
+        await saveToken(data.token);
+      }
+
+      // Save user data to AsyncStorage
+      if (data.user) {
+        await AsyncStorage.setItem('user', JSON.stringify(data.user));
+      }
+
       router.replace('/(tabs)');
-    } catch (err) {
-      setError(err.message || 'An error occurred during sign-in');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'An error occurred during sign-in';
+      setError(errorMessage);
       setLoading(false);
     }
   };
