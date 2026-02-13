@@ -135,6 +135,23 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  // After KYC verification, lock certain profile fields
+  kycVerifiedName: {
+    firstName: { type: String, default: null },
+    lastName: { type: String, default: null },
+    dateOfBirth: { type: Date, default: null },
+  },
+  // Payment gateway preference based on country (auto-set)
+  paymentGateway: {
+    type: String,
+    enum: ['stripe', 'paystack'],
+    default: 'stripe',
+  },
+  // User's preferred currency
+  preferredCurrency: {
+    type: String,
+    default: 'USD',
+  },
 });
 
 // 🔒 Hash password before saving
