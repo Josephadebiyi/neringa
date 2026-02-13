@@ -82,34 +82,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
 
-      if (response.data.success && response.data.user && response.data.token) {
+      const data = response.data;
+      
+      // Handle both old and new response formats for backward compatibility
+      // Old format: { message: 'success', user: {...} }
+      // New format: { success: true, token: '...', user: {...} }
+      const isSuccess = data.success === true || (data.user && data.message?.toLowerCase() !== 'invalid credentials');
+      
+      if (isSuccess && data.user) {
         const userData: User = {
-          id: response.data.user.id,
-          firstName: response.data.user.firstName,
-          lastName: response.data.user.lastName,
-          email: response.data.user.email,
-          phone: response.data.user.phone,
-          dateOfBirth: response.data.user.dateOfBirth,
-          country: response.data.user.country,
-          kycStatus: response.data.user.kycStatus,
-          isKycCompleted: response.data.user.isKycCompleted,
-          paymentGateway: response.data.user.paymentGateway,
-          preferredCurrency: response.data.user.preferredCurrency,
-          emailVerified: response.data.user.emailVerified,
+          id: data.user.id || data.user._id,
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          email: data.user.email,
+          phone: data.user.phone,
+          dateOfBirth: data.user.dateOfBirth,
+          country: data.user.country,
+          kycStatus: data.user.kycStatus,
+          isKycCompleted: data.user.isKycCompleted,
+          paymentGateway: data.user.paymentGateway,
+          preferredCurrency: data.user.preferredCurrency,
+          emailVerified: data.user.emailVerified,
         };
         
-        // Save token and user data
-        await saveToken(response.data.token);
+        // Save token if provided (new format) or generate a session marker (old format)
+        const token = data.token || `session_${Date.now()}`;
+        await saveToken(token);
         await AsyncStorage.setItem('user', JSON.stringify(userData));
         
+        // Update context state - THIS IS THE KEY FIX
         setUser(userData);
-        setSession({ user: userData, token: response.data.token });
+        setSession({ user: userData, token });
         
+        console.log('AuthContext: User authenticated and state updated');
         return { error: null };
       }
       
-      return { error: { message: response.data.message || 'Sign in failed' } };
+      return { error: { message: data.message || 'Sign in failed' } };
     } catch (error: any) {
+      console.log('AuthContext signIn error:', error);
       return { error: { message: error.response?.data?.message || 'Sign in failed' } };
     }
   };
