@@ -129,7 +129,7 @@ export default function TermsConditionsScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
