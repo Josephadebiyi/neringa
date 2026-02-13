@@ -15,14 +15,16 @@ import {
 import { useState, useEffect, useRef  } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { MapPin, Weight } from 'lucide-react-native';
+import { MapPin, Weight, ChevronLeft } from 'lucide-react-native';
 import axios from 'axios';
+import api from '@/utils/api';
 import { backendomain } from '@/utils/backendDomain';
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from 'expo-location';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
