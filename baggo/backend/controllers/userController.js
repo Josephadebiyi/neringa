@@ -643,7 +643,7 @@ export const signIn = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all fields' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
@@ -653,30 +653,48 @@ export const signIn = async (req, res) => {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
+    // Check if user is banned
+    if (user.banned) {
+      return res.status(403).json({ message: 'Account has been suspended' });
+    }
+
+    // Generate JWT token with user id and email
     const token = jwt.sign(
-      { id: user._id, email: user.email }, // Use 'id' to match isAuthenticated
+      { id: user._id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' } // Extended to 30 days for mobile app convenience
     );
 
+    // Also set cookie for browser-based requests (backward compatibility)
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: 'lax',
     });
 
+    // Return token in response body for mobile app to store
     res.status(200).json({
+      success: true,
       message: 'Sign-in successful',
+      token, // JWT token for mobile app to store
       user: {
         id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
+        dateOfBirth: user.dateOfBirth,
+        country: user.country,
+        kycStatus: user.kycStatus,
+        isKycCompleted: user.kycStatus === 'approved',
+        paymentGateway: user.paymentGateway,
+        preferredCurrency: user.preferredCurrency,
+        emailVerified: user.emailVerified,
       },
     });
   } catch (error) {
+    console.error('Sign-in error:', error);
     res.status(400).json({ message: error.message });
   }
 };
