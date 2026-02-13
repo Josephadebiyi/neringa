@@ -6,6 +6,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { saveToken } from '@/utils/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { signIn } = useAuth();
 
   const handleSignIn = async () => {
     setError('');
