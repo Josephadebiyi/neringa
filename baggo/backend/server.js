@@ -1283,18 +1283,14 @@ app.get("/api/currency/rates", async (req, res) => {
   }
 });
 
-// Update user's preferred currency
-app.post("/api/baggo/user/currency", async (req, res) => {
+// Update user's preferred currency - PROTECTED ROUTE
+app.post("/api/baggo/user/currency", isAuthenticated, async (req, res) => {
   try {
-    const { email, currency } = req.body;
+    const { currency } = req.body;
+    const user = req.user;
     
-    if (!email || !currency) {
-      return res.status(400).json({ success: false, message: "Email and currency required" });
-    }
-    
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+    if (!currency) {
+      return res.status(400).json({ success: false, message: "Currency required" });
     }
     
     user.preferredCurrency = currency;
