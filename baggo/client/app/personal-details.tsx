@@ -377,6 +377,22 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  kycNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  kycNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+  },
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 32,
@@ -407,6 +423,12 @@ const styles = StyleSheet.create({
   field: {
     marginBottom: 20,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -427,6 +449,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  inputLocked: {
+    backgroundColor: '#F3F4F6',
+    opacity: 0.8,
+  },
   textAreaContainer: {
     height: 'auto',
     alignItems: 'flex-start',
@@ -439,6 +465,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: Colors.text,
+  },
+  inputTextLocked: {
+    color: Colors.textLight,
   },
   textArea: {
     minHeight: 60,
