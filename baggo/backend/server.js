@@ -1091,23 +1091,15 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
   }
 });
 
-// Get KYC status
-app.get("/api/baggo/kyc/status", async (req, res) => {
+// Get KYC status - PROTECTED ROUTE
+app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
   try {
-    // Get user email from query params or headers
-    const userEmail = req.query.email || req.headers['x-user-email'];
-    if (!userEmail) {
-      return res.status(401).json({ success: false, message: "User email required" });
-    }
-
-    const user = await User.findOne({ email: userEmail });
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
+    // User is authenticated via Bearer token
+    const user = req.user;
 
     res.json({ 
       success: true, 
-      email: userEmail,
+      email: user.email,
       kycStatus: user.kycStatus || 'not_started',
       kycVerifiedAt: user.kycVerifiedAt || null,
     });
