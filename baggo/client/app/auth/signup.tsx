@@ -181,12 +181,7 @@ export default function SignUp() {
       const response = await api.post('/api/baggo/signup', payload);
       const data = response.data;
 
-      if (!response.ok) {
-        // backend error message if provided
-        throw new Error(data.message || 'Signup failed');
-      }
-
-      // assume backend triggers verification email; show confirmation to user
+      // Show verification modal
       setLoading(false);
   setShowVerifyModal(true); // show the modal instead of inline message
 
