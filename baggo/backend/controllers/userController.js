@@ -267,6 +267,10 @@ export const verifyEmail = async (req, res) => {
     }
 
     // Save verified user (no manual hashing here)
+    // Determine payment gateway based on country
+    const paymentGateway = getPaymentGateway(decoded.country);
+    const preferredCurrency = getCurrencyByCountry(decoded.country);
+    
     const newUser = new User({
       firstName: decoded.firstName,
       lastName: decoded.lastName,
@@ -276,6 +280,8 @@ export const verifyEmail = async (req, res) => {
       referredBy: decoded.referredBy || null,
       dateOfBirth: decoded.dateOfBirth || null,
       country: decoded.country || null,
+      paymentGateway: paymentGateway,
+      preferredCurrency: preferredCurrency,
       emailVerified: true,
     });
     await newUser.save(); // your pre-save hook will hash automatically
