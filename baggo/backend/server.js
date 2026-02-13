@@ -1086,20 +1086,20 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
 // Get KYC status
 app.get("/api/baggo/kyc/status", async (req, res) => {
   try {
-    // Get userId from cookies, query params, or headers
-    const userId = req.cookies.userId || req.query.userId || req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "User not authenticated" });
+    // Get user email from query params or headers
+    const userEmail = req.query.email || req.headers['x-user-email'];
+    if (!userEmail) {
+      return res.status(401).json({ success: false, message: "User email required" });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
     res.json({ 
       success: true, 
-      userId: userId,
+      email: userEmail,
       kycStatus: user.kycStatus || 'not_started',
       kycVerifiedAt: user.kycVerifiedAt || null,
     });
