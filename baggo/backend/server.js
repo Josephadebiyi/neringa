@@ -975,18 +975,17 @@ const DIDIT_API_KEY = process.env.DIDIT_API_KEY || 'W9Z65OUcc-JjmtqR10AXNKFg1LMj
 const DIDIT_WORKFLOW_ID = '701347c6-bd51-4ab7-8a35-8a442db4b63c';
 const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || 'dHeVarhBUK-4xUER06T7W28jEBkHlfCnIvR1TdSOHhI';
 
-// Create DIDIT verification session
-app.post("/api/baggo/kyc/create-session", async (req, res) => {
-  try {
-    // Get user email from body, query, or headers
-    const userEmail = req.body.email || req.query.email || req.headers['x-user-email'];
-    if (!userEmail) {
-      return res.status(401).json({ success: false, message: "User email required" });
-    }
+// Import the auth middleware
+import { isAuthenticated } from './Auth/UserAuthentication.js';
 
-    const user = await User.findOne({ email: userEmail });
+// Create DIDIT verification session - PROTECTED ROUTE
+app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
+  try {
+    // User is authenticated via Bearer token - req.user is populated
+    const user = req.user;
+    
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(401).json({ success: false, message: "User not authenticated" });
     }
 
     // Check if user already has approved KYC
@@ -1010,7 +1009,7 @@ app.post("/api/baggo/kyc/create-session", async (req, res) => {
       },
       body: JSON.stringify({
         workflow_id: DIDIT_WORKFLOW_ID,
-        vendor_data: userEmail,
+        vendor_data: user.email,
         callback: callbackUrl,
       }),
     });
