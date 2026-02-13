@@ -1,5 +1,5 @@
 // Centralized API service for admin panel
-const API_BASE = 'https://bago-server.onrender.com/api';
+const API_BASE = 'https://neringa.onrender.com/api';
 const ADMIN_API = `${API_BASE}/Adminbaggo`;
 const MAIN_API = `${API_BASE}/baggo`;
 

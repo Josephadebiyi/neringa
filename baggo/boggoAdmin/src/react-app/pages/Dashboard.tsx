@@ -103,7 +103,7 @@ export default function Dashboard() {
       }
 
       const response = await fetch(
-        `https://bago-server.onrender.com/api/Adminbaggo/dashboard?page=${currentPage}&limit=${limit}`,
+        `https://neringa.onrender.com/api/Adminbaggo/dashboard?page=${currentPage}&limit=${limit}`,
         {
           method: 'GET',
           headers: {

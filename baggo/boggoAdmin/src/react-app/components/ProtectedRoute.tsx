@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch('https://bago-server.onrender.com/api/Adminbaggo/CheckAdmin', {
+        const response = await fetch('https://neringa.onrender.com/api/Adminbaggo/CheckAdmin', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

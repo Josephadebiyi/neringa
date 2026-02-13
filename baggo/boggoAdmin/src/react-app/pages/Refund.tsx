@@ -11,7 +11,7 @@ export default function RefundsPage() {
   const fetchRefunds = async () => {
     try {
       setLoading(true);
-      const res = await fetch("https://bago-server.onrender.com/api/baggo/get-refund");
+      const res = await fetch("https://neringa.onrender.com/api/baggo/get-refund");
       const data = await res.json();
       setRefunds(data.data || []);
     } catch (err) {
@@ -48,7 +48,7 @@ export default function RefundsPage() {
 
   const handleAction = async (id: string, action: "approve" | "reject") => {
     try {
-      const endpoint = `https://bago-server.onrender.com/api/baggo/${action}/${id}`;
+      const endpoint = `https://neringa.onrender.com/api/baggo/${action}/${id}`;
       const res = await fetch(endpoint, { method: "PUT" });
       if (res.ok) fetchRefunds();
     } catch (err) {

@@ -44,7 +44,7 @@ export default function PricePerKgPage() {
   const fetchPrices = async () => {
     try {
       setLoading(true);
-      const res = await fetch("https://bago-server.onrender.com/api/prices/get");
+      const res = await fetch("https://neringa.onrender.com/api/prices/get");
       const data = await res.json();
       setPrices(data || []);
     } catch (err) {
@@ -63,8 +63,8 @@ export default function PricePerKgPage() {
     try {
       const method = editingPrice ? "PUT" : "POST";
       const url = editingPrice
-        ? `https://bago-server.onrender.com/api/prices/update/${editingPrice._id}`
-        : "https://bago-server.onrender.com/api/prices/create";
+        ? `https://neringa.onrender.com/api/prices/update/${editingPrice._id}`
+        : "https://neringa.onrender.com/api/prices/create";
 
       const res = await fetch(url, {
         method,
@@ -96,7 +96,7 @@ export default function PricePerKgPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this record?")) return;
     try {
-      const res = await fetch(`https://bago-server.onrender.com/api/prices/delete/${id}`, {
+      const res = await fetch(`https://neringa.onrender.com/api/prices/delete/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete");

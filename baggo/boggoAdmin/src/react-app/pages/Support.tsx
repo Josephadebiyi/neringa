@@ -24,7 +24,7 @@ export default function Support() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://bago-server.onrender.com/api/Adminbaggo/analystic', {
+      const response = await fetch('https://neringa.onrender.com/api/Adminbaggo/analystic', {
         method: 'GET',
         credentials: 'include',
       });
