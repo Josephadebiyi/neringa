@@ -978,13 +978,13 @@ const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || 'dHeVarhBUK-4xU
 // Create DIDIT verification session
 app.post("/api/baggo/kyc/create-session", async (req, res) => {
   try {
-    // Get userId from cookies, body, or headers
-    const userId = req.cookies.userId || req.body.userId || req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "User not authenticated" });
+    // Get user email from body, query, or headers
+    const userEmail = req.body.email || req.query.email || req.headers['x-user-email'];
+    if (!userEmail) {
+      return res.status(401).json({ success: false, message: "User email required" });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -1000,7 +1000,7 @@ app.post("/api/baggo/kyc/create-session", async (req, res) => {
 
     const callbackUrl = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/baggo/kyc/callback`;
 
-    // Create session with DIDIT API
+    // Create session with DIDIT API - use email as vendor_data
     const response = await fetch('https://verification.didit.me/v3/session/', {
       method: 'POST',
       headers: {
@@ -1010,7 +1010,7 @@ app.post("/api/baggo/kyc/create-session", async (req, res) => {
       },
       body: JSON.stringify({
         workflow_id: DIDIT_WORKFLOW_ID,
-        vendor_data: userId,
+        vendor_data: userEmail,
         callback: callbackUrl,
       }),
     });
