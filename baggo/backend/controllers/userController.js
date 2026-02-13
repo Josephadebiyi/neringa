@@ -106,10 +106,10 @@ const uploadToCloudinary = async (dataUri) => {
 
  export const signUp = async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, password, confirmPassword, referralCode } = req.body;
+    const { firstName, lastName, email, phone, password, confirmPassword, referralCode, dateOfBirth, country } = req.body;
 
-    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword) {
-      return res.status(400).json({ message: "Please fill in all fields" });
+    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword || !dateOfBirth || !country) {
+      return res.status(400).json({ message: "Please fill in all fields including date of birth and country" });
     }
 
     if (password !== confirmPassword) {
@@ -133,7 +133,7 @@ const uploadToCloudinary = async (dataUri) => {
 
     // 🔹 Create token that contains user data (not saving yet)
     const verificationToken = jwt.sign(
-      { firstName, lastName, email, phone, password, referredBy },
+      { firstName, lastName, email, phone, password, referredBy, dateOfBirth, country },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
