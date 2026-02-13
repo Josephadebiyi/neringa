@@ -95,8 +95,6 @@ export default function KYCVerificationScreen() {
           withCredentials: true,
         }
       );
-        { withCredentials: true }
-      );
 
       if (response.data.success) {
         if (response.data.status === 'approved') {
