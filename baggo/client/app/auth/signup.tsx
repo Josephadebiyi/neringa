@@ -52,6 +52,10 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [referralCode, setReferralCode] = useState('');
+  
+  // Date of birth state
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
 
 
