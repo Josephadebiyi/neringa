@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Shield, CheckCircle, XCircle, Clock } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function KYCVerificationScreen() {
   const router = useRouter();
@@ -30,22 +31,48 @@ export default function KYCVerificationScreen() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    checkKYCStatus();
+    loadUserAndCheckKYC();
   }, []);
 
-  const checkKYCStatus = async () => {
+  const loadUserAndCheckKYC = async () => {
     try {
-      const response = await axios.get(`${backendomain.backendomain}/api/baggo/kyc/status`, {
-        withCredentials: true,
-      });
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        const id = userData._id || userData.id;
+        setUserId(id);
+        await checkKYCStatus(id);
+      } else {
+        setLoading(false);
+        Alert.alert('Not Logged In', 'Please log in to verify your identity.');
+      }
+    } catch (err) {
+      setLoading(false);
+    }
+  };
+
+  const checkKYCStatus = async (id?: string) => {
+    try {
+      const userIdToUse = id || userId;
+      if (!userIdToUse) {
+        setKycStatus('not_started');
+        setLoading(false);
+        return;
+      }
+      
+      const response = await axios.get(
+        `${backendomain.backendomain}/api/baggo/kyc/status?userId=${userIdToUse}`,
+        {
+          headers: { 'x-user-id': userIdToUse },
+          withCredentials: true,
+        }
+      );
       if (response.data.success) {
         setKycStatus(response.data.kycStatus);
-        setUserId(response.data.userId);
       } else {
         setKycStatus('not_started');
       }
     } catch (err: any) {
-      // Silently handle all errors - show not_started status
       setKycStatus('not_started');
     } finally {
       setLoading(false);
@@ -53,11 +80,21 @@ export default function KYCVerificationScreen() {
   };
 
   const startVerification = async () => {
+    if (!userId) {
+      Alert.alert('Not Logged In', 'Please log in to verify your identity.');
+      return;
+    }
+    
     setCreatingSession(true);
     try {
       const response = await axios.post(
         `${backendomain.backendomain}/api/baggo/kyc/create-session`,
-        {},
+        { userId },
+        {
+          headers: { 'x-user-id': userId },
+          withCredentials: true,
+        }
+      );
         { withCredentials: true }
       );
 
