@@ -285,6 +285,31 @@ export default function SignUp() {
               />
             </View>
 
+            {/* Date of Birth */}
+            <TextInput
+              style={styles.input}
+              placeholder="Date of Birth (YYYY-MM-DD)"
+              placeholderTextColor={Colors.textLight}
+              value={dateOfBirth}
+              onChangeText={(text) => {
+                // Auto-format: add dashes as user types
+                let formatted = text.replace(/[^0-9]/g, '');
+                if (formatted.length > 4) {
+                  formatted = formatted.slice(0, 4) + '-' + formatted.slice(4);
+                }
+                if (formatted.length > 7) {
+                  formatted = formatted.slice(0, 7) + '-' + formatted.slice(7);
+                }
+                if (formatted.length > 10) {
+                  formatted = formatted.slice(0, 10);
+                }
+                setDateOfBirth(formatted);
+              }}
+              keyboardType="numeric"
+              maxLength={10}
+              editable={!loading}
+            />
+
             {/* Password field with toggle */}
   <View style={styles.passwordContainer}>
     <TextInput
