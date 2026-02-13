@@ -9,7 +9,8 @@ import {
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { Mail, Phone, MessageCircle, Send, Circle as HelpCircle, FileText, CircleAlert as AlertCircle } from 'lucide-react-native';
+import { Mail, Phone, MessageCircle, Send, Circle as HelpCircle, FileText, CircleAlert as AlertCircle, ChevronLeft } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const faqs = [
   {
@@ -50,10 +51,10 @@ export default function ContactSupportScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+          <ChevronLeft size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Contact Support</Text>
         <View style={{ width: 40 }} />
