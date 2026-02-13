@@ -171,7 +171,7 @@ export default function PrivacyPolicyScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
