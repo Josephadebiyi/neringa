@@ -18,7 +18,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Eye, EyeOff } from 'lucide-react-native';
-import { backendomain } from '@/utils/backendDomain';
+import api from '@/utils/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type CountryItem = {
