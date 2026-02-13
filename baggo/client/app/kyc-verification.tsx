@@ -14,57 +14,36 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '@/constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Shield, CheckCircle, XCircle, Clock } from 'lucide-react-native';
-import { backendomain } from '@/utils/backendDomain';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '@/utils/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function KYCVerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
+  const { user, isAuthenticated } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [kycStatus, setKycStatus] = useState('not_started');
   const [sessionUrl, setSessionUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    loadUserAndCheckKYC();
+    checkKYCStatus();
   }, []);
 
-  const loadUserAndCheckKYC = async () => {
+  const checkKYCStatus = async () => {
     try {
-      const storedUser = await AsyncStorage.getItem('user');
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        const email = userData.email;
-        if (email) {
-          setUserEmail(email);
-          await checkKYCStatus(email);
-        } else {
-          setLoading(false);
-          Alert.alert('Error', 'User email not found. Please log in again.');
-        }
-      } else {
+      if (!isAuthenticated) {
         setLoading(false);
         Alert.alert('Not Logged In', 'Please log in to verify your identity.');
+        return;
       }
-    } catch (err) {
-      console.log('Error loading user:', err);
-      setLoading(false);
-    }
-  };
 
-  const checkKYCStatus = async (email: string) => {
-    try {
-      const response = await axios.get(
-        `${backendomain.backendomain}/api/baggo/kyc/status?email=${encodeURIComponent(email)}`,
-        {
-          headers: { 'x-user-email': email },
-        }
-      );
+      // Use the API interceptor - token is automatically attached
+      const response = await api.get('/api/baggo/kyc/status');
+      
       if (response.data.success) {
         setKycStatus(response.data.kycStatus);
       } else {
@@ -72,6 +51,14 @@ export default function KYCVerificationScreen() {
       }
     } catch (err: any) {
       console.log('KYC status error:', err?.response?.data || err.message);
+      
+      // Handle auth errors
+      if (err?.response?.status === 401) {
+        Alert.alert('Session Expired', 'Please log in again.');
+        router.replace('/auth/signin');
+        return;
+      }
+      
       setKycStatus('not_started');
     } finally {
       setLoading(false);
@@ -79,20 +66,15 @@ export default function KYCVerificationScreen() {
   };
 
   const startVerification = async () => {
-    if (!userEmail) {
+    if (!isAuthenticated) {
       Alert.alert('Not Logged In', 'Please log in to verify your identity.');
       return;
     }
     
     setCreatingSession(true);
     try {
-      const response = await axios.post(
-        `${backendomain.backendomain}/api/baggo/kyc/create-session`,
-        { email: userEmail },
-        {
-          headers: { 'x-user-email': userEmail },
-        }
-      );
+      // Use the API interceptor - Bearer token is automatically attached
+      const response = await api.post('/api/baggo/kyc/create-session');
 
       if (response.data.success) {
         if (response.data.status === 'approved') {
@@ -109,10 +91,16 @@ export default function KYCVerificationScreen() {
         Alert.alert('Error', response.data.message || 'Failed to start verification');
       }
     } catch (err: any) {
-      // Provide user-friendly error message
-      const message = err?.response?.status === 404 
-        ? 'KYC service is currently unavailable. Please try again later.'
-        : (err?.response?.data?.message || 'Failed to start verification. Please try again.');
+      console.log('KYC create session error:', err?.response?.data || err.message);
+      
+      // Handle specific error cases
+      if (err?.response?.status === 401) {
+        Alert.alert('Session Expired', 'Please log in again to continue.');
+        router.replace('/auth/signin');
+        return;
+      }
+      
+      const message = err?.response?.data?.message || 'Failed to start verification. Please try again.';
       Alert.alert('Verification Unavailable', message);
     } finally {
       setCreatingSession(false);
