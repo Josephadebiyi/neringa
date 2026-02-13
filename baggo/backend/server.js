@@ -1201,3 +1201,118 @@ app.post("/api/baggo/kyc/update-status", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to update KYC status", error: err.message });
   }
 });
+
+// ======================================
+// 💱 CURRENCY CONVERSION API
+// ======================================
+
+// Cache for exchange rates (to avoid too many API calls)
+let exchangeRatesCache = {
+  rates: {},
+  lastUpdated: null,
+};
+
+// Fetch exchange rates from a free API
+async function fetchExchangeRates() {
+  try {
+    // Use ExchangeRate-API (free tier)
+    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    const data = await response.json();
+    
+    if (data && data.rates) {
+      exchangeRatesCache = {
+        rates: data.rates,
+        lastUpdated: new Date(),
+      };
+      console.log('✅ Exchange rates updated');
+      return data.rates;
+    }
+    return exchangeRatesCache.rates;
+  } catch (err) {
+    console.error('❌ Failed to fetch exchange rates:', err.message);
+    return exchangeRatesCache.rates;
+  }
+}
+
+// Get exchange rates (with caching - refresh every hour)
+async function getExchangeRates() {
+  const oneHour = 60 * 60 * 1000;
+  if (!exchangeRatesCache.lastUpdated || 
+      (new Date() - exchangeRatesCache.lastUpdated) > oneHour) {
+    return await fetchExchangeRates();
+  }
+  return exchangeRatesCache.rates;
+}
+
+// Convert currency endpoint
+app.get("/api/currency/convert", async (req, res) => {
+  try {
+    const { amount, from, to } = req.query;
+    
+    if (!amount || !from || !to) {
+      return res.status(400).json({ success: false, message: "Missing amount, from, or to currency" });
+    }
+    
+    const rates = await getExchangeRates();
+    
+    if (!rates[from] || !rates[to]) {
+      return res.status(400).json({ success: false, message: "Invalid currency code" });
+    }
+    
+    // Convert to USD first, then to target currency
+    const amountInUSD = parseFloat(amount) / rates[from];
+    const convertedAmount = amountInUSD * rates[to];
+    
+    res.json({
+      success: true,
+      amount: parseFloat(amount),
+      from,
+      to,
+      rate: rates[to] / rates[from],
+      convertedAmount: Math.round(convertedAmount * 100) / 100,
+    });
+  } catch (err) {
+    console.error("❌ Currency conversion error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to convert currency", error: err.message });
+  }
+});
+
+// Get all available rates
+app.get("/api/currency/rates", async (req, res) => {
+  try {
+    const rates = await getExchangeRates();
+    res.json({
+      success: true,
+      base: 'USD',
+      rates,
+      lastUpdated: exchangeRatesCache.lastUpdated,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to get rates", error: err.message });
+  }
+});
+
+// Update user's preferred currency
+app.post("/api/baggo/user/currency", async (req, res) => {
+  try {
+    const { email, currency } = req.body;
+    
+    if (!email || !currency) {
+      return res.status(400).json({ success: false, message: "Email and currency required" });
+    }
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    user.preferredCurrency = currency;
+    await user.save();
+    
+    res.json({ success: true, message: "Currency updated", currency });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to update currency", error: err.message });
+  }
+});
+
+
