@@ -884,7 +884,7 @@ const handleSelectCity = (cityName: string) => {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
