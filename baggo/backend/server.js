@@ -1054,13 +1054,15 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
     
     console.log("DIDIT Callback received:", { session_id, status, vendor_data });
 
-    const userId = vendor_data;
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "No user ID in callback" });
+    // vendor_data now contains the user's email
+    const userEmail = vendor_data;
+    if (!userEmail) {
+      return res.status(400).json({ success: false, message: "No user email in callback" });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findOne({ email: userEmail });
     if (!user) {
+      console.log("User not found for email:", userEmail);
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
@@ -1075,6 +1077,7 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
     }
 
     await user.save();
+    console.log("✅ KYC status updated for:", userEmail, "->", user.kycStatus);
 
     res.json({ success: true, message: "KYC status updated" });
   } catch (err) {
