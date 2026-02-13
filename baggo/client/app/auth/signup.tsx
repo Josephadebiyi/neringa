@@ -135,8 +135,8 @@ export default function SignUp() {
     setLoading(true);
 
     // basic required fields
-    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword || !dateOfBirth || !selectedCountry) {
+      setError('Please fill in all fields including date of birth and country');
       setLoading(false);
       return;
     }
@@ -166,21 +166,13 @@ export default function SignUp() {
       const sanitizedLocal = phone.replace(/^0+/, '').replace(/\D/g, '');
       const fullPhone = calling ? `+${calling}${sanitizedLocal}` : phone;
 
-      // **Important change requested**: include explicit `country` field
-      const countryPayload = selectedCountry
-        ? {
-            name: selectedCountry.name,
-            cca2: selectedCountry.cca2,
-            callingCode: selectedCountry.callingCode,
-          }
-        : null;
-
       const payload = {
         firstName,
         lastName,
         email: email.trim().toLowerCase(),
         phone: fullPhone,
-        country: countryPayload, // <-- country field included here
+        country: selectedCountry.name, // Send country name as string
+        dateOfBirth: dateOfBirth, // Date of birth in YYYY-MM-DD format
         password,
         confirmPassword,
         referralCode: referralCode.trim() || null,
