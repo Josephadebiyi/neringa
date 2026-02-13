@@ -273,6 +273,8 @@ export const verifyEmail = async (req, res) => {
       phone: decoded.phone,
       password: decoded.password, // plain text (will be hashed in pre-save)
       referredBy: decoded.referredBy || null,
+      dateOfBirth: decoded.dateOfBirth || null,
+      country: decoded.country || null,
       emailVerified: true,
     });
     await newUser.save(); // your pre-save hook will hash automatically
