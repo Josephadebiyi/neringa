@@ -178,16 +178,8 @@ export default function SignUp() {
         referralCode: referralCode.trim() || null,
       };
 
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
+      const response = await api.post('/api/baggo/signup', payload);
+      const data = response.data;
 
       if (!response.ok) {
         // backend error message if provided
