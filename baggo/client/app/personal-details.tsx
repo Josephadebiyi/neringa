@@ -267,18 +267,14 @@ export default function PersonalDetailsScreen() {
           )}
 
           <View style={styles.avatarSection}>
-            <View style={styles.avatar}>
-              {profileImage?.uri ? (
-                <Image
-                  source={{ uri: profileImage.uri }}
-                  style={{ width: 100, height: 100, borderRadius: 50 }}
-                />
-              ) : (
-                <User size={48} color={Colors.white} />
-              )}
-            </View>
-            <TouchableOpacity style={styles.changePhotoButton} onPress={pickImage}>
-              <Text style={styles.changePhotoText}>Change Photo</Text>
+            <TouchableOpacity style={styles.avatar} onPress={() => setAvatarModalVisible(true)}>
+              {renderAvatar()}
+              <View style={styles.cameraIcon}>
+                <Camera size={16} color={Colors.white} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.changePhotoButton} onPress={() => setAvatarModalVisible(true)}>
+              <Text style={styles.changePhotoText}>Change Avatar</Text>
             </TouchableOpacity>
           </View>
 
