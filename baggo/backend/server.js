@@ -1081,52 +1081,167 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
   }
 });
 
-// DIDIT webhook callback
+// DIDIT webhook callback - handles verification completion events
 app.post("/api/baggo/kyc/callback", async (req, res) => {
+  console.log("📥 DIDIT Callback received (old endpoint):", req.body);
+  // Redirect to new webhook endpoint
+  res.status(200).json({ success: true, message: "Please use /api/didit/webhook" });
+});
+
+// ============================================
+// DIDIT.ME WEBHOOK ENDPOINT (PROPER IMPLEMENTATION)
+// ============================================
+// This is the main webhook endpoint that DIDIT calls when verification is complete
+app.post("/api/didit/webhook", async (req, res) => {
   try {
+    console.log("=".repeat(60));
+    console.log("📥 DIDIT WEBHOOK RECEIVED");
+    console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Body:", JSON.stringify(req.body, null, 2));
+    console.log("=".repeat(60));
+
     const { session_id, status, vendor_data } = req.body;
-    
-    console.log("DIDIT Callback received:", { session_id, status, vendor_data });
 
-    // vendor_data now contains the user's email
-    const userEmail = vendor_data;
-    if (!userEmail) {
-      return res.status(400).json({ success: false, message: "No user email in callback" });
+    if (!session_id) {
+      console.log("⚠️ No session_id in webhook payload");
+      return res.status(200).json({ success: false, message: "No session_id" });
     }
 
-    const user = await User.findOne({ email: userEmail });
+    // Parse vendor_data to extract userId
+    let userId = null;
+    let userEmail = null;
+
+    try {
+      // vendor_data should be JSON with userId and email
+      const parsed = JSON.parse(vendor_data);
+      userId = parsed.userId;
+      userEmail = parsed.email;
+      console.log("📋 Parsed vendor_data - userId:", userId, "email:", userEmail);
+    } catch (parseErr) {
+      // Fallback: vendor_data might be plain email string (old format)
+      userEmail = vendor_data;
+      console.log("📋 Using vendor_data as email:", userEmail);
+    }
+
+    // Find user by userId first, then by email, then by session_id
+    let user = null;
+    if (userId) {
+      user = await User.findById(userId);
+    }
+    if (!user && userEmail) {
+      user = await User.findOne({ email: userEmail });
+    }
     if (!user) {
-      console.log("User not found for email:", userEmail);
-      return res.status(404).json({ success: false, message: "User not found" });
+      user = await User.findOne({ diditSessionId: session_id });
     }
+
+    if (!user) {
+      console.log("❌ User not found for webhook - session:", session_id);
+      // Return 200 to prevent DIDIT from retrying
+      return res.status(200).json({ success: false, message: "User not found" });
+    }
+
+    console.log("👤 Found user:", user._id.toString(), user.email);
+    console.log("📋 Current kycStatus:", user.kycStatus, "New status from DIDIT:", status);
+
+    const previousStatus = user.kycStatus;
 
     // Update KYC status based on DIDIT response
-    if (status === 'Approved' || status === 'approved') {
+    const normalizedStatus = status?.toLowerCase();
+    
+    if (normalizedStatus === 'approved') {
       user.kycStatus = 'approved';
       user.kycVerifiedAt = new Date();
-      // Also sync with legacy status field for backward compatibility
-      user.status = 'verified';
+      user.status = 'verified'; // Legacy field
       user.isVerified = true;
-      // Lock the verified name and DOB
       user.kycVerifiedName = {
         firstName: user.firstName,
         lastName: user.lastName,
         dateOfBirth: user.dateOfBirth,
       };
-    } else if (status === 'Declined' || status === 'declined') {
+      console.log("✅ KYC APPROVED for user:", user.email);
+
+      // Send push notification for approval
+      if (user.expoPushToken) {
+        try {
+          await sendPushNotification(
+            user.expoPushToken,
+            '✅ Identity Verified!',
+            'Congratulations! Your identity has been verified. You now have full access to all Baggo features.',
+            { type: 'kyc_approved' }
+          );
+          console.log("📱 Push notification sent for KYC approval");
+        } catch (pushErr) {
+          console.log("⚠️ Failed to send push notification:", pushErr.message);
+        }
+      }
+
+      // Create in-app notification
+      try {
+        await Notification.create({
+          userId: user._id,
+          title: 'Identity Verified',
+          message: 'Your identity has been successfully verified. Welcome to Baggo!',
+          type: 'kyc',
+          read: false,
+        });
+      } catch (notifErr) {
+        console.log("⚠️ Failed to create notification:", notifErr.message);
+      }
+
+    } else if (normalizedStatus === 'declined' || normalizedStatus === 'rejected') {
       user.kycStatus = 'declined';
-      user.status = 'rejected';
-    } else if (status === 'Pending' || status === 'pending') {
+      user.status = 'rejected'; // Legacy field
+      console.log("❌ KYC DECLINED for user:", user.email);
+
+      // Send push notification for decline
+      if (user.expoPushToken) {
+        try {
+          await sendPushNotification(
+            user.expoPushToken,
+            '❌ Verification Unsuccessful',
+            'We could not verify your identity. Please try again with valid documents.',
+            { type: 'kyc_declined' }
+          );
+          console.log("📱 Push notification sent for KYC decline");
+        } catch (pushErr) {
+          console.log("⚠️ Failed to send push notification:", pushErr.message);
+        }
+      }
+
+      // Create in-app notification
+      try {
+        await Notification.create({
+          userId: user._id,
+          title: 'Verification Unsuccessful',
+          message: 'We could not verify your identity. Please try again with clearer documents.',
+          type: 'kyc',
+          read: false,
+        });
+      } catch (notifErr) {
+        console.log("⚠️ Failed to create notification:", notifErr.message);
+      }
+
+    } else if (normalizedStatus === 'pending' || normalizedStatus === 'processing' || normalizedStatus === 'submitted') {
       user.kycStatus = 'pending';
+      console.log("⏳ KYC PENDING for user:", user.email);
     }
 
     await user.save();
-    console.log("✅ KYC status updated for:", userEmail, "->", user.kycStatus);
+    console.log("💾 User saved - kycStatus:", user.kycStatus, "status:", user.status, "isVerified:", user.isVerified);
 
-    res.json({ success: true, message: "KYC status updated" });
+    // Always return 200 to acknowledge receipt (prevents DIDIT retry)
+    res.status(200).json({ 
+      success: true, 
+      message: "KYC status updated",
+      userId: user._id.toString(),
+      kycStatus: user.kycStatus
+    });
+
   } catch (err) {
-    console.error("❌ DIDIT callback error:", err.message);
-    res.status(500).json({ success: false, message: "Callback processing failed", error: err.message });
+    console.error("❌ DIDIT webhook error:", err.message, err.stack);
+    // Still return 200 to prevent retry loops
+    res.status(200).json({ success: false, message: "Webhook processing error", error: err.message });
   }
 });
 
