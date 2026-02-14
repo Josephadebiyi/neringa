@@ -105,6 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           paymentGateway: data.user.paymentGateway,
           preferredCurrency: data.user.preferredCurrency,
           emailVerified: data.user.emailVerified,
+          status: data.user.status,
+          isVerified: data.user.isVerified,
         };
         
         // Save token if provided (new format) or generate a session marker (old format)
