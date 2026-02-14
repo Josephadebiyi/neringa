@@ -1096,6 +1096,7 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
   try {
     // User is authenticated via Bearer token
     const user = req.user;
+    const previousStatus = user.kycStatus;
     
     // If user has a DIDIT session and status is pending, check actual DIDIT status
     if (user.diditSessionId && user.kycStatus === 'pending') {
@@ -1120,10 +1121,49 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
             user.kycVerifiedAt = new Date();
             await user.save();
             console.log(`✅ User ${user.email} KYC auto-approved from DIDIT`);
+            
+            // Send push notification for KYC approval
+            if (previousStatus !== 'approved' && user.expoPushToken) {
+              await sendPushNotification(
+                user.expoPushToken,
+                '🎉 Identity Verified!',
+                'Congratulations! Your identity has been verified. You now have full access to all Baggo features.',
+                { type: 'kyc_approved' }
+              );
+            }
+            
+            // Create in-app notification
+            await Notification.create({
+              userId: user._id,
+              title: 'Identity Verified',
+              message: 'Your identity has been successfully verified. You now have full access to send packages and create trips.',
+              type: 'kyc',
+              read: false,
+            });
+            
           } else if (diditStatus === 'declined') {
             user.kycStatus = 'declined';
             await user.save();
             console.log(`❌ User ${user.email} KYC declined from DIDIT`);
+            
+            // Send push notification for KYC decline
+            if (previousStatus !== 'declined' && user.expoPushToken) {
+              await sendPushNotification(
+                user.expoPushToken,
+                '⚠️ Verification Failed',
+                'Your identity verification was not successful. Please try again with valid documents.',
+                { type: 'kyc_declined' }
+              );
+            }
+            
+            // Create in-app notification
+            await Notification.create({
+              userId: user._id,
+              title: 'Verification Failed',
+              message: 'Your identity verification was declined. Please try again with clear, valid documents.',
+              type: 'kyc',
+              read: false,
+            });
           }
           // For 'created', 'started', 'submitted', 'processing' - keep as pending
         }
