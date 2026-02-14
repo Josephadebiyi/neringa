@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { CreditCard } from 'lucide-react-native';
 
 export default function PaymentMethodScreen() {

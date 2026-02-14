@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { MapPin, Calendar, Weight, Star, Plane, Shield, ChevronRight } from 'lucide-react-native';
 import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
