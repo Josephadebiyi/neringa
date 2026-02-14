@@ -18,6 +18,28 @@ import {
 // Keep splash screen visible while fonts load
 SplashScreen.preventAutoHideAsync();
 
+function RootLayoutContent() {
+  const { themeMode, colors } = useTheme();
+
+  return (
+    <>
+      <Stack 
+        screenOptions={{ 
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="auth/signin" />
+        <Stack.Screen name="auth/signup" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
+    </>
+  );
+}
+
 export default function RootLayout() {
   useFrameworkReady();
 
@@ -48,21 +70,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <Stack 
-          screenOptions={{ 
-            headerShown: false,
-            contentStyle: { backgroundColor: '#F8F7F4' },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="auth/signin" />
-          <Stack.Screen name="auth/signup" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="dark" />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <RootLayoutContent />
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
