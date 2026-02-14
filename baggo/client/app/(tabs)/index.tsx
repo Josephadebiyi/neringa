@@ -717,7 +717,11 @@ const fetchNotifications = async () => {
                           </Text>
                         </View>
                         <View style={styles.travelerDetails}>
-                          <Text style={styles.travelerName}>{trip.profile?.first_name || 'Traveler'}</Text>
+                          <Text style={styles.travelerName}>
+                            {trip.profile?.first_name && trip.profile?.last_name 
+                              ? `${trip.profile.first_name} ${trip.profile.last_name}` 
+                              : trip.profile?.first_name || 'Traveler'}
+                          </Text>
                           <View style={styles.ratingRow}>
                             <Star size={12} color={Colors.gold} fill={Colors.gold} />
                             <Text style={styles.ratingText}>{(trip.profile?.average_rating ?? 0).toFixed(1)}</Text>
