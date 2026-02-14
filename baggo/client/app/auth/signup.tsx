@@ -57,7 +57,7 @@ export default function SignUp() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-
+  const { colors } = useTheme();
 
   // Countries + picker state
   const [countries, setCountries] = useState<CountryItem[]>([]);
