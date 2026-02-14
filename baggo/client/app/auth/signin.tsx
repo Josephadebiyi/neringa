@@ -65,15 +65,15 @@ export default function SignIn() {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.subtitle}>Connect Travelers & Senders</Text>
+            <Text style={[styles.subtitle, { color: colors.textLight }]}>Connect Travelers & Senders</Text>
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.cardBg, color: colors.text, borderColor: colors.border }]}
               placeholder="Enter your email"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textMuted}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -81,12 +81,12 @@ export default function SignIn() {
               editable={!loading}
             />
 
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
+            <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+            <View style={[styles.passwordContainer, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
               <TextInput
-                style={styles.passwordInput}
+                style={[styles.passwordInput, { color: colors.text }]}
                 placeholder="Enter your password"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -94,9 +94,9 @@ export default function SignIn() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff color="#999" size={20} />
+                  <EyeOff color={colors.textMuted} size={20} />
                 ) : (
-                  <Eye color="#999" size={20} />
+                  <Eye color={colors.textMuted} size={20} />
                 )}
               </TouchableOpacity>
             </View>
@@ -106,18 +106,18 @@ export default function SignIn() {
               disabled={loading}
               style={styles.forgotPasswordButton}
             >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>Forgot Password?</Text>
             </TouchableOpacity>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
               onPress={handleSignIn}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.white} />
               ) : (
                 <Text style={styles.buttonText}>Sign In</Text>
               )}
