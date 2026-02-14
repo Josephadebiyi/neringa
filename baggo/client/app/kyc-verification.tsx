@@ -149,21 +149,53 @@ export default function KYCVerificationScreen() {
   };
 
   const handleWebViewNavigation = (navState: any) => {
-    // Check if verification is complete
+    const url = navState.url.toLowerCase();
+    
+    // Check if verification is complete or submitted
     if (
-      navState.url.includes('callback') || 
-      navState.url.includes('success') || 
-      navState.url.includes('complete') ||
-      navState.url.includes('approved')
+      url.includes('callback') || 
+      url.includes('success') || 
+      url.includes('complete') ||
+      url.includes('approved') ||
+      url.includes('submitted') ||
+      url.includes('finished')
     ) {
       setShowWebView(false);
       setKycStatus('pending');
-      checkKYCStatus();
+      setCanRetry(false);
+      
+      // Check actual status after a short delay
+      setTimeout(() => {
+        checkKYCStatus();
+      }, 2000);
+      
       Alert.alert(
         'Verification Submitted', 
-        'Your verification is being processed. This usually takes a few minutes.'
+        'Your verification is being processed. This usually takes a few minutes. We\'ll update your status automatically.'
       );
     }
+    
+    // User cancelled or went back
+    if (url.includes('cancel') || url.includes('abort') || url.includes('exit')) {
+      setShowWebView(false);
+      setKycStatus('not_started');
+      setCanRetry(true);
+      Alert.alert(
+        'Verification Cancelled', 
+        'You can restart the verification process anytime.'
+      );
+    }
+  };
+
+  // Handle WebView close without completing
+  const handleCloseWebView = () => {
+    setShowWebView(false);
+    // Keep current status but allow retry since they didn't complete
+    setCanRetry(true);
+    Alert.alert(
+      'Verification Incomplete', 
+      'You can continue the verification process anytime by tapping "Continue Verification".'
+    );
   };
 
   const renderStatusIcon = () => {
