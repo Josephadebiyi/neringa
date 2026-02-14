@@ -63,6 +63,7 @@ export default function PersonalDetailsScreen() {
           setDateOfBirth(user.dateOfBirth || '');
           setCountry(user.country || '');
           setProfileImage(user.image ? { uri: user.image } : null);
+          setSelectedAvatar(user.selectedAvatar || null);
           setKycStatus(user.kycStatus || 'not_started');
           
           // Lock fields if KYC is approved
