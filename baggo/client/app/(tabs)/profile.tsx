@@ -32,9 +32,9 @@ import * as Location from 'expo-location';
 export default function ProfileScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
+  const { theme, setTheme, colors, themeMode } = useTheme();
   const [balance, setBalance] = useState(0);
   const [currency, setCurrency] = useState('EUR');
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
@@ -48,7 +48,11 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-const [isVerifying, setIsVerifying] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteImprovement, setDeleteImprovement] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   // state near top
   const params = useLocalSearchParams();
   const hasUpdated = useRef(false);
