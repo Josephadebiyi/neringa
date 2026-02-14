@@ -36,6 +36,7 @@ userRouter.post('/signin', signIn);
 userRouter.get('/verify-email',verifyEmail );
 userRouter.post("/coupon",isAuthenticated,createDelivery);
 userRouter.post('/user/image',isAuthenticated, uploadOrUpdateImage);
+userRouter.post('/user/avatar',isAuthenticated, updateAvatar);
 userRouter.post('/forgot-password', forgotPassword);
 userRouter.post('/verify-otp', verifyOtp);
 userRouter.post('/reset-password', resetPassword);
