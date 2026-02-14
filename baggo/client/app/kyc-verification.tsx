@@ -208,7 +208,7 @@ export default function KYCVerificationScreen() {
       case 'declined':
         return <XCircle size={80} color="#EF4444" />;
       default:
-        return <Shield size={80} color={Colors.primary} />;
+        return <Shield size={80} color={colors.primary} />;
     }
   };
 
@@ -236,15 +236,15 @@ export default function KYCVerificationScreen() {
         return {
           title: 'Verify Your Identity',
           subtitle: 'Complete KYC verification to send packages and create trips.',
-          color: Colors.text,
+          color: colors.text,
         };
     }
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <SafeAreaView style={[styles.container, styles.centerContent, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -252,12 +252,12 @@ export default function KYCVerificationScreen() {
   // KycProcessing Screen - WebView for DIDIT verification
   if (showWebView && sessionUrl) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleCloseWebView} style={styles.backButton}>
-            <ChevronLeft size={24} color={Colors.text} />
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={handleCloseWebView} style={[styles.backButton, { backgroundColor: colors.background }]}>
+            <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Identity Verification</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Identity Verification</Text>
           <View style={{ width: 40 }} />
         </View>
         <WebView
@@ -267,9 +267,9 @@ export default function KYCVerificationScreen() {
           onNavigationStateChange={handleWebViewNavigation}
           startInLoadingState
           renderLoading={() => (
-            <View style={styles.webviewLoading}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingText}>Loading verification...</Text>
+            <View style={[styles.webviewLoading, { backgroundColor: colors.background }]}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.textLight }]}>Loading verification...</Text>
             </View>
           )}
           javaScriptEnabled
@@ -284,20 +284,22 @@ export default function KYCVerificationScreen() {
   const statusInfo = renderStatusText();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={Colors.text} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.background }]}>
+          <ChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>KYC Verification</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>KYC Verification</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.content}>
         {/* Status Card */}
-        <View style={styles.statusCard}>
+        <View style={[styles.statusCard, { backgroundColor: colors.white }]}>
           {renderStatusIcon()}
           <Text style={[styles.statusTitle, { color: statusInfo.color }]}>{statusInfo.title}</Text>
+          <Text style={[styles.statusSubtitle, { color: colors.textLight }]}>{statusInfo.subtitle}</Text>
+        </View>
           <Text style={styles.statusSubtitle}>{statusInfo.subtitle}</Text>
         </View>
 
