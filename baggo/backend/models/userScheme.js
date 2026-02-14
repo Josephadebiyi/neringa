@@ -46,7 +46,14 @@ const userSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    default: 'https://example.com/placeholder-profile.jpg',
+    default: null,
+  },
+  // Avatar selection (1-6 for preset avatars, null for custom image)
+  selectedAvatar: {
+    type: Number,
+    min: 1,
+    max: 6,
+    default: null,
   },
   email: {
     type: String,
