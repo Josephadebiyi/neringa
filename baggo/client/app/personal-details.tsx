@@ -390,6 +390,48 @@ export default function PersonalDetailsScreen() {
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Avatar Selection Modal */}
+      <Modal
+        visible={avatarModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAvatarModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Choose Avatar</Text>
+              <TouchableOpacity onPress={() => setAvatarModalVisible(false)}>
+                <X size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>Select a preset avatar or use your own photo</Text>
+
+            <View style={styles.avatarGrid}>
+              {AVATAR_PRESETS.map((preset) => (
+                <TouchableOpacity
+                  key={preset.id}
+                  style={[
+                    styles.avatarOption,
+                    { backgroundColor: preset.bgColor },
+                    selectedAvatar === preset.id && styles.avatarOptionSelected,
+                  ]}
+                  onPress={() => selectPresetAvatar(preset.id)}
+                >
+                  <Text style={styles.avatarOptionEmoji}>{preset.emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={styles.uploadPhotoButton} onPress={pickImage}>
+              <Camera size={20} color={Colors.primary} />
+              <Text style={styles.uploadPhotoText}>Upload Your Photo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
