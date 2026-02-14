@@ -67,12 +67,12 @@ export default function AddTripScreen() {
         withCredentials: true,
       });
 
-      // PaymentScreen reads: res.data?.data?.findUser?.status
-      const status = res.data?.data?.findUser?.status;
-      console.log("AddTrip: fetched KYC status:", status);
+      const user = res.data?.data?.findUser;
+      console.log("AddTrip: fetched KYC data:", { kycStatus: user?.kycStatus, status: user?.status });
 
-      // convert to boolean exactly as PaymentScreen expects
-      setIsKycVerified(status === "verified");
+      // Check both new kycStatus and legacy status fields
+      const isVerified = user?.kycStatus === 'approved' || user?.status === 'verified';
+      setIsKycVerified(isVerified);
     } catch (err) {
       console.error("AddTrip: error checking KYC:", err);
       setIsKycVerified(false); // fail-safe: treat as not verified
