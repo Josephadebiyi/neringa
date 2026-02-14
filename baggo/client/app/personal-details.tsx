@@ -107,6 +107,7 @@ export default function PersonalDetailsScreen() {
 
       const uri = result?.assets?.[0]?.uri ?? result?.uri;
       setProfileImage({ uri });
+      setSelectedAvatar(null); // Clear avatar selection when using custom image
 
       const manipResult = await ImageManipulator.manipulateAsync(
         uri,
@@ -125,6 +126,7 @@ export default function PersonalDetailsScreen() {
       // Upload the image using api interceptor
       const res = await api.post('/api/baggo/user/image', {
         image: `data:image/jpeg;base64,${base64}`,
+        selectedAvatar: null, // Clear avatar selection
       });
 
       const data = res.data;
@@ -132,6 +134,7 @@ export default function PersonalDetailsScreen() {
       if (data.success) {
         Alert.alert("Success", "Profile image updated!");
         setProfileImage({ uri: data.image });
+        setAvatarModalVisible(false);
       } else {
         Alert.alert("Error", data.message || "Upload failed");
       }
@@ -139,6 +142,52 @@ export default function PersonalDetailsScreen() {
       console.error("Image upload error:", err);
       Alert.alert("Error", err.message || "Failed to upload image");
     }
+  };
+
+  const selectPresetAvatar = async (avatarId: number) => {
+    try {
+      setSelectedAvatar(avatarId);
+      setProfileImage(null); // Clear custom image when using preset avatar
+
+      // Save avatar selection to backend
+      const res = await api.post('/api/baggo/user/avatar', {
+        selectedAvatar: avatarId,
+      });
+
+      if (res.data.success) {
+        Alert.alert("Success", "Avatar updated!");
+        setAvatarModalVisible(false);
+      } else {
+        Alert.alert("Error", res.data.message || "Failed to update avatar");
+      }
+    } catch (err: any) {
+      console.error("Avatar selection error:", err);
+      Alert.alert("Error", err.message || "Failed to update avatar");
+    }
+  };
+
+  const renderAvatar = () => {
+    if (profileImage?.uri) {
+      return (
+        <Image
+          source={{ uri: profileImage.uri }}
+          style={{ width: 100, height: 100, borderRadius: 50 }}
+        />
+      );
+    }
+    
+    if (selectedAvatar) {
+      const preset = AVATAR_PRESETS.find(a => a.id === selectedAvatar);
+      if (preset) {
+        return (
+          <View style={[styles.avatarPreset, { backgroundColor: preset.bgColor }]}>
+            <Text style={styles.avatarEmoji}>{preset.emoji}</Text>
+          </View>
+        );
+      }
+    }
+    
+    return <User size={48} color={Colors.white} />;
   };
 
   const handleSave = async () => {
