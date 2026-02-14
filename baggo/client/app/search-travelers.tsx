@@ -209,7 +209,9 @@ const travelMeansIcons = {
       router.push({
         pathname: '/payment',
         params: {
-          travellerName: trip.user?.firstName || 'Traveler',
+          travellerName: trip.user?.firstName && trip.user?.lastName 
+            ? `${trip.user.firstName} ${trip.user.lastName}` 
+            : trip.user?.firstName || 'Traveler',
           travellerEmail: trip.user?.email || 'unknown@example.com',
           amount: amount,
           travelerId: trip.user?._id, // ✅ Pass only the string ID
@@ -232,7 +234,9 @@ const travelMeansIcons = {
     </View>
     <View style={styles.travelerDetails}>
       <Text style={styles.travelerName}>
-        {trip.user?.firstName || 'Traveler'}
+        {trip.user?.firstName && trip.user?.lastName 
+          ? `${trip.user.firstName} ${trip.user.lastName}` 
+          : trip.user?.firstName || 'Traveler'}
       </Text>
       <View style={styles.ratingRow}>
         <Star size={12} color={Colors.gold} fill={Colors.gold} />
@@ -242,7 +246,7 @@ const travelMeansIcons = {
         <Text style={styles.tripCount}>
           • {trip.user?.total_trips || 0} trips
         </Text>
-        {trip.user?.kyc_verified && (
+        {trip.user?.kycStatus === 'approved' && (
           <Text style={styles.verified}>• ✓ Verified</Text>
         )}
       </View>
