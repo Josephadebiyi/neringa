@@ -909,6 +909,48 @@ const handleCurrencySelect = (newCurrency: string) => {
     router.replace('/auth/signin');
   };
 
+  const handleDeleteAccount = async () => {
+    if (!deleteReason.trim()) {
+      Alert.alert('Required', 'Please tell us why you want to delete your account.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Deletion',
+      'Are you sure you want to permanently delete your account? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const response = await api.post('/api/baggo/delete-account', {
+                userId: userData?._id,
+                reason: deleteReason,
+                improvement: deleteImprovement,
+              });
+
+              if (response.data.success) {
+                Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+                await signOut();
+                router.replace('/auth/signin');
+              } else {
+                Alert.alert('Error', response.data.message || 'Failed to delete account');
+              }
+            } catch (err: any) {
+              console.error('Delete account error:', err);
+              Alert.alert('Error', err.response?.data?.message || 'Failed to delete account');
+            } finally {
+              setIsDeleting(false);
+              setDeleteModalVisible(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
 
 
