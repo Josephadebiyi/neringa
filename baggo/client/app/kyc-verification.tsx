@@ -300,29 +300,27 @@ export default function KYCVerificationScreen() {
           <Text style={[styles.statusTitle, { color: statusInfo.color }]}>{statusInfo.title}</Text>
           <Text style={[styles.statusSubtitle, { color: colors.textLight }]}>{statusInfo.subtitle}</Text>
         </View>
-          <Text style={styles.statusSubtitle}>{statusInfo.subtitle}</Text>
-        </View>
 
         {/* Info Cards */}
         <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>Why Verify?</Text>
-          <View style={styles.infoCard}>
+          <Text style={[styles.infoTitle, { color: colors.text }]}>Why Verify?</Text>
+          <View style={[styles.infoCard, { backgroundColor: colors.white }]}>
             <View style={styles.infoItem}>
-              <View style={styles.infoIcon}>
-                <Shield size={20} color={Colors.primary} />
+              <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <Shield size={20} color={colors.primary} />
               </View>
               <View style={styles.infoText}>
-                <Text style={styles.infoItemTitle}>Security</Text>
-                <Text style={styles.infoItemDesc}>Protect yourself and others from fraud</Text>
+                <Text style={[styles.infoItemTitle, { color: colors.text }]}>Security</Text>
+                <Text style={[styles.infoItemDesc, { color: colors.textLight }]}>Protect yourself and others from fraud</Text>
               </View>
             </View>
             <View style={styles.infoItem}>
-              <View style={styles.infoIcon}>
-                <CheckCircle size={20} color={Colors.primary} />
+              <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <CheckCircle size={20} color={colors.primary} />
               </View>
               <View style={styles.infoText}>
-                <Text style={styles.infoItemTitle}>Full Access</Text>
-                <Text style={styles.infoItemDesc}>Send packages and create trips</Text>
+                <Text style={[styles.infoItemTitle, { color: colors.text }]}>Full Access</Text>
+                <Text style={[styles.infoItemDesc, { color: colors.textLight }]}>Send packages and create trips</Text>
               </View>
             </View>
           </View>
@@ -331,14 +329,14 @@ export default function KYCVerificationScreen() {
         {/* Action Buttons based on status */}
         {(kycStatus === 'not_started' || kycStatus === 'declined') && (
           <TouchableOpacity 
-            style={styles.verifyButton} 
+            style={[styles.verifyButton, { backgroundColor: colors.primary }]} 
             onPress={startVerification}
             disabled={creatingSession}
           >
             {creatingSession ? (
-              <ActivityIndicator color={Colors.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.verifyButtonText}>
+              <Text style={[styles.verifyButtonText, { color: colors.white }]}>
                 {kycStatus === 'declined' ? 'Try Again' : canRetry ? 'Continue Verification' : 'Start Verification'}
               </Text>
             )}
@@ -348,21 +346,21 @@ export default function KYCVerificationScreen() {
         {kycStatus === 'pending' && (
           <>
             <TouchableOpacity 
-              style={[styles.verifyButton, styles.refreshButton]} 
+              style={[styles.verifyButton, styles.refreshButton, { backgroundColor: colors.white, borderColor: colors.primary }]} 
               onPress={checkKYCStatus}
             >
-              <Text style={styles.refreshButtonText}>Refresh Status</Text>
+              <Text style={[styles.refreshButtonText, { color: colors.primary }]}>Refresh Status</Text>
             </TouchableOpacity>
             {canRetry && (
               <TouchableOpacity 
-                style={[styles.verifyButton, { marginTop: 12 }]} 
+                style={[styles.verifyButton, { marginTop: 12, backgroundColor: colors.primary }]} 
                 onPress={startVerification}
                 disabled={creatingSession}
               >
                 {creatingSession ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
-                  <Text style={styles.verifyButtonText}>Restart Verification</Text>
+                  <Text style={[styles.verifyButtonText, { color: colors.white }]}>Restart Verification</Text>
                 )}
               </TouchableOpacity>
             )}
