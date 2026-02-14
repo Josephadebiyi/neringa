@@ -201,8 +201,12 @@ export default function PackageDetailsScreen() {
     request.toCity ||
     'Unknown';
 
-  const senderName = sender?.firstName || sender?.email || 'Unknown';
-  const travelerName = traveler?.firstName || traveler?.email || 'Unknown';
+  const senderName = sender?.firstName && sender?.lastName 
+    ? `${sender.firstName} ${sender.lastName}` 
+    : sender?.firstName || sender?.email || 'Unknown';
+  const travelerName = traveler?.firstName && traveler?.lastName 
+    ? `${traveler.firstName} ${traveler.lastName}` 
+    : traveler?.firstName || traveler?.email || 'Unknown';
   const packageWeight = pkg?.packageWeight || 'Unknown';
   const receiverName = pkg?.receiverName || 'Unknown';
   const receiverPhone = pkg?.receiverPhone || 'Unknown';
