@@ -68,22 +68,25 @@ The user wants to get the "Baggo" mobile app project fully functional and ready 
 
 ### P0 (Critical)
 - [x] Push notifications for KYC - DONE
-- [x] Dark mode for all screens - DONE
+- [x] KYC status unlock bug - FIXED (Feb 2026)
+- [x] EAS Build configuration - CONFIGURED
 - [ ] Deploy backend to Render (USER ACTION)
 
 ### P1 (High Priority)
 - [x] Admin dashboard verification - VERIFIED
+- [ ] Complete Dark Mode for ALL screens (systematic update needed)
 - [ ] Test currency conversion end-to-end
 
 ### P2 (Medium Priority)
-- [ ] EAS Build for TestFlight
+- [ ] Test full KYC flow end-to-end
+- [ ] Generate TestFlight build via EAS
 
-## Key Files Changed This Session
-- `/app/baggo/backend/server.js` - Push notification helper, KYC notifications
-- `/app/baggo/client/app/_layout.tsx` - ThemeProvider integration
-- `/app/baggo/client/app/(tabs)/_layout.tsx` - Tab bar dark mode
-- `/app/baggo/client/contexts/ThemeContext.tsx` - Theme management
-- All screen files - Dark mode imports
+## Key Files Changed - February 2026
+- `/app/baggo/backend/server.js` - Fixed kycStatus→status sync
+- `/app/baggo/client/contexts/AuthContext.tsx` - Added status/isVerified fields, improved refreshUser
+- `/app/baggo/client/hooks/useKYCCheck.ts` - Switched to api utility
+- `/app/baggo/client/app/kyc-verification.tsx` - Call refreshUser after approval
+- `/app/baggo/client/app/add-trip.tsx` - Check both kycStatus and status fields
 
 ## Admin Dashboard Endpoints
 - `POST /api/Adminbaggo/AdminLogin` - Admin login
