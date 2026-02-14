@@ -1022,9 +1022,17 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
       });
     }
 
-    const callbackUrl = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/baggo/kyc/callback`;
+    const callbackUrl = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`;
 
-    // Create session with DIDIT API - use email as vendor_data
+    // Create session with DIDIT API - include userId in vendor_data as JSON
+    const vendorData = JSON.stringify({
+      userId: user._id.toString(),
+      email: user.email
+    });
+
+    console.log("📝 Creating DIDIT session for user:", user._id.toString(), "email:", user.email);
+    console.log("📝 Callback URL:", callbackUrl);
+
     const response = await fetch('https://verification.didit.me/v3/session/', {
       method: 'POST',
       headers: {
@@ -1034,13 +1042,13 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
       },
       body: JSON.stringify({
         workflow_id: DIDIT_WORKFLOW_ID,
-        vendor_data: user.email,
+        vendor_data: vendorData,
         callback: callbackUrl,
       }),
     });
 
     const data = await response.json();
-    console.log("DIDIT Response:", data);
+    console.log("📥 DIDIT Response:", data);
 
     if (response.ok && data.session_id) {
       // Store session ID in user record
@@ -1048,6 +1056,8 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
       user.diditSessionToken = data.session_token;
       user.kycStatus = 'pending';
       await user.save();
+
+      console.log("✅ DIDIT session created:", data.session_id);
 
       return res.json({ 
         success: true, 
@@ -1059,7 +1069,7 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
     }
 
     // API call failed
-    console.error("DIDIT API Error:", data);
+    console.error("❌ DIDIT API Error:", data);
     return res.status(400).json({ 
       success: false, 
       message: data.detail || data.message || "Failed to create verification session",
