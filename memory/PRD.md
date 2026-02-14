@@ -12,19 +12,32 @@ The user wants to get the "Baggo" mobile app project fully functional and ready 
 
 ## What's Been Implemented
 
-### December 2024 - Session 4 (Current)
+### February 2026 - Session 5 (Current)
+- **CRITICAL FIX: KYC Status Not Unlocking App**
+  - Root cause: DIDIT.me updates `kycStatus` field to 'approved', but screens checked legacy `status` field for 'verified'
+  - Fixed sync between `kycStatus` and `status` fields in backend server.js
+  - Updated useKYCCheck hook to use api utility consistently
+  - Fixed add-trip.tsx to check both kycStatus==='approved' AND legacy status==='verified'
+  - AuthContext now properly includes and refreshes status/isVerified fields
+  - KYC verification screen now calls refreshUser() after approval to update global state
+  
+- **EAS Build Configuration:**
+  - `eas.json` already configured with development, preview, preview-simulator, and production profiles
+  - Ready for TestFlight builds
+
+### December 2024 - Session 4
 - **Push Notifications for KYC:**
   - When DIDIT approves KYC → Push notification sent to user
   - When DIDIT declines KYC → Push notification sent to user
   - In-app notifications created for both events
   - Helper function `sendPushNotification()` added to backend
 
-- **Dark Mode Support (All Screens):**
+- **Dark Mode Support (Partial):**
   - ThemeProvider integrated into app layout
   - Tab bar updated with dynamic colors
   - Updated screens: signin, signup, home, tracking, messages, profile
-  - Batch updated: send-package, add-trip, notifications, payment, check-rates, contact-support, edit-trip, failed-page, live-tracking, package-details, package-request, payment-method, privacy-policy, search-travelers, shipping-request, success-page, terms-conditions, traveler-dashboard, verify-otp, forgot-password
   - Theme toggle in Settings (Light/Dark/System)
+  - **NOTE:** Many screens still have hardcoded Colors.xxx values - needs systematic update
 
 - **Admin Dashboard:**
   - Located at `/app/baggo/boggoAdmin`
