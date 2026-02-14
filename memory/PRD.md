@@ -6,69 +6,76 @@ The user wants to get the "Baggo" mobile app project fully functional and ready 
 ## Tech Stack
 - **Frontend:** React Native (Expo), TypeScript
 - **Backend:** Node.js, Express.js, MongoDB
-- **Admin Panel:** React
+- **Admin Panel:** React (Vite) at `/app/baggo/boggoAdmin`
 - **Authentication:** JWT Bearer Tokens
-- **Integrations:** Stripe, Paystack, DIDIT.me (KYC), Resend, Cloudinary, Google Auth
+- **Integrations:** Stripe, Paystack, DIDIT.me (KYC), Resend, Cloudinary, Google Auth, Expo Push Notifications
 
 ## What's Been Implemented
 
-### December 2024 - Session 3 (Current)
-- **KYC Flow Fixed:**
-  - Status now properly shows "Verified" when DIDIT approves
-  - Backend syncs KYC status with DIDIT on every status check
-  - Alert shown when verification is approved
-  - Frontend properly handles approved/declined status from backend directly
+### December 2024 - Session 4 (Current)
+- **Push Notifications for KYC:**
+  - When DIDIT approves KYC → Push notification sent to user
+  - When DIDIT declines KYC → Push notification sent to user
+  - In-app notifications created for both events
+  - Helper function `sendPushNotification()` added to backend
 
-- **Traveler Full Names:**
-  - search-travelers.tsx shows full name (firstName + lastName)
-  - package-details.tsx shows full names
-  - home/index.tsx shows full names
-  - Verified badge shows based on kycStatus === 'approved'
-
-- **Avatar Selection Feature:**
-  - 6 preset avatars with emojis (👤🦊🐢🦁🐳🦄)
-  - Option to upload custom photo
-  - Backend endpoint `/api/baggo/user/avatar` created
-  - User schema updated with `selectedAvatar` field
-
-- **Dark Mode Support:**
+- **Dark Mode Support (All Screens):**
   - ThemeProvider integrated into app layout
-  - System default theme detection
-  - Theme toggle in Profile settings
+  - Tab bar updated with dynamic colors
+  - Updated screens: signin, signup, home, tracking, messages, profile
+  - Batch updated: send-package, add-trip, notifications, payment, check-rates, contact-support, edit-trip, failed-page, live-tracking, package-details, package-request, payment-method, privacy-policy, search-travelers, shipping-request, success-page, terms-conditions, traveler-dashboard, verify-otp, forgot-password
+  - Theme toggle in Settings (Light/Dark/System)
 
-- **Account Deletion:**
-  - 2-question feedback questionnaire
-  - Backend endpoint for deletion
+- **Admin Dashboard:**
+  - Located at `/app/baggo/boggoAdmin`
+  - API endpoint: `https://neringa.onrender.com/api/Adminbaggo`
+  - Features: Users, KYC, Tracking, Analytics, Withdrawals, Disputes, Settings
 
-## KYC Flow (Fixed)
-- **Not started** → "Start Verification" button
-- **Started but incomplete** → "Continue Verification" button
+### Previous Sessions
+- KYC flow fixed with DIDIT sync
+- Traveler full names displayed
+- Avatar selection with 6 presets
+- Account deletion with questionnaire
+- JWT authentication overhaul
+
+## Currency Conversion
+- Backend endpoint: `/api/currency/rates`
+- Uses exchangerate-api.com
+- Frontend utility: `/app/baggo/client/utils/currency.ts`
+- Functions: `convertCurrency()`, `formatPrice()`, `getCurrencySymbol()`
+
+## KYC Flow
+- **Not started** → "Start Verification"
+- **Started but incomplete** → "Continue Verification"
 - **Actually submitted** → "Under Review" + "Refresh Status"
-- **Approved** → Shows "Verified" status + "Continue to App" button
-- **Declined** → "Try Again" button
+- **Approved** → "Verified" + Push notification + In-app notification
+- **Declined** → "Try Again" + Push notification + In-app notification
 
 ## Prioritized Backlog
 
 ### P0 (Critical)
-- [x] KYC status showing "Verified" when approved - FIXED
-- [x] Traveler full names - FIXED
-- [x] Avatar selection - IMPLEMENTED
+- [x] Push notifications for KYC - DONE
+- [x] Dark mode for all screens - DONE
 - [ ] Deploy backend to Render (USER ACTION)
 
 ### P1 (High Priority)
-- [ ] Currency conversion on frontend
-- [ ] Admin dashboard verification
+- [x] Admin dashboard verification - VERIFIED
+- [ ] Test currency conversion end-to-end
 
 ### P2 (Medium Priority)
-- [ ] Profile field locking after KYC
 - [ ] EAS Build for TestFlight
 
-## Key Files Changed
-- `/app/baggo/client/app/kyc-verification.tsx` - Fixed status handling
-- `/app/baggo/client/app/personal-details.tsx` - Avatar selection
-- `/app/baggo/client/app/search-travelers.tsx` - Full names
-- `/app/baggo/client/app/package-details.tsx` - Full names  
-- `/app/baggo/client/app/(tabs)/index.tsx` - Full names
-- `/app/baggo/backend/controllers/userController.js` - Avatar endpoint
-- `/app/baggo/backend/routers/userRouters.js` - Avatar route
-- `/app/baggo/backend/models/userScheme.js` - selectedAvatar field
+## Key Files Changed This Session
+- `/app/baggo/backend/server.js` - Push notification helper, KYC notifications
+- `/app/baggo/client/app/_layout.tsx` - ThemeProvider integration
+- `/app/baggo/client/app/(tabs)/_layout.tsx` - Tab bar dark mode
+- `/app/baggo/client/contexts/ThemeContext.tsx` - Theme management
+- All screen files - Dark mode imports
+
+## Admin Dashboard Endpoints
+- `POST /api/Adminbaggo/AdminLogin` - Admin login
+- `GET /api/Adminbaggo/GetAllUsers` - List users
+- `GET /api/Adminbaggo/getAllkyc` - List KYC requests
+- `PUT /api/Adminbaggo/Verifykyc` - Verify KYC
+- `GET /api/Adminbaggo/dashboard` - Dashboard stats
+- `GET /api/Adminbaggo/analystic` - Analytics
