@@ -81,17 +81,34 @@ const uploadToCloudinary = async (dataUri) => {
      }
 
      // ✅ Update user record
-     if (imageUrl) user.image = imageUrl;
-     if (req.body.receive !== undefined) {
-       user.receive = req.body.receive === 'true' || req.body.receive === true;
-     }
+    if (imageUrl) {
+      user.image = imageUrl;
+      user.selectedAvatar = null; // Clear avatar when using custom image
+    }
+    
+    // Handle selectedAvatar from request
+    if (req.body.selectedAvatar !== undefined) {
+      if (req.body.selectedAvatar === null || req.body.selectedAvatar === 'null') {
+        user.selectedAvatar = null;
+      } else {
+        user.selectedAvatar = parseInt(req.body.selectedAvatar);
+        if (user.selectedAvatar) {
+          user.image = null; // Clear custom image when using avatar
+        }
+      }
+    }
+    
+    if (req.body.receive !== undefined) {
+      user.receive = req.body.receive === 'true' || req.body.receive === true;
+    }
 
      await user.save();
 
      res.status(200).json({
        success: true,
-       message: user.image ? 'Image updated successfully' : 'Image uploaded successfully',
+       message: user.image ? 'Image updated successfully' : 'Avatar updated successfully',
        image: user.image,
+       selectedAvatar: user.selectedAvatar,
        receive: user.receive,
      });
    } catch (error) {
@@ -99,6 +116,44 @@ const uploadToCloudinary = async (dataUri) => {
      res.status(500).json({ message: error.message });
    }
  };
+
+/**
+ * @desc Update user avatar selection
+ * @route POST /api/baggo/user/avatar
+ * @access Private
+ */
+export const updateAvatar = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { selectedAvatar } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: 'Invalid user ID' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Validate avatar ID (1-6)
+    if (selectedAvatar < 1 || selectedAvatar > 6) {
+      return res.status(400).json({ success: false, message: 'Invalid avatar selection' });
+    }
+
+    user.selectedAvatar = selectedAvatar;
+    user.image = null; // Clear custom image when selecting preset avatar
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Avatar updated successfully',
+      selectedAvatar: user.selectedAvatar,
+    });
+  } catch (error) {
+    console.error('Avatar Update Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 
 
