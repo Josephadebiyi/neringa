@@ -1338,8 +1338,24 @@ const handleCurrencySelect = (newCurrency: string) => {
         </View>
       </View>
 
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Danger Zone</Text>
+        <View style={styles.menuCard}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setDeleteModalVisible(true)}>
+            <View style={[styles.menuIcon, { backgroundColor: '#FEE2E2' }]}>
+              <Trash2 size={20} color={colors.error} />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={[styles.menuTitle, { color: colors.error }]}>Delete Account</Text>
+              <Text style={styles.menuSubtitle}>Permanently delete your account and data</Text>
+            </View>
+            <ChevronRight size={20} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <LogOut size={20} color={Colors.error} />
+        <LogOut size={20} color={colors.error} />
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
 
