@@ -21,7 +21,7 @@ export default function KYCVerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, refreshUser } = useAuth();
   const { colors, themeMode } = useTheme();
   
   const [loading, setLoading] = useState(true);
