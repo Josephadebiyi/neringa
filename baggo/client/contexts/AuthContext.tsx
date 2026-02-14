@@ -176,9 +176,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await api.get('/api/baggo/Profile');
       if (response.data?.data?.findUser) {
-        const userData = response.data.data.findUser;
+        const serverUser = response.data.data.findUser;
+        const userData: User = {
+          id: serverUser._id || serverUser.id,
+          firstName: serverUser.firstName,
+          lastName: serverUser.lastName,
+          email: serverUser.email,
+          phone: serverUser.phone,
+          dateOfBirth: serverUser.dateOfBirth,
+          country: serverUser.country,
+          kycStatus: serverUser.kycStatus,
+          isKycCompleted: serverUser.isKycCompleted,
+          paymentGateway: serverUser.paymentGateway,
+          preferredCurrency: serverUser.preferredCurrency,
+          emailVerified: serverUser.emailVerified,
+          status: serverUser.status,
+          isVerified: serverUser.isVerified,
+        };
         await AsyncStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
+        if (session) {
+          setSession({ ...session, user: userData });
+        }
       }
     } catch (error) {
       console.error('Error refreshing user:', error);
