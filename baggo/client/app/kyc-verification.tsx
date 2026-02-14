@@ -84,7 +84,8 @@ export default function KYCVerificationScreen() {
             } else if (diditStatus === 'approved') {
               setKycStatus('approved');
               setCanRetry(false);
-              // Refresh user data to get updated status
+              // Refresh user data to get updated status in AuthContext
+              await refreshUser();
               Alert.alert('Verified!', 'Your identity has been verified. You now have full access to all features.');
             } else if (diditStatus === 'declined') {
               setKycStatus('declined');
