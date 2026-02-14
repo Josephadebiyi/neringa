@@ -1195,6 +1195,33 @@ app.post("/api/baggo/kyc/update-status", async (req, res) => {
 });
 
 // ======================================
+// 🗑️ DELETE ACCOUNT
+// ======================================
+app.post("/api/baggo/delete-account", isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { reason, improvement } = req.body;
+
+    // Store feedback before deletion
+    console.log(`📝 Account deletion feedback from user ${userId}:`);
+    console.log(`   Reason: ${reason}`);
+    console.log(`   Improvement: ${improvement || 'N/A'}`);
+
+    // Delete user's related data
+    await Kyc.deleteMany({ userid: userId });
+    
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+
+    console.log(`✅ User ${userId} account deleted successfully`);
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (err) {
+    console.error("❌ Delete account error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to delete account", error: err.message });
+  }
+});
+
+// ======================================
 // 💱 CURRENCY CONVERSION API
 // ======================================
 
