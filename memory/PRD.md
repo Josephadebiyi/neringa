@@ -1,7 +1,7 @@
 # Baggo Mobile App - Product Requirements Document
 
 ## Original Problem Statement
-The user wants to get the "Baggo" mobile app project fully functional and ready for the App Store. This involves fixing critical bugs, overhauling the user authentication system, and implementing a large set of new features.
+The user wants to get the "Baggo" mobile app project fully functional and ready for the App Store.
 
 ## Tech Stack
 - **Frontend:** React Native (Expo), TypeScript
@@ -10,85 +10,65 @@ The user wants to get the "Baggo" mobile app project fully functional and ready 
 - **Authentication:** JWT Bearer Tokens
 - **Integrations:** Stripe, Paystack, DIDIT.me (KYC), Resend, Cloudinary, Google Auth
 
-## Core Requirements
-1. Full JWT Implementation with Bearer Token auth flow
-2. KYC verification via DIDIT.me
-3. Token persistence with AsyncStorage
-4. Global Axios interceptor for auth headers
-5. Date of Birth and Country fields in signup
-6. Profile field locking after KYC completion
-7. Payment Gateway: Paystack for Africa, Stripe for others
-8. Currency conversion using exchangerate-api.com
-9. UI/UX fixes: Safe area layouts, back buttons
-10. Dark mode support with system default detection
-11. Account deletion with feedback questionnaire
-
 ## What's Been Implemented
 
-### December 2024 - Session 2
+### December 2024 - Session 3 (Current)
+- **KYC Flow Fixed:**
+  - Status now properly shows "Verified" when DIDIT approves
+  - Backend syncs KYC status with DIDIT on every status check
+  - Alert shown when verification is approved
+  - Frontend properly handles approved/declined status from backend directly
+
+- **Traveler Full Names:**
+  - search-travelers.tsx shows full name (firstName + lastName)
+  - package-details.tsx shows full names
+  - home/index.tsx shows full names
+  - Verified badge shows based on kycStatus === 'approved'
+
+- **Avatar Selection Feature:**
+  - 6 preset avatars with emojis (👤🦊🐢🦁🐳🦄)
+  - Option to upload custom photo
+  - Backend endpoint `/api/baggo/user/avatar` created
+  - User schema updated with `selectedAvatar` field
+
 - **Dark Mode Support:**
   - ThemeProvider integrated into app layout
   - System default theme detection
-  - Theme toggle in Profile settings (Light/Dark/System)
-  - KYC verification screen updated with dynamic theme colors
+  - Theme toggle in Profile settings
 
-- **Account Deletion Feature:**
-  - Added "Danger Zone" section in Profile
-  - 2-question feedback questionnaire (reason + improvement suggestion)
-  - Backend endpoint `/api/baggo/delete-account` created
-  - Deletes user data and KYC records
+- **Account Deletion:**
+  - 2-question feedback questionnaire
+  - Backend endpoint for deletion
 
-- **KYC Flow Improvements:**
-  - Backend now syncs KYC status with DIDIT on every status check
-  - Auto-approves/declines based on DIDIT session status
-  - Frontend checks actual DIDIT session status for pending users
-  - Proper handling of incomplete sessions (allow retry)
-
-### December 2024 - Session 1
-- **Backend Auth Overhaul:**
-  - JWT verification middleware
-  - User controller with JWT token generation
-  - Secured KYC and currency routes
-
-- **Frontend Auth Overhaul:**
-  - Global Axios instance with Bearer token interceptor
-  - AuthContext manages JWT state
-  - signin.tsx uses useAuth().signIn() to update global context
+## KYC Flow (Fixed)
+- **Not started** → "Start Verification" button
+- **Started but incomplete** → "Continue Verification" button
+- **Actually submitted** → "Under Review" + "Refresh Status"
+- **Approved** → Shows "Verified" status + "Continue to App" button
+- **Declined** → "Try Again" button
 
 ## Prioritized Backlog
 
 ### P0 (Critical)
-- [x] Fix KYC "not logged in" bug - FIXED
-- [x] Dark mode support - IMPLEMENTED
-- [x] Account deletion feature - IMPLEMENTED
-- [ ] Deploy backend changes to Render (USER ACTION)
+- [x] KYC status showing "Verified" when approved - FIXED
+- [x] Traveler full names - FIXED
+- [x] Avatar selection - IMPLEMENTED
+- [ ] Deploy backend to Render (USER ACTION)
 
 ### P1 (High Priority)
-- [x] KYC status sync with DIDIT - IMPLEMENTED
-- [ ] Full currency conversion on frontend
+- [ ] Currency conversion on frontend
 - [ ] Admin dashboard verification
 
 ### P2 (Medium Priority)
 - [ ] Profile field locking after KYC
-- [ ] Verify UI/Safe Area fixes
-- [ ] EAS Build setup for TestFlight
+- [ ] EAS Build for TestFlight
 
-### P3 (Low Priority)
-- [ ] Full audit against `Bago_Full_System_Implementation.pdf`
-
-## Key Files
-- `/app/baggo/client/app/_layout.tsx` - App layout with ThemeProvider
-- `/app/baggo/client/contexts/ThemeContext.tsx` - Theme management
-- `/app/baggo/client/app/(tabs)/profile.tsx` - Profile with theme toggle & delete account
-- `/app/baggo/client/app/kyc-verification.tsx` - KYC verification with theme support
-- `/app/baggo/backend/server.js` - Backend with delete-account & improved KYC status
-
-## KYC Flow
-- **Not started** → "Start Verification" button
-- **Started but incomplete** → "Continue Verification" button (can restart)
-- **Actually submitted** → "Under Review" with "Refresh Status" button
-- **Approved** → "Continue to App" button
-- **Declined** → "Try Again" button
-
-## Known Issues
-- Backend changes need deployment to production Render server
+## Key Files Changed
+- `/app/baggo/client/app/kyc-verification.tsx` - Fixed status handling
+- `/app/baggo/client/app/personal-details.tsx` - Avatar selection
+- `/app/baggo/client/app/search-travelers.tsx` - Full names
+- `/app/baggo/client/app/package-details.tsx` - Full names  
+- `/app/baggo/client/app/(tabs)/index.tsx` - Full names
+- `/app/baggo/backend/controllers/userController.js` - Avatar endpoint
+- `/app/baggo/backend/routers/userRouters.js` - Avatar route
+- `/app/baggo/backend/models/userScheme.js` - selectedAvatar field
