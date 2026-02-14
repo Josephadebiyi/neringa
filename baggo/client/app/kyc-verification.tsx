@@ -304,19 +304,34 @@ export default function KYCVerificationScreen() {
               <ActivityIndicator color={Colors.white} />
             ) : (
               <Text style={styles.verifyButtonText}>
-                {kycStatus === 'declined' ? 'Try Again' : 'Start Verification'}
+                {kycStatus === 'declined' ? 'Try Again' : canRetry ? 'Continue Verification' : 'Start Verification'}
               </Text>
             )}
           </TouchableOpacity>
         )}
 
         {kycStatus === 'pending' && (
-          <TouchableOpacity 
-            style={[styles.verifyButton, styles.refreshButton]} 
-            onPress={checkKYCStatus}
-          >
-            <Text style={styles.refreshButtonText}>Refresh Status</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity 
+              style={[styles.verifyButton, styles.refreshButton]} 
+              onPress={checkKYCStatus}
+            >
+              <Text style={styles.refreshButtonText}>Refresh Status</Text>
+            </TouchableOpacity>
+            {canRetry && (
+              <TouchableOpacity 
+                style={[styles.verifyButton, { marginTop: 12 }]} 
+                onPress={startVerification}
+                disabled={creatingSession}
+              >
+                {creatingSession ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Restart Verification</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </>
         )}
 
         {kycStatus === 'approved' && (
