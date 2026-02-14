@@ -48,40 +48,62 @@ export default function KYCVerificationScreen() {
       
       if (response.data.success) {
         const status = response.data.kycStatus;
+        console.log('KYC Status from backend:', status);
+        
+        // If already approved or declined from backend, use that directly
+        if (status === 'approved') {
+          setKycStatus('approved');
+          setCanRetry(false);
+          return;
+        }
+        
+        if (status === 'declined') {
+          setKycStatus('declined');
+          setCanRetry(true);
+          return;
+        }
         
         // If status is pending, check the actual DIDIT session status
         if (status === 'pending' && response.data.sessionId) {
           try {
             const sessionResponse = await api.get(`/api/baggo/kyc/check-session/${response.data.sessionId}`);
             const sessionData = sessionResponse.data.session;
+            const diditStatus = sessionData.status?.toLowerCase();
+            
+            console.log('DIDIT Session status:', diditStatus);
             
             // Map DIDIT session status to our status
-            // DIDIT statuses: created, started, submitted, approved, declined
-            if (sessionData.status === 'created' || sessionData.status === 'started') {
+            if (diditStatus === 'created' || diditStatus === 'started') {
               // Session was created but not completed - allow retry
               setKycStatus('not_started');
               setCanRetry(true);
-            } else if (sessionData.status === 'submitted' || sessionData.status === 'processing') {
+            } else if (diditStatus === 'submitted' || diditStatus === 'processing' || diditStatus === 'pending') {
               // Actually under review
               setKycStatus('pending');
               setCanRetry(false);
-            } else if (sessionData.status === 'approved' || sessionData.status === 'Approved') {
+            } else if (diditStatus === 'approved') {
               setKycStatus('approved');
               setCanRetry(false);
-            } else if (sessionData.status === 'declined' || sessionData.status === 'Declined') {
+              // Refresh user data to get updated status
+              Alert.alert('Verified!', 'Your identity has been verified. You now have full access to all features.');
+            } else if (diditStatus === 'declined') {
               setKycStatus('declined');
               setCanRetry(true);
+              Alert.alert('Verification Failed', 'Your verification was declined. Please try again with valid documents.');
             } else {
-              // Unknown status, allow retry
-              setKycStatus('not_started');
+              // Unknown status, show as pending
+              setKycStatus('pending');
               setCanRetry(true);
             }
           } catch (sessionErr) {
-            // If we can't check session, allow retry
-            console.log('Could not check DIDIT session, allowing retry');
-            setKycStatus('not_started');
+            console.log('Could not check DIDIT session:', sessionErr);
+            // If we can't check session, show current status
+            setKycStatus(status);
             setCanRetry(true);
           }
+        } else if (status === 'not_started' || !status) {
+          setKycStatus('not_started');
+          setCanRetry(true);
         } else {
           setKycStatus(status);
           setCanRetry(status === 'declined' || status === 'not_started');
