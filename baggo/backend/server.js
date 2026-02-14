@@ -13,7 +13,8 @@ import { messageController } from './controllers/MessageController.js';
 import AdminRouter from './AdminRouter/AdminRouter.js';
 import Stripe from 'stripe';
 import priceRoutes from "./AdminRouter/priceperkgRoute.js";
-import User from './models/userScheme.js'; // ✅ ensure correct path
+import User from './models/userScheme.js';
+import { Notification } from './models/notificationScheme.js';
 import { Expo } from 'expo-server-sdk';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
