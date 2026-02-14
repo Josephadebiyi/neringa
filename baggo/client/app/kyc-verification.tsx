@@ -479,32 +479,25 @@ const styles = StyleSheet.create({
   infoItemTitle: { 
     fontSize: 14, 
     fontWeight: '600', 
-    color: Colors.text, 
     marginBottom: 2,
   },
   infoItemDesc: { 
     fontSize: 12, 
-    color: Colors.textLight,
   },
   verifyButton: {
-    backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 'auto',
   },
   verifyButtonText: { 
-    color: Colors.white, 
     fontSize: 16, 
     fontWeight: '600',
   },
   refreshButton: { 
-    backgroundColor: Colors.white, 
     borderWidth: 1, 
-    borderColor: Colors.primary,
   },
   refreshButtonText: { 
-    color: Colors.primary, 
     fontSize: 16, 
     fontWeight: '600',
   },
@@ -522,11 +515,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: Colors.textLight,
   },
 });
