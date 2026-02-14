@@ -119,7 +119,7 @@ export default function SignIn() {
               {loading ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.buttonText}>Sign In</Text>
+                <Text style={[styles.buttonText, { color: colors.white }]}>Sign In</Text>
               )}
             </TouchableOpacity>
 
@@ -128,8 +128,8 @@ export default function SignIn() {
               onPress={() => router.push('/auth/signup')}
               disabled={loading}
             >
-              <Text style={styles.linkText}>
-                Don't have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
+              <Text style={[styles.linkText, { color: colors.textLight }]}>
+                Don't have an account? <Text style={[styles.linkTextBold, { color: colors.primary }]}>Sign Up</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -142,7 +142,6 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
