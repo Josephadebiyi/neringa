@@ -1102,6 +1102,7 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
       email: user.email,
       kycStatus: user.kycStatus || 'not_started',
       kycVerifiedAt: user.kycVerifiedAt || null,
+      sessionId: user.diditSessionId || null,
     });
   } catch (err) {
     console.error("❌ KYC status error:", err.message);
