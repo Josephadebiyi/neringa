@@ -8,7 +8,8 @@ import {
   Alert,
    Image,
    KeyboardAvoidingView,
-   Platform
+   Platform,
+   Modal
 } from 'react-native';
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
@@ -16,15 +17,26 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { User, Mail, Phone, MapPin, Calendar, Save, Lock } from 'lucide-react-native';
+import { User, Mail, Phone, MapPin, Calendar, Save, Lock, X, Camera } from 'lucide-react-native';
 import api from '@/utils/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// Preset avatar colors and styles
+const AVATAR_PRESETS = [
+  { id: 1, bgColor: '#6366F1', emoji: '👤' }, // Purple - Default
+  { id: 2, bgColor: '#EC4899', emoji: '🦊' }, // Pink - Fox
+  { id: 3, bgColor: '#10B981', emoji: '🐢' }, // Green - Turtle
+  { id: 4, bgColor: '#F59E0B', emoji: '🦁' }, // Orange - Lion
+  { id: 5, bgColor: '#3B82F6', emoji: '🐳' }, // Blue - Whale
+  { id: 6, bgColor: '#8B5CF6', emoji: '🦄' }, // Violet - Unicorn
+];
 
 export default function PersonalDetailsScreen() {
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [profileImage, setProfileImage] = useState(null);
+  const [selectedAvatar, setSelectedAvatar] = useState<number | null>(null);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -33,6 +45,7 @@ export default function PersonalDetailsScreen() {
   const [error, setError] = useState(null);
   const [kycStatus, setKycStatus] = useState('not_started');
   const [isKycLocked, setIsKycLocked] = useState(false);
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
 
   // Fetch user data on mount
   useEffect(() => {
