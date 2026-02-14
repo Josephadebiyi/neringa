@@ -1144,6 +1144,9 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
           if (diditStatus === 'approved') {
             user.kycStatus = 'approved';
             user.kycVerifiedAt = new Date();
+            // Also sync with legacy status field for backward compatibility
+            user.status = 'verified';
+            user.isVerified = true;
             await user.save();
             console.log(`✅ User ${user.email} KYC auto-approved from DIDIT`);
             
