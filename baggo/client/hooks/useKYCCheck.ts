@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-import { backendomain } from '@/utils/backendDomain';
+import api from '@/utils/api';
 
 export function useKYCCheck() {
   const router = useRouter();
@@ -11,9 +10,7 @@ export function useKYCCheck() {
 
   const checkKYCStatus = useCallback(async () => {
     try {
-      const response = await axios.get(`${backendomain.backendomain}/api/baggo/kyc/status`, {
-        withCredentials: true,
-      });
+      const response = await api.get('/api/baggo/kyc/status');
       if (response.data.success) {
         setKycStatus(response.data.kycStatus);
       } else {
