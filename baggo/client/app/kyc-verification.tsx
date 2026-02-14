@@ -369,10 +369,10 @@ export default function KYCVerificationScreen() {
 
         {kycStatus === 'approved' && (
           <TouchableOpacity 
-            style={[styles.verifyButton, styles.successButton]} 
+            style={[styles.verifyButton, { backgroundColor: '#22C55E' }]} 
             onPress={() => router.back()}
           >
-            <Text style={styles.verifyButtonText}>Continue to App</Text>
+            <Text style={[styles.verifyButtonText, { color: colors.white }]}>Continue to App</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -380,10 +380,18 @@ export default function KYCVerificationScreen() {
   );
 }
 
+const Colors = {
+  primary: '#5845D8',
+  white: '#FFFFFF',
+  background: '#F8F6F3',
+  text: '#1A1A1A',
+  textLight: '#6B6B6B',
+  border: '#E5E5E5',
+};
+
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: Colors.background,
   },
   centerContent: { 
     justifyContent: 'center', 
@@ -395,15 +403,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
