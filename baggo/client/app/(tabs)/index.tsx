@@ -637,7 +637,9 @@ const fetchNotifications = async () => {
                         </Text>
                       </View>
                       <Text style={styles.orderTraveler}>
-                        Traveler: {order.traveler?.firstName || 'Unknown'}
+                        Traveler: {order.traveler?.firstName && order.traveler?.lastName 
+                          ? `${order.traveler.firstName} ${order.traveler.lastName}` 
+                          : order.traveler?.firstName || 'Unknown'}
                       </Text>
                       <Text style={styles.orderInsurance}>
                         Insurance: {order.insurance ? `Yes (€${order.insuranceCost})` : 'No'}
