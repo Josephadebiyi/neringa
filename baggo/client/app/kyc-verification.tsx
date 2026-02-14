@@ -28,6 +28,7 @@ export default function KYCVerificationScreen() {
   const [sessionUrl, setSessionUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     checkKYCStatus();
@@ -45,9 +46,48 @@ export default function KYCVerificationScreen() {
       const response = await api.get('/api/baggo/kyc/status');
       
       if (response.data.success) {
-        setKycStatus(response.data.kycStatus);
+        const status = response.data.kycStatus;
+        
+        // If status is pending, check the actual DIDIT session status
+        if (status === 'pending' && response.data.sessionId) {
+          try {
+            const sessionResponse = await api.get(`/api/baggo/kyc/check-session/${response.data.sessionId}`);
+            const sessionData = sessionResponse.data.session;
+            
+            // Map DIDIT session status to our status
+            // DIDIT statuses: created, started, submitted, approved, declined
+            if (sessionData.status === 'created' || sessionData.status === 'started') {
+              // Session was created but not completed - allow retry
+              setKycStatus('not_started');
+              setCanRetry(true);
+            } else if (sessionData.status === 'submitted' || sessionData.status === 'processing') {
+              // Actually under review
+              setKycStatus('pending');
+              setCanRetry(false);
+            } else if (sessionData.status === 'approved' || sessionData.status === 'Approved') {
+              setKycStatus('approved');
+              setCanRetry(false);
+            } else if (sessionData.status === 'declined' || sessionData.status === 'Declined') {
+              setKycStatus('declined');
+              setCanRetry(true);
+            } else {
+              // Unknown status, allow retry
+              setKycStatus('not_started');
+              setCanRetry(true);
+            }
+          } catch (sessionErr) {
+            // If we can't check session, allow retry
+            console.log('Could not check DIDIT session, allowing retry');
+            setKycStatus('not_started');
+            setCanRetry(true);
+          }
+        } else {
+          setKycStatus(status);
+          setCanRetry(status === 'declined' || status === 'not_started');
+        }
       } else {
         setKycStatus('not_started');
+        setCanRetry(true);
       }
     } catch (err: any) {
       console.log('KYC status error:', err?.response?.data || err.message);
@@ -60,6 +100,7 @@ export default function KYCVerificationScreen() {
       }
       
       setKycStatus('not_started');
+      setCanRetry(true);
     } finally {
       setLoading(false);
     }
