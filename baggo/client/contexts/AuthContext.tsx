@@ -15,6 +15,8 @@ type User = {
   paymentGateway?: string;
   preferredCurrency?: string;
   emailVerified?: boolean;
+  status?: string; // Legacy verification field: 'pending' | 'verified' | 'rejected'
+  isVerified?: boolean;
 };
 
 type Session = {
