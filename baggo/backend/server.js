@@ -499,6 +499,30 @@ app.post('/send-notification', async (req, res) => {
 });
 
 
+// Helper function to send push notification to individual user
+const sendPushNotification = async (pushToken, title, body, data = {}) => {
+  if (!pushToken) return false;
+  
+  try {
+    const message = {
+      to: pushToken,
+      sound: 'default',
+      title,
+      body,
+      data,
+    };
+
+    const response = await expo.sendPushNotificationsAsync([message]);
+    console.log('📬 Push notification sent:', response);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send push notification:', error);
+    return false;
+  }
+};
+
+
+
 
 
 
