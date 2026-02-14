@@ -54,6 +54,8 @@ export default function KYCVerificationScreen() {
         if (status === 'approved') {
           setKycStatus('approved');
           setCanRetry(false);
+          // Ensure AuthContext is updated
+          await refreshUser();
           return;
         }
         
