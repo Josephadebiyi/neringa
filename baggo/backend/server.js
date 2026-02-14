@@ -1094,6 +1094,9 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
     if (status === 'Approved' || status === 'approved') {
       user.kycStatus = 'approved';
       user.kycVerifiedAt = new Date();
+      // Also sync with legacy status field for backward compatibility
+      user.status = 'verified';
+      user.isVerified = true;
       // Lock the verified name and DOB
       user.kycVerifiedName = {
         firstName: user.firstName,
@@ -1102,6 +1105,7 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
       };
     } else if (status === 'Declined' || status === 'declined') {
       user.kycStatus = 'declined';
+      user.status = 'rejected';
     } else if (status === 'Pending' || status === 'pending') {
       user.kycStatus = 'pending';
     }
