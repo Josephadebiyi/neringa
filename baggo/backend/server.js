@@ -1096,6 +1096,41 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
   try {
     // User is authenticated via Bearer token
     const user = req.user;
+    
+    // If user has a DIDIT session and status is pending, check actual DIDIT status
+    if (user.diditSessionId && user.kycStatus === 'pending') {
+      try {
+        const diditResponse = await fetch(`https://verification.didit.me/v3/session/${user.diditSessionId}`, {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+            'x-api-key': DIDIT_API_KEY,
+          },
+        });
+        
+        if (diditResponse.ok) {
+          const diditData = await diditResponse.json();
+          const diditStatus = diditData.status?.toLowerCase();
+          
+          console.log(`📋 DIDIT session ${user.diditSessionId} status: ${diditStatus}`);
+          
+          // Sync DIDIT status to our database
+          if (diditStatus === 'approved') {
+            user.kycStatus = 'approved';
+            user.kycVerifiedAt = new Date();
+            await user.save();
+            console.log(`✅ User ${user.email} KYC auto-approved from DIDIT`);
+          } else if (diditStatus === 'declined') {
+            user.kycStatus = 'declined';
+            await user.save();
+            console.log(`❌ User ${user.email} KYC declined from DIDIT`);
+          }
+          // For 'created', 'started', 'submitted', 'processing' - keep as pending
+        }
+      } catch (diditErr) {
+        console.log('Could not sync with DIDIT:', diditErr.message);
+      }
+    }
 
     res.json({ 
       success: true, 
