@@ -253,7 +253,7 @@ export default function KYCVerificationScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setShowWebView(false)} style={styles.backButton}>
+          <TouchableOpacity onPress={handleCloseWebView} style={styles.backButton}>
             <ChevronLeft size={24} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Identity Verification</Text>
