@@ -1627,6 +1627,66 @@ const handleCurrencySelect = (newCurrency: string) => {
   </View>
 </Modal>
 
+{/* Delete Account Modal */}
+<Modal
+  visible={deleteModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setDeleteModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContent}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Delete Account</Text>
+        <TouchableOpacity onPress={() => setDeleteModalVisible(false)}>
+          <X size={24} color={colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={{ fontSize: 14, color: colors.textLight, marginBottom: 20, lineHeight: 20 }}>
+        We're sorry to see you go. Please help us improve by answering these questions.
+      </Text>
+
+      <Text style={styles.modalLabel}>Why are you leaving? *</Text>
+      <TextInput
+        style={[styles.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+        placeholder="Please tell us why you want to delete your account"
+        placeholderTextColor={colors.textMuted}
+        multiline
+        value={deleteReason}
+        onChangeText={setDeleteReason}
+      />
+
+      <Text style={styles.modalLabel}>What could we do better?</Text>
+      <TextInput
+        style={[styles.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+        placeholder="Your feedback helps us improve (optional)"
+        placeholderTextColor={colors.textMuted}
+        multiline
+        value={deleteImprovement}
+        onChangeText={setDeleteImprovement}
+      />
+
+      <TouchableOpacity
+        style={[styles.modalButton, { backgroundColor: colors.error }]}
+        onPress={handleDeleteAccount}
+        disabled={isDeleting}
+      >
+        <Text style={styles.modalButtonText}>
+          {isDeleting ? 'Deleting...' : 'Delete My Account'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{ marginTop: 12, alignItems: 'center' }}
+        onPress={() => setDeleteModalVisible(false)}
+      >
+        <Text style={{ color: colors.primary, fontWeight: '600' }}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
     </ScrollView>
   );
 }
