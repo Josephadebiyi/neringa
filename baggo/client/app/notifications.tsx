@@ -49,18 +49,18 @@ export default function NotificationsScreen() {
         if (notif.message.includes('package request') && notif.message.includes('has been accepted')) {
           type = 'package_update';
           icon = CheckCircle;
-          iconColor = Colors.success;
+          iconColor = colors.success;
           title = 'Package Request Accepted';
         } else if (notif.message.includes('You have accepted a package request')) {
           type = 'new_request';
           icon = Package;
-          iconColor = Colors.primary;
+          iconColor = colors.primary;
           title = 'New Package Accepted';
         } else {
           // Fallback for unrecognized messages
           type = 'update';
           icon = Clock;
-          iconColor = Colors.textLight;
+          iconColor = colors.textLight;
           title = 'Update';
         }
 
@@ -130,7 +130,7 @@ export default function NotificationsScreen() {
           { justifyContent: 'center', alignItems: 'center' }, // ✅ centers it vertically + horizontally
         ]}
       >
-        <Text style={{ fontSize: 16, color: Colors.textLight }}>
+        <Text style={{ fontSize: 16, color: colors.textLight }}>
           Loading notifications...
         </Text>
       </View>
@@ -227,7 +227,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={Colors.textLight} />
+                <ChevronRight size={20} color={colors.textLight} />
               </TouchableOpacity>
             ))}
           </View>
@@ -266,7 +266,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={Colors.textLight} />
+                <ChevronRight size={20} color={colors.textLight} />
               </TouchableOpacity>
             ))}
           </View>
@@ -305,7 +305,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
 
   },
   header: {
@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
@@ -326,12 +326,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: Colors.text,
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
   },
   overlay: {
      flex: 1,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
      alignItems: 'center',
    },
    modalContainer: {
-     backgroundColor: Colors.white,
+     backgroundColor: colors.white,
      borderRadius: 16,
      padding: 24,
      width: '85%',
@@ -353,27 +353,27 @@ const styles = StyleSheet.create({
    title: {
      fontSize: 18,
      fontWeight: '700',
-     color: Colors.text,
+     color: colors.text,
      marginBottom: 12,
    },
    message: {
      fontSize: 15,
-     color: Colors.textLight,
+     color: colors.textLight,
      marginBottom: 16,
    },
    time: {
      fontSize: 13,
-     color: Colors.textMuted,
+     color: colors.textMuted,
      marginBottom: 20,
    },
    closeButton: {
-     backgroundColor: Colors.primary,
+     backgroundColor: colors.primary,
      borderRadius: 8,
      paddingVertical: 10,
      alignItems: 'center',
    },
    closeButtonText: {
-     color: Colors.white,
+     color: colors.white,
      fontWeight: '600',
      fontSize: 15,
    },
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
   content: {
     flex: 1,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textLight,
+    color: colors.textLight,
     paddingHorizontal: 20,
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -404,14 +404,14 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   notificationUnread: {
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
   },
   iconContainer: {
     width: 48,
@@ -428,24 +428,24 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   notificationMessage: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: colors.textLight,
     lineHeight: 20,
     marginBottom: 4,
   },
   notificationTime: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     marginRight: 8,
   },
   emptyContainer: {
@@ -456,17 +456,17 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   retryButton: {
     marginTop: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 5,
   },
   retryButtonText: {
-    color: Colors.white,
+    color: colors.white,
     fontSize: 14,
     fontWeight: '600',
   },

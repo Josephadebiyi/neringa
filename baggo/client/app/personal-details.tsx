@@ -16,7 +16,6 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { User, Mail, Phone, MapPin, Calendar, Save, Lock, X, Camera } from 'lucide-react-native';
 import api from '@/utils/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -187,7 +186,7 @@ export default function PersonalDetailsScreen() {
       }
     }
     
-    return <User size={48} color={Colors.white} />;
+    return <User size={48} color={colors.white} />;
   };
 
   const handleSave = async () => {
@@ -270,7 +269,7 @@ export default function PersonalDetailsScreen() {
             <TouchableOpacity style={styles.avatar} onPress={() => setAvatarModalVisible(true)}>
               {renderAvatar()}
               <View style={styles.cameraIcon}>
-                <Camera size={16} color={Colors.white} />
+                <Camera size={16} color={colors.white} />
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.changePhotoButton} onPress={() => setAvatarModalVisible(true)}>
@@ -283,16 +282,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>First Name</Text>
-                {isKycLocked && <Lock size={14} color={Colors.textLight} />}
+                {isKycLocked && <Lock size={14} color={colors.textLight} />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <User size={20} color={Colors.textLight} />
+                <User size={20} color={colors.textLight} />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={firstName}
                   onChangeText={setFirstName}
                   placeholder="First name"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   editable={!isKycLocked}
                 />
               </View>
@@ -302,16 +301,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Last Name</Text>
-                {isKycLocked && <Lock size={14} color={Colors.textLight} />}
+                {isKycLocked && <Lock size={14} color={colors.textLight} />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <User size={20} color={Colors.textLight} />
+                <User size={20} color={colors.textLight} />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={lastName}
                   onChangeText={setLastName}
                   placeholder="Last name"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   editable={!isKycLocked}
                 />
               </View>
@@ -321,13 +320,13 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputContainer}>
-                <Mail size={20} color={Colors.textLight} />
+                <Mail size={20} color={colors.textLight} />
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="Email address"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="email-address"
                 />
               </View>
@@ -337,13 +336,13 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Phone Number</Text>
               <View style={styles.inputContainer}>
-                <Phone size={20} color={Colors.textLight} />
+                <Phone size={20} color={colors.textLight} />
                 <TextInput
                   style={styles.input}
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="Phone number"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -353,16 +352,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Date of Birth</Text>
-                {isKycLocked && <Lock size={14} color={Colors.textLight} />}
+                {isKycLocked && <Lock size={14} color={colors.textLight} />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <Calendar size={20} color={Colors.textLight} />
+                <Calendar size={20} color={colors.textLight} />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={formatDate(dateOfBirth)}
                   onChangeText={setDateOfBirth}
                   placeholder="Date of Birth"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   editable={!isKycLocked}
                 />
               </View>
@@ -373,7 +372,7 @@ export default function PersonalDetailsScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Country</Text>
                 <View style={[styles.inputContainer, styles.inputLocked]}>
-                  <MapPin size={20} color={Colors.textLight} />
+                  <MapPin size={20} color={colors.textLight} />
                   <Text style={[styles.input, styles.inputTextLocked]}>{country}</Text>
                 </View>
               </View>
@@ -386,7 +385,7 @@ export default function PersonalDetailsScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Save size={20} color={Colors.white} />
+          <Save size={20} color={colors.white} />
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
@@ -403,7 +402,7 @@ export default function PersonalDetailsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose Avatar</Text>
               <TouchableOpacity onPress={() => setAvatarModalVisible(false)}>
-                <X size={24} color={Colors.text} />
+                <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -426,7 +425,7 @@ export default function PersonalDetailsScreen() {
             </View>
 
             <TouchableOpacity style={styles.uploadPhotoButton} onPress={pickImage}>
-              <Camera size={20} color={Colors.primary} />
+              <Camera size={20} color={colors.primary} />
               <Text style={styles.uploadPhotoText}>Upload Your Photo</Text>
             </TouchableOpacity>
           </View>
@@ -439,7 +438,7 @@ export default function PersonalDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   centerContent: {
     justifyContent: 'center',
@@ -448,7 +447,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
   },
   header: {
     flexDirection: 'row',
@@ -457,9 +456,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
@@ -468,12 +467,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: Colors.text,
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
   },
   content: {
     flex: 1,
@@ -497,14 +496,14 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     marginBottom: 20,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -516,7 +515,7 @@ const styles = StyleSheet.create({
   changePhotoText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
   form: {
     paddingHorizontal: 20,
@@ -533,18 +532,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
-    shadowColor: Colors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -565,10 +564,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
   },
   inputTextLocked: {
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   textArea: {
     minHeight: 60,
@@ -576,13 +575,13 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: colors.border,
   },
   saveButton: {
     flexDirection: 'row',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
@@ -592,7 +591,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.white,
+    color: colors.white,
   },
   // Avatar styles
   avatarPreset: {
@@ -612,11 +611,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.white,
+    borderColor: colors.white,
   },
   // Modal styles
   modalOverlay: {
@@ -625,7 +624,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -640,11 +639,11 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.text,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: colors.textLight,
     marginBottom: 24,
   },
   avatarGrid: {
@@ -663,7 +662,7 @@ const styles = StyleSheet.create({
   },
   avatarOptionSelected: {
     borderWidth: 3,
-    borderColor: Colors.text,
+    borderColor: colors.text,
   },
   avatarOptionEmoji: {
     fontSize: 36,
@@ -675,13 +674,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
     borderStyle: 'dashed',
     gap: 8,
   },
   uploadPhotoText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
 });

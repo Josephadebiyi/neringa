@@ -139,14 +139,14 @@ const travelMeansIcons = {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.routeCard}>
           <View style={styles.routeRow}>
-            <MapPin size={18} color={Colors.primary} />
+            <MapPin size={18} color={colors.primary} />
             <Text style={styles.routeText}>
               {fromCity}, {fromCountry}
             </Text>
           </View>
           <Text style={styles.routeArrow}>→</Text>
           <View style={styles.routeRow}>
-            <MapPin size={18} color={Colors.secondary} />
+            <MapPin size={18} color={colors.secondary} />
             <Text style={styles.routeText}>
               {toCity}, {toCountry}
             </Text>
@@ -155,7 +155,7 @@ const travelMeansIcons = {
 
         <View style={styles.insuranceCard}>
           <View style={styles.insuranceIcon}>
-            <Shield size={24} color={Colors.primary} />
+            <Shield size={24} color={colors.primary} />
           </View>
           <View style={styles.insuranceContent}>
             <Text style={styles.insuranceTitle}>Package Insurance</Text>
@@ -169,8 +169,8 @@ const travelMeansIcons = {
           <Switch
             value={insurance}
             onValueChange={setInsurance}
-            trackColor={{ false: Colors.border, true: Colors.primary }}
-            thumbColor={Colors.white}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.white}
           />
         </View>
 
@@ -239,7 +239,7 @@ const travelMeansIcons = {
           : trip.user?.firstName || 'Traveler'}
       </Text>
       <View style={styles.ratingRow}>
-        <Star size={12} color={Colors.gold} fill={Colors.gold} />
+        <Star size={12} color={colors.gold} fill={colors.gold} />
         <Text style={styles.ratingText}>
           {(trip.user?.average_rating || 0).toFixed(1)}
         </Text>
@@ -257,13 +257,13 @@ const travelMeansIcons = {
     {(() => {
       // Select the correct icon, default to Plane if missing
       const IconComponent = travelMeansIcons[trip.travelMeans?.toLowerCase()] || Plane;
-      return <IconComponent size={18} color={Colors.primary} />;
+      return <IconComponent size={18} color={colors.primary} />;
     })()}
   </View>
 </View>
 
       <View style={styles.tripRoute}>
-        <MapPin size={16} color={Colors.textLight} />
+        <MapPin size={16} color={colors.textLight} />
         <Text style={styles.tripRouteText} numberOfLines={1}>
           {trip.fromLocation} → {trip.toLocation}
         </Text>
@@ -271,7 +271,7 @@ const travelMeansIcons = {
 
       <View style={styles.tripMeta}>
         <View style={styles.metaItem}>
-          <Calendar size={14} color={Colors.textLight} />
+          <Calendar size={14} color={colors.textLight} />
           <Text style={styles.metaText}>
             {new Date(trip.departureDate).toLocaleDateString('en-US', {
               month: 'short',
@@ -280,7 +280,7 @@ const travelMeansIcons = {
           </Text>
         </View>
         <View style={styles.metaItem}>
-          <Weight size={14} color={Colors.textLight} />
+          <Weight size={14} color={colors.textLight} />
           <Text style={styles.metaText}>{trip.availableKg} kg available</Text>
         </View>
         <View style={styles.metaItem}>
@@ -304,7 +304,7 @@ const travelMeansIcons = {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
   },
   backButton: {
     width: 40,
@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: Colors.text,
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
   },
   content: {
     flex: 1,
@@ -336,11 +336,11 @@ const styles = StyleSheet.create({
   routeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: Colors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -355,28 +355,28 @@ const styles = StyleSheet.create({
   routeText: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.text,
+    color: colors.text,
   },
   routeArrow: {
     fontSize: 16,
-    color: Colors.textLight,
+    color: colors.textLight,
     marginHorizontal: 8,
   },
   insuranceCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   insuranceIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -388,32 +388,32 @@ const styles = StyleSheet.create({
   insuranceTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   insuranceSubtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
     marginBottom: 4,
   },
   insuranceDesc: {
     fontSize: 13,
-    color: Colors.textLight,
+    color: colors.textLight,
     lineHeight: 18,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 16,
   },
   tripCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: Colors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   },
   matchedTripCard: {
     borderWidth: 2,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   nonMatchedTripCard: {
     opacity: 0.8,
@@ -441,13 +441,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: Colors.white,
+    color: colors.white,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   travelerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   ratingRow: {
@@ -467,23 +467,23 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: Colors.text,
+    color: colors.text,
     fontWeight: '500',
   },
   tripCount: {
     fontSize: 12,
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   verified: {
     fontSize: 12,
-    color: Colors.success,
+    color: colors.success,
     fontWeight: '500',
   },
   modeIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   },
   tripRouteText: {
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
     fontWeight: '500',
     flex: 1,
   },
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   priceContainer: {
     marginLeft: 'auto',
@@ -522,17 +522,17 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   loadingText: {
     fontSize: 16,
-    color: Colors.textLight,
+    color: colors.textLight,
     textAlign: 'center',
     marginTop: 20,
   },
   noResultsText: {
     fontSize: 16,
-    color: Colors.textLight,
+    color: colors.textLight,
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 20,

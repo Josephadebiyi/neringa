@@ -416,7 +416,7 @@ useEffect(() => {
     <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'ios' ? 0 : insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={Colors.white} />
+          <ChevronLeft size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Send Package</Text>
         <View style={{ width: 40 }} />
@@ -428,7 +428,7 @@ useEffect(() => {
           <View style={styles.tripHeader}>
             <Text style={styles.travelerName}>{initialTraveler.name}</Text>
             <View style={styles.dateBadge}>
-              <Calendar size={14} color={Colors.primary} />
+              <Calendar size={14} color={colors.primary} />
               <Text style={styles.dateText}>
                 {initialTraveler.date ? new Date(initialTraveler.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
               </Text>
@@ -436,10 +436,10 @@ useEffect(() => {
           </View>
 
           <View style={styles.routeRow}>
-            <MapPin size={16} color={Colors.primary} />
+            <MapPin size={16} color={colors.primary} />
             <Text style={styles.routeText}>{initialTraveler.from || (fromCity ? fromCity : '—')}</Text>
             <Text style={styles.arrow}>→</Text>
-            <MapPin size={16} color={Colors.secondary} />
+            <MapPin size={16} color={colors.secondary} />
             <Text style={styles.routeText}>{initialTraveler.to || (toCity ? toCity : '—')}</Text>
           </View>
         </View>
@@ -454,7 +454,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="City"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={fromCity}
                 onChangeText={setFromCity}
               />
@@ -467,7 +467,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Country"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={fromCountry}
                 onChangeText={setFromCountry}
               />
@@ -480,7 +480,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="City"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={toCity}
                 onChangeText={setToCity}
               />
@@ -493,7 +493,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Country"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={toCountry}
                 onChangeText={setToCountry}
               />
@@ -529,7 +529,7 @@ useEffect(() => {
                     </Text>
                     {isSelected && (
                       <View style={styles.checkIcon}>
-                        <Check size={12} color={Colors.white} />
+                        <Check size={12} color={colors.white} />
                       </View>
                     )}
                   </TouchableOpacity>
@@ -541,11 +541,11 @@ useEffect(() => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Package Weight</Text>
             <View style={styles.inputContainer}>
-              <Weight size={20} color={Colors.textLight} />
+              <Weight size={20} color={colors.textLight} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter weight"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={weight}
                 onChangeText={setWeight}
@@ -560,7 +560,7 @@ useEffect(() => {
               <TextInput
                 style={[styles.input, styles.textAreaInput]}
                 placeholder="What's in the package?"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
                 value={description}
@@ -576,7 +576,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Item value"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={itemValue}
                 onChangeText={setItemValue}
@@ -586,13 +586,13 @@ useEffect(() => {
 
           <View style={styles.insuranceCard}>
             <View style={styles.insuranceHeader}>
-              <Shield size={20} color={Colors.primary} />
+              <Shield size={20} color={colors.primary} />
               <Text style={styles.insuranceTitle}>Add Insurance</Text>
               <Switch
                 value={insurance}
                 onValueChange={setInsurance}
-                trackColor={{ false: Colors.border, true: Colors.primary }}
-                thumbColor={Colors.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
             {insurance && (
@@ -611,7 +611,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Full name"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={receiverName}
                 onChangeText={setReceiverName}
               />
@@ -624,7 +624,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="+1234567890"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 value={receiverPhone}
                 onChangeText={setReceiverPhone}
@@ -636,14 +636,14 @@ useEffect(() => {
         {/* Package Photo */}
         <View style={styles.section}>
           <Text style={styles.label}>Package Photo (optional)</Text>
-          <Text style={{ marginBottom: 8, color: Colors.textLight }}>Add one photo of the package</Text>
+          <Text style={{ marginBottom: 8, color: colors.textLight }}>Add one photo of the package</Text>
 
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'center' }}>
             <TouchableOpacity
               onPress={pickImage}
               style={[styles.inputContainer, { width: 120, height: 120, justifyContent: 'center', alignItems: 'center' }]}
             >
-              <Text style={{ color: Colors.primary, fontWeight: '700' }}>{imagePreview ? 'Change' : 'Add Photo'}</Text>
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>{imagePreview ? 'Change' : 'Add Photo'}</Text>
             </TouchableOpacity>
 
             {imagePreview ? (
@@ -722,7 +722,7 @@ useEffect(() => {
           onPress={handleContinue}
           disabled={!fromCity || !toCity || !weight || !description || !receiverName || !receiverPhone || isLoading}
         >
-          {isLoading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.continueButtonText}>Continue to Payment</Text>}
+          {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.continueButtonText}>Continue to Payment</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -731,14 +731,14 @@ useEffect(() => {
 
 /* Styles (same as your original) */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   backButton: { 
     width: 40, 
@@ -748,13 +748,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: Colors.white },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.white },
   content: { flex: 1 },
   tripCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   tripHeader: {
     flexDirection: 'row',
@@ -762,37 +762,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  travelerName: { fontSize: 16, fontWeight: '600', color: Colors.text },
+  travelerName: { fontSize: 16, fontWeight: '600', color: colors.text },
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     gap: 4,
   },
-  dateText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
+  dateText: { fontSize: 12, fontWeight: '600', color: colors.primary },
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  routeText: { fontSize: 14, color: Colors.text },
-  arrow: { fontSize: 14, color: Colors.textLight },
+  routeText: { fontSize: 14, color: colors.text },
+  arrow: { fontSize: 14, color: colors.textLight },
   section: { padding: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 16 },
   inputGroup: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 8 },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   textArea: { height: 100, alignItems: 'flex-start', paddingVertical: 12 },
-  input: { flex: 1, fontSize: 15, color: Colors.text },
+  input: { flex: 1, fontSize: 15, color: colors.text },
   textAreaInput: { height: 76, textAlignVertical: 'top' },
   // Category Selection Styles
   categoryGrid: {
@@ -803,53 +803,53 @@ const styles = StyleSheet.create({
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 6,
   },
   categoryItemSelected: {
-    backgroundColor: `${Colors.primary}15`,
-    borderColor: Colors.primary,
+    backgroundColor: `${colors.primary}15`,
+    borderColor: colors.primary,
   },
   categoryIcon: {
     fontSize: 16,
   },
   categoryLabel: {
     fontSize: 13,
-    color: Colors.text,
+    color: colors.text,
     fontWeight: '500',
   },
   categoryLabelSelected: {
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   checkIcon: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  unit: { fontSize: 15, fontWeight: '600', color: Colors.textLight },
-  currency: { fontSize: 16, fontWeight: '600', color: Colors.textLight },
-  insuranceCard: { backgroundColor: Colors.backgroundLight, borderRadius: 12, padding: 16, marginTop: 8 },
+  unit: { fontSize: 15, fontWeight: '600', color: colors.textLight },
+  currency: { fontSize: 16, fontWeight: '600', color: colors.textLight },
+  insuranceCard: { backgroundColor: colors.backgroundLight, borderRadius: 12, padding: 16, marginTop: 8 },
   insuranceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  insuranceTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.text },
-  insuranceText: { fontSize: 13, color: Colors.textLight, marginTop: 8, marginLeft: 28 },
-  priceCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 20 },
+  insuranceTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text },
+  insuranceText: { fontSize: 13, color: colors.textLight, marginTop: 8, marginLeft: 28 },
+  priceCard: { backgroundColor: colors.white, borderRadius: 16, padding: 20 },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  priceLabel: { fontSize: 15, color: Colors.textLight },
-  priceValue: { fontSize: 15, fontWeight: '600', color: Colors.text },
-  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 8 },
-  totalLabel: { fontSize: 17, fontWeight: 'bold', color: Colors.text },
-  totalValue: { fontSize: 20, fontWeight: 'bold', color: Colors.primary },
-  footer: { padding: 20, paddingBottom: 32, backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border },
-  continueButton: { backgroundColor: Colors.primary, borderRadius: 12, height: 56, justifyContent: 'center', alignItems: 'center' },
-  continueButtonDisabled: { backgroundColor: Colors.textMuted },
-  continueButtonText: { fontSize: 16, fontWeight: '600', color: Colors.white },
+  priceLabel: { fontSize: 15, color: colors.textLight },
+  priceValue: { fontSize: 15, fontWeight: '600', color: colors.text },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
+  totalLabel: { fontSize: 17, fontWeight: 'bold', color: colors.text },
+  totalValue: { fontSize: 20, fontWeight: 'bold', color: colors.primary },
+  footer: { padding: 20, paddingBottom: 32, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border },
+  continueButton: { backgroundColor: colors.primary, borderRadius: 12, height: 56, justifyContent: 'center', alignItems: 'center' },
+  continueButtonDisabled: { backgroundColor: colors.textMuted },
+  continueButtonText: { fontSize: 16, fontWeight: '600', color: colors.white },
 });

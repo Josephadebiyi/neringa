@@ -295,26 +295,26 @@ export default function AddTripScreen() {
         {/* From Section */}
         <Text style={styles.label}>From Country</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("from")}>
-          <MapPin size={20} color={Colors.textLight} />
+          <MapPin size={20} color={colors.textLight} />
           <Text style={styles.input}>{fromCountry || "Select Country"}</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>From City</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("from")}>
-          <MapPin size={20} color={Colors.textLight} />
+          <MapPin size={20} color={colors.textLight} />
           <Text style={styles.input}>{fromCity || "Select City"}</Text>
         </TouchableOpacity>
 
         {/* To Section */}
         <Text style={styles.label}>To Country</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("to")}>
-          <MapPin size={20} color={Colors.textLight} />
+          <MapPin size={20} color={colors.textLight} />
           <Text style={styles.input}>{toCountry || "Select Country"}</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>To City</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("to")}>
-          <MapPin size={20} color={Colors.textLight} />
+          <MapPin size={20} color={colors.textLight} />
           <Text style={styles.input}>{toCity || "Select City"}</Text>
         </TouchableOpacity>
 
@@ -330,8 +330,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "airplane" && styles.modeButtonActive]}
       onPress={() => settravelMeans("airplane")}
     >
-      <Plane size={18} color={travelMeans === "airplane" ? Colors.white : Colors.textLight} />
-      <Text style={[styles.modeText, { color: travelMeans === "airplane" ? Colors.white : Colors.text }]}>
+      <Plane size={18} color={travelMeans === "airplane" ? colors.white : colors.textLight} />
+      <Text style={[styles.modeText, { color: travelMeans === "airplane" ? colors.white : colors.text }]}>
         Airplane
       </Text>
     </TouchableOpacity>
@@ -340,8 +340,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "bus" && styles.modeButtonActive]}
       onPress={() => settravelMeans("bus")}
     >
-      <Bus size={18} color={travelMeans === "bus" ? Colors.white : Colors.textLight} />
-      <Text style={[styles.modeText, { color: travelMeans === "bus" ? Colors.white : Colors.text }]}>
+      <Bus size={18} color={travelMeans === "bus" ? colors.white : colors.textLight} />
+      <Text style={[styles.modeText, { color: travelMeans === "bus" ? colors.white : colors.text }]}>
         Bus
       </Text>
     </TouchableOpacity>
@@ -350,8 +350,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "train" && styles.modeButtonActive]}
       onPress={() => settravelMeans("train")}
     >
-      <Train size={18} color={travelMeans === "train" ? Colors.white : Colors.textLight} />
-      <Text style={[styles.modeText, { color: travelMeans === "train" ? Colors.white : Colors.text }]}>
+      <Train size={18} color={travelMeans === "train" ? colors.white : colors.textLight} />
+      <Text style={[styles.modeText, { color: travelMeans === "train" ? colors.white : colors.text }]}>
         Train
       </Text>
     </TouchableOpacity>
@@ -360,8 +360,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "car" && styles.modeButtonActive]}
       onPress={() => settravelMeans("car")}
     >
-      <Car size={18} color={travelMeans === "car" ? Colors.white : Colors.textLight} />
-      <Text style={[styles.modeText, { color: travelMeans === "car" ? Colors.white : Colors.text }]}>
+      <Car size={18} color={travelMeans === "car" ? colors.white : colors.textLight} />
+      <Text style={[styles.modeText, { color: travelMeans === "car" ? colors.white : colors.text }]}>
         Car
       </Text>
     </TouchableOpacity>
@@ -370,8 +370,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "ship" && styles.modeButtonActive]}
       onPress={() => settravelMeans("ship")}
     >
-      <Ship size={18} color={travelMeans === "ship" ? Colors.white : Colors.textLight} />
-      <Text style={[styles.modeText, { color: travelMeans === "ship" ? Colors.white : Colors.text }]}>
+      <Ship size={18} color={travelMeans === "ship" ? colors.white : colors.textLight} />
+      <Text style={[styles.modeText, { color: travelMeans === "ship" ? colors.white : colors.text }]}>
         Ship
       </Text>
     </TouchableOpacity>
@@ -380,8 +380,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "other" && styles.modeButtonActive]}
       onPress={() => settravelMeans("other")}
     >
-      <MoreHorizontal size={18} color={travelMeans === "other" ? Colors.white : Colors.textLight} />
-      <Text style={[styles.modeText, { color: travelMeans === "other" ? Colors.white : Colors.text }]}>
+      <MoreHorizontal size={18} color={travelMeans === "other" ? colors.white : colors.textLight} />
+      <Text style={[styles.modeText, { color: travelMeans === "other" ? colors.white : colors.text }]}>
         Other
       </Text>
     </TouchableOpacity>
@@ -393,7 +393,7 @@ export default function AddTripScreen() {
         {/* Date Picker */}
         <Text style={styles.label}>Departure Date</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => setDatePickerVisibility(true)}>
-          <Calendar size={20} color={Colors.textLight} />
+          <Calendar size={20} color={colors.textLight} />
           <Text style={styles.input}>{departureDate || "Select Departure Date"}</Text>
         </TouchableOpacity>
 
@@ -408,7 +408,7 @@ export default function AddTripScreen() {
         {/* Arrival Date */}
 <Text style={styles.label}>Arrival Date</Text>
 <TouchableOpacity style={styles.inputContainer} onPress={() => setArrivalDatePickerVisibility(true)}>
-  <Calendar size={20} color={Colors.textLight} />
+  <Calendar size={20} color={colors.textLight} />
   <Text style={styles.input}>{arrivalDate || "Select Arrival Date"}</Text>
 </TouchableOpacity>
 
@@ -428,11 +428,11 @@ export default function AddTripScreen() {
         {/* Available Space */}
         <Text style={styles.label}>Available Luggage Space (kg)</Text>
         <View style={styles.inputContainer}>
-          <Weight size={20} color={Colors.textLight} />
+          <Weight size={20} color={colors.textLight} />
           <TextInput
             style={styles.input}
             placeholder="Enter available weight"
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
             value={availableKg}
             onChangeText={setAvailableKg}
@@ -451,7 +451,7 @@ export default function AddTripScreen() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={Colors.white} />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.submitButtonText}>Create Trip</Text>
           )}
@@ -504,7 +504,7 @@ export default function AddTripScreen() {
       <Modal visible={showCityModal} animationType="slide">
         <View style={styles.modalContainerModal}>
         {loadingCities ? (
-       <ActivityIndicator size="large" color={Colors.primary} />
+       <ActivityIndicator size="large" color={colors.primary} />
      ) : cities.length > 0 ? (
        <>
          <TextInput
@@ -532,7 +532,7 @@ export default function AddTripScreen() {
                  marginTop: 10,
                  padding: 12,
                  borderRadius: 10,
-                 backgroundColor: Colors.secondary,
+                 backgroundColor: colors.secondary,
                  alignItems: "center",
                }}
                onPress={() => setCities([])} // switch to manual entry
@@ -555,23 +555,23 @@ export default function AddTripScreen() {
            style={[
              styles.searchInput,
              {
-               backgroundColor: Colors.white,
+               backgroundColor: colors.white,
                borderRadius: 10,
                paddingHorizontal: 12,
                height: 48,
                borderWidth: 1,
-               borderColor: Colors.border,
+               borderColor: colors.border,
              },
            ]}
            placeholder="Type your city name..."
-           placeholderTextColor={Colors.textMuted}
+           placeholderTextColor={colors.textMuted}
            value={citySearch}
            onChangeText={setCitySearch}
          />
          <TouchableOpacity
            style={{
              marginTop: 16,
-             backgroundColor: Colors.primary,
+             backgroundColor: colors.primary,
              padding: 14,
              borderRadius: 10,
              alignItems: "center",
@@ -641,7 +641,7 @@ export default function AddTripScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -649,28 +649,28 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   backButton: { width: 40 },
   backIcon: { fontSize: 24 },
   headerTitle: { fontSize: 18, fontWeight: "600" },
   content: { padding: 20 },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 6 },
-  subtitle: { color: Colors.textLight, marginBottom: 24 },
-  label: { fontWeight: "600", color: Colors.text, marginTop: 18, marginBottom: 8 },
+  subtitle: { color: colors.textLight, marginBottom: 24 },
+  label: { fontWeight: "600", color: colors.text, marginTop: 18, marginBottom: 8 },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
-  input: { flex: 1, fontSize: 15, color: Colors.text },
+  input: { flex: 1, fontSize: 15, color: colors.text },
   modeContainer: { flexDirection: "row", gap: 12 },
   modeButton: {
     flexDirection: "row",
@@ -679,32 +679,32 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 10,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
-  modeButtonActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  modeButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   modeText: { marginLeft: 8, fontWeight: "500" },
   footer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.white,
+    borderTopColor: colors.border,
+    backgroundColor: colors.white,
   },
   submitButton: {
     height: 56,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
 
   submitButtonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  error: { color: Colors.error, textAlign: "center", marginVertical: 8 },
+  error: { color: colors.error, textAlign: "center", marginVertical: 8 },
 modalContainerModal:  {
   flex: 1,
   padding: 20,
-  backgroundColor: Colors.background,
+  backgroundColor: colors.background,
   paddingTop: 50, // 👈 pushes the modal content down
   borderTopLeftRadius: 25,
   borderTopRightRadius: 25,
@@ -712,15 +712,15 @@ modalContainerModal:  {
 
   searchInput: {
     height: 50,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 10,
     paddingHorizontal: 16,
     marginBottom: 10,
   },
-  modalItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  modalItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   modalText: { fontSize: 16 },
   closeButton: {
-  backgroundColor: Colors.primary || "#5240E8", // 💜 button background
+  backgroundColor: colors.primary || "#5240E8", // 💜 button background
   paddingVertical: 12,
   paddingHorizontal: 20,
   borderRadius: 10,
@@ -779,7 +779,7 @@ modalContainerKyc: {
     backgroundColor: "#f1f1f1",
   },
   modalVerifyButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   modalCancelText: {
     color: "#333",

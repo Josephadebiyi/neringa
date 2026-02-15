@@ -38,16 +38,16 @@ export default function CheckRatesScreen() {
           <View style={styles.section}>
             <Text style={styles.label}>Pickup - Point</Text>
             <View style={styles.inputRow}>
-              <MapPin size={20} color={Colors.textLight} />
+              <MapPin size={20} color={colors.textLight} />
               <TextInput
                 style={styles.input}
                 value={pickupLocation}
                 onChangeText={setPickupLocation}
                 placeholder="Enter pickup location"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
               />
               <TouchableOpacity onPress={() => setPickupLocation('')}>
-                <X size={20} color={Colors.textLight} />
+                <X size={20} color={colors.textLight} />
               </TouchableOpacity>
             </View>
           </View>
@@ -55,16 +55,16 @@ export default function CheckRatesScreen() {
           <View style={styles.section}>
             <Text style={styles.label}>Drop Off - Point</Text>
             <View style={styles.inputRow}>
-              <MapPin size={20} color={Colors.textLight} />
+              <MapPin size={20} color={colors.textLight} />
               <TextInput
                 style={styles.input}
                 value={dropoffLocation}
                 onChangeText={setDropoffLocation}
                 placeholder="Enter drop-off location"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
               />
               <TouchableOpacity onPress={() => setDropoffLocation('')}>
-                <X size={20} color={Colors.textLight} />
+                <X size={20} color={colors.textLight} />
               </TouchableOpacity>
             </View>
           </View>
@@ -84,14 +84,14 @@ export default function CheckRatesScreen() {
                   onPress={() => quantity > 1 && setQuantity(quantity - 1)}
                   style={styles.quantityButton}
                 >
-                  <Minus size={16} color={Colors.textLight} />
+                  <Minus size={16} color={colors.textLight} />
                 </TouchableOpacity>
                 <Text style={styles.quantityText}>{quantity} Package</Text>
                 <TouchableOpacity 
                   onPress={() => setQuantity(quantity + 1)}
                   style={[styles.quantityButton, styles.quantityButtonActive]}
                 >
-                  <Plus size={16} color={Colors.white} />
+                  <Plus size={16} color={colors.white} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -116,7 +116,7 @@ export default function CheckRatesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
   },
   backButton: {
     width: 40,
@@ -134,23 +134,23 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: Colors.text,
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
   },
   content: {
     flex: 1,
     padding: 20,
   },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 24,
     marginBottom: 16,
-    shadowColor: Colors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -159,12 +159,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   cardSubtitle: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: colors.textLight,
     lineHeight: 20,
     marginBottom: 24,
   },
@@ -173,14 +173,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: Colors.textLight,
+    color: colors.textLight,
     marginBottom: 8,
     fontWeight: '500',
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
@@ -189,13 +189,13 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
   },
   row: {
     flexDirection: 'row',
   },
   pickerContainer: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
@@ -203,12 +203,12 @@ const styles = StyleSheet.create({
   },
   pickerText: {
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
   },
   quantityControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     height: 52,
     paddingHorizontal: 8,
@@ -218,20 +218,20 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quantityButtonActive: {
-    backgroundColor: Colors.gold,
+    backgroundColor: colors.gold,
   },
   quantityText: {
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     fontWeight: '500',
   },
   submitButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
@@ -241,16 +241,16 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.white,
+    color: colors.white,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   deliveryDate: {
     fontSize: 15,
-    color: Colors.textLight,
+    color: colors.textLight,
   },
 });
