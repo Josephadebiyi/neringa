@@ -1,97 +1,125 @@
 # Baggo Mobile App - Product Requirements Document
 
 ## Original Problem Statement
-The user wants to get the "Baggo" mobile app project fully functional and ready for the App Store.
+Build a fully functional mobile app for "Baggo" that connects travelers with package senders. The app needs:
+1. Complete dark/light mode theming system
+2. DIDIT.me KYC verification integration (webhook-driven)
+3. Full authentication system (JWT)
+4. Payment integration (Stripe, Paystack)
+5. Trip management and package requests
+6. Push notifications
 
 ## Tech Stack
 - **Frontend:** React Native (Expo), TypeScript
 - **Backend:** Node.js, Express.js, MongoDB
-- **Admin Panel:** React (Vite) at `/app/baggo/boggoAdmin`
-- **Authentication:** JWT Bearer Tokens
-- **Integrations:** Stripe, Paystack, DIDIT.me (KYC), Resend, Cloudinary, Google Auth, Expo Push Notifications
+- **Integrations:** DIDIT.me (KYC), Stripe, Paystack, Resend, Cloudinary, Expo Push Notifications
+
+## Architecture
+```
+/app/baggo
+├── boggoAdmin/     # React/Vite Admin Panel
+├── backend/        # Node.js/Express Backend (port 5000)
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routers/
+│   └── server.js
+└── client/         # React Native (Expo) Mobile App
+    ├── app/
+    ├── components/
+    ├── contexts/
+    └── constants/
+```
 
 ## What's Been Implemented
 
-### February 2026 - Session 5 (Current)
-- **CRITICAL FIX: KYC Status Not Unlocking App**
-  - Root cause: DIDIT.me updates `kycStatus` field to 'approved', but screens checked legacy `status` field for 'verified'
-  - Fixed sync between `kycStatus` and `status` fields in backend server.js
-  - Updated useKYCCheck hook to use api utility consistently
-  - Fixed add-trip.tsx to check both kycStatus==='approved' AND legacy status==='verified'
-  - AuthContext now properly includes and refreshes status/isVerified fields
-  - KYC verification screen now calls refreshUser() after approval to update global state
-  
-- **EAS Build Configuration:**
-  - `eas.json` already configured with development, preview, preview-simulator, and production profiles
-  - Ready for TestFlight builds
+### February 15, 2026 - Dark Mode & KYC Progress
 
-### December 2024 - Session 4
-- **Push Notifications for KYC:**
-  - When DIDIT approves KYC → Push notification sent to user
-  - When DIDIT declines KYC → Push notification sent to user
-  - In-app notifications created for both events
-  - Helper function `sendPushNotification()` added to backend
+#### Completed:
+1. **ThemeContext.tsx** - Comprehensive theme system with light/dark colors
+2. **Theme-aware screens updated:**
+   - `index.tsx` (splash screen)
+   - `onboarding.tsx`
+   - `auth/signup.tsx`
+   - `auth/signin.tsx`
+   - `auth/verify-otp.tsx`
+   - `auth/forgot-password.tsx`
+   - `banned.tsx`
+   - `success-page.tsx`
+   - `failed-page.tsx`
+   - `+not-found.tsx`
+   - `add-address.tsx`
+   - `traveler-details/[id].tsx`
+   - `kyc-verification.tsx`
 
-- **Dark Mode Support (Partial):**
-  - ThemeProvider integrated into app layout
-  - Tab bar updated with dynamic colors
-  - Updated screens: signin, signup, home, tracking, messages, profile
-  - Theme toggle in Settings (Light/Dark/System)
-  - **NOTE:** Many screens still have hardcoded Colors.xxx values - needs systematic update
+3. **KYC Webhook System (Backend):**
+   - Webhook endpoint at `/api/didit/webhook`
+   - Parses `vendor_data` to extract userId
+   - Updates user's `kycStatus` in MongoDB
+   - Sends push notifications on approval/decline
+   - Creates in-app notifications
 
-- **Admin Dashboard:**
-  - Located at `/app/baggo/boggoAdmin`
-  - API endpoint: `https://neringa.onrender.com/api/Adminbaggo`
-  - Features: Users, KYC, Tracking, Analytics, Withdrawals, Disputes, Settings
+#### Webhook URL for DIDIT:
+```
+https://neringa.onrender.com/api/didit/webhook
+```
 
-### Previous Sessions
-- KYC flow fixed with DIDIT sync
-- Traveler full names displayed
-- Avatar selection with 6 presets
-- Account deletion with questionnaire
-- JWT authentication overhaul
+## Remaining Work
 
-## Currency Conversion
-- Backend endpoint: `/api/currency/rates`
-- Uses exchangerate-api.com
-- Frontend utility: `/app/baggo/client/utils/currency.ts`
-- Functions: `convertCurrency()`, `formatPrice()`, `getCurrencySymbol()`
+### P0 - High Priority (Dark Mode Refactor)
+21 screens still need theme updates:
+- `privacy-policy.tsx`
+- `search-travelers.tsx`
+- `package-details.tsx`
+- `notifications.tsx`
+- `(tabs)/profile.tsx`
+- `(tabs)/tracking.tsx`
+- `(tabs)/index.tsx`
+- `(tabs)/messages.tsx`
+- `terms-conditions.tsx`
+- `personal-details.tsx`
+- `payment.tsx`
+- `contact-support.tsx`
+- `package-request.tsx`
+- `edit-trip.tsx`
+- `shipping-request.tsx`
+- `traveler-dashboard.tsx`
+- `add-trip.tsx`
+- `payment-method.tsx`
+- `send-package.tsx`
+- `live-tracking.tsx`
+- `check-rates.tsx`
 
-## KYC Flow
-- **Not started** → "Start Verification"
-- **Started but incomplete** → "Continue Verification"
-- **Actually submitted** → "Under Review" + "Refresh Status"
-- **Approved** → "Verified" + Push notification + In-app notification
-- **Declined** → "Try Again" + Push notification + In-app notification
+### P1 - After Dark Mode Complete
+- Push notification client-side implementation
+- Currency conversion on frontend
+- EAS Build setup for TestFlight
 
-## Prioritized Backlog
+### P2 - Future Tasks
+- Admin dashboard verification
+- Full audit against `Bago_Full_System_Implementation.pdf`
 
-### P0 (Critical)
-- [x] Push notifications for KYC - DONE
-- [x] KYC status unlock bug - FIXED (Feb 2026)
-- [x] EAS Build configuration - CONFIGURED
-- [ ] Deploy backend to Render (USER ACTION)
+## Key Database Schema
+```javascript
+User: {
+  kycStatus: String ('not_started', 'pending', 'approved', 'declined'),
+  diditSessionId: String,
+  expoPushToken: String,
+  // ... other fields
+}
+```
 
-### P1 (High Priority)
-- [x] Admin dashboard verification - VERIFIED
-- [ ] Complete Dark Mode for ALL screens (systematic update needed)
-- [ ] Test currency conversion end-to-end
+## Environment Variables
+Backend (.env):
+- MONGO_URI
+- JWT_SECRET
+- DIDIT_API_KEY
+- DIDIT_WEBHOOK_SECRET
+- STRIPE_SECRET_KEY
+- RESEND_API_KEY
 
-### P2 (Medium Priority)
-- [ ] Test full KYC flow end-to-end
-- [ ] Generate TestFlight build via EAS
-
-## Key Files Changed - February 2026
-- `/app/baggo/backend/server.js` - Fixed kycStatus→status sync
-- `/app/baggo/client/contexts/AuthContext.tsx` - Added status/isVerified fields, improved refreshUser
-- `/app/baggo/client/hooks/useKYCCheck.ts` - Switched to api utility
-- `/app/baggo/client/app/kyc-verification.tsx` - Call refreshUser after approval
-- `/app/baggo/client/app/add-trip.tsx` - Check both kycStatus and status fields
-
-## Admin Dashboard Endpoints
-- `POST /api/Adminbaggo/AdminLogin` - Admin login
-- `GET /api/Adminbaggo/GetAllUsers` - List users
-- `GET /api/Adminbaggo/getAllkyc` - List KYC requests
-- `PUT /api/Adminbaggo/Verifykyc` - Verify KYC
-- `GET /api/Adminbaggo/dashboard` - Dashboard stats
-- `GET /api/Adminbaggo/analystic` - Analytics
+## Notes
+- This is a React Native Expo project - no web frontend
+- Backend runs on port 5000
+- External URL: https://neringa.onrender.com
+- Webhook receives DIDIT status updates and updates user in MongoDB
