@@ -24,6 +24,7 @@ function RootLayoutContent() {
 
   return (
     <>
+      <PushNotificationSetup />
       <Stack 
         screenOptions={{ 
           headerShown: false,
