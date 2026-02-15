@@ -179,7 +179,7 @@ export default function TrackingScreen(): JSX.Element {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
+      <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
         <View style={styles.topBar}>
           <Text style={styles.headerTitle}>Track Package</Text>
           <View style={styles.headerActions}>
@@ -187,10 +187,10 @@ export default function TrackingScreen(): JSX.Element {
               style={styles.notificationButton}
               onPress={() => router.push('/notifications')}
             >
-              <Bell size={20} color={Colors.white} />
+              <Bell size={20} color={colors.white} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileButton} onPress={() => router.push('/profile')}>
-              <User size={20} color={Colors.white} />
+              <User size={20} color={colors.white} />
             </TouchableOpacity>
           </View>
         </View>
@@ -199,7 +199,7 @@ export default function TrackingScreen(): JSX.Element {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.trackingCard}>
           <View style={styles.trackingIllustration}>
-            <Package size={48} color={Colors.gold} strokeWidth={1.5} />
+            <Package size={48} color={colors.gold} strokeWidth={1.5} />
           </View>
 
           <Text style={styles.trackingTitle}>Track your package!</Text>
@@ -209,11 +209,11 @@ export default function TrackingScreen(): JSX.Element {
 
           {/* Input row */}
           <View style={styles.trackingInputContainer}>
-            <Search size={20} color={Colors.textLight} />
+            <Search size={20} color={colors.textLight} />
             <TextInput
               style={styles.trackingInput}
               placeholder="BG-482-242"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={trackingInput}
               onChangeText={setTrackingInput}
             />
@@ -230,7 +230,7 @@ export default function TrackingScreen(): JSX.Element {
           <Text style={styles.sectionSubtitle}>Your recently tracked packages</Text>
 
           {loadingOrders ? (
-            <ActivityIndicator size="large" color={Colors.primary} style={styles.spinner} />
+            <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
           ) : recentOrders.length === 0 ? (
             <Text style={styles.noOrdersText}>No recent orders found</Text>
           ) : (
@@ -246,7 +246,7 @@ export default function TrackingScreen(): JSX.Element {
                 }
               >
                 <View style={styles.recentIcon}>
-                  <Package size={24} color={Colors.primary} />
+                  <Package size={24} color={colors.primary} />
                 </View>
                 <View style={styles.recentInfo}>
                   <Text style={styles.recentTitle} numberOfLines={1}>
@@ -259,14 +259,14 @@ export default function TrackingScreen(): JSX.Element {
                       {
                         color:
                           order.status === 'pending'
-                            ? Colors.warning
+                            ? colors.warning
                             : order.status === 'accepted' || order.status === 'inTransit'
-                            ? Colors.success
+                            ? colors.success
                             : order.status === 'delivered'
-                            ? Colors.primary
+                            ? colors.primary
                             : order.status === 'rejected'
-                            ? Colors.error
-                            : Colors.textLight,
+                            ? colors.error
+                            : colors.textLight,
                       },
                     ]}
                   >
@@ -289,7 +289,7 @@ export default function TrackingScreen(): JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     paddingTop: 60,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: colors.white,
   },
   headerActions: {
     flexDirection: 'row',
@@ -331,13 +331,13 @@ const styles = StyleSheet.create({
     marginTop: -10,
   },
   trackingCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 24,
     padding: 32,
     marginHorizontal: 20,
     marginTop: 20,
     alignItems: 'center',
-    shadowColor: Colors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -355,12 +355,12 @@ const styles = StyleSheet.create({
   trackingTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   trackingSubtitle: {
     fontSize: 15,
-    color: Colors.textLight,
+    color: colors.textLight,
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -378,11 +378,11 @@ const styles = StyleSheet.create({
   trackingInput: {
     flex: 1,
     fontSize: 16,
-    color: Colors.text,
+    color: colors.text,
   },
   trackButton: {
     width: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   trackButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.white,
+    color: colors.white,
   },
   recentSection: {
     padding: 20,
@@ -400,21 +400,21 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: colors.textLight,
     marginBottom: 16,
   },
   recentCard: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: Colors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -436,12 +436,12 @@ const styles = StyleSheet.create({
   recentTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   recentTracking: {
     fontSize: 13,
-    color: Colors.textLight,
+    color: colors.textLight,
     marginBottom: 4,
   },
   recentStatus: {
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   noOrdersText: {
     fontSize: 16,
-    color: Colors.textLight,
+    color: colors.textLight,
     textAlign: 'center',
     marginVertical: 20,
   },
