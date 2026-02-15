@@ -21,6 +21,7 @@ const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 export default function SearchTravelersScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { colors } = useTheme();
   const { fromCountry, fromCity, toCountry, toCity, packageWeight, packageId, amount, image } = params;
 
   const [insurance, setInsurance] = useState(false);
