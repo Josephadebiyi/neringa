@@ -320,7 +320,7 @@ export default function KYCVerificationScreen() {
 
       <View style={styles.content}>
         {/* Status Card */}
-        <View style={[styles.statusCard, { backgroundColor: colors.white }]}>
+        <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
           {renderStatusIcon()}
           <Text style={[styles.statusTitle, { color: statusInfo.color }]}>{statusInfo.title}</Text>
           <Text style={[styles.statusSubtitle, { color: colors.textLight }]}>{statusInfo.subtitle}</Text>
@@ -329,7 +329,7 @@ export default function KYCVerificationScreen() {
         {/* Info Cards */}
         <View style={styles.infoSection}>
           <Text style={[styles.infoTitle, { color: colors.text }]}>Why Verify?</Text>
-          <View style={[styles.infoCard, { backgroundColor: colors.white }]}>
+          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
             <View style={styles.infoItem}>
               <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}15` }]}>
                 <Shield size={20} color={colors.primary} />
@@ -359,9 +359,9 @@ export default function KYCVerificationScreen() {
             disabled={creatingSession}
           >
             {creatingSession ? (
-              <ActivityIndicator color={colors.white} />
+              <ActivityIndicator color={colors.textInverse} />
             ) : (
-              <Text style={[styles.verifyButtonText, { color: colors.white }]}>
+              <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>
                 {kycStatus === 'declined' ? 'Try Again' : canRetry ? 'Continue Verification' : 'Start Verification'}
               </Text>
             )}
@@ -371,7 +371,7 @@ export default function KYCVerificationScreen() {
         {kycStatus === 'pending' && (
           <>
             <TouchableOpacity 
-              style={[styles.verifyButton, styles.refreshButton, { backgroundColor: colors.white, borderColor: colors.primary }]} 
+              style={[styles.verifyButton, styles.refreshButton, { backgroundColor: colors.card, borderColor: colors.primary }]} 
               onPress={checkKYCStatus}
             >
               <Text style={[styles.refreshButtonText, { color: colors.primary }]}>Refresh Status</Text>
@@ -383,9 +383,9 @@ export default function KYCVerificationScreen() {
                 disabled={creatingSession}
               >
                 {creatingSession ? (
-                  <ActivityIndicator color={colors.white} />
+                  <ActivityIndicator color={colors.textInverse} />
                 ) : (
-                  <Text style={[styles.verifyButtonText, { color: colors.white }]}>Restart Verification</Text>
+                  <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>Restart Verification</Text>
                 )}
               </TouchableOpacity>
             )}
@@ -394,10 +394,10 @@ export default function KYCVerificationScreen() {
 
         {kycStatus === 'approved' && (
           <TouchableOpacity 
-            style={[styles.verifyButton, { backgroundColor: '#22C55E' }]} 
+            style={[styles.verifyButton, { backgroundColor: colors.success }]} 
             onPress={() => router.back()}
           >
-            <Text style={[styles.verifyButtonText, { color: colors.white }]}>Continue to App</Text>
+            <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>Continue to App</Text>
           </TouchableOpacity>
         )}
       </View>
