@@ -1,154 +1,132 @@
 <analysis>**original_problem_statement:**
 The user wants to get the Baggo mobile app project fully functional and ready for the App Store. This involves fixing critical bugs, overhauling the user authentication system, and implementing a large set of new features.
 
-**PRODUCT REQUIREMENTS:**
-1.  **Fix KYC Status Flow:** The app must correctly reflect the KYC status (, , ) from the DIDIT.me service. An approved status must unlock all app features. Users who start but don't finish KYC should be able to restart.
-2.  **Full Dark Mode:** Implement a dark mode for ALL screens in the app, with the ability to switch themes in settings and respect the system default.
-3.  **Account Deletion:** Allow users to delete their account. This should include a brief questionnaire to gather feedback.
-4.  **User Avatars:** Allow users to choose from 6 pre-defined avatars or upload their own custom profile picture.
-5.  **Full Name Display:** Ensure the user's full name (first and last) is displayed throughout the app, not just the first name.
-6.  **Push Notifications:** Send a push notification to the user when their KYC status is updated (e.g., to approved or declined).
-7.  **Currency Conversion:** Implement currency conversion on the frontend for all monetary values.
-8.  **Admin Dashboard Verification:** Verify that the admin dashboard is fully functional.
-9.  **EAS Build Setup:** Configure the project to build an IPA file for TestFlight using EAS Build.
+The user's most recent request (message #116) provides two high-priority, detailed directives:
+1.  **Complete Dark Mode Refactor:** Systematically remove all hardcoded colors (, hex codes) from all screens. Implement a proper global theme system using a centralized , , and React Native's  for automatic theme switching. All UI elements (backgrounds, text, cards, modals) must adapt dynamically.
+2.  **Fix DIDIT KYC Integration:** Rearchitect the KYC flow to be fully webhook-driven. The backend must have a  endpoint that listens for status updates from DIDIT, extracts a  from the webhook metadata, and updates the user's  in MongoDB. The frontend should be simplified to no longer poll or expect a direct response from the DIDIT SDK, but instead, fetch the updated user profile from the backend to display the current status.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application is a React Native (Expo) mobile app with a Node.js backend. A full JWT-based authentication system is in place. The agent has implemented several major features in this session, including a detailed KYC state management flow, an account deletion feature with a feedback mechanism, user avatar selection, and the foundation for a full-app dark mode. Backend endpoints and frontend components have been created or modified for these features. However, several key user requests are still in progress or pending.
+The application is a React Native (Expo) mobile app with a Node.js backend. A JWT-based authentication system is in place.
+
+Based on the user's latest and most critical request, the agent has begun a major refactor of both the theming system and the KYC flow.
+-   **Theming:** A  exists, and the agent has started rewriting  to use a dynamic stylesheet pattern that adapts to the theme, which is the correct approach. However, the vast majority of the app's 36+ screens still use hardcoded colors.
+-   **KYC Webhook:** The backend  has been updated to pass the  in the DIDIT session metadata. The  webhook has been updated to receive this  and trigger a push notification. The frontend has not yet been refactored to align with this new webhook-driven architecture.
 
 **Last working item**:
--   Last item agent was working: The agent was beginning to set up the EAS Build configuration for creating a TestFlight IPA file, as requested by the user. The first step taken was to list the files in the client directory to understand the existing setup.
+-   Last item agent was working: The agent was in the middle of a large-scale refactoring task based on very specific user instructions. It had just finished rewriting  to use a proper, theme-aware styling pattern and was about to apply the same fix to  and other screens. This is part of the comprehensive Dark Mode implementation.
 -   Status: IN PROGRESS
 -   Agent Testing Done: N
--   Which testing method agent to use? NA (This is a configuration task. Success will be determined by a successful build.)
+-   Which testing method agent to use? This is a React Native project, so standard frontend testing/screenshot tools won't work. The backend can be tested with . The frontend changes will need to be validated by ensuring the app builds and runs correctly in an Expo environment. The  should be used for e2e testing after the refactor is complete, with instructions that it's a React Native app.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: KYC status does not unlock the app after approval (P0)
--   Issue 2: Incomplete Dark Mode Implementation (P1)
+-   Issue 1: Complete the app-wide Dark Mode refactor (P0)
+-   Issue 2: Finalize and verify the new webhook-driven KYC flow (P0)
+-   Issue 3: KYC status does not unlock the app after approval (P1)
 
 Issues Detail:
--   **Issue 1: KYC status does not unlock the app after approval**
-    -   Attempted fixes: The agent implemented a complex state machine in  to handle different KYC statuses. The backend was updated to sync status from DIDIT.
+-   **Issue 1: Complete the app-wide Dark Mode refactor**
+    -   Attempted fixes: The agent correctly identified that  makes static objects and started rewriting  using a functional stylesheet pattern that accepts the current theme. This is the correct path forward.
     -   Next debug checklist:
-        1.  Review . Specifically, check the logic that runs when the status is approved.
-        2.  Verify what  returns after DIDIT has approved a user.
-        3.  Ensure the  or another global state is updated to reflect .
-        4.  Confirm that other parts of the app that are currently locked correctly respond to this global state change.
-    -   Why fix this issue and what will be achieved with the fix? This is the core blocker preventing verified users from using the app, making the KYC integration incomplete.
+        1.  Create a script or use  to list all files still importing from  or using hardcoded hex color values.
+        2.  Systematically refactor each file using the dynamic stylesheet pattern established in .
+        3.  Pay close attention to , replacing it with functions that generate styles based on the theme from .
+        4.  Ensure  files and modals are also converted.
+    -   Why fix this issue and what will be achieved with the fix? This is a direct, high-priority user request to provide a polished, modern UI that supports both light and dark modes automatically.
+    -   Status: IN PROGRESS
+    -   Is recurring issue? Y
+    -   Should Test frontend/backend/both after fix? Frontend
+    -   Blocked on other issue: None
+-   **Issue 2: Finalize and verify the new webhook-driven KYC flow**
+    -   Attempted fixes: The backend was updated to include  in DIDIT session metadata and to handle it in the webhook.
+    -   Next debug checklist:
+        1.  Refactor the frontend KYC screen () to remove any polling or logic that expects a direct status update from the DIDIT SDK.
+        2.  The frontend should simply show the status from the user object () and provide a way to refresh the user profile from the backend ().
+        3.  The backend webhook () needs to be tested to ensure it correctly updates the  in MongoDB upon receiving a call from DIDIT.
+        4.  Verify end-to-end: user starts KYC -> DIDIT sends webhook -> backend updates DB -> frontend fetches updated profile and shows approved.
+    -   Why fix this issue and what will be achieved with the fix? This implements a more robust and reliable architecture for KYC status updates as explicitly requested by the user, fixing the core business logic.
     -   Status: IN PROGRESS
     -   Is recurring issue? Y
     -   Should Test frontend/backend/both after fix? both
--   **Issue 2: Incomplete Dark Mode Implementation**
-    -   Attempted fixes: The agent wrapped the app in a , created a theme context, and manually updated several screens (, , etc.) to use theme colors.
-    -   Next debug checklist:
-        1.  Create a list of all  files under .
-        2.  Systematically go through each file, import , and replace hardcoded color strings (e.g., , ) with dynamic theme colors (e.g., , ).
-        3.  Pay special attention to layouts, modals, and navigation components (, ).
-    -   Why fix this issue and what will be achieved with the fix? This is a major UI/UX requirement from the user. Completing it will provide a polished, modern user experience.
-    -   Status: IN PROGRESS
-    -   Is recurring issue? N
-    -   Should Test frontend/backend/both after fix? Frontend
+    -   Blocked on other issue: None
+-   **Issue 3: KYC status does not unlock the app after approval**
+    -   Attempted fixes: An initial fix was implemented to sync two different status fields ( and ). **This fix is now obsolete.** The user has mandated a new webhook-based architecture.
+    -   Next debug checklist: This issue will be resolved by correctly implementing **Issue 2**. Once the webhook properly updates  to  and the frontend uses this field, the app's features should unlock correctly. The  hook should be verified to only check for .
+    -   Why fix this issue and what will be achieved with the fix? This is the primary blocker preventing verified users from using the app.
+    -   Status: BLOCKED
+    -   Is recurring issue? Y
+    -   Should Test frontend/backend/both after fix? both
+    -   Blocked on other issue: Issue 2: Finalize and verify the new webhook-driven KYC flow
 
 **In progress Task List**:
--   **Task 1: Set up EAS Build for TestFlight IPA (P0)**
-    -   Where to resume: The agent has listed the files in . The next step is to check for an  file. If it doesn't exist, create it and configure the build profiles. This may require installing the .
-    -   What will be achieved with this? This will enable the user to generate builds for submission to Apple TestFlight, a critical step toward releasing the app.
-    -   Status: IN PROGRESS
-    -   Should Test frontend/backend/both after fix? NA
--   **Task 2: Implement Push Notifications for KYC Status (P2)**
-    -   Where to resume: The backend  has been updated to call a  helper when KYC status changes. However, the client-side permissions, token registration, and notification handling are not yet implemented.
-    -   What will be achieved with this? Users will receive real-time alerts about their verification status, improving user engagement.
-    -   Status: IN PROGRESS
-    -   Should Test frontend/backend/both after fix? both
+The current in-progress issues are the primary tasks.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   P1: Implement currency conversion on the frontend. A backend endpoint already exists, but the UI needs to be updated to use it for displaying all monetary amounts.
-    -   P2: Conduct a thorough test and verification of the admin dashboard located at . This is a separate Vite application that needs to be run and tested.
+    -   P1: Implement Push Notifications for KYC Status on the client side (permissions, token registration, and handling).
+    -   P1: Implement currency conversion on the frontend for all monetary values.
+    -   P2: Set up and verify EAS Build for TestFlight IPA generation. The agent found an  but did not verify if it works.
+    -   P2: Conduct a thorough test and verification of the admin dashboard ().
 -   **Future Tasks:**
-    -   Conduct a full audit of the app against the user-provided PDF  to ensure all original requirements have been met.
+    -   Conduct a full audit of the app against .
 
 **Completed work in this session**
--   **KYC State Management:** Implemented a robust frontend state machine in  to handle Not started, Started but incomplete, Under Review, Approved, and Declined states, including a Continue Verification option.
--   **Account Deletion:** Implemented a full-stack feature for account deletion, including a frontend modal with a feedback questionnaire and a backend endpoint to process the deletion and save the feedback.
--   **User Avatar Selection:** Added a feature for users to select from pre-defined avatars or upload their own image, with updates to the frontend UI, user model, and controller.
--   **Full Name Display:** Fixed UI across multiple screens to show the user's full name instead of only their first name.
--   **Dark Mode Foundation:** Set up the  and converted several key screens to use dynamic theme colors.
--   **Authentication Flow Fix:** Resolved the critical bug where the app would not recognize a user as logged in on the KYC page after a successful sign-in by correctly updating the .
+-   **Initial KYC Fix (Superseded):** Implemented a frontend polling-based fix for the KYC status bug. This work should be disregarded in favor of the new webhook architecture.
+-   **Backend Webhook Enhancement:** Updated the DIDIT KYC backend controller and webhook route to pass and receive the , making the new architecture possible.
+-   **Dark Mode Refactor (Started):** Began the app-wide dark mode refactor by establishing the correct dynamic stylesheet pattern and applying it to the  screen.
+-   **Environment Diagnostics:** Correctly diagnosed that this is a React Native Expo project and that the supervisor configuration for a web frontend was incorrect, allowing focus to shift to API testing.
 
 **Earlier issues found/mentioned but not fixed**
--   The core user requests for currency conversion and admin panel verification were acknowledged but have been repeatedly postponed in favor of more recent, higher-priority requests. These remain in the upcoming task list.
+-   **Currency Conversion:** Requested multiple times by the user but has not been started.
+-   **Admin Dashboard Verification:** Requested multiple times by the user; the agent has not run or tested the admin panel yet.
 
 **Known issue recurrence from previous fork**
--   The KYC flow continues to be a source of recurring bugs. While the initial User not authenticated issue was fixed, it has evolved into a more nuanced state management problem where the approved status from the backend isn't correctly unlocking the app's UI. This highlights the complexity of syncing state between the client, the server, and the third-party DIDIT.me service.
+-   The KYC flow has been a persistent problem. The latest user request aims to fix this by moving from a brittle client-side polling model to a more robust server-side webhook architecture.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frontend:** React Native, Expo, TypeScript, Axios, , , .
--   **Backend:** Node.js, Express.js, MongoDB, Mongoose, JWT.
+-   **Frontend:** React Native, Expo, TypeScript, Axios, , .
+-   **Backend:** Node.js, Express.js, MongoDB, Mongoose, JWT, Webhooks.
 -   **Authentication:** JWT Bearer Token flow.
--   **Deployment:** Backend on Render, Client via Expo Go. Planning to add EAS Build.
--   **Integrations:** Stripe, Paystack, Resend, DIDIT.me (KYC), Cloudinary, Google Auth, Expo Push Notifications.
+-   **Integrations:** DIDIT.me (KYC), Stripe, Paystack, Resend, Cloudinary, Google Auth, Expo Push Notifications.
 
 **key DB schema**
 -   **User:** 
--   **Feedback:**  (New)
 
 **changes in tech stack**
--   No changes to the core stack. EAS Build is being added to the development/deployment tooling.
+-   None.
 
 **All files of reference**
--   **KYC Flow:** , 
--   **Account Deletion:** , , 
--   **Avatars:** , 
--   **Dark Mode:** , , and numerous screen components.
--   **Push Notifications:** , 
--   **EAS Build:**  (will likely be created/modified).
-
-**Areas that need refactoring**:
--   The process for applying dark mode is manual and repetitive. A more systematic approach, potentially using a script or defining global component styles that react to the theme, would be more efficient than editing each file individually.
-
-**key api endpoints**
--    (New)
--    (New)
--    (Modified)
--    (Modified to sync with DIDIT)
+-   **Dark Mode Refactor:** , ,  (to be removed).
+-   **KYC Webhook Flow:** , , .
+-   **Project Root:** 
 
 **Critical Info for New Agent**
--   **Prioritize User's Last Request:** The user's most recent request was to set up EAS Build. This should be the immediate next step.
--   **Complex Feature List:** The user is requesting multiple large features simultaneously (EAS Build, Push Notifications, Currency Conversion, Dark Mode, Admin Verification). It is crucial to work on them systematically. Propose a clear plan to the user that tackles one major item at a time or related items in a batch.
--   **KYC Flow is Brittle:** Be extremely careful when working on the KYC flow. It involves three-way state synchronization (client, backend, DIDIT.me) and has been a recurring source of bugs. Thoroughly test any changes to this flow. The immediate bug is that an  status is not unlocking the app.
--   **Admin Panel is Untested:** The admin panel at  is a separate Vite project. It has not been run or tested. You will need to  into its directory, install dependencies (), and run its dev server () to test it.
+-   **Follow User Message #116:** The user's last message provides extremely specific, non-negotiable instructions for refactoring Dark Mode and the KYC flow. These instructions override all previous agent plans and fixes. The work has already begun on this path; you must continue it.
+-   **Dark Mode is a Large-Scale Task:** Systematically refactor all 36+ screens to remove  and hardcoded hex values. Use the dynamic stylesheet pattern the previous agent started in . A script to find all files needing changes would be efficient.
+-   **KYC Architecture Has Changed:** The architecture is now webhook-driven. The frontend polling/refresh logic implemented earlier is now obsolete and should be removed. Your task is to complete the transition by simplifying the frontend and thoroughly testing the new end-to-end webhook flow.
+-   **Mobile-Only Environment:** This is a React Native (Expo) project. There is no web frontend. Do not try to use  or screenshot tools on a web URL. Backend API testing via  is fine. Frontend validation requires an understanding of the Expo ecosystem.
 
 **documents and test reports created in this job**
--    (updated)
--    (original requirements document)
+-    (Updated, but may need further updates after the current refactor).
+-    (Original requirements document).
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Asks for Dark Mode, Account Deletion with questionnaire, and points out the KYC status flow is broken.
-2.  **Agent:** Acknowledges and starts working on the requests.
-3.  **User:** Reports that after DIDIT approves verification, the app status doesn't update, features remain locked, traveler's full name isn't shown, and requests user avatars.
-4.  **Agent:** Acknowledges the new list of issues and starts implementation.
-5.  **User:** Asks for alerts to become push notifications, currency conversion on the frontend, admin dashboard verification, and for the dark mode to be completed for ALL pages.
-6.  **Agent:** Acknowledges the comprehensive list and starts working.
-7.  **User:** Requests EAS Build setup for TestFlight IPA.
-8.  **Agent:** Acknowledges and begins the EAS build setup process.
+-   **User (Message #116):** Provided a very detailed, multi-point set of requirements to completely refactor the Dark/Light mode theme system and to re-architect the DIDIT KYC integration to be webhook-driven. This message is the most important piece of context and is currently being implemented. (IN PROGRESS)
+-   **Agent (Message #115):** Finished a session, summarizing that the KYC fix was complete. **This summary is now outdated** because the user rejected that approach in message #116. (OBSOLETE)
 
 **Project Health Check:**
 -   **Broken:**
-    -   The KYC status flow is not working correctly; an approved status from DIDIT does not unlock app features as intended.
-    -   The dark mode implementation is incomplete, with many screens still using hardcoded light-theme colors.
--   **Mocked:**
-    -   None.
+    -   **Theming:** The app's UI is broken across many screens due to an incomplete and incorrect implementation of dark mode. Most screens use hardcoded colors that do not adapt.
+    -   **KYC Flow:** The core logic for verifying users is broken. The architecture is in a transitional state between an old (and buggy) polling method and a new (and incomplete) webhook method.
 
 **3rd Party Integrations**
 -   **DIDIT.me:** KYC provider
--   **Stripe:** Payment provider
--   **Paystack:** Payment provider (for Africa)
+-   **Stripe & Paystack:** Payment providers
 -   **Resend:** Email service provider
 -   **MongoDB Atlas:** Cloud database
 -   **Cloudinary:** Media asset hosting
@@ -159,11 +137,10 @@ Issues Detail:
 -   Testing agent used after significant changes: NO
 -   Troubleshoot agent used after agent stuck in loop: NO
 -   Test files created: []
--   Known regressions: A new bug has appeared in the KYC flow where the approved status is not being correctly handled by the UI, preventing users from accessing the app.
+-   Known regressions: The initial KYC fix was a regression in architecture, which is now being corrected per the user's explicit instructions.
 
 **Credentials to test flow:**
-All credentials for 3rd party services are stored as environment variables on the Render.com dashboard and should be automatically available in the environment.
+-   All credentials should be available as environment variables.
 
 **What agent forgot to execute**
--   **Currency Conversion:** The user has requested this feature multiple times, but it has not been started. The backend logic exists, but the frontend needs implementation.
--   **Admin Dashboard Verification:** This task has also been requested multiple times and remains pending. The agent has located the files but has not run or tested the admin panel.</analysis>
+-   The agent correctly prioritized the user's latest, most critical feedback (message #116). The tasks from the initial handoff (Currency Conversion, Admin Dashboard Verification) were logically postponed and remain in the upcoming backlog.</analysis>
