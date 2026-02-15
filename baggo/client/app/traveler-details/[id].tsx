@@ -20,6 +20,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 export default function TravelerDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { colors } = useTheme();
 
   // Use travelerId consistently from params
   const travelerId = params.travelerId || params.id;
