@@ -17,7 +17,6 @@ import {
 import { useState, useEffect } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors } from "@/constants/Colors";
 import { backendomain } from "@/utils/backendDomain";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -25,6 +24,7 @@ import { WebView } from "react-native-webview";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Location from 'expo-location';
 import { StripeProvider, CardField, useStripe } from "@/utils/stripe";
+import { useTheme } from '@/contexts/ThemeContext';
 
 const PAYMENT_INTENT_URL = `${backendomain.backendomain}/api/payment/create-intent`;
 const PAYSTACK_INIT_URL = `${backendomain.backendomain}/api/payment/initialize`;
@@ -34,6 +34,7 @@ const ESCROW_ADD_URL = `${backendomain.backendomain}/api/baggo/add-to-escrow`;
 export default function PaymentScreen() {
   const router = useRouter();
   const { confirmPayment } = useStripe();
+  const { colors } = useTheme();
 
   const {
   travellerName,
