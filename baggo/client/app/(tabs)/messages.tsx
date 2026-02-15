@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-import { Colors } from '@/constants/Colors';
 import { MessageCircle, ArrowLeft, Send } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 import { SafeAreaView,useSafeAreaInsets  } from 'react-native-safe-area-context';
