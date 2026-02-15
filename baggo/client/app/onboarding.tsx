@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChevronLeft } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 

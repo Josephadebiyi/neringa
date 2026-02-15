@@ -2,10 +2,12 @@ import { View, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function Index() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const { colors } = useTheme();
 
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -36,7 +38,7 @@ export default function Index() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Image
         source={require('@/assets/images/bago-logo.png')}
         style={styles.logo}
@@ -45,7 +47,7 @@ export default function Index() {
       {loading && (
         <ActivityIndicator
           size="large"
-          color="#6366F1"
+          color={colors.primary}
           style={styles.spinner}
         />
       )}
@@ -56,7 +58,6 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
