@@ -20,6 +20,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const router = useRouter();
+  const { colors } = useTheme();
 
   const handleForgotPassword = async () => {
     setError('');
@@ -46,16 +47,16 @@ export default function ForgotPassword() {
       }
 
       setSuccess('OTP sent to your email.');
+      const savedEmail = email;
       setEmail('');
 
-      // ✅ Navigate to OTP screen and pass the email
       setTimeout(() => {
         router.push({
           pathname: '/auth/verify-otp',
-          params: { email },
+          params: { email: savedEmail },
         });
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
@@ -65,21 +66,21 @@ export default function ForgotPassword() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Package size={60} color={Colors.primary} strokeWidth={2} />
-          <Text style={styles.title}>BAGGO</Text>
-          <Text style={styles.subtitle}>Reset Your Password</Text>
+          <Package size={60} color={colors.primary} strokeWidth={2} />
+          <Text style={[styles.title, { color: colors.primary }]}>BAGGO</Text>
+          <Text style={[styles.subtitle, { color: colors.textLight }]}>Reset Your Password</Text>
         </View>
 
         <View style={styles.form}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.inputText }]}
             placeholder="Enter your email"
-            placeholderTextColor={Colors.textLight}
+            placeholderTextColor={colors.inputPlaceholder}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -87,18 +88,18 @@ export default function ForgotPassword() {
             editable={!loading}
           />
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {success ? <Text style={styles.success}>{success}</Text> : null}
+          {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
+          {success ? <Text style={[styles.success, { color: colors.success }]}>{success}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
             onPress={handleForgotPassword}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={Colors.white} />
+              <ActivityIndicator color={colors.textInverse} />
             ) : (
-              <Text style={styles.buttonText}>Send OTP</Text>
+              <Text style={[styles.buttonText, { color: colors.textInverse }]}>Send OTP</Text>
             )}
           </TouchableOpacity>
 
@@ -107,9 +108,9 @@ export default function ForgotPassword() {
             onPress={() => router.push('/auth/signin')}
             disabled={loading}
           >
-            <Text style={styles.linkText}>
+            <Text style={[styles.linkText, { color: colors.textLight }]}>
               Remember your password?{' '}
-              <Text style={styles.linkTextBold}>Sign In</Text>
+              <Text style={[styles.linkTextBold, { color: colors.primary }]}>Sign In</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -121,7 +122,6 @@ export default function ForgotPassword() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   content: {
     flex: 1,
@@ -135,31 +135,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: Colors.primary,
     marginTop: 16,
     letterSpacing: 2,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textLight,
     marginTop: 8,
   },
   form: {
     width: '100%',
   },
   input: {
-    backgroundColor: Colors.white,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: Colors.text,
     marginBottom: 16,
   },
   button: {
-    backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -169,18 +163,15 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
   error: {
-    color: Colors.error,
     fontSize: 14,
     marginBottom: 12,
     textAlign: 'center',
   },
   success: {
-    color: Colors.success || '#22c55e',
     fontSize: 14,
     marginBottom: 12,
     textAlign: 'center',
@@ -190,11 +181,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: {
-    color: Colors.textLight,
     fontSize: 14,
   },
   linkTextBold: {
-    color: Colors.primary,
     fontWeight: '600',
   },
 });
