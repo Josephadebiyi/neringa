@@ -405,15 +405,6 @@ export default function KYCVerificationScreen() {
   );
 }
 
-const Colors = {
-  primary: '#5845D8',
-  white: '#FFFFFF',
-  background: '#F8F6F3',
-  text: '#1A1A1A',
-  textLight: '#6B6B6B',
-  border: '#E5E5E5',
-};
-
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
@@ -440,14 +431,12 @@ const styles = StyleSheet.create({
   headerTitle: { 
     fontSize: 18, 
     fontWeight: '600', 
-    color: Colors.text,
   },
   content: { 
     flex: 1, 
     padding: 20,
   },
   statusCard: {
-    backgroundColor: Colors.white,
     borderRadius: 20,
     padding: 32,
     alignItems: 'center',
@@ -466,7 +455,6 @@ const styles = StyleSheet.create({
   },
   statusSubtitle: { 
     fontSize: 14, 
-    color: Colors.textLight, 
     textAlign: 'center', 
     lineHeight: 20,
   },
@@ -476,11 +464,9 @@ const styles = StyleSheet.create({
   infoTitle: { 
     fontSize: 16, 
     fontWeight: '600', 
-    color: Colors.text, 
     marginBottom: 12,
   },
   infoCard: { 
-    backgroundColor: Colors.white, 
     borderRadius: 16, 
     padding: 16,
   },
@@ -493,7 +479,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: `${Colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -527,7 +512,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   successButton: { 
-    backgroundColor: '#22C55E',
   },
   webview: { 
     flex: 1,
