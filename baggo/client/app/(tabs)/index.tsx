@@ -12,7 +12,6 @@ import { useState, useEffect, useCallback  } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
 import { MapPin, Send, Package, Plane, Calendar, Weight, Star, Bell, User, Search, TrendingUp, Award } from 'lucide-react-native';
 import { currencies } from '@/utils/locations';
 import AsyncStorage from '@react-native-async-storage/async-storage';
