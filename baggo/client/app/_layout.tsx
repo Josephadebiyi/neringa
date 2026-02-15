@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { Platform, View, ActivityIndicator, Text } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
+import PushNotificationSetup from "@/utils/PushNotificationSetup";
 import {
   useFonts,
   PlusJakartaSans_400Regular,
