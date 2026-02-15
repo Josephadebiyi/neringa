@@ -12,6 +12,7 @@ Build a fully functional mobile app for "Baggo" that connects travelers with pac
 ## Tech Stack
 - **Frontend:** React Native (Expo), TypeScript
 - **Backend:** Node.js, Express.js, MongoDB
+- **Admin Dashboard:** React/Vite
 - **Integrations:** DIDIT.me (KYC), Stripe, Paystack, Resend, Cloudinary, Expo Push Notifications
 
 ## Architecture
@@ -28,76 +29,51 @@ Build a fully functional mobile app for "Baggo" that connects travelers with pac
     ├── app/
     ├── components/
     ├── contexts/
+    ├── hooks/
     └── constants/
 ```
 
 ## What's Been Implemented
 
-### February 15, 2026 - Dark Mode & KYC Progress
+### February 15, 2026 - Complete Session
 
-#### Completed:
-1. **ThemeContext.tsx** - Comprehensive theme system with light/dark colors
-2. **Theme-aware screens updated:**
-   - `index.tsx` (splash screen)
-   - `onboarding.tsx`
-   - `auth/signup.tsx`
-   - `auth/signin.tsx`
-   - `auth/verify-otp.tsx`
-   - `auth/forgot-password.tsx`
-   - `banned.tsx`
-   - `success-page.tsx`
-   - `failed-page.tsx`
-   - `+not-found.tsx`
-   - `add-address.tsx`
-   - `traveler-details/[id].tsx`
-   - `kyc-verification.tsx`
+#### P0 - Dark Mode Refactor: ✅ COMPLETE
+All 35+ screens updated to use dynamic theming via `ThemeContext`:
+- Auth screens (signin, signup, forgot-password, verify-otp)
+- Tab screens (index, profile, messages, tracking)
+- Feature screens (add-trip, edit-trip, payment, search-travelers, etc.)
+- Utility screens (banned, success, failed, not-found, etc.)
 
-3. **KYC Webhook System (Backend):**
-   - Webhook endpoint at `/api/didit/webhook`
-   - Parses `vendor_data` to extract userId
-   - Updates user's `kycStatus` in MongoDB
-   - Sends push notifications on approval/decline
-   - Creates in-app notifications
+Key changes:
+- Removed all `Colors` imports from `@/constants/Colors`
+- All screens now use `const { colors } = useTheme()`
+- Replaced `Colors.xxx` with `colors.xxx` throughout
+- Added missing `useTheme` hooks where needed
 
-#### Webhook URL for DIDIT:
-```
-https://neringa.onrender.com/api/didit/webhook
-```
+#### P1 - Push Notifications: ✅ COMPLETE
+- `PushNotificationSetup.tsx` utility integrated into `_layout.tsx`
+- Backend already has push token registration at `/register-token`
+- Notifications configured in `app.json` with expo-notifications plugin
+- Push notifications sent on KYC status changes
 
-## Remaining Work
+#### P1 - Currency Conversion: ✅ COMPLETE
+- Created `useCurrency` hook at `/app/baggo/client/hooks/useCurrency.ts`
+- Features: currency detection by location, exchange rate caching, formatPrice utility
+- Backend has `/api/currency/convert` and `/api/currency/rates` endpoints
+- Currency symbols mapping for 30+ currencies
 
-### P0 - High Priority (Dark Mode Refactor)
-21 screens still need theme updates:
-- `privacy-policy.tsx`
-- `search-travelers.tsx`
-- `package-details.tsx`
-- `notifications.tsx`
-- `(tabs)/profile.tsx`
-- `(tabs)/tracking.tsx`
-- `(tabs)/index.tsx`
-- `(tabs)/messages.tsx`
-- `terms-conditions.tsx`
-- `personal-details.tsx`
-- `payment.tsx`
-- `contact-support.tsx`
-- `package-request.tsx`
-- `edit-trip.tsx`
-- `shipping-request.tsx`
-- `traveler-dashboard.tsx`
-- `add-trip.tsx`
-- `payment-method.tsx`
-- `send-package.tsx`
-- `live-tracking.tsx`
-- `check-rates.tsx`
+#### P2 - EAS Build Setup: ✅ CONFIGURED
+- Updated `eas.json` with proper build profiles (development, preview, production)
+- Configured TestFlight submission settings
+- Added environment variables support
+- Updated `app.json` with required plugins (expo-notifications, expo-location)
 
-### P1 - After Dark Mode Complete
-- Push notification client-side implementation
-- Currency conversion on frontend
-- EAS Build setup for TestFlight
-
-### P2 - Future Tasks
-- Admin dashboard verification
-- Full audit against `Bago_Full_System_Implementation.pdf`
+#### KYC Webhook System: ✅ COMPLETE
+- **Webhook URL:** `https://neringa.onrender.com/api/didit/webhook`
+- Parses `vendor_data` to extract userId
+- Updates user's `kycStatus` in MongoDB
+- Sends push notifications on approval/decline
+- Creates in-app notifications
 
 ## Key Database Schema
 ```javascript
@@ -105,6 +81,7 @@ User: {
   kycStatus: String ('not_started', 'pending', 'approved', 'declined'),
   diditSessionId: String,
   expoPushToken: String,
+  preferredCurrency: String,
   // ... other fields
 }
 ```
@@ -118,8 +95,25 @@ Backend (.env):
 - STRIPE_SECRET_KEY
 - RESEND_API_KEY
 
-## Notes
-- This is a React Native Expo project - no web frontend
-- Backend runs on port 5000
-- External URL: https://neringa.onrender.com
-- Webhook receives DIDIT status updates and updates user in MongoDB
+## API Endpoints
+- `POST /api/didit/webhook` - DIDIT KYC status webhook
+- `GET /api/currency/convert` - Currency conversion
+- `GET /api/currency/rates` - Exchange rates
+- `POST /register-token` - Push notification token registration
+
+## Remaining Work
+- **Admin Dashboard Verification:** Full testing of `/app/baggo/boggoAdmin`
+- **Full Audit:** Against `Bago_Full_System_Implementation.pdf`
+
+## EAS Build Instructions
+To build for TestFlight:
+```bash
+cd /app/baggo/client
+eas build --platform ios --profile production
+eas submit --platform ios
+```
+
+Required environment variables for submission:
+- EXPO_APPLE_ID
+- EXPO_ASC_APP_ID
+- EXPO_APPLE_TEAM_ID
