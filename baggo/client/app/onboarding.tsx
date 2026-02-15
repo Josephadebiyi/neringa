@@ -44,6 +44,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { colors } = useTheme();
 
   const handleNext = () => {
     if (currentIndex < onboardingData.length - 1) {
