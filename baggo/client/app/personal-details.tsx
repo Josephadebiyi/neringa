@@ -188,7 +188,7 @@ export default function PersonalDetailsScreen() {
       }
     }
     
-    return <User size={48} color={colors.white} />;
+    return <User size={48} color={colors.textInverse} />;
   };
 
   const handleSave = async () => {
@@ -271,7 +271,7 @@ export default function PersonalDetailsScreen() {
             <TouchableOpacity style={styles.avatar} onPress={() => setAvatarModalVisible(true)}>
               {renderAvatar()}
               <View style={styles.cameraIcon}>
-                <Camera size={16} color={colors.white} />
+                <Camera size={16} color={colors.textInverse} />
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.changePhotoButton} onPress={() => setAvatarModalVisible(true)}>
@@ -387,7 +387,7 @@ export default function PersonalDetailsScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Save size={20} color={colors.white} />
+          <Save size={20} color={colors.textInverse} />
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: colors.white,
+    backgroundColor: colors.textInverse,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: colors.white,
+    backgroundColor: colors.textInverse,
     marginBottom: 20,
   },
   avatar: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.textInverse,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: colors.white,
+    backgroundColor: colors.textInverse,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.textInverse,
   },
   // Avatar styles
   avatarPreset: {
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: colors.textInverse,
   },
   // Modal styles
   modalOverlay: {
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.textInverse,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
