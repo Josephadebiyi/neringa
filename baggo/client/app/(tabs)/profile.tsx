@@ -14,7 +14,6 @@ import {
 import { useState, useEffect } from 'react';
 import { useRouter,useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
 import { User, Shield, CreditCard,Copy, FileText,CheckCircle,XCircle , LogOut, ChevronRight, CircleAlert as AlertCircle, Wallet, CircleArrowUp as ArrowUpCircle, CircleArrowDown as ArrowDownCircle, Building, X, DollarSign, Search, Moon, Sun, Trash2 } from 'lucide-react-native';
 import { walletTransactions } from '@/utils/dummyData';
 import { currencies } from '@/utils/locations';
