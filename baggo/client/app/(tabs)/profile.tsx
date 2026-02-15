@@ -966,13 +966,13 @@ const handleCurrencySelect = (newCurrency: string) => {
   }) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
       <View style={styles.menuIcon}>
-        <Icon size={20} color={Colors.primary} />
+        <Icon size={20} color={colors.primary} />
       </View>
       <View style={styles.menuContent}>
         <Text style={styles.menuTitle}>{title}</Text>
         {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
       </View>
-      <ChevronRight size={20} color={Colors.textLight} />
+      <ChevronRight size={20} color={colors.textLight} />
     </TouchableOpacity>
   );
 
@@ -999,7 +999,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       </View>
 
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={[colors.primary, colors.primaryDark]}
         style={styles.profileCard}
       >
       <TouchableOpacity   onPress={() => router.push('/personal-details')} style={styles.avatarContainer}>
@@ -1022,14 +1022,14 @@ const handleCurrencySelect = (newCurrency: string) => {
   </View>
 
   <View style={styles.verifiedBadge}>
-    <Shield size={12} color={Colors.white} fill={Colors.white} />
+    <Shield size={12} color={colors.white} fill={colors.white} />
   </View>
 </TouchableOpacity>
 
         <View style={styles.nameRow}>
           <Text style={styles.profileName}>{userData ? `${userData.firstName} ${userData.lastName}` : 'Sarah'}</Text>
           <View style={styles.kycBadge}>
-            <Shield size={14} color={userData?.status === 'verified' ? Colors.success : Colors.warning} />
+            <Shield size={14} color={userData?.status === 'verified' ? colors.success : colors.warning} />
             <Text style={styles.kycText}>
               {userData?.status === 'verified' ? 'KYC Verified' : 'KYC Pending'}
             </Text>
@@ -1136,7 +1136,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         <Text style={styles.stripeTitle}>Paystack Account</Text>
         {recipientCode ? (
           <View style={styles.stripeConnected}>
-            <Shield size={20} color={Colors.success} />
+            <Shield size={20} color={colors.success} />
             <Text style={styles.stripeText}>Paystack Connected</Text>
           </View>
         ) : (
@@ -1144,7 +1144,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             style={styles.connectButton}
             onPress={() => setShowPaystackSetup(true)}
           >
-            <CreditCard size={20} color={Colors.white} />
+            <CreditCard size={20} color={colors.white} />
             <Text style={styles.connectButtonText}>Setup Paystack</Text>
           </TouchableOpacity>
         )}
@@ -1154,12 +1154,12 @@ const handleCurrencySelect = (newCurrency: string) => {
         <Text style={styles.stripeTitle}>Stripe Account</Text>
         {stripeStatus.chargesEnabled ? (
           <View style={styles.stripeConnected}>
-            <Shield size={20} color={Colors.success} />
+            <Shield size={20} color={colors.success} />
             <Text style={styles.stripeText}>Stripe Connected</Text>
           </View>
         ) : (
           <TouchableOpacity style={styles.connectButton} onPress={handleStripeConnect}>
-            <CreditCard size={20} color={Colors.white} />
+            <CreditCard size={20} color={colors.white} />
             <Text style={styles.connectButtonText}>Connect Stripe</Text>
           </TouchableOpacity>
         )}
@@ -1169,7 +1169,7 @@ const handleCurrencySelect = (newCurrency: string) => {
 
 
         <LinearGradient
-          colors={[Colors.gold, Colors.secondary]}
+          colors={[colors.gold, colors.secondary]}
           style={styles.walletCard}
         >
         <View style={styles.walletHeader}>
@@ -1180,7 +1180,7 @@ const handleCurrencySelect = (newCurrency: string) => {
   </Text>
 
     {/* -- NEW: Escrow balance display -- */}
-    <Text style={{ color: Colors.white, opacity: 0.85, marginTop: 6, fontSize: 14 }}>
+    <Text style={{ color: colors.white, opacity: 0.85, marginTop: 6, fontSize: 14 }}>
       Held in Escrow: {symbol}{escrowBalance
   ? escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   : "0.00"}
@@ -1189,7 +1189,7 @@ const handleCurrencySelect = (newCurrency: string) => {
 
   </View>
   <View style={styles.walletIcon}>
-    <Wallet size={24} color={Colors.white} />
+    <Wallet size={24} color={colors.white} />
   </View>
 </View>
 
@@ -1199,7 +1199,7 @@ const handleCurrencySelect = (newCurrency: string) => {
               style={styles.walletButton}
               onPress={() => setWithdrawModalVisible(true)}
             >
-              <ArrowUpCircle size={20} color={Colors.gold} />
+              <ArrowUpCircle size={20} color={colors.gold} />
               <Text style={styles.walletButtonText}>Withdraw</Text>
             </TouchableOpacity>
           </View>
@@ -1221,15 +1221,15 @@ const handleCurrencySelect = (newCurrency: string) => {
                   {
                     backgroundColor:
                       txn.type === 'credit'
-                        ? Colors.successLight
-                        : Colors.backgroundLight,
+                        ? colors.successLight
+                        : colors.backgroundLight,
                   },
                 ]}
               >
                 {txn.type === 'credit' ? (
-                  <ArrowDownCircle size={20} color={Colors.success} />
+                  <ArrowDownCircle size={20} color={colors.success} />
                 ) : (
-                  <ArrowUpCircle size={20} color={Colors.textLight} />
+                  <ArrowUpCircle size={20} color={colors.textLight} />
                 )}
               </View>
 
@@ -1253,7 +1253,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                   styles.transactionAmount,
                   {
                     color:
-                      txn.type === 'credit' ? Colors.success : Colors.text,
+                      txn.type === 'credit' ? colors.success : colors.text,
                   },
                 ]}
               >
@@ -1288,7 +1288,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             onPress={() => setCurrencyModalVisible(true)}
           >
             <View style={styles.menuIcon}>
-              <DollarSign size={20} color={Colors.primary} />
+              <DollarSign size={20} color={colors.primary} />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Currency</Text>
@@ -1296,14 +1296,14 @@ const handleCurrencySelect = (newCurrency: string) => {
                 {currencies.find(c => c.code === currency)?.name} ({currencies.find(c => c.code === currency)?.symbol})
               </Text>
             </View>
-            <ChevronRight size={20} color={Colors.textLight} />
+            <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => setThemeModalVisible(true)}
           >
             <View style={styles.menuIcon}>
-              <Moon size={20} color={Colors.primary} />
+              <Moon size={20} color={colors.primary} />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Appearance</Text>
@@ -1311,7 +1311,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 {theme === 'system' ? 'System Default' : theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
               </Text>
             </View>
-            <ChevronRight size={20} color={Colors.textLight} />
+            <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1371,7 +1371,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Withdraw Funds</Text>
               <TouchableOpacity onPress={() => setWithdrawModalVisible(false)}>
-                <X size={24} color={Colors.text} />
+                <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -1382,7 +1382,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             <TextInput
               style={styles.modalInput}
               placeholder="Enter amount"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
               value={withdrawAmount}
               onChangeText={setWithdrawAmount}
@@ -1412,7 +1412,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Enter OTP</Text>
           <TouchableOpacity onPress={() => setOtpModalVisible(false)}>
-            <X size={24} color={Colors.text} />
+            <X size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -1451,16 +1451,16 @@ const handleCurrencySelect = (newCurrency: string) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Currency</Text>
               <TouchableOpacity onPress={() => setCurrencyModalVisible(false)}>
-                <X size={24} color={Colors.text} />
+                <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBar}>
-              <Search size={20} color={Colors.textLight} />
+              <Search size={20} color={colors.textLight} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search currencies..."
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={currencySearch}
                 onChangeText={setCurrencySearch}
               />
@@ -1508,7 +1508,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Appearance</Text>
               <TouchableOpacity onPress={() => setThemeModalVisible(false)}>
-                <X size={24} color={Colors.text} />
+                <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -1519,7 +1519,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 setThemeModalVisible(false);
               }}
             >
-              <Sun size={24} color={Colors.primary} />
+              <Sun size={24} color={colors.primary} />
               <Text style={styles.themeText}>Light Mode</Text>
               {theme === 'light' && <Text style={styles.checkMark}>✓</Text>}
             </TouchableOpacity>
@@ -1531,7 +1531,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 setThemeModalVisible(false);
               }}
             >
-              <Moon size={24} color={Colors.primary} />
+              <Moon size={24} color={colors.primary} />
               <Text style={styles.themeText}>Dark Mode</Text>
               {theme === 'dark' && <Text style={styles.checkMark}>✓</Text>}
             </TouchableOpacity>
@@ -1543,7 +1543,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 setThemeModalVisible(false);
               }}
             >
-              <Shield size={24} color={Colors.primary} />
+              <Shield size={24} color={colors.primary} />
               <Text style={styles.themeText}>System Default</Text>
               {theme === 'system' && <Text style={styles.checkMark}>✓</Text>}
             </TouchableOpacity>
@@ -1563,14 +1563,14 @@ const handleCurrencySelect = (newCurrency: string) => {
       <View style={styles.modalHeader}>
         <Text style={styles.modalTitle}>Setup Paystack</Text>
         <TouchableOpacity onPress={() => setShowPaystackSetup(false)}>
-          <X size={24} color={Colors.text} />
+          <X size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
       <Text style={styles.modalLabel}>Select Bank</Text>
       <ScrollView style={{ maxHeight: 200, marginBottom: 10 }}>
       {paystackBanks.length === 0 ? (
-        <Text style={{ padding: 12, color: Colors.textLight }}>
+        <Text style={{ padding: 12, color: colors.textLight }}>
           No banks loaded — check console logs.
         </Text>
       ) : (
@@ -1597,7 +1597,7 @@ const handleCurrencySelect = (newCurrency: string) => {
               </Text>
 
               {isSelected && (
-                <Text style={{ color: Colors.primary, fontWeight: '700' }}>Selected</Text>
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>Selected</Text>
               )}
             </TouchableOpacity>
           );
@@ -1693,7 +1693,7 @@ const handleCurrencySelect = (newCurrency: string) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
   },
   centerContent: {
     justifyContent: 'center',
@@ -1702,18 +1702,18 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
   },
   profileCard: {
     marginHorizontal: 20,
@@ -1745,10 +1745,10 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: colors.white,
   },
   stripeSection: {
-  backgroundColor: Colors.white,
+  backgroundColor: colors.white,
   borderRadius: 16,
   padding: 16,
   marginBottom: 20,
@@ -1760,13 +1760,13 @@ const styles = StyleSheet.create({
 stripeTitle: {
   fontSize: 16,
   fontWeight: '600',
-  color: Colors.text,
+  color: colors.text,
   marginBottom: 12,
 },
 stripeConnected: {
   flexDirection: 'row',
   alignItems: 'center',
-  backgroundColor: Colors.successLight,
+  backgroundColor: colors.successLight,
   padding: 12,
   borderRadius: 12,
   gap: 8,
@@ -1780,13 +1780,13 @@ connectButton: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: Colors.primary,
+  backgroundColor: colors.primary,
   borderRadius: 12,
   paddingVertical: 12,
   gap: 8,
 },
 connectButtonText: {
-  color: Colors.white,
+  color: colors.white,
   fontSize: 15,
   fontWeight: '600',
 },
@@ -1797,21 +1797,21 @@ connectButtonText: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.success,
+    backgroundColor: colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   profileName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: colors.white,
     marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
-    color: Colors.white,
+    color: colors.white,
     opacity: 0.9,
     marginBottom: 24,
   },
@@ -1827,12 +1827,12 @@ connectButtonText: {
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: colors.white,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: Colors.white,
+    color: colors.white,
     opacity: 0.9,
   },
   statDivider: {
@@ -1846,7 +1846,7 @@ connectButtonText: {
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 16,
   },
   walletCard: {
@@ -1862,14 +1862,14 @@ connectButtonText: {
   },
   walletLabel: {
     fontSize: 14,
-    color: Colors.white,
+    color: colors.white,
     opacity: 0.9,
     marginBottom: 8,
   },
   walletBalance: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: colors.white,
   },
   walletIcon: {
     width: 48,
@@ -1888,7 +1888,7 @@ connectButtonText: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingVertical: 12,
     gap: 8,
@@ -1896,18 +1896,18 @@ connectButtonText: {
   walletButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
   },
   transactionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 12,
   },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -1926,19 +1926,19 @@ connectButtonText: {
   transactionDesc: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 2,
   },
   transactionDate: {
     fontSize: 12,
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   transactionAmount: {
     fontSize: 16,
     fontWeight: 'bold',
   },
   menuCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -1947,13 +1947,13 @@ connectButtonText: {
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1964,12 +1964,12 @@ connectButtonText: {
   menuTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 2,
   },
   menuSubtitle: {
     fontSize: 13,
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   signOutButton: {
     flexDirection: 'row',
@@ -1982,7 +1982,7 @@ connectButtonText: {
   signOutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.error,
+    color: colors.error,
   },
   profileEmail: {
   fontSize: 16,
@@ -1999,18 +1999,18 @@ connectButtonText: {
   bankItem: {
   paddingVertical: 10,
   borderBottomWidth: 1,
-  borderBottomColor: Colors.borderLight,
+  borderBottomColor: colors.borderLight,
 },
 selectedBank: {
-  backgroundColor: Colors.primaryLight,
+  backgroundColor: colors.primaryLight,
 },
 bankName: {
   fontSize: 16,
-  color: Colors.text,
+  color: colors.text,
 },
 
   modalContent: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     borderRadius: 24,
     padding: 24,
     width: '100%',
@@ -2025,12 +2025,12 @@ bankName: {
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
   },
   modalLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 12,
   },
   methodOptions: {
@@ -2046,32 +2046,32 @@ bankName: {
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 8,
   },
   methodOptionActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.backgroundLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.backgroundLight,
   },
   methodText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   methodTextActive: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   modalInput: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
     fontSize: 16,
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 24,
   },
   modalButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
@@ -2080,11 +2080,11 @@ bankName: {
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.white,
+    color: colors.white,
   },
   referralContainer: {
   marginTop: 10,
-  backgroundColor: Colors.white,
+  backgroundColor: colors.white,
   borderRadius: 10,
   padding: 10,
   shadowColor: '#000',
@@ -2093,7 +2093,7 @@ bankName: {
   elevation: 2,
 },
 referralLabel: {
-  color: Colors.textMuted,
+  color: colors.textMuted,
   fontSize: 13,
   marginBottom: 4,
 },
@@ -2101,7 +2101,7 @@ referralBox: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backgroundColor: Colors.backgroundLight,
+  backgroundColor: colors.backgroundLight,
   paddingVertical: 8,
   paddingHorizontal: 12,
   borderRadius: 8,
@@ -2109,28 +2109,28 @@ referralBox: {
 referralCode: {
   fontWeight: '600',
   fontSize: 15,
-  color: Colors.primaryDark,
+  color: colors.primaryDark,
 },
 copyText: {
-  color: Colors.primary,
+  color: colors.primary,
   fontWeight: '600',
   fontSize: 14,
 },
 
   otpDescription: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: colors.textLight,
     textAlign: 'center',
     marginBottom: 24,
   },
   otpInput: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 64,
     fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: colors.text,
     textAlign: 'center',
     letterSpacing: 8,
     marginBottom: 24,
@@ -2143,12 +2143,12 @@ copyText: {
   resendText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
@@ -2158,7 +2158,7 @@ copyText: {
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.text,
   },
   currencyList: {
     maxHeight: 400,
@@ -2168,13 +2168,13 @@ copyText: {
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   currencySymbol: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: colors.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2182,7 +2182,7 @@ copyText: {
   currencySymbolText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.primary,
+    color: colors.primary,
   },
   currencyInfo: {
     flex: 1,
@@ -2190,23 +2190,23 @@ copyText: {
   currencyName: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.text,
+    color: colors.text,
     marginBottom: 2,
   },
   currencyCode: {
     fontSize: 13,
-    color: Colors.textLight,
+    color: colors.textLight,
   },
   currencyCheck: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkMark: {
-    color: Colors.white,
+    color: colors.white,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -2215,7 +2215,7 @@ copyText: {
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     marginBottom: 12,
     gap: 12,
   },
@@ -2223,7 +2223,7 @@ copyText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.text,
+    color: colors.text,
   },
   nameRow: {
     flexDirection: 'row',
@@ -2290,7 +2290,7 @@ copyText: {
   },
   kycText: {
     fontSize: 12,
-    color: Colors.white,
+    color: colors.white,
     fontWeight: '500',
   },
   editBadge: {
@@ -2300,11 +2300,11 @@ copyText: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   editIcon: {
     fontSize: 12,
