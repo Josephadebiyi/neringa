@@ -34,7 +34,11 @@ AdminRouter.get("/Adminlogout", adminAuthenticated, Adminlogout);
 AdminRouter.get("/getCurrentSetting" , adminAuthenticated, getCurrentSetting);
 AdminRouter.put("/banUser/:userId", adminAuthenticated, banUser);
 
+// Route Management (Admin Pricing System)
+AdminRouter.post("/routes", adminAuthenticated, createRoute);
+AdminRouter.get("/routes", adminAuthenticated, getAllRoutes);
+AdminRouter.get("/routes/:id", adminAuthenticated, getRouteById);
+AdminRouter.put("/routes/:id", adminAuthenticated, updateRoute);
+AdminRouter.delete("/routes/:id", adminAuthenticated, deleteRoute);
 
-
-
- export  default AdminRouter
+export default AdminRouter
