@@ -908,14 +908,14 @@ useEffect(() => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
+          <ChevronLeft size={24} color={'#1A1A1A'} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Package Request</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.earningCard}>
+        <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.earningCard}>
         <Text style={styles.earningLabel}>Your Earning</Text>
 
 <Text style={styles.earningValue}>
@@ -925,7 +925,7 @@ useEffect(() => {
 </Text>
 
           <View style={styles.escrowBadge}>
-            <Shield size={14} color={colors.white} />
+            <Shield size={14} color={'#FFFFFF'} />
             <Text style={styles.escrowText}>Held in Escrow Until Pickup</Text>
           </View>
         </LinearGradient>
@@ -936,7 +936,7 @@ useEffect(() => {
             <Image source={{ uri: pkg.packageImage }} style={styles.packageImage} />
           ) : (
             <View style={[styles.packageImage, { justifyContent: 'center', alignItems: 'center' }]}>
-              <Package size={48} color={colors.textLight} />
+              <Package size={48} color={'#1A1A1A'Light} />
             </View>
           )}
         </View>
@@ -945,21 +945,21 @@ useEffect(() => {
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.card}>
             <View style={styles.row}>
-              <Package size={20} color={colors.textLight} />
+              <Package size={20} color={'#1A1A1A'Light} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Description</Text>
                 <Text style={styles.value}>{pkg.description}</Text>
               </View>
             </View>
             <View style={styles.row}>
-              <Weight size={20} color={colors.textLight} />
+              <Weight size={20} color={'#1A1A1A'Light} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Weight</Text>
                 <Text style={styles.value}>{pkg.weight} kg</Text>
               </View>
             </View>
             <View style={styles.row}>
-              <DollarSign size={20} color={colors.textLight} />
+              <DollarSign size={20} color={'#1A1A1A'Light} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Value</Text>
                 <Text style={styles.value}>{pkg.value ? `€${pkg.value}` : 'N/A'}</Text>
@@ -978,7 +978,7 @@ useEffect(() => {
                 onPress={() => openDatePicker(currentRequest._id, 'estimatedDeparture', pkg.estimatedDeparture)}
                 disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
               >
-                <Clock size={16} color={colors.textLight} />
+                <Clock size={16} color={'#1A1A1A'Light} />
                 <Text style={styles.trackingText}>
                   Est. Departure: {formatDate(pkg.estimatedDeparture)}
                 </Text>
@@ -988,7 +988,7 @@ useEffect(() => {
                 onPress={() => openDatePicker(currentRequest._id, 'estimatedArrival', pkg.estimatedArrival)}
                 disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
               >
-                <Clock size={16} color={colors.textLight} />
+                <Clock size={16} color={'#1A1A1A'Light} />
                 <Text style={styles.trackingText}>
                   Est. Arrival: {formatDate(pkg.estimatedArrival)}
                 </Text>
@@ -999,7 +999,7 @@ useEffect(() => {
                   <Text style={styles.sectionTitle}>Movement History</Text>
                   {pkg.movementTracking.map((track, index) => (
                     <View key={index} style={styles.trackingItem}>
-                      <MapPin size={16} color={colors.textLight} />
+                      <MapPin size={16} color={'#1A1A1A'Light} />
                       <Text style={styles.trackingText}>
                         {track.status} {track.location ? `at ${track.location}` : ''} - {formatDate(track.timestamp)}
                       </Text>
@@ -1015,7 +1015,7 @@ useEffect(() => {
           <Text style={styles.sectionTitle}>Route</Text>
           <View style={styles.card}>
             <View style={styles.routeRow}>
-              <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+              <View style={[styles.dot, { backgroundColor: '#5845D8' }]} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Pickup</Text>
                 <Text style={styles.value}>{pkg.from}</Text>
@@ -1024,7 +1024,7 @@ useEffect(() => {
             </View>
             <View style={styles.line} />
             <View style={styles.routeRow}>
-              <View style={[styles.dot, { backgroundColor: colors.success }]} />
+              <View style={[styles.dot, { backgroundColor: '#4CAF50' }]} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Delivery</Text>
                 <Text style={styles.value}>{pkg.to}</Text>
@@ -1050,7 +1050,7 @@ useEffect(() => {
            </View>
          ) : (
            <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
-             <Upload size={24} color={colors.primary} />
+             <Upload size={24} color={'#5845D8'} />
              <Text style={styles.uploadText}>Tap to select an image</Text>
            </TouchableOpacity>
          )}
@@ -1061,7 +1061,7 @@ useEffect(() => {
            disabled={uploading}
          >
            {uploading ? (
-             <ActivityIndicator color={colors.white} />
+             <ActivityIndicator color={'#FFFFFF'} />
            ) : (
              <Text style={styles.sendButtonText}>Send Proof</Text>
            )}
@@ -1073,7 +1073,7 @@ useEffect(() => {
           <Text style={styles.sectionTitle}>Sender</Text>
           <View style={styles.senderCard}>
             <View style={styles.avatar}>
-              <User size={24} color={colors.white} />
+              <User size={24} color={'#FFFFFF'} />
             </View>
             <View style={styles.flex}>
               <Text style={styles.senderName}>{pkg.senderName}</Text>
@@ -1083,7 +1083,7 @@ useEffect(() => {
         </View>
 
         <View style={styles.infoBox}>
-          <Shield size={20} color={colors.primary} />
+          <Shield size={20} color={'#5845D8'} />
           <View style={styles.flex}>
             <Text style={styles.infoTitle}>Escrow Protection</Text>
             <Text style={styles.infoText}>
@@ -1115,9 +1115,9 @@ useEffect(() => {
   onPress={handleDecline}
   disabled={loadingButton === 'decline'}
 >
-  <XCircle size={20} color={colors.error} />
+  <XCircle size={20} color={'#F44336'} />
   {loadingButton === 'decline' ? (
-    <ActivityIndicator color={colors.error} style={{ marginLeft: 8 }} />
+    <ActivityIndicator color={'#F44336'} style={{ marginLeft: 8 }} />
   ) : (
     <Text style={styles.declineButtonText}>Decline</Text>
   )}
@@ -1129,9 +1129,9 @@ useEffect(() => {
     onPress={handleAccept}
     disabled={loadingButton === 'accept'} // disable while loading
   >
-    <CheckCircle size={20} color={colors.white} />
+    <CheckCircle size={20} color={'#FFFFFF'} />
     {loadingButton === 'accept' ? (
-      <ActivityIndicator color={colors.white} style={{ marginLeft: 8 }} />
+      <ActivityIndicator color={'#FFFFFF'} style={{ marginLeft: 8 }} />
     ) : (
       <Text style={styles.acceptButtonText}>Accept</Text>
     )}
@@ -1148,9 +1148,9 @@ useEffect(() => {
     onPress={handleMarkInTransit}
     disabled={loadingButton === 'intransit'}
   >
-    <MapPin size={18} color={colors.white} />
+    <MapPin size={18} color={'#FFFFFF'} />
     {loadingButton === 'intransit' ? (
-      <ActivityIndicator color={colors.white} style={{ marginLeft: 8 }} />
+      <ActivityIndicator color={'#FFFFFF'} style={{ marginLeft: 8 }} />
     ) : (
       <Text style={styles.actionButtonText}>Mark In Transit</Text>
     )}
@@ -1160,7 +1160,7 @@ useEffect(() => {
               {/* Cancel button only for accepted */}
               <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancel(pkg)}>
         <View style={styles.cancelButtonContent}>
-          <XCircle size={18} color={colors.white} />
+          <XCircle size={18} color={'#FFFFFF'} />
           <Text style={styles.cancelButtonText}> Cancel</Text>
         </View>
       </TouchableOpacity>
@@ -1177,9 +1177,9 @@ useEffect(() => {
         onPress={handleMarkDelivering}
         disabled={loadingButton === 'delivering'}
       >
-        <MapPin size={18} color={colors.white} />
+        <MapPin size={18} color={'#FFFFFF'} />
         {loadingButton === 'delivering' ? (
-          <ActivityIndicator color={colors.white} style={{ marginLeft: 8 }} />
+          <ActivityIndicator color={'#FFFFFF'} style={{ marginLeft: 8 }} />
         ) : (
           <Text style={styles.actionButtonText}>Mark Delivering</Text>
         )}
@@ -1197,9 +1197,9 @@ useEffect(() => {
     }}
     disabled={loadingButton === 'cancel'}   // prevent multiple presses
   >
-    <XCircle size={18} color={colors.white} />
+    <XCircle size={18} color={'#FFFFFF'} />
     {loadingButton === 'cancel' ? (
-      <ActivityIndicator color={colors.white} style={{ marginLeft: 8 }} />
+      <ActivityIndicator color={'#FFFFFF'} style={{ marginLeft: 8 }} />
     ) : (
       <Text style={styles.cancelButtonText}>Cancel</Text>
     )}
@@ -1215,9 +1215,9 @@ useEffect(() => {
       onPress={handleMarkCompleted}
       disabled={loadingButton === 'completed'}
     >
-      <CheckCircle size={18} color={colors.white} />
+      <CheckCircle size={18} color={'#FFFFFF'} />
       {loadingButton === 'completed' ? (
-        <ActivityIndicator color={colors.white} style={{ marginLeft: 8 }} />
+        <ActivityIndicator color={'#FFFFFF'} style={{ marginLeft: 8 }} />
       ) : (
         <Text style={styles.actionButtonText}>Mark Completed</Text>
       )}
@@ -1233,7 +1233,7 @@ useEffect(() => {
       {accepting && (
         <View style={styles.overlay}>
           <View style={styles.successCard}>
-            <CheckCircle size={64} color={colors.success} />
+            <CheckCircle size={64} color={'#4CAF50'} />
             <Text style={styles.successTitle}>Request Accepted!</Text>
             <Text style={styles.successText}>Payment held in escrow. Pick up to start earning.</Text>
           </View>
@@ -1246,26 +1246,26 @@ useEffect(() => {
 const getStatusColor = (status) => {
   switch (status) {
     case 'pending':
-      return colors.textLight;
+      return '#1A1A1A'Light;
     case 'accepted':
-      return colors.success;
+      return '#4CAF50';
     case 'rejected':
-      return colors.error;
+      return '#F44336';
     case 'intransit':
-      return colors.warning;
+      return '#FF9800';
     case 'delivering':
       return colors.info;
     case 'completed':
-      return colors.primary;
+      return '#5845D8';
     case 'cancelled':
-      return colors.error;
+      return '#F44336';
     default:
-      return colors.text;
+      return '#1A1A1A';
   }
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#F8F6F3' },
   centerContent: { justifyContent: 'center', alignItems: 'center' },
   header: { 
     flexDirection: 'row', 
@@ -1273,59 +1273,59 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', 
     paddingHorizontal: 16, 
     paddingVertical: 12, 
-    backgroundColor: colors.white, 
+    backgroundColor: '#FFFFFF', 
     borderBottomWidth: 1, 
-    borderBottomColor: colors.border 
+    borderBottomColor: '#E5E5E5' 
   },
   backButton: { 
     width: 40, 
     height: 40, 
     borderRadius: 20, 
-    backgroundColor: colors.background, 
+    backgroundColor: '#F8F6F3', 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.text },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#1A1A1A' },
   content: { flex: 1 },
   earningCard: { margin: 20, borderRadius: 20, padding: 24, alignItems: 'center' },
-  earningLabel: { fontSize: 14, color: colors.white, opacity: 0.9, marginBottom: 8 },
-  earningValue: { fontSize: 42, fontWeight: 'bold', color: colors.white, marginBottom: 12 },
+  earningLabel: { fontSize: 14, color: '#FFFFFF', opacity: 0.9, marginBottom: 8 },
+  earningValue: { fontSize: 42, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
   escrowBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  escrowText: { fontSize: 12, fontWeight: '600', color: colors.white },
+  escrowText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
   section: { paddingHorizontal: 20, marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 12 },
-  packageImage: { width: '100%', height: 220, borderRadius: 16, backgroundColor: colors.backgroundLight },
-  card: { backgroundColor: colors.white, borderRadius: 16, padding: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1A1A', marginBottom: 12 },
+  packageImage: { width: '100%', height: 220, borderRadius: 16, backgroundColor: '#F8F6F3'Light },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
   flex: { flex: 1, marginLeft: 12 },
-  label: { fontSize: 13, color: colors.textLight, marginBottom: 2 },
-  value: { fontSize: 15, fontWeight: '600', color: colors.text },
+  label: { fontSize: 13, color: '#1A1A1A'Light, marginBottom: 2 },
+  value: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
   routeRow: { flexDirection: 'row', alignItems: 'flex-start' },
   dot: { width: 16, height: 16, borderRadius: 8, marginTop: 4 },
-  line: { width: 2, height: 32, backgroundColor: colors.border, marginLeft: 7, marginVertical: 8 },
-  address: { fontSize: 14, color: colors.textLight, marginTop: 4 },
-  senderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 16, padding: 16 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
-  senderName: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4 },
-  senderRating: { fontSize: 14, color: colors.textLight },
-  infoBox: { flexDirection: 'row', backgroundColor: colors.backgroundLight, marginHorizontal: 20, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: colors.primary },
-  infoTitle: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 4 },
-  infoText: { fontSize: 13, color: colors.textLight, lineHeight: 18 },
-  footer: { flexDirection: 'row', padding: 12, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, gap: 12, alignItems: 'center' },
-  navButton: { backgroundColor: colors.primary, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
-  navButtonText: { color: colors.white, fontWeight: '600' },
-  declineButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white, borderRadius: 12, height: 56, gap: 8, borderWidth: 2, borderColor: colors.error },
-  declineButtonText: { fontSize: 16, fontWeight: '600', color: colors.error },
-  acceptButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: 12, height: 56, gap: 8 },
-  acceptButtonText: { fontSize: 16, fontWeight: '600', color: colors.white },
-  statusButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: 12, height: 56, gap: 8 },
-  actionButtonText: { fontSize: 14, fontWeight: '600', color: colors.white },
+  line: { width: 2, height: 32, backgroundColor: '#E5E5E5', marginLeft: 7, marginVertical: 8 },
+  address: { fontSize: 14, color: '#1A1A1A'Light, marginTop: 4 },
+  senderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16 },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#5845D8', justifyContent: 'center', alignItems: 'center' },
+  senderName: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },
+  senderRating: { fontSize: 14, color: '#1A1A1A'Light },
+  infoBox: { flexDirection: 'row', backgroundColor: '#F8F6F3'Light, marginHorizontal: 20, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: '#5845D8' },
+  infoTitle: { fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },
+  infoText: { fontSize: 13, color: '#1A1A1A'Light, lineHeight: 18 },
+  footer: { flexDirection: 'row', padding: 12, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E5E5', gap: 12, alignItems: 'center' },
+  navButton: { backgroundColor: '#5845D8', paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
+  navButtonText: { color: '#FFFFFF', fontWeight: '600' },
+  declineButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, height: 56, gap: 8, borderWidth: 2, borderColor: '#F44336' },
+  declineButtonText: { fontSize: 16, fontWeight: '600', color: '#F44336' },
+  acceptButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#5845D8', borderRadius: 12, height: 56, gap: 8 },
+  acceptButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  statusButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#5845D8', borderRadius: 12, height: 56, gap: 8 },
+  actionButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  successCard: { backgroundColor: colors.white, borderRadius: 24, padding: 32, alignItems: 'center', maxWidth: 320 },
-  successTitle: { fontSize: 24, fontWeight: 'bold', color: colors.text, marginTop: 16, marginBottom: 12 },
-  successText: { fontSize: 15, color: colors.textLight, textAlign: 'center', lineHeight: 22 },
+  successCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 32, alignItems: 'center', maxWidth: 320 },
+  successTitle: { fontSize: 24, fontWeight: 'bold', color: '#1A1A1A', marginTop: 16, marginBottom: 12 },
+  successText: { fontSize: 15, color: '#1A1A1A'Light, textAlign: 'center', lineHeight: 22 },
   cancelButton: {
-     backgroundColor: colors.error, // Red background
+     backgroundColor: '#F44336', // Red background
      paddingVertical: 10,
      paddingHorizontal: 16,
      borderRadius: 8,
@@ -1340,43 +1340,43 @@ const styles = StyleSheet.create({
      justifyContent: 'center',
    },
    cancelButtonText: {
-     color: colors.white,
+     color: '#FFFFFF',
      fontWeight: 'bold',
      fontSize: 16,
    },
   // tracking styles reused
   trackingItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-  trackingText: { fontSize: 13, color: colors.textLight, flex: 1 },
-  trackingNotes: { fontSize: 12, color: colors.textLight, marginLeft: 24, marginBottom: 4 },
+  trackingText: { fontSize: 13, color: '#1A1A1A'Light, flex: 1 },
+  trackingNotes: { fontSize: 12, color: '#1A1A1A'Light, marginLeft: 24, marginBottom: 4 },
   trackingHistory: { marginTop: 8 },
 
   uploadBox: {
       height: 160,
       borderWidth: 2,
-      borderColor: colors.primary,
+      borderColor: '#5845D8',
       borderStyle: 'dashed',
       borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: colors.backgroundLight,
+      backgroundColor: '#F8F6F3'Light,
     },
-    uploadText: { color: colors.primary, fontWeight: '600', marginTop: 8 },
+    uploadText: { color: '#5845D8', fontWeight: '600', marginTop: 8 },
     proofPreview: { width: '100%', height: 200, borderRadius: 16, marginBottom: 12 },
-    removeProofButton: { backgroundColor: colors.error, borderRadius: 8, padding: 8 },
-    removeProofText: { color: colors.white, fontWeight: '600' },
+    removeProofButton: { backgroundColor: '#F44336', borderRadius: 8, padding: 8 },
+    removeProofText: { color: '#FFFFFF', fontWeight: '600' },
     sendButton: {
-      backgroundColor: colors.primary,
+      backgroundColor: '#5845D8',
       borderRadius: 12,
       alignItems: 'center',
       paddingVertical: 14,
       marginTop: 12,
     },
-    sendButtonText: { color: colors.white, fontWeight: '700' },
+    sendButtonText: { color: '#FFFFFF', fontWeight: '700' },
 
   // misc
-  noRequestsText: { fontSize: 16, color: colors.textLight, textAlign: 'center', marginBottom: 20 },
+  noRequestsText: { fontSize: 16, color: '#1A1A1A'Light, textAlign: 'center', marginBottom: 20 },
   errorText: { fontSize: 16,   color: 'gray', textAlign: 'center', marginBottom: 20 },
-  retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.primary },
-  retryButtonText: { fontSize: 14, fontWeight: '600', color: colors.white },
+  retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: '#5845D8' },
+  retryButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

@@ -201,26 +201,26 @@ const travelMeansIcons = {
 
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card }]}>
+    <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
+      <View style={[styles.header, { backgroundColor: '#FFFFFF' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+          <Text style={[styles.backIcon, { color: '#1A1A1A' }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Available Travelers</Text>
+        <Text style={[styles.headerTitle, { color: '#1A1A1A' }]}>Available Travelers</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.routeCard}>
           <View style={styles.routeRow}>
-            <MapPin size={18} color={colors.primary} />
+            <MapPin size={18} color={'#5845D8'} />
             <Text style={styles.routeText}>
               {fromCity}, {fromCountry}
             </Text>
           </View>
           <Text style={styles.routeArrow}>→</Text>
           <View style={styles.routeRow}>
-            <MapPin size={18} color={colors.secondary} />
+            <MapPin size={18} color={'#E8B86D'} />
             <Text style={styles.routeText}>
               {toCity}, {toCountry}
             </Text>
@@ -229,7 +229,7 @@ const travelMeansIcons = {
 
         <View style={styles.insuranceCard}>
           <View style={styles.insuranceIcon}>
-            <Shield size={24} color={colors.primary} />
+            <Shield size={24} color={'#5845D8'} />
           </View>
           <View style={styles.insuranceContent}>
             <Text style={styles.insuranceTitle}>Package Insurance</Text>
@@ -243,8 +243,8 @@ const travelMeansIcons = {
           <Switch
             value={insurance}
             onValueChange={setInsurance}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.white}
+            trackColor={{ false: '#E5E5E5', true: '#5845D8' }}
+            thumbColor={'#FFFFFF'}
           />
         </View>
 
@@ -313,7 +313,7 @@ const travelMeansIcons = {
           : trip.user?.firstName || 'Traveler'}
       </Text>
       <View style={styles.ratingRow}>
-        <Star size={12} color={colors.gold} fill={colors.gold} />
+        <Star size={12} color={'#F5C563'} fill={'#F5C563'} />
         <Text style={styles.ratingText}>
           {(trip.user?.average_rating || 0).toFixed(1)}
         </Text>
@@ -331,13 +331,13 @@ const travelMeansIcons = {
     {(() => {
       // Select the correct icon, default to Plane if missing
       const IconComponent = travelMeansIcons[trip.travelMeans?.toLowerCase()] || Plane;
-      return <IconComponent size={18} color={colors.primary} />;
+      return <IconComponent size={18} color={'#5845D8'} />;
     })()}
   </View>
 </View>
 
       <View style={styles.tripRoute}>
-        <MapPin size={16} color={colors.textLight} />
+        <MapPin size={16} color={'#1A1A1A'Light} />
         <Text style={styles.tripRouteText} numberOfLines={1}>
           {trip.fromLocation} → {trip.toLocation}
         </Text>
@@ -345,7 +345,7 @@ const travelMeansIcons = {
 
       <View style={styles.tripMeta}>
         <View style={styles.metaItem}>
-          <Calendar size={14} color={colors.textLight} />
+          <Calendar size={14} color={'#1A1A1A'Light} />
           <Text style={styles.metaText}>
             {new Date(trip.departureDate).toLocaleDateString('en-US', {
               month: 'short',
@@ -354,7 +354,7 @@ const travelMeansIcons = {
           </Text>
         </View>
         <View style={styles.metaItem}>
-          <Weight size={14} color={colors.textLight} />
+          <Weight size={14} color={'#1A1A1A'Light} />
           <Text style={styles.metaText}>{trip.availableKg} kg available</Text>
         </View>
         <View style={styles.metaItem}>
@@ -372,11 +372,11 @@ const travelMeansIcons = {
 
       {/* Assess Shipment Button */}
       <TouchableOpacity 
-        style={[styles.assessButton, { backgroundColor: colors.backgroundLight, borderColor: colors.primary }]}
+        style={[styles.assessButton, { backgroundColor: '#F8F6F3'Light, borderColor: '#5845D8' }]}
         onPress={() => handleViewAssessment(trip)}
       >
-        <AlertTriangle size={16} color={colors.primary} />
-        <Text style={[styles.assessButtonText, { color: colors.primary }]}>View Risk Assessment</Text>
+        <AlertTriangle size={16} color={'#5845D8'} />
+        <Text style={[styles.assessButtonText, { color: '#5845D8' }]}>View Risk Assessment</Text>
       </TouchableOpacity>
     </TouchableOpacity>
 

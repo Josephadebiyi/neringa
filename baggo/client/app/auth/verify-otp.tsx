@@ -86,14 +86,14 @@ export default function VerifyOTP() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: '#F8F6F3' }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Package size={60} color={colors.primary} strokeWidth={2} />
-          <Text style={[styles.title, { color: colors.primary }]}>BAGGO</Text>
-          <Text style={[styles.subtitle, { color: colors.textLight }]}>Verify Your OTP</Text>
+          <Package size={60} color={'#5845D8'} strokeWidth={2} />
+          <Text style={[styles.title, { color: '#5845D8' }]}>BAGGO</Text>
+          <Text style={[styles.subtitle, { color: '#1A1A1A'Light }]}>Verify Your OTP</Text>
         </View>
 
         <View style={styles.form}>
@@ -108,18 +108,18 @@ export default function VerifyOTP() {
             maxLength={6}
           />
 
-          {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-          {success ? <Text style={[styles.success, { color: colors.success }]}>{success}</Text> : null}
+          {error ? <Text style={[styles.error, { color: '#F44336' }]}>{error}</Text> : null}
+          {success ? <Text style={[styles.success, { color: '#4CAF50' }]}>{success}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: '#5845D8' }, loading && styles.buttonDisabled]}
             onPress={handleVerifyOtp}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <ActivityIndicator color={'#1A1A1A'Inverse} />
             ) : (
-              <Text style={[styles.buttonText, { color: colors.textInverse }]}>Verify OTP</Text>
+              <Text style={[styles.buttonText, { color: '#1A1A1A'Inverse }]}>Verify OTP</Text>
             )}
           </TouchableOpacity>
 
@@ -129,11 +129,11 @@ export default function VerifyOTP() {
             disabled={resending}
           >
             {resending ? (
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={'#5845D8'} />
             ) : (
-              <Text style={[styles.linkText, { color: colors.textLight }]}>
+              <Text style={[styles.linkText, { color: '#1A1A1A'Light }]}>
                 Didn't receive an OTP?{' '}
-                <Text style={[styles.linkTextBold, { color: colors.primary }]}>Resend</Text>
+                <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Resend</Text>
               </Text>
             )}
           </TouchableOpacity>

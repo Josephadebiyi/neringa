@@ -21,20 +21,20 @@ export default function AddAddressScreen() {
   const [postcode, setPostcode] = useState('1234');
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card }]}>
+    <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
+      <View style={[styles.header, { backgroundColor: '#FFFFFF' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+          <Text style={[styles.backIcon, { color: '#1A1A1A' }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Add New Address</Text>
+        <Text style={[styles.headerTitle, { color: '#1A1A1A' }]}>Add New Address</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.formSection, { backgroundColor: colors.card }]}>
+        <View style={[styles.formSection, { backgroundColor: '#FFFFFF' }]}>
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-              <Text style={[styles.label, { color: colors.textLight }]}>First Name</Text>
+              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>First Name</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
                 value={firstName}
@@ -45,7 +45,7 @@ export default function AddAddressScreen() {
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: colors.textLight }]}>Last Name</Text>
+              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Last Name</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
                 value={lastName}
@@ -57,7 +57,7 @@ export default function AddAddressScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textLight }]}>Street, Address and City</Text>
+            <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Street, Address and City</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
               value={address}
@@ -69,7 +69,7 @@ export default function AddAddressScreen() {
 
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-              <Text style={[styles.label, { color: colors.textLight }]}>Apt, Suite</Text>
+              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Apt, Suite</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
                 value={aptSuite}
@@ -81,7 +81,7 @@ export default function AddAddressScreen() {
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: colors.textLight }]}>Postcode</Text>
+              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Postcode</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
                 value={postcode}
@@ -95,29 +95,29 @@ export default function AddAddressScreen() {
         </View>
 
         <View style={styles.mapContainer}>
-          <View style={[styles.mapPlaceholder, { backgroundColor: colors.successBg }]}>
-            <Text style={[styles.mapText, { color: colors.text }]}>Hamilton</Text>
+          <View style={[styles.mapPlaceholder, { backgroundColor: '#4CAF50'Bg }]}>
+            <Text style={[styles.mapText, { color: '#1A1A1A' }]}>Hamilton</Text>
             <View style={styles.mapMarker}>
-              <MapPin size={32} color={colors.success} />
+              <MapPin size={32} color={'#4CAF50'} />
             </View>
           </View>
 
           <View style={styles.mapControls}>
-            <TouchableOpacity style={[styles.mapButton, { backgroundColor: colors.card }]}>
-              <Minus size={20} color={colors.text} />
+            <TouchableOpacity style={[styles.mapButton, { backgroundColor: '#FFFFFF' }]}>
+              <Minus size={20} color={'#1A1A1A'} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.mapButton, { backgroundColor: colors.card }]}>
-              <Plus size={20} color={colors.text} />
+            <TouchableOpacity style={[styles.mapButton, { backgroundColor: '#FFFFFF' }]}>
+              <Plus size={20} color={'#1A1A1A'} />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={[styles.locateButton, { backgroundColor: colors.text }]}>
-            <Locate size={20} color={colors.background} />
+          <TouchableOpacity style={[styles.locateButton, { backgroundColor: '#1A1A1A' }]}>
+            <Locate size={20} color={'#F8F6F3'} />
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.submitButton, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.submitButtonText, { color: colors.textInverse }]}>Add New Address</Text>
+        <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#5845D8' }]}>
+          <Text style={[styles.submitButtonText, { color: '#1A1A1A'Inverse }]}>Add New Address</Text>
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />

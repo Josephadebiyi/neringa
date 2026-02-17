@@ -471,14 +471,14 @@ const fetchNotifications = async () => {
      <PushNotificationSetup />
     <View style={styles.container}>
       <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
+        colors={['#5845D8', '#5845D8'Dark]}
         style={styles.header}
       >
         <View style={styles.topBar}>
           <View style={styles.locationBadge}>
-            <MapPin size={14} color={colors.white} />
+            <MapPin size={14} color={'#FFFFFF'} />
             {loadingLocation ? (
-              <ActivityIndicator size="small" color={colors.white} />
+              <ActivityIndicator size="small" color={'#FFFFFF'} />
             ) : (
               <Text style={styles.locationText}>{location}</Text>
             )}
@@ -489,7 +489,7 @@ const fetchNotifications = async () => {
   style={styles.notificationButton}
   onPress={() => router.push('/notifications')}
 >
-  <Bell size={20} color={colors.white} />
+  <Bell size={20} color={'#FFFFFF'} />
   {hasUnread && <View style={styles.notificationDot} />}
 </TouchableOpacity>
 
@@ -497,7 +497,7 @@ const fetchNotifications = async () => {
               style={styles.profileButton}
               onPress={() => router.push('/profile')}
             >
-              <User size={20} color={colors.white} />
+              <User size={20} color={'#FFFFFF'} />
             </TouchableOpacity>
           </View>
         </View>
@@ -507,8 +507,8 @@ const fetchNotifications = async () => {
             style={[styles.modeTab, mode === 'send' && styles.modeTabActive]}
             onPress={() => handleModeChange('send')}
           >
-            <Send size={16} color={mode === 'send' ? colors.primary : colors.white} />
-            <Text style={[styles.modeTabText, mode === 'send' && { color: colors.primary }]}>
+            <Send size={16} color={mode === 'send' ? '#5845D8' : '#FFFFFF'} />
+            <Text style={[styles.modeTabText, mode === 'send' && { color: '#5845D8' }]}>
               Send Package
             </Text>
           </TouchableOpacity>
@@ -517,8 +517,8 @@ const fetchNotifications = async () => {
             style={[styles.modeTab, mode === 'earn' && styles.modeTabActive]}
             onPress={() => handleModeChange('earn')}
           >
-            <TrendingUp size={16} color={mode === 'earn' ? colors.primary : colors.white} />
-            <Text style={[styles.modeTabText, mode === 'earn' && { color: colors.primary }]}>
+            <TrendingUp size={16} color={mode === 'earn' ? '#5845D8' : '#FFFFFF'} />
+            <Text style={[styles.modeTabText, mode === 'earn' && { color: '#5845D8' }]}>
               Earn Money
             </Text>
           </TouchableOpacity>
@@ -535,11 +535,11 @@ const fetchNotifications = async () => {
           </Text>
 
           <View style={styles.searchContainer}>
-            <Search size={20} color={colors.textLight} />
+            <Search size={20} color={'#1A1A1A'Light} />
             <TextInput
               style={styles.searchInput}
               placeholder={mode === 'send' ? 'Where to send?' : 'Where are you traveling?'}
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={'#1A1A1A'Muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -585,7 +585,7 @@ const fetchNotifications = async () => {
                 onPress={() => router.push('/send-package')}
               >
                 <View style={styles.quickActionIcon}>
-                  <Send size={24} color={colors.primary} />
+                  <Send size={24} color={'#5845D8'} />
                 </View>
                 <Text style={styles.quickActionText}>Send Now</Text>
               </TouchableOpacity>
@@ -595,7 +595,7 @@ const fetchNotifications = async () => {
                 onPress={() => router.push('/tracking')}
               >
                 <View style={styles.quickActionIcon}>
-                  <Package size={24} color={colors.primary} />
+                  <Package size={24} color={'#5845D8'} />
                 </View>
                 <Text style={styles.quickActionText}>Track</Text>
               </TouchableOpacity>
@@ -606,7 +606,7 @@ const fetchNotifications = async () => {
               {loadingOrders ? (
                 <ActivityIndicator
                   size="large"
-                  color={colors.primary}
+                  color={'#5845D8'}
                   style={styles.spinner}
                 />
               ) : recentOrders.length === 0 ? (
@@ -625,14 +625,14 @@ const fetchNotifications = async () => {
                     }}
                   >
                     <View style={styles.orderIcon}>
-                      <Package size={24} color={colors.primary} />
+                      <Package size={24} color={'#5845D8'} />
                     </View>
                     <View style={styles.orderInfo}>
                       <Text style={styles.orderDescription} numberOfLines={1}>
                         {order.package?.description || 'No description'}
                       </Text>
                       <View style={styles.orderRoute}>
-                        <MapPin size={16} color={colors.textLight} />
+                        <MapPin size={16} color={'#1A1A1A'Light} />
                         <Text style={styles.routeText}>
                           {order.package?.fromCity} → {order.package?.toCity}
                         </Text>
@@ -652,14 +652,14 @@ const fetchNotifications = async () => {
                         {
                           backgroundColor:
                             order.status === 'pending'
-                              ? colors.warning
+                              ? '#FF9800'
                               : order.status === 'accepted'
-                              ? colors.success
+                              ? '#4CAF50'
                               : order.status === 'rejected'
-                              ? colors.error
+                              ? '#F44336'
                               : order.status === 'completed'
-                              ? colors.successLight
-                              : colors.primary,
+                              ? '#4CAF50'Light
+                              : '#5845D8',
                         },
                       ]}
                     >
@@ -679,7 +679,7 @@ const fetchNotifications = async () => {
               {loadingTrips ? (
                 <ActivityIndicator
                   size="large"
-                  color={colors.primary}
+                  color={'#5845D8'}
                   style={styles.spinner}
                 />
               ) : trips.length === 0 ? (
@@ -724,19 +724,19 @@ const fetchNotifications = async () => {
                               : trip.profile?.first_name || 'Traveler'}
                           </Text>
                           <View style={styles.ratingRow}>
-                            <Star size={12} color={colors.gold} fill={colors.gold} />
+                            <Star size={12} color={'#F5C563'} fill={'#F5C563'} />
                             <Text style={styles.ratingText}>{(trip.profile?.average_rating ?? 0).toFixed(1)}</Text>
                             <Text style={styles.tripCount}>{`• ${trip.profile?.total_trips ?? 0} trips`}</Text>
                           </View>
                         </View>
                       </View>
                       <View style={styles.modeIcon}>
-                        <Plane size={18} color={colors.primary} />
+                        <Plane size={18} color={'#5845D8'} />
                       </View>
                     </View>
 
                     <View style={styles.tripRoute}>
-                      <MapPin size={16} color={colors.textLight} />
+                      <MapPin size={16} color={'#1A1A1A'Light} />
                       <Text style={styles.routeText} numberOfLines={1}>
                         {`${trip.from_location || 'Origin'} → ${trip.to_location || 'Destination'}`}
                       </Text>
@@ -744,13 +744,13 @@ const fetchNotifications = async () => {
 
                     <View style={styles.tripMeta}>
                       <View style={styles.metaItem}>
-                        <Calendar size={14} color={colors.textLight} />
+                        <Calendar size={14} color={'#1A1A1A'Light} />
                         <Text style={styles.metaText}>
                           {trip.departure_date ? new Date(trip.departure_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}
                         </Text>
                       </View>
                       <View style={styles.metaItem}>
-                        <Weight size={14} color={colors.textLight} />
+                        <Weight size={14} color={'#1A1A1A'Light} />
                         <Text style={styles.metaText}>{`${trip.remaining_kg ?? 0} kg available`}</Text>
                       </View>
                     </View>
@@ -764,11 +764,11 @@ const fetchNotifications = async () => {
             <View style={styles.statsGrid}>
               <View style={styles.statCard}>
                 <LinearGradient
-                  colors={[colors.gold, colors.secondary]}
+                  colors={['#F5C563', '#E8B86D']}
                   style={styles.statGradient}
                 >
                   {loadingBalance ? (
-                    <ActivityIndicator size="small" color={colors.white} />
+                    <ActivityIndicator size="small" color={'#FFFFFF'} />
                   ) : (
                     <>
                     <Text style={styles.statValue}>
@@ -783,7 +783,7 @@ const fetchNotifications = async () => {
 
               <View style={styles.statCard}>
                 <LinearGradient
-                  colors={[colors.success, colors.successLight]}
+                  colors={['#4CAF50', '#4CAF50'Light]}
                   style={styles.statGradient}
                 >
                   <Text style={styles.statValue}>0</Text>
@@ -798,7 +798,7 @@ const fetchNotifications = async () => {
                 onPress={() => router.push('/add-trip')}
               >
                 <View style={styles.quickActionIcon}>
-                  <Plane size={24} color={colors.primary} />
+                  <Plane size={24} color={'#5845D8'} />
                 </View>
                 <Text style={styles.quickActionText}>Add Trip</Text>
               </TouchableOpacity>
@@ -808,7 +808,7 @@ const fetchNotifications = async () => {
                 onPress={() => router.push('/traveler-dashboard')}
               >
                 <View style={styles.quickActionIcon}>
-                  <Package size={24} color={colors.primary} />
+                  <Package size={24} color={'#5845D8'} />
                 </View>
                 <Text style={styles.quickActionText}>My Trips</Text>
               </TouchableOpacity>
@@ -819,7 +819,7 @@ const fetchNotifications = async () => {
 
               <View style={styles.benefitCard}>
                 <View style={styles.benefitIcon}>
-                  <TrendingUp size={24} color={colors.primary} />
+                  <TrendingUp size={24} color={'#5845D8'} />
                 </View>
                 <View style={styles.benefitContent}>
                   <Text style={styles.benefitTitle}>Extra Income</Text>
@@ -831,7 +831,7 @@ const fetchNotifications = async () => {
 
               <View style={styles.benefitCard}>
                 <View style={styles.benefitIcon}>
-                  <Award size={24} color={colors.primary} />
+                  <Award size={24} color={'#5845D8'} />
                 </View>
                 <View style={styles.benefitContent}>
                   <Text style={styles.benefitTitle}>Build Trust</Text>
@@ -855,7 +855,7 @@ const fetchNotifications = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F6F3',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 50 : 15,
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   locationText: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.error,
+    backgroundColor: '#F44336',
   },
   profileButton: {
     width: 40,
@@ -918,13 +918,13 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   heroSubtitle: {
     fontSize: 15,
-    color: colors.white,
+    color: '#FFFFFF',
     opacity: 0.95,
     marginBottom: 24,
     textAlign: 'center',
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -943,10 +943,10 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: colors.text,
+    color: '#1A1A1A',
   },
   searchButton: {
-    backgroundColor: colors.gold,
+    backgroundColor: '#F5C563',
     borderRadius: 12,
     height: 56,
     width: '100%',
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
   searchButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   content: {
     flex: 1,
@@ -981,12 +981,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   modeTabActive: {
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
   },
   modeTabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   quickActions: {
     flexDirection: 'row',
@@ -996,11 +996,11 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    shadowColor: colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -1018,7 +1018,7 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   section: {
     paddingHorizontal: 20,
@@ -1027,22 +1027,22 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     marginBottom: 16,
   },
   orderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -1052,7 +1052,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
   orderDescription: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 6,
   },
   orderRoute: {
@@ -1074,17 +1074,17 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 14,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     fontWeight: '500',
   },
   orderTraveler: {
     fontSize: 13,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     marginBottom: 4,
   },
   orderInsurance: {
     fontSize: 13,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -1094,14 +1094,14 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   tripCard: {
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1122,13 +1122,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: '#5845D8',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   travelerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 4,
   },
   ratingRow: {
@@ -1148,18 +1148,18 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: colors.text,
+    color: '#1A1A1A',
     fontWeight: '500',
   },
   tripCount: {
     fontSize: 12,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   modeIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 15,
-    color: colors.text,
+    color: '#1A1A1A',
     fontWeight: '500',
     flex: 1,
   },
@@ -1187,13 +1187,13 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   priceText: {
     marginLeft: 'auto',
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: '#5845D8',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -1218,21 +1218,21 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: colors.white,
+    color: '#FFFFFF',
     opacity: 0.95,
   },
   benefitCard: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1253,12 +1253,12 @@ const styles = StyleSheet.create({
   benefitTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 4,
   },
   benefitDesc: {
     fontSize: 14,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     lineHeight: 20,
   },
   promosSection: {
@@ -1268,7 +1268,7 @@ const styles = StyleSheet.create({
   promosTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 16,
   },
   promoBanner: {
@@ -1286,12 +1286,12 @@ const styles = StyleSheet.create({
   promoBigTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   promoDesc: {
     fontSize: 11,
-    color: colors.white,
+    color: '#FFFFFF',
     opacity: 0.95,
     marginBottom: 8,
     lineHeight: 14,
@@ -1306,7 +1306,7 @@ const styles = StyleSheet.create({
   promoCode: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   promoEmoji: {
@@ -1319,13 +1319,13 @@ const styles = StyleSheet.create({
   },
   noTripsText: {
     fontSize: 16,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     textAlign: 'center',
     marginVertical: 20,
   },
   noOrdersText: {
     fontSize: 16,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     textAlign: 'center',
     marginVertical: 20,
   },

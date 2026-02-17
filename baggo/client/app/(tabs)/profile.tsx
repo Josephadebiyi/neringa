@@ -966,13 +966,13 @@ const handleCurrencySelect = (newCurrency: string) => {
   }) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
       <View style={styles.menuIcon}>
-        <Icon size={20} color={colors.primary} />
+        <Icon size={20} color={'#5845D8'} />
       </View>
       <View style={styles.menuContent}>
         <Text style={styles.menuTitle}>{title}</Text>
         {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
       </View>
-      <ChevronRight size={20} color={colors.textLight} />
+      <ChevronRight size={20} color={'#1A1A1A'Light} />
     </TouchableOpacity>
   );
 
@@ -999,7 +999,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       </View>
 
       <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
+        colors={['#5845D8', '#5845D8'Dark]}
         style={styles.profileCard}
       >
       <TouchableOpacity   onPress={() => router.push('/personal-details')} style={styles.avatarContainer}>
@@ -1022,14 +1022,14 @@ const handleCurrencySelect = (newCurrency: string) => {
   </View>
 
   <View style={styles.verifiedBadge}>
-    <Shield size={12} color={colors.white} fill={colors.white} />
+    <Shield size={12} color={'#FFFFFF'} fill={'#FFFFFF'} />
   </View>
 </TouchableOpacity>
 
         <View style={styles.nameRow}>
           <Text style={styles.profileName}>{userData ? `${userData.firstName} ${userData.lastName}` : 'Sarah'}</Text>
           <View style={styles.kycBadge}>
-            <Shield size={14} color={userData?.status === 'verified' ? colors.success : colors.warning} />
+            <Shield size={14} color={userData?.status === 'verified' ? '#4CAF50' : '#FF9800'} />
             <Text style={styles.kycText}>
               {userData?.status === 'verified' ? 'KYC Verified' : 'KYC Pending'}
             </Text>
@@ -1136,7 +1136,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         <Text style={styles.stripeTitle}>Paystack Account</Text>
         {recipientCode ? (
           <View style={styles.stripeConnected}>
-            <Shield size={20} color={colors.success} />
+            <Shield size={20} color={'#4CAF50'} />
             <Text style={styles.stripeText}>Paystack Connected</Text>
           </View>
         ) : (
@@ -1144,7 +1144,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             style={styles.connectButton}
             onPress={() => setShowPaystackSetup(true)}
           >
-            <CreditCard size={20} color={colors.white} />
+            <CreditCard size={20} color={'#FFFFFF'} />
             <Text style={styles.connectButtonText}>Setup Paystack</Text>
           </TouchableOpacity>
         )}
@@ -1154,12 +1154,12 @@ const handleCurrencySelect = (newCurrency: string) => {
         <Text style={styles.stripeTitle}>Stripe Account</Text>
         {stripeStatus.chargesEnabled ? (
           <View style={styles.stripeConnected}>
-            <Shield size={20} color={colors.success} />
+            <Shield size={20} color={'#4CAF50'} />
             <Text style={styles.stripeText}>Stripe Connected</Text>
           </View>
         ) : (
           <TouchableOpacity style={styles.connectButton} onPress={handleStripeConnect}>
-            <CreditCard size={20} color={colors.white} />
+            <CreditCard size={20} color={'#FFFFFF'} />
             <Text style={styles.connectButtonText}>Connect Stripe</Text>
           </TouchableOpacity>
         )}
@@ -1169,7 +1169,7 @@ const handleCurrencySelect = (newCurrency: string) => {
 
 
         <LinearGradient
-          colors={[colors.gold, colors.secondary]}
+          colors={['#F5C563', '#E8B86D']}
           style={styles.walletCard}
         >
         <View style={styles.walletHeader}>
@@ -1180,7 +1180,7 @@ const handleCurrencySelect = (newCurrency: string) => {
   </Text>
 
     {/* -- NEW: Escrow balance display -- */}
-    <Text style={{ color: colors.white, opacity: 0.85, marginTop: 6, fontSize: 14 }}>
+    <Text style={{ color: '#FFFFFF', opacity: 0.85, marginTop: 6, fontSize: 14 }}>
       Held in Escrow: {symbol}{escrowBalance
   ? escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   : "0.00"}
@@ -1189,7 +1189,7 @@ const handleCurrencySelect = (newCurrency: string) => {
 
   </View>
   <View style={styles.walletIcon}>
-    <Wallet size={24} color={colors.white} />
+    <Wallet size={24} color={'#FFFFFF'} />
   </View>
 </View>
 
@@ -1199,7 +1199,7 @@ const handleCurrencySelect = (newCurrency: string) => {
               style={styles.walletButton}
               onPress={() => setWithdrawModalVisible(true)}
             >
-              <ArrowUpCircle size={20} color={colors.gold} />
+              <ArrowUpCircle size={20} color={'#F5C563'} />
               <Text style={styles.walletButtonText}>Withdraw</Text>
             </TouchableOpacity>
           </View>
@@ -1221,15 +1221,15 @@ const handleCurrencySelect = (newCurrency: string) => {
                   {
                     backgroundColor:
                       txn.type === 'credit'
-                        ? colors.successLight
-                        : colors.backgroundLight,
+                        ? '#4CAF50'Light
+                        : '#F8F6F3'Light,
                   },
                 ]}
               >
                 {txn.type === 'credit' ? (
-                  <ArrowDownCircle size={20} color={colors.success} />
+                  <ArrowDownCircle size={20} color={'#4CAF50'} />
                 ) : (
-                  <ArrowUpCircle size={20} color={colors.textLight} />
+                  <ArrowUpCircle size={20} color={'#1A1A1A'Light} />
                 )}
               </View>
 
@@ -1253,7 +1253,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                   styles.transactionAmount,
                   {
                     color:
-                      txn.type === 'credit' ? colors.success : colors.text,
+                      txn.type === 'credit' ? '#4CAF50' : '#1A1A1A',
                   },
                 ]}
               >
@@ -1288,7 +1288,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             onPress={() => setCurrencyModalVisible(true)}
           >
             <View style={styles.menuIcon}>
-              <DollarSign size={20} color={colors.primary} />
+              <DollarSign size={20} color={'#5845D8'} />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Currency</Text>
@@ -1296,14 +1296,14 @@ const handleCurrencySelect = (newCurrency: string) => {
                 {currencies.find(c => c.code === currency)?.name} ({currencies.find(c => c.code === currency)?.symbol})
               </Text>
             </View>
-            <ChevronRight size={20} color={colors.textLight} />
+            <ChevronRight size={20} color={'#1A1A1A'Light} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => setThemeModalVisible(true)}
           >
             <View style={styles.menuIcon}>
-              <Moon size={20} color={colors.primary} />
+              <Moon size={20} color={'#5845D8'} />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Appearance</Text>
@@ -1311,7 +1311,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 {theme === 'system' ? 'System Default' : theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
               </Text>
             </View>
-            <ChevronRight size={20} color={colors.textLight} />
+            <ChevronRight size={20} color={'#1A1A1A'Light} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1342,19 +1342,19 @@ const handleCurrencySelect = (newCurrency: string) => {
         <View style={styles.menuCard}>
           <TouchableOpacity style={styles.menuItem} onPress={() => setDeleteModalVisible(true)}>
             <View style={[styles.menuIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Trash2 size={20} color={colors.error} />
+              <Trash2 size={20} color={'#F44336'} />
             </View>
             <View style={styles.menuContent}>
-              <Text style={[styles.menuTitle, { color: colors.error }]}>Delete Account</Text>
+              <Text style={[styles.menuTitle, { color: '#F44336' }]}>Delete Account</Text>
               <Text style={styles.menuSubtitle}>Permanently delete your account and data</Text>
             </View>
-            <ChevronRight size={20} color={colors.error} />
+            <ChevronRight size={20} color={'#F44336'} />
           </TouchableOpacity>
         </View>
       </View>
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <LogOut size={20} color={colors.error} />
+        <LogOut size={20} color={'#F44336'} />
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
 
@@ -1371,7 +1371,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Withdraw Funds</Text>
               <TouchableOpacity onPress={() => setWithdrawModalVisible(false)}>
-                <X size={24} color={colors.text} />
+                <X size={24} color={'#1A1A1A'} />
               </TouchableOpacity>
             </View>
 
@@ -1382,7 +1382,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             <TextInput
               style={styles.modalInput}
               placeholder="Enter amount"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={'#1A1A1A'Muted}
               keyboardType="numeric"
               value={withdrawAmount}
               onChangeText={setWithdrawAmount}
@@ -1412,7 +1412,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Enter OTP</Text>
           <TouchableOpacity onPress={() => setOtpModalVisible(false)}>
-            <X size={24} color={colors.text} />
+            <X size={24} color={'#1A1A1A'} />
           </TouchableOpacity>
         </View>
 
@@ -1451,16 +1451,16 @@ const handleCurrencySelect = (newCurrency: string) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Currency</Text>
               <TouchableOpacity onPress={() => setCurrencyModalVisible(false)}>
-                <X size={24} color={colors.text} />
+                <X size={24} color={'#1A1A1A'} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBar}>
-              <Search size={20} color={colors.textLight} />
+              <Search size={20} color={'#1A1A1A'Light} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search currencies..."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={'#1A1A1A'Muted}
                 value={currencySearch}
                 onChangeText={setCurrencySearch}
               />
@@ -1508,7 +1508,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Appearance</Text>
               <TouchableOpacity onPress={() => setThemeModalVisible(false)}>
-                <X size={24} color={colors.text} />
+                <X size={24} color={'#1A1A1A'} />
               </TouchableOpacity>
             </View>
 
@@ -1519,7 +1519,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 setThemeModalVisible(false);
               }}
             >
-              <Sun size={24} color={colors.primary} />
+              <Sun size={24} color={'#5845D8'} />
               <Text style={styles.themeText}>Light Mode</Text>
               {theme === 'light' && <Text style={styles.checkMark}>✓</Text>}
             </TouchableOpacity>
@@ -1531,7 +1531,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 setThemeModalVisible(false);
               }}
             >
-              <Moon size={24} color={colors.primary} />
+              <Moon size={24} color={'#5845D8'} />
               <Text style={styles.themeText}>Dark Mode</Text>
               {theme === 'dark' && <Text style={styles.checkMark}>✓</Text>}
             </TouchableOpacity>
@@ -1543,7 +1543,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 setThemeModalVisible(false);
               }}
             >
-              <Shield size={24} color={colors.primary} />
+              <Shield size={24} color={'#5845D8'} />
               <Text style={styles.themeText}>System Default</Text>
               {theme === 'system' && <Text style={styles.checkMark}>✓</Text>}
             </TouchableOpacity>
@@ -1563,14 +1563,14 @@ const handleCurrencySelect = (newCurrency: string) => {
       <View style={styles.modalHeader}>
         <Text style={styles.modalTitle}>Setup Paystack</Text>
         <TouchableOpacity onPress={() => setShowPaystackSetup(false)}>
-          <X size={24} color={colors.text} />
+          <X size={24} color={'#1A1A1A'} />
         </TouchableOpacity>
       </View>
 
       <Text style={styles.modalLabel}>Select Bank</Text>
       <ScrollView style={{ maxHeight: 200, marginBottom: 10 }}>
       {paystackBanks.length === 0 ? (
-        <Text style={{ padding: 12, color: colors.textLight }}>
+        <Text style={{ padding: 12, color: '#1A1A1A'Light }}>
           No banks loaded — check console logs.
         </Text>
       ) : (
@@ -1597,7 +1597,7 @@ const handleCurrencySelect = (newCurrency: string) => {
               </Text>
 
               {isSelected && (
-                <Text style={{ color: colors.primary, fontWeight: '700' }}>Selected</Text>
+                <Text style={{ color: '#5845D8', fontWeight: '700' }}>Selected</Text>
               )}
             </TouchableOpacity>
           );
@@ -1638,11 +1638,11 @@ const handleCurrencySelect = (newCurrency: string) => {
       <View style={styles.modalHeader}>
         <Text style={styles.modalTitle}>Delete Account</Text>
         <TouchableOpacity onPress={() => setDeleteModalVisible(false)}>
-          <X size={24} color={colors.text} />
+          <X size={24} color={'#1A1A1A'} />
         </TouchableOpacity>
       </View>
 
-      <Text style={{ fontSize: 14, color: colors.textLight, marginBottom: 20, lineHeight: 20 }}>
+      <Text style={{ fontSize: 14, color: '#1A1A1A'Light, marginBottom: 20, lineHeight: 20 }}>
         We're sorry to see you go. Please help us improve by answering these questions.
       </Text>
 
@@ -1650,7 +1650,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       <TextInput
         style={[styles.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
         placeholder="Please tell us why you want to delete your account"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={'#1A1A1A'Muted}
         multiline
         value={deleteReason}
         onChangeText={setDeleteReason}
@@ -1660,14 +1660,14 @@ const handleCurrencySelect = (newCurrency: string) => {
       <TextInput
         style={[styles.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
         placeholder="Your feedback helps us improve (optional)"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={'#1A1A1A'Muted}
         multiline
         value={deleteImprovement}
         onChangeText={setDeleteImprovement}
       />
 
       <TouchableOpacity
-        style={[styles.modalButton, { backgroundColor: colors.error }]}
+        style={[styles.modalButton, { backgroundColor: '#F44336' }]}
         onPress={handleDeleteAccount}
         disabled={isDeleting}
       >
@@ -1680,7 +1680,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         style={{ marginTop: 12, alignItems: 'center' }}
         onPress={() => setDeleteModalVisible(false)}
       >
-        <Text style={{ color: colors.primary, fontWeight: '600' }}>Cancel</Text>
+        <Text style={{ color: '#5845D8', fontWeight: '600' }}>Cancel</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -1693,7 +1693,7 @@ const handleCurrencySelect = (newCurrency: string) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F6F3',
   },
   centerContent: {
     justifyContent: 'center',
@@ -1702,18 +1702,18 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   profileCard: {
     marginHorizontal: 20,
@@ -1745,10 +1745,10 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   stripeSection: {
-  backgroundColor: colors.white,
+  backgroundColor: '#FFFFFF',
   borderRadius: 16,
   padding: 16,
   marginBottom: 20,
@@ -1760,13 +1760,13 @@ const styles = StyleSheet.create({
 stripeTitle: {
   fontSize: 16,
   fontWeight: '600',
-  color: colors.text,
+  color: '#1A1A1A',
   marginBottom: 12,
 },
 stripeConnected: {
   flexDirection: 'row',
   alignItems: 'center',
-  backgroundColor: colors.successLight,
+  backgroundColor: '#4CAF50'Light,
   padding: 12,
   borderRadius: 12,
   gap: 8,
@@ -1780,13 +1780,13 @@ connectButton: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: colors.primary,
+  backgroundColor: '#5845D8',
   borderRadius: 12,
   paddingVertical: 12,
   gap: 8,
 },
 connectButtonText: {
-  color: colors.white,
+  color: '#FFFFFF',
   fontSize: 15,
   fontWeight: '600',
 },
@@ -1797,21 +1797,21 @@ connectButtonText: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.success,
+    backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: '#5845D8',
   },
   profileName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
-    color: colors.white,
+    color: '#FFFFFF',
     opacity: 0.9,
     marginBottom: 24,
   },
@@ -1827,12 +1827,12 @@ connectButtonText: {
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: colors.white,
+    color: '#FFFFFF',
     opacity: 0.9,
   },
   statDivider: {
@@ -1846,7 +1846,7 @@ connectButtonText: {
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 16,
   },
   walletCard: {
@@ -1862,14 +1862,14 @@ connectButtonText: {
   },
   walletLabel: {
     fontSize: 14,
-    color: colors.white,
+    color: '#FFFFFF',
     opacity: 0.9,
     marginBottom: 8,
   },
   walletBalance: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   walletIcon: {
     width: 48,
@@ -1888,7 +1888,7 @@ connectButtonText: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingVertical: 12,
     gap: 8,
@@ -1896,18 +1896,18 @@ connectButtonText: {
   walletButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   transactionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 12,
   },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -1926,19 +1926,19 @@ connectButtonText: {
   transactionDesc: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 2,
   },
   transactionDate: {
     fontSize: 12,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   transactionAmount: {
     fontSize: 16,
     fontWeight: 'bold',
   },
   menuCard: {
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -1947,13 +1947,13 @@ connectButtonText: {
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#E5E5E5',
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1964,12 +1964,12 @@ connectButtonText: {
   menuTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 2,
   },
   menuSubtitle: {
     fontSize: 13,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   signOutButton: {
     flexDirection: 'row',
@@ -1982,7 +1982,7 @@ connectButtonText: {
   signOutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.error,
+    color: '#F44336',
   },
   profileEmail: {
   fontSize: 16,
@@ -1999,18 +1999,18 @@ connectButtonText: {
   bankItem: {
   paddingVertical: 10,
   borderBottomWidth: 1,
-  borderBottomColor: colors.borderLight,
+  borderBottomColor: '#E5E5E5'Light,
 },
 selectedBank: {
-  backgroundColor: colors.primaryLight,
+  backgroundColor: '#5845D8'Light,
 },
 bankName: {
   fontSize: 16,
-  color: colors.text,
+  color: '#1A1A1A',
 },
 
   modalContent: {
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
     width: '100%',
@@ -2025,12 +2025,12 @@ bankName: {
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   modalLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 12,
   },
   methodOptions: {
@@ -2046,32 +2046,32 @@ bankName: {
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: '#E5E5E5',
     gap: 8,
   },
   methodOptionActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.backgroundLight,
+    borderColor: '#5845D8',
+    backgroundColor: '#F8F6F3'Light,
   },
   methodText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   methodTextActive: {
-    color: colors.primary,
+    color: '#5845D8',
   },
   modalInput: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
     fontSize: 16,
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 24,
   },
   modalButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#5845D8',
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
@@ -2080,11 +2080,11 @@ bankName: {
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.white,
+    color: '#FFFFFF',
   },
   referralContainer: {
   marginTop: 10,
-  backgroundColor: colors.white,
+  backgroundColor: '#FFFFFF',
   borderRadius: 10,
   padding: 10,
   shadowColor: '#000',
@@ -2093,7 +2093,7 @@ bankName: {
   elevation: 2,
 },
 referralLabel: {
-  color: colors.textMuted,
+  color: '#1A1A1A'Muted,
   fontSize: 13,
   marginBottom: 4,
 },
@@ -2101,7 +2101,7 @@ referralBox: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backgroundColor: colors.backgroundLight,
+  backgroundColor: '#F8F6F3'Light,
   paddingVertical: 8,
   paddingHorizontal: 12,
   borderRadius: 8,
@@ -2109,28 +2109,28 @@ referralBox: {
 referralCode: {
   fontWeight: '600',
   fontSize: 15,
-  color: colors.primaryDark,
+  color: '#5845D8'Dark,
 },
 copyText: {
-  color: colors.primary,
+  color: '#5845D8',
   fontWeight: '600',
   fontSize: 14,
 },
 
   otpDescription: {
     fontSize: 14,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     textAlign: 'center',
     marginBottom: 24,
   },
   otpInput: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 64,
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#1A1A1A',
     textAlign: 'center',
     letterSpacing: 8,
     marginBottom: 24,
@@ -2143,12 +2143,12 @@ copyText: {
   resendText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
+    color: '#5845D8',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
@@ -2158,7 +2158,7 @@ copyText: {
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: colors.text,
+    color: '#1A1A1A',
   },
   currencyList: {
     maxHeight: 400,
@@ -2168,13 +2168,13 @@ copyText: {
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#E5E5E5',
   },
   currencySymbol: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2182,7 +2182,7 @@ copyText: {
   currencySymbolText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: '#5845D8',
   },
   currencyInfo: {
     flex: 1,
@@ -2190,23 +2190,23 @@ copyText: {
   currencyName: {
     fontSize: 16,
     fontWeight: '500',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 2,
   },
   currencyCode: {
     fontSize: 13,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   currencyCheck: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: '#5845D8',
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkMark: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -2215,7 +2215,7 @@ copyText: {
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F6F3',
     marginBottom: 12,
     gap: 12,
   },
@@ -2223,7 +2223,7 @@ copyText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   nameRow: {
     flexDirection: 'row',
@@ -2290,7 +2290,7 @@ copyText: {
   },
   kycText: {
     fontSize: 12,
-    color: colors.white,
+    color: '#FFFFFF',
     fontWeight: '500',
   },
   editBadge: {
@@ -2300,11 +2300,11 @@ copyText: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: '#5845D8',
   },
   editIcon: {
     fontSize: 12,

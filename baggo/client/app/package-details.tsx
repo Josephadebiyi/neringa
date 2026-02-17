@@ -127,7 +127,7 @@ export default function PackageDetailsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={'#5845D8'} />
       </View>
     );
   }
@@ -267,7 +267,7 @@ export default function PackageDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
+      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
@@ -278,7 +278,7 @@ export default function PackageDetailsScreen() {
 
         <View style={styles.heroSection}>
           <View style={styles.packageIcon}>
-            <PackageIcon size={32} color={colors.gold} strokeWidth={1.5} />
+            <PackageIcon size={32} color={'#F5C563'} strokeWidth={1.5} />
           </View>
           <Text style={styles.packageName}>{packageName}</Text>
           <Text style={styles.orderId}>Order ID: {orderId ? orderId.toUpperCase().slice(0, 6) : '------'}</Text>
@@ -326,7 +326,7 @@ export default function PackageDetailsScreen() {
 
         <View style={styles.locationCard}>
           <View style={styles.locationRow}>
-            <MapPin size={18} color={colors.primary} />
+            <MapPin size={18} color={'#5845D8'} />
             <View style={styles.locationContent}>
               <Text style={styles.locationLabel}>From</Text>
               <Text style={styles.locationText}>{routeFrom}</Text>
@@ -336,7 +336,7 @@ export default function PackageDetailsScreen() {
           <View style={styles.divider} />
 
           <View style={styles.locationRow}>
-            <MapPin size={18} color={colors.secondary} />
+            <MapPin size={18} color={'#E8B86D'} />
             <View style={styles.locationContent}>
               <Text style={styles.locationLabel}>Shipping to</Text>
               <Text style={styles.locationText}>{routeTo}</Text>
@@ -386,7 +386,7 @@ export default function PackageDetailsScreen() {
             <Text style={styles.cardTitle}>Movement History</Text>
             {movementTracking.map((track, index) => (
               <View key={index} style={styles.trackingItem}>
-                <MapPin size={16} color={colors.textLight} />
+                <MapPin size={16} color={'#1A1A1A'Light} />
                 <View style={styles.trackingContent}>
                   <Text style={styles.trackingText}>
                     {track.status.charAt(0).toUpperCase() + track.status.slice(1)}
@@ -696,7 +696,7 @@ export default function PackageDetailsScreen() {
                 }
               }}
             >
-              <MessageCircle size={20} color={colors.white} />
+              <MessageCircle size={20} color={'#FFFFFF'} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -709,7 +709,7 @@ export default function PackageDetailsScreen() {
                 }
               }}
             >
-              <Phone size={20} color={colors.white} />
+              <Phone size={20} color={'#FFFFFF'} />
             </TouchableOpacity>
           </View>
 
@@ -741,70 +741,70 @@ export default function PackageDetailsScreen() {
 // (styles unchanged — keep your existing styles)
 const styles = StyleSheet.create({
   /* ... paste your styles here, unchanged ... */
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#F8F6F3' },
   header: { paddingTop: 10, paddingBottom: 40, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 24 },
   backButton: { width: 40, height: 40, justifyContent: 'center' },
-  backIcon: { fontSize: 24, color: colors.white },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.white },
+  backIcon: { fontSize: 24, color: '#FFFFFF' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF' },
   heroSection: { alignItems: 'center', paddingHorizontal: 20 },
   packageIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  packageName: { fontSize: 22, fontWeight: 'bold', color: colors.white, marginBottom: 4 },
-  orderId: { fontSize: 14, color: colors.white, opacity: 0.9 },
+  packageName: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  orderId: { fontSize: 14, color: '#FFFFFF', opacity: 0.9 },
   content: { flex: 1, marginTop: -20 },
-  statusCard: { backgroundColor: colors.white, borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 12 },
-  statusBadge: { alignSelf: 'flex-start', backgroundColor: colors.successLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginBottom: 24 },
-  statusText: { fontSize: 13, fontWeight: '600', color: colors.white },
+  statusCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 12 },
+  statusBadge: { alignSelf: 'flex-start', backgroundColor: '#4CAF50'Light, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginBottom: 24 },
+  statusText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
   timeline: { paddingLeft: 8 },
   timelineItem: { flexDirection: 'row', alignItems: 'flex-start' },
-  timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border, marginTop: 4, marginRight: 16 },
-  timelineDotActive: { backgroundColor: colors.primary },
+  timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E5E5E5', marginTop: 4, marginRight: 16 },
+  timelineDotActive: { backgroundColor: '#5845D8' },
   timelineContent: { flex: 1, paddingBottom: 4 },
-  timelineTitle: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 2 },
-  timelineTitleInactive: { color: colors.textLight },
-  timelineTime: { fontSize: 13, color: colors.textLight },
-  timelineLine: { width: 2, height: 24, backgroundColor: colors.border, marginLeft: 5, marginVertical: 4 },
-  locationCard: { backgroundColor: colors.white, borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
+  timelineTitle: { fontSize: 15, fontWeight: '600', color: '#1A1A1A', marginBottom: 2 },
+  timelineTitleInactive: { color: '#1A1A1A'Light },
+  timelineTime: { fontSize: 13, color: '#1A1A1A'Light },
+  timelineLine: { width: 2, height: 24, backgroundColor: '#E5E5E5', marginLeft: 5, marginVertical: 4 },
+  locationCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   locationContent: { flex: 1 },
-  locationLabel: { fontSize: 13, color: colors.textLight, marginBottom: 4 },
-  locationText: { fontSize: 15, fontWeight: '500', color: colors.text },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: 16 },
-  detailsCard: { backgroundColor: colors.white, borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
+  locationLabel: { fontSize: 13, color: '#1A1A1A'Light, marginBottom: 4 },
+  locationText: { fontSize: 15, fontWeight: '500', color: '#1A1A1A' },
+  divider: { height: 1, backgroundColor: '#E5E5E5', marginVertical: 16 },
+  detailsCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  detailLabel: { fontSize: 14, color: colors.textLight, flex: 1 },
-  detailValue: { fontSize: 14, fontWeight: '500', color: colors.text, flex: 1, textAlign: 'right' },
-  trackingCard: { backgroundColor: colors.white, borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
+  detailLabel: { fontSize: 14, color: '#1A1A1A'Light, flex: 1 },
+  detailValue: { fontSize: 14, fontWeight: '500', color: '#1A1A1A', flex: 1, textAlign: 'right' },
+  trackingCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   trackingItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 12 },
   trackingContent: { flex: 1 },
-  trackingText: { fontSize: 14, color: colors.text, marginBottom: 4 },
-  trackingNotes: { fontSize: 12, color: colors.textLight },
-  courierCard: { backgroundColor: colors.white, borderRadius: 20, padding: 20, marginHorizontal: 20, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
+  trackingText: { fontSize: 14, color: '#1A1A1A', marginBottom: 4 },
+  trackingNotes: { fontSize: 12, color: '#1A1A1A'Light },
+  courierCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   courierInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: colors.white },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#5845D8', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
   courierDetails: { flex: 1 },
-  courierName: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 2 },
-  courierRole: { fontSize: 13, color: colors.textLight },
-  iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+  courierName: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 2 },
+  courierRole: { fontSize: 13, color: '#1A1A1A'Light },
+  iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#5845D8', justifyContent: 'center', alignItems: 'center' },
   packageMeta: { flexDirection: 'row', gap: 16 },
   metaItem: { flex: 1 },
-  metaLabel: { fontSize: 13, color: colors.textLight, marginBottom: 8 },
-  metaBadge: { backgroundColor: colors.successLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
-  metaBadgeText: { fontSize: 12, fontWeight: '600', color: colors.white },
-  metaValue: { fontSize: 15, fontWeight: '600', color: colors.text },
+  metaLabel: { fontSize: 13, color: '#1A1A1A'Light, marginBottom: 8 },
+  metaBadge: { backgroundColor: '#4CAF50'Light, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+  metaBadgeText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+  metaValue: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { fontSize: 16, color: colors.error, textAlign: 'center', marginBottom: 20 },
-  retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.primary, marginTop: 10 },
-  retryButtonText: { fontSize: 14, fontWeight: '600', color: colors.white },
+  errorText: { fontSize: 16, color: '#F44336', textAlign: 'center', marginBottom: 20 },
+  retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: '#5845D8', marginTop: 10 },
+  retryButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   imageCard: {
-  backgroundColor: colors.white,
+  backgroundColor: '#FFFFFF',
   borderRadius: 20,
   padding: 20,
   marginHorizontal: 20,
   marginBottom: 16,
-  shadowColor: colors.shadow,
+  shadowColor: 'rgba(0, 0, 0, 0.08)',
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.08,
   shadowRadius: 12,
@@ -817,12 +817,12 @@ packageImage: {
   marginTop: 10,
 },
 receivedCard: {
-  backgroundColor: colors.white,
+  backgroundColor: '#FFFFFF',
   borderRadius: 20,
   padding: 20,
   marginHorizontal: 20,
   marginBottom: 20,
-  shadowColor: colors.shadow,
+  shadowColor: 'rgba(0, 0, 0, 0.08)',
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.08,
   shadowRadius: 12,
@@ -848,7 +848,7 @@ cancelledText: {
 },
 
 refundButton: {
-  backgroundColor: colors.primary,
+  backgroundColor: '#5845D8',
   paddingVertical: 12,
   paddingHorizontal: 20,
   borderRadius: 10,
@@ -862,12 +862,12 @@ refundButtonText: {
 
 receivedInfo: {
   fontSize: 14,
-  color: colors.textLight,
+  color: '#1A1A1A'Light,
   textAlign: 'center',
   marginBottom: 12,
 },
 receivedButton: {
-  backgroundColor: colors.primary,
+  backgroundColor: '#5845D8',
   borderRadius: 10,
   paddingVertical: 12,
   paddingHorizontal: 24,
@@ -875,7 +875,7 @@ receivedButton: {
 receivedButtonText: {
   fontSize: 15,
   fontWeight: '600',
-  color: colors.white,
+  color: '#FFFFFF',
 },
 disputeButton: {
   backgroundColor: '#F44336',
@@ -907,11 +907,11 @@ modalTitle: {
   fontSize: 18,
   fontWeight: '700',
   marginBottom: 8,
-  color: colors.text,
+  color: '#1A1A1A',
 },
 modalInfo: {
   fontSize: 13,
-  color: colors.textLight,
+  color: '#1A1A1A'Light,
   marginBottom: 12,
 },
 textArea: {
@@ -937,7 +937,7 @@ cancelButton: {
   backgroundColor: '#ccc',
 },
 submitButton: {
-  backgroundColor: colors.primary,
+  backgroundColor: '#5845D8',
 },
 modalButtonText: {
   color: '#fff',

@@ -358,7 +358,7 @@ useEffect(() => {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={'#5845D8'} />
       </View>
     );
   }
@@ -366,9 +366,9 @@ useEffect(() => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
+      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.white} />
+          <ChevronLeft size={24} color={'#FFFFFF'} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Trips</Text>
         <View style={{ width: 40 }} />
@@ -376,8 +376,8 @@ useEffect(() => {
 
       {/* Wallet Card */}
       <View style={styles.statsCard}>
-        <LinearGradient colors={[colors.gold, colors.secondary]} style={styles.statGradient}>
-          <TrendingUp size={32} color={colors.white} />
+        <LinearGradient colors={['#F5C563', '#E8B86D']} style={styles.statGradient}>
+          <TrendingUp size={32} color={'#FFFFFF'} />
           <Text style={styles.statValue}>
   {symbol}
   {walletBalance
@@ -429,12 +429,12 @@ useEffect(() => {
                 <TouchableOpacity key={trip._id} style={styles.tripCard}>
                   <View style={styles.tripHeader}>
                     <View style={styles.tripIcon}>
-                      <Plane size={20} color={colors.primary} />
+                      <Plane size={20} color={'#5845D8'} />
                     </View>
                     <View style={styles.tripInfo}>
                       <Text style={styles.tripRoute}>{trip.from} → {trip.to}</Text>
                       <View style={styles.tripDate}>
-                        <Calendar size={14} color={colors.textLight} />
+                        <Calendar size={14} color={'#1A1A1A'Light} />
                         <Text style={styles.tripDateText}>
                           {new Date(trip.date).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric',
@@ -446,7 +446,7 @@ useEffect(() => {
 
                   <View style={styles.tripStats}>
                     <View style={styles.tripStat}>
-                      <Package size={16} color={colors.textLight} />
+                      <Package size={16} color={'#1A1A1A'Light} />
                       <Text style={styles.tripStatText}>
                         {trip.used}/{trip.capacity} kg used
                       </Text>
@@ -494,12 +494,12 @@ useEffect(() => {
               <View key={trip._id} style={styles.tripCard}>
                 <View style={styles.tripHeader}>
                   <View style={styles.tripIcon}>
-                    <Package size={20} color={colors.primary} />
+                    <Package size={20} color={'#5845D8'} />
                   </View>
                   <View style={styles.tripInfo}>
                     <Text style={styles.tripRoute}>{trip.from} → {trip.to}</Text>
                     <View style={styles.tripDate}>
-                      <Calendar size={14} color={colors.textLight} />
+                      <Calendar size={14} color={'#1A1A1A'Light} />
                       <Text style={styles.tripDateText}>
                         {new Date(trip.date).toLocaleDateString('en-US', {
                           month: 'short', day: 'numeric', year: 'numeric',
@@ -516,14 +516,14 @@ useEffect(() => {
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => router.push('/add-trip')}>
-        <Plus size={24} color={colors.white} />
+        <Plus size={24} color={'#FFFFFF'} />
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#F8F6F3' },
   centerContent: { justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -541,45 +541,45 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: colors.white },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
   statsCard: {
     marginHorizontal: 20,
     marginTop: -10,
     marginBottom: 20,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 5,
   },
   statGradient: { padding: 24, alignItems: 'center' },
-  statValue: { fontSize: 32, fontWeight: 'bold', color: colors.white, marginTop: 8, marginBottom: 4 },
-  statLabel: { fontSize: 14, color: colors.white, opacity: 0.95 },
-  statsGrid: { flexDirection: 'row', backgroundColor: colors.white },
+  statValue: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF', marginTop: 8, marginBottom: 4 },
+  statLabel: { fontSize: 14, color: '#FFFFFF', opacity: 0.95 },
+  statsGrid: { flexDirection: 'row', backgroundColor: '#FFFFFF' },
   miniStat: { flex: 1, padding: 16, alignItems: 'center' },
-  miniStatValue: { fontSize: 24, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
-  miniStatLabel: { fontSize: 12, color: colors.textLight },
+  miniStatValue: { fontSize: 24, fontWeight: 'bold', color: '#1A1A1A', marginBottom: 4 },
+  miniStatLabel: { fontSize: 12, color: '#1A1A1A'Light },
   tabBar: {
     flexDirection: 'row',
     marginHorizontal: 20,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 4,
     marginBottom: 20,
   },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  tabActive: { backgroundColor: colors.primary },
-  tabText: { fontSize: 14, fontWeight: '600', color: colors.textLight },
-  tabTextActive: { color: colors.white },
+  tabActive: { backgroundColor: '#5845D8' },
+  tabText: { fontSize: 14, fontWeight: '600', color: '#1A1A1A'Light },
+  tabTextActive: { color: '#FFFFFF' },
   content: { flex: 1, paddingHorizontal: 20 },
   tripCard: {
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.shadow,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -588,41 +588,41 @@ const styles = StyleSheet.create({
   tripHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   tripIcon: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.backgroundLight, justifyContent: 'center',
+    backgroundColor: '#F8F6F3'Light, justifyContent: 'center',
     alignItems: 'center', marginRight: 12,
   },
   tripInfo: { flex: 1 },
-  tripRoute: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4 },
+  tripRoute: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },
   tripDate: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tripDateText: { fontSize: 13, color: colors.textLight },
+  tripDateText: { fontSize: 13, color: '#1A1A1A'Light },
   tripStats: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 12,
-    paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5E5',
   },
   tripStat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tripStatText: { fontSize: 13, color: colors.textLight },
+  tripStatText: { fontSize: 13, color: '#1A1A1A'Light },
   requestBadge: {
-    fontSize: 12, fontWeight: '600', color: colors.primary,
-    backgroundColor: colors.backgroundLight, paddingHorizontal: 10,
+    fontSize: 12, fontWeight: '600', color: '#5845D8',
+    backgroundColor: '#F8F6F3'Light, paddingHorizontal: 10,
     paddingVertical: 4, borderRadius: 12,
   },
   tripFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  earningsText: { fontSize: 14, color: colors.textLight },
-  earningsValue: { fontSize: 16, fontWeight: 'bold', color: colors.primary },
+  earningsText: { fontSize: 14, color: '#1A1A1A'Light },
+  earningsValue: { fontSize: 16, fontWeight: 'bold', color: '#5845D8' },
   viewButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: '#5845D8',
     alignSelf: "flex-start",   // ← prevents stretching
   },
-  disabledButton: { backgroundColor: colors.textLight, opacity: 0.5 },
-  viewButtonText: { fontSize: 13, fontWeight: '600', color: colors.white, },
+  disabledButton: { backgroundColor: '#1A1A1A'Light, opacity: 0.5 },
+  viewButtonText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', },
   fab: {
     position: 'absolute', bottom: 24, right: 24, width: 56, height: 56,
-    borderRadius: 28, backgroundColor: colors.primary, justifyContent: 'center',
-    alignItems: 'center', shadowColor: colors.shadow,
+    borderRadius: 28, backgroundColor: '#5845D8', justifyContent: 'center',
+    alignItems: 'center', shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3,
     shadowRadius: 12, elevation: 8,
   },
@@ -630,14 +630,14 @@ const styles = StyleSheet.create({
   paddingHorizontal: 16,
   paddingVertical: 8,
   borderRadius: 8,
-  backgroundColor: colors.primary,
+  backgroundColor: '#5845D8',
   marginLeft: 10,
 },
 editButtonText: {
-  color: colors.white,
+  color: '#FFFFFF',
   fontWeight: "600",
 },
 
   centerContent: { justifyContent: 'center', alignItems: 'center' },
-  noTripsText: { fontSize: 16, color: colors.textLight, textAlign: 'center', marginTop: 20 },
+  noTripsText: { fontSize: 16, color: '#1A1A1A'Light, textAlign: 'center', marginTop: 20 },
 });

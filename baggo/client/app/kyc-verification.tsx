@@ -233,7 +233,7 @@ export default function KYCVerificationScreen() {
       case 'declined':
         return <XCircle size={80} color="#EF4444" />;
       default:
-        return <Shield size={80} color={colors.primary} />;
+        return <Shield size={80} color={'#5845D8'} />;
     }
   };
 
@@ -261,15 +261,15 @@ export default function KYCVerificationScreen() {
         return {
           title: 'Verify Your Identity',
           subtitle: 'Complete KYC verification to send packages and create trips.',
-          color: colors.text,
+          color: '#1A1A1A',
         };
     }
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, styles.centerContent, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <SafeAreaView style={[styles.container, styles.centerContent, { backgroundColor: '#F8F6F3' }]}>
+        <ActivityIndicator size="large" color={'#5845D8'} />
       </SafeAreaView>
     );
   }
@@ -277,12 +277,12 @@ export default function KYCVerificationScreen() {
   // KycProcessing Screen - WebView for DIDIT verification
   if (showWebView && sessionUrl) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={handleCloseWebView} style={[styles.backButton, { backgroundColor: colors.background }]}>
-            <ChevronLeft size={24} color={colors.text} />
+      <SafeAreaView style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
+        <View style={[styles.header, { backgroundColor: '#FFFFFF', borderBottomColor: '#E5E5E5' }]}>
+          <TouchableOpacity onPress={handleCloseWebView} style={[styles.backButton, { backgroundColor: '#F8F6F3' }]}>
+            <ChevronLeft size={24} color={'#1A1A1A'} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Identity Verification</Text>
+          <Text style={[styles.headerTitle, { color: '#1A1A1A' }]}>Identity Verification</Text>
           <View style={{ width: 40 }} />
         </View>
         <WebView
@@ -292,9 +292,9 @@ export default function KYCVerificationScreen() {
           onNavigationStateChange={handleWebViewNavigation}
           startInLoadingState
           renderLoading={() => (
-            <View style={[styles.webviewLoading, { backgroundColor: colors.background }]}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.textLight }]}>Loading verification...</Text>
+            <View style={[styles.webviewLoading, { backgroundColor: '#F8F6F3' }]}>
+              <ActivityIndicator size="large" color={'#5845D8'} />
+              <Text style={[styles.loadingText, { color: '#1A1A1A'Light }]}>Loading verification...</Text>
             </View>
           )}
           javaScriptEnabled
@@ -309,43 +309,43 @@ export default function KYCVerificationScreen() {
   const statusInfo = renderStatusText();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.background }]}>
-          <ChevronLeft size={24} color={colors.text} />
+    <SafeAreaView style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
+      <View style={[styles.header, { backgroundColor: '#FFFFFF', borderBottomColor: '#E5E5E5' }]}>
+        <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: '#F8F6F3' }]}>
+          <ChevronLeft size={24} color={'#1A1A1A'} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>KYC Verification</Text>
+        <Text style={[styles.headerTitle, { color: '#1A1A1A' }]}>KYC Verification</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.content}>
         {/* Status Card */}
-        <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
+        <View style={[styles.statusCard, { backgroundColor: '#FFFFFF' }]}>
           {renderStatusIcon()}
           <Text style={[styles.statusTitle, { color: statusInfo.color }]}>{statusInfo.title}</Text>
-          <Text style={[styles.statusSubtitle, { color: colors.textLight }]}>{statusInfo.subtitle}</Text>
+          <Text style={[styles.statusSubtitle, { color: '#1A1A1A'Light }]}>{statusInfo.subtitle}</Text>
         </View>
 
         {/* Info Cards */}
         <View style={styles.infoSection}>
-          <Text style={[styles.infoTitle, { color: colors.text }]}>Why Verify?</Text>
-          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.infoTitle, { color: '#1A1A1A' }]}>Why Verify?</Text>
+          <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
             <View style={styles.infoItem}>
-              <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}15` }]}>
-                <Shield size={20} color={colors.primary} />
+              <View style={[styles.infoIcon, { backgroundColor: `${'#5845D8'}15` }]}>
+                <Shield size={20} color={'#5845D8'} />
               </View>
               <View style={styles.infoText}>
-                <Text style={[styles.infoItemTitle, { color: colors.text }]}>Security</Text>
-                <Text style={[styles.infoItemDesc, { color: colors.textLight }]}>Protect yourself and others from fraud</Text>
+                <Text style={[styles.infoItemTitle, { color: '#1A1A1A' }]}>Security</Text>
+                <Text style={[styles.infoItemDesc, { color: '#1A1A1A'Light }]}>Protect yourself and others from fraud</Text>
               </View>
             </View>
             <View style={styles.infoItem}>
-              <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}15` }]}>
-                <CheckCircle size={20} color={colors.primary} />
+              <View style={[styles.infoIcon, { backgroundColor: `${'#5845D8'}15` }]}>
+                <CheckCircle size={20} color={'#5845D8'} />
               </View>
               <View style={styles.infoText}>
-                <Text style={[styles.infoItemTitle, { color: colors.text }]}>Full Access</Text>
-                <Text style={[styles.infoItemDesc, { color: colors.textLight }]}>Send packages and create trips</Text>
+                <Text style={[styles.infoItemTitle, { color: '#1A1A1A' }]}>Full Access</Text>
+                <Text style={[styles.infoItemDesc, { color: '#1A1A1A'Light }]}>Send packages and create trips</Text>
               </View>
             </View>
           </View>
@@ -354,14 +354,14 @@ export default function KYCVerificationScreen() {
         {/* Action Buttons based on status */}
         {(kycStatus === 'not_started' || kycStatus === 'declined') && (
           <TouchableOpacity 
-            style={[styles.verifyButton, { backgroundColor: colors.primary }]} 
+            style={[styles.verifyButton, { backgroundColor: '#5845D8' }]} 
             onPress={startVerification}
             disabled={creatingSession}
           >
             {creatingSession ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <ActivityIndicator color={'#1A1A1A'Inverse} />
             ) : (
-              <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>
+              <Text style={[styles.verifyButtonText, { color: '#1A1A1A'Inverse }]}>
                 {kycStatus === 'declined' ? 'Try Again' : canRetry ? 'Continue Verification' : 'Start Verification'}
               </Text>
             )}
@@ -371,21 +371,21 @@ export default function KYCVerificationScreen() {
         {kycStatus === 'pending' && (
           <>
             <TouchableOpacity 
-              style={[styles.verifyButton, styles.refreshButton, { backgroundColor: colors.card, borderColor: colors.primary }]} 
+              style={[styles.verifyButton, styles.refreshButton, { backgroundColor: '#FFFFFF', borderColor: '#5845D8' }]} 
               onPress={checkKYCStatus}
             >
-              <Text style={[styles.refreshButtonText, { color: colors.primary }]}>Refresh Status</Text>
+              <Text style={[styles.refreshButtonText, { color: '#5845D8' }]}>Refresh Status</Text>
             </TouchableOpacity>
             {canRetry && (
               <TouchableOpacity 
-                style={[styles.verifyButton, { marginTop: 12, backgroundColor: colors.primary }]} 
+                style={[styles.verifyButton, { marginTop: 12, backgroundColor: '#5845D8' }]} 
                 onPress={startVerification}
                 disabled={creatingSession}
               >
                 {creatingSession ? (
-                  <ActivityIndicator color={colors.textInverse} />
+                  <ActivityIndicator color={'#1A1A1A'Inverse} />
                 ) : (
-                  <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>Restart Verification</Text>
+                  <Text style={[styles.verifyButtonText, { color: '#1A1A1A'Inverse }]}>Restart Verification</Text>
                 )}
               </TouchableOpacity>
             )}
@@ -394,10 +394,10 @@ export default function KYCVerificationScreen() {
 
         {kycStatus === 'approved' && (
           <TouchableOpacity 
-            style={[styles.verifyButton, { backgroundColor: colors.success }]} 
+            style={[styles.verifyButton, { backgroundColor: '#4CAF50' }]} 
             onPress={() => router.back()}
           >
-            <Text style={[styles.verifyButtonText, { color: colors.textInverse }]}>Continue to App</Text>
+            <Text style={[styles.verifyButtonText, { color: '#1A1A1A'Inverse }]}>Continue to App</Text>
           </TouchableOpacity>
         )}
       </View>

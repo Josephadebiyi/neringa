@@ -9,25 +9,25 @@ export default function PaymentSuccess() {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.textInverse }]}>Payment Successful</Text>
+    <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
+      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
+        <Text style={[styles.headerTitle, { color: '#1A1A1A'Inverse }]}>Payment Successful</Text>
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconWrapper}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.success }]}>
-            <Text style={[styles.checkMark, { color: colors.textInverse }]}>✓</Text>
+          <View style={[styles.iconCircle, { backgroundColor: '#4CAF50' }]}>
+            <Text style={[styles.checkMark, { color: '#1A1A1A'Inverse }]}>✓</Text>
           </View>
         </View>
 
-        <Text style={[styles.successText, { color: colors.text }]}>Your payment is complete</Text>
+        <Text style={[styles.successText, { color: '#1A1A1A' }]}>Your payment is complete</Text>
 
         <TouchableOpacity
-          style={[styles.dashboardButton, { backgroundColor: colors.primary }]}
+          style={[styles.dashboardButton, { backgroundColor: '#5845D8' }]}
           onPress={() => router.replace("/(tabs)")}
         >
-          <Text style={[styles.dashboardButtonText, { color: colors.textInverse }]}>Go to Dashboard</Text>
+          <Text style={[styles.dashboardButtonText, { color: '#1A1A1A'Inverse }]}>Go to Dashboard</Text>
         </TouchableOpacity>
       </View>
     </View>

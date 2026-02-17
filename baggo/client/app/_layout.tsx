@@ -28,7 +28,7 @@ function RootLayoutContent() {
       <Stack 
         screenOptions={{ 
           headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: '#F8F6F3' },
         }}
       >
         <Stack.Screen name="index" />

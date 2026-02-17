@@ -76,7 +76,7 @@ export default function OnboardingScreen() {
   const currentSlide = onboardingData[currentIndex];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 20, backgroundColor: colors.background }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 20, backgroundColor: '#F8F6F3' }]}>
       {/* Header */}
       <View style={styles.header}>
         <Image
@@ -85,22 +85,22 @@ export default function OnboardingScreen() {
           resizeMode="contain"
         />
         <TouchableOpacity style={[styles.skipButton, { backgroundColor: colors.surface }]} onPress={handleSkip}>
-          <Text style={[styles.skipText, { color: colors.textLight }]}>skip</Text>
+          <Text style={[styles.skipText, { color: '#1A1A1A'Light }]}>skip</Text>
         </TouchableOpacity>
       </View>
 
       {/* Title Section */}
       <View style={styles.titleSection}>
-        <Text style={[styles.title, { color: colors.text }]}>
+        <Text style={[styles.title, { color: '#1A1A1A' }]}>
           {currentSlide.title}{'\n'}
-          <Text style={[styles.titleBold, { color: colors.primary }]}>{currentSlide.titleBold}</Text>
+          <Text style={[styles.titleBold, { color: '#5845D8' }]}>{currentSlide.titleBold}</Text>
         </Text>
-        <Text style={[styles.description, { color: colors.textMuted }]}>{currentSlide.description}</Text>
+        <Text style={[styles.description, { color: '#1A1A1A'Muted }]}>{currentSlide.description}</Text>
       </View>
 
       {/* Image Card */}
       <View style={styles.imageContainer}>
-        <View style={[styles.imageCard, { borderColor: colors.primary }]}>
+        <View style={[styles.imageCard, { borderColor: '#5845D8' }]}>
           <Image
             source={currentSlide.image}
             style={styles.image}
@@ -113,14 +113,14 @@ export default function OnboardingScreen() {
       <View style={styles.bottomContainer}>
         {currentIndex > 0 ? (
           <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surface }]} onPress={handleBack}>
-            <ChevronLeft size={24} color={colors.text} />
+            <ChevronLeft size={24} color={'#1A1A1A'} />
           </TouchableOpacity>
         ) : (
           <View style={styles.backButtonPlaceholder} />
         )}
 
-        <TouchableOpacity style={[styles.nextButton, { backgroundColor: colors.success }]} onPress={handleNext}>
-          <Text style={[styles.nextButtonText, { color: colors.textInverse }]}>
+        <TouchableOpacity style={[styles.nextButton, { backgroundColor: '#4CAF50' }]} onPress={handleNext}>
+          <Text style={[styles.nextButtonText, { color: '#1A1A1A'Inverse }]}>
             {currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Next'}
           </Text>
         </TouchableOpacity>
@@ -133,8 +133,8 @@ export default function OnboardingScreen() {
             key={index}
             style={[
               styles.dot,
-              { backgroundColor: colors.border },
-              index === currentIndex && [styles.dotActive, { backgroundColor: colors.primary }],
+              { backgroundColor: '#E5E5E5' },
+              index === currentIndex && [styles.dotActive, { backgroundColor: '#5845D8' }],
             ]}
           />
         ))}

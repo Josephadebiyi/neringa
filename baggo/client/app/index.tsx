@@ -38,7 +38,7 @@ export default function Index() {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
       <Image
         source={require('@/assets/images/bago-logo.png')}
         style={styles.logo}
@@ -47,7 +47,7 @@ export default function Index() {
       {loading && (
         <ActivityIndicator
           size="large"
-          color={colors.primary}
+          color={'#5845D8'}
           style={styles.spinner}
         />
       )}

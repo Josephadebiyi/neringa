@@ -54,7 +54,7 @@ export default function SignIn() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}
+      style={[styles.container, { paddingTop: insets.top, backgroundColor: '#F8F6F3' }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -65,15 +65,15 @@ export default function SignIn() {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={[styles.subtitle, { color: colors.textLight }]}>Connect Travelers & Senders</Text>
+            <Text style={[styles.subtitle, { color: '#1A1A1A'Light }]}>Connect Travelers & Senders</Text>
           </View>
 
           <View style={styles.form}>
-            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+            <Text style={[styles.label, { color: '#1A1A1A' }]}>Email</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.cardBg, color: colors.text, borderColor: colors.border }]}
+              style={[styles.input, { backgroundColor: '#FFFFFF'Bg, color: '#1A1A1A', borderColor: '#E5E5E5' }]}
               placeholder="Enter your email"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={'#1A1A1A'Muted}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -81,12 +81,12 @@ export default function SignIn() {
               editable={!loading}
             />
 
-            <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-            <View style={[styles.passwordContainer, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <Text style={[styles.label, { color: '#1A1A1A' }]}>Password</Text>
+            <View style={[styles.passwordContainer, { backgroundColor: '#FFFFFF'Bg, borderColor: '#E5E5E5' }]}>
               <TextInput
-                style={[styles.passwordInput, { color: colors.text }]}
+                style={[styles.passwordInput, { color: '#1A1A1A' }]}
                 placeholder="Enter your password"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={'#1A1A1A'Muted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -94,9 +94,9 @@ export default function SignIn() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff color={colors.textMuted} size={20} />
+                  <EyeOff color={'#1A1A1A'Muted} size={20} />
                 ) : (
-                  <Eye color={colors.textMuted} size={20} />
+                  <Eye color={'#1A1A1A'Muted} size={20} />
                 )}
               </TouchableOpacity>
             </View>
@@ -106,20 +106,20 @@ export default function SignIn() {
               disabled={loading}
               style={styles.forgotPasswordButton}
             >
-              <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>Forgot Password?</Text>
+              <Text style={[styles.forgotPasswordText, { color: '#5845D8' }]}>Forgot Password?</Text>
             </TouchableOpacity>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: '#5845D8' }, loading && styles.buttonDisabled]}
               onPress={handleSignIn}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={colors.white} />
+                <ActivityIndicator color={'#FFFFFF'} />
               ) : (
-                <Text style={[styles.buttonText, { color: colors.white }]}>Sign In</Text>
+                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Sign In</Text>
               )}
             </TouchableOpacity>
 
@@ -128,8 +128,8 @@ export default function SignIn() {
               onPress={() => router.push('/auth/signup')}
               disabled={loading}
             >
-              <Text style={[styles.linkText, { color: colors.textLight }]}>
-                Don't have an account? <Text style={[styles.linkTextBold, { color: colors.primary }]}>Sign Up</Text>
+              <Text style={[styles.linkText, { color: '#1A1A1A'Light }]}>
+                Don't have an account? <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Sign Up</Text>
               </Text>
             </TouchableOpacity>
           </View>

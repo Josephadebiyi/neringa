@@ -49,18 +49,18 @@ export default function NotificationsScreen() {
         if (notif.message.includes('package request') && notif.message.includes('has been accepted')) {
           type = 'package_update';
           icon = CheckCircle;
-          iconColor = colors.success;
+          iconColor = '#4CAF50';
           title = 'Package Request Accepted';
         } else if (notif.message.includes('You have accepted a package request')) {
           type = 'new_request';
           icon = Package;
-          iconColor = colors.primary;
+          iconColor = '#5845D8';
           title = 'New Package Accepted';
         } else {
           // Fallback for unrecognized messages
           type = 'update';
           icon = Clock;
-          iconColor = colors.textLight;
+          iconColor = '#1A1A1A'Light;
           title = 'Update';
         }
 
@@ -130,7 +130,7 @@ export default function NotificationsScreen() {
           { justifyContent: 'center', alignItems: 'center' }, // ✅ centers it vertically + horizontally
         ]}
       >
-        <Text style={{ fontSize: 16, color: colors.textLight }}>
+        <Text style={{ fontSize: 16, color: '#1A1A1A'Light }}>
           Loading notifications...
         </Text>
       </View>
@@ -227,7 +227,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={colors.textLight} />
+                <ChevronRight size={20} color={'#1A1A1A'Light} />
               </TouchableOpacity>
             ))}
           </View>
@@ -266,7 +266,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={colors.textLight} />
+                <ChevronRight size={20} color={'#1A1A1A'Light} />
               </TouchableOpacity>
             ))}
           </View>
@@ -305,7 +305,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F6F3',
 
   },
   header: {
@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 20,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#E5E5E5',
   },
   backButton: {
     width: 40,
@@ -326,12 +326,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: colors.text,
+    color: '#1A1A1A',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
   },
   overlay: {
      flex: 1,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
      alignItems: 'center',
    },
    modalContainer: {
-     backgroundColor: colors.white,
+     backgroundColor: '#FFFFFF',
      borderRadius: 16,
      padding: 24,
      width: '85%',
@@ -353,27 +353,27 @@ const styles = StyleSheet.create({
    title: {
      fontSize: 18,
      fontWeight: '700',
-     color: colors.text,
+     color: '#1A1A1A',
      marginBottom: 12,
    },
    message: {
      fontSize: 15,
-     color: colors.textLight,
+     color: '#1A1A1A'Light,
      marginBottom: 16,
    },
    time: {
      fontSize: 13,
-     color: colors.textMuted,
+     color: '#1A1A1A'Muted,
      marginBottom: 20,
    },
    closeButton: {
-     backgroundColor: colors.primary,
+     backgroundColor: '#5845D8',
      borderRadius: 8,
      paddingVertical: 10,
      alignItems: 'center',
    },
    closeButtonText: {
-     color: colors.white,
+     color: '#FFFFFF',
      fontWeight: '600',
      fontSize: 15,
    },
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
+    color: '#5845D8',
   },
   content: {
     flex: 1,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     paddingHorizontal: 20,
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -404,14 +404,14 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#E5E5E5',
   },
   notificationUnread: {
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#F8F6F3'Light,
   },
   iconContainer: {
     width: 48,
@@ -428,24 +428,24 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: '#1A1A1A',
     marginBottom: 4,
   },
   notificationMessage: {
     fontSize: 14,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
     lineHeight: 20,
     marginBottom: 4,
   },
   notificationTime: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: '#1A1A1A'Muted,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: '#5845D8',
     marginRight: 8,
   },
   emptyContainer: {
@@ -456,17 +456,17 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: colors.textLight,
+    color: '#1A1A1A'Light,
   },
   retryButton: {
     marginTop: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: colors.primary,
+    backgroundColor: '#5845D8',
     borderRadius: 5,
   },
   retryButtonText: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },

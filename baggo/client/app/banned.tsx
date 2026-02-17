@@ -7,40 +7,40 @@ export default function BannedUserScreen() {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
       <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
+        colors={['#5845D8', '#5845D8'Dark]}
         style={styles.header}
       >
-        <Text style={[styles.headerTitle, { color: colors.textInverse }]}>Account Status</Text>
+        <Text style={[styles.headerTitle, { color: '#1A1A1A'Inverse }]}>Account Status</Text>
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.banCard, { backgroundColor: colors.card }]}>
-          <Ban size={48} color={colors.primary} />
-          <Text style={[styles.banTitle, { color: colors.text }]}>Account Banned</Text>
-          <Text style={[styles.banMessage, { color: colors.text }]}>
+        <View style={[styles.banCard, { backgroundColor: '#FFFFFF' }]}>
+          <Ban size={48} color={'#5845D8'} />
+          <Text style={[styles.banTitle, { color: '#1A1A1A' }]}>Account Banned</Text>
+          <Text style={[styles.banMessage, { color: '#1A1A1A' }]}>
             If you're seeing this screen, your account has been banned.
           </Text>
-          <Text style={[styles.banDetails, { color: colors.textLight }]}>
+          <Text style={[styles.banDetails, { color: '#1A1A1A'Light }]}>
             For more information or to appeal this decision, please contact our support team at{' '}
-            <Text style={[styles.emailText, { color: colors.primary }]}>bggo@mail.com</Text>.
+            <Text style={[styles.emailText, { color: '#5845D8' }]}>bggo@mail.com</Text>.
           </Text>
           <TouchableOpacity
-            style={[styles.contactButton, { backgroundColor: colors.primary }]}
+            style={[styles.contactButton, { backgroundColor: '#5845D8' }]}
             onPress={() => {
               alert('Please email bggo@mail.com for support.');
             }}
           >
-            <Text style={[styles.contactButtonText, { color: colors.textInverse }]}>Contact Support</Text>
+            <Text style={[styles.contactButtonText, { color: '#1A1A1A'Inverse }]}>Contact Support</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.infoCard, { backgroundColor: colors.backgroundLight, borderLeftColor: colors.primary }]}>
-          <AlertCircle size={20} color={colors.primary} />
+        <View style={[styles.infoCard, { backgroundColor: '#F8F6F3'Light, borderLeftColor: '#5845D8' }]}>
+          <AlertCircle size={20} color={'#5845D8'} />
           <View style={styles.infoContent}>
-            <Text style={[styles.infoTitle, { color: colors.text }]}>Important Notice</Text>
-            <Text style={[styles.infoText, { color: colors.textLight }]}>
+            <Text style={[styles.infoTitle, { color: '#1A1A1A' }]}>Important Notice</Text>
+            <Text style={[styles.infoText, { color: '#1A1A1A'Light }]}>
               Our team is committed to maintaining a safe and compliant platform. If you believe this ban is an error, please reach out to support for assistance.
             </Text>
           </View>

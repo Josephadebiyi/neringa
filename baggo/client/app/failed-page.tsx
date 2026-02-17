@@ -9,25 +9,25 @@ export default function PaymentFailed() {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.textInverse }]}>Payment Failed</Text>
+    <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
+      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
+        <Text style={[styles.headerTitle, { color: '#1A1A1A'Inverse }]}>Payment Failed</Text>
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconWrapper}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.error }]}>
-            <Text style={[styles.xMark, { color: colors.textInverse }]}>✕</Text>
+          <View style={[styles.iconCircle, { backgroundColor: '#F44336' }]}>
+            <Text style={[styles.xMark, { color: '#1A1A1A'Inverse }]}>✕</Text>
           </View>
         </View>
 
-        <Text style={[styles.failedText, { color: colors.text }]}>Your payment could not be completed</Text>
+        <Text style={[styles.failedText, { color: '#1A1A1A' }]}>Your payment could not be completed</Text>
 
         <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          style={[styles.retryButton, { backgroundColor: '#5845D8' }]}
           onPress={() => router.back()}
         >
-          <Text style={[styles.retryButtonText, { color: colors.textInverse }]}>Try Again</Text>
+          <Text style={[styles.retryButtonText, { color: '#1A1A1A'Inverse }]}>Try Again</Text>
         </TouchableOpacity>
       </View>
     </View>

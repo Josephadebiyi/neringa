@@ -190,19 +190,19 @@ export default function SignUp() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: '#F8F6F3' }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <View style={styles.header}>
             <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>Create your Baggo account</Text>
+            <Text style={[styles.subtitle, { color: '#1A1A1A'Muted }]}>Create your Baggo account</Text>
           </View>
 
           <View style={styles.form}>
-            {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-            {success ? <Text style={[styles.success, { color: colors.success }]}>{success}</Text> : null}
+            {error ? <Text style={[styles.error, { color: '#F44336' }]}>{error}</Text> : null}
+            {success ? <Text style={[styles.success, { color: '#4CAF50' }]}>{success}</Text> : null}
 
             <TextInput
               style={[styles.input, { 
@@ -271,7 +271,7 @@ export default function SignUp() {
                 disabled={loading}
               >
                 <Text style={styles.flagText}>{selectedCountry?.flag || ''}</Text>
-                <Text style={[styles.callingCodeText, { color: colors.text }]}>
+                <Text style={[styles.callingCodeText, { color: '#1A1A1A' }]}>
                   +{selectedCountry?.callingCode || ''}
                 </Text>
               </TouchableOpacity>
@@ -301,9 +301,9 @@ export default function SignUp() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff size={20} color={colors.textMuted} />
+                  <EyeOff size={20} color={'#1A1A1A'Muted} />
                 ) : (
-                  <Eye size={20} color={colors.textMuted} />
+                  <Eye size={20} color={'#1A1A1A'Muted} />
                 )}
               </TouchableOpacity>
             </View>
@@ -323,9 +323,9 @@ export default function SignUp() {
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
                 {showConfirmPassword ? (
-                  <EyeOff size={20} color={colors.textMuted} />
+                  <EyeOff size={20} color={'#1A1A1A'Muted} />
                 ) : (
-                  <Eye size={20} color={colors.textMuted} />
+                  <Eye size={20} color={'#1A1A1A'Muted} />
                 )}
               </TouchableOpacity>
             </View>
@@ -344,21 +344,21 @@ export default function SignUp() {
             />
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: '#5845D8' }, loading && styles.buttonDisabled]}
               onPress={handleSignUp}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={colors.textInverse} />
+                <ActivityIndicator color={'#1A1A1A'Inverse} />
               ) : (
-                <Text style={[styles.buttonText, { color: colors.textInverse }]}>Sign Up</Text>
+                <Text style={[styles.buttonText, { color: '#1A1A1A'Inverse }]}>Sign Up</Text>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.linkButton} onPress={() => router.back()} disabled={loading}>
-              <Text style={[styles.linkText, { color: colors.textLight }]}>
+              <Text style={[styles.linkText, { color: '#1A1A1A'Light }]}>
                 Already have an account?{' '}
-                <Text style={[styles.linkTextBold, { color: colors.primary }]}>Sign In</Text>
+                <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Sign In</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -367,18 +367,18 @@ export default function SignUp() {
 
       {/* Country modal */}
       <Modal visible={countryModalVisible} animationType="slide" onRequestClose={() => setCountryModalVisible(false)}>
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: '#F8F6F3' }]}>
           <View style={[styles.modalHeader, { 
-            borderBottomColor: colors.border, 
-            backgroundColor: colors.card 
+            borderBottomColor: '#E5E5E5', 
+            backgroundColor: '#FFFFFF' 
           }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Select country</Text>
+            <Text style={[styles.modalTitle, { color: '#1A1A1A' }]}>Select country</Text>
             <TouchableOpacity onPress={() => setCountryModalVisible(false)}>
-              <Text style={[styles.modalClose, { color: colors.primary }]}>Close</Text>
+              <Text style={[styles.modalClose, { color: '#5845D8' }]}>Close</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.searchRow, { backgroundColor: colors.card }]}>
+          <View style={[styles.searchRow, { backgroundColor: '#FFFFFF' }]}>
             <TextInput
               style={[styles.searchInput, { 
                 backgroundColor: colors.inputBackground, 
@@ -393,25 +393,25 @@ export default function SignUp() {
           </View>
 
           {countriesLoading ? (
-            <ActivityIndicator style={{ marginTop: 20 }} color={colors.primary} />
+            <ActivityIndicator style={{ marginTop: 20 }} color={'#5845D8'} />
           ) : (
             <FlatList
               data={filteredCountries}
               keyExtractor={(item) => item.cca2 + item.callingCode}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.countryRow, { backgroundColor: colors.card }]}
+                  style={[styles.countryRow, { backgroundColor: '#FFFFFF' }]}
                   onPress={() => onSelectCountry(item)}
                 >
                   <Text style={styles.countryFlag}>{item.flag}</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.countryName, { color: colors.text }]}>{item.name}</Text>
-                    <Text style={[styles.countrySub, { color: colors.textLight }]}>{item.cca2}</Text>
+                    <Text style={[styles.countryName, { color: '#1A1A1A' }]}>{item.name}</Text>
+                    <Text style={[styles.countrySub, { color: '#1A1A1A'Light }]}>{item.cca2}</Text>
                   </View>
-                  <Text style={[styles.countryDial, { color: colors.textLight }]}>+{item.callingCode}</Text>
+                  <Text style={[styles.countryDial, { color: '#1A1A1A'Light }]}>+{item.callingCode}</Text>
                 </TouchableOpacity>
               )}
-              ItemSeparatorComponent={() => <View style={[styles.sep, { backgroundColor: colors.border }]} />}
+              ItemSeparatorComponent={() => <View style={[styles.sep, { backgroundColor: '#E5E5E5' }]} />}
             />
           )}
         </SafeAreaView>
@@ -425,26 +425,26 @@ export default function SignUp() {
         onRequestClose={() => setShowVerifyModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.verifyModalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.verifyTitle, { color: colors.primary }]}>Verify Your Email</Text>
-            <Text style={[styles.verifyMessage, { color: colors.text }]}>
+          <View style={[styles.verifyModalContent, { backgroundColor: '#FFFFFF' }]}>
+            <Text style={[styles.verifyTitle, { color: '#5845D8' }]}>Verify Your Email</Text>
+            <Text style={[styles.verifyMessage, { color: '#1A1A1A' }]}>
               A verification email has been sent to{' '}
               <Text style={{ fontWeight: '600' }}>{email}</Text>.{'\n'}
               Please check your inbox and click the link to verify your account.
             </Text>
 
             <TouchableOpacity
-              style={[styles.loginButton, { backgroundColor: colors.primary }]}
+              style={[styles.loginButton, { backgroundColor: '#5845D8' }]}
               onPress={() => {
                 setShowVerifyModal(false);
                 router.push('/auth/signin');
               }}
             >
-              <Text style={[styles.loginButtonText, { color: colors.textInverse }]}>Go to Login</Text>
+              <Text style={[styles.loginButtonText, { color: '#1A1A1A'Inverse }]}>Go to Login</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.closeButton} onPress={() => setShowVerifyModal(false)}>
-              <Text style={[styles.closeButtonText, { color: colors.textLight }]}>Close</Text>
+              <Text style={[styles.closeButtonText, { color: '#1A1A1A'Light }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
