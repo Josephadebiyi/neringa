@@ -57,6 +57,34 @@ const travelMeansIcons = {
   train: Train,
 };
 
+  // Quick compatibility check on fetch
+  const checkTripCompatibility = async (tripsList) => {
+    try {
+      const response = await axios.post(
+        `${backendomain.backendomain}/api/shipment/quick-check`,
+        { trips: tripsList, item: itemDetails }
+      );
+      
+      if (response.data.success) {
+        // Create a map of trip ID to compatibility status
+        const scores = {};
+        response.data.compatibleTrips.forEach(trip => {
+          scores[trip._id] = {
+            compatible: true,
+            status: trip.compatibility,
+            reasons: trip.compatibilityReasons
+          };
+        });
+        setTripScores(scores);
+        return response.data.compatibleTrips;
+      }
+      return tripsList;
+    } catch (error) {
+      console.error('Compatibility check error:', error);
+      return tripsList;
+    }
+  };
+
   useEffect(() => {
     const fetchTravelers = async () => {
       setIsLoading(true);
@@ -75,10 +103,9 @@ const travelMeansIcons = {
 
         // Enrich trips with user data
         const enrichedTrips = gettravelers.map((trip) => ({
-    ...trip,
-    user: userMap[trip.user] || { _id: trip.user }, // fallback to ID itself
-  }));
-
+          ...trip,
+          user: userMap[trip.user] || { _id: trip.user },
+        }));
 
         // Filter active trips
         const activeTrips = enrichedTrips.filter((trip) => trip.status === 'active');
@@ -86,21 +113,24 @@ const travelMeansIcons = {
         // Match trips to the package's route and weight
         const normalize = (str) => str?.trim().toLowerCase();
 
-  const matched = activeTrips.filter((trip) => {
-    const from = normalize(trip.fromLocation);
-    const to = normalize(trip.toLocation);
+        const matched = activeTrips.filter((trip) => {
+          const from = normalize(trip.fromLocation);
+          const to = normalize(trip.toLocation);
 
-    const fromMatch =
-      from.includes(normalize(fromCity)) || from.includes(normalize(fromCountry));
-    const toMatch =
-      to.includes(normalize(toCity)) || to.includes(normalize(toCountry));
+          const fromMatch =
+            from?.includes(normalize(fromCity)) || from?.includes(normalize(fromCountry));
+          const toMatch =
+            to?.includes(normalize(toCity)) || to?.includes(normalize(toCountry));
 
-    return fromMatch && toMatch && trip.availableKg >= weightNum;
-  });
+          // Also filter by weight compatibility
+          return fromMatch && toMatch && trip.availableKg >= weightNum;
+        });
 
+        // Run compatibility check on matched trips
+        const compatibleTrips = await checkTripCompatibility(matched);
 
         setTrips(activeTrips);
-        setMatchedTrips(matched);
+        setMatchedTrips(compatibleTrips.length > 0 ? compatibleTrips : matched);
       } catch (error) {
         console.error('Error fetching travelers:', error);
         const errorMessage =
@@ -113,6 +143,32 @@ const travelMeansIcons = {
 
     fetchTravelers();
   }, [fromCity, fromCountry, toCity, toCountry, weightNum]);
+
+  const handleViewAssessment = (trip) => {
+    setSelectedTrip(trip);
+    setShowAssessment(true);
+  };
+
+  const handleProceedFromAssessment = (assessment) => {
+    setShowAssessment(false);
+    if (selectedTrip) {
+      // Navigate to payment with assessment data
+      router.push({
+        pathname: '/payment',
+        params: {
+          tripId: selectedTrip._id,
+          travelerId: selectedTrip.user._id,
+          travellerName: `${selectedTrip.user.firstName || ''} ${selectedTrip.user.lastName || ''}`.trim(),
+          amount: String(amountNum),
+          packageId,
+          insurance: insurance ? 'yes' : 'no',
+          insuranceCost: insuranceCost.toFixed(2),
+          confidenceScore: String(assessment.confidenceScore),
+          riskLevel: assessment.riskClassification.overall,
+        },
+      });
+    }
+  };
 
   const handleSelectTraveler = async (tripId, travelerId, amount) => {
     try {
