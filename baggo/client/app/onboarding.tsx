@@ -84,7 +84,7 @@ export default function OnboardingScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <TouchableOpacity style={[styles.skipButton, { backgroundColor: colors.surface }]} onPress={handleSkip}>
+        <TouchableOpacity style={[styles.skipButton, { backgroundColor: '#FFFFFF' }]} onPress={handleSkip}>
           <Text style={[styles.skipText, { color: '#1A1A1A'Light }]}>skip</Text>
         </TouchableOpacity>
       </View>
@@ -112,7 +112,7 @@ export default function OnboardingScreen() {
       {/* Bottom Navigation */}
       <View style={styles.bottomContainer}>
         {currentIndex > 0 ? (
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.surface }]} onPress={handleBack}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#FFFFFF' }]} onPress={handleBack}>
             <ChevronLeft size={24} color={'#1A1A1A'} />
           </TouchableOpacity>
         ) : (

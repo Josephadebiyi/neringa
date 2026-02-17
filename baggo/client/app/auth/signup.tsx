@@ -206,12 +206,12 @@ export default function SignUp() {
 
             <TextInput
               style={[styles.input, { 
-                backgroundColor: colors.inputBackground, 
-                borderColor: colors.inputBorder, 
-                color: colors.inputText 
+                backgroundColor: '#F3F4F6', 
+                borderColor: '#E5E5E5', 
+                color: '#1A1A1A' 
               }]}
               placeholder="First Name"
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
               value={firstName}
               onChangeText={setFirstName}
               editable={!loading}
@@ -219,12 +219,12 @@ export default function SignUp() {
 
             <TextInput
               style={[styles.input, { 
-                backgroundColor: colors.inputBackground, 
-                borderColor: colors.inputBorder, 
-                color: colors.inputText 
+                backgroundColor: '#F3F4F6', 
+                borderColor: '#E5E5E5', 
+                color: '#1A1A1A' 
               }]}
               placeholder="Last Name"
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
               value={lastName}
               onChangeText={setLastName}
               editable={!loading}
@@ -232,12 +232,12 @@ export default function SignUp() {
 
             <TextInput
               style={[styles.input, { 
-                backgroundColor: colors.inputBackground, 
-                borderColor: colors.inputBorder, 
-                color: colors.inputText 
+                backgroundColor: '#F3F4F6', 
+                borderColor: '#E5E5E5', 
+                color: '#1A1A1A' 
               }]}
               placeholder="Email"
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -247,25 +247,25 @@ export default function SignUp() {
 
             <TextInput
               style={[styles.input, { 
-                backgroundColor: colors.inputBackground, 
-                borderColor: colors.inputBorder, 
-                color: colors.inputText 
+                backgroundColor: '#F3F4F6', 
+                borderColor: '#E5E5E5', 
+                color: '#1A1A1A' 
               }]}
               placeholder="Date of Birth (YYYY-MM-DD)"
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
               value={dateOfBirth}
               onChangeText={setDateOfBirth}
               editable={!loading}
             />
 
             <View style={[styles.phoneContainer, { 
-              borderColor: colors.inputBorder, 
-              backgroundColor: colors.inputBackground 
+              borderColor: '#E5E5E5', 
+              backgroundColor: '#F3F4F6' 
             }]}>
               <TouchableOpacity
                 style={[styles.countryPickerButton, { 
-                  borderRightColor: colors.inputBorder, 
-                  backgroundColor: colors.inputBackground 
+                  borderRightColor: '#E5E5E5', 
+                  backgroundColor: '#F3F4F6' 
                 }]}
                 onPress={() => setCountryModalVisible(true)}
                 disabled={loading}
@@ -276,9 +276,9 @@ export default function SignUp() {
                 </Text>
               </TouchableOpacity>
               <TextInput
-                style={[styles.phoneInput, { color: colors.inputText }]}
+                style={[styles.phoneInput, { color: '#1A1A1A' }]}
                 placeholder="Phone Number"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -287,13 +287,13 @@ export default function SignUp() {
             </View>
 
             <View style={[styles.passwordContainer, { 
-              borderColor: colors.inputBorder, 
-              backgroundColor: colors.inputBackground 
+              borderColor: '#E5E5E5', 
+              backgroundColor: '#F3F4F6' 
             }]}>
               <TextInput
-                style={[styles.passwordInput, { color: colors.inputText }]}
+                style={[styles.passwordInput, { color: '#1A1A1A' }]}
                 placeholder="Password"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor={'#9E9E9E'}
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
@@ -309,13 +309,13 @@ export default function SignUp() {
             </View>
 
             <View style={[styles.passwordContainer, { 
-              borderColor: colors.inputBorder, 
-              backgroundColor: colors.inputBackground 
+              borderColor: '#E5E5E5', 
+              backgroundColor: '#F3F4F6' 
             }]}>
               <TextInput
-                style={[styles.passwordInput, { color: colors.inputText }]}
+                style={[styles.passwordInput, { color: '#1A1A1A' }]}
                 placeholder="Confirm Password"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor={'#9E9E9E'}
                 secureTextEntry={!showConfirmPassword}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -332,12 +332,12 @@ export default function SignUp() {
 
             <TextInput
               style={[styles.input, { 
-                backgroundColor: colors.inputBackground, 
-                borderColor: colors.inputBorder, 
-                color: colors.inputText 
+                backgroundColor: '#F3F4F6', 
+                borderColor: '#E5E5E5', 
+                color: '#1A1A1A' 
               }]}
               placeholder="Referral Code (optional)"
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
               value={referralCode}
               onChangeText={setReferralCode}
               editable={!loading}
@@ -381,12 +381,12 @@ export default function SignUp() {
           <View style={[styles.searchRow, { backgroundColor: '#FFFFFF' }]}>
             <TextInput
               style={[styles.searchInput, { 
-                backgroundColor: colors.inputBackground, 
-                borderColor: colors.inputBorder, 
-                color: colors.inputText 
+                backgroundColor: '#F3F4F6', 
+                borderColor: '#E5E5E5', 
+                color: '#1A1A1A' 
               }]}
               placeholder="Search by country or code (e.g. United, +1)"
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
               value={countrySearch}
               onChangeText={setCountrySearch}
             />

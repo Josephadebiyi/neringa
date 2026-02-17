@@ -78,9 +78,9 @@ export default function ForgotPassword() {
 
         <View style={styles.form}>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.inputText }]}
+            style={[styles.input, { backgroundColor: '#F3F4F6', borderColor: '#E5E5E5', color: '#1A1A1A' }]}
             placeholder="Enter your email"
-            placeholderTextColor={colors.inputPlaceholder}
+            placeholderTextColor={'#9E9E9E'}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"

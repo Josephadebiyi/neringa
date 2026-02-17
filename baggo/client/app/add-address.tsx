@@ -36,22 +36,22 @@ export default function AddAddressScreen() {
             <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
               <Text style={[styles.label, { color: '#1A1A1A'Light }]}>First Name</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
+                style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholder="First Name"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor={'#9E9E9E'}
               />
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Last Name</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
+                style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={lastName}
                 onChangeText={setLastName}
                 placeholder="Last Name"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor={'#9E9E9E'}
               />
             </View>
           </View>
@@ -59,11 +59,11 @@ export default function AddAddressScreen() {
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Street, Address and City</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
+              style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
               value={address}
               onChangeText={setAddress}
               placeholder="Enter full address"
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
             />
           </View>
 
@@ -71,11 +71,11 @@ export default function AddAddressScreen() {
             <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
               <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Apt, Suite</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
+                style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={aptSuite}
                 onChangeText={setAptSuite}
                 placeholder="32"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="number-pad"
               />
             </View>
@@ -83,11 +83,11 @@ export default function AddAddressScreen() {
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Postcode</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText }]}
+                style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={postcode}
                 onChangeText={setPostcode}
                 placeholder="1234"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="number-pad"
               />
             </View>

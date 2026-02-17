@@ -283,9 +283,9 @@ export default function TravelerDetailsScreen() {
               ))}
             </View>
             <TextInput
-              style={[styles.reviewInput, { borderColor: '#E5E5E5', backgroundColor: colors.inputBackground, color: colors.inputText }]}
+              style={[styles.reviewInput, { borderColor: '#E5E5E5', backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
               placeholder="Write your review..."
-              placeholderTextColor={colors.inputPlaceholder}
+              placeholderTextColor={'#9E9E9E'}
               multiline
               value={reviewComment}
               onChangeText={setReviewComment}
