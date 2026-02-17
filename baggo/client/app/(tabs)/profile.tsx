@@ -1296,21 +1296,6 @@ const handleCurrencySelect = (newCurrency: string) => {
             </View>
             <ChevronRight size={20} color={'#6B6B6B'} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => setThemeModalVisible(true)}
-          >
-            <View style={styles.menuIcon}>
-              <Moon size={20} color={'#5845D8'} />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Appearance</Text>
-              <Text style={styles.menuSubtitle}>
-                {theme === 'system' ? 'System Default' : theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-              </Text>
-            </View>
-            <ChevronRight size={20} color={'#6B6B6B'} />
-          </TouchableOpacity>
         </View>
       </View>
 
