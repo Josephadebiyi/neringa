@@ -37,7 +37,7 @@ export default function LiveTrackingScreen() {
           </View>
 
           <View style={[styles.mapMarker, { top: 200, left: 200 }]}>
-            <MapPin size={24} color={'#5845D8'} fill={'#5845D8'Light} />
+            <MapPin size={24} color={'#5845D8'} fill='#7B68EE' />
             <View style={styles.markerLabel}>
               <Text style={styles.markerText}>Destination</Text>
             </View>
