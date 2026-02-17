@@ -33,7 +33,6 @@ export default function ProfileScreen() {
   const [balance, setBalance] = useState(0);
   const [currency, setCurrency] = useState('EUR');
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
-  const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
