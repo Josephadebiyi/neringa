@@ -17,7 +17,8 @@ import {
   Swords,
   ChevronDown,
   RefreshCcw,
-  LogOut,  // Added for logout
+  LogOut,
+  Route,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
