@@ -201,12 +201,12 @@ const travelMeansIcons = {
 
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Available Travelers</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Available Travelers</Text>
         <View style={{ width: 40 }} />
       </View>
 
