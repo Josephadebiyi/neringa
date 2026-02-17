@@ -296,26 +296,26 @@ export default function AddTripScreen() {
         {/* From Section */}
         <Text style={styles.label}>From Country</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("from")}>
-          <MapPin size={20} color={#111111Light} />
+          <MapPin size={20} color="#6B7280" />
           <Text style={styles.input}>{fromCountry || "Select Country"}</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>From City</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("from")}>
-          <MapPin size={20} color={#111111Light} />
+          <MapPin size={20} color="#6B7280" />
           <Text style={styles.input}>{fromCity || "Select City"}</Text>
         </TouchableOpacity>
 
         {/* To Section */}
         <Text style={styles.label}>To Country</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("to")}>
-          <MapPin size={20} color={#111111Light} />
+          <MapPin size={20} color="#6B7280" />
           <Text style={styles.input}>{toCountry || "Select Country"}</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>To City</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("to")}>
-          <MapPin size={20} color={#111111Light} />
+          <MapPin size={20} color="#6B7280" />
           <Text style={styles.input}>{toCity || "Select City"}</Text>
         </TouchableOpacity>
 
@@ -394,7 +394,7 @@ export default function AddTripScreen() {
         {/* Date Picker */}
         <Text style={styles.label}>Departure Date</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => setDatePickerVisibility(true)}>
-          <Calendar size={20} color={#111111Light} />
+          <Calendar size={20} color="#6B7280" />
           <Text style={styles.input}>{departureDate || "Select Departure Date"}</Text>
         </TouchableOpacity>
 
@@ -409,7 +409,7 @@ export default function AddTripScreen() {
         {/* Arrival Date */}
 <Text style={styles.label}>Arrival Date</Text>
 <TouchableOpacity style={styles.inputContainer} onPress={() => setArrivalDatePickerVisibility(true)}>
-  <Calendar size={20} color={#111111Light} />
+  <Calendar size={20} color="#6B7280" />
   <Text style={styles.input}>{arrivalDate || "Select Arrival Date"}</Text>
 </TouchableOpacity>
 
@@ -429,11 +429,11 @@ export default function AddTripScreen() {
         {/* Available Space */}
         <Text style={styles.label}>Available Luggage Space (kg)</Text>
         <View style={styles.inputContainer}>
-          <Weight size={20} color={#111111Light} />
+          <Weight size={20} color="#6B7280" />
           <TextInput
             style={styles.input}
             placeholder="Enter available weight"
-            placeholderTextColor={#111111Muted}
+            placeholderTextColor="rgba(17,17,17,0.35)"
             keyboardType="numeric"
             value={availableKg}
             onChangeText={setAvailableKg}
@@ -452,7 +452,7 @@ export default function AddTripScreen() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={#FFFFFF} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.submitButtonText}>Create Trip</Text>
           )}
@@ -505,7 +505,7 @@ export default function AddTripScreen() {
       <Modal visible={showCityModal} animationType="slide">
         <View style={styles.modalContainerModal}>
         {loadingCities ? (
-       <ActivityIndicator size="large" color={#6366F1} />
+       <ActivityIndicator size="large" color="#6366F1" />
      ) : cities.length > 0 ? (
        <>
          <TextInput
@@ -565,7 +565,7 @@ export default function AddTripScreen() {
              },
            ]}
            placeholder="Type your city name..."
-           placeholderTextColor={#111111Muted}
+           placeholderTextColor="rgba(17,17,17,0.35)"
            value={citySearch}
            onChangeText={setCitySearch}
          />

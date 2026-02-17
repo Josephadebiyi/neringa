@@ -38,16 +38,16 @@ export default function CheckRatesScreen() {
           <View style={styles.section}>
             <Text style={styles.label}>Pickup - Point</Text>
             <View style={styles.inputRow}>
-              <MapPin size={20} color={#111111Light} />
+              <MapPin size={20} color="#6B7280" />
               <TextInput
                 style={styles.input}
                 value={pickupLocation}
                 onChangeText={setPickupLocation}
                 placeholder="Enter pickup location"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
               />
               <TouchableOpacity onPress={() => setPickupLocation('')}>
-                <X size={20} color={#111111Light} />
+                <X size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
           </View>
@@ -55,16 +55,16 @@ export default function CheckRatesScreen() {
           <View style={styles.section}>
             <Text style={styles.label}>Drop Off - Point</Text>
             <View style={styles.inputRow}>
-              <MapPin size={20} color={#111111Light} />
+              <MapPin size={20} color="#6B7280" />
               <TextInput
                 style={styles.input}
                 value={dropoffLocation}
                 onChangeText={setDropoffLocation}
                 placeholder="Enter drop-off location"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
               />
               <TouchableOpacity onPress={() => setDropoffLocation('')}>
-                <X size={20} color={#111111Light} />
+                <X size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
           </View>
@@ -84,14 +84,14 @@ export default function CheckRatesScreen() {
                   onPress={() => quantity > 1 && setQuantity(quantity - 1)}
                   style={styles.quantityButton}
                 >
-                  <Minus size={16} color={#111111Light} />
+                  <Minus size={16} color="#6B7280" />
                 </TouchableOpacity>
                 <Text style={styles.quantityText}>{quantity} Package</Text>
                 <TouchableOpacity 
                   onPress={() => setQuantity(quantity + 1)}
                   style={[styles.quantityButton, styles.quantityButtonActive]}
                 >
-                  <Plus size={16} color={#FFFFFF} />
+                  <Plus size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             </View>

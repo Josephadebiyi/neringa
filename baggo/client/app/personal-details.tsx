@@ -284,16 +284,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>First Name</Text>
-                {isKycLocked && <Lock size={14} color={#111111Light} />}
+                {isKycLocked && <Lock size={14} color="#6B7280" />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <User size={20} color={#111111Light} />
+                <User size={20} color="#6B7280" />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={firstName}
                   onChangeText={setFirstName}
                   placeholder="First name"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   editable={!isKycLocked}
                 />
               </View>
@@ -303,16 +303,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Last Name</Text>
-                {isKycLocked && <Lock size={14} color={#111111Light} />}
+                {isKycLocked && <Lock size={14} color="#6B7280" />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <User size={20} color={#111111Light} />
+                <User size={20} color="#6B7280" />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={lastName}
                   onChangeText={setLastName}
                   placeholder="Last name"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   editable={!isKycLocked}
                 />
               </View>
@@ -322,13 +322,13 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputContainer}>
-                <Mail size={20} color={#111111Light} />
+                <Mail size={20} color="#6B7280" />
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="Email address"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   keyboardType="email-address"
                 />
               </View>
@@ -338,13 +338,13 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Phone Number</Text>
               <View style={styles.inputContainer}>
-                <Phone size={20} color={#111111Light} />
+                <Phone size={20} color="#6B7280" />
                 <TextInput
                   style={styles.input}
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="Phone number"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   keyboardType="phone-pad"
                 />
               </View>
@@ -354,16 +354,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Date of Birth</Text>
-                {isKycLocked && <Lock size={14} color={#111111Light} />}
+                {isKycLocked && <Lock size={14} color="#6B7280" />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <Calendar size={20} color={#111111Light} />
+                <Calendar size={20} color="#6B7280" />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={formatDate(dateOfBirth)}
                   onChangeText={setDateOfBirth}
                   placeholder="Date of Birth"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   editable={!isKycLocked}
                 />
               </View>
@@ -374,7 +374,7 @@ export default function PersonalDetailsScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Country</Text>
                 <View style={[styles.inputContainer, styles.inputLocked]}>
-                  <MapPin size={20} color={#111111Light} />
+                  <MapPin size={20} color="#6B7280" />
                   <Text style={[styles.input, styles.inputTextLocked]}>{country}</Text>
                 </View>
               </View>
@@ -404,7 +404,7 @@ export default function PersonalDetailsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose Avatar</Text>
               <TouchableOpacity onPress={() => setAvatarModalVisible(false)}>
-                <X size={24} color={#111111} />
+                <X size={24} color="#111111" />
               </TouchableOpacity>
             </View>
 
@@ -427,7 +427,7 @@ export default function PersonalDetailsScreen() {
             </View>
 
             <TouchableOpacity style={styles.uploadPhotoButton} onPress={pickImage}>
-              <Camera size={20} color={#6366F1} />
+              <Camera size={20} color="#6366F1" />
               <Text style={styles.uploadPhotoText}>Upload Your Photo</Text>
             </TouchableOpacity>
           </View>

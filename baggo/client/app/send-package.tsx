@@ -462,7 +462,7 @@ const handleSelectCity = (cityName: string) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={#111111} />
+          <ChevronLeft size={24} color="#111111" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Send Package</Text>
         <View style={{ width: 40 }} />
@@ -493,7 +493,7 @@ const handleSelectCity = (cityName: string) => {
                 onPress={() => openCountryModal('from')}
                 activeOpacity={0.8}
               >
-                <MapPin size={20} color={#111111Light} />
+                <MapPin size={20} color="#6B7280" />
                 <Text style={styles.input}>{fromCountry || 'Enter country'}</Text>
               </TouchableOpacity>
             </View>
@@ -505,7 +505,7 @@ const handleSelectCity = (cityName: string) => {
       onPress={() => openCityModal('from')}
       activeOpacity={0.8}
     >
-      <MapPin size={20} color={#111111Light} />
+      <MapPin size={20} color="#6B7280" />
       <Text style={styles.input}>{fromCity || 'Select city'}</Text>
     </TouchableOpacity>
   </View>
@@ -522,7 +522,7 @@ const handleSelectCity = (cityName: string) => {
                 onPress={() => openCountryModal('to')}
                 activeOpacity={0.8}
               >
-                <MapPin size={20} color={#111111Light} />
+                <MapPin size={20} color="#6B7280" />
                 <Text style={styles.input}>{toCountry || 'Enter country'}</Text>
               </TouchableOpacity>
             </View>
@@ -534,7 +534,7 @@ const handleSelectCity = (cityName: string) => {
       onPress={() => openCityModal('to')}
       activeOpacity={0.8}
     >
-      <MapPin size={20} color={#111111Light} />
+      <MapPin size={20} color="#6B7280" />
       <Text style={styles.input}>{toCity || 'Select city'}</Text>
     </TouchableOpacity>
   </View>
@@ -547,11 +547,11 @@ const handleSelectCity = (cityName: string) => {
             <View style={styles.section}>
               <Text style={styles.label}>Package Weight</Text>
               <View style={styles.weightInput}>
-                <Weight size={20} color={#111111Light} />
+                <Weight size={20} color="#6B7280" />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter weight"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   keyboardType="decimal-pad"
                   value={packageWeight}
                   onChangeText={setPackageWeight}
@@ -566,7 +566,7 @@ const handleSelectCity = (cityName: string) => {
                 <TextInput
                   style={styles.input}
                   placeholder="Full name"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   value={receiverName}
                   onChangeText={setReceiverName}
                 />
@@ -605,7 +605,7 @@ const handleSelectCity = (cityName: string) => {
           },
         ]}
         placeholder="000 000 0000"
-        placeholderTextColor={#111111Muted}
+        placeholderTextColor="rgba(17,17,17,0.35)"
         keyboardType="phone-pad"
         value={receiverPhone}
         onChangeText={setReceiverPhone}
@@ -624,7 +624,7 @@ const handleSelectCity = (cityName: string) => {
     <TextInput
       style={styles.input}
       placeholder="Enter package value"
-      placeholderTextColor={#111111Muted}
+      placeholderTextColor="rgba(17,17,17,0.35)"
       keyboardType="decimal-pad"
       value={value}
       onChangeText={setValue}
@@ -639,7 +639,7 @@ const handleSelectCity = (cityName: string) => {
                 <TextInput
                   style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
                   placeholder="What's in the package?"
-                  placeholderTextColor={#111111Muted}
+                  placeholderTextColor="rgba(17,17,17,0.35)"
                   multiline
                   value={description}
                   onChangeText={setDescription}
@@ -699,14 +699,14 @@ const handleSelectCity = (cityName: string) => {
 
             <View style={styles.routeCard}>
               <View style={styles.routeRow}>
-                <MapPin size={18} color={#6366F1} />
+                <MapPin size={18} color="#6366F1" />
                 <Text style={styles.routeText}>
                   {fromCity}, {fromCountry}
                 </Text>
               </View>
               <Text style={styles.routeArrow}>↓</Text>
               <View style={styles.routeRow}>
-                <MapPin size={18} color={#EC4899} />
+                <MapPin size={18} color="#EC4899" />
                 <Text style={styles.routeText}>
                   {toCity}, {toCountry}
                 </Text>
@@ -727,14 +727,14 @@ const handleSelectCity = (cityName: string) => {
             <TextInput
               style={modalStyles.searchInput}
               placeholder="Search country..."
-              placeholderTextColor={#111111Muted}
+              placeholderTextColor="rgba(17,17,17,0.35)"
               value={countrySearch}
               onChangeText={setCountrySearch}
             />
           </View>
 
           {loadingCountries ? (
-            <ActivityIndicator size="large" color={#6366F1} />
+            <ActivityIndicator size="large" color="#6366F1" />
           ) : (
             <FlatList
               data={filteredCountries}
@@ -770,14 +770,14 @@ const handleSelectCity = (cityName: string) => {
             <TextInput
               style={modalStyles.searchInput}
               placeholder="Search city..."
-              placeholderTextColor={#111111Muted}
+              placeholderTextColor="rgba(17,17,17,0.35)"
               value={citySearch}
               onChangeText={setCitySearch}
             />
           </View>
 
           {loadingCities ? (
-            <ActivityIndicator size="large" color={#6366F1} />
+            <ActivityIndicator size="large" color="#6366F1" />
           ) : cities.length > 0 ? (
             <FlatList
               data={cities.filter((city) =>
@@ -828,7 +828,7 @@ const handleSelectCity = (cityName: string) => {
                   },
                 ]}
                 placeholder="Type your city name..."
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 value={citySearch}
                 onChangeText={setCitySearch}
               />

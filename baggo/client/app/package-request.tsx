@@ -908,7 +908,7 @@ useEffect(() => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={#111111} />
+          <ChevronLeft size={24} color="#111111" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Package Request</Text>
         <View style={{ width: 40 }} />
@@ -925,7 +925,7 @@ useEffect(() => {
 </Text>
 
           <View style={styles.escrowBadge}>
-            <Shield size={14} color={#FFFFFF} />
+            <Shield size={14} color="#FFFFFF" />
             <Text style={styles.escrowText}>Held in Escrow Until Pickup</Text>
           </View>
         </LinearGradient>
@@ -936,7 +936,7 @@ useEffect(() => {
             <Image source={{ uri: pkg.packageImage }} style={styles.packageImage} />
           ) : (
             <View style={[styles.packageImage, { justifyContent: 'center', alignItems: 'center' }]}>
-              <Package size={48} color={#111111Light} />
+              <Package size={48} color="#6B7280" />
             </View>
           )}
         </View>
@@ -945,21 +945,21 @@ useEffect(() => {
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.card}>
             <View style={styles.row}>
-              <Package size={20} color={#111111Light} />
+              <Package size={20} color="#6B7280" />
               <View style={styles.flex}>
                 <Text style={styles.label}>Description</Text>
                 <Text style={styles.value}>{pkg.description}</Text>
               </View>
             </View>
             <View style={styles.row}>
-              <Weight size={20} color={#111111Light} />
+              <Weight size={20} color="#6B7280" />
               <View style={styles.flex}>
                 <Text style={styles.label}>Weight</Text>
                 <Text style={styles.value}>{pkg.weight} kg</Text>
               </View>
             </View>
             <View style={styles.row}>
-              <DollarSign size={20} color={#111111Light} />
+              <DollarSign size={20} color="#6B7280" />
               <View style={styles.flex}>
                 <Text style={styles.label}>Value</Text>
                 <Text style={styles.value}>{pkg.value ? `€${pkg.value}` : 'N/A'}</Text>
@@ -978,7 +978,7 @@ useEffect(() => {
                 onPress={() => openDatePicker(currentRequest._id, 'estimatedDeparture', pkg.estimatedDeparture)}
                 disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
               >
-                <Clock size={16} color={#111111Light} />
+                <Clock size={16} color="#6B7280" />
                 <Text style={styles.trackingText}>
                   Est. Departure: {formatDate(pkg.estimatedDeparture)}
                 </Text>
@@ -988,7 +988,7 @@ useEffect(() => {
                 onPress={() => openDatePicker(currentRequest._id, 'estimatedArrival', pkg.estimatedArrival)}
                 disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
               >
-                <Clock size={16} color={#111111Light} />
+                <Clock size={16} color="#6B7280" />
                 <Text style={styles.trackingText}>
                   Est. Arrival: {formatDate(pkg.estimatedArrival)}
                 </Text>
@@ -999,7 +999,7 @@ useEffect(() => {
                   <Text style={styles.sectionTitle}>Movement History</Text>
                   {pkg.movementTracking.map((track, index) => (
                     <View key={index} style={styles.trackingItem}>
-                      <MapPin size={16} color={#111111Light} />
+                      <MapPin size={16} color="#6B7280" />
                       <Text style={styles.trackingText}>
                         {track.status} {track.location ? `at ${track.location}` : ''} - {formatDate(track.timestamp)}
                       </Text>
@@ -1050,7 +1050,7 @@ useEffect(() => {
            </View>
          ) : (
            <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
-             <Upload size={24} color={#6366F1} />
+             <Upload size={24} color="#6366F1" />
              <Text style={styles.uploadText}>Tap to select an image</Text>
            </TouchableOpacity>
          )}
@@ -1061,7 +1061,7 @@ useEffect(() => {
            disabled={uploading}
          >
            {uploading ? (
-             <ActivityIndicator color={#FFFFFF} />
+             <ActivityIndicator color="#FFFFFF" />
            ) : (
              <Text style={styles.sendButtonText}>Send Proof</Text>
            )}
@@ -1073,7 +1073,7 @@ useEffect(() => {
           <Text style={styles.sectionTitle}>Sender</Text>
           <View style={styles.senderCard}>
             <View style={styles.avatar}>
-              <User size={24} color={#FFFFFF} />
+              <User size={24} color="#FFFFFF" />
             </View>
             <View style={styles.flex}>
               <Text style={styles.senderName}>{pkg.senderName}</Text>
@@ -1083,7 +1083,7 @@ useEffect(() => {
         </View>
 
         <View style={styles.infoBox}>
-          <Shield size={20} color={#6366F1} />
+          <Shield size={20} color="#6366F1" />
           <View style={styles.flex}>
             <Text style={styles.infoTitle}>Escrow Protection</Text>
             <Text style={styles.infoText}>
@@ -1115,9 +1115,9 @@ useEffect(() => {
   onPress={handleDecline}
   disabled={loadingButton === 'decline'}
 >
-  <XCircle size={20} color={#EF4444} />
+  <XCircle size={20} color="#EF4444" />
   {loadingButton === 'decline' ? (
-    <ActivityIndicator color={#EF4444} style={{ marginLeft: 8 }} />
+    <ActivityIndicator color="#EF4444" style={{ marginLeft: 8 }} />
   ) : (
     <Text style={styles.declineButtonText}>Decline</Text>
   )}
@@ -1129,9 +1129,9 @@ useEffect(() => {
     onPress={handleAccept}
     disabled={loadingButton === 'accept'} // disable while loading
   >
-    <CheckCircle size={20} color={#FFFFFF} />
+    <CheckCircle size={20} color="#FFFFFF" />
     {loadingButton === 'accept' ? (
-      <ActivityIndicator color={#FFFFFF} style={{ marginLeft: 8 }} />
+      <ActivityIndicator color="#FFFFFF" style={{ marginLeft: 8 }} />
     ) : (
       <Text style={styles.acceptButtonText}>Accept</Text>
     )}
@@ -1148,9 +1148,9 @@ useEffect(() => {
     onPress={handleMarkInTransit}
     disabled={loadingButton === 'intransit'}
   >
-    <MapPin size={18} color={#FFFFFF} />
+    <MapPin size={18} color="#FFFFFF" />
     {loadingButton === 'intransit' ? (
-      <ActivityIndicator color={#FFFFFF} style={{ marginLeft: 8 }} />
+      <ActivityIndicator color="#FFFFFF" style={{ marginLeft: 8 }} />
     ) : (
       <Text style={styles.actionButtonText}>Mark In Transit</Text>
     )}
@@ -1160,7 +1160,7 @@ useEffect(() => {
               {/* Cancel button only for accepted */}
               <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancel(pkg)}>
         <View style={styles.cancelButtonContent}>
-          <XCircle size={18} color={#FFFFFF} />
+          <XCircle size={18} color="#FFFFFF" />
           <Text style={styles.cancelButtonText}> Cancel</Text>
         </View>
       </TouchableOpacity>
@@ -1177,9 +1177,9 @@ useEffect(() => {
         onPress={handleMarkDelivering}
         disabled={loadingButton === 'delivering'}
       >
-        <MapPin size={18} color={#FFFFFF} />
+        <MapPin size={18} color="#FFFFFF" />
         {loadingButton === 'delivering' ? (
-          <ActivityIndicator color={#FFFFFF} style={{ marginLeft: 8 }} />
+          <ActivityIndicator color="#FFFFFF" style={{ marginLeft: 8 }} />
         ) : (
           <Text style={styles.actionButtonText}>Mark Delivering</Text>
         )}
@@ -1197,9 +1197,9 @@ useEffect(() => {
     }}
     disabled={loadingButton === 'cancel'}   // prevent multiple presses
   >
-    <XCircle size={18} color={#FFFFFF} />
+    <XCircle size={18} color="#FFFFFF" />
     {loadingButton === 'cancel' ? (
-      <ActivityIndicator color={#FFFFFF} style={{ marginLeft: 8 }} />
+      <ActivityIndicator color="#FFFFFF" style={{ marginLeft: 8 }} />
     ) : (
       <Text style={styles.cancelButtonText}>Cancel</Text>
     )}
@@ -1215,9 +1215,9 @@ useEffect(() => {
       onPress={handleMarkCompleted}
       disabled={loadingButton === 'completed'}
     >
-      <CheckCircle size={18} color={#FFFFFF} />
+      <CheckCircle size={18} color="#FFFFFF" />
       {loadingButton === 'completed' ? (
-        <ActivityIndicator color={#FFFFFF} style={{ marginLeft: 8 }} />
+        <ActivityIndicator color="#FFFFFF" style={{ marginLeft: 8 }} />
       ) : (
         <Text style={styles.actionButtonText}>Mark Completed</Text>
       )}
@@ -1233,7 +1233,7 @@ useEffect(() => {
       {accepting && (
         <View style={styles.overlay}>
           <View style={styles.successCard}>
-            <CheckCircle size={64} color={#22C55E} />
+            <CheckCircle size={64} color="#22C55E" />
             <Text style={styles.successTitle}>Request Accepted!</Text>
             <Text style={styles.successText}>Payment held in escrow. Pick up to start earning.</Text>
           </View>

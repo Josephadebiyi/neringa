@@ -127,7 +127,7 @@ export default function PackageDetailsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={#6366F1} />
+        <ActivityIndicator size="large" color="#6366F1" />
       </View>
     );
   }
@@ -278,7 +278,7 @@ export default function PackageDetailsScreen() {
 
         <View style={styles.heroSection}>
           <View style={styles.packageIcon}>
-            <PackageIcon size={32} color={#F59E0B} strokeWidth={1.5} />
+            <PackageIcon size={32} color="#F59E0B" strokeWidth={1.5} />
           </View>
           <Text style={styles.packageName}>{packageName}</Text>
           <Text style={styles.orderId}>Order ID: {orderId ? orderId.toUpperCase().slice(0, 6) : '------'}</Text>
@@ -326,7 +326,7 @@ export default function PackageDetailsScreen() {
 
         <View style={styles.locationCard}>
           <View style={styles.locationRow}>
-            <MapPin size={18} color={#6366F1} />
+            <MapPin size={18} color="#6366F1" />
             <View style={styles.locationContent}>
               <Text style={styles.locationLabel}>From</Text>
               <Text style={styles.locationText}>{routeFrom}</Text>
@@ -336,7 +336,7 @@ export default function PackageDetailsScreen() {
           <View style={styles.divider} />
 
           <View style={styles.locationRow}>
-            <MapPin size={18} color={#EC4899} />
+            <MapPin size={18} color="#EC4899" />
             <View style={styles.locationContent}>
               <Text style={styles.locationLabel}>Shipping to</Text>
               <Text style={styles.locationText}>{routeTo}</Text>
@@ -386,7 +386,7 @@ export default function PackageDetailsScreen() {
             <Text style={styles.cardTitle}>Movement History</Text>
             {movementTracking.map((track, index) => (
               <View key={index} style={styles.trackingItem}>
-                <MapPin size={16} color={#111111Light} />
+                <MapPin size={16} color="#6B7280" />
                 <View style={styles.trackingContent}>
                   <Text style={styles.trackingText}>
                     {track.status.charAt(0).toUpperCase() + track.status.slice(1)}
@@ -696,7 +696,7 @@ export default function PackageDetailsScreen() {
                 }
               }}
             >
-              <MessageCircle size={20} color={#FFFFFF} />
+              <MessageCircle size={20} color="#FFFFFF" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -709,7 +709,7 @@ export default function PackageDetailsScreen() {
                 }
               }}
             >
-              <Phone size={20} color={#FFFFFF} />
+              <Phone size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 

@@ -358,7 +358,7 @@ useEffect(() => {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={#6366F1} />
+        <ActivityIndicator size="large" color="#6366F1" />
       </View>
     );
   }
@@ -368,7 +368,7 @@ useEffect(() => {
       {/* Header */}
       <LinearGradient colors={[#6366F1, #6366F1Dark]} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={#FFFFFF} />
+          <ChevronLeft size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Trips</Text>
         <View style={{ width: 40 }} />
@@ -377,7 +377,7 @@ useEffect(() => {
       {/* Wallet Card */}
       <View style={styles.statsCard}>
         <LinearGradient colors={[#F59E0B, #EC4899]} style={styles.statGradient}>
-          <TrendingUp size={32} color={#FFFFFF} />
+          <TrendingUp size={32} color="#FFFFFF" />
           <Text style={styles.statValue}>
   {symbol}
   {walletBalance
@@ -429,12 +429,12 @@ useEffect(() => {
                 <TouchableOpacity key={trip._id} style={styles.tripCard}>
                   <View style={styles.tripHeader}>
                     <View style={styles.tripIcon}>
-                      <Plane size={20} color={#6366F1} />
+                      <Plane size={20} color="#6366F1" />
                     </View>
                     <View style={styles.tripInfo}>
                       <Text style={styles.tripRoute}>{trip.from} → {trip.to}</Text>
                       <View style={styles.tripDate}>
-                        <Calendar size={14} color={#111111Light} />
+                        <Calendar size={14} color="#6B7280" />
                         <Text style={styles.tripDateText}>
                           {new Date(trip.date).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric',
@@ -446,7 +446,7 @@ useEffect(() => {
 
                   <View style={styles.tripStats}>
                     <View style={styles.tripStat}>
-                      <Package size={16} color={#111111Light} />
+                      <Package size={16} color="#6B7280" />
                       <Text style={styles.tripStatText}>
                         {trip.used}/{trip.capacity} kg used
                       </Text>
@@ -494,12 +494,12 @@ useEffect(() => {
               <View key={trip._id} style={styles.tripCard}>
                 <View style={styles.tripHeader}>
                   <View style={styles.tripIcon}>
-                    <Package size={20} color={#6366F1} />
+                    <Package size={20} color="#6366F1" />
                   </View>
                   <View style={styles.tripInfo}>
                     <Text style={styles.tripRoute}>{trip.from} → {trip.to}</Text>
                     <View style={styles.tripDate}>
-                      <Calendar size={14} color={#111111Light} />
+                      <Calendar size={14} color="#6B7280" />
                       <Text style={styles.tripDateText}>
                         {new Date(trip.date).toLocaleDateString('en-US', {
                           month: 'short', day: 'numeric', year: 'numeric',
@@ -516,7 +516,7 @@ useEffect(() => {
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => router.push('/add-trip')}>
-        <Plus size={24} color={#FFFFFF} />
+        <Plus size={24} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );

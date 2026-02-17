@@ -30,14 +30,14 @@ export default function LiveTrackingScreen() {
           <View style={styles.routeLine} />
 
           <View style={[styles.mapMarker, { top: 100, left: 80 }]}>
-            <MapPin size={24} color={#22C55E} fill={#22C55ELight} />
+            <MapPin size={24} color="#22C55E" fill={#22C55ELight} />
             <View style={styles.markerLabel}>
               <Text style={styles.markerText}>Your Location</Text>
             </View>
           </View>
 
           <View style={[styles.mapMarker, { top: 200, left: 200 }]}>
-            <MapPin size={24} color={#6366F1} fill={colors.purpleLight} />
+            <MapPin size={24} color="#6366F1" fill={colors.purpleLight} />
             <View style={styles.markerLabel}>
               <Text style={styles.markerText}>Destination</Text>
             </View>
@@ -46,21 +46,21 @@ export default function LiveTrackingScreen() {
 
         <View style={styles.mapControls}>
           <TouchableOpacity style={styles.mapButton}>
-            <Minus size={20} color={#111111} />
+            <Minus size={20} color="#111111" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.mapButton}>
-            <Plus size={20} color={#111111} />
+            <Plus size={20} color="#111111" />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.locateButton}>
-          <Locate size={20} color={#FFFFFF} />
+          <Locate size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>
-          <MapPin size={18} color={#6366F1} />
+          <MapPin size={18} color="#6366F1" />
           <View style={styles.infoContent}>
             <Text style={styles.infoLabel}>From</Text>
             <Text style={styles.infoText}>32 East 98th Street, New York...</Text>
@@ -70,7 +70,7 @@ export default function LiveTrackingScreen() {
         <View style={styles.divider} />
 
         <View style={styles.infoRow}>
-          <MapPin size={18} color={#EC4899} />
+          <MapPin size={18} color="#EC4899" />
           <View style={styles.infoContent}>
             <Text style={styles.infoLabel}>Shipping to</Text>
             <Text style={styles.infoText}>123 East 12th Street, New York...</Text>

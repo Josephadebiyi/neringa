@@ -295,7 +295,7 @@ export default function EditTripScreen() {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={#6366F1} />
+        <ActivityIndicator size="large" color="#6366F1" />
       </View>
     );
   }
@@ -305,7 +305,7 @@ export default function EditTripScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={#111111} />
+          <ChevronLeft size={24} color="#111111" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Trip</Text>
         <TouchableOpacity 
@@ -328,13 +328,13 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>From</Text>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("from")}>
-            <MapPin size={20} color={#111111Light} />
+            <MapPin size={20} color="#6B7280" />
             <Text style={[styles.inputText, !fromCountry && styles.placeholder]}>
               {fromCountry || "Select Country"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("from")}>
-            <MapPin size={20} color={#111111Light} />
+            <MapPin size={20} color="#6B7280" />
             <Text style={[styles.inputText, !fromCity && styles.placeholder]}>
               {fromCity || "Select City"}
             </Text>
@@ -345,13 +345,13 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>To</Text>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("to")}>
-            <MapPin size={20} color={#111111Light} />
+            <MapPin size={20} color="#6B7280" />
             <Text style={[styles.inputText, !toCountry && styles.placeholder]}>
               {toCountry || "Select Country"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("to")}>
-            <MapPin size={20} color={#111111Light} />
+            <MapPin size={20} color="#6B7280" />
             <Text style={[styles.inputText, !toCity && styles.placeholder]}>
               {toCity || "Select City"}
             </Text>
@@ -362,13 +362,13 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Travel Dates</Text>
           <TouchableOpacity style={styles.inputContainer} onPress={() => setDatePickerVisibility(true)}>
-            <Calendar size={20} color={#111111Light} />
+            <Calendar size={20} color="#6B7280" />
             <Text style={[styles.inputText, !departureDate && styles.placeholder]}>
               {departureDate ? formatDate(departureDate) : "Departure Date"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inputContainer} onPress={() => setArrivalDatePickerVisibility(true)}>
-            <Calendar size={20} color={#111111Light} />
+            <Calendar size={20} color="#6B7280" />
             <Text style={[styles.inputText, !arrivalDate && styles.placeholder]}>
               {arrivalDate ? formatDate(arrivalDate) : "Arrival Date"}
             </Text>
@@ -400,11 +400,11 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Capacity & Pricing</Text>
           <View style={styles.inputContainer}>
-            <Weight size={20} color={#111111Light} />
+            <Weight size={20} color="#6B7280" />
             <TextInput
               style={styles.textInput}
               placeholder="Available KG"
-              placeholderTextColor={#111111Muted}
+              placeholderTextColor="rgba(17,17,17,0.35)"
               keyboardType="decimal-pad"
               value={availableKg}
               onChangeText={setAvailableKg}
@@ -416,7 +416,7 @@ export default function EditTripScreen() {
             <TextInput
               style={styles.textInput}
               placeholder="Price per KG"
-              placeholderTextColor={#111111Muted}
+              placeholderTextColor="rgba(17,17,17,0.35)"
               keyboardType="decimal-pad"
               value={pricePerKg}
               onChangeText={setPricePerKg}
@@ -428,7 +428,7 @@ export default function EditTripScreen() {
         {/* Update Button */}
         <TouchableOpacity style={styles.updateButton} onPress={handleUpdate} disabled={loading}>
           {loading ? (
-            <ActivityIndicator color={#FFFFFF} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.updateButtonText}>Update Trip</Text>
           )}
@@ -455,7 +455,7 @@ export default function EditTripScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Search country..."
-              placeholderTextColor={#111111Muted}
+              placeholderTextColor="rgba(17,17,17,0.35)"
               value={countrySearch}
               onChangeText={setCountrySearch}
             />
@@ -486,13 +486,13 @@ export default function EditTripScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Search or type city..."
-              placeholderTextColor={#111111Muted}
+              placeholderTextColor="rgba(17,17,17,0.35)"
               value={citySearch}
               onChangeText={setCitySearch}
               ref={cityInputRef}
             />
             {loadingCities ? (
-              <ActivityIndicator size="large" color={#6366F1} style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color="#6366F1" style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={filteredCities}

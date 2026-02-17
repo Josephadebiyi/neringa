@@ -80,7 +80,7 @@ export default function PaymentMethodScreen() {
             value={cardholderName}
             onChangeText={setCardholderName}
             placeholder="Cardholder Name"
-            placeholderTextColor={#111111Muted}
+            placeholderTextColor="rgba(17,17,17,0.35)"
           />
 
           <Text style={styles.formTitle}>Card Number</Text>
@@ -89,7 +89,7 @@ export default function PaymentMethodScreen() {
             value={cardNumberFull}
             onChangeText={setCardNumberFull}
             placeholder="Card Number"
-            placeholderTextColor={#111111Muted}
+            placeholderTextColor="rgba(17,17,17,0.35)"
             keyboardType="number-pad"
           />
 
@@ -101,7 +101,7 @@ export default function PaymentMethodScreen() {
                 value={expiration}
                 onChangeText={setExpiration}
                 placeholder="MM/YY"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 keyboardType="number-pad"
               />
             </View>
@@ -113,7 +113,7 @@ export default function PaymentMethodScreen() {
                 value={cvv}
                 onChangeText={setCvv}
                 placeholder="CVV"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 keyboardType="number-pad"
                 secureTextEntry
               />
@@ -126,7 +126,7 @@ export default function PaymentMethodScreen() {
             value={postcode}
             onChangeText={setPostcode}
             placeholder="Postal Code"
-            placeholderTextColor={#111111Muted}
+            placeholderTextColor="rgba(17,17,17,0.35)"
             keyboardType="number-pad"
           />
 

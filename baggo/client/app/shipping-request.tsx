@@ -416,7 +416,7 @@ useEffect(() => {
     <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'ios' ? 0 : insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={#FFFFFF} />
+          <ChevronLeft size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Send Package</Text>
         <View style={{ width: 40 }} />
@@ -428,7 +428,7 @@ useEffect(() => {
           <View style={styles.tripHeader}>
             <Text style={styles.travelerName}>{initialTraveler.name}</Text>
             <View style={styles.dateBadge}>
-              <Calendar size={14} color={#6366F1} />
+              <Calendar size={14} color="#6366F1" />
               <Text style={styles.dateText}>
                 {initialTraveler.date ? new Date(initialTraveler.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
               </Text>
@@ -436,10 +436,10 @@ useEffect(() => {
           </View>
 
           <View style={styles.routeRow}>
-            <MapPin size={16} color={#6366F1} />
+            <MapPin size={16} color="#6366F1" />
             <Text style={styles.routeText}>{initialTraveler.from || (fromCity ? fromCity : '—')}</Text>
             <Text style={styles.arrow}>→</Text>
-            <MapPin size={16} color={#EC4899} />
+            <MapPin size={16} color="#EC4899" />
             <Text style={styles.routeText}>{initialTraveler.to || (toCity ? toCity : '—')}</Text>
           </View>
         </View>
@@ -454,7 +454,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="City"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 value={fromCity}
                 onChangeText={setFromCity}
               />
@@ -467,7 +467,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Country"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 value={fromCountry}
                 onChangeText={setFromCountry}
               />
@@ -480,7 +480,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="City"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 value={toCity}
                 onChangeText={setToCity}
               />
@@ -493,7 +493,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Country"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 value={toCountry}
                 onChangeText={setToCountry}
               />
@@ -529,7 +529,7 @@ useEffect(() => {
                     </Text>
                     {isSelected && (
                       <View style={styles.checkIcon}>
-                        <Check size={12} color={#FFFFFF} />
+                        <Check size={12} color="#FFFFFF" />
                       </View>
                     )}
                   </TouchableOpacity>
@@ -541,11 +541,11 @@ useEffect(() => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Package Weight</Text>
             <View style={styles.inputContainer}>
-              <Weight size={20} color={#111111Light} />
+              <Weight size={20} color="#6B7280" />
               <TextInput
                 style={styles.input}
                 placeholder="Enter weight"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 keyboardType="decimal-pad"
                 value={weight}
                 onChangeText={setWeight}
@@ -560,7 +560,7 @@ useEffect(() => {
               <TextInput
                 style={[styles.input, styles.textAreaInput]}
                 placeholder="What's in the package?"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 multiline
                 numberOfLines={3}
                 value={description}
@@ -576,7 +576,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Item value"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 keyboardType="decimal-pad"
                 value={itemValue}
                 onChangeText={setItemValue}
@@ -586,13 +586,13 @@ useEffect(() => {
 
           <View style={styles.insuranceCard}>
             <View style={styles.insuranceHeader}>
-              <Shield size={20} color={#6366F1} />
+              <Shield size={20} color="#6366F1" />
               <Text style={styles.insuranceTitle}>Add Insurance</Text>
               <Switch
                 value={insurance}
                 onValueChange={setInsurance}
                 trackColor={{ false: #E5E7EB, true: #6366F1 }}
-                thumbColor={#FFFFFF}
+                thumbColor="#FFFFFF"
               />
             </View>
             {insurance && (
@@ -611,7 +611,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Full name"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 value={receiverName}
                 onChangeText={setReceiverName}
               />
@@ -624,7 +624,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="+1234567890"
-                placeholderTextColor={#111111Muted}
+                placeholderTextColor="rgba(17,17,17,0.35)"
                 keyboardType="phone-pad"
                 value={receiverPhone}
                 onChangeText={setReceiverPhone}
@@ -722,7 +722,7 @@ useEffect(() => {
           onPress={handleContinue}
           disabled={!fromCity || !toCity || !weight || !description || !receiverName || !receiverPhone || isLoading}
         >
-          {isLoading ? <ActivityIndicator color={#FFFFFF} /> : <Text style={styles.continueButtonText}>Continue to Payment</Text>}
+          {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.continueButtonText}>Continue to Payment</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

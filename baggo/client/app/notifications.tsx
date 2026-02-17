@@ -227,7 +227,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={#111111Light} />
+                <ChevronRight size={20} color="#6B7280" />
               </TouchableOpacity>
             ))}
           </View>
@@ -266,7 +266,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={#111111Light} />
+                <ChevronRight size={20} color="#6B7280" />
               </TouchableOpacity>
             ))}
           </View>

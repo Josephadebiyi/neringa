@@ -54,7 +54,7 @@ export default function ContactSupportScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={#111111} />
+          <ChevronLeft size={24} color="#111111" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Contact Support</Text>
         <View style={{ width: 40 }} />
@@ -63,21 +63,21 @@ export default function ContactSupportScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contactMethods}>
           <TouchableOpacity style={styles.contactCard}>
-            <Mail size={24} color={#6366F1} />
+            <Mail size={24} color="#6366F1" />
             <Text style={styles.contactTitle}>Email Us</Text>
             <Text style={styles.contactText}>support@baggo.eu</Text>
             <Text style={styles.contactHours}>Response within 24h</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.contactCard}>
-            <Phone size={24} color={#6366F1} />
+            <Phone size={24} color="#6366F1" />
             <Text style={styles.contactTitle}>Call Us</Text>
             <Text style={styles.contactText}>+32 2 123 4567</Text>
             <Text style={styles.contactHours}>Mon-Fri 9AM-6PM CET</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.contactCard}>
-            <MessageCircle size={24} color={#6366F1} />
+            <MessageCircle size={24} color="#6366F1" />
             <Text style={styles.contactTitle}>Live Chat</Text>
             <Text style={styles.contactText}>Start a conversation</Text>
             <Text style={styles.contactHours}>Available 24/7</Text>
@@ -114,7 +114,7 @@ export default function ContactSupportScreen() {
           <TextInput
             style={styles.input}
             placeholder="Brief description of your issue"
-            placeholderTextColor={#111111Muted}
+            placeholderTextColor="rgba(17,17,17,0.35)"
             value={subject}
             onChangeText={setSubject}
           />
@@ -123,7 +123,7 @@ export default function ContactSupportScreen() {
           <TextInput
             style={styles.textArea}
             placeholder="Provide detailed information about your issue..."
-            placeholderTextColor={#111111Muted}
+            placeholderTextColor="rgba(17,17,17,0.35)"
             multiline
             numberOfLines={6}
             value={message}
@@ -132,7 +132,7 @@ export default function ContactSupportScreen() {
           />
 
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Send size={20} color={#FFFFFF} />
+            <Send size={20} color="#FFFFFF" />
             <Text style={styles.submitButtonText}>Send Message</Text>
           </TouchableOpacity>
         </View>
@@ -143,7 +143,7 @@ export default function ContactSupportScreen() {
           {faqs.map((faq, index) => (
             <View key={index} style={styles.faqCard}>
               <View style={styles.faqHeader}>
-                <HelpCircle size={20} color={#6366F1} />
+                <HelpCircle size={20} color="#6366F1" />
                 <Text style={styles.faqQuestion}>{faq.question}</Text>
               </View>
               <Text style={styles.faqAnswer}>{faq.answer}</Text>
@@ -155,13 +155,13 @@ export default function ContactSupportScreen() {
           <Text style={styles.sectionTitle}>Resources</Text>
 
           <TouchableOpacity style={styles.resourceCard}>
-            <FileText size={20} color={#6366F1} />
+            <FileText size={20} color="#6366F1" />
             <Text style={styles.resourceTitle}>Help Center</Text>
             <Text style={styles.resourceDesc}>Browse our complete documentation</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.resourceCard}>
-            <AlertCircle size={20} color={#6366F1} />
+            <AlertCircle size={20} color="#6366F1" />
             <Text style={styles.resourceTitle}>Report an Issue</Text>
             <Text style={styles.resourceDesc}>Report technical problems or bugs</Text>
           </TouchableOpacity>
