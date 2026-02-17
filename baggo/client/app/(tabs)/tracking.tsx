@@ -266,7 +266,7 @@ export default function TrackingScreen(): JSX.Element {
                             ? #6366F1
                             : order.status === 'rejected'
                             ? colors.error
-                            : #111111Light,
+                            : '#111111'Light,
                       },
                     ]}
                   >
@@ -289,7 +289,7 @@ export default function TrackingScreen(): JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   header: {
     paddingTop: 60,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   headerActions: {
     flexDirection: 'row',
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     marginTop: -10,
   },
   trackingCard: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 32,
     marginHorizontal: 20,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -355,12 +355,12 @@ const styles = StyleSheet.create({
   trackingTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     marginBottom: 8,
   },
   trackingSubtitle: {
     fontSize: 15,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -378,11 +378,11 @@ const styles = StyleSheet.create({
   trackingInput: {
     flex: 1,
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
   },
   trackButton: {
     width: '100%',
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   trackButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   recentSection: {
     padding: 20,
@@ -400,17 +400,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 16,
   },
   recentCard: {
     flexDirection: 'row',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -436,12 +436,12 @@ const styles = StyleSheet.create({
   recentTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 4,
   },
   recentTracking: {
     fontSize: 13,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 4,
   },
   recentStatus: {
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   noOrdersText: {
     fontSize: 16,
-    color: #111111Light,
+    color: '#111111'Light,
     textAlign: 'center',
     marginVertical: 20,
   },

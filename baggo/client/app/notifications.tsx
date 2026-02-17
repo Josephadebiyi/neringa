@@ -130,7 +130,7 @@ export default function NotificationsScreen() {
           { justifyContent: 'center', alignItems: 'center' }, // ✅ centers it vertically + horizontally
         ]}
       >
-        <Text style={{ fontSize: 16, color: #111111Light }}>
+        <Text style={{ fontSize: 16, color: '#111111'Light }}>
           Loading notifications...
         </Text>
       </View>
@@ -305,7 +305,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
 
   },
   header: {
@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 20,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     width: 40,
@@ -326,12 +326,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: #111111,
+    color: '#111111',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   overlay: {
      flex: 1,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
      alignItems: 'center',
    },
    modalContainer: {
-     backgroundColor: #FFFFFF,
+     backgroundColor: '#FFFFFF',
      borderRadius: 16,
      padding: 24,
      width: '85%',
@@ -353,27 +353,27 @@ const styles = StyleSheet.create({
    title: {
      fontSize: 18,
      fontWeight: '700',
-     color: #111111,
+     color: '#111111',
      marginBottom: 12,
    },
    message: {
      fontSize: 15,
-     color: #111111Light,
+     color: '#111111'Light,
      marginBottom: 16,
    },
    time: {
      fontSize: 13,
-     color: #111111Muted,
+     color: '#111111'Muted,
      marginBottom: 20,
    },
    closeButton: {
-     backgroundColor: #6366F1,
+     backgroundColor: '#6366F1',
      borderRadius: 8,
      paddingVertical: 10,
      alignItems: 'center',
    },
    closeButtonText: {
-     color: #FFFFFF,
+     color: '#FFFFFF',
      fontWeight: '600',
      fontSize: 15,
    },
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: #6366F1,
+    color: '#6366F1',
   },
   content: {
     flex: 1,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: #111111Light,
+    color: '#111111'Light,
     paddingHorizontal: 20,
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -404,14 +404,14 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   notificationUnread: {
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
   },
   iconContainer: {
     width: 48,
@@ -428,24 +428,24 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 4,
   },
   notificationMessage: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     lineHeight: 20,
     marginBottom: 4,
   },
   notificationTime: {
     fontSize: 12,
-    color: #111111Muted,
+    color: '#111111'Muted,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     marginRight: 8,
   },
   emptyContainer: {
@@ -456,17 +456,17 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   retryButton: {
     marginTop: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     borderRadius: 5,
   },
   retryButtonText: {
-    color: #FFFFFF,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },

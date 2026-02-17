@@ -1029,7 +1029,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         <View style={styles.nameRow}>
           <Text style={styles.profileName}>{userData ? `${userData.firstName} ${userData.lastName}` : 'Sarah'}</Text>
           <View style={styles.kycBadge}>
-            <Shield size={14} color={userData?.status === 'verified' ? #22C55E : #F59E0B} />
+            <Shield size={14} color={userData?.status === 'verified' ? #22C55E : '#F59E0B'} />
             <Text style={styles.kycText}>
               {userData?.status === 'verified' ? 'KYC Verified' : 'KYC Pending'}
             </Text>
@@ -1180,7 +1180,7 @@ const handleCurrencySelect = (newCurrency: string) => {
   </Text>
 
     {/* -- NEW: Escrow balance display -- */}
-    <Text style={{ color: #FFFFFF, opacity: 0.85, marginTop: 6, fontSize: 14 }}>
+    <Text style={{ color: '#FFFFFF', opacity: 0.85, marginTop: 6, fontSize: 14 }}>
       Held in Escrow: {symbol}{escrowBalance
   ? escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   : "0.00"}
@@ -1222,7 +1222,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                     backgroundColor:
                       txn.type === 'credit'
                         ? #22C55ELight
-                        : #F8F6F3Light,
+                        : '#F8F6F3'Light,
                   },
                 ]}
               >
@@ -1253,7 +1253,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                   styles.transactionAmount,
                   {
                     color:
-                      txn.type === 'credit' ? #22C55E : #111111,
+                      txn.type === 'credit' ? #22C55E : '#111111',
                   },
                 ]}
               >
@@ -1345,7 +1345,7 @@ const handleCurrencySelect = (newCurrency: string) => {
               <Trash2 size={20} color={#EF4444} />
             </View>
             <View style={styles.menuContent}>
-              <Text style={[styles.menuTitle, { color: #EF4444 }]}>Delete Account</Text>
+              <Text style={[styles.menuTitle, { color: '#EF4444' }]}>Delete Account</Text>
               <Text style={styles.menuSubtitle}>Permanently delete your account and data</Text>
             </View>
             <ChevronRight size={20} color={#EF4444} />
@@ -1570,7 +1570,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       <Text style={styles.modalLabel}>Select Bank</Text>
       <ScrollView style={{ maxHeight: 200, marginBottom: 10 }}>
       {paystackBanks.length === 0 ? (
-        <Text style={{ padding: 12, color: #111111Light }}>
+        <Text style={{ padding: 12, color: '#111111'Light }}>
           No banks loaded — check console logs.
         </Text>
       ) : (
@@ -1597,7 +1597,7 @@ const handleCurrencySelect = (newCurrency: string) => {
               </Text>
 
               {isSelected && (
-                <Text style={{ color: #6366F1, fontWeight: '700' }}>Selected</Text>
+                <Text style={{ color: '#6366F1', fontWeight: '700' }}>Selected</Text>
               )}
             </TouchableOpacity>
           );
@@ -1642,7 +1642,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         </TouchableOpacity>
       </View>
 
-      <Text style={{ fontSize: 14, color: #111111Light, marginBottom: 20, lineHeight: 20 }}>
+      <Text style={{ fontSize: 14, color: '#111111'Light, marginBottom: 20, lineHeight: 20 }}>
         We're sorry to see you go. Please help us improve by answering these questions.
       </Text>
 
@@ -1667,7 +1667,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       />
 
       <TouchableOpacity
-        style={[styles.modalButton, { backgroundColor: #EF4444 }]}
+        style={[styles.modalButton, { backgroundColor: '#EF4444' }]}
         onPress={handleDeleteAccount}
         disabled={isDeleting}
       >
@@ -1680,7 +1680,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         style={{ marginTop: 12, alignItems: 'center' }}
         onPress={() => setDeleteModalVisible(false)}
       >
-        <Text style={{ color: #6366F1, fontWeight: '600' }}>Cancel</Text>
+        <Text style={{ color: '#6366F1', fontWeight: '600' }}>Cancel</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -1693,7 +1693,7 @@ const handleCurrencySelect = (newCurrency: string) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   centerContent: {
     justifyContent: 'center',
@@ -1702,18 +1702,18 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
   },
   profileCard: {
     marginHorizontal: 20,
@@ -1745,10 +1745,10 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   stripeSection: {
-  backgroundColor: #FFFFFF,
+  backgroundColor: '#FFFFFF',
   borderRadius: 16,
   padding: 16,
   marginBottom: 20,
@@ -1760,13 +1760,13 @@ const styles = StyleSheet.create({
 stripeTitle: {
   fontSize: 16,
   fontWeight: '600',
-  color: #111111,
+  color: '#111111',
   marginBottom: 12,
 },
 stripeConnected: {
   flexDirection: 'row',
   alignItems: 'center',
-  backgroundColor: #22C55ELight,
+  backgroundColor: '#22C55E'Light,
   padding: 12,
   borderRadius: 12,
   gap: 8,
@@ -1780,13 +1780,13 @@ connectButton: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: #6366F1,
+  backgroundColor: '#6366F1',
   borderRadius: 12,
   paddingVertical: 12,
   gap: 8,
 },
 connectButtonText: {
-  color: #FFFFFF,
+  color: '#FFFFFF',
   fontSize: 15,
   fontWeight: '600',
 },
@@ -1797,21 +1797,21 @@ connectButtonText: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: #22C55E,
+    backgroundColor: '#22C55E',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: #6366F1,
+    borderColor: '#6366F1',
   },
   profileName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
-    color: #FFFFFF,
+    color: '#FFFFFF',
     opacity: 0.9,
     marginBottom: 24,
   },
@@ -1827,12 +1827,12 @@ connectButtonText: {
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: #FFFFFF,
+    color: '#FFFFFF',
     opacity: 0.9,
   },
   statDivider: {
@@ -1846,7 +1846,7 @@ connectButtonText: {
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     marginBottom: 16,
   },
   walletCard: {
@@ -1862,14 +1862,14 @@ connectButtonText: {
   },
   walletLabel: {
     fontSize: 14,
-    color: #FFFFFF,
+    color: '#FFFFFF',
     opacity: 0.9,
     marginBottom: 8,
   },
   walletBalance: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   walletIcon: {
     width: 48,
@@ -1888,7 +1888,7 @@ connectButtonText: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingVertical: 12,
     gap: 8,
@@ -1896,18 +1896,18 @@ connectButtonText: {
   walletButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   transactionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 12,
   },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -1926,19 +1926,19 @@ connectButtonText: {
   transactionDesc: {
     fontSize: 14,
     fontWeight: '500',
-    color: #111111,
+    color: '#111111',
     marginBottom: 2,
   },
   transactionDate: {
     fontSize: 12,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   transactionAmount: {
     fontSize: 16,
     fontWeight: 'bold',
   },
   menuCard: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -1947,13 +1947,13 @@ connectButtonText: {
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1964,12 +1964,12 @@ connectButtonText: {
   menuTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 2,
   },
   menuSubtitle: {
     fontSize: 13,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   signOutButton: {
     flexDirection: 'row',
@@ -1982,7 +1982,7 @@ connectButtonText: {
   signOutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: #EF4444,
+    color: '#EF4444',
   },
   profileEmail: {
   fontSize: 16,
@@ -1999,18 +1999,18 @@ connectButtonText: {
   bankItem: {
   paddingVertical: 10,
   borderBottomWidth: 1,
-  borderBottomColor: #E5E7EBLight,
+  borderBottomColor: '#E5E7EB'Light,
 },
 selectedBank: {
-  backgroundColor: #6366F1Light,
+  backgroundColor: '#6366F1'Light,
 },
 bankName: {
   fontSize: 16,
-  color: #111111,
+  color: '#111111',
 },
 
   modalContent: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
     width: '100%',
@@ -2025,12 +2025,12 @@ bankName: {
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
   },
   modalLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 12,
   },
   methodOptions: {
@@ -2046,32 +2046,32 @@ bankName: {
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: #E5E7EB,
+    borderColor: '#E5E7EB',
     gap: 8,
   },
   methodOptionActive: {
-    borderColor: #6366F1,
-    backgroundColor: #F8F6F3Light,
+    borderColor: '#6366F1',
+    backgroundColor: '#F8F6F3'Light,
   },
   methodText: {
     fontSize: 13,
     fontWeight: '600',
-    color: #111111Light,
+    color: '#111111'Light,
   },
   methodTextActive: {
-    color: #6366F1,
+    color: '#6366F1',
   },
   modalInput: {
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
     marginBottom: 24,
   },
   modalButton: {
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
@@ -2080,11 +2080,11 @@ bankName: {
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   referralContainer: {
   marginTop: 10,
-  backgroundColor: #FFFFFF,
+  backgroundColor: '#FFFFFF',
   borderRadius: 10,
   padding: 10,
   shadowColor: '#000',
@@ -2093,7 +2093,7 @@ bankName: {
   elevation: 2,
 },
 referralLabel: {
-  color: #111111Muted,
+  color: '#111111'Muted,
   fontSize: 13,
   marginBottom: 4,
 },
@@ -2101,7 +2101,7 @@ referralBox: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backgroundColor: #F8F6F3Light,
+  backgroundColor: '#F8F6F3'Light,
   paddingVertical: 8,
   paddingHorizontal: 12,
   borderRadius: 8,
@@ -2109,28 +2109,28 @@ referralBox: {
 referralCode: {
   fontWeight: '600',
   fontSize: 15,
-  color: #6366F1Dark,
+  color: '#6366F1'Dark,
 },
 copyText: {
-  color: #6366F1,
+  color: '#6366F1',
   fontWeight: '600',
   fontSize: 14,
 },
 
   otpDescription: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     textAlign: 'center',
     marginBottom: 24,
   },
   otpInput: {
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 64,
     fontSize: 24,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     textAlign: 'center',
     letterSpacing: 8,
     marginBottom: 24,
@@ -2143,12 +2143,12 @@ copyText: {
   resendText: {
     fontSize: 14,
     fontWeight: '600',
-    color: #6366F1,
+    color: '#6366F1',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 48,
@@ -2158,7 +2158,7 @@ copyText: {
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: #111111,
+    color: '#111111',
   },
   currencyList: {
     maxHeight: 400,
@@ -2168,13 +2168,13 @@ copyText: {
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   currencySymbol: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2182,7 +2182,7 @@ copyText: {
   currencySymbolText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: #6366F1,
+    color: '#6366F1',
   },
   currencyInfo: {
     flex: 1,
@@ -2190,23 +2190,23 @@ copyText: {
   currencyName: {
     fontSize: 16,
     fontWeight: '500',
-    color: #111111,
+    color: '#111111',
     marginBottom: 2,
   },
   currencyCode: {
     fontSize: 13,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   currencyCheck: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkMark: {
-    color: #FFFFFF,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -2215,7 +2215,7 @@ copyText: {
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     marginBottom: 12,
     gap: 12,
   },
@@ -2223,7 +2223,7 @@ copyText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: #111111,
+    color: '#111111',
   },
   nameRow: {
     flexDirection: 'row',
@@ -2290,7 +2290,7 @@ copyText: {
   },
   kycText: {
     fontSize: 12,
-    color: #FFFFFF,
+    color: '#FFFFFF',
     fontWeight: '500',
   },
   editBadge: {
@@ -2300,11 +2300,11 @@ copyText: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: #6366F1,
+    borderColor: '#6366F1',
   },
   editIcon: {
     fontSize: 12,

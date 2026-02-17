@@ -589,9 +589,9 @@ const handleSelectCity = (cityName: string) => {
         {receiverFlag ? (
           <Image source={{ uri: receiverFlag }} style={{ width: 32, height: 22, borderRadius: 4, marginRight: 6 }} />
         ) : (
-          <View style={{ width: 32, height: 22, borderRadius: 4, backgroundColor: #E5E7EB, marginRight: 6 }} />
+          <View style={{ width: 32, height: 22, borderRadius: 4, backgroundColor: '#E5E7EB', marginRight: 6 }} />
         )}
-        <Text style={{ fontSize: 15, color: #111111 }}>
+        <Text style={{ fontSize: 15, color: '#111111' }}>
           {receiverCountryCode || '+'}
         </Text>
       </TouchableOpacity>
@@ -601,7 +601,7 @@ const handleSelectCity = (cityName: string) => {
           styles.input,
           {
             flex: 1,
-            color: #111111,
+            color: '#111111',
           },
         ]}
         placeholder="000 000 0000"
@@ -652,7 +652,7 @@ const handleSelectCity = (cityName: string) => {
             {/* IMAGE UPLOAD SECTION (single image) */}
             <View style={styles.section}>
       <Text style={styles.label}>Package Photo (optional)</Text>
-      <Text style={{ marginBottom: 8, color: #111111Light }}>
+      <Text style={{ marginBottom: 8, color: '#111111'Light }}>
         Add one photo of the package
       </Text>
 
@@ -664,7 +664,7 @@ const handleSelectCity = (cityName: string) => {
             { width: 120, height: 120, justifyContent: "center", alignItems: "center" },
           ]}
         >
-          <Text style={{ color: #6366F1, fontWeight: "700" }}>
+          <Text style={{ color: '#6366F1', fontWeight: "700" }}>
             {imagePreview ? "Change" : "Add Photo"}
           </Text>
         </TouchableOpacity>
@@ -798,7 +798,7 @@ const handleSelectCity = (cityName: string) => {
                     marginTop: 10,
                     padding: 12,
                     borderRadius: 10,
-                    backgroundColor: #EC4899,
+                    backgroundColor: '#EC4899',
                     alignItems: 'center',
                   }}
                   onPress={() => setCities([])} // clear list to show manual input
@@ -819,12 +819,12 @@ const handleSelectCity = (cityName: string) => {
                 style={[
                   modalStyles.searchInput,
                   {
-                    backgroundColor: #FFFFFF,
+                    backgroundColor: '#FFFFFF',
                     borderRadius: 10,
                     paddingHorizontal: 12,
                     height: 48,
                     borderWidth: 1,
-                    borderColor: #E5E7EB,
+                    borderColor: '#E5E7EB',
                   },
                 ]}
                 placeholder="Type your city name..."
@@ -835,7 +835,7 @@ const handleSelectCity = (cityName: string) => {
               <TouchableOpacity
                 style={{
                   marginTop: 16,
-                  backgroundColor: #6366F1,
+                  backgroundColor: '#6366F1',
                   padding: 14,
                   borderRadius: 10,
                   alignItems: 'center',
@@ -892,7 +892,7 @@ const handleSelectCity = (cityName: string) => {
 const modalStyles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     paddingTop: 60,
     paddingHorizontal: 20,
   },
@@ -900,10 +900,10 @@ const modalStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12,
-    color: #111111,
+    color: '#111111',
   },
   searchBox: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 12,
@@ -912,17 +912,17 @@ const modalStyles = StyleSheet.create({
   },
   searchInput: {
     fontSize: 15,
-    color: #111111,
+    color: '#111111',
   },
   modalItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 8,
     marginBottom: 8,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -930,11 +930,11 @@ const modalStyles = StyleSheet.create({
   },
   modalItemText: {
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
   },
   closeButton: {
     marginTop: 12,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     padding: 12,
     borderRadius: 12,
   },
@@ -948,7 +948,7 @@ const modalStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   header: {
     flexDirection: 'row',
@@ -957,7 +957,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
     width: 40,
@@ -966,28 +966,28 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: #111111,
+    color: '#111111',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   progressBar: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 8,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
   },
   progressStep: {
     flex: 1,
     height: 4,
-    backgroundColor: #E5E7EB,
+    backgroundColor: '#E5E7EB',
     borderRadius: 2,
   },
   progressStepActive: {
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
   },
   content: {
     flex: 1,
@@ -996,12 +996,12 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     marginBottom: 8,
   },
   stepSubtitle: {
     fontSize: 15,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 24,
   },
   section: {
@@ -1010,18 +1010,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1030,38 +1030,38 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: #111111,
+    color: '#111111',
   },
   unit: {
     fontSize: 15,
     fontWeight: '600',
-    color: #111111Light,
+    color: '#111111'Light,
   },
   divider: {
     height: 1,
-    backgroundColor: #E5E7EB,
+    backgroundColor: '#E5E7EB',
     marginVertical: 32,
   },
   weightInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
   routeCard: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginTop: 24,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1075,34 +1075,34 @@ const styles = StyleSheet.create({
   routeText: {
     fontSize: 16,
     fontWeight: '500',
-    color: #111111,
+    color: '#111111',
   },
   routeArrow: {
     fontSize: 20,
-    color: #111111Light,
+    color: '#111111'Light,
     marginVertical: 8,
     marginLeft: 8,
   },
   footer: {
     padding: 20,
     paddingBottom: 32,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: #E5E7EB,
+    borderTopColor: '#E5E7EB',
   },
   continueButton: {
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
   },
   continueButtonDisabled: {
-    backgroundColor: #111111Muted,
+    backgroundColor: '#111111'Muted,
   },
   continueButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
 });

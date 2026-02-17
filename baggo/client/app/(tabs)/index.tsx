@@ -507,8 +507,8 @@ const fetchNotifications = async () => {
             style={[styles.modeTab, mode === 'send' && styles.modeTabActive]}
             onPress={() => handleModeChange('send')}
           >
-            <Send size={16} color={mode === 'send' ? #6366F1 : #FFFFFF} />
-            <Text style={[styles.modeTabText, mode === 'send' && { color: #6366F1 }]}>
+            <Send size={16} color={mode === 'send' ? #6366F1 : '#FFFFFF'} />
+            <Text style={[styles.modeTabText, mode === 'send' && { color: '#6366F1' }]}>
               Send Package
             </Text>
           </TouchableOpacity>
@@ -517,8 +517,8 @@ const fetchNotifications = async () => {
             style={[styles.modeTab, mode === 'earn' && styles.modeTabActive]}
             onPress={() => handleModeChange('earn')}
           >
-            <TrendingUp size={16} color={mode === 'earn' ? #6366F1 : #FFFFFF} />
-            <Text style={[styles.modeTabText, mode === 'earn' && { color: #6366F1 }]}>
+            <TrendingUp size={16} color={mode === 'earn' ? #6366F1 : '#FFFFFF'} />
+            <Text style={[styles.modeTabText, mode === 'earn' && { color: '#6366F1' }]}>
               Earn Money
             </Text>
           </TouchableOpacity>
@@ -659,7 +659,7 @@ const fetchNotifications = async () => {
                               ? #EF4444
                               : order.status === 'completed'
                               ? #22C55ELight
-                              : #6366F1,
+                              : '#6366F1',
                         },
                       ]}
                     >
@@ -855,7 +855,7 @@ const fetchNotifications = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 50 : 15,
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   locationText: {
-    color: #FFFFFF,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: #EF4444,
+    backgroundColor: '#EF4444',
   },
   profileButton: {
     width: 40,
@@ -918,13 +918,13 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   heroSubtitle: {
     fontSize: 15,
-    color: #FFFFFF,
+    color: '#FFFFFF',
     opacity: 0.95,
     marginBottom: 24,
     textAlign: 'center',
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -943,10 +943,10 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
   },
   searchButton: {
-    backgroundColor: #F59E0B,
+    backgroundColor: '#F59E0B',
     borderRadius: 12,
     height: 56,
     width: '100%',
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
   searchButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   content: {
     flex: 1,
@@ -981,12 +981,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   modeTabActive: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
   },
   modeTabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   quickActions: {
     flexDirection: 'row',
@@ -996,11 +996,11 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     flex: 1,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -1018,7 +1018,7 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   section: {
     paddingHorizontal: 20,
@@ -1027,22 +1027,22 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 16,
   },
   orderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -1052,7 +1052,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
   orderDescription: {
     fontSize: 16,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 6,
   },
   orderRoute: {
@@ -1074,17 +1074,17 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     fontWeight: '500',
   },
   orderTraveler: {
     fontSize: 13,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 4,
   },
   orderInsurance: {
     fontSize: 13,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -1094,14 +1094,14 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   tripCard: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1122,13 +1122,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: #FFFFFF,
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   travelerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 4,
   },
   ratingRow: {
@@ -1148,18 +1148,18 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: #111111,
+    color: '#111111',
     fontWeight: '500',
   },
   tripCount: {
     fontSize: 12,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   modeIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 15,
-    color: #111111,
+    color: '#111111',
     fontWeight: '500',
     flex: 1,
   },
@@ -1187,13 +1187,13 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   priceText: {
     marginLeft: 'auto',
     fontSize: 16,
     fontWeight: 'bold',
-    color: #6366F1,
+    color: '#6366F1',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -1218,21 +1218,21 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: #FFFFFF,
+    color: '#FFFFFF',
     opacity: 0.95,
   },
   benefitCard: {
     flexDirection: 'row',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1253,12 +1253,12 @@ const styles = StyleSheet.create({
   benefitTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 4,
   },
   benefitDesc: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     lineHeight: 20,
   },
   promosSection: {
@@ -1268,7 +1268,7 @@ const styles = StyleSheet.create({
   promosTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     marginBottom: 16,
   },
   promoBanner: {
@@ -1286,12 +1286,12 @@ const styles = StyleSheet.create({
   promoBigTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   promoDesc: {
     fontSize: 11,
-    color: #FFFFFF,
+    color: '#FFFFFF',
     opacity: 0.95,
     marginBottom: 8,
     lineHeight: 14,
@@ -1306,7 +1306,7 @@ const styles = StyleSheet.create({
   promoCode: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: #FFFFFF,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   promoEmoji: {
@@ -1319,13 +1319,13 @@ const styles = StyleSheet.create({
   },
   noTripsText: {
     fontSize: 16,
-    color: #111111Light,
+    color: '#111111'Light,
     textAlign: 'center',
     marginVertical: 20,
   },
   noOrdersText: {
     fontSize: 16,
-    color: #111111Light,
+    color: '#111111'Light,
     textAlign: 'center',
     marginVertical: 20,
   },

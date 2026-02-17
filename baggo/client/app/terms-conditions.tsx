@@ -136,7 +136,7 @@ export default function TermsConditionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   header: {
     flexDirection: 'row',
@@ -145,9 +145,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     width: 40,
@@ -156,12 +156,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: #111111,
+    color: '#111111',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   content: {
     flex: 1,
@@ -169,26 +169,26 @@ const styles = StyleSheet.create({
   },
   lastUpdated: {
     fontSize: 12,
-    color: #111111Muted,
+    color: '#111111'Muted,
     marginBottom: 16,
     fontStyle: 'italic',
   },
   intro: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     lineHeight: 22,
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: #111111,
+    color: '#111111',
     marginTop: 24,
     marginBottom: 12,
   },
   text: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     lineHeight: 24,
     marginBottom: 16,
   },

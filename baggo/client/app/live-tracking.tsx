@@ -84,7 +84,7 @@ export default function LiveTrackingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   header: {
     flexDirection: 'row',
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
     width: 40,
@@ -102,12 +102,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: #111111,
+    color: '#111111',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   mapContainer: {
     flex: 1,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   mapSubtext: {
     position: 'absolute',
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     right: 0,
     textAlign: 'center',
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   routeLine: {
     position: 'absolute',
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderLeftWidth: 3,
     borderBottomWidth: 3,
-    borderColor: #6366F1,
+    borderColor: '#6366F1',
     borderStyle: 'dashed',
     borderRadius: 8,
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   markerLabel: {
-    backgroundColor: #22C55E,
+    backgroundColor: '#22C55E',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   markerText: {
     fontSize: 12,
     fontWeight: '600',
-    color: #FFFFFF,
+    color: '#FFFFFF',
   },
   mapControls: {
     position: 'absolute',
@@ -175,10 +175,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -191,10 +191,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: #111111,
+    backgroundColor: '#111111',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -205,10 +205,10 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -224,17 +224,17 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 4,
   },
   infoText: {
     fontSize: 15,
     fontWeight: '500',
-    color: #111111,
+    color: '#111111',
   },
   divider: {
     height: 1,
-    backgroundColor: #E5E7EB,
+    backgroundColor: '#E5E7EB',
     marginVertical: 16,
   },
 });

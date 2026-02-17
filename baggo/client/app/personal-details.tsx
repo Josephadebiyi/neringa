@@ -440,7 +440,7 @@ export default function PersonalDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   centerContent: {
     justifyContent: 'center',
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   header: {
     flexDirection: 'row',
@@ -458,9 +458,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: #111111Inverse,
+    backgroundColor: '#111111'Inverse,
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     width: 40,
@@ -469,12 +469,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: #111111,
+    color: '#111111',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
   },
   content: {
     flex: 1,
@@ -498,14 +498,14 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: #111111Inverse,
+    backgroundColor: '#111111'Inverse,
     marginBottom: 20,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   changePhotoText: {
     fontSize: 14,
     fontWeight: '600',
-    color: #6366F1,
+    color: '#6366F1',
   },
   form: {
     paddingHorizontal: 20,
@@ -534,18 +534,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: #111111,
+    color: '#111111',
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #111111Inverse,
+    backgroundColor: '#111111'Inverse,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
-    shadowColor: #000000,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -566,10 +566,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: #111111,
+    color: '#111111',
   },
   inputTextLocked: {
-    color: #111111Light,
+    color: '#111111'Light,
   },
   textArea: {
     minHeight: 60,
@@ -577,13 +577,13 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: #111111Inverse,
+    backgroundColor: '#111111'Inverse,
     borderTopWidth: 1,
-    borderTopColor: #E5E7EB,
+    borderTopColor: '#E5E7EB',
   },
   saveButton: {
     flexDirection: 'row',
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: #111111Inverse,
+    color: '#111111'Inverse,
   },
   // Avatar styles
   avatarPreset: {
@@ -613,11 +613,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: #111111Inverse,
+    borderColor: '#111111'Inverse,
   },
   // Modal styles
   modalOverlay: {
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: #111111Inverse,
+    backgroundColor: '#111111'Inverse,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -641,11 +641,11 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: #111111,
+    color: '#111111',
   },
   modalSubtitle: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     marginBottom: 24,
   },
   avatarGrid: {
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   avatarOptionSelected: {
     borderWidth: 3,
-    borderColor: #111111,
+    borderColor: '#111111',
   },
   avatarOptionEmoji: {
     fontSize: 36,
@@ -676,13 +676,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: #6366F1,
+    borderColor: '#6366F1',
     borderStyle: 'dashed',
     gap: 8,
   },
   uploadPhotoText: {
     fontSize: 16,
     fontWeight: '600',
-    color: #6366F1,
+    color: '#6366F1',
   },
 });

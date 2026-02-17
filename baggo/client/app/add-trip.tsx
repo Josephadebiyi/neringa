@@ -331,8 +331,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "airplane" && styles.modeButtonActive]}
       onPress={() => settravelMeans("airplane")}
     >
-      <Plane size={18} color={travelMeans === "airplane" ? #FFFFFF : #111111Light} />
-      <Text style={[styles.modeText, { color: travelMeans === "airplane" ? #FFFFFF : #111111 }]}>
+      <Plane size={18} color={travelMeans === "airplane" ? #FFFFFF : '#111111'Light} />
+      <Text style={[styles.modeText, { color: travelMeans === "airplane" ? #FFFFFF : '#111111' }]}>
         Airplane
       </Text>
     </TouchableOpacity>
@@ -341,8 +341,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "bus" && styles.modeButtonActive]}
       onPress={() => settravelMeans("bus")}
     >
-      <Bus size={18} color={travelMeans === "bus" ? #FFFFFF : #111111Light} />
-      <Text style={[styles.modeText, { color: travelMeans === "bus" ? #FFFFFF : #111111 }]}>
+      <Bus size={18} color={travelMeans === "bus" ? #FFFFFF : '#111111'Light} />
+      <Text style={[styles.modeText, { color: travelMeans === "bus" ? #FFFFFF : '#111111' }]}>
         Bus
       </Text>
     </TouchableOpacity>
@@ -351,8 +351,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "train" && styles.modeButtonActive]}
       onPress={() => settravelMeans("train")}
     >
-      <Train size={18} color={travelMeans === "train" ? #FFFFFF : #111111Light} />
-      <Text style={[styles.modeText, { color: travelMeans === "train" ? #FFFFFF : #111111 }]}>
+      <Train size={18} color={travelMeans === "train" ? #FFFFFF : '#111111'Light} />
+      <Text style={[styles.modeText, { color: travelMeans === "train" ? #FFFFFF : '#111111' }]}>
         Train
       </Text>
     </TouchableOpacity>
@@ -361,8 +361,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "car" && styles.modeButtonActive]}
       onPress={() => settravelMeans("car")}
     >
-      <Car size={18} color={travelMeans === "car" ? #FFFFFF : #111111Light} />
-      <Text style={[styles.modeText, { color: travelMeans === "car" ? #FFFFFF : #111111 }]}>
+      <Car size={18} color={travelMeans === "car" ? #FFFFFF : '#111111'Light} />
+      <Text style={[styles.modeText, { color: travelMeans === "car" ? #FFFFFF : '#111111' }]}>
         Car
       </Text>
     </TouchableOpacity>
@@ -371,8 +371,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "ship" && styles.modeButtonActive]}
       onPress={() => settravelMeans("ship")}
     >
-      <Ship size={18} color={travelMeans === "ship" ? #FFFFFF : #111111Light} />
-      <Text style={[styles.modeText, { color: travelMeans === "ship" ? #FFFFFF : #111111 }]}>
+      <Ship size={18} color={travelMeans === "ship" ? #FFFFFF : '#111111'Light} />
+      <Text style={[styles.modeText, { color: travelMeans === "ship" ? #FFFFFF : '#111111' }]}>
         Ship
       </Text>
     </TouchableOpacity>
@@ -381,8 +381,8 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "other" && styles.modeButtonActive]}
       onPress={() => settravelMeans("other")}
     >
-      <MoreHorizontal size={18} color={travelMeans === "other" ? #FFFFFF : #111111Light} />
-      <Text style={[styles.modeText, { color: travelMeans === "other" ? #FFFFFF : #111111 }]}>
+      <MoreHorizontal size={18} color={travelMeans === "other" ? #FFFFFF : '#111111'Light} />
+      <Text style={[styles.modeText, { color: travelMeans === "other" ? #FFFFFF : '#111111' }]}>
         Other
       </Text>
     </TouchableOpacity>
@@ -533,7 +533,7 @@ export default function AddTripScreen() {
                  marginTop: 10,
                  padding: 12,
                  borderRadius: 10,
-                 backgroundColor: #EC4899,
+                 backgroundColor: '#EC4899',
                  alignItems: "center",
                }}
                onPress={() => setCities([])} // switch to manual entry
@@ -556,12 +556,12 @@ export default function AddTripScreen() {
            style={[
              styles.searchInput,
              {
-               backgroundColor: #FFFFFF,
+               backgroundColor: '#FFFFFF',
                borderRadius: 10,
                paddingHorizontal: 12,
                height: 48,
                borderWidth: 1,
-               borderColor: #E5E7EB,
+               borderColor: '#E5E7EB',
              },
            ]}
            placeholder="Type your city name..."
@@ -572,7 +572,7 @@ export default function AddTripScreen() {
          <TouchableOpacity
            style={{
              marginTop: 16,
-             backgroundColor: #6366F1,
+             backgroundColor: '#6366F1',
              padding: 14,
              borderRadius: 10,
              alignItems: "center",
@@ -642,7 +642,7 @@ export default function AddTripScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: #F8F6F3 },
+  container: { flex: 1, backgroundColor: '#F8F6F3' },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -650,28 +650,28 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   backButton: { width: 40 },
   backIcon: { fontSize: 24 },
   headerTitle: { fontSize: 18, fontWeight: "600" },
   content: { padding: 20 },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 6 },
-  subtitle: { color: #111111Light, marginBottom: 24 },
-  label: { fontWeight: "600", color: #111111, marginTop: 18, marginBottom: 8 },
+  subtitle: { color: '#111111'Light, marginBottom: 24 },
+  label: { fontWeight: "600", color: '#111111', marginTop: 18, marginBottom: 8 },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
-  input: { flex: 1, fontSize: 15, color: #111111 },
+  input: { flex: 1, fontSize: 15, color: '#111111' },
   modeContainer: { flexDirection: "row", gap: 12 },
   modeButton: {
     flexDirection: "row",
@@ -680,32 +680,32 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 10,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: #E5E7EB,
+    borderColor: '#E5E7EB',
   },
-  modeButtonActive: { backgroundColor: #6366F1, borderColor: #6366F1 },
+  modeButtonActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
   modeText: { marginLeft: 8, fontWeight: "500" },
   footer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: #E5E7EB,
-    backgroundColor: #FFFFFF,
+    borderTopColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   submitButton: {
     height: 56,
     borderRadius: 12,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     justifyContent: "center",
     alignItems: "center",
   },
 
   submitButtonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  error: { color: #EF4444, textAlign: "center", marginVertical: 8 },
+  error: { color: '#EF4444', textAlign: "center", marginVertical: 8 },
 modalContainerModal:  {
   flex: 1,
   padding: 20,
-  backgroundColor: #F8F6F3,
+  backgroundColor: '#F8F6F3',
   paddingTop: 50, // 👈 pushes the modal content down
   borderTopLeftRadius: 25,
   borderTopRightRadius: 25,
@@ -713,15 +713,15 @@ modalContainerModal:  {
 
   searchInput: {
     height: 50,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingHorizontal: 16,
     marginBottom: 10,
   },
-  modalItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: #E5E7EB },
+  modalItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   modalText: { fontSize: 16 },
   closeButton: {
-  backgroundColor: #6366F1 || "#5240E8", // 💜 button background
+  backgroundColor: '#6366F1' || "#5240E8", // 💜 button background
   paddingVertical: 12,
   paddingHorizontal: 20,
   borderRadius: 10,
@@ -780,7 +780,7 @@ modalContainerKyc: {
     backgroundColor: "#f1f1f1",
   },
   modalVerifyButton: {
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
   },
   modalCancelText: {
     color: "#333",

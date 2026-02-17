@@ -388,7 +388,7 @@ export default function EditTripScreen() {
                   style={[styles.modeCard, isSelected && styles.modeCardSelected]}
                   onPress={() => setTravelMeans(mode.id)}
                 >
-                  <Icon size={24} color={isSelected ? #6366F1 : #111111Light} />
+                  <Icon size={24} color={isSelected ? #6366F1 : '#111111'Light} />
                   <Text style={[styles.modeLabel, isSelected && styles.modeLabelSelected]}>{mode.label}</Text>
                 </TouchableOpacity>
               );
@@ -538,7 +538,7 @@ export default function EditTripScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
   },
   centerContent: {
     justifyContent: "center",
@@ -550,22 +550,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: #111111,
+    color: '#111111',
   },
   deleteButton: {
     width: 40,
@@ -589,43 +589,43 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: #111111,
+    color: '#111111',
     marginBottom: 12,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: #E5E7EB,
+    borderColor: '#E5E7EB',
   },
   inputText: {
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
   },
   placeholder: {
-    color: #111111Muted,
+    color: '#111111'Muted,
   },
   textInput: {
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
   },
   unit: {
     fontSize: 14,
-    color: #111111Light,
+    color: '#111111'Light,
     marginLeft: 8,
   },
   currencyIcon: {
     fontSize: 18,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   modeGrid: {
     flexDirection: "row",
@@ -634,41 +634,41 @@ const styles = StyleSheet.create({
   },
   modeCard: {
     width: "30%",
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: #E5E7EB,
+    borderColor: '#E5E7EB',
   },
   modeCardSelected: {
-    borderColor: #6366F1,
+    borderColor: '#6366F1',
     backgroundColor: `${#6366F1}10`,
   },
   modeLabel: {
     marginTop: 8,
     fontSize: 12,
-    color: #111111Light,
+    color: '#111111'Light,
   },
   modeLabelSelected: {
-    color: #6366F1,
+    color: '#6366F1',
     fontWeight: "600",
   },
   updateButton: {
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 16,
   },
   updateButtonText: {
-    color: #FFFFFF,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: "600",
   },
   deleteInfo: {
     textAlign: "center",
-    color: #111111Muted,
+    color: '#111111'Muted,
     fontSize: 12,
     marginTop: 12,
   },
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     marginTop: 60,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -695,36 +695,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: #111111,
+    color: '#111111',
   },
   modalClose: {
     fontSize: 16,
-    color: #6366F1,
+    color: '#6366F1',
   },
   searchInput: {
-    backgroundColor: #F8F6F3,
+    backgroundColor: '#F8F6F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginVertical: 12,
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
   },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   listItemText: {
     fontSize: 16,
-    color: #111111,
+    color: '#111111',
     marginLeft: 12,
   },
   flag: {

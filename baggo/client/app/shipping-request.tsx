@@ -591,7 +591,7 @@ useEffect(() => {
               <Switch
                 value={insurance}
                 onValueChange={setInsurance}
-                trackColor={{ false: #E5E7EB, true: #6366F1 }}
+                trackColor={{ false: '#E5E7EB', true: '#6366F1' }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -636,14 +636,14 @@ useEffect(() => {
         {/* Package Photo */}
         <View style={styles.section}>
           <Text style={styles.label}>Package Photo (optional)</Text>
-          <Text style={{ marginBottom: 8, color: #111111Light }}>Add one photo of the package</Text>
+          <Text style={{ marginBottom: 8, color: '#111111'Light }}>Add one photo of the package</Text>
 
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'center' }}>
             <TouchableOpacity
               onPress={pickImage}
               style={[styles.inputContainer, { width: 120, height: 120, justifyContent: 'center', alignItems: 'center' }]}
             >
-              <Text style={{ color: #6366F1, fontWeight: '700' }}>{imagePreview ? 'Change' : 'Add Photo'}</Text>
+              <Text style={{ color: '#6366F1', fontWeight: '700' }}>{imagePreview ? 'Change' : 'Add Photo'}</Text>
             </TouchableOpacity>
 
             {imagePreview ? (
@@ -731,14 +731,14 @@ useEffect(() => {
 
 /* Styles (same as your original) */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: #F8F6F3 },
+  container: { flex: 1, backgroundColor: '#F8F6F3' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
   },
   backButton: { 
     width: 40, 
@@ -748,13 +748,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: #FFFFFF },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF' },
   content: { flex: 1 },
   tripCard: {
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: #E5E7EB,
+    borderBottomColor: '#E5E7EB',
   },
   tripHeader: {
     flexDirection: 'row',
@@ -762,37 +762,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  travelerName: { fontSize: 16, fontWeight: '600', color: #111111 },
+  travelerName: { fontSize: 16, fontWeight: '600', color: '#111111' },
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #F8F6F3Light,
+    backgroundColor: '#F8F6F3'Light,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     gap: 4,
   },
-  dateText: { fontSize: 12, fontWeight: '600', color: #6366F1 },
+  dateText: { fontSize: 12, fontWeight: '600', color: '#6366F1' },
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  routeText: { fontSize: 14, color: #111111 },
-  arrow: { fontSize: 14, color: #111111Light },
+  routeText: { fontSize: 14, color: '#111111' },
+  arrow: { fontSize: 14, color: '#111111'Light },
   section: { padding: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: #111111, marginBottom: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111111', marginBottom: 16 },
   inputGroup: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: '600', color: #111111, marginBottom: 8 },
+  label: { fontSize: 14, fontWeight: '600', color: '#111111', marginBottom: 8 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
     borderWidth: 1,
-    borderColor: #E5E7EB,
+    borderColor: '#E5E7EB',
   },
   textArea: { height: 100, alignItems: 'flex-start', paddingVertical: 12 },
-  input: { flex: 1, fontSize: 15, color: #111111 },
+  input: { flex: 1, fontSize: 15, color: '#111111' },
   textAreaInput: { height: 76, textAlignVertical: 'top' },
   // Category Selection Styles
   categoryGrid: {
@@ -803,53 +803,53 @@ const styles = StyleSheet.create({
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: #FFFFFF,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: #E5E7EB,
+    borderColor: '#E5E7EB',
     gap: 6,
   },
   categoryItemSelected: {
     backgroundColor: `${#6366F1}15`,
-    borderColor: #6366F1,
+    borderColor: '#6366F1',
   },
   categoryIcon: {
     fontSize: 16,
   },
   categoryLabel: {
     fontSize: 13,
-    color: #111111,
+    color: '#111111',
     fontWeight: '500',
   },
   categoryLabelSelected: {
-    color: #6366F1,
+    color: '#6366F1',
     fontWeight: '600',
   },
   checkIcon: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: #6366F1,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  unit: { fontSize: 15, fontWeight: '600', color: #111111Light },
-  currency: { fontSize: 16, fontWeight: '600', color: #111111Light },
-  insuranceCard: { backgroundColor: #F8F6F3Light, borderRadius: 12, padding: 16, marginTop: 8 },
+  unit: { fontSize: 15, fontWeight: '600', color: '#111111'Light },
+  currency: { fontSize: 16, fontWeight: '600', color: '#111111'Light },
+  insuranceCard: { backgroundColor: '#F8F6F3'Light, borderRadius: 12, padding: 16, marginTop: 8 },
   insuranceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  insuranceTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: #111111 },
-  insuranceText: { fontSize: 13, color: #111111Light, marginTop: 8, marginLeft: 28 },
-  priceCard: { backgroundColor: #FFFFFF, borderRadius: 16, padding: 20 },
+  insuranceTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111111' },
+  insuranceText: { fontSize: 13, color: '#111111'Light, marginTop: 8, marginLeft: 28 },
+  priceCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20 },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  priceLabel: { fontSize: 15, color: #111111Light },
-  priceValue: { fontSize: 15, fontWeight: '600', color: #111111 },
-  divider: { height: 1, backgroundColor: #E5E7EB, marginVertical: 8 },
-  totalLabel: { fontSize: 17, fontWeight: 'bold', color: #111111 },
-  totalValue: { fontSize: 20, fontWeight: 'bold', color: #6366F1 },
-  footer: { padding: 20, paddingBottom: 32, backgroundColor: #FFFFFF, borderTopWidth: 1, borderTopColor: #E5E7EB },
-  continueButton: { backgroundColor: #6366F1, borderRadius: 12, height: 56, justifyContent: 'center', alignItems: 'center' },
-  continueButtonDisabled: { backgroundColor: #111111Muted },
-  continueButtonText: { fontSize: 16, fontWeight: '600', color: #FFFFFF },
+  priceLabel: { fontSize: 15, color: '#111111'Light },
+  priceValue: { fontSize: 15, fontWeight: '600', color: '#111111' },
+  divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
+  totalLabel: { fontSize: 17, fontWeight: 'bold', color: '#111111' },
+  totalValue: { fontSize: 20, fontWeight: 'bold', color: '#6366F1' },
+  footer: { padding: 20, paddingBottom: 32, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  continueButton: { backgroundColor: '#6366F1', borderRadius: 12, height: 56, justifyContent: 'center', alignItems: 'center' },
+  continueButtonDisabled: { backgroundColor: '#111111'Muted },
+  continueButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
 });

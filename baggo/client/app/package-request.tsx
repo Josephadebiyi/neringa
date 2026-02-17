@@ -1015,7 +1015,7 @@ useEffect(() => {
           <Text style={styles.sectionTitle}>Route</Text>
           <View style={styles.card}>
             <View style={styles.routeRow}>
-              <View style={[styles.dot, { backgroundColor: #6366F1 }]} />
+              <View style={[styles.dot, { backgroundColor: '#6366F1' }]} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Pickup</Text>
                 <Text style={styles.value}>{pkg.from}</Text>
@@ -1024,7 +1024,7 @@ useEffect(() => {
             </View>
             <View style={styles.line} />
             <View style={styles.routeRow}>
-              <View style={[styles.dot, { backgroundColor: #22C55E }]} />
+              <View style={[styles.dot, { backgroundColor: '#22C55E' }]} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Delivery</Text>
                 <Text style={styles.value}>{pkg.to}</Text>
@@ -1265,7 +1265,7 @@ const getStatusColor = (status) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: #F8F6F3 },
+  container: { flex: 1, backgroundColor: '#F8F6F3' },
   centerContent: { justifyContent: 'center', alignItems: 'center' },
   header: { 
     flexDirection: 'row', 
@@ -1273,59 +1273,59 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', 
     paddingHorizontal: 16, 
     paddingVertical: 12, 
-    backgroundColor: #FFFFFF, 
+    backgroundColor: '#FFFFFF', 
     borderBottomWidth: 1, 
-    borderBottomColor: #E5E7EB 
+    borderBottomColor: '#E5E7EB' 
   },
   backButton: { 
     width: 40, 
     height: 40, 
     borderRadius: 20, 
-    backgroundColor: #F8F6F3, 
+    backgroundColor: '#F8F6F3', 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: #111111 },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#111111' },
   content: { flex: 1 },
   earningCard: { margin: 20, borderRadius: 20, padding: 24, alignItems: 'center' },
-  earningLabel: { fontSize: 14, color: #FFFFFF, opacity: 0.9, marginBottom: 8 },
-  earningValue: { fontSize: 42, fontWeight: 'bold', color: #FFFFFF, marginBottom: 12 },
+  earningLabel: { fontSize: 14, color: '#FFFFFF', opacity: 0.9, marginBottom: 8 },
+  earningValue: { fontSize: 42, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
   escrowBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  escrowText: { fontSize: 12, fontWeight: '600', color: #FFFFFF },
+  escrowText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
   section: { paddingHorizontal: 20, marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: #111111, marginBottom: 12 },
-  packageImage: { width: '100%', height: 220, borderRadius: 16, backgroundColor: #F8F6F3Light },
-  card: { backgroundColor: #FFFFFF, borderRadius: 16, padding: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: #E5E7EB },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#111111', marginBottom: 12 },
+  packageImage: { width: '100%', height: 220, borderRadius: 16, backgroundColor: '#F8F6F3'Light },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   flex: { flex: 1, marginLeft: 12 },
-  label: { fontSize: 13, color: #111111Light, marginBottom: 2 },
-  value: { fontSize: 15, fontWeight: '600', color: #111111 },
+  label: { fontSize: 13, color: '#111111'Light, marginBottom: 2 },
+  value: { fontSize: 15, fontWeight: '600', color: '#111111' },
   routeRow: { flexDirection: 'row', alignItems: 'flex-start' },
   dot: { width: 16, height: 16, borderRadius: 8, marginTop: 4 },
-  line: { width: 2, height: 32, backgroundColor: #E5E7EB, marginLeft: 7, marginVertical: 8 },
-  address: { fontSize: 14, color: #111111Light, marginTop: 4 },
-  senderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: #FFFFFF, borderRadius: 16, padding: 16 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: #6366F1, justifyContent: 'center', alignItems: 'center' },
-  senderName: { fontSize: 16, fontWeight: '600', color: #111111, marginBottom: 4 },
-  senderRating: { fontSize: 14, color: #111111Light },
-  infoBox: { flexDirection: 'row', backgroundColor: #F8F6F3Light, marginHorizontal: 20, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: #6366F1 },
-  infoTitle: { fontSize: 14, fontWeight: '600', color: #111111, marginBottom: 4 },
-  infoText: { fontSize: 13, color: #111111Light, lineHeight: 18 },
-  footer: { flexDirection: 'row', padding: 12, backgroundColor: #FFFFFF, borderTopWidth: 1, borderTopColor: #E5E7EB, gap: 12, alignItems: 'center' },
-  navButton: { backgroundColor: #6366F1, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
-  navButtonText: { color: #FFFFFF, fontWeight: '600' },
-  declineButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: #FFFFFF, borderRadius: 12, height: 56, gap: 8, borderWidth: 2, borderColor: #EF4444 },
-  declineButtonText: { fontSize: 16, fontWeight: '600', color: #EF4444 },
-  acceptButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: #6366F1, borderRadius: 12, height: 56, gap: 8 },
-  acceptButtonText: { fontSize: 16, fontWeight: '600', color: #FFFFFF },
-  statusButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: #6366F1, borderRadius: 12, height: 56, gap: 8 },
-  actionButtonText: { fontSize: 14, fontWeight: '600', color: #FFFFFF },
+  line: { width: 2, height: 32, backgroundColor: '#E5E7EB', marginLeft: 7, marginVertical: 8 },
+  address: { fontSize: 14, color: '#111111'Light, marginTop: 4 },
+  senderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16 },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center' },
+  senderName: { fontSize: 16, fontWeight: '600', color: '#111111', marginBottom: 4 },
+  senderRating: { fontSize: 14, color: '#111111'Light },
+  infoBox: { flexDirection: 'row', backgroundColor: '#F8F6F3'Light, marginHorizontal: 20, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: '#6366F1' },
+  infoTitle: { fontSize: 14, fontWeight: '600', color: '#111111', marginBottom: 4 },
+  infoText: { fontSize: 13, color: '#111111'Light, lineHeight: 18 },
+  footer: { flexDirection: 'row', padding: 12, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB', gap: 12, alignItems: 'center' },
+  navButton: { backgroundColor: '#6366F1', paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
+  navButtonText: { color: '#FFFFFF', fontWeight: '600' },
+  declineButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, height: 56, gap: 8, borderWidth: 2, borderColor: '#EF4444' },
+  declineButtonText: { fontSize: 16, fontWeight: '600', color: '#EF4444' },
+  acceptButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6366F1', borderRadius: 12, height: 56, gap: 8 },
+  acceptButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  statusButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6366F1', borderRadius: 12, height: 56, gap: 8 },
+  actionButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  successCard: { backgroundColor: #FFFFFF, borderRadius: 24, padding: 32, alignItems: 'center', maxWidth: 320 },
-  successTitle: { fontSize: 24, fontWeight: 'bold', color: #111111, marginTop: 16, marginBottom: 12 },
-  successText: { fontSize: 15, color: #111111Light, textAlign: 'center', lineHeight: 22 },
+  successCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 32, alignItems: 'center', maxWidth: 320 },
+  successTitle: { fontSize: 24, fontWeight: 'bold', color: '#111111', marginTop: 16, marginBottom: 12 },
+  successText: { fontSize: 15, color: '#111111'Light, textAlign: 'center', lineHeight: 22 },
   cancelButton: {
-     backgroundColor: #EF4444, // Red background
+     backgroundColor: '#EF4444', // Red background
      paddingVertical: 10,
      paddingHorizontal: 16,
      borderRadius: 8,
@@ -1340,43 +1340,43 @@ const styles = StyleSheet.create({
      justifyContent: 'center',
    },
    cancelButtonText: {
-     color: #FFFFFF,
+     color: '#FFFFFF',
      fontWeight: 'bold',
      fontSize: 16,
    },
   // tracking styles reused
   trackingItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-  trackingText: { fontSize: 13, color: #111111Light, flex: 1 },
-  trackingNotes: { fontSize: 12, color: #111111Light, marginLeft: 24, marginBottom: 4 },
+  trackingText: { fontSize: 13, color: '#111111'Light, flex: 1 },
+  trackingNotes: { fontSize: 12, color: '#111111'Light, marginLeft: 24, marginBottom: 4 },
   trackingHistory: { marginTop: 8 },
 
   uploadBox: {
       height: 160,
       borderWidth: 2,
-      borderColor: #6366F1,
+      borderColor: '#6366F1',
       borderStyle: 'dashed',
       borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: #F8F6F3Light,
+      backgroundColor: '#F8F6F3'Light,
     },
-    uploadText: { color: #6366F1, fontWeight: '600', marginTop: 8 },
+    uploadText: { color: '#6366F1', fontWeight: '600', marginTop: 8 },
     proofPreview: { width: '100%', height: 200, borderRadius: 16, marginBottom: 12 },
-    removeProofButton: { backgroundColor: #EF4444, borderRadius: 8, padding: 8 },
-    removeProofText: { color: #FFFFFF, fontWeight: '600' },
+    removeProofButton: { backgroundColor: '#EF4444', borderRadius: 8, padding: 8 },
+    removeProofText: { color: '#FFFFFF', fontWeight: '600' },
     sendButton: {
-      backgroundColor: #6366F1,
+      backgroundColor: '#6366F1',
       borderRadius: 12,
       alignItems: 'center',
       paddingVertical: 14,
       marginTop: 12,
     },
-    sendButtonText: { color: #FFFFFF, fontWeight: '700' },
+    sendButtonText: { color: '#FFFFFF', fontWeight: '700' },
 
   // misc
-  noRequestsText: { fontSize: 16, color: #111111Light, textAlign: 'center', marginBottom: 20 },
+  noRequestsText: { fontSize: 16, color: '#111111'Light, textAlign: 'center', marginBottom: 20 },
   errorText: { fontSize: 16,   color: 'gray', textAlign: 'center', marginBottom: 20 },
-  retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: #6366F1 },
-  retryButtonText: { fontSize: 14, fontWeight: '600', color: #FFFFFF },
+  retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: '#6366F1' },
+  retryButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
