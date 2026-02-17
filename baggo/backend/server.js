@@ -1123,18 +1123,91 @@ app.post("/api/baggo/kyc/callback", async (req, res) => {
 });
 
 // ============================================
-// DIDIT.ME WEBHOOK ENDPOINT (PROPER IMPLEMENTATION)
+// DIDIT.ME WEBHOOK ENDPOINT (ENHANCED KYC ENFORCEMENT)
 // ============================================
 // This is the main webhook endpoint that DIDIT calls when verification is complete
+// Implements: Data Matching, Identity Fingerprinting, Profile Overwrite
+
+/**
+ * Generate identity fingerprint for duplicate detection
+ * Hash of: documentNumber + issuingCountry + dateOfBirth
+ */
+function generateIdentityFingerprint(documentNumber, issuingCountry, dateOfBirth) {
+  if (!documentNumber || !issuingCountry || !dateOfBirth) {
+    return null;
+  }
+  const dobString = new Date(dateOfBirth).toISOString().split('T')[0]; // YYYY-MM-DD
+  const data = `${documentNumber.toUpperCase().trim()}|${issuingCountry.toUpperCase().trim()}|${dobString}`;
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+/**
+ * Compare names with fuzzy matching tolerance
+ * Returns true if names match closely enough
+ */
+function compareNames(name1, name2) {
+  if (!name1 || !name2) return false;
+  
+  // Normalize: lowercase, trim, remove extra spaces
+  const normalize = (str) => str.toLowerCase().trim().replace(/\s+/g, ' ');
+  const n1 = normalize(name1);
+  const n2 = normalize(name2);
+  
+  // Exact match
+  if (n1 === n2) return true;
+  
+  // Check if one contains the other (for partial names)
+  if (n1.includes(n2) || n2.includes(n1)) return true;
+  
+  // Compare individual words (at least 2 words should match for full names)
+  const words1 = n1.split(' ');
+  const words2 = n2.split(' ');
+  const matchingWords = words1.filter(w => words2.includes(w));
+  
+  // If at least 2 words match, consider it a match
+  if (matchingWords.length >= 2) return true;
+  
+  // If it's a short name (1 word), require exact match
+  if (words1.length === 1 || words2.length === 1) {
+    return words1[0] === words2[0];
+  }
+  
+  return false;
+}
+
+/**
+ * Compare dates with tolerance for timezone differences
+ */
+function compareDates(date1, date2) {
+  if (!date1 || !date2) return false;
+  
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  
+  // Compare year, month, day only (ignore time)
+  return d1.getFullYear() === d2.getFullYear() &&
+         d1.getMonth() === d2.getMonth() &&
+         d1.getDate() === d2.getDate();
+}
+
 app.post("/api/didit/webhook", async (req, res) => {
   try {
     console.log("=".repeat(60));
-    console.log("📥 DIDIT WEBHOOK RECEIVED");
+    console.log("📥 DIDIT WEBHOOK RECEIVED - ENHANCED KYC ENFORCEMENT");
     console.log("Headers:", JSON.stringify(req.headers, null, 2));
     console.log("Body:", JSON.stringify(req.body, null, 2));
     console.log("=".repeat(60));
 
-    const { session_id, status, vendor_data } = req.body;
+    const { 
+      session_id, 
+      status, 
+      vendor_data,
+      // Document data from DIDIT (may vary based on their API structure)
+      document_data,
+      extracted_data,
+      verification_data,
+      kyc_data,
+    } = req.body;
 
     if (!session_id) {
       console.log("⚠️ No session_id in webhook payload");
@@ -1146,18 +1219,16 @@ app.post("/api/didit/webhook", async (req, res) => {
     let userEmail = null;
 
     try {
-      // vendor_data should be JSON with userId and email
       const parsed = JSON.parse(vendor_data);
       userId = parsed.userId;
       userEmail = parsed.email;
       console.log("📋 Parsed vendor_data - userId:", userId, "email:", userEmail);
     } catch (parseErr) {
-      // Fallback: vendor_data might be plain email string (old format)
       userEmail = vendor_data;
       console.log("📋 Using vendor_data as email:", userEmail);
     }
 
-    // Find user by userId first, then by email, then by session_id
+    // Find user
     let user = null;
     if (userId) {
       user = await User.findById(userId);
@@ -1171,35 +1242,225 @@ app.post("/api/didit/webhook", async (req, res) => {
 
     if (!user) {
       console.log("❌ User not found for webhook - session:", session_id);
-      // Return 200 to prevent DIDIT from retrying
       return res.status(200).json({ success: false, message: "User not found" });
     }
 
     console.log("👤 Found user:", user._id.toString(), user.email);
     console.log("📋 Current kycStatus:", user.kycStatus, "New status from DIDIT:", status);
 
-    const previousStatus = user.kycStatus;
-
-    // Update KYC status based on DIDIT response
     const normalizedStatus = status?.toLowerCase();
     
+    // Only process if DIDIT says approved - we add our own validation layer
     if (normalizedStatus === 'approved') {
+      // Extract document data from various possible DIDIT payload structures
+      const docData = document_data || extracted_data || verification_data || kyc_data || {};
+      
+      // Try to get document fields (DIDIT API structure may vary)
+      const verifiedFullName = docData.full_name || docData.name || docData.fullName || 
+                               `${docData.first_name || docData.firstName || ''} ${docData.last_name || docData.lastName || ''}`.trim();
+      const verifiedFirstName = docData.first_name || docData.firstName || docData.given_name || verifiedFullName?.split(' ')[0];
+      const verifiedLastName = docData.last_name || docData.lastName || docData.surname || docData.family_name || verifiedFullName?.split(' ').slice(1).join(' ');
+      const verifiedDOB = docData.date_of_birth || docData.dateOfBirth || docData.dob || docData.birth_date;
+      const documentNumber = docData.document_number || docData.documentNumber || docData.doc_number || docData.id_number;
+      const documentType = docData.document_type || docData.documentType || docData.doc_type || 'ID';
+      const issuingCountry = docData.issuing_country || docData.issuingCountry || docData.country || docData.nationality;
+      
+      console.log("📄 Extracted Document Data:");
+      console.log("   Full Name:", verifiedFullName);
+      console.log("   First Name:", verifiedFirstName);
+      console.log("   Last Name:", verifiedLastName);
+      console.log("   DOB:", verifiedDOB);
+      console.log("   Document #:", documentNumber);
+      console.log("   Document Type:", documentType);
+      console.log("   Issuing Country:", issuingCountry);
+      
+      // ============================================
+      // STEP 1: DATA MATCHING (Name & DOB Verification)
+      // ============================================
+      const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      
+      let nameMatches = true;
+      let dobMatches = true;
+      let matchFailureReason = null;
+      
+      // Only enforce matching if we have data from both sides
+      if (verifiedFullName && userFullName) {
+        nameMatches = compareNames(verifiedFullName, userFullName);
+        if (!nameMatches) {
+          console.log(`⚠️ NAME MISMATCH: Document="${verifiedFullName}" vs Signup="${userFullName}"`);
+          matchFailureReason = `Name mismatch: Document shows "${verifiedFullName}" but signup name is "${userFullName}"`;
+        }
+      }
+      
+      if (verifiedDOB && user.dateOfBirth) {
+        dobMatches = compareDates(verifiedDOB, user.dateOfBirth);
+        if (!dobMatches) {
+          console.log(`⚠️ DOB MISMATCH: Document="${verifiedDOB}" vs Signup="${user.dateOfBirth}"`);
+          if (matchFailureReason) {
+            matchFailureReason += '. ';
+          } else {
+            matchFailureReason = '';
+          }
+          matchFailureReason += `Date of birth mismatch`;
+        }
+      }
+      
+      // If data doesn't match, reject the verification
+      if (!nameMatches || !dobMatches) {
+        console.log("❌ KYC REJECTED due to data mismatch");
+        user.kycStatus = 'failed_verification';
+        user.kycFailureReason = matchFailureReason || 'Document data does not match signup information';
+        user.kycVerifiedData = {
+          fullName: verifiedFullName,
+          firstName: verifiedFirstName,
+          lastName: verifiedLastName,
+          dateOfBirth: verifiedDOB ? new Date(verifiedDOB) : null,
+          documentNumber: documentNumber,
+          documentType: documentType,
+          issuingCountry: issuingCountry,
+          verificationStatus: 'mismatch',
+        };
+        await user.save();
+        
+        // Notify user of failure
+        if (user.pushTokens?.length > 0) {
+          try {
+            await sendPushNotification(
+              user.pushTokens[0],
+              '⚠️ Verification Issue',
+              'Your identity document does not match your signup information. Please update your profile and try again.',
+              { type: 'kyc_mismatch' }
+            );
+          } catch (pushErr) {
+            console.log("⚠️ Failed to send push notification:", pushErr.message);
+          }
+        }
+        
+        await Notification.create({
+          userId: user._id,
+          title: 'Verification Failed - Data Mismatch',
+          message: 'Your identity document information does not match your profile. Please ensure your name and date of birth are correct, then try verification again.',
+          type: 'kyc',
+          read: false,
+        });
+        
+        return res.status(200).json({
+          success: true,
+          message: "KYC rejected - data mismatch",
+          kycStatus: user.kycStatus,
+        });
+      }
+      
+      // ============================================
+      // STEP 2: DUPLICATE IDENTITY PROTECTION
+      // ============================================
+      if (documentNumber && issuingCountry && verifiedDOB) {
+        const fingerprint = generateIdentityFingerprint(documentNumber, issuingCountry, verifiedDOB);
+        console.log("🔐 Generated identity fingerprint:", fingerprint?.substring(0, 16) + "...");
+        
+        // Check if this identity is already used by another account
+        const existingUser = await User.findOne({
+          identityFingerprint: fingerprint,
+          _id: { $ne: user._id }, // Exclude current user
+        });
+        
+        if (existingUser) {
+          console.log(`❌ DUPLICATE IDENTITY DETECTED! Already used by user: ${existingUser._id}`);
+          user.kycStatus = 'blocked_duplicate';
+          user.kycFailureReason = 'This identity document has already been used to verify another account';
+          user.kycVerifiedData = {
+            fullName: verifiedFullName,
+            firstName: verifiedFirstName,
+            lastName: verifiedLastName,
+            dateOfBirth: verifiedDOB ? new Date(verifiedDOB) : null,
+            documentNumber: documentNumber,
+            documentType: documentType,
+            issuingCountry: issuingCountry,
+            verificationStatus: 'duplicate_blocked',
+          };
+          await user.save();
+          
+          // Notify user
+          if (user.pushTokens?.length > 0) {
+            try {
+              await sendPushNotification(
+                user.pushTokens[0],
+                '🚫 Verification Blocked',
+                'This identity document has already been used for another account. Contact support if you believe this is an error.',
+                { type: 'kyc_duplicate' }
+              );
+            } catch (pushErr) {
+              console.log("⚠️ Failed to send push notification:", pushErr.message);
+            }
+          }
+          
+          await Notification.create({
+            userId: user._id,
+            title: 'Verification Blocked',
+            message: 'This identity document has already been used to verify another Baggo account. If you believe this is an error, please contact our support team.',
+            type: 'kyc',
+            read: false,
+          });
+          
+          return res.status(200).json({
+            success: true,
+            message: "KYC blocked - duplicate identity",
+            kycStatus: user.kycStatus,
+          });
+        }
+        
+        // Store fingerprint for future duplicate checks
+        user.identityFingerprint = fingerprint;
+      }
+      
+      // ============================================
+      // STEP 3: PROFILE OVERWRITE & APPROVAL
+      // ============================================
+      console.log("✅ All checks passed - APPROVING KYC");
+      
+      // Overwrite profile with verified document data
+      if (verifiedFirstName) {
+        user.firstName = verifiedFirstName;
+      }
+      if (verifiedLastName) {
+        user.lastName = verifiedLastName;
+      }
+      if (verifiedDOB) {
+        user.dateOfBirth = new Date(verifiedDOB);
+      }
+      
+      // Store verified data for audit
+      user.kycVerifiedData = {
+        fullName: verifiedFullName,
+        firstName: verifiedFirstName,
+        lastName: verifiedLastName,
+        dateOfBirth: verifiedDOB ? new Date(verifiedDOB) : null,
+        documentNumber: documentNumber,
+        documentType: documentType,
+        issuingCountry: issuingCountry,
+        verificationStatus: 'approved',
+      };
+      
+      // Update KYC fields
       user.kycStatus = 'approved';
       user.kycVerifiedAt = new Date();
-      user.status = 'verified'; // Legacy field
+      user.kycFailureReason = null;
+      user.status = 'verified';
       user.isVerified = true;
       user.kycVerifiedName = {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        dateOfBirth: user.dateOfBirth,
+        firstName: verifiedFirstName || user.firstName,
+        lastName: verifiedLastName || user.lastName,
+        dateOfBirth: verifiedDOB ? new Date(verifiedDOB) : user.dateOfBirth,
       };
-      console.log("✅ KYC APPROVED for user:", user.email);
-
-      // Send push notification for approval
-      if (user.expoPushToken) {
+      
+      await user.save();
+      console.log("💾 User KYC APPROVED and profile updated");
+      
+      // Send success notification
+      if (user.pushTokens?.length > 0) {
         try {
           await sendPushNotification(
-            user.expoPushToken,
+            user.pushTokens[0],
             '✅ Identity Verified!',
             'Congratulations! Your identity has been verified. You now have full access to all Baggo features.',
             { type: 'kyc_approved' }
@@ -1209,72 +1470,66 @@ app.post("/api/didit/webhook", async (req, res) => {
           console.log("⚠️ Failed to send push notification:", pushErr.message);
         }
       }
-
-      // Create in-app notification
-      try {
-        await Notification.create({
-          userId: user._id,
-          title: 'Identity Verified',
-          message: 'Your identity has been successfully verified. Welcome to Baggo!',
-          type: 'kyc',
-          read: false,
-        });
-      } catch (notifErr) {
-        console.log("⚠️ Failed to create notification:", notifErr.message);
-      }
-
+      
+      await Notification.create({
+        userId: user._id,
+        title: 'Identity Verified',
+        message: 'Your identity has been successfully verified. You now have full access to send packages and earn as a traveler!',
+        type: 'kyc',
+        read: false,
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: "KYC approved successfully",
+        kycStatus: user.kycStatus,
+      });
+      
     } else if (normalizedStatus === 'declined' || normalizedStatus === 'rejected') {
+      // DIDIT declined the verification
       user.kycStatus = 'declined';
-      user.status = 'rejected'; // Legacy field
-      console.log("❌ KYC DECLINED for user:", user.email);
-
-      // Send push notification for decline
-      if (user.expoPushToken) {
+      user.status = 'rejected';
+      user.kycFailureReason = 'Document verification was declined by the verification provider';
+      await user.save();
+      
+      console.log("❌ KYC DECLINED by DIDIT for user:", user.email);
+      
+      if (user.pushTokens?.length > 0) {
         try {
           await sendPushNotification(
-            user.expoPushToken,
+            user.pushTokens[0],
             '❌ Verification Unsuccessful',
-            'We could not verify your identity. Please try again with valid documents.',
+            'We could not verify your identity. Please try again with valid, clear documents.',
             { type: 'kyc_declined' }
           );
-          console.log("📱 Push notification sent for KYC decline");
         } catch (pushErr) {
           console.log("⚠️ Failed to send push notification:", pushErr.message);
         }
       }
-
-      // Create in-app notification
-      try {
-        await Notification.create({
-          userId: user._id,
-          title: 'Verification Unsuccessful',
-          message: 'We could not verify your identity. Please try again with clearer documents.',
-          type: 'kyc',
-          read: false,
-        });
-      } catch (notifErr) {
-        console.log("⚠️ Failed to create notification:", notifErr.message);
-      }
-
+      
+      await Notification.create({
+        userId: user._id,
+        title: 'Verification Unsuccessful',
+        message: 'We could not verify your identity documents. Please ensure your documents are valid and clearly visible, then try again.',
+        type: 'kyc',
+        read: false,
+      });
+      
     } else if (normalizedStatus === 'pending' || normalizedStatus === 'processing' || normalizedStatus === 'submitted') {
       user.kycStatus = 'pending';
+      await user.save();
       console.log("⏳ KYC PENDING for user:", user.email);
     }
 
-    await user.save();
-    console.log("💾 User saved - kycStatus:", user.kycStatus, "status:", user.status, "isVerified:", user.isVerified);
-
-    // Always return 200 to acknowledge receipt (prevents DIDIT retry)
     res.status(200).json({ 
       success: true, 
-      message: "KYC status updated",
+      message: "KYC webhook processed",
       userId: user._id.toString(),
       kycStatus: user.kycStatus
     });
 
   } catch (err) {
     console.error("❌ DIDIT webhook error:", err.message, err.stack);
-    // Still return 200 to prevent retry loops
     res.status(200).json({ success: false, message: "Webhook processing error", error: err.message });
   }
 });
