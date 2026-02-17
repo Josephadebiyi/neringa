@@ -296,26 +296,26 @@ export default function AddTripScreen() {
         {/* From Section */}
         <Text style={styles.label}>From Country</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("from")}>
-          <MapPin size={20} color={'#1A1A1A'Light} />
+          <MapPin size={20} color={'#6B6B6B'} />
           <Text style={styles.input}>{fromCountry || "Select Country"}</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>From City</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("from")}>
-          <MapPin size={20} color={'#1A1A1A'Light} />
+          <MapPin size={20} color={'#6B6B6B'} />
           <Text style={styles.input}>{fromCity || "Select City"}</Text>
         </TouchableOpacity>
 
         {/* To Section */}
         <Text style={styles.label}>To Country</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("to")}>
-          <MapPin size={20} color={'#1A1A1A'Light} />
+          <MapPin size={20} color={'#6B6B6B'} />
           <Text style={styles.input}>{toCountry || "Select Country"}</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>To City</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("to")}>
-          <MapPin size={20} color={'#1A1A1A'Light} />
+          <MapPin size={20} color={'#6B6B6B'} />
           <Text style={styles.input}>{toCity || "Select City"}</Text>
         </TouchableOpacity>
 
@@ -331,7 +331,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "airplane" && styles.modeButtonActive]}
       onPress={() => settravelMeans("airplane")}
     >
-      <Plane size={18} color={travelMeans === "airplane" ? '#FFFFFF' : '#1A1A1A'Light} />
+      <Plane size={18} color={travelMeans === "airplane" ? '#FFFFFF' : '#6B6B6B'} />
       <Text style={[styles.modeText, { color: travelMeans === "airplane" ? '#FFFFFF' : '#1A1A1A' }]}>
         Airplane
       </Text>
@@ -341,7 +341,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "bus" && styles.modeButtonActive]}
       onPress={() => settravelMeans("bus")}
     >
-      <Bus size={18} color={travelMeans === "bus" ? '#FFFFFF' : '#1A1A1A'Light} />
+      <Bus size={18} color={travelMeans === "bus" ? '#FFFFFF' : '#6B6B6B'} />
       <Text style={[styles.modeText, { color: travelMeans === "bus" ? '#FFFFFF' : '#1A1A1A' }]}>
         Bus
       </Text>
@@ -351,7 +351,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "train" && styles.modeButtonActive]}
       onPress={() => settravelMeans("train")}
     >
-      <Train size={18} color={travelMeans === "train" ? '#FFFFFF' : '#1A1A1A'Light} />
+      <Train size={18} color={travelMeans === "train" ? '#FFFFFF' : '#6B6B6B'} />
       <Text style={[styles.modeText, { color: travelMeans === "train" ? '#FFFFFF' : '#1A1A1A' }]}>
         Train
       </Text>
@@ -361,7 +361,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "car" && styles.modeButtonActive]}
       onPress={() => settravelMeans("car")}
     >
-      <Car size={18} color={travelMeans === "car" ? '#FFFFFF' : '#1A1A1A'Light} />
+      <Car size={18} color={travelMeans === "car" ? '#FFFFFF' : '#6B6B6B'} />
       <Text style={[styles.modeText, { color: travelMeans === "car" ? '#FFFFFF' : '#1A1A1A' }]}>
         Car
       </Text>
@@ -371,7 +371,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "ship" && styles.modeButtonActive]}
       onPress={() => settravelMeans("ship")}
     >
-      <Ship size={18} color={travelMeans === "ship" ? '#FFFFFF' : '#1A1A1A'Light} />
+      <Ship size={18} color={travelMeans === "ship" ? '#FFFFFF' : '#6B6B6B'} />
       <Text style={[styles.modeText, { color: travelMeans === "ship" ? '#FFFFFF' : '#1A1A1A' }]}>
         Ship
       </Text>
@@ -381,7 +381,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "other" && styles.modeButtonActive]}
       onPress={() => settravelMeans("other")}
     >
-      <MoreHorizontal size={18} color={travelMeans === "other" ? '#FFFFFF' : '#1A1A1A'Light} />
+      <MoreHorizontal size={18} color={travelMeans === "other" ? '#FFFFFF' : '#6B6B6B'} />
       <Text style={[styles.modeText, { color: travelMeans === "other" ? '#FFFFFF' : '#1A1A1A' }]}>
         Other
       </Text>
@@ -394,7 +394,7 @@ export default function AddTripScreen() {
         {/* Date Picker */}
         <Text style={styles.label}>Departure Date</Text>
         <TouchableOpacity style={styles.inputContainer} onPress={() => setDatePickerVisibility(true)}>
-          <Calendar size={20} color={'#1A1A1A'Light} />
+          <Calendar size={20} color={'#6B6B6B'} />
           <Text style={styles.input}>{departureDate || "Select Departure Date"}</Text>
         </TouchableOpacity>
 
@@ -409,7 +409,7 @@ export default function AddTripScreen() {
         {/* Arrival Date */}
 <Text style={styles.label}>Arrival Date</Text>
 <TouchableOpacity style={styles.inputContainer} onPress={() => setArrivalDatePickerVisibility(true)}>
-  <Calendar size={20} color={'#1A1A1A'Light} />
+  <Calendar size={20} color={'#6B6B6B'} />
   <Text style={styles.input}>{arrivalDate || "Select Arrival Date"}</Text>
 </TouchableOpacity>
 
@@ -429,11 +429,11 @@ export default function AddTripScreen() {
         {/* Available Space */}
         <Text style={styles.label}>Available Luggage Space (kg)</Text>
         <View style={styles.inputContainer}>
-          <Weight size={20} color={'#1A1A1A'Light} />
+          <Weight size={20} color={'#6B6B6B'} />
           <TextInput
             style={styles.input}
             placeholder="Enter available weight"
-            placeholderTextColor={'#1A1A1A'Muted}
+            placeholderTextColor={'#9E9E9E'}
             keyboardType="numeric"
             value={availableKg}
             onChangeText={setAvailableKg}
@@ -565,7 +565,7 @@ export default function AddTripScreen() {
              },
            ]}
            placeholder="Type your city name..."
-           placeholderTextColor={'#1A1A1A'Muted}
+           placeholderTextColor={'#9E9E9E'}
            value={citySearch}
            onChangeText={setCitySearch}
          />
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "600" },
   content: { padding: 20 },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 6 },
-  subtitle: { color: '#1A1A1A'Light, marginBottom: 24 },
+  subtitle: { color: '#6B6B6B', marginBottom: 24 },
   label: { fontWeight: "600", color: '#1A1A1A', marginTop: 18, marginBottom: 8 },
   inputContainer: {
     flexDirection: "row",

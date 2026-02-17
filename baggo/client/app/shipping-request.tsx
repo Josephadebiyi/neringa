@@ -454,7 +454,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="City"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={fromCity}
                 onChangeText={setFromCity}
               />
@@ -467,7 +467,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Country"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={fromCountry}
                 onChangeText={setFromCountry}
               />
@@ -480,7 +480,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="City"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={toCity}
                 onChangeText={setToCity}
               />
@@ -493,7 +493,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Country"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={toCountry}
                 onChangeText={setToCountry}
               />
@@ -541,11 +541,11 @@ useEffect(() => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Package Weight</Text>
             <View style={styles.inputContainer}>
-              <Weight size={20} color={'#1A1A1A'Light} />
+              <Weight size={20} color={'#6B6B6B'} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter weight"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="decimal-pad"
                 value={weight}
                 onChangeText={setWeight}
@@ -560,7 +560,7 @@ useEffect(() => {
               <TextInput
                 style={[styles.input, styles.textAreaInput]}
                 placeholder="What's in the package?"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 multiline
                 numberOfLines={3}
                 value={description}
@@ -576,7 +576,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Item value"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="decimal-pad"
                 value={itemValue}
                 onChangeText={setItemValue}
@@ -611,7 +611,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="Full name"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={receiverName}
                 onChangeText={setReceiverName}
               />
@@ -624,7 +624,7 @@ useEffect(() => {
               <TextInput
                 style={styles.input}
                 placeholder="+1234567890"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="phone-pad"
                 value={receiverPhone}
                 onChangeText={setReceiverPhone}
@@ -636,7 +636,7 @@ useEffect(() => {
         {/* Package Photo */}
         <View style={styles.section}>
           <Text style={styles.label}>Package Photo (optional)</Text>
-          <Text style={{ marginBottom: 8, color: '#1A1A1A'Light }}>Add one photo of the package</Text>
+          <Text style={{ marginBottom: 8, color: '#6B6B6B' }}>Add one photo of the package</Text>
 
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'center' }}>
             <TouchableOpacity
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
@@ -775,7 +775,7 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 12, fontWeight: '600', color: '#5845D8' },
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   routeText: { fontSize: 14, color: '#1A1A1A' },
-  arrow: { fontSize: 14, color: '#1A1A1A'Light },
+  arrow: { fontSize: 14, color: '#6B6B6B' },
   section: { padding: 20 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginBottom: 16 },
   inputGroup: { marginBottom: 16 },
@@ -835,21 +835,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  unit: { fontSize: 15, fontWeight: '600', color: '#1A1A1A'Light },
-  currency: { fontSize: 16, fontWeight: '600', color: '#1A1A1A'Light },
-  insuranceCard: { backgroundColor: '#F8F6F3'Light, borderRadius: 12, padding: 16, marginTop: 8 },
+  unit: { fontSize: 15, fontWeight: '600', color: '#6B6B6B' },
+  currency: { fontSize: 16, fontWeight: '600', color: '#6B6B6B' },
+  insuranceCard: { backgroundColor: '#FDF9F1', borderRadius: 12, padding: 16, marginTop: 8 },
   insuranceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   insuranceTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
-  insuranceText: { fontSize: 13, color: '#1A1A1A'Light, marginTop: 8, marginLeft: 28 },
+  insuranceText: { fontSize: 13, color: '#6B6B6B', marginTop: 8, marginLeft: 28 },
   priceCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20 },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  priceLabel: { fontSize: 15, color: '#1A1A1A'Light },
+  priceLabel: { fontSize: 15, color: '#6B6B6B' },
   priceValue: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
   divider: { height: 1, backgroundColor: '#E5E5E5', marginVertical: 8 },
   totalLabel: { fontSize: 17, fontWeight: 'bold', color: '#1A1A1A' },
   totalValue: { fontSize: 20, fontWeight: 'bold', color: '#5845D8' },
   footer: { padding: 20, paddingBottom: 32, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E5E5' },
   continueButton: { backgroundColor: '#5845D8', borderRadius: 12, height: 56, justifyContent: 'center', alignItems: 'center' },
-  continueButtonDisabled: { backgroundColor: '#1A1A1A'Muted },
+  continueButtonDisabled: { backgroundColor: '#9E9E9E' },
   continueButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
 });

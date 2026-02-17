@@ -10,14 +10,14 @@ export default function PaymentSuccess() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
-      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
-        <Text style={[styles.headerTitle, { color: '#1A1A1A'Inverse }]}>Payment Successful</Text>
+      <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.header}>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Payment Successful</Text>
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconWrapper}>
           <View style={[styles.iconCircle, { backgroundColor: '#4CAF50' }]}>
-            <Text style={[styles.checkMark, { color: '#1A1A1A'Inverse }]}>✓</Text>
+            <Text style={[styles.checkMark, { color: '#FFFFFF' }]}>✓</Text>
           </View>
         </View>
 
@@ -27,7 +27,7 @@ export default function PaymentSuccess() {
           style={[styles.dashboardButton, { backgroundColor: '#5845D8' }]}
           onPress={() => router.replace("/(tabs)")}
         >
-          <Text style={[styles.dashboardButtonText, { color: '#1A1A1A'Inverse }]}>Go to Dashboard</Text>
+          <Text style={[styles.dashboardButtonText, { color: '#FFFFFF' }]}>Go to Dashboard</Text>
         </TouchableOpacity>
       </View>
     </View>

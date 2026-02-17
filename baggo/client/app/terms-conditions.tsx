@@ -169,13 +169,13 @@ const styles = StyleSheet.create({
   },
   lastUpdated: {
     fontSize: 12,
-    color: '#1A1A1A'Muted,
+    color: '#9E9E9E',
     marginBottom: 16,
     fontStyle: 'italic',
   },
   intro: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     lineHeight: 22,
     marginBottom: 24,
   },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     lineHeight: 24,
     marginBottom: 16,
   },

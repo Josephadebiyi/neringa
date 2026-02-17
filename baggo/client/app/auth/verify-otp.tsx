@@ -93,7 +93,7 @@ export default function VerifyOTP() {
         <View style={styles.header}>
           <Package size={60} color={'#5845D8'} strokeWidth={2} />
           <Text style={[styles.title, { color: '#5845D8' }]}>BAGGO</Text>
-          <Text style={[styles.subtitle, { color: '#1A1A1A'Light }]}>Verify Your OTP</Text>
+          <Text style={[styles.subtitle, { color: '#6B6B6B' }]}>Verify Your OTP</Text>
         </View>
 
         <View style={styles.form}>
@@ -117,9 +117,9 @@ export default function VerifyOTP() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={'#1A1A1A'Inverse} />
+              <ActivityIndicator color={'#FFFFFF'} />
             ) : (
-              <Text style={[styles.buttonText, { color: '#1A1A1A'Inverse }]}>Verify OTP</Text>
+              <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Verify OTP</Text>
             )}
           </TouchableOpacity>
 
@@ -131,7 +131,7 @@ export default function VerifyOTP() {
             {resending ? (
               <ActivityIndicator color={'#5845D8'} />
             ) : (
-              <Text style={[styles.linkText, { color: '#1A1A1A'Light }]}>
+              <Text style={[styles.linkText, { color: '#6B6B6B' }]}>
                 Didn't receive an OTP?{' '}
                 <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Resend</Text>
               </Text>

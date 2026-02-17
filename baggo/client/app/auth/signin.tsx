@@ -65,7 +65,7 @@ export default function SignIn() {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={[styles.subtitle, { color: '#1A1A1A'Light }]}>Connect Travelers & Senders</Text>
+            <Text style={[styles.subtitle, { color: '#6B6B6B' }]}>Connect Travelers & Senders</Text>
           </View>
 
           <View style={styles.form}>
@@ -73,7 +73,7 @@ export default function SignIn() {
             <TextInput
               style={[styles.input, { backgroundColor: '#FFFFFF'Bg, color: '#1A1A1A', borderColor: '#E5E5E5' }]}
               placeholder="Enter your email"
-              placeholderTextColor={'#1A1A1A'Muted}
+              placeholderTextColor={'#9E9E9E'}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -86,7 +86,7 @@ export default function SignIn() {
               <TextInput
                 style={[styles.passwordInput, { color: '#1A1A1A' }]}
                 placeholder="Enter your password"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -94,9 +94,9 @@ export default function SignIn() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff color={'#1A1A1A'Muted} size={20} />
+                  <EyeOff color={'#9E9E9E'} size={20} />
                 ) : (
-                  <Eye color={'#1A1A1A'Muted} size={20} />
+                  <Eye color={'#9E9E9E'} size={20} />
                 )}
               </TouchableOpacity>
             </View>
@@ -128,7 +128,7 @@ export default function SignIn() {
               onPress={() => router.push('/auth/signup')}
               disabled={loading}
             >
-              <Text style={[styles.linkText, { color: '#1A1A1A'Light }]}>
+              <Text style={[styles.linkText, { color: '#6B6B6B' }]}>
                 Don't have an account? <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Sign Up</Text>
               </Text>
             </TouchableOpacity>

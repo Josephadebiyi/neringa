@@ -538,7 +538,7 @@ const handleRequestPackage = async () => {
     >
       <View style={styles.container}>
         {/* Header */}
-        <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
+        <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>

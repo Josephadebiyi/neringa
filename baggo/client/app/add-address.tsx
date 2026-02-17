@@ -34,7 +34,7 @@ export default function AddAddressScreen() {
         <View style={[styles.formSection, { backgroundColor: '#FFFFFF' }]}>
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>First Name</Text>
+              <Text style={[styles.label, { color: '#6B6B6B' }]}>First Name</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={firstName}
@@ -45,7 +45,7 @@ export default function AddAddressScreen() {
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Last Name</Text>
+              <Text style={[styles.label, { color: '#6B6B6B' }]}>Last Name</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={lastName}
@@ -57,7 +57,7 @@ export default function AddAddressScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Street, Address and City</Text>
+            <Text style={[styles.label, { color: '#6B6B6B' }]}>Street, Address and City</Text>
             <TextInput
               style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
               value={address}
@@ -69,7 +69,7 @@ export default function AddAddressScreen() {
 
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Apt, Suite</Text>
+              <Text style={[styles.label, { color: '#6B6B6B' }]}>Apt, Suite</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={aptSuite}
@@ -81,7 +81,7 @@ export default function AddAddressScreen() {
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: '#1A1A1A'Light }]}>Postcode</Text>
+              <Text style={[styles.label, { color: '#6B6B6B' }]}>Postcode</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
                 value={postcode}
@@ -95,7 +95,7 @@ export default function AddAddressScreen() {
         </View>
 
         <View style={styles.mapContainer}>
-          <View style={[styles.mapPlaceholder, { backgroundColor: '#4CAF50'Bg }]}>
+          <View style={[styles.mapPlaceholder, { backgroundColor: '#E8F5E9' }]}>
             <Text style={[styles.mapText, { color: '#1A1A1A' }]}>Hamilton</Text>
             <View style={styles.mapMarker}>
               <MapPin size={32} color={'#4CAF50'} />
@@ -117,7 +117,7 @@ export default function AddAddressScreen() {
         </View>
 
         <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#5845D8' }]}>
-          <Text style={[styles.submitButtonText, { color: '#1A1A1A'Inverse }]}>Add New Address</Text>
+          <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>Add New Address</Text>
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />

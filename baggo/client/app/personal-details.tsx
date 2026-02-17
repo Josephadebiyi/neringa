@@ -188,7 +188,7 @@ export default function PersonalDetailsScreen() {
       }
     }
     
-    return <User size={48} color={'#1A1A1A'Inverse} />;
+    return <User size={48} color={'#FFFFFF'} />;
   };
 
   const handleSave = async () => {
@@ -271,7 +271,7 @@ export default function PersonalDetailsScreen() {
             <TouchableOpacity style={styles.avatar} onPress={() => setAvatarModalVisible(true)}>
               {renderAvatar()}
               <View style={styles.cameraIcon}>
-                <Camera size={16} color={'#1A1A1A'Inverse} />
+                <Camera size={16} color={'#FFFFFF'} />
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.changePhotoButton} onPress={() => setAvatarModalVisible(true)}>
@@ -284,16 +284,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>First Name</Text>
-                {isKycLocked && <Lock size={14} color={'#1A1A1A'Light} />}
+                {isKycLocked && <Lock size={14} color={'#6B6B6B'} />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <User size={20} color={'#1A1A1A'Light} />
+                <User size={20} color={'#6B6B6B'} />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={firstName}
                   onChangeText={setFirstName}
                   placeholder="First name"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   editable={!isKycLocked}
                 />
               </View>
@@ -303,16 +303,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Last Name</Text>
-                {isKycLocked && <Lock size={14} color={'#1A1A1A'Light} />}
+                {isKycLocked && <Lock size={14} color={'#6B6B6B'} />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <User size={20} color={'#1A1A1A'Light} />
+                <User size={20} color={'#6B6B6B'} />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={lastName}
                   onChangeText={setLastName}
                   placeholder="Last name"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   editable={!isKycLocked}
                 />
               </View>
@@ -322,13 +322,13 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputContainer}>
-                <Mail size={20} color={'#1A1A1A'Light} />
+                <Mail size={20} color={'#6B6B6B'} />
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="Email address"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   keyboardType="email-address"
                 />
               </View>
@@ -338,13 +338,13 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Phone Number</Text>
               <View style={styles.inputContainer}>
-                <Phone size={20} color={'#1A1A1A'Light} />
+                <Phone size={20} color={'#6B6B6B'} />
                 <TextInput
                   style={styles.input}
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="Phone number"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -354,16 +354,16 @@ export default function PersonalDetailsScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Date of Birth</Text>
-                {isKycLocked && <Lock size={14} color={'#1A1A1A'Light} />}
+                {isKycLocked && <Lock size={14} color={'#6B6B6B'} />}
               </View>
               <View style={[styles.inputContainer, isKycLocked && styles.inputLocked]}>
-                <Calendar size={20} color={'#1A1A1A'Light} />
+                <Calendar size={20} color={'#6B6B6B'} />
                 <TextInput
                   style={[styles.input, isKycLocked && styles.inputTextLocked]}
                   value={formatDate(dateOfBirth)}
                   onChangeText={setDateOfBirth}
                   placeholder="Date of Birth"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   editable={!isKycLocked}
                 />
               </View>
@@ -374,7 +374,7 @@ export default function PersonalDetailsScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Country</Text>
                 <View style={[styles.inputContainer, styles.inputLocked]}>
-                  <MapPin size={20} color={'#1A1A1A'Light} />
+                  <MapPin size={20} color={'#6B6B6B'} />
                   <Text style={[styles.input, styles.inputTextLocked]}>{country}</Text>
                 </View>
               </View>
@@ -387,7 +387,7 @@ export default function PersonalDetailsScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Save size={20} color={'#1A1A1A'Inverse} />
+          <Save size={20} color={'#FFFFFF'} />
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: '#1A1A1A'Inverse,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: '#1A1A1A'Inverse,
+    backgroundColor: '#FFFFFF',
     marginBottom: 20,
   },
   avatar: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A'Inverse,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
   },
   inputTextLocked: {
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   textArea: {
     minHeight: 60,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: '#1A1A1A'Inverse,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E5E5',
   },
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A'Inverse,
+    color: '#FFFFFF',
   },
   // Avatar styles
   avatarPreset: {
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#1A1A1A'Inverse,
+    borderColor: '#FFFFFF',
   },
   // Modal styles
   modalOverlay: {
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#1A1A1A'Inverse,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 24,
   },
   avatarGrid: {

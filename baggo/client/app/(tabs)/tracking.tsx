@@ -179,7 +179,7 @@ export default function TrackingScreen(): JSX.Element {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
+      <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.header}>
         <View style={styles.topBar}>
           <Text style={styles.headerTitle}>Track Package</Text>
           <View style={styles.headerActions}>
@@ -209,11 +209,11 @@ export default function TrackingScreen(): JSX.Element {
 
           {/* Input row */}
           <View style={styles.trackingInputContainer}>
-            <Search size={20} color={'#1A1A1A'Light} />
+            <Search size={20} color={'#6B6B6B'} />
             <TextInput
               style={styles.trackingInput}
               placeholder="BG-482-242"
-              placeholderTextColor={'#1A1A1A'Muted}
+              placeholderTextColor={'#9E9E9E'}
               value={trackingInput}
               onChangeText={setTrackingInput}
             />
@@ -266,7 +266,7 @@ export default function TrackingScreen(): JSX.Element {
                             ? '#5845D8'
                             : order.status === 'rejected'
                             ? '#F44336'
-                            : '#1A1A1A'Light,
+                            : '#6B6B6B',
                       },
                     ]}
                   >
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   trackingSubtitle: {
     fontSize: 15,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 16,
   },
   recentCard: {
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   },
   recentTracking: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 4,
   },
   recentStatus: {
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   noOrdersText: {
     fontSize: 16,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     textAlign: 'center',
     marginVertical: 20,
   },

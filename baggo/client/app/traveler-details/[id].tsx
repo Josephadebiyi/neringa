@@ -172,11 +172,11 @@ export default function TravelerDetailsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
-      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
+      <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backIcon, { color: '#1A1A1A'Inverse }]}>←</Text>
+          <Text style={[styles.backIcon, { color: '#FFFFFF' }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: '#1A1A1A'Inverse }]}>Traveler Details</Text>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Traveler Details</Text>
         <View style={{ width: 40 }} />
       </LinearGradient>
       <KeyboardAvoidingView
@@ -187,25 +187,25 @@ export default function TravelerDetailsScreen() {
 
         <View style={[styles.profileCard, { backgroundColor: '#FFFFFF', borderBottomColor: '#E5E5E5' }]}>
           <View style={[styles.avatar, { backgroundColor: '#5845D8' }]}>
-            <Text style={[styles.avatarText, { color: '#1A1A1A'Inverse }]}>{traveler.name?.charAt(0) || 'T'}</Text>
+            <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{traveler.name?.charAt(0) || 'T'}</Text>
           </View>
           <View style={styles.profileInfo}>
             <View style={styles.nameRow}>
               <Text style={[styles.name, { color: '#1A1A1A' }]}>{traveler.name}</Text>
               {traveler.verified && (
                 <View style={[styles.verifiedBadge, { backgroundColor: '#4CAF50' }]}>
-                  <Shield size={14} color={'#1A1A1A'Inverse} />
+                  <Shield size={14} color={'#FFFFFF'} />
                 </View>
               )}
             </View>
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Star size={16} color={'#F5C563'} fill={'#F5C563'} />
-                <Text style={[styles.statText, { color: '#1A1A1A'Light }]}>{averageRating.toFixed(1)}</Text>
+                <Text style={[styles.statText, { color: '#6B6B6B' }]}>{averageRating.toFixed(1)}</Text>
 
               </View>
-              <Text style={[styles.statDivider, { color: '#1A1A1A'Light }]}>•</Text>
-            <Text style={[styles.statText, { color: '#1A1A1A'Light }]}>{reviews.length} reviews</Text>
+              <Text style={[styles.statDivider, { color: '#6B6B6B' }]}>•</Text>
+            <Text style={[styles.statText, { color: '#6B6B6B' }]}>{reviews.length} reviews</Text>
             </View>
           </View>
         </View>
@@ -227,19 +227,19 @@ export default function TravelerDetailsScreen() {
           <View style={styles.infoGrid}>
             <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
               <Calendar size={20} color={'#5845D8'} />
-              <Text style={[styles.infoLabel, { color: '#1A1A1A'Light }]}>Date</Text>
+              <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Date</Text>
               <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>
                 {new Date(traveler.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </Text>
             </View>
             <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
               <Plane size={20} color={'#5845D8'} />
-              <Text style={[styles.infoLabel, { color: '#1A1A1A'Light }]}>Mode</Text>
+              <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Mode</Text>
               <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>{traveler.mode === 'flight' ? 'Flight' : 'Road'}</Text>
             </View>
             <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
               <Weight size={20} color={'#5845D8'} />
-              <Text style={[styles.infoLabel, { color: '#1A1A1A'Light }]}>Available</Text>
+              <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Available</Text>
               <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>{traveler.availableKg} kg</Text>
             </View>
           </View>
@@ -254,10 +254,10 @@ export default function TravelerDetailsScreen() {
             <Text style={{ color: '#1A1A1A' }}>No reviews yet</Text>
           ) : (
             reviews.map((review, index) => (
-              <View key={index} style={[styles.reviewCard, { backgroundColor: '#F8F6F3'Light }]}>
+              <View key={index} style={[styles.reviewCard, { backgroundColor: '#FDF9F1' }]}>
                 <View style={styles.reviewHeader}>
                   <View style={[styles.reviewAvatar, { backgroundColor: '#5845D8' }]}>
-                    <Text style={[styles.reviewAvatarText, { color: '#1A1A1A'Inverse }]}>{review.user?.firstName?.charAt(0).toUpperCase() || 'U'}</Text>
+                    <Text style={[styles.reviewAvatarText, { color: '#FFFFFF' }]}>{review.user?.firstName?.charAt(0).toUpperCase() || 'U'}</Text>
                   </View>
                   <View style={styles.reviewInfo}>
                     <View style={styles.reviewStars}>
@@ -273,7 +273,7 @@ export default function TravelerDetailsScreen() {
           )}
 
 
-          <View style={[styles.reviewCard, { marginTop: 20, backgroundColor: '#F8F6F3'Light }]}>
+          <View style={[styles.reviewCard, { marginTop: 20, backgroundColor: '#FDF9F1' }]}>
             <Text style={[styles.sectionTitle, { marginBottom: 8, color: '#1A1A1A' }]}>Leave a Review</Text>
             <View style={{ flexDirection: 'row', marginBottom: 12 }}>
               {[1,2,3,4,5].map((star) => (
@@ -291,7 +291,7 @@ export default function TravelerDetailsScreen() {
               onChangeText={setReviewComment}
             />
             <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#5845D8' }]} onPress={handleSubmitReview}>
-              <Text style={[styles.submitButtonText, { color: '#1A1A1A'Inverse }]}>Submit Review</Text>
+              <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>Submit Review</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -305,7 +305,7 @@ export default function TravelerDetailsScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.bookButton, { backgroundColor: '#5845D8' }]} onPress={handleBookRequest}>
-          <Text style={[styles.bookButtonText, { color: '#1A1A1A'Inverse }]}>Send Request</Text>
+          <Text style={[styles.bookButtonText, { color: '#FFFFFF' }]}>Send Request</Text>
         </TouchableOpacity>
       </View>
     </View>

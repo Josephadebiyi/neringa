@@ -294,7 +294,7 @@ export default function KYCVerificationScreen() {
           renderLoading={() => (
             <View style={[styles.webviewLoading, { backgroundColor: '#F8F6F3' }]}>
               <ActivityIndicator size="large" color={'#5845D8'} />
-              <Text style={[styles.loadingText, { color: '#1A1A1A'Light }]}>Loading verification...</Text>
+              <Text style={[styles.loadingText, { color: '#6B6B6B' }]}>Loading verification...</Text>
             </View>
           )}
           javaScriptEnabled
@@ -323,7 +323,7 @@ export default function KYCVerificationScreen() {
         <View style={[styles.statusCard, { backgroundColor: '#FFFFFF' }]}>
           {renderStatusIcon()}
           <Text style={[styles.statusTitle, { color: statusInfo.color }]}>{statusInfo.title}</Text>
-          <Text style={[styles.statusSubtitle, { color: '#1A1A1A'Light }]}>{statusInfo.subtitle}</Text>
+          <Text style={[styles.statusSubtitle, { color: '#6B6B6B' }]}>{statusInfo.subtitle}</Text>
         </View>
 
         {/* Info Cards */}
@@ -336,7 +336,7 @@ export default function KYCVerificationScreen() {
               </View>
               <View style={styles.infoText}>
                 <Text style={[styles.infoItemTitle, { color: '#1A1A1A' }]}>Security</Text>
-                <Text style={[styles.infoItemDesc, { color: '#1A1A1A'Light }]}>Protect yourself and others from fraud</Text>
+                <Text style={[styles.infoItemDesc, { color: '#6B6B6B' }]}>Protect yourself and others from fraud</Text>
               </View>
             </View>
             <View style={styles.infoItem}>
@@ -345,7 +345,7 @@ export default function KYCVerificationScreen() {
               </View>
               <View style={styles.infoText}>
                 <Text style={[styles.infoItemTitle, { color: '#1A1A1A' }]}>Full Access</Text>
-                <Text style={[styles.infoItemDesc, { color: '#1A1A1A'Light }]}>Send packages and create trips</Text>
+                <Text style={[styles.infoItemDesc, { color: '#6B6B6B' }]}>Send packages and create trips</Text>
               </View>
             </View>
           </View>
@@ -359,9 +359,9 @@ export default function KYCVerificationScreen() {
             disabled={creatingSession}
           >
             {creatingSession ? (
-              <ActivityIndicator color={'#1A1A1A'Inverse} />
+              <ActivityIndicator color={'#FFFFFF'} />
             ) : (
-              <Text style={[styles.verifyButtonText, { color: '#1A1A1A'Inverse }]}>
+              <Text style={[styles.verifyButtonText, { color: '#FFFFFF' }]}>
                 {kycStatus === 'declined' ? 'Try Again' : canRetry ? 'Continue Verification' : 'Start Verification'}
               </Text>
             )}
@@ -383,9 +383,9 @@ export default function KYCVerificationScreen() {
                 disabled={creatingSession}
               >
                 {creatingSession ? (
-                  <ActivityIndicator color={'#1A1A1A'Inverse} />
+                  <ActivityIndicator color={'#FFFFFF'} />
                 ) : (
-                  <Text style={[styles.verifyButtonText, { color: '#1A1A1A'Inverse }]}>Restart Verification</Text>
+                  <Text style={[styles.verifyButtonText, { color: '#FFFFFF' }]}>Restart Verification</Text>
                 )}
               </TouchableOpacity>
             )}
@@ -397,7 +397,7 @@ export default function KYCVerificationScreen() {
             style={[styles.verifyButton, { backgroundColor: '#4CAF50' }]} 
             onPress={() => router.back()}
           >
-            <Text style={[styles.verifyButtonText, { color: '#1A1A1A'Inverse }]}>Continue to App</Text>
+            <Text style={[styles.verifyButtonText, { color: '#FFFFFF' }]}>Continue to App</Text>
           </TouchableOpacity>
         )}
       </View>

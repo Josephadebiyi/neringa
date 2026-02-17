@@ -197,7 +197,7 @@ export default function SignUp() {
         <View style={styles.content}>
           <View style={styles.header}>
             <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
-            <Text style={[styles.subtitle, { color: '#1A1A1A'Muted }]}>Create your Baggo account</Text>
+            <Text style={[styles.subtitle, { color: '#9E9E9E' }]}>Create your Baggo account</Text>
           </View>
 
           <View style={styles.form}>
@@ -301,9 +301,9 @@ export default function SignUp() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff size={20} color={'#1A1A1A'Muted} />
+                  <EyeOff size={20} color={'#9E9E9E'} />
                 ) : (
-                  <Eye size={20} color={'#1A1A1A'Muted} />
+                  <Eye size={20} color={'#9E9E9E'} />
                 )}
               </TouchableOpacity>
             </View>
@@ -323,9 +323,9 @@ export default function SignUp() {
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
                 {showConfirmPassword ? (
-                  <EyeOff size={20} color={'#1A1A1A'Muted} />
+                  <EyeOff size={20} color={'#9E9E9E'} />
                 ) : (
-                  <Eye size={20} color={'#1A1A1A'Muted} />
+                  <Eye size={20} color={'#9E9E9E'} />
                 )}
               </TouchableOpacity>
             </View>
@@ -349,14 +349,14 @@ export default function SignUp() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={'#1A1A1A'Inverse} />
+                <ActivityIndicator color={'#FFFFFF'} />
               ) : (
-                <Text style={[styles.buttonText, { color: '#1A1A1A'Inverse }]}>Sign Up</Text>
+                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Sign Up</Text>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.linkButton} onPress={() => router.back()} disabled={loading}>
-              <Text style={[styles.linkText, { color: '#1A1A1A'Light }]}>
+              <Text style={[styles.linkText, { color: '#6B6B6B' }]}>
                 Already have an account?{' '}
                 <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Sign In</Text>
               </Text>
@@ -406,9 +406,9 @@ export default function SignUp() {
                   <Text style={styles.countryFlag}>{item.flag}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.countryName, { color: '#1A1A1A' }]}>{item.name}</Text>
-                    <Text style={[styles.countrySub, { color: '#1A1A1A'Light }]}>{item.cca2}</Text>
+                    <Text style={[styles.countrySub, { color: '#6B6B6B' }]}>{item.cca2}</Text>
                   </View>
-                  <Text style={[styles.countryDial, { color: '#1A1A1A'Light }]}>+{item.callingCode}</Text>
+                  <Text style={[styles.countryDial, { color: '#6B6B6B' }]}>+{item.callingCode}</Text>
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => <View style={[styles.sep, { backgroundColor: '#E5E5E5' }]} />}
@@ -440,11 +440,11 @@ export default function SignUp() {
                 router.push('/auth/signin');
               }}
             >
-              <Text style={[styles.loginButtonText, { color: '#1A1A1A'Inverse }]}>Go to Login</Text>
+              <Text style={[styles.loginButtonText, { color: '#FFFFFF' }]}>Go to Login</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.closeButton} onPress={() => setShowVerifyModal(false)}>
-              <Text style={[styles.closeButtonText, { color: '#1A1A1A'Light }]}>Close</Text>
+              <Text style={[styles.closeButtonText, { color: '#6B6B6B' }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -245,7 +245,7 @@ const insets = useSafeAreaInsets();
 
   const renderEmpty = () => (
     <View style={styles.emptyState}>
-      <MessageCircle size={64} color={'#1A1A1A'Light} strokeWidth={1.5} />
+      <MessageCircle size={64} color={'#6B6B6B'} strokeWidth={1.5} />
       <Text style={styles.emptyTitle}>No Messages</Text>
       <Text style={styles.emptySubtitle}>
         Messages will appear here when travelers accept your booking requests
@@ -350,7 +350,7 @@ const insets = useSafeAreaInsets();
               value={newMessage}
               onChangeText={setNewMessage}
               placeholder="Type a message..."
-              placeholderTextColor={'#1A1A1A'Light}
+              placeholderTextColor={'#6B6B6B'}
             />
             {isSending ? (
               <ActivityIndicator size="small" color={'#5845D8'} style={styles.sendButton} />
@@ -458,11 +458,11 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 12,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   lastMessage: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   unreadBadge: {
     backgroundColor: '#5845D8',
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,

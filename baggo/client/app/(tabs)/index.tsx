@@ -471,7 +471,7 @@ const fetchNotifications = async () => {
      <PushNotificationSetup />
     <View style={styles.container}>
       <LinearGradient
-        colors={['#5845D8', '#5845D8'Dark]}
+        colors={['#5845D8', '#4534B8']}
         style={styles.header}
       >
         <View style={styles.topBar}>
@@ -535,11 +535,11 @@ const fetchNotifications = async () => {
           </Text>
 
           <View style={styles.searchContainer}>
-            <Search size={20} color={'#1A1A1A'Light} />
+            <Search size={20} color={'#6B6B6B'} />
             <TextInput
               style={styles.searchInput}
               placeholder={mode === 'send' ? 'Where to send?' : 'Where are you traveling?'}
-              placeholderTextColor={'#1A1A1A'Muted}
+              placeholderTextColor={'#9E9E9E'}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -632,7 +632,7 @@ const fetchNotifications = async () => {
                         {order.package?.description || 'No description'}
                       </Text>
                       <View style={styles.orderRoute}>
-                        <MapPin size={16} color={'#1A1A1A'Light} />
+                        <MapPin size={16} color={'#6B6B6B'} />
                         <Text style={styles.routeText}>
                           {order.package?.fromCity} → {order.package?.toCity}
                         </Text>
@@ -658,7 +658,7 @@ const fetchNotifications = async () => {
                               : order.status === 'rejected'
                               ? '#F44336'
                               : order.status === 'completed'
-                              ? '#4CAF50'Light
+                              ? '#81C784'
                               : '#5845D8',
                         },
                       ]}
@@ -736,7 +736,7 @@ const fetchNotifications = async () => {
                     </View>
 
                     <View style={styles.tripRoute}>
-                      <MapPin size={16} color={'#1A1A1A'Light} />
+                      <MapPin size={16} color={'#6B6B6B'} />
                       <Text style={styles.routeText} numberOfLines={1}>
                         {`${trip.from_location || 'Origin'} → ${trip.to_location || 'Destination'}`}
                       </Text>
@@ -744,13 +744,13 @@ const fetchNotifications = async () => {
 
                     <View style={styles.tripMeta}>
                       <View style={styles.metaItem}>
-                        <Calendar size={14} color={'#1A1A1A'Light} />
+                        <Calendar size={14} color={'#6B6B6B'} />
                         <Text style={styles.metaText}>
                           {trip.departure_date ? new Date(trip.departure_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}
                         </Text>
                       </View>
                       <View style={styles.metaItem}>
-                        <Weight size={14} color={'#1A1A1A'Light} />
+                        <Weight size={14} color={'#6B6B6B'} />
                         <Text style={styles.metaText}>{`${trip.remaining_kg ?? 0} kg available`}</Text>
                       </View>
                     </View>
@@ -783,7 +783,7 @@ const fetchNotifications = async () => {
 
               <View style={styles.statCard}>
                 <LinearGradient
-                  colors={['#4CAF50', '#4CAF50'Light]}
+                  colors={['#4CAF50', '#81C784']}
                   style={styles.statGradient}
                 >
                   <Text style={styles.statValue}>0</Text>
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 16,
   },
   orderCard: {
@@ -1052,7 +1052,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1074,17 +1074,17 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     fontWeight: '500',
   },
   orderTraveler: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 4,
   },
   orderInsurance: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -1153,13 +1153,13 @@ const styles = StyleSheet.create({
   },
   tripCount: {
     fontSize: 12,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   modeIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   priceText: {
     marginLeft: 'auto',
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
   },
   benefitDesc: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     lineHeight: 20,
   },
   promosSection: {
@@ -1319,13 +1319,13 @@ const styles = StyleSheet.create({
   },
   noTripsText: {
     fontSize: 16,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     textAlign: 'center',
     marginVertical: 20,
   },
   noOrdersText: {
     fontSize: 16,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     textAlign: 'center',
     marginVertical: 20,
   },

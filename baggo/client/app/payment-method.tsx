@@ -80,7 +80,7 @@ export default function PaymentMethodScreen() {
             value={cardholderName}
             onChangeText={setCardholderName}
             placeholder="Cardholder Name"
-            placeholderTextColor={'#1A1A1A'Muted}
+            placeholderTextColor={'#9E9E9E'}
           />
 
           <Text style={styles.formTitle}>Card Number</Text>
@@ -89,7 +89,7 @@ export default function PaymentMethodScreen() {
             value={cardNumberFull}
             onChangeText={setCardNumberFull}
             placeholder="Card Number"
-            placeholderTextColor={'#1A1A1A'Muted}
+            placeholderTextColor={'#9E9E9E'}
             keyboardType="number-pad"
           />
 
@@ -101,7 +101,7 @@ export default function PaymentMethodScreen() {
                 value={expiration}
                 onChangeText={setExpiration}
                 placeholder="MM/YY"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="number-pad"
               />
             </View>
@@ -113,7 +113,7 @@ export default function PaymentMethodScreen() {
                 value={cvv}
                 onChangeText={setCvv}
                 placeholder="CVV"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 keyboardType="number-pad"
                 secureTextEntry
               />
@@ -126,7 +126,7 @@ export default function PaymentMethodScreen() {
             value={postcode}
             onChangeText={setPostcode}
             placeholder="Postal Code"
-            placeholderTextColor={'#1A1A1A'Muted}
+            placeholderTextColor={'#9E9E9E'}
             keyboardType="number-pad"
           />
 
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   formSection: {
     backgroundColor: '#FFFFFF',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 8,
     marginTop: 12,
     fontWeight: '500',

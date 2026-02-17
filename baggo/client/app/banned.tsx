@@ -9,10 +9,10 @@ export default function BannedUserScreen() {
   return (
     <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
       <LinearGradient
-        colors={['#5845D8', '#5845D8'Dark]}
+        colors={['#5845D8', '#4534B8']}
         style={styles.header}
       >
-        <Text style={[styles.headerTitle, { color: '#1A1A1A'Inverse }]}>Account Status</Text>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Account Status</Text>
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -22,7 +22,7 @@ export default function BannedUserScreen() {
           <Text style={[styles.banMessage, { color: '#1A1A1A' }]}>
             If you're seeing this screen, your account has been banned.
           </Text>
-          <Text style={[styles.banDetails, { color: '#1A1A1A'Light }]}>
+          <Text style={[styles.banDetails, { color: '#6B6B6B' }]}>
             For more information or to appeal this decision, please contact our support team at{' '}
             <Text style={[styles.emailText, { color: '#5845D8' }]}>bggo@mail.com</Text>.
           </Text>
@@ -32,15 +32,15 @@ export default function BannedUserScreen() {
               alert('Please email bggo@mail.com for support.');
             }}
           >
-            <Text style={[styles.contactButtonText, { color: '#1A1A1A'Inverse }]}>Contact Support</Text>
+            <Text style={[styles.contactButtonText, { color: '#FFFFFF' }]}>Contact Support</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.infoCard, { backgroundColor: '#F8F6F3'Light, borderLeftColor: '#5845D8' }]}>
+        <View style={[styles.infoCard, { backgroundColor: '#FDF9F1', borderLeftColor: '#5845D8' }]}>
           <AlertCircle size={20} color={'#5845D8'} />
           <View style={styles.infoContent}>
             <Text style={[styles.infoTitle, { color: '#1A1A1A' }]}>Important Notice</Text>
-            <Text style={[styles.infoText, { color: '#1A1A1A'Light }]}>
+            <Text style={[styles.infoText, { color: '#6B6B6B' }]}>
               Our team is committed to maintaining a safe and compliant platform. If you believe this ban is an error, please reach out to support for assistance.
             </Text>
           </View>

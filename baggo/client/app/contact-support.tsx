@@ -114,7 +114,7 @@ export default function ContactSupportScreen() {
           <TextInput
             style={styles.input}
             placeholder="Brief description of your issue"
-            placeholderTextColor={'#1A1A1A'Muted}
+            placeholderTextColor={'#9E9E9E'}
             value={subject}
             onChangeText={setSubject}
           />
@@ -123,7 +123,7 @@ export default function ContactSupportScreen() {
           <TextInput
             style={styles.textArea}
             placeholder="Provide detailed information about your issue..."
-            placeholderTextColor={'#1A1A1A'Muted}
+            placeholderTextColor={'#9E9E9E'}
             multiline
             numberOfLines={6}
             value={message}
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   contactHours: {
     fontSize: 11,
-    color: '#1A1A1A'Muted,
+    color: '#9E9E9E',
   },
   section: {
     padding: 20,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   },
   faqAnswer: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     lineHeight: 20,
   },
   resourceCard: {
@@ -353,6 +353,6 @@ const styles = StyleSheet.create({
   },
   resourceDesc: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
 });

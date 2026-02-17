@@ -493,7 +493,7 @@ const handleSelectCity = (cityName: string) => {
                 onPress={() => openCountryModal('from')}
                 activeOpacity={0.8}
               >
-                <MapPin size={20} color={'#1A1A1A'Light} />
+                <MapPin size={20} color={'#6B6B6B'} />
                 <Text style={styles.input}>{fromCountry || 'Enter country'}</Text>
               </TouchableOpacity>
             </View>
@@ -505,7 +505,7 @@ const handleSelectCity = (cityName: string) => {
       onPress={() => openCityModal('from')}
       activeOpacity={0.8}
     >
-      <MapPin size={20} color={'#1A1A1A'Light} />
+      <MapPin size={20} color={'#6B6B6B'} />
       <Text style={styles.input}>{fromCity || 'Select city'}</Text>
     </TouchableOpacity>
   </View>
@@ -522,7 +522,7 @@ const handleSelectCity = (cityName: string) => {
                 onPress={() => openCountryModal('to')}
                 activeOpacity={0.8}
               >
-                <MapPin size={20} color={'#1A1A1A'Light} />
+                <MapPin size={20} color={'#6B6B6B'} />
                 <Text style={styles.input}>{toCountry || 'Enter country'}</Text>
               </TouchableOpacity>
             </View>
@@ -534,7 +534,7 @@ const handleSelectCity = (cityName: string) => {
       onPress={() => openCityModal('to')}
       activeOpacity={0.8}
     >
-      <MapPin size={20} color={'#1A1A1A'Light} />
+      <MapPin size={20} color={'#6B6B6B'} />
       <Text style={styles.input}>{toCity || 'Select city'}</Text>
     </TouchableOpacity>
   </View>
@@ -547,11 +547,11 @@ const handleSelectCity = (cityName: string) => {
             <View style={styles.section}>
               <Text style={styles.label}>Package Weight</Text>
               <View style={styles.weightInput}>
-                <Weight size={20} color={'#1A1A1A'Light} />
+                <Weight size={20} color={'#6B6B6B'} />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter weight"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   keyboardType="decimal-pad"
                   value={packageWeight}
                   onChangeText={setPackageWeight}
@@ -566,7 +566,7 @@ const handleSelectCity = (cityName: string) => {
                 <TextInput
                   style={styles.input}
                   placeholder="Full name"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   value={receiverName}
                   onChangeText={setReceiverName}
                 />
@@ -605,7 +605,7 @@ const handleSelectCity = (cityName: string) => {
           },
         ]}
         placeholder="000 000 0000"
-        placeholderTextColor={'#1A1A1A'Muted}
+        placeholderTextColor={'#9E9E9E'}
         keyboardType="phone-pad"
         value={receiverPhone}
         onChangeText={setReceiverPhone}
@@ -624,7 +624,7 @@ const handleSelectCity = (cityName: string) => {
     <TextInput
       style={styles.input}
       placeholder="Enter package value"
-      placeholderTextColor={'#1A1A1A'Muted}
+      placeholderTextColor={'#9E9E9E'}
       keyboardType="decimal-pad"
       value={value}
       onChangeText={setValue}
@@ -639,7 +639,7 @@ const handleSelectCity = (cityName: string) => {
                 <TextInput
                   style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
                   placeholder="What's in the package?"
-                  placeholderTextColor={'#1A1A1A'Muted}
+                  placeholderTextColor={'#9E9E9E'}
                   multiline
                   value={description}
                   onChangeText={setDescription}
@@ -652,7 +652,7 @@ const handleSelectCity = (cityName: string) => {
             {/* IMAGE UPLOAD SECTION (single image) */}
             <View style={styles.section}>
       <Text style={styles.label}>Package Photo (optional)</Text>
-      <Text style={{ marginBottom: 8, color: '#1A1A1A'Light }}>
+      <Text style={{ marginBottom: 8, color: '#6B6B6B' }}>
         Add one photo of the package
       </Text>
 
@@ -727,7 +727,7 @@ const handleSelectCity = (cityName: string) => {
             <TextInput
               style={modalStyles.searchInput}
               placeholder="Search country..."
-              placeholderTextColor={'#1A1A1A'Muted}
+              placeholderTextColor={'#9E9E9E'}
               value={countrySearch}
               onChangeText={setCountrySearch}
             />
@@ -770,7 +770,7 @@ const handleSelectCity = (cityName: string) => {
             <TextInput
               style={modalStyles.searchInput}
               placeholder="Search city..."
-              placeholderTextColor={'#1A1A1A'Muted}
+              placeholderTextColor={'#9E9E9E'}
               value={citySearch}
               onChangeText={setCitySearch}
             />
@@ -828,7 +828,7 @@ const handleSelectCity = (cityName: string) => {
                   },
                 ]}
                 placeholder="Type your city name..."
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={citySearch}
                 onChangeText={setCitySearch}
               />
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   stepSubtitle: {
     fontSize: 15,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 24,
   },
   section: {
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
   unit: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   divider: {
     height: 1,
@@ -1079,7 +1079,7 @@ const styles = StyleSheet.create({
   },
   routeArrow: {
     fontSize: 20,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginVertical: 8,
     marginLeft: 8,
   },
@@ -1098,7 +1098,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   continueButtonDisabled: {
-    backgroundColor: '#1A1A1A'Muted,
+    backgroundColor: '#9E9E9E',
   },
   continueButtonText: {
     fontSize: 16,

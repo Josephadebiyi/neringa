@@ -85,7 +85,7 @@ export default function OnboardingScreen() {
           resizeMode="contain"
         />
         <TouchableOpacity style={[styles.skipButton, { backgroundColor: '#FFFFFF' }]} onPress={handleSkip}>
-          <Text style={[styles.skipText, { color: '#1A1A1A'Light }]}>skip</Text>
+          <Text style={[styles.skipText, { color: '#6B6B6B' }]}>skip</Text>
         </TouchableOpacity>
       </View>
 
@@ -95,7 +95,7 @@ export default function OnboardingScreen() {
           {currentSlide.title}{'\n'}
           <Text style={[styles.titleBold, { color: '#5845D8' }]}>{currentSlide.titleBold}</Text>
         </Text>
-        <Text style={[styles.description, { color: '#1A1A1A'Muted }]}>{currentSlide.description}</Text>
+        <Text style={[styles.description, { color: '#9E9E9E' }]}>{currentSlide.description}</Text>
       </View>
 
       {/* Image Card */}
@@ -120,7 +120,7 @@ export default function OnboardingScreen() {
         )}
 
         <TouchableOpacity style={[styles.nextButton, { backgroundColor: '#4CAF50' }]} onPress={handleNext}>
-          <Text style={[styles.nextButtonText, { color: '#1A1A1A'Inverse }]}>
+          <Text style={[styles.nextButtonText, { color: '#FFFFFF' }]}>
             {currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Next'}
           </Text>
         </TouchableOpacity>

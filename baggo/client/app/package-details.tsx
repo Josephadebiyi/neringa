@@ -267,7 +267,7 @@ export default function PackageDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
+      <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
@@ -386,7 +386,7 @@ export default function PackageDetailsScreen() {
             <Text style={styles.cardTitle}>Movement History</Text>
             {movementTracking.map((track, index) => (
               <View key={index} style={styles.trackingItem}>
-                <MapPin size={16} color={'#1A1A1A'Light} />
+                <MapPin size={16} color={'#6B6B6B'} />
                 <View style={styles.trackingContent}>
                   <Text style={styles.trackingText}>
                     {track.status.charAt(0).toUpperCase() + track.status.slice(1)}
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, marginTop: -20 },
   statusCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 12 },
-  statusBadge: { alignSelf: 'flex-start', backgroundColor: '#4CAF50'Light, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginBottom: 24 },
+  statusBadge: { alignSelf: 'flex-start', backgroundColor: '#81C784', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginBottom: 24 },
   statusText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
   timeline: { paddingLeft: 8 },
   timelineItem: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -762,36 +762,36 @@ const styles = StyleSheet.create({
   timelineDotActive: { backgroundColor: '#5845D8' },
   timelineContent: { flex: 1, paddingBottom: 4 },
   timelineTitle: { fontSize: 15, fontWeight: '600', color: '#1A1A1A', marginBottom: 2 },
-  timelineTitleInactive: { color: '#1A1A1A'Light },
-  timelineTime: { fontSize: 13, color: '#1A1A1A'Light },
+  timelineTitleInactive: { color: '#6B6B6B' },
+  timelineTime: { fontSize: 13, color: '#6B6B6B' },
   timelineLine: { width: 2, height: 24, backgroundColor: '#E5E5E5', marginLeft: 5, marginVertical: 4 },
   locationCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   locationContent: { flex: 1 },
-  locationLabel: { fontSize: 13, color: '#1A1A1A'Light, marginBottom: 4 },
+  locationLabel: { fontSize: 13, color: '#6B6B6B', marginBottom: 4 },
   locationText: { fontSize: 15, fontWeight: '500', color: '#1A1A1A' },
   divider: { height: 1, backgroundColor: '#E5E5E5', marginVertical: 16 },
   detailsCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  detailLabel: { fontSize: 14, color: '#1A1A1A'Light, flex: 1 },
+  detailLabel: { fontSize: 14, color: '#6B6B6B', flex: 1 },
   detailValue: { fontSize: 14, fontWeight: '500', color: '#1A1A1A', flex: 1, textAlign: 'right' },
   trackingCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 16, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   trackingItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 12 },
   trackingContent: { flex: 1 },
   trackingText: { fontSize: 14, color: '#1A1A1A', marginBottom: 4 },
-  trackingNotes: { fontSize: 12, color: '#1A1A1A'Light },
+  trackingNotes: { fontSize: 12, color: '#6B6B6B' },
   courierCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, shadowColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
   courierInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#5845D8', justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
   courierDetails: { flex: 1 },
   courierName: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 2 },
-  courierRole: { fontSize: 13, color: '#1A1A1A'Light },
+  courierRole: { fontSize: 13, color: '#6B6B6B' },
   iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#5845D8', justifyContent: 'center', alignItems: 'center' },
   packageMeta: { flexDirection: 'row', gap: 16 },
   metaItem: { flex: 1 },
-  metaLabel: { fontSize: 13, color: '#1A1A1A'Light, marginBottom: 8 },
-  metaBadge: { backgroundColor: '#4CAF50'Light, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+  metaLabel: { fontSize: 13, color: '#6B6B6B', marginBottom: 8 },
+  metaBadge: { backgroundColor: '#81C784', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
   metaBadgeText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
   metaValue: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -862,7 +862,7 @@ refundButtonText: {
 
 receivedInfo: {
   fontSize: 14,
-  color: '#1A1A1A'Light,
+  color: '#6B6B6B',
   textAlign: 'center',
   marginBottom: 12,
 },
@@ -911,7 +911,7 @@ modalTitle: {
 },
 modalInfo: {
   fontSize: 13,
-  color: '#1A1A1A'Light,
+  color: '#6B6B6B',
   marginBottom: 12,
 },
 textArea: {

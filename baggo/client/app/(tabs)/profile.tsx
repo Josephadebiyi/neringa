@@ -972,7 +972,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         <Text style={styles.menuTitle}>{title}</Text>
         {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
       </View>
-      <ChevronRight size={20} color={'#1A1A1A'Light} />
+      <ChevronRight size={20} color={'#6B6B6B'} />
     </TouchableOpacity>
   );
 
@@ -999,7 +999,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       </View>
 
       <LinearGradient
-        colors={['#5845D8', '#5845D8'Dark]}
+        colors={['#5845D8', '#4534B8']}
         style={styles.profileCard}
       >
       <TouchableOpacity   onPress={() => router.push('/personal-details')} style={styles.avatarContainer}>
@@ -1221,15 +1221,15 @@ const handleCurrencySelect = (newCurrency: string) => {
                   {
                     backgroundColor:
                       txn.type === 'credit'
-                        ? '#4CAF50'Light
-                        : '#F8F6F3'Light,
+                        ? '#81C784'
+                        : '#FDF9F1',
                   },
                 ]}
               >
                 {txn.type === 'credit' ? (
                   <ArrowDownCircle size={20} color={'#4CAF50'} />
                 ) : (
-                  <ArrowUpCircle size={20} color={'#1A1A1A'Light} />
+                  <ArrowUpCircle size={20} color={'#6B6B6B'} />
                 )}
               </View>
 
@@ -1296,7 +1296,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 {currencies.find(c => c.code === currency)?.name} ({currencies.find(c => c.code === currency)?.symbol})
               </Text>
             </View>
-            <ChevronRight size={20} color={'#1A1A1A'Light} />
+            <ChevronRight size={20} color={'#6B6B6B'} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.menuItem}
@@ -1311,7 +1311,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                 {theme === 'system' ? 'System Default' : theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
               </Text>
             </View>
-            <ChevronRight size={20} color={'#1A1A1A'Light} />
+            <ChevronRight size={20} color={'#6B6B6B'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1382,7 +1382,7 @@ const handleCurrencySelect = (newCurrency: string) => {
             <TextInput
               style={styles.modalInput}
               placeholder="Enter amount"
-              placeholderTextColor={'#1A1A1A'Muted}
+              placeholderTextColor={'#9E9E9E'}
               keyboardType="numeric"
               value={withdrawAmount}
               onChangeText={setWithdrawAmount}
@@ -1456,11 +1456,11 @@ const handleCurrencySelect = (newCurrency: string) => {
             </View>
 
             <View style={styles.searchBar}>
-              <Search size={20} color={'#1A1A1A'Light} />
+              <Search size={20} color={'#6B6B6B'} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search currencies..."
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
                 value={currencySearch}
                 onChangeText={setCurrencySearch}
               />
@@ -1570,7 +1570,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       <Text style={styles.modalLabel}>Select Bank</Text>
       <ScrollView style={{ maxHeight: 200, marginBottom: 10 }}>
       {paystackBanks.length === 0 ? (
-        <Text style={{ padding: 12, color: '#1A1A1A'Light }}>
+        <Text style={{ padding: 12, color: '#6B6B6B' }}>
           No banks loaded — check console logs.
         </Text>
       ) : (
@@ -1642,7 +1642,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         </TouchableOpacity>
       </View>
 
-      <Text style={{ fontSize: 14, color: '#1A1A1A'Light, marginBottom: 20, lineHeight: 20 }}>
+      <Text style={{ fontSize: 14, color: '#6B6B6B', marginBottom: 20, lineHeight: 20 }}>
         We're sorry to see you go. Please help us improve by answering these questions.
       </Text>
 
@@ -1650,7 +1650,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       <TextInput
         style={[styles.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
         placeholder="Please tell us why you want to delete your account"
-        placeholderTextColor={'#1A1A1A'Muted}
+        placeholderTextColor={'#9E9E9E'}
         multiline
         value={deleteReason}
         onChangeText={setDeleteReason}
@@ -1660,7 +1660,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       <TextInput
         style={[styles.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
         placeholder="Your feedback helps us improve (optional)"
-        placeholderTextColor={'#1A1A1A'Muted}
+        placeholderTextColor={'#9E9E9E'}
         multiline
         value={deleteImprovement}
         onChangeText={setDeleteImprovement}
@@ -1766,7 +1766,7 @@ stripeTitle: {
 stripeConnected: {
   flexDirection: 'row',
   alignItems: 'center',
-  backgroundColor: '#4CAF50'Light,
+  backgroundColor: '#81C784',
   padding: 12,
   borderRadius: 12,
   gap: 8,
@@ -1931,7 +1931,7 @@ connectButtonText: {
   },
   transactionDate: {
     fontSize: 12,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   transactionAmount: {
     fontSize: 16,
@@ -1953,7 +1953,7 @@ connectButtonText: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1969,7 +1969,7 @@ connectButtonText: {
   },
   menuSubtitle: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   signOutButton: {
     flexDirection: 'row',
@@ -2051,12 +2051,12 @@ bankName: {
   },
   methodOptionActive: {
     borderColor: '#5845D8',
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
   },
   methodText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   methodTextActive: {
     color: '#5845D8',
@@ -2093,7 +2093,7 @@ bankName: {
   elevation: 2,
 },
 referralLabel: {
-  color: '#1A1A1A'Muted,
+  color: '#9E9E9E',
   fontSize: 13,
   marginBottom: 4,
 },
@@ -2101,7 +2101,7 @@ referralBox: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backgroundColor: '#F8F6F3'Light,
+  backgroundColor: '#FDF9F1',
   paddingVertical: 8,
   paddingHorizontal: 12,
   borderRadius: 8,
@@ -2109,7 +2109,7 @@ referralBox: {
 referralCode: {
   fontWeight: '600',
   fontSize: 15,
-  color: '#5845D8'Dark,
+  color: '#4534B8',
 },
 copyText: {
   color: '#5845D8',
@@ -2119,7 +2119,7 @@ copyText: {
 
   otpDescription: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -2174,7 +2174,7 @@ copyText: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2195,7 +2195,7 @@ copyText: {
   },
   currencyCode: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   currencyCheck: {
     width: 24,

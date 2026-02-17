@@ -915,7 +915,7 @@ useEffect(() => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.earningCard}>
+        <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.earningCard}>
         <Text style={styles.earningLabel}>Your Earning</Text>
 
 <Text style={styles.earningValue}>
@@ -936,7 +936,7 @@ useEffect(() => {
             <Image source={{ uri: pkg.packageImage }} style={styles.packageImage} />
           ) : (
             <View style={[styles.packageImage, { justifyContent: 'center', alignItems: 'center' }]}>
-              <Package size={48} color={'#1A1A1A'Light} />
+              <Package size={48} color={'#6B6B6B'} />
             </View>
           )}
         </View>
@@ -945,21 +945,21 @@ useEffect(() => {
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.card}>
             <View style={styles.row}>
-              <Package size={20} color={'#1A1A1A'Light} />
+              <Package size={20} color={'#6B6B6B'} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Description</Text>
                 <Text style={styles.value}>{pkg.description}</Text>
               </View>
             </View>
             <View style={styles.row}>
-              <Weight size={20} color={'#1A1A1A'Light} />
+              <Weight size={20} color={'#6B6B6B'} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Weight</Text>
                 <Text style={styles.value}>{pkg.weight} kg</Text>
               </View>
             </View>
             <View style={styles.row}>
-              <DollarSign size={20} color={'#1A1A1A'Light} />
+              <DollarSign size={20} color={'#6B6B6B'} />
               <View style={styles.flex}>
                 <Text style={styles.label}>Value</Text>
                 <Text style={styles.value}>{pkg.value ? `€${pkg.value}` : 'N/A'}</Text>
@@ -978,7 +978,7 @@ useEffect(() => {
                 onPress={() => openDatePicker(currentRequest._id, 'estimatedDeparture', pkg.estimatedDeparture)}
                 disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
               >
-                <Clock size={16} color={'#1A1A1A'Light} />
+                <Clock size={16} color={'#6B6B6B'} />
                 <Text style={styles.trackingText}>
                   Est. Departure: {formatDate(pkg.estimatedDeparture)}
                 </Text>
@@ -988,7 +988,7 @@ useEffect(() => {
                 onPress={() => openDatePicker(currentRequest._id, 'estimatedArrival', pkg.estimatedArrival)}
                 disabled={['rejected', 'cancelled', 'completed'].includes(pkg.status)}
               >
-                <Clock size={16} color={'#1A1A1A'Light} />
+                <Clock size={16} color={'#6B6B6B'} />
                 <Text style={styles.trackingText}>
                   Est. Arrival: {formatDate(pkg.estimatedArrival)}
                 </Text>
@@ -999,7 +999,7 @@ useEffect(() => {
                   <Text style={styles.sectionTitle}>Movement History</Text>
                   {pkg.movementTracking.map((track, index) => (
                     <View key={index} style={styles.trackingItem}>
-                      <MapPin size={16} color={'#1A1A1A'Light} />
+                      <MapPin size={16} color={'#6B6B6B'} />
                       <Text style={styles.trackingText}>
                         {track.status} {track.location ? `at ${track.location}` : ''} - {formatDate(track.timestamp)}
                       </Text>
@@ -1246,7 +1246,7 @@ useEffect(() => {
 const getStatusColor = (status) => {
   switch (status) {
     case 'pending':
-      return '#1A1A1A'Light;
+      return '#6B6B6B';
     case 'accepted':
       return '#4CAF50';
     case 'rejected':
@@ -1294,23 +1294,23 @@ const styles = StyleSheet.create({
   escrowText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
   section: { paddingHorizontal: 20, marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1A1A', marginBottom: 12 },
-  packageImage: { width: '100%', height: 220, borderRadius: 16, backgroundColor: '#F8F6F3'Light },
+  packageImage: { width: '100%', height: 220, borderRadius: 16, backgroundColor: '#FDF9F1' },
   card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
   flex: { flex: 1, marginLeft: 12 },
-  label: { fontSize: 13, color: '#1A1A1A'Light, marginBottom: 2 },
+  label: { fontSize: 13, color: '#6B6B6B', marginBottom: 2 },
   value: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
   routeRow: { flexDirection: 'row', alignItems: 'flex-start' },
   dot: { width: 16, height: 16, borderRadius: 8, marginTop: 4 },
   line: { width: 2, height: 32, backgroundColor: '#E5E5E5', marginLeft: 7, marginVertical: 8 },
-  address: { fontSize: 14, color: '#1A1A1A'Light, marginTop: 4 },
+  address: { fontSize: 14, color: '#6B6B6B', marginTop: 4 },
   senderCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16 },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#5845D8', justifyContent: 'center', alignItems: 'center' },
   senderName: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },
-  senderRating: { fontSize: 14, color: '#1A1A1A'Light },
-  infoBox: { flexDirection: 'row', backgroundColor: '#F8F6F3'Light, marginHorizontal: 20, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: '#5845D8' },
+  senderRating: { fontSize: 14, color: '#6B6B6B' },
+  infoBox: { flexDirection: 'row', backgroundColor: '#FDF9F1', marginHorizontal: 20, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: '#5845D8' },
   infoTitle: { fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },
-  infoText: { fontSize: 13, color: '#1A1A1A'Light, lineHeight: 18 },
+  infoText: { fontSize: 13, color: '#6B6B6B', lineHeight: 18 },
   footer: { flexDirection: 'row', padding: 12, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E5E5', gap: 12, alignItems: 'center' },
   navButton: { backgroundColor: '#5845D8', paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, height: 44 },
   navButtonText: { color: '#FFFFFF', fontWeight: '600' },
@@ -1323,7 +1323,7 @@ const styles = StyleSheet.create({
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   successCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 32, alignItems: 'center', maxWidth: 320 },
   successTitle: { fontSize: 24, fontWeight: 'bold', color: '#1A1A1A', marginTop: 16, marginBottom: 12 },
-  successText: { fontSize: 15, color: '#1A1A1A'Light, textAlign: 'center', lineHeight: 22 },
+  successText: { fontSize: 15, color: '#6B6B6B', textAlign: 'center', lineHeight: 22 },
   cancelButton: {
      backgroundColor: '#F44336', // Red background
      paddingVertical: 10,
@@ -1346,8 +1346,8 @@ const styles = StyleSheet.create({
    },
   // tracking styles reused
   trackingItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-  trackingText: { fontSize: 13, color: '#1A1A1A'Light, flex: 1 },
-  trackingNotes: { fontSize: 12, color: '#1A1A1A'Light, marginLeft: 24, marginBottom: 4 },
+  trackingText: { fontSize: 13, color: '#6B6B6B', flex: 1 },
+  trackingNotes: { fontSize: 12, color: '#6B6B6B', marginLeft: 24, marginBottom: 4 },
   trackingHistory: { marginTop: 8 },
 
   uploadBox: {
@@ -1358,7 +1358,7 @@ const styles = StyleSheet.create({
       borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: '#F8F6F3'Light,
+      backgroundColor: '#FDF9F1',
     },
     uploadText: { color: '#5845D8', fontWeight: '600', marginTop: 8 },
     proofPreview: { width: '100%', height: 200, borderRadius: 16, marginBottom: 12 },
@@ -1374,7 +1374,7 @@ const styles = StyleSheet.create({
     sendButtonText: { color: '#FFFFFF', fontWeight: '700' },
 
   // misc
-  noRequestsText: { fontSize: 16, color: '#1A1A1A'Light, textAlign: 'center', marginBottom: 20 },
+  noRequestsText: { fontSize: 16, color: '#6B6B6B', textAlign: 'center', marginBottom: 20 },
   errorText: { fontSize: 16,   color: 'gray', textAlign: 'center', marginBottom: 20 },
   retryButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: '#5845D8' },
   retryButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },

@@ -73,7 +73,7 @@ export default function ForgotPassword() {
         <View style={styles.header}>
           <Package size={60} color={'#5845D8'} strokeWidth={2} />
           <Text style={[styles.title, { color: '#5845D8' }]}>BAGGO</Text>
-          <Text style={[styles.subtitle, { color: '#1A1A1A'Light }]}>Reset Your Password</Text>
+          <Text style={[styles.subtitle, { color: '#6B6B6B' }]}>Reset Your Password</Text>
         </View>
 
         <View style={styles.form}>
@@ -97,9 +97,9 @@ export default function ForgotPassword() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={'#1A1A1A'Inverse} />
+              <ActivityIndicator color={'#FFFFFF'} />
             ) : (
-              <Text style={[styles.buttonText, { color: '#1A1A1A'Inverse }]}>Send OTP</Text>
+              <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Send OTP</Text>
             )}
           </TouchableOpacity>
 
@@ -108,7 +108,7 @@ export default function ForgotPassword() {
             onPress={() => router.push('/auth/signin')}
             disabled={loading}
           >
-            <Text style={[styles.linkText, { color: '#1A1A1A'Light }]}>
+            <Text style={[styles.linkText, { color: '#6B6B6B' }]}>
               Remember your password?{' '}
               <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Sign In</Text>
             </Text>

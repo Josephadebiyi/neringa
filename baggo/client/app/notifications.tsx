@@ -60,7 +60,7 @@ export default function NotificationsScreen() {
           // Fallback for unrecognized messages
           type = 'update';
           icon = Clock;
-          iconColor = '#1A1A1A'Light;
+          iconColor = '#6B6B6B';
           title = 'Update';
         }
 
@@ -130,7 +130,7 @@ export default function NotificationsScreen() {
           { justifyContent: 'center', alignItems: 'center' }, // ✅ centers it vertically + horizontally
         ]}
       >
-        <Text style={{ fontSize: 16, color: '#1A1A1A'Light }}>
+        <Text style={{ fontSize: 16, color: '#6B6B6B' }}>
           Loading notifications...
         </Text>
       </View>
@@ -227,7 +227,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={'#1A1A1A'Light} />
+                <ChevronRight size={20} color={'#6B6B6B'} />
               </TouchableOpacity>
             ))}
           </View>
@@ -266,7 +266,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color={'#1A1A1A'Light} />
+                <ChevronRight size={20} color={'#6B6B6B'} />
               </TouchableOpacity>
             ))}
           </View>
@@ -358,12 +358,12 @@ const styles = StyleSheet.create({
    },
    message: {
      fontSize: 15,
-     color: '#1A1A1A'Light,
+     color: '#6B6B6B',
      marginBottom: 16,
    },
    time: {
      fontSize: 13,
-     color: '#1A1A1A'Muted,
+     color: '#9E9E9E',
      marginBottom: 20,
    },
    closeButton: {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     paddingHorizontal: 20,
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E5E5',
   },
   notificationUnread: {
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#FDF9F1',
   },
   iconContainer: {
     width: 48,
@@ -433,13 +433,13 @@ const styles = StyleSheet.create({
   },
   notificationMessage: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     lineHeight: 20,
     marginBottom: 4,
   },
   notificationTime: {
     fontSize: 12,
-    color: '#1A1A1A'Muted,
+    color: '#9E9E9E',
   },
   unreadDot: {
     width: 8,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   retryButton: {
     marginTop: 10,

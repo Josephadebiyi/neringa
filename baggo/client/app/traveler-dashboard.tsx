@@ -366,7 +366,7 @@ useEffect(() => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
+      <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ChevronLeft size={24} color={'#FFFFFF'} />
         </TouchableOpacity>
@@ -434,7 +434,7 @@ useEffect(() => {
                     <View style={styles.tripInfo}>
                       <Text style={styles.tripRoute}>{trip.from} → {trip.to}</Text>
                       <View style={styles.tripDate}>
-                        <Calendar size={14} color={'#1A1A1A'Light} />
+                        <Calendar size={14} color={'#6B6B6B'} />
                         <Text style={styles.tripDateText}>
                           {new Date(trip.date).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric',
@@ -446,7 +446,7 @@ useEffect(() => {
 
                   <View style={styles.tripStats}>
                     <View style={styles.tripStat}>
-                      <Package size={16} color={'#1A1A1A'Light} />
+                      <Package size={16} color={'#6B6B6B'} />
                       <Text style={styles.tripStatText}>
                         {trip.used}/{trip.capacity} kg used
                       </Text>
@@ -499,7 +499,7 @@ useEffect(() => {
                   <View style={styles.tripInfo}>
                     <Text style={styles.tripRoute}>{trip.from} → {trip.to}</Text>
                     <View style={styles.tripDate}>
-                      <Calendar size={14} color={'#1A1A1A'Light} />
+                      <Calendar size={14} color={'#6B6B6B'} />
                       <Text style={styles.tripDateText}>
                         {new Date(trip.date).toLocaleDateString('en-US', {
                           month: 'short', day: 'numeric', year: 'numeric',
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   statsGrid: { flexDirection: 'row', backgroundColor: '#FFFFFF' },
   miniStat: { flex: 1, padding: 16, alignItems: 'center' },
   miniStatValue: { fontSize: 24, fontWeight: 'bold', color: '#1A1A1A', marginBottom: 4 },
-  miniStatLabel: { fontSize: 12, color: '#1A1A1A'Light },
+  miniStatLabel: { fontSize: 12, color: '#6B6B6B' },
   tabBar: {
     flexDirection: 'row',
     marginHorizontal: 20,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   tabActive: { backgroundColor: '#5845D8' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#1A1A1A'Light },
+  tabText: { fontSize: 14, fontWeight: '600', color: '#6B6B6B' },
   tabTextActive: { color: '#FFFFFF' },
   content: { flex: 1, paddingHorizontal: 20 },
   tripCard: {
@@ -588,27 +588,27 @@ const styles = StyleSheet.create({
   tripHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   tripIcon: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#F8F6F3'Light, justifyContent: 'center',
+    backgroundColor: '#FDF9F1', justifyContent: 'center',
     alignItems: 'center', marginRight: 12,
   },
   tripInfo: { flex: 1 },
   tripRoute: { fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 },
   tripDate: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tripDateText: { fontSize: 13, color: '#1A1A1A'Light },
+  tripDateText: { fontSize: 13, color: '#6B6B6B' },
   tripStats: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 12,
     paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5E5',
   },
   tripStat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tripStatText: { fontSize: 13, color: '#1A1A1A'Light },
+  tripStatText: { fontSize: 13, color: '#6B6B6B' },
   requestBadge: {
     fontSize: 12, fontWeight: '600', color: '#5845D8',
-    backgroundColor: '#F8F6F3'Light, paddingHorizontal: 10,
+    backgroundColor: '#FDF9F1', paddingHorizontal: 10,
     paddingVertical: 4, borderRadius: 12,
   },
   tripFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  earningsText: { fontSize: 14, color: '#1A1A1A'Light },
+  earningsText: { fontSize: 14, color: '#6B6B6B' },
   earningsValue: { fontSize: 16, fontWeight: 'bold', color: '#5845D8' },
   viewButton: {
     paddingHorizontal: 12,
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#5845D8',
     alignSelf: "flex-start",   // ← prevents stretching
   },
-  disabledButton: { backgroundColor: '#1A1A1A'Light, opacity: 0.5 },
+  disabledButton: { backgroundColor: '#6B6B6B', opacity: 0.5 },
   viewButtonText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', },
   fab: {
     position: 'absolute', bottom: 24, right: 24, width: 56, height: 56,
@@ -639,5 +639,5 @@ editButtonText: {
 },
 
   centerContent: { justifyContent: 'center', alignItems: 'center' },
-  noTripsText: { fontSize: 16, color: '#1A1A1A'Light, textAlign: 'center', marginTop: 20 },
+  noTripsText: { fontSize: 16, color: '#6B6B6B', textAlign: 'center', marginTop: 20 },
 });

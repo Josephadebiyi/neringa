@@ -38,16 +38,16 @@ export default function CheckRatesScreen() {
           <View style={styles.section}>
             <Text style={styles.label}>Pickup - Point</Text>
             <View style={styles.inputRow}>
-              <MapPin size={20} color={'#1A1A1A'Light} />
+              <MapPin size={20} color={'#6B6B6B'} />
               <TextInput
                 style={styles.input}
                 value={pickupLocation}
                 onChangeText={setPickupLocation}
                 placeholder="Enter pickup location"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
               />
               <TouchableOpacity onPress={() => setPickupLocation('')}>
-                <X size={20} color={'#1A1A1A'Light} />
+                <X size={20} color={'#6B6B6B'} />
               </TouchableOpacity>
             </View>
           </View>
@@ -55,16 +55,16 @@ export default function CheckRatesScreen() {
           <View style={styles.section}>
             <Text style={styles.label}>Drop Off - Point</Text>
             <View style={styles.inputRow}>
-              <MapPin size={20} color={'#1A1A1A'Light} />
+              <MapPin size={20} color={'#6B6B6B'} />
               <TextInput
                 style={styles.input}
                 value={dropoffLocation}
                 onChangeText={setDropoffLocation}
                 placeholder="Enter drop-off location"
-                placeholderTextColor={'#1A1A1A'Muted}
+                placeholderTextColor={'#9E9E9E'}
               />
               <TouchableOpacity onPress={() => setDropoffLocation('')}>
-                <X size={20} color={'#1A1A1A'Light} />
+                <X size={20} color={'#6B6B6B'} />
               </TouchableOpacity>
             </View>
           </View>
@@ -84,7 +84,7 @@ export default function CheckRatesScreen() {
                   onPress={() => quantity > 1 && setQuantity(quantity - 1)}
                   style={styles.quantityButton}
                 >
-                  <Minus size={16} color={'#1A1A1A'Light} />
+                  <Minus size={16} color={'#6B6B6B'} />
                 </TouchableOpacity>
                 <Text style={styles.quantityText}>{quantity} Package</Text>
                 <TouchableOpacity 
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     lineHeight: 20,
     marginBottom: 24,
   },
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 8,
     fontWeight: '500',
   },
@@ -251,6 +251,6 @@ const styles = StyleSheet.create({
   },
   deliveryDate: {
     fontSize: 15,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
 });

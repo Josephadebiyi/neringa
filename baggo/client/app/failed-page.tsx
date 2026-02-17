@@ -10,14 +10,14 @@ export default function PaymentFailed() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>
-      <LinearGradient colors={['#5845D8', '#5845D8'Dark]} style={styles.header}>
-        <Text style={[styles.headerTitle, { color: '#1A1A1A'Inverse }]}>Payment Failed</Text>
+      <LinearGradient colors={['#5845D8', '#4534B8']} style={styles.header}>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Payment Failed</Text>
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconWrapper}>
           <View style={[styles.iconCircle, { backgroundColor: '#F44336' }]}>
-            <Text style={[styles.xMark, { color: '#1A1A1A'Inverse }]}>✕</Text>
+            <Text style={[styles.xMark, { color: '#FFFFFF' }]}>✕</Text>
           </View>
         </View>
 
@@ -27,7 +27,7 @@ export default function PaymentFailed() {
           style={[styles.retryButton, { backgroundColor: '#5845D8' }]}
           onPress={() => router.back()}
         >
-          <Text style={[styles.retryButtonText, { color: '#1A1A1A'Inverse }]}>Try Again</Text>
+          <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Try Again</Text>
         </TouchableOpacity>
       </View>
     </View>

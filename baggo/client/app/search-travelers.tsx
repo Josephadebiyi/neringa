@@ -337,7 +337,7 @@ const travelMeansIcons = {
 </View>
 
       <View style={styles.tripRoute}>
-        <MapPin size={16} color={'#1A1A1A'Light} />
+        <MapPin size={16} color={'#6B6B6B'} />
         <Text style={styles.tripRouteText} numberOfLines={1}>
           {trip.fromLocation} → {trip.toLocation}
         </Text>
@@ -345,7 +345,7 @@ const travelMeansIcons = {
 
       <View style={styles.tripMeta}>
         <View style={styles.metaItem}>
-          <Calendar size={14} color={'#1A1A1A'Light} />
+          <Calendar size={14} color={'#6B6B6B'} />
           <Text style={styles.metaText}>
             {new Date(trip.departureDate).toLocaleDateString('en-US', {
               month: 'short',
@@ -354,7 +354,7 @@ const travelMeansIcons = {
           </Text>
         </View>
         <View style={styles.metaItem}>
-          <Weight size={14} color={'#1A1A1A'Light} />
+          <Weight size={14} color={'#6B6B6B'} />
           <Text style={styles.metaText}>{trip.availableKg} kg available</Text>
         </View>
         <View style={styles.metaItem}>
@@ -372,7 +372,7 @@ const travelMeansIcons = {
 
       {/* Assess Shipment Button */}
       <TouchableOpacity 
-        style={[styles.assessButton, { backgroundColor: '#F8F6F3'Light, borderColor: '#5845D8' }]}
+        style={[styles.assessButton, { backgroundColor: '#FDF9F1', borderColor: '#5845D8' }]}
         onPress={() => handleViewAssessment(trip)}
       >
         <AlertTriangle size={16} color={'#5845D8'} />

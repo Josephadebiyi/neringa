@@ -30,7 +30,7 @@ export default function LiveTrackingScreen() {
           <View style={styles.routeLine} />
 
           <View style={[styles.mapMarker, { top: 100, left: 80 }]}>
-            <MapPin size={24} color={'#4CAF50'} fill={'#4CAF50'Light} />
+            <MapPin size={24} color={'#4CAF50'} fill={'#81C784'} />
             <View style={styles.markerLabel}>
               <Text style={styles.markerText}>Your Location</Text>
             </View>
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     right: 0,
     textAlign: 'center',
     fontSize: 14,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
   },
   routeLine: {
     position: 'absolute',
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#1A1A1A'Light,
+    color: '#6B6B6B',
     marginBottom: 4,
   },
   infoText: {
