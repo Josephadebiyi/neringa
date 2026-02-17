@@ -9,6 +9,14 @@ import { getAllkyc, Verifykyc } from '../controllers/KycVerificationsController.
 import { getCurrentSetting, toggleAutoVerification } from '../controllers/AdminControllers/setting.js';
 import { Adminlogout } from '../controllers/AdminControllers/AdminLogin.js';
 import Admin from '../models/adminScheme.js';
+import {
+  createRoute,
+  getAllRoutes,
+  getRouteById,
+  updateRoute,
+  deleteRoute,
+} from '../controllers/routeController.js';
+
 const AdminRouter = express.Router();
 
 
