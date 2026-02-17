@@ -1999,10 +1999,10 @@ connectButtonText: {
   bankItem: {
   paddingVertical: 10,
   borderBottomWidth: 1,
-  borderBottomColor: '#E5E5E5'Light,
+  borderBottomColor: '#F0F0F0',
 },
 selectedBank: {
-  backgroundColor: '#5845D8'Light,
+  backgroundColor: '#7B68EE',
 },
 bankName: {
   fontSize: 16,

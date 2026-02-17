@@ -71,7 +71,7 @@ export default function SignIn() {
           <View style={styles.form}>
             <Text style={[styles.label, { color: '#1A1A1A' }]}>Email</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: '#FFFFFF'Bg, color: '#1A1A1A', borderColor: '#E5E5E5' }]}
+              style={[styles.input, { backgroundColor: '#FFFFFF', color: '#1A1A1A', borderColor: '#E5E5E5' }]}
               placeholder="Enter your email"
               placeholderTextColor={'#9E9E9E'}
               value={email}
@@ -82,7 +82,7 @@ export default function SignIn() {
             />
 
             <Text style={[styles.label, { color: '#1A1A1A' }]}>Password</Text>
-            <View style={[styles.passwordContainer, { backgroundColor: '#FFFFFF'Bg, borderColor: '#E5E5E5' }]}>
+            <View style={[styles.passwordContainer, { backgroundColor: '#FFFFFF', borderColor: '#E5E5E5' }]}>
               <TextInput
                 style={[styles.passwordInput, { color: '#1A1A1A' }]}
                 placeholder="Enter your password"
