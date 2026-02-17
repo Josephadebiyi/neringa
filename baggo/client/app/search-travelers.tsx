@@ -6,14 +6,18 @@ import {
   ScrollView,
   Switch,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
-import { MapPin, Calendar, Weight, Star, Plane, Shield, ChevronRight } from 'lucide-react-native';
+import { MapPin, Calendar, Weight, Star, Plane, Shield, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react-native';
 import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
 import { Car, Bus, Train } from 'lucide-react-native';
+import ShipmentAssessment from '@/components/ShipmentAssessment';
+import ConfidenceScoreBadge, { CompatibilityBadge } from '@/components/ConfidenceScoreBadge';
 
 
 const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
@@ -22,15 +26,28 @@ export default function SearchTravelersScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { colors } = useTheme();
-  const { fromCountry, fromCity, toCountry, toCity, packageWeight, packageId, amount, image } = params;
+  const { fromCountry, fromCity, toCountry, toCity, packageWeight, packageId, amount, image, packageCategory, packageType, packageValue } = params;
 
   const [insurance, setInsurance] = useState(false);
   const [trips, setTrips] = useState([]);
   const [matchedTrips, setMatchedTrips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const weightNum = parseFloat((packageWeight as string).replace(/[^\d.]/g, '')) || 0;
-  const amountNum = parseFloat(amount) || 0;
-const insuranceCost = amountNum * 0.030; // 0.03% of amount
+  const [showAssessment, setShowAssessment] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [tripScores, setTripScores] = useState({});
+  
+  const weightNum = parseFloat((packageWeight as string)?.replace(/[^\d.]/g, '')) || 0;
+  const amountNum = parseFloat(amount as string) || 0;
+  const insuranceCost = amountNum * 0.030; // 3% of amount
+
+  // Item details for assessment
+  const itemDetails = {
+    type: packageType as string || 'general',
+    category: packageCategory as string || 'household',
+    value: parseFloat(packageValue as string) || amountNum,
+    quantity: 1,
+    weight: weightNum,
+  };
 
 
 const travelMeansIcons = {
