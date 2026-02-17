@@ -80,7 +80,7 @@ export default function PaymentMethodScreen() {
             value={cardholderName}
             onChangeText={setCardholderName}
             placeholder="Cardholder Name"
-            placeholderTextColor="rgba(17,17,17,0.35)"
+            placeholderTextColor={colors.textMuted}
           />
 
           <Text style={styles.formTitle}>Card Number</Text>
@@ -89,7 +89,7 @@ export default function PaymentMethodScreen() {
             value={cardNumberFull}
             onChangeText={setCardNumberFull}
             placeholder="Card Number"
-            placeholderTextColor="rgba(17,17,17,0.35)"
+            placeholderTextColor={colors.textMuted}
             keyboardType="number-pad"
           />
 
@@ -101,7 +101,7 @@ export default function PaymentMethodScreen() {
                 value={expiration}
                 onChangeText={setExpiration}
                 placeholder="MM/YY"
-                placeholderTextColor="rgba(17,17,17,0.35)"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="number-pad"
               />
             </View>
@@ -113,7 +113,7 @@ export default function PaymentMethodScreen() {
                 value={cvv}
                 onChangeText={setCvv}
                 placeholder="CVV"
-                placeholderTextColor="rgba(17,17,17,0.35)"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="number-pad"
                 secureTextEntry
               />
@@ -126,7 +126,7 @@ export default function PaymentMethodScreen() {
             value={postcode}
             onChangeText={setPostcode}
             placeholder="Postal Code"
-            placeholderTextColor="rgba(17,17,17,0.35)"
+            placeholderTextColor={colors.textMuted}
             keyboardType="number-pad"
           />
 
@@ -144,7 +144,7 @@ export default function PaymentMethodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F6F3',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   backButton: {
     width: 40,
@@ -162,12 +162,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: '#111111',
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
   },
   content: {
     flex: 1,
@@ -176,13 +176,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
     marginBottom: 16,
   },
   cardOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardOptionActive: {
-    borderColor: '#6366F1',
+    borderColor: colors.primary,
   },
   cardIcon: {
     flexDirection: 'row',
@@ -205,14 +205,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    color: '#111111',
+    color: colors.text,
   },
   radio: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -220,10 +220,10 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
   },
   addButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
@@ -233,27 +233,27 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.textLight,
   },
   formSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 20,
   },
   formTitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.textLight,
     marginBottom: 8,
     marginTop: 12,
     fontWeight: '500',
   },
   input: {
-    backgroundColor: '#F8F6F3',
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 50,
     fontSize: 15,
-    color: '#111111',
+    color: colors.text,
   },
   row: {
     flexDirection: 'row',
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitButton: {
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
@@ -272,6 +272,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 });

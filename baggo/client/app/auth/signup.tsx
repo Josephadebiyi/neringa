@@ -196,7 +196,7 @@ export default function SignUp() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <View style={styles.header}>
-            <Image source={require('@/assets/images/bago-logo.png')} style={styles.logo} resizeMode="contain" />
+            <Image source={require('@/assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
             <Text style={[styles.subtitle, { color: colors.textMuted }]}>Create your Baggo account</Text>
           </View>
 

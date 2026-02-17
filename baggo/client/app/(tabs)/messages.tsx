@@ -245,7 +245,7 @@ const insets = useSafeAreaInsets();
 
   const renderEmpty = () => (
     <View style={styles.emptyState}>
-      <MessageCircle size={64} color={#111111Light} strokeWidth={1.5} />
+      <MessageCircle size={64} color={colors.textLight} strokeWidth={1.5} />
       <Text style={styles.emptyTitle}>No Messages</Text>
       <Text style={styles.emptySubtitle}>
         Messages will appear here when travelers accept your booking requests
@@ -332,7 +332,7 @@ const insets = useSafeAreaInsets();
         <>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => setSelectedConversation(null)}>
-              <ArrowLeft size={24} color={#111111} />
+              <ArrowLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{getDisplayName()}</Text>
           </View>
@@ -350,13 +350,13 @@ const insets = useSafeAreaInsets();
               value={newMessage}
               onChangeText={setNewMessage}
               placeholder="Type a message..."
-              placeholderTextColor={#111111Light}
+              placeholderTextColor={colors.textLight}
             />
             {isSending ? (
-              <ActivityIndicator size="small" color={#6366F1} style={styles.sendButton} />
+              <ActivityIndicator size="small" color={colors.primary} style={styles.sendButton} />
             ) : (
               <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-                <Send size={24} color={#FFFFFF} />
+                <Send size={24} color={colors.white} />
               </TouchableOpacity>
             )}
           </View>
@@ -369,7 +369,7 @@ const insets = useSafeAreaInsets();
     style={{ padding: 8, marginRight: 8 }}
     accessibilityLabel="Go to Home"
   >
-    <ArrowLeft size={24} color={#111111} />
+    <ArrowLeft size={24} color={colors.text} />
   </TouchableOpacity>
 
   <Text style={styles.title}>Messages</Text>
@@ -393,7 +393,7 @@ const insets = useSafeAreaInsets();
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F6F3',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -401,44 +401,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#111111',
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111111',
+    color: colors.text,
     marginLeft: 16,
   },
   listContent: {
     flexGrow: 1,
   },
   conversationCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 20,
     fontWeight: 'bold',
   },
@@ -454,18 +454,18 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
   },
   timestamp: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textLight,
   },
   lastMessage: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textLight,
   },
   unreadBadge: {
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   unreadText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -487,12 +487,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textLight,
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,
@@ -515,14 +515,14 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   myMessage: {
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
     alignSelf: 'flex-end',
   },
   otherMessage: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   messageText: {
     fontSize: 16,
@@ -538,23 +538,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   input: {
     flex: 1,
-    backgroundColor: '#F8F6F3',
+    backgroundColor: colors.background,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#111111',
+    color: colors.text,
   },
   sendButton: {
     borderRadius: 20,
     padding: 12,
     marginLeft: 12,
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
   },
 });

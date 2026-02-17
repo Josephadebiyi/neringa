@@ -17,7 +17,7 @@ export default function PrivacyPolicyScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color="#111111" />
+          <ChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Policy</Text>
         <View style={{ width: 40 }} />
@@ -178,7 +178,7 @@ export default function PrivacyPolicyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F6F3',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -187,9 +187,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
@@ -198,12 +198,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: '#111111',
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
   },
   content: {
     flex: 1,
@@ -211,26 +211,26 @@ const styles = StyleSheet.create({
   },
   lastUpdated: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.textMuted,
     marginBottom: 16,
     fontStyle: 'italic',
   },
   intro: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textLight,
     lineHeight: 22,
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111111',
+    color: colors.text,
     marginTop: 24,
     marginBottom: 12,
   },
   text: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textLight,
     lineHeight: 24,
     marginBottom: 16,
   },

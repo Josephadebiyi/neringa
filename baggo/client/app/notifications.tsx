@@ -49,18 +49,18 @@ export default function NotificationsScreen() {
         if (notif.message.includes('package request') && notif.message.includes('has been accepted')) {
           type = 'package_update';
           icon = CheckCircle;
-          iconColor = #22C55E;
+          iconColor = colors.success;
           title = 'Package Request Accepted';
         } else if (notif.message.includes('You have accepted a package request')) {
           type = 'new_request';
           icon = Package;
-          iconColor = #6366F1;
+          iconColor = colors.primary;
           title = 'New Package Accepted';
         } else {
           // Fallback for unrecognized messages
           type = 'update';
           icon = Clock;
-          iconColor = #111111Light;
+          iconColor = colors.textLight;
           title = 'Update';
         }
 
@@ -130,7 +130,7 @@ export default function NotificationsScreen() {
           { justifyContent: 'center', alignItems: 'center' }, // ✅ centers it vertically + horizontally
         ]}
       >
-        <Text style={{ fontSize: 16, color: '#6B7280' }}>
+        <Text style={{ fontSize: 16, color: colors.textLight }}>
           Loading notifications...
         </Text>
       </View>
@@ -227,7 +227,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color="#6B7280" />
+                <ChevronRight size={20} color={colors.textLight} />
               </TouchableOpacity>
             ))}
           </View>
@@ -266,7 +266,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.notificationTime}>{notification.time}</Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}
-                <ChevronRight size={20} color="#6B7280" />
+                <ChevronRight size={20} color={colors.textLight} />
               </TouchableOpacity>
             ))}
           </View>
@@ -305,7 +305,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F6F3',
+    backgroundColor: colors.background,
 
   },
   header: {
@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
@@ -326,12 +326,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: '#111111',
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
   },
   overlay: {
      flex: 1,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
      alignItems: 'center',
    },
    modalContainer: {
-     backgroundColor: '#FFFFFF',
+     backgroundColor: colors.white,
      borderRadius: 16,
      padding: 24,
      width: '85%',
@@ -353,27 +353,27 @@ const styles = StyleSheet.create({
    title: {
      fontSize: 18,
      fontWeight: '700',
-     color: '#111111',
+     color: colors.text,
      marginBottom: 12,
    },
    message: {
      fontSize: 15,
-     color: '#6B7280',
+     color: colors.textLight,
      marginBottom: 16,
    },
    time: {
      fontSize: 13,
-     color: '#9CA3AF',
+     color: colors.textMuted,
      marginBottom: 20,
    },
    closeButton: {
-     backgroundColor: '#6366F1',
+     backgroundColor: colors.primary,
      borderRadius: 8,
      paddingVertical: 10,
      alignItems: 'center',
    },
    closeButtonText: {
-     color: '#FFFFFF',
+     color: colors.white,
      fontWeight: '600',
      fontSize: 15,
    },
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6366F1',
+    color: colors.primary,
   },
   content: {
     flex: 1,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.textLight,
     paddingHorizontal: 20,
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -404,14 +404,14 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   notificationUnread: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.backgroundLight,
   },
   iconContainer: {
     width: 48,
@@ -428,24 +428,24 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
     marginBottom: 4,
   },
   notificationMessage: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textLight,
     lineHeight: 20,
     marginBottom: 4,
   },
   notificationTime: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.textMuted,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
     marginRight: 8,
   },
   emptyContainer: {
@@ -456,17 +456,17 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.textLight,
   },
   retryButton: {
     marginTop: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
     borderRadius: 5,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 14,
     fontWeight: '600',
   },

@@ -30,14 +30,14 @@ export default function LiveTrackingScreen() {
           <View style={styles.routeLine} />
 
           <View style={[styles.mapMarker, { top: 100, left: 80 }]}>
-            <MapPin size={24} color="#22C55E" fill={#22C55ELight} />
+            <MapPin size={24} color={colors.success} fill={colors.successLight} />
             <View style={styles.markerLabel}>
               <Text style={styles.markerText}>Your Location</Text>
             </View>
           </View>
 
           <View style={[styles.mapMarker, { top: 200, left: 200 }]}>
-            <MapPin size={24} color="#6366F1" fill={colors.purpleLight} />
+            <MapPin size={24} color={colors.primary} fill={colors.purpleLight} />
             <View style={styles.markerLabel}>
               <Text style={styles.markerText}>Destination</Text>
             </View>
@@ -46,21 +46,21 @@ export default function LiveTrackingScreen() {
 
         <View style={styles.mapControls}>
           <TouchableOpacity style={styles.mapButton}>
-            <Minus size={20} color="#111111" />
+            <Minus size={20} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.mapButton}>
-            <Plus size={20} color="#111111" />
+            <Plus size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.locateButton}>
-          <Locate size={20} color="#FFFFFF" />
+          <Locate size={20} color={colors.white} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>
-          <MapPin size={18} color="#6366F1" />
+          <MapPin size={18} color={colors.primary} />
           <View style={styles.infoContent}>
             <Text style={styles.infoLabel}>From</Text>
             <Text style={styles.infoText}>32 East 98th Street, New York...</Text>
@@ -70,7 +70,7 @@ export default function LiveTrackingScreen() {
         <View style={styles.divider} />
 
         <View style={styles.infoRow}>
-          <MapPin size={18} color="#EC4899" />
+          <MapPin size={18} color={colors.secondary} />
           <View style={styles.infoContent}>
             <Text style={styles.infoLabel}>Shipping to</Text>
             <Text style={styles.infoText}>123 East 12th Street, New York...</Text>
@@ -84,7 +84,7 @@ export default function LiveTrackingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F6F3',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   backButton: {
     width: 40,
@@ -102,12 +102,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: '#111111',
+    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
   },
   mapContainer: {
     flex: 1,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '600',
-    color: '#111111',
+    color: colors.text,
   },
   mapSubtext: {
     position: 'absolute',
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     right: 0,
     textAlign: 'center',
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textLight,
   },
   routeLine: {
     position: 'absolute',
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderLeftWidth: 3,
     borderBottomWidth: 3,
-    borderColor: '#6366F1',
+    borderColor: colors.primary,
     borderStyle: 'dashed',
     borderRadius: 8,
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   markerLabel: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.success,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   markerText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   mapControls: {
     position: 'absolute',
@@ -175,10 +175,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -191,10 +191,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#111111',
+    backgroundColor: colors.text,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -205,10 +205,10 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 20,
-    shadowColor: '#000000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -224,17 +224,17 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.textLight,
     marginBottom: 4,
   },
   infoText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#111111',
+    color: colors.text,
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     marginVertical: 16,
   },
 });
