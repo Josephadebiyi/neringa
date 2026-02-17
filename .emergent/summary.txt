@@ -1,133 +1,204 @@
 <analysis>**original_problem_statement:**
-The user wants to get the Baggo mobile app project fully functional and ready for the App Store. This involves fixing critical bugs, overhauling the user authentication system, and implementing a large set of new features.
+The user's primary objective is to get the Baggo mobile app fully functional. Initially, this involved fixing bugs and implementing a dark mode. However, after a failed attempt to implement dark mode, the user has pivoted to a new, comprehensive set of features that are now the top priority.
 
-The user's most recent request (message #116) provides two high-priority, detailed directives:
-1.  **Complete Dark Mode Refactor:** Systematically remove all hardcoded colors (, hex codes) from all screens. Implement a proper global theme system using a centralized , , and React Native's  for automatic theme switching. All UI elements (backgrounds, text, cards, modals) must adapt dynamically.
-2.  **Fix DIDIT KYC Integration:** Rearchitect the KYC flow to be fully webhook-driven. The backend must have a  endpoint that listens for status updates from DIDIT, extracts a  from the webhook metadata, and updates the user's  in MongoDB. The frontend should be simplified to no longer poll or expect a direct response from the DIDIT SDK, but instead, fetch the updated user profile from the backend to display the current status.
+The new feature set, detailed in user message #511 and clarified in #514, includes:
+1.  **KYC Enforcement Logic:** Overhaul the DIDIT webhook verification to be the single source of truth.
+    *   **Data Matching:** Compare full name and DOB from the DIDIT webhook with user signup data. Reject on mismatch.
+    *   **Duplicate Identity Protection:** Create and check for a unique identity fingerprint (document number + issuing country + DOB) to prevent a single document from verifying multiple accounts.
+    *   **Profile Overwrite:** Upon successful verification, overwrite the user's profile name and DOB with the data from the verified document.
+
+2.  **Admin Pricing System:**
+    *   Create an admin dashboard () for the admin to define available routes (city-to-city, country-to-country) and set standard shipping prices and traveler commissions for each.
+    *   The mobile app must fetch and display these prices automatically when a user selects a route. Manual price entry is disallowed.
+
+3.  **Payment System:**
+    *   Implement a standard payment page.
+    *   Integrate Paystack to accept Nigerian/African cards (Visa, Mastercard). Apple Pay is deferred.
+    *   On successful payment, redirect to a success page with shipment details.
+
+4.  **Tracking, Notifications, and Documents:**
+    *   After payment, generate a unique tracking number and display it in the app.
+    *   Use Resend to send a branded email with the logo, shipment details, tracking number, and a downloadable PDF receipt/declaration.
+    *   The PDF receipt must also be downloadable from within the app.
+    *   Send push notifications for shipment status updates.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application is a React Native (Expo) mobile app with a Node.js backend. A JWT-based authentication system is in place.
+The project is a React Native (Expo) mobile app () with a Node.js/Express backend (). It also includes a React/Vite admin panel ().
 
-Based on the user's latest and most critical request, the agent has begun a major refactor of both the theming system and the KYC flow.
--   **Theming:** A  exists, and the agent has started rewriting  to use a dynamic stylesheet pattern that adapts to the theme, which is the correct approach. However, the vast majority of the app's 36+ screens still use hardcoded colors.
--   **KYC Webhook:** The backend  has been updated to pass the  in the DIDIT session metadata. The  webhook has been updated to receive this  and trigger a push notification. The frontend has not yet been refactored to align with this new webhook-driven architecture.
+A major attempt to implement a dynamic dark/light mode theme has been **completely reverted** at the user's request after it caused critical, app-breaking build errors. The app is now functional but uses hardcoded colors and has no theme-switching capability.
+
+The agent has just begun scaffolding the new features by creating Mongoose models (, ) for the admin pricing system. A Shipment Assessment feature was also added, which includes backend logic and frontend UI to calculate a delivery confidence score, but it has not been fully tested.
 
 **Last working item**:
--   Last item agent was working: The agent was in the middle of a large-scale refactoring task based on very specific user instructions. It had just finished rewriting  to use a proper, theme-aware styling pattern and was about to apply the same fix to  and other screens. This is part of the comprehensive Dark Mode implementation.
+-   Last item agent was working: The agent started implementing the new, large feature set requested by the user. It had just created the backend Mongoose models for the **Admin Pricing System**:  and .
 -   Status: IN PROGRESS
 -   Agent Testing Done: N
--   Which testing method agent to use? This is a React Native project, so standard frontend testing/screenshot tools won't work. The backend can be tested with . The frontend changes will need to be validated by ensuring the app builds and runs correctly in an Expo environment. The  should be used for e2e testing after the refactor is complete, with instructions that it's a React Native app.
+-   Which testing method agent to use? backend testing agent
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Complete the app-wide Dark Mode refactor (P0)
--   Issue 2: Finalize and verify the new webhook-driven KYC flow (P0)
--   Issue 3: KYC status does not unlock the app after approval (P1)
+-   Issue 1: Implement the full KYC Enforcement Logic (P0)
+-   Issue 2: Implement the Admin Pricing System (P0)
+-   Issue 3: Implement the Paystack Payment System (P0)
+-   Issue 4: Implement Post-Payment Tracking, Notifications, and Document Generation (P1)
+-   Issue 5: Dark Mode Implementation Failure (P2)
 
 Issues Detail:
--   **Issue 1: Complete the app-wide Dark Mode refactor**
-    -   Attempted fixes: The agent correctly identified that  makes static objects and started rewriting  using a functional stylesheet pattern that accepts the current theme. This is the correct path forward.
+-   **Issue 1: Implement the full KYC Enforcement Logic**
+    -   Attempted fixes: The agent has previously worked on the KYC webhook. The new requirement is a complete overhaul of this logic. The agent has just created a new model  and started updating the user schema.
     -   Next debug checklist:
-        1.  Create a script or use  to list all files still importing from  or using hardcoded hex color values.
-        2.  Systematically refactor each file using the dynamic stylesheet pattern established in .
-        3.  Pay close attention to , replacing it with functions that generate styles based on the theme from .
-        4.  Ensure  files and modals are also converted.
-    -   Why fix this issue and what will be achieved with the fix? This is a direct, high-priority user request to provide a polished, modern UI that supports both light and dark modes automatically.
+        1.  Modify the  endpoint in .
+        2.  Extract , , ,  from the Didit webhook payload.
+        3.  Implement data matching logic against the user's signup data.
+        4.  Implement the identity fingerprinting logic (hash and store ). Check for duplicates before approving.
+        5.  Implement the profile overwrite logic to update the user's name/DOB from the verified document.
+        6.  Update the  model in  with  and  fields.
+    -   Why fix this issue and what will be achieved with the fix? To build a secure, fraud-resistant KYC system as per the user's explicit business rules.
     -   Status: IN PROGRESS
+    -   Is recurring issue? Y
+    -   Should Test frontend/backend/both after fix? backend
+    -   Blocked on other issue: None
+
+-   **Issue 2: Implement the Admin Pricing System**
+    -   Attempted fixes: The Mongoose models  and  have been created.
+    -   Next debug checklist:
+        1.  Create backend API endpoints (CRUD) for managing routes and prices.
+        2.  Build the UI in the admin dashboard () for admins to create/update routes and their associated prices/commissions.
+        3.  Modify the mobile app's trip/search screens to fetch and display prices from this new system instead of using hardcoded or user-entered values.
+    -   Why fix this issue and what will be achieved with the fix? To give the admin control over the app's pricing and business model.
+    -   Status: IN PROGRESS
+    -   Is recurring issue? N
+    -   Should Test frontend/backend/both after fix? both
+    -   Blocked on other issue: None
+
+-   **Issue 3: Implement the Paystack Payment System**
+    -   Attempted fixes: None.
+    -   Next debug checklist:
+        1.  Call  for Paystack integration.
+        2.  Create a new payment page/component in the React Native app.
+        3.  Implement the card payment form (Name, Number, Expiry, CVV).
+        4.  Create a backend endpoint to process payments via Paystack.
+        5.  Handle success/failure responses and redirects.
+    -   Why fix this issue and what will be achieved with the fix? To enable monetization of the app's primary service.
+    -   Status: NOT STARTED
+    -   Is recurring issue? N
+    -   Should Test frontend/backend/both after fix? both
+    -   Blocked on other issue: None
+
+-   **Issue 4: Implement Post-Payment Tracking, Notifications, and Document Generation**
+    -   Attempted fixes: None.
+    -   Next debug checklist:
+        1.  Create a backend service to generate a unique tracking number post-payment.
+        2.  Call  for Resend integration.
+        3.  Create a backend service to send a branded email via Resend.
+        4.  Integrate a PDF generation library (e.g., ) to create the receipt/declaration.
+        5.  Ensure the PDF is downloadable in-app and attached to the email.
+        6.  Integrate with the existing push notification setup to send status updates.
+    -   Why fix this issue and what will be achieved with the fix? To provide a complete post-purchase user experience.
+    -   Status: NOT STARTED
+    -   Is recurring issue? N
+    -   Should Test frontend/backend/both after fix? both
+    -   Blocked on other issue: Issue 3
+
+-   **Issue 5: Dark Mode Implementation Failure**
+    -   Attempted fixes: The agent implemented a  and used  to replace hardcoded colors across ~30 files. This failed because dynamic theme variables () were used inside static  objects, causing the Expo app to crash. The user requested a full rollback.
+    -   Next debug checklist: All dark mode changes have been reverted. The app is back to using hardcoded colors. Any future attempt must use a different strategy, such as creating style-generating functions or applying inline styles, and avoid using theme variables in static StyleSheets.
+    -   Why fix this issue and what will be achieved with the fix? This was a high-priority user request. Although reverted, it remains a desired feature for UI/UX polish.
+    -   Status: NOT STARTED
     -   Is recurring issue? Y
     -   Should Test frontend/backend/both after fix? Frontend
     -   Blocked on other issue: None
--   **Issue 2: Finalize and verify the new webhook-driven KYC flow**
-    -   Attempted fixes: The backend was updated to include  in DIDIT session metadata and to handle it in the webhook.
-    -   Next debug checklist:
-        1.  Refactor the frontend KYC screen () to remove any polling or logic that expects a direct status update from the DIDIT SDK.
-        2.  The frontend should simply show the status from the user object () and provide a way to refresh the user profile from the backend ().
-        3.  The backend webhook () needs to be tested to ensure it correctly updates the  in MongoDB upon receiving a call from DIDIT.
-        4.  Verify end-to-end: user starts KYC -> DIDIT sends webhook -> backend updates DB -> frontend fetches updated profile and shows approved.
-    -   Why fix this issue and what will be achieved with the fix? This implements a more robust and reliable architecture for KYC status updates as explicitly requested by the user, fixing the core business logic.
-    -   Status: IN PROGRESS
-    -   Is recurring issue? Y
-    -   Should Test frontend/backend/both after fix? both
-    -   Blocked on other issue: None
--   **Issue 3: KYC status does not unlock the app after approval**
-    -   Attempted fixes: An initial fix was implemented to sync two different status fields ( and ). **This fix is now obsolete.** The user has mandated a new webhook-based architecture.
-    -   Next debug checklist: This issue will be resolved by correctly implementing **Issue 2**. Once the webhook properly updates  to  and the frontend uses this field, the app's features should unlock correctly. The  hook should be verified to only check for .
-    -   Why fix this issue and what will be achieved with the fix? This is the primary blocker preventing verified users from using the app.
-    -   Status: BLOCKED
-    -   Is recurring issue? Y
-    -   Should Test frontend/backend/both after fix? both
-    -   Blocked on other issue: Issue 2: Finalize and verify the new webhook-driven KYC flow
 
 **In progress Task List**:
-The current in-progress issues are the primary tasks.
+-   Task 1: Complete Backend for New Features (P0)
+    -   Where to resume: The models  and  are created. The next step is to create the corresponding API endpoints (CRUD operations) for them in  and a new controller. Then, update the  route with the new KYC logic.
+    -   What will be achieved with this? This will lay the foundation for the admin pricing system and the secure KYC flow.
+    -   Status: IN PROGRESS
+    -   Should Test frontend/backend/both after fix? backend
+    -   Blocked on something: None
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   P1: Implement Push Notifications for KYC Status on the client side (permissions, token registration, and handling).
-    -   P1: Implement currency conversion on the frontend for all monetary values.
-    -   P2: Set up and verify EAS Build for TestFlight IPA generation. The agent found an  but did not verify if it works.
-    -   P2: Conduct a thorough test and verification of the admin dashboard ().
+    -   P0: Build Admin Dashboard UI for Route/Price Management.
+    -   P0: Implement Paystack payment flow on the client-side.
+    -   P1: Implement email/PDF/push notification flow after payment.
+    -   P1: Integrate Admin Pricing into the mobile app's search/trip display screens.
 -   **Future Tasks:**
-    -   Conduct a full audit of the app against .
+    -   P2: Re-attempt Dark Mode implementation using a correct, stable pattern.
+    -   P2: Set up and verify EAS Build for TestFlight IPA generation.
+    -   P2: Conduct a thorough test and verification of the admin dashboard ().
+    -   P2: Conduct a full audit of the app against .
 
 **Completed work in this session**
--   **Initial KYC Fix (Superseded):** Implemented a frontend polling-based fix for the KYC status bug. This work should be disregarded in favor of the new webhook architecture.
--   **Backend Webhook Enhancement:** Updated the DIDIT KYC backend controller and webhook route to pass and receive the , making the new architecture possible.
--   **Dark Mode Refactor (Started):** Began the app-wide dark mode refactor by establishing the correct dynamic stylesheet pattern and applying it to the  screen.
--   **Environment Diagnostics:** Correctly diagnosed that this is a React Native Expo project and that the supervisor configuration for a web frontend was incorrect, allowing focus to shift to API testing.
+-   **Dark Mode Refactor (Attempted and Reverted):** A massive effort was made to implement app-wide dark mode. This failed due to critical React Native build errors, and all related code changes were reverted at the user's explicit request. The app no longer has any theming logic.
+-   **Shipment Assessment Feature:** A backend engine and frontend UI were created to assess shipment compatibility and generate a confidence score. This includes new API endpoints (, ) and frontend components.
+-   **Expo Build Debugging:** Diagnosed and fixed numerous Expo build errors reported by the user, including incorrect image paths, missing module installations (), and syntax errors caused by faulty  replacements during the failed dark mode refactor.
+-   **New Feature Scaffolding:** Started the new epic by creating Mongoose models (, , ) for the requested Admin Pricing and KYC enforcement systems.
+-   **Expo Tunnel URL Generation:** Successfully started the Metro bundler and provided the user with an  tunnel URL for testing on their device.
 
 **Earlier issues found/mentioned but not fixed**
--   **Currency Conversion:** Requested multiple times by the user but has not been started.
--   **Admin Dashboard Verification:** Requested multiple times by the user; the agent has not run or tested the admin panel yet.
+-   **Dark Mode Refactor:** The entire feature was reverted due to implementation errors. The original user requirement for a proper theme system remains unfulfilled.
 
 **Known issue recurrence from previous fork**
--   The KYC flow has been a persistent problem. The latest user request aims to fix this by moving from a brittle client-side polling model to a more robust server-side webhook architecture.
+-   **KYC Flow:** This remains a recurring area of focus. The new request represents the third major architectural approach to get it right.
+-   **Dark Mode:** The P0 task from the previous fork to implement dark mode failed and was reverted, making it a recurring failure.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frontend:** React Native, Expo, TypeScript, Axios, , .
--   **Backend:** Node.js, Express.js, MongoDB, Mongoose, JWT, Webhooks.
--   **Authentication:** JWT Bearer Token flow.
--   **Integrations:** DIDIT.me (KYC), Stripe, Paystack, Resend, Cloudinary, Google Auth, Expo Push Notifications.
+-   **Frontend:** React Native, Expo, TypeScript.
+-   **Backend:** Node.js, Express.js, MongoDB, Mongoose, JWT.
+-   **Integrations:** DIDIT.me (KYC), Paystack (Payments - to be added), Resend (Email - to be added), Expo Push Notifications.
+-   **Critical Failure:** The attempt to use dynamic theme variables from  within static  objects is fundamentally flawed in React Native and caused the app to crash.
 
 **key DB schema**
 -   **User:** 
+-   **UserKyc:** 
+-   **Route:** 
+-   **Price:** 
 
 **changes in tech stack**
 -   None.
 
 **All files of reference**
--   **Dark Mode Refactor:** , ,  (to be removed).
--   **KYC Webhook Flow:** , , .
--   **Project Root:** 
+-   **New KYC/Admin Logic:** , , ,  (for webhook update).
+-   **Reverted Dark Mode Files:** Nearly all  files in  were modified and then reverted. Key files involved in the failure were , , and .  was removed.
+-   **New Shipment Assessment Feature:** , , .
 
 **Critical Info for New Agent**
--   **Follow User Message #116:** The user's last message provides extremely specific, non-negotiable instructions for refactoring Dark Mode and the KYC flow. These instructions override all previous agent plans and fixes. The work has already begun on this path; you must continue it.
--   **Dark Mode is a Large-Scale Task:** Systematically refactor all 36+ screens to remove  and hardcoded hex values. Use the dynamic stylesheet pattern the previous agent started in . A script to find all files needing changes would be efficient.
--   **KYC Architecture Has Changed:** The architecture is now webhook-driven. The frontend polling/refresh logic implemented earlier is now obsolete and should be removed. Your task is to complete the transition by simplifying the frontend and thoroughly testing the new end-to-end webhook flow.
--   **Mobile-Only Environment:** This is a React Native (Expo) project. There is no web frontend. Do not try to use  or screenshot tools on a web URL. Backend API testing via  is fine. Frontend validation requires an understanding of the Expo ecosystem.
+-   **DO NOT RE-IMPLEMENT DARK MODE THE SAME WAY.** The previous agent's approach of using theme variables in  caused app-breaking crashes. This is a fundamental limitation. A new approach (e.g., style-generating functions that take the theme as an argument) is required if this feature is attempted again. For now, the codebase is reverted to hardcoded colors.
+-   **NEW USER DIRECTIVES ARE PRIORITY #1.** The detailed feature set in user message #511 (KYC Enforcement, Admin Pricing, Payments) is the new primary objective. All other tasks are secondary. The implementation has just begun on the backend models.
+-   **This is a React Native (Expo) Project.** The UI cannot be tested with web-based tools like  on a URL or screenshots. The agent must rely on the Metro bundler logs and user-provided screenshots from the Expo Go app to debug UI issues.
+-   **Use specified integrations:** The user explicitly requested **Paystack** for payments and **Resend** for emails. Use  for these.
 
 **documents and test reports created in this job**
--    (Updated, but may need further updates after the current refactor).
--    (Original requirements document).
+-    (Updated with Shipment Assessment feature).
 
 **Last 10 User Messages and any pending HUMAN messages**
--   **User (Message #116):** Provided a very detailed, multi-point set of requirements to completely refactor the Dark/Light mode theme system and to re-architect the DIDIT KYC integration to be webhook-driven. This message is the most important piece of context and is currently being implemented. (IN PROGRESS)
--   **Agent (Message #115):** Finished a session, summarizing that the KYC fix was complete. **This summary is now outdated** because the user rejected that approach in message #116. (OBSOLETE)
+-   **User #514:** Clarified requirements for the new feature set: use Resend, build admin in the existing React app, use Paystack for payments, and confirmed priorities. (IN PROGRESS)
+-   **Agent #513:** Acknowledged the new large feature request.
+-   **User #511:** Provided a massive, detailed list of new requirements for KYC enforcement, an admin pricing system, payments, and notifications. This overrides all previous plans. (IN PROGRESS)
+-   **User #500-510:** User pointed out UI issues on the profile screen related to the broken dark mode. The agent removed the theme-related UI and state from .
+-   **User #494-499:** User reported more  related errors. The agent removed all remaining  references from the codebase.
+-   **User #482-493:** User reported more crashes. Agent continued reverting files and fixing syntax errors.
+-   **User #477-481:** User reported an  error for . Agent fixed the path to . (RESOLVED)
+-   **User #463, 471, 477:** User reported a series of syntax errors and crashes after the agent's attempt to revert dark mode changes. (IN PROGRESS)
+-   **User #423:** Explicitly told the agent to REMOVE ALL THE COLOR CHANGES AND REVERT IT BACK TO NORMAL, REMOVE ALL THE DARKMODE SETTINGS after multiple failed attempts to fix the crashing app. (IN PROGRESS)
+-   **User #411, 417:** Provided screenshots showing syntax errors and a blank white screen after login, indicating the dark mode implementation was critically broken. (IN PROGRESS)
 
 **Project Health Check:**
 -   **Broken:**
-    -   **Theming:** The app's UI is broken across many screens due to an incomplete and incorrect implementation of dark mode. Most screens use hardcoded colors that do not adapt.
-    -   **KYC Flow:** The core logic for verifying users is broken. The architecture is in a transitional state between an old (and buggy) polling method and a new (and incomplete) webhook method.
+    -   **Theming/Dark Mode:** The entire feature was attempted and failed, leaving the app with hardcoded colors and no dynamic styling capabilities. This is a major regression from the user's initial goals.
+-   **Mocked:**
+    -   None.
 
 **3rd Party Integrations**
 -   **DIDIT.me:** KYC provider
--   **Stripe & Paystack:** Payment providers
--   **Resend:** Email service provider
+-   **Stripe & Paystack:** Payment providers (Paystack to be implemented)
+-   **Resend:** Email service provider (to be implemented)
 -   **MongoDB Atlas:** Cloud database
 -   **Cloudinary:** Media asset hosting
 -   **Google Auth:** Social login
@@ -137,10 +208,11 @@ The current in-progress issues are the primary tasks.
 -   Testing agent used after significant changes: NO
 -   Troubleshoot agent used after agent stuck in loop: NO
 -   Test files created: []
--   Known regressions: The initial KYC fix was a regression in architecture, which is now being corrected per the user's explicit instructions.
+-   Known regressions: The complete removal of the theming/dark mode system is a major regression.
 
 **Credentials to test flow:**
 -   All credentials should be available as environment variables.
 
 **What agent forgot to execute**
--   The agent correctly prioritized the user's latest, most critical feedback (message #116). The tasks from the initial handoff (Currency Conversion, Admin Dashboard Verification) were logically postponed and remain in the upcoming backlog.</analysis>
+-   The agent did not perform end-to-end testing on the Shipment Assessment feature after building it.
+-   Due to being consumed by the dark mode failure and subsequent new feature request, previously planned tasks like EAS Build verification and Admin Dashboard verification were not addressed.</analysis>
