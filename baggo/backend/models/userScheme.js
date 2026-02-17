@@ -159,6 +159,26 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'USD',
   },
+  // Shipment assessment history
+  shipmentAssessments: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [],
+  },
+  // Traveler stats
+  completedTrips: {
+    type: Number,
+    default: 0,
+  },
+  cancellations: {
+    type: Number,
+    default: 0,
+  },
+  rating: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5,
+  },
 });
 
 // 🔒 Hash password before saving
