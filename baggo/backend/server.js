@@ -1565,3 +1565,428 @@ app.post("/api/baggo/user/currency", isAuthenticated, async (req, res) => {
 });
 
 
+// ============================================
+// SHIPMENT ASSESSMENT & CUSTOMS COMPLIANCE API
+// ============================================
+
+/**
+ * Assess shipment compatibility and generate risk scores
+ * POST /api/shipment/assess
+ */
+app.post("/api/shipment/assess", isAuthenticated, async (req, res) => {
+  try {
+    const { tripId, item, senderCountry } = req.body;
+    
+    if (!tripId || !item) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "tripId and item details are required" 
+      });
+    }
+
+    // Get trip data
+    const trip = await User.findOne(
+      { "trips._id": tripId },
+      { "trips.$": 1, firstName: 1, lastName: 1, rating: 1, completedTrips: 1, cancellations: 1 }
+    );
+
+    if (!trip || !trip.trips || !trip.trips[0]) {
+      return res.status(404).json({ success: false, message: "Trip not found" });
+    }
+
+    const tripData = trip.trips[0];
+    const traveler = {
+      _id: trip._id,
+      firstName: trip.firstName,
+      lastName: trip.lastName,
+      name: `${trip.firstName || ''} ${trip.lastName || ''}`.trim(),
+      rating: trip.rating || 0,
+      completedTrips: trip.completedTrips || 0,
+      cancellations: trip.cancellations || 0
+    };
+
+    // Perform assessment
+    const assessment = await assessShipment({
+      trip: tripData,
+      item,
+      traveler,
+      senderCountry: senderCountry || 'GB'
+    });
+
+    // Store assessment in database for later PDF retrieval
+    const assessmentDoc = {
+      ...assessment,
+      senderUserId: req.user._id,
+      createdAt: new Date()
+    };
+
+    // Add to user's shipment assessments (could also be a separate collection)
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { 
+        shipmentAssessments: {
+          $each: [assessmentDoc],
+          $slice: -50 // Keep last 50 assessments
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      assessment
+    });
+
+  } catch (err) {
+    console.error("❌ Shipment assessment error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to assess shipment", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Quick compatibility check for filtering trips
+ * POST /api/shipment/quick-check
+ */
+app.post("/api/shipment/quick-check", async (req, res) => {
+  try {
+    const { trips, item } = req.body;
+    
+    if (!trips || !item) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "trips array and item details required" 
+      });
+    }
+
+    const compatibleTrips = filterCompatibleTrips(trips, item);
+    
+    res.json({
+      success: true,
+      totalTrips: trips.length,
+      compatibleCount: compatibleTrips.length,
+      compatibleTrips
+    });
+
+  } catch (err) {
+    console.error("❌ Quick check error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to check compatibility", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Get compatibility for a specific trip-item combination
+ * GET /api/shipment/compatibility/:tripId
+ */
+app.get("/api/shipment/compatibility/:tripId", async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const { weight, category, type, value, quantity } = req.query;
+
+    if (!weight || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "weight and category query params required"
+      });
+    }
+
+    // Get trip
+    const tripDoc = await User.findOne(
+      { "trips._id": tripId },
+      { "trips.$": 1 }
+    );
+
+    if (!tripDoc || !tripDoc.trips || !tripDoc.trips[0]) {
+      return res.status(404).json({ success: false, message: "Trip not found" });
+    }
+
+    const trip = tripDoc.trips[0];
+    const item = {
+      weight: parseFloat(weight),
+      category,
+      type: type || category,
+      value: parseFloat(value) || 0,
+      quantity: parseInt(quantity) || 1
+    };
+
+    const result = quickCompatibilityCheck(trip, item);
+
+    res.json({
+      success: true,
+      tripId,
+      ...result,
+      tripDetails: {
+        from: trip.from,
+        to: trip.to,
+        availableKg: trip.availableKg,
+        travelMeans: trip.travelMeans
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Compatibility check error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to check compatibility", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Generate and download customs declaration PDF
+ * GET /api/shipment/customs-pdf/:assessmentId
+ */
+app.get("/api/shipment/customs-pdf/:assessmentId", isAuthenticated, async (req, res) => {
+  try {
+    const { assessmentId } = req.params;
+    const userId = req.user._id;
+
+    // Find the assessment in user's history
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const assessment = user.shipmentAssessments?.find(
+      a => a.declarationData?.shipmentId === assessmentId
+    );
+
+    if (!assessment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Assessment not found. Please run assessment first." 
+      });
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateCustomsDeclarationPDF(assessment.declarationData);
+
+    // Set headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="customs-declaration-${assessmentId}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+
+  } catch (err) {
+    console.error("❌ PDF generation error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to generate PDF", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Generate customs PDF from assessment data (direct)
+ * POST /api/shipment/generate-pdf
+ */
+app.post("/api/shipment/generate-pdf", isAuthenticated, async (req, res) => {
+  try {
+    const { declarationData } = req.body;
+
+    if (!declarationData) {
+      return res.status(400).json({
+        success: false,
+        message: "declarationData is required"
+      });
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateCustomsDeclarationPDF(declarationData);
+
+    // Convert to base64 for mobile download
+    const pdfBase64 = pdfBuffer.toString('base64');
+
+    res.json({
+      success: true,
+      pdf: pdfBase64,
+      filename: `customs-declaration-${declarationData.shipmentId}.pdf`,
+      contentType: 'application/pdf'
+    });
+
+  } catch (err) {
+    console.error("❌ PDF generation error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to generate PDF", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Get country-specific customs rules
+ * GET /api/customs/rules/:countryCode
+ */
+app.get("/api/customs/rules/:countryCode", async (req, res) => {
+  try {
+    const { countryCode } = req.params;
+    
+    // Import customs rules
+    const { COUNTRY_RULES, TRANSPORT_RESTRICTIONS, HS_CODES } = await import('./data/customsRules.js');
+    
+    const rules = COUNTRY_RULES[countryCode.toUpperCase()] || COUNTRY_RULES.DEFAULT;
+    
+    res.json({
+      success: true,
+      countryCode: countryCode.toUpperCase(),
+      rules,
+      transportRestrictions: TRANSPORT_RESTRICTIONS,
+      availableHSCodes: Object.keys(HS_CODES)
+    });
+
+  } catch (err) {
+    console.error("❌ Customs rules error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to get customs rules", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Get HS codes for item categories
+ * GET /api/customs/hs-codes
+ */
+app.get("/api/customs/hs-codes", async (req, res) => {
+  try {
+    const { HS_CODES } = await import('./data/customsRules.js');
+    
+    res.json({
+      success: true,
+      hsCodes: HS_CODES
+    });
+
+  } catch (err) {
+    console.error("❌ HS codes error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to get HS codes", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Search trips with compatibility filter
+ * POST /api/trips/search-compatible
+ */
+app.post("/api/trips/search-compatible", async (req, res) => {
+  try {
+    const { fromCountry, fromCity, toCountry, toCity, item } = req.body;
+
+    if (!item || !item.weight || !item.category) {
+      return res.status(400).json({
+        success: false,
+        message: "item with weight and category is required"
+      });
+    }
+
+    // Build query
+    const query = { "trips.0": { $exists: true } };
+    
+    // Get all users with trips
+    const usersWithTrips = await User.find(query, {
+      trips: 1,
+      firstName: 1,
+      lastName: 1,
+      rating: 1,
+      completedTrips: 1,
+      cancellations: 1,
+      kycStatus: 1,
+      profileImage: 1
+    });
+
+    // Flatten and filter trips
+    let allTrips = [];
+    
+    for (const user of usersWithTrips) {
+      if (!user.trips) continue;
+      
+      for (const trip of user.trips) {
+        // Basic route matching
+        const matchesRoute = (
+          (!fromCountry || trip.fromCountry?.toLowerCase().includes(fromCountry.toLowerCase())) &&
+          (!toCountry || trip.toCountry?.toLowerCase().includes(toCountry.toLowerCase())) &&
+          (!fromCity || trip.from?.toLowerCase().includes(fromCity.toLowerCase())) &&
+          (!toCity || trip.to?.toLowerCase().includes(toCity.toLowerCase()))
+        );
+
+        if (!matchesRoute) continue;
+
+        // Check compatibility
+        const compatibility = quickCompatibilityCheck(trip, item);
+        
+        if (compatibility.compatible) {
+          allTrips.push({
+            ...trip.toObject(),
+            travelerId: user._id,
+            travelerName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            travelerRating: user.rating || 0,
+            travelerCompletedTrips: user.completedTrips || 0,
+            travelerKycStatus: user.kycStatus,
+            travelerImage: user.profileImage,
+            compatibility: 'Yes',
+            compatibilityReason: compatibility.reason
+          });
+        }
+      }
+    }
+
+    // Sort by departure date
+    allTrips.sort((a, b) => new Date(a.departureDate || a.date) - new Date(b.departureDate || b.date));
+
+    res.json({
+      success: true,
+      totalCompatibleTrips: allTrips.length,
+      trips: allTrips.slice(0, 50) // Limit to 50 results
+    });
+
+  } catch (err) {
+    console.error("❌ Search compatible trips error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to search trips", 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Get shipment assessment history
+ * GET /api/shipment/history
+ */
+app.get("/api/shipment/history", isAuthenticated, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id, { shipmentAssessments: 1 });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const assessments = user.shipmentAssessments || [];
+    
+    res.json({
+      success: true,
+      count: assessments.length,
+      assessments: assessments.slice(-20).reverse() // Last 20, newest first
+    });
+
+  } catch (err) {
+    console.error("❌ Get assessment history error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to get assessment history", 
+      error: err.message 
+    });
+  }
+});
