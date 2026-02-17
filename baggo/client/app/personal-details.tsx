@@ -188,7 +188,7 @@ export default function PersonalDetailsScreen() {
       }
     }
     
-    return <User size={48} color={#111111Inverse} />;
+    return <User size={48} color="#FFFFFF" />;
   };
 
   const handleSave = async () => {
@@ -271,7 +271,7 @@ export default function PersonalDetailsScreen() {
             <TouchableOpacity style={styles.avatar} onPress={() => setAvatarModalVisible(true)}>
               {renderAvatar()}
               <View style={styles.cameraIcon}>
-                <Camera size={16} color={#111111Inverse} />
+                <Camera size={16} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.changePhotoButton} onPress={() => setAvatarModalVisible(true)}>
@@ -387,7 +387,7 @@ export default function PersonalDetailsScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Save size={20} color={#111111Inverse} />
+          <Save size={20} color="#FFFFFF" />
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
