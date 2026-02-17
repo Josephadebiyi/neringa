@@ -8,112 +8,172 @@ Build a fully functional mobile app for "Baggo" that connects travelers with pac
 4. Payment integration (Stripe, Paystack)
 5. Trip management and package requests
 6. Push notifications
+7. **Intelligent Shipment Assessment System** (NEW)
 
 ## Tech Stack
 - **Frontend:** React Native (Expo), TypeScript
 - **Backend:** Node.js, Express.js, MongoDB
 - **Admin Dashboard:** React/Vite
-- **Integrations:** DIDIT.me (KYC), Stripe, Paystack, Resend, Cloudinary, Expo Push Notifications
+- **Integrations:** DIDIT.me (KYC), Stripe, Paystack, Resend, Cloudinary, Expo Push Notifications, PDFKit
 
 ## Architecture
 ```
 /app/baggo
 ├── boggoAdmin/     # React/Vite Admin Panel
 ├── backend/        # Node.js/Express Backend (port 5000)
+│   ├── services/
+│   │   ├── shipmentAssessment.js  # Risk scoring engine
+│   │   └── pdfGenerator.js        # Customs PDF generation
+│   ├── data/
+│   │   └── customsRules.js        # HS codes, duties, restrictions
 │   ├── controllers/
 │   ├── middleware/
 │   ├── models/
-│   ├── routers/
 │   └── server.js
 └── client/         # React Native (Expo) Mobile App
     ├── app/
     ├── components/
+    │   ├── ShipmentAssessment.tsx    # Assessment modal
+    │   └── ConfidenceScoreBadge.tsx  # Score badges
     ├── contexts/
     ├── hooks/
-    └── constants/
+    └── utils/
+        └── shipmentAssessment.ts  # API service
 ```
 
 ## What's Been Implemented
 
-### February 15, 2026 - Complete Session
+### February 17, 2026 - Shipment Assessment System
 
-#### P0 - Dark Mode Refactor: ✅ COMPLETE
-All 35+ screens updated to use dynamic theming via `ThemeContext`:
-- Auth screens (signin, signup, forgot-password, verify-otp)
-- Tab screens (index, profile, messages, tracking)
-- Feature screens (add-trip, edit-trip, payment, search-travelers, etc.)
-- Utility screens (banned, success, failed, not-found, etc.)
+#### NEW: Intelligent Shipment Assessment System ✅
+Complete implementation of shipment compatibility assessment with:
 
-Key changes:
-- Removed all `Colors` imports from `@/constants/Colors`
-- All screens now use `const { colors } = useTheme()`
-- Replaced `Colors.xxx` with `colors.xxx` throughout
-- Added missing `useTheme` hooks where needed
+**Backend Services:**
+- `/app/baggo/backend/services/shipmentAssessment.js` - Risk scoring engine
+- `/app/baggo/backend/services/pdfGenerator.js` - PDF generation with PDFKit
+- `/app/baggo/backend/data/customsRules.js` - Comprehensive customs database
 
-#### P1 - Push Notifications: ✅ COMPLETE
-- `PushNotificationSetup.tsx` utility integrated into `_layout.tsx`
-- Backend already has push token registration at `/register-token`
-- Notifications configured in `app.json` with expo-notifications plugin
-- Push notifications sent on KYC status changes
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/shipment/assess` | POST | Full shipment assessment with risk scores |
+| `/api/shipment/quick-check` | POST | Quick compatibility filter for trips |
+| `/api/shipment/generate-pdf` | POST | Generate customs declaration PDF |
+| `/api/shipment/customs-pdf/:id` | GET | Download stored PDF |
+| `/api/shipment/history` | GET | User's assessment history |
+| `/api/trips/search-compatible` | POST | Search with compatibility filter |
+| `/api/customs/rules/:country` | GET | Country-specific rules |
+| `/api/customs/hs-codes` | GET | HS code database |
 
-#### P1 - Currency Conversion: ✅ COMPLETE
-- Created `useCurrency` hook at `/app/baggo/client/hooks/useCurrency.ts`
-- Features: currency detection by location, exchange rate caching, formatPrice utility
-- Backend has `/api/currency/convert` and `/api/currency/rates` endpoints
-- Currency symbols mapping for 30+ currencies
+**Features:**
+1. **Shipment Compatibility Check** (Yes/No/Conditional)
+2. **Delivery Confidence Score** (0-100)
+3. **Risk Classification:**
+   - Border/Customs Risk
+   - Delay Risk
+   - Damage Risk
+   - Confiscation Risk
+4. **Price Suggestions** based on weight, risk, urgency, transport mode
+5. **Customs Compliance:**
+   - HS Code classification
+   - Duty & VAT estimates
+   - Required documents
+6. **PDF Customs Declaration** with:
+   - Route information
+   - Item details
+   - Customs classification
+   - Carrier information
+   - Declaration statement
+   - Signature boxes
 
-#### P2 - EAS Build Setup: ✅ CONFIGURED
-- Updated `eas.json` with proper build profiles (development, preview, production)
-- Configured TestFlight submission settings
-- Added environment variables support
-- Updated `app.json` with required plugins (expo-notifications, expo-location)
+**Risk Scoring Weights:**
+- Traveler Reliability: 30%
+- Item Category Risk: 25%
+- Route Risk: 25%
+- Transport Mode: 20%
 
-#### KYC Webhook System: ✅ COMPLETE
-- **Webhook URL:** `https://neringa.onrender.com/api/didit/webhook`
-- Parses `vendor_data` to extract userId
-- Updates user's `kycStatus` in MongoDB
-- Sends push notifications on approval/decline
-- Creates in-app notifications
+**Supported Countries:**
+EU, GB, US, NG, GH, KE, ZA, FR, DE, CA (+ DEFAULT fallback)
 
-## Key Database Schema
+**Transport Modes:**
+Air, Bus, Ship, Train, Car - each with specific restrictions
+
+**Frontend Components:**
+- `ShipmentAssessment.tsx` - Full assessment modal
+- `ConfidenceScoreBadge.tsx` - Score display badges
+- `shipmentAssessment.ts` - API service utilities
+- Updated `search-travelers.tsx` - Compatibility filtering
+
+### Previous Session - Dark Mode & Push Notifications
+
+#### Dark Mode Refactor: ✅ COMPLETE
+All 35+ screens use dynamic theming via `ThemeContext`
+
+#### Push Notifications: ✅ COMPLETE
+- Integrated `PushNotificationSetup` into root layout
+- Backend handles token registration
+
+#### Currency Conversion: ✅ COMPLETE
+- `useCurrency` hook for currency detection and conversion
+
+#### KYC Webhook: ✅ COMPLETE
+- Webhook URL: `https://neringa.onrender.com/api/didit/webhook`
+
+## API Usage Examples
+
+### Assess a Shipment
 ```javascript
-User: {
-  kycStatus: String ('not_started', 'pending', 'approved', 'declined'),
-  diditSessionId: String,
-  expoPushToken: String,
-  preferredCurrency: String,
-  // ... other fields
+POST /api/shipment/assess
+{
+  "tripId": "trip_id_here",
+  "item": {
+    "type": "smartphone",
+    "category": "electronics",
+    "value": 500,
+    "quantity": 1,
+    "weight": 0.5
+  },
+  "senderCountry": "GB"
 }
 ```
+
+### Quick Compatibility Check
+```javascript
+POST /api/shipment/quick-check
+{
+  "trips": [...],
+  "item": { "weight": 3, "category": "electronics", ... }
+}
+```
+
+### Generate PDF
+```javascript
+POST /api/shipment/generate-pdf
+{
+  "declarationData": { ... }
+}
+// Returns base64 PDF
+```
+
+## Database Schema Updates
+```javascript
+User: {
+  shipmentAssessments: [Mixed], // Assessment history
+  completedTrips: Number,
+  cancellations: Number,
+  rating: Number,
+  // ... existing fields
+}
+```
+
+## Remaining Work
+- **Testing:** Full end-to-end testing with Expo
+- **Admin Dashboard:** Verification and testing
 
 ## Environment Variables
 Backend (.env):
 - MONGO_URI
 - JWT_SECRET
-- DIDIT_API_KEY
-- DIDIT_WEBHOOK_SECRET
+- DIDIT_API_KEY, DIDIT_WEBHOOK_SECRET
 - STRIPE_SECRET_KEY
 - RESEND_API_KEY
-
-## API Endpoints
-- `POST /api/didit/webhook` - DIDIT KYC status webhook
-- `GET /api/currency/convert` - Currency conversion
-- `GET /api/currency/rates` - Exchange rates
-- `POST /register-token` - Push notification token registration
-
-## Remaining Work
-- **Admin Dashboard Verification:** Full testing of `/app/baggo/boggoAdmin`
-- **Full Audit:** Against `Bago_Full_System_Implementation.pdf`
-
-## EAS Build Instructions
-To build for TestFlight:
-```bash
-cd /app/baggo/client
-eas build --platform ios --profile production
-eas submit --platform ios
-```
-
-Required environment variables for submission:
-- EXPO_APPLE_ID
-- EXPO_ASC_APP_ID
-- EXPO_APPLE_TEAM_ID
