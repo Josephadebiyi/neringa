@@ -362,6 +362,22 @@ const travelMeansIcons = {
           <Text style={styles.metaText}>Mode: {trip.travelMeans}</Text>
         </View>
       </View>
+
+      {/* Compatibility Badge */}
+      {tripScores[trip._id]?.compatible && (
+        <View style={styles.compatBadgeRow}>
+          <CompatibilityBadge status={tripScores[trip._id].status || 'Yes'} />
+        </View>
+      )}
+
+      {/* Assess Shipment Button */}
+      <TouchableOpacity 
+        style={[styles.assessButton, { backgroundColor: colors.backgroundLight, borderColor: colors.primary }]}
+        onPress={() => handleViewAssessment(trip)}
+      >
+        <AlertTriangle size={16} color={colors.primary} />
+        <Text style={[styles.assessButtonText, { color: colors.primary }]}>View Risk Assessment</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
 
           ))
@@ -371,6 +387,23 @@ const travelMeansIcons = {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Assessment Modal */}
+      <Modal
+        visible={showAssessment}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAssessment(false)}
+      >
+        {selectedTrip && (
+          <ShipmentAssessment
+            tripId={selectedTrip._id}
+            item={itemDetails}
+            onClose={() => setShowAssessment(false)}
+            onProceed={handleProceedFromAssessment}
+          />
+        )}
+      </Modal>
     </View>
   );
 }
