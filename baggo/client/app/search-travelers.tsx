@@ -427,12 +427,10 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: colors.text,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
   },
   content: {
     flex: 1,
@@ -441,11 +439,10 @@ const styles = StyleSheet.create({
   routeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -460,28 +457,23 @@ const styles = StyleSheet.create({
   routeText: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.text,
   },
   routeArrow: {
     fontSize: 16,
-    color: colors.textLight,
     marginHorizontal: 8,
   },
   insuranceCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: colors.backgroundLight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   insuranceIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -493,32 +485,27 @@ const styles = StyleSheet.create({
   insuranceTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 4,
   },
   insuranceSubtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
     marginBottom: 4,
   },
   insuranceDesc: {
     fontSize: 13,
-    color: colors.textLight,
     lineHeight: 18,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 16,
   },
   tripCard: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -526,7 +513,6 @@ const styles = StyleSheet.create({
   },
   matchedTripCard: {
     borderWidth: 2,
-    borderColor: colors.primary,
   },
   nonMatchedTripCard: {
     opacity: 0.8,
@@ -546,13 +532,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: colors.white,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -562,7 +546,6 @@ const styles = StyleSheet.create({
   travelerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 4,
   },
   ratingRow: {
@@ -572,23 +555,19 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: colors.text,
     fontWeight: '500',
   },
   tripCount: {
     fontSize: 12,
-    color: colors.textLight,
   },
   verified: {
     fontSize: 12,
-    color: colors.success,
     fontWeight: '500',
   },
   modeIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.backgroundLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -600,7 +579,6 @@ const styles = StyleSheet.create({
   },
   tripRouteText: {
     fontSize: 15,
-    color: colors.text,
     fontWeight: '500',
     flex: 1,
   },
@@ -616,7 +594,6 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: colors.textLight,
   },
   priceContainer: {
     marginLeft: 'auto',
@@ -627,17 +604,14 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.primary,
   },
   loadingText: {
     fontSize: 16,
-    color: colors.textLight,
     textAlign: 'center',
     marginTop: 20,
   },
   noResultsText: {
     fontSize: 16,
-    color: colors.textLight,
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 20,
