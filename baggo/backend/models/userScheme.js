@@ -127,7 +127,7 @@ const userSchema = new mongoose.Schema({
   // 🆔 DIDIT.me KYC Verification
   kycStatus: {
     type: String,
-    enum: ['not_started', 'pending', 'approved', 'declined'],
+    enum: ['not_started', 'pending', 'approved', 'declined', 'failed_verification', 'blocked_duplicate'],
     default: 'not_started',
   },
   diditSessionId: {
@@ -140,6 +140,28 @@ const userSchema = new mongoose.Schema({
   },
   kycVerifiedAt: {
     type: Date,
+    default: null,
+  },
+  // KYC verified document data (source of truth after verification)
+  kycVerifiedData: {
+    fullName: { type: String, default: null },
+    firstName: { type: String, default: null },
+    lastName: { type: String, default: null },
+    dateOfBirth: { type: Date, default: null },
+    documentNumber: { type: String, default: null },
+    documentType: { type: String, default: null },
+    issuingCountry: { type: String, default: null },
+    verificationStatus: { type: String, default: null },
+  },
+  // Identity fingerprint for duplicate detection (hashed: docNumber + country + DOB)
+  identityFingerprint: {
+    type: String,
+    default: null,
+    index: true,
+  },
+  // KYC failure reason
+  kycFailureReason: {
+    type: String,
     default: null,
   },
   // After KYC verification, lock certain profile fields
