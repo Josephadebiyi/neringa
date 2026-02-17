@@ -1480,60 +1480,6 @@ const handleCurrencySelect = (newCurrency: string) => {
         </View>
       </Modal>
 
-      <Modal
-        visible={themeModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setThemeModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Appearance</Text>
-              <TouchableOpacity onPress={() => setThemeModalVisible(false)}>
-                <X size={24} color={'#1A1A1A'} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.themeOption}
-              onPress={() => {
-                setTheme('light');
-                setThemeModalVisible(false);
-              }}
-            >
-              <Sun size={24} color={'#5845D8'} />
-              <Text style={styles.themeText}>Light Mode</Text>
-              {theme === 'light' && <Text style={styles.checkMark}>✓</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.themeOption}
-              onPress={() => {
-                setTheme('dark');
-                setThemeModalVisible(false);
-              }}
-            >
-              <Moon size={24} color={'#5845D8'} />
-              <Text style={styles.themeText}>Dark Mode</Text>
-              {theme === 'dark' && <Text style={styles.checkMark}>✓</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.themeOption}
-              onPress={() => {
-                setTheme('system');
-                setThemeModalVisible(false);
-              }}
-            >
-              <Shield size={24} color={'#5845D8'} />
-              <Text style={styles.themeText}>System Default</Text>
-              {theme === 'system' && <Text style={styles.checkMark}>✓</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       {/* 🟢 Paystack Setup Modal */}
 <Modal
   visible={showPaystackSetup}
