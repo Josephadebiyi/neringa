@@ -30,7 +30,6 @@ import * as Location from 'expo-location';
 export default function ProfileScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
-  const { theme, setTheme, colors, themeMode } = useTheme();
   const [balance, setBalance] = useState(0);
   const [currency, setCurrency] = useState('EUR');
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
