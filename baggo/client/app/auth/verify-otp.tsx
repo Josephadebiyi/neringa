@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Package } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 
@@ -23,7 +22,6 @@ export default function VerifyOTP() {
 
   const router = useRouter();
   const { email } = useLocalSearchParams();
-  const { colors } = useTheme();
 
   const handleVerifyOtp = async () => {
     setError('');

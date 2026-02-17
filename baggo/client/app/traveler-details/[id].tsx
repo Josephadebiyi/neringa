@@ -14,13 +14,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Star, MessageCircle, Shield, MapPin, Calendar, Plane, Weight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { backendomain } from '@/utils/backendDomain';
-import { useTheme } from '@/contexts/ThemeContext';
 
 
 export default function TravelerDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { colors } = useTheme();
 
   // Use travelerId consistently from params
   const travelerId = params.travelerId || params.id;

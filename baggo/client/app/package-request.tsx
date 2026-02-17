@@ -13,7 +13,6 @@ import { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { useTheme } from '@/contexts/ThemeContext';
 import {
   Package,
   Weight,

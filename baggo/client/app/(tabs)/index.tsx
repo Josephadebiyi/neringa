@@ -20,14 +20,12 @@ import * as Location from 'expo-location';
 import axios from 'axios';
 import PushNotificationSetup from '@/utils/PushNotificationSetup';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/contexts/ThemeContext';
 
 const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, themeMode } = useTheme();
   const [mode, setMode] = useState<'send' | 'earn'>('send');
   const [searchQuery, setSearchQuery] = useState('');
   const [trips, setTrips] = useState([]);

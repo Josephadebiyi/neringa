@@ -2,12 +2,10 @@ import { View, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@/contexts/ThemeContext';
 
 export default function Index() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const { colors } = useTheme();
 
   useEffect(() => {
     const checkOnboarding = async () => {

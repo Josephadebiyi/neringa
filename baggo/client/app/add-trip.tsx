@@ -21,14 +21,12 @@ import axios from "axios";
 import { MapPin, Calendar, Weight, Plane, Bus, Train, Car, Ship, MoreHorizontal, ChevronLeft } from "lucide-react-native";
 import { backendomain } from "@/utils/backendDomain";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/contexts/ThemeContext';
 
 const RAPID_API_KEY = "764ae3a2d0msh0d44a93e665c289p104415jsn9a0e1853cc6e";
 
 export default function AddTripScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
   const [fromCountry, setFromCountry] = useState("");
   const [fromCity, setFromCity] = useState("");
   const [toCountry, setToCountry] = useState("");

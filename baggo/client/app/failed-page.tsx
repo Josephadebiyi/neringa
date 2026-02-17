@@ -2,11 +2,9 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useTheme } from "@/contexts/ThemeContext";
 
 export default function PaymentFailed() {
   const router = useRouter();
-  const { colors } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>

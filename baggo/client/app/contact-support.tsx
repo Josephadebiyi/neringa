@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Mail, Phone, MessageCircle, Send, Circle as HelpCircle, FileText, CircleAlert as AlertCircle, ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

@@ -14,13 +14,11 @@ import { Search, Package, Bell, User } from 'lucide-react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { backendomain } from '@/utils/backendDomain';
-import { useTheme } from '@/contexts/ThemeContext';
 
 const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 
 export default function TrackingScreen(): JSX.Element {
   const router = useRouter();
-  const { colors, themeMode } = useTheme();
   const [trackingInput, setTrackingInput] = useState('');
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);

@@ -19,7 +19,6 @@ import { useRouter } from 'expo-router';
 import { User, Mail, Phone, MapPin, Calendar, Save, Lock, X, Camera } from 'lucide-react-native';
 import api from '@/utils/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '@/contexts/ThemeContext';
 
 // Preset avatar colors and styles
 const AVATAR_PRESETS = [
@@ -33,7 +32,6 @@ const AVATAR_PRESETS = [
 
 export default function PersonalDetailsScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [profileImage, setProfileImage] = useState(null);

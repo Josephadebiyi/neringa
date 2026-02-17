@@ -1,10 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ban, CircleAlert as AlertCircle } from 'lucide-react-native';
-import { useTheme } from '@/contexts/ThemeContext';
 
 export default function BannedUserScreen() {
-  const { colors } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: '#F8F6F3' }]}>

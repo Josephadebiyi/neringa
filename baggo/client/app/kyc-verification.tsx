@@ -15,14 +15,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Shield, CheckCircle, XCircle, Clock } from 'lucide-react-native';
 import api from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 
 export default function KYCVerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
   const { user, isAuthenticated, refreshUser } = useAuth();
-  const { colors, themeMode } = useTheme();
   
   const [loading, setLoading] = useState(true);
   const [kycStatus, setKycStatus] = useState('not_started');

@@ -15,14 +15,12 @@ import { MessageCircle, ArrowLeft, Send } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 import { SafeAreaView,useSafeAreaInsets  } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 
 
 
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const { colors, themeMode } = useTheme();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);

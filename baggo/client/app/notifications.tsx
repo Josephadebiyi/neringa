@@ -11,7 +11,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Package, CircleCheck as CheckCircle, Clock, ChevronRight } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 

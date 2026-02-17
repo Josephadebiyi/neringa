@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { MapPin, X, Minus, Plus } from 'lucide-react-native';
 
 export default function CheckRatesScreen() {

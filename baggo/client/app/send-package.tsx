@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { useState, useEffect, useRef  } from 'react';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { MapPin, Weight, ChevronLeft } from 'lucide-react-native';
 import axios from 'axios';
 import api from '@/utils/api';

@@ -9,11 +9,9 @@ import {
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { MapPin, Plus, Minus, Locate } from 'lucide-react-native';
-import { useTheme } from '@/contexts/ThemeContext';
 
 export default function AddAddressScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
   const [firstName, setFirstName] = useState('Jaydon');
   const [lastName, setLastName] = useState('Franci');
   const [address, setAddress] = useState('East 98th Street, New York');

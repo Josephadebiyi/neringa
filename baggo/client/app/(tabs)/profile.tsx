@@ -19,7 +19,6 @@ import { walletTransactions } from '@/utils/dummyData';
 import { currencies } from '@/utils/locations';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import api from '@/utils/api';
 import { backendomain } from '@/utils/backendDomain';
 import { useMemo } from 'react'

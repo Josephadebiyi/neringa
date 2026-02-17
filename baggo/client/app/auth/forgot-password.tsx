@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Package } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 
@@ -20,7 +19,6 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const router = useRouter();
-  const { colors } = useTheme();
 
   const handleForgotPassword = async () => {
     setError('');

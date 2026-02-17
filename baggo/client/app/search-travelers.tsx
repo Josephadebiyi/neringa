@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { MapPin, Calendar, Weight, Star, Plane, Shield, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react-native';
 import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
@@ -25,7 +24,6 @@ const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
 export default function SearchTravelersScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { colors } = useTheme();
   const { fromCountry, fromCity, toCountry, toCity, packageWeight, packageId, amount, image, packageCategory, packageType, packageValue } = params;
 
   const [insurance, setInsurance] = useState(false);

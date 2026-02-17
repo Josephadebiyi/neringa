@@ -6,7 +6,6 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { MapPin, Plus, Minus, Locate } from 'lucide-react-native';
 
 export default function LiveTrackingScreen() {

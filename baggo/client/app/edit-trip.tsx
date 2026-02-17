@@ -19,7 +19,6 @@ import axios from "axios";
 import { MapPin, Calendar, Weight, Plane, Bus, Train, Car, Ship, MoreHorizontal, ChevronLeft, Trash2 } from "lucide-react-native";
 import { backendomain } from "@/utils/backendDomain";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from '@/contexts/ThemeContext';
 
 const RAPID_API_KEY = "764ae3a2d0msh0d44a93e665c289p104415jsn9a0e1853cc6e";
 
@@ -28,7 +27,6 @@ export default function EditTripScreen() {
   const params = useLocalSearchParams();
   const tripId = params.id;
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
 
   const [tripData, setTripData] = useState(null);
   const [loading, setLoading] = useState(true);

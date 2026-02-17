@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '@/contexts/ThemeContext';
 import { MapPin, MessageCircle, Phone, Package as PackageIcon } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import axios from 'axios';

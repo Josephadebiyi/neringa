@@ -2,12 +2,10 @@ import { Tabs } from "expo-router";
 import { Hop as Home, Package, MessageCircle, User } from "lucide-react-native";
 import { useWindowDimensions, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "@/contexts/ThemeContext";
 
 export default function TabLayout() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
 
   // More stable responsive scaling
   const minSide = Math.min(width, height);
