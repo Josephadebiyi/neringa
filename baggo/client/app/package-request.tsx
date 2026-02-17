@@ -1254,7 +1254,7 @@ const getStatusColor = (status) => {
     case 'intransit':
       return '#FF9800';
     case 'delivering':
-      return colors.info;
+      return '#2196F3';
     case 'completed':
       return '#5845D8';
     case 'cancelled':
