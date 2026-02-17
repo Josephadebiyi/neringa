@@ -17,7 +17,7 @@ export default function TermsConditionsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
+          <ChevronLeft size={24} color={#111111} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Terms & Conditions</Text>
         <View style={{ width: 40 }} />
@@ -136,7 +136,7 @@ export default function TermsConditionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: #F8F6F3,
   },
   header: {
     flexDirection: 'row',
@@ -145,9 +145,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: #E5E7EB,
   },
   backButton: {
     width: 40,
@@ -156,12 +156,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: colors.text,
+    color: #111111,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
   },
   content: {
     flex: 1,
@@ -169,26 +169,26 @@ const styles = StyleSheet.create({
   },
   lastUpdated: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: #111111Muted,
     marginBottom: 16,
     fontStyle: 'italic',
   },
   intro: {
     fontSize: 14,
-    color: colors.textLight,
+    color: #111111Light,
     lineHeight: 22,
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: #111111,
     marginTop: 24,
     marginBottom: 12,
   },
   text: {
     fontSize: 14,
-    color: colors.textLight,
+    color: #111111Light,
     lineHeight: 24,
     marginBottom: 16,
   },

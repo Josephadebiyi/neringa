@@ -462,7 +462,7 @@ const handleSelectCity = (cityName: string) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
+          <ChevronLeft size={24} color={#111111} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Send Package</Text>
         <View style={{ width: 40 }} />
@@ -493,7 +493,7 @@ const handleSelectCity = (cityName: string) => {
                 onPress={() => openCountryModal('from')}
                 activeOpacity={0.8}
               >
-                <MapPin size={20} color={colors.textLight} />
+                <MapPin size={20} color={#111111Light} />
                 <Text style={styles.input}>{fromCountry || 'Enter country'}</Text>
               </TouchableOpacity>
             </View>
@@ -505,7 +505,7 @@ const handleSelectCity = (cityName: string) => {
       onPress={() => openCityModal('from')}
       activeOpacity={0.8}
     >
-      <MapPin size={20} color={colors.textLight} />
+      <MapPin size={20} color={#111111Light} />
       <Text style={styles.input}>{fromCity || 'Select city'}</Text>
     </TouchableOpacity>
   </View>
@@ -522,7 +522,7 @@ const handleSelectCity = (cityName: string) => {
                 onPress={() => openCountryModal('to')}
                 activeOpacity={0.8}
               >
-                <MapPin size={20} color={colors.textLight} />
+                <MapPin size={20} color={#111111Light} />
                 <Text style={styles.input}>{toCountry || 'Enter country'}</Text>
               </TouchableOpacity>
             </View>
@@ -534,7 +534,7 @@ const handleSelectCity = (cityName: string) => {
       onPress={() => openCityModal('to')}
       activeOpacity={0.8}
     >
-      <MapPin size={20} color={colors.textLight} />
+      <MapPin size={20} color={#111111Light} />
       <Text style={styles.input}>{toCity || 'Select city'}</Text>
     </TouchableOpacity>
   </View>
@@ -547,11 +547,11 @@ const handleSelectCity = (cityName: string) => {
             <View style={styles.section}>
               <Text style={styles.label}>Package Weight</Text>
               <View style={styles.weightInput}>
-                <Weight size={20} color={colors.textLight} />
+                <Weight size={20} color={#111111Light} />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter weight"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={#111111Muted}
                   keyboardType="decimal-pad"
                   value={packageWeight}
                   onChangeText={setPackageWeight}
@@ -566,7 +566,7 @@ const handleSelectCity = (cityName: string) => {
                 <TextInput
                   style={styles.input}
                   placeholder="Full name"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={#111111Muted}
                   value={receiverName}
                   onChangeText={setReceiverName}
                 />
@@ -589,9 +589,9 @@ const handleSelectCity = (cityName: string) => {
         {receiverFlag ? (
           <Image source={{ uri: receiverFlag }} style={{ width: 32, height: 22, borderRadius: 4, marginRight: 6 }} />
         ) : (
-          <View style={{ width: 32, height: 22, borderRadius: 4, backgroundColor: colors.border, marginRight: 6 }} />
+          <View style={{ width: 32, height: 22, borderRadius: 4, backgroundColor: #E5E7EB, marginRight: 6 }} />
         )}
-        <Text style={{ fontSize: 15, color: colors.text }}>
+        <Text style={{ fontSize: 15, color: #111111 }}>
           {receiverCountryCode || '+'}
         </Text>
       </TouchableOpacity>
@@ -601,11 +601,11 @@ const handleSelectCity = (cityName: string) => {
           styles.input,
           {
             flex: 1,
-            color: colors.text,
+            color: #111111,
           },
         ]}
         placeholder="000 000 0000"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={#111111Muted}
         keyboardType="phone-pad"
         value={receiverPhone}
         onChangeText={setReceiverPhone}
@@ -624,7 +624,7 @@ const handleSelectCity = (cityName: string) => {
     <TextInput
       style={styles.input}
       placeholder="Enter package value"
-      placeholderTextColor={colors.textMuted}
+      placeholderTextColor={#111111Muted}
       keyboardType="decimal-pad"
       value={value}
       onChangeText={setValue}
@@ -639,7 +639,7 @@ const handleSelectCity = (cityName: string) => {
                 <TextInput
                   style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
                   placeholder="What's in the package?"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={#111111Muted}
                   multiline
                   value={description}
                   onChangeText={setDescription}
@@ -652,7 +652,7 @@ const handleSelectCity = (cityName: string) => {
             {/* IMAGE UPLOAD SECTION (single image) */}
             <View style={styles.section}>
       <Text style={styles.label}>Package Photo (optional)</Text>
-      <Text style={{ marginBottom: 8, color: colors.textLight }}>
+      <Text style={{ marginBottom: 8, color: #111111Light }}>
         Add one photo of the package
       </Text>
 
@@ -664,7 +664,7 @@ const handleSelectCity = (cityName: string) => {
             { width: 120, height: 120, justifyContent: "center", alignItems: "center" },
           ]}
         >
-          <Text style={{ color: colors.primary, fontWeight: "700" }}>
+          <Text style={{ color: #6366F1, fontWeight: "700" }}>
             {imagePreview ? "Change" : "Add Photo"}
           </Text>
         </TouchableOpacity>
@@ -699,14 +699,14 @@ const handleSelectCity = (cityName: string) => {
 
             <View style={styles.routeCard}>
               <View style={styles.routeRow}>
-                <MapPin size={18} color={colors.primary} />
+                <MapPin size={18} color={#6366F1} />
                 <Text style={styles.routeText}>
                   {fromCity}, {fromCountry}
                 </Text>
               </View>
               <Text style={styles.routeArrow}>↓</Text>
               <View style={styles.routeRow}>
-                <MapPin size={18} color={colors.secondary} />
+                <MapPin size={18} color={#EC4899} />
                 <Text style={styles.routeText}>
                   {toCity}, {toCountry}
                 </Text>
@@ -727,14 +727,14 @@ const handleSelectCity = (cityName: string) => {
             <TextInput
               style={modalStyles.searchInput}
               placeholder="Search country..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={#111111Muted}
               value={countrySearch}
               onChangeText={setCountrySearch}
             />
           </View>
 
           {loadingCountries ? (
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="large" color={#6366F1} />
           ) : (
             <FlatList
               data={filteredCountries}
@@ -770,14 +770,14 @@ const handleSelectCity = (cityName: string) => {
             <TextInput
               style={modalStyles.searchInput}
               placeholder="Search city..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={#111111Muted}
               value={citySearch}
               onChangeText={setCitySearch}
             />
           </View>
 
           {loadingCities ? (
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="large" color={#6366F1} />
           ) : cities.length > 0 ? (
             <FlatList
               data={cities.filter((city) =>
@@ -798,7 +798,7 @@ const handleSelectCity = (cityName: string) => {
                     marginTop: 10,
                     padding: 12,
                     borderRadius: 10,
-                    backgroundColor: colors.secondary,
+                    backgroundColor: #EC4899,
                     alignItems: 'center',
                   }}
                   onPress={() => setCities([])} // clear list to show manual input
@@ -819,23 +819,23 @@ const handleSelectCity = (cityName: string) => {
                 style={[
                   modalStyles.searchInput,
                   {
-                    backgroundColor: colors.white,
+                    backgroundColor: #FFFFFF,
                     borderRadius: 10,
                     paddingHorizontal: 12,
                     height: 48,
                     borderWidth: 1,
-                    borderColor: colors.border,
+                    borderColor: #E5E7EB,
                   },
                 ]}
                 placeholder="Type your city name..."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={#111111Muted}
                 value={citySearch}
                 onChangeText={setCitySearch}
               />
               <TouchableOpacity
                 style={{
                   marginTop: 16,
-                  backgroundColor: colors.primary,
+                  backgroundColor: #6366F1,
                   padding: 14,
                   borderRadius: 10,
                   alignItems: 'center',
@@ -892,7 +892,7 @@ const handleSelectCity = (cityName: string) => {
 const modalStyles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: #F8F6F3,
     paddingTop: 60,
     paddingHorizontal: 20,
   },
@@ -900,10 +900,10 @@ const modalStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12,
-    color: colors.text,
+    color: #111111,
   },
   searchBox: {
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     paddingHorizontal: 12,
     marginBottom: 12,
@@ -912,17 +912,17 @@ const modalStyles = StyleSheet.create({
   },
   searchInput: {
     fontSize: 15,
-    color: colors.text,
+    color: #111111,
   },
   modalItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 8,
     marginBottom: 8,
-    shadowColor: colors.shadow,
+    shadowColor: #000000,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -930,11 +930,11 @@ const modalStyles = StyleSheet.create({
   },
   modalItemText: {
     fontSize: 16,
-    color: colors.text,
+    color: #111111,
   },
   closeButton: {
     marginTop: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: #6366F1,
     padding: 12,
     borderRadius: 12,
   },
@@ -948,7 +948,7 @@ const modalStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: #F8F6F3,
   },
   header: {
     flexDirection: 'row',
@@ -957,7 +957,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
   },
   backButton: {
     width: 40,
@@ -966,28 +966,28 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: colors.text,
+    color: #111111,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
   },
   progressBar: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 8,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
   },
   progressStep: {
     flex: 1,
     height: 4,
-    backgroundColor: colors.border,
+    backgroundColor: #E5E7EB,
     borderRadius: 2,
   },
   progressStepActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: #6366F1,
   },
   content: {
     flex: 1,
@@ -996,12 +996,12 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
+    color: #111111,
     marginBottom: 8,
   },
   stepSubtitle: {
     fontSize: 15,
-    color: colors.textLight,
+    color: #111111Light,
     marginBottom: 24,
   },
   section: {
@@ -1010,18 +1010,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
-    shadowColor: colors.shadow,
+    shadowColor: #000000,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1030,38 +1030,38 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: colors.text,
+    color: #111111,
   },
   unit: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.textLight,
+    color: #111111Light,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: #E5E7EB,
     marginVertical: 32,
   },
   weightInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     gap: 12,
-    shadowColor: colors.shadow,
+    shadowColor: #000000,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
   routeCard: {
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 16,
     padding: 20,
     marginTop: 24,
-    shadowColor: colors.shadow,
+    shadowColor: #000000,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1075,34 +1075,34 @@ const styles = StyleSheet.create({
   routeText: {
     fontSize: 16,
     fontWeight: '500',
-    color: colors.text,
+    color: #111111,
   },
   routeArrow: {
     fontSize: 20,
-    color: colors.textLight,
+    color: #111111Light,
     marginVertical: 8,
     marginLeft: 8,
   },
   footer: {
     padding: 20,
     paddingBottom: 32,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: #E5E7EB,
   },
   continueButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: #6366F1,
     borderRadius: 12,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
   },
   continueButtonDisabled: {
-    backgroundColor: colors.textMuted,
+    backgroundColor: #111111Muted,
   },
   continueButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.white,
+    color: #FFFFFF,
   },
 });

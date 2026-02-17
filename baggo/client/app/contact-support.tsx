@@ -54,7 +54,7 @@ export default function ContactSupportScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
+          <ChevronLeft size={24} color={#111111} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Contact Support</Text>
         <View style={{ width: 40 }} />
@@ -63,21 +63,21 @@ export default function ContactSupportScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contactMethods}>
           <TouchableOpacity style={styles.contactCard}>
-            <Mail size={24} color={colors.primary} />
+            <Mail size={24} color={#6366F1} />
             <Text style={styles.contactTitle}>Email Us</Text>
             <Text style={styles.contactText}>support@baggo.eu</Text>
             <Text style={styles.contactHours}>Response within 24h</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.contactCard}>
-            <Phone size={24} color={colors.primary} />
+            <Phone size={24} color={#6366F1} />
             <Text style={styles.contactTitle}>Call Us</Text>
             <Text style={styles.contactText}>+32 2 123 4567</Text>
             <Text style={styles.contactHours}>Mon-Fri 9AM-6PM CET</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.contactCard}>
-            <MessageCircle size={24} color={colors.primary} />
+            <MessageCircle size={24} color={#6366F1} />
             <Text style={styles.contactTitle}>Live Chat</Text>
             <Text style={styles.contactText}>Start a conversation</Text>
             <Text style={styles.contactHours}>Available 24/7</Text>
@@ -114,7 +114,7 @@ export default function ContactSupportScreen() {
           <TextInput
             style={styles.input}
             placeholder="Brief description of your issue"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={#111111Muted}
             value={subject}
             onChangeText={setSubject}
           />
@@ -123,7 +123,7 @@ export default function ContactSupportScreen() {
           <TextInput
             style={styles.textArea}
             placeholder="Provide detailed information about your issue..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={#111111Muted}
             multiline
             numberOfLines={6}
             value={message}
@@ -132,7 +132,7 @@ export default function ContactSupportScreen() {
           />
 
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Send size={20} color={colors.white} />
+            <Send size={20} color={#FFFFFF} />
             <Text style={styles.submitButtonText}>Send Message</Text>
           </TouchableOpacity>
         </View>
@@ -143,7 +143,7 @@ export default function ContactSupportScreen() {
           {faqs.map((faq, index) => (
             <View key={index} style={styles.faqCard}>
               <View style={styles.faqHeader}>
-                <HelpCircle size={20} color={colors.primary} />
+                <HelpCircle size={20} color={#6366F1} />
                 <Text style={styles.faqQuestion}>{faq.question}</Text>
               </View>
               <Text style={styles.faqAnswer}>{faq.answer}</Text>
@@ -155,13 +155,13 @@ export default function ContactSupportScreen() {
           <Text style={styles.sectionTitle}>Resources</Text>
 
           <TouchableOpacity style={styles.resourceCard}>
-            <FileText size={20} color={colors.primary} />
+            <FileText size={20} color={#6366F1} />
             <Text style={styles.resourceTitle}>Help Center</Text>
             <Text style={styles.resourceDesc}>Browse our complete documentation</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.resourceCard}>
-            <AlertCircle size={20} color={colors.primary} />
+            <AlertCircle size={20} color={#6366F1} />
             <Text style={styles.resourceTitle}>Report an Issue</Text>
             <Text style={styles.resourceDesc}>Report technical problems or bugs</Text>
           </TouchableOpacity>
@@ -176,7 +176,7 @@ export default function ContactSupportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: #F8F6F3,
   },
   header: {
     flexDirection: 'row',
@@ -185,9 +185,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: #E5E7EB,
   },
   backButton: {
     width: 40,
@@ -196,12 +196,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 24,
-    color: colors.text,
+    color: #111111,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
   },
   content: {
     flex: 1,
@@ -213,11 +213,11 @@ const styles = StyleSheet.create({
   },
   contactCard: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    shadowColor: colors.shadow,
+    shadowColor: #000000,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -226,19 +226,19 @@ const styles = StyleSheet.create({
   contactTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
     marginTop: 12,
     marginBottom: 4,
   },
   contactText: {
     fontSize: 12,
-    color: colors.primary,
+    color: #6366F1,
     fontWeight: '500',
     marginBottom: 4,
   },
   contactHours: {
     fontSize: 11,
-    color: colors.textMuted,
+    color: #111111Muted,
   },
   section: {
     padding: 20,
@@ -246,13 +246,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: #111111,
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
     marginBottom: 8,
     marginTop: 12,
   },
@@ -266,44 +266,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: #E5E7EB,
   },
   categoryButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: #6366F1,
+    borderColor: #6366F1,
   },
   categoryText: {
     fontSize: 13,
     fontWeight: '500',
-    color: colors.text,
+    color: #111111,
   },
   categoryTextActive: {
-    color: colors.white,
+    color: #FFFFFF,
   },
   input: {
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
     fontSize: 15,
-    color: colors.text,
+    color: #111111,
     marginBottom: 16,
   },
   textArea: {
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
-    color: colors.text,
+    color: #111111,
     minHeight: 120,
     marginBottom: 20,
   },
   submitButton: {
     flexDirection: 'row',
-    backgroundColor: colors.primary,
+    backgroundColor: #6366F1,
     borderRadius: 12,
     height: 52,
     justifyContent: 'center',
@@ -313,10 +313,10 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.white,
+    color: #FFFFFF,
   },
   faqCard: {
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -331,15 +331,15 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
   },
   faqAnswer: {
     fontSize: 14,
-    color: colors.textLight,
+    color: #111111Light,
     lineHeight: 20,
   },
   resourceCard: {
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -347,12 +347,12 @@ const styles = StyleSheet.create({
   resourceTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: #111111,
     marginTop: 8,
     marginBottom: 4,
   },
   resourceDesc: {
     fontSize: 14,
-    color: colors.textLight,
+    color: #111111Light,
   },
 });

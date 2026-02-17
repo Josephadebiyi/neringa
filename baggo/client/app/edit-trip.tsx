@@ -295,7 +295,7 @@ export default function EditTripScreen() {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={#6366F1} />
       </View>
     );
   }
@@ -305,7 +305,7 @@ export default function EditTripScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
+          <ChevronLeft size={24} color={#111111} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Trip</Text>
         <TouchableOpacity 
@@ -328,13 +328,13 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>From</Text>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("from")}>
-            <MapPin size={20} color={colors.textLight} />
+            <MapPin size={20} color={#111111Light} />
             <Text style={[styles.inputText, !fromCountry && styles.placeholder]}>
               {fromCountry || "Select Country"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("from")}>
-            <MapPin size={20} color={colors.textLight} />
+            <MapPin size={20} color={#111111Light} />
             <Text style={[styles.inputText, !fromCity && styles.placeholder]}>
               {fromCity || "Select City"}
             </Text>
@@ -345,13 +345,13 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>To</Text>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCountryModal("to")}>
-            <MapPin size={20} color={colors.textLight} />
+            <MapPin size={20} color={#111111Light} />
             <Text style={[styles.inputText, !toCountry && styles.placeholder]}>
               {toCountry || "Select Country"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inputContainer} onPress={() => openCityModal("to")}>
-            <MapPin size={20} color={colors.textLight} />
+            <MapPin size={20} color={#111111Light} />
             <Text style={[styles.inputText, !toCity && styles.placeholder]}>
               {toCity || "Select City"}
             </Text>
@@ -362,13 +362,13 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Travel Dates</Text>
           <TouchableOpacity style={styles.inputContainer} onPress={() => setDatePickerVisibility(true)}>
-            <Calendar size={20} color={colors.textLight} />
+            <Calendar size={20} color={#111111Light} />
             <Text style={[styles.inputText, !departureDate && styles.placeholder]}>
               {departureDate ? formatDate(departureDate) : "Departure Date"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inputContainer} onPress={() => setArrivalDatePickerVisibility(true)}>
-            <Calendar size={20} color={colors.textLight} />
+            <Calendar size={20} color={#111111Light} />
             <Text style={[styles.inputText, !arrivalDate && styles.placeholder]}>
               {arrivalDate ? formatDate(arrivalDate) : "Arrival Date"}
             </Text>
@@ -388,7 +388,7 @@ export default function EditTripScreen() {
                   style={[styles.modeCard, isSelected && styles.modeCardSelected]}
                   onPress={() => setTravelMeans(mode.id)}
                 >
-                  <Icon size={24} color={isSelected ? colors.primary : colors.textLight} />
+                  <Icon size={24} color={isSelected ? #6366F1 : #111111Light} />
                   <Text style={[styles.modeLabel, isSelected && styles.modeLabelSelected]}>{mode.label}</Text>
                 </TouchableOpacity>
               );
@@ -400,11 +400,11 @@ export default function EditTripScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Capacity & Pricing</Text>
           <View style={styles.inputContainer}>
-            <Weight size={20} color={colors.textLight} />
+            <Weight size={20} color={#111111Light} />
             <TextInput
               style={styles.textInput}
               placeholder="Available KG"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={#111111Muted}
               keyboardType="decimal-pad"
               value={availableKg}
               onChangeText={setAvailableKg}
@@ -416,7 +416,7 @@ export default function EditTripScreen() {
             <TextInput
               style={styles.textInput}
               placeholder="Price per KG"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={#111111Muted}
               keyboardType="decimal-pad"
               value={pricePerKg}
               onChangeText={setPricePerKg}
@@ -428,7 +428,7 @@ export default function EditTripScreen() {
         {/* Update Button */}
         <TouchableOpacity style={styles.updateButton} onPress={handleUpdate} disabled={loading}>
           {loading ? (
-            <ActivityIndicator color={colors.white} />
+            <ActivityIndicator color={#FFFFFF} />
           ) : (
             <Text style={styles.updateButtonText}>Update Trip</Text>
           )}
@@ -455,7 +455,7 @@ export default function EditTripScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Search country..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={#111111Muted}
               value={countrySearch}
               onChangeText={setCountrySearch}
             />
@@ -486,13 +486,13 @@ export default function EditTripScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Search or type city..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={#111111Muted}
               value={citySearch}
               onChangeText={setCitySearch}
               ref={cityInputRef}
             />
             {loadingCities ? (
-              <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color={#6366F1} style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={filteredCities}
@@ -538,7 +538,7 @@ export default function EditTripScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: #F8F6F3,
   },
   centerContent: {
     justifyContent: "center",
@@ -550,22 +550,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: #E5E7EB,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.background,
+    backgroundColor: #F8F6F3,
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: colors.text,
+    color: #111111,
   },
   deleteButton: {
     width: 40,
@@ -589,43 +589,43 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: colors.text,
+    color: #111111,
     marginBottom: 12,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: #E5E7EB,
   },
   inputText: {
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: colors.text,
+    color: #111111,
   },
   placeholder: {
-    color: colors.textMuted,
+    color: #111111Muted,
   },
   textInput: {
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: colors.text,
+    color: #111111,
   },
   unit: {
     fontSize: 14,
-    color: colors.textLight,
+    color: #111111Light,
     marginLeft: 8,
   },
   currencyIcon: {
     fontSize: 18,
-    color: colors.textLight,
+    color: #111111Light,
   },
   modeGrid: {
     flexDirection: "row",
@@ -634,41 +634,41 @@ const styles = StyleSheet.create({
   },
   modeCard: {
     width: "30%",
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: #E5E7EB,
   },
   modeCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: `${colors.primary}10`,
+    borderColor: #6366F1,
+    backgroundColor: `${#6366F1}10`,
   },
   modeLabel: {
     marginTop: 8,
     fontSize: 12,
-    color: colors.textLight,
+    color: #111111Light,
   },
   modeLabelSelected: {
-    color: colors.primary,
+    color: #6366F1,
     fontWeight: "600",
   },
   updateButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: #6366F1,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 16,
   },
   updateButtonText: {
-    color: colors.white,
+    color: #FFFFFF,
     fontSize: 16,
     fontWeight: "600",
   },
   deleteInfo: {
     textAlign: "center",
-    color: colors.textMuted,
+    color: #111111Muted,
     fontSize: 12,
     marginTop: 12,
   },
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: #FFFFFF,
     marginTop: 60,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -695,36 +695,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: #E5E7EB,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: colors.text,
+    color: #111111,
   },
   modalClose: {
     fontSize: 16,
-    color: colors.primary,
+    color: #6366F1,
   },
   searchInput: {
-    backgroundColor: colors.background,
+    backgroundColor: #F8F6F3,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginVertical: 12,
     fontSize: 16,
-    color: colors.text,
+    color: #111111,
   },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: #E5E7EB,
   },
   listItemText: {
     fontSize: 16,
-    color: colors.text,
+    color: #111111,
     marginLeft: 12,
   },
   flag: {

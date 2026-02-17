@@ -538,7 +538,7 @@ const handleRequestPackage = async () => {
     >
       <View style={styles.container}>
         {/* Header */}
-        <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.header}>
+        <LinearGradient colors={[#6366F1, #6366F1Dark]} style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
@@ -586,7 +586,7 @@ const handleRequestPackage = async () => {
     </Text>
   )}
   {userReferral && !hasUsedReferralDiscount && (
-    <Text style={[styles.summaryText, { color: colors.primary }]}>
+    <Text style={[styles.summaryText, { color: #6366F1 }]}>
       Referral Discount Applied: -3% ({currencySymbol}{discount.toFixed(2)})
     </Text>
   )}
@@ -798,7 +798,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#e5e7eb",
   },
   modalVerifyButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: #6366F1,
   },
   modalCancelText: {
     color: "#374151",
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
   },
   activeTab: { backgroundColor: "#fff", elevation: 2 },
   tabText: { color: "#555", fontWeight: "500" },
-  activeTabText: { color: colors.primary, fontWeight: "600" },
+  activeTabText: { color: #6366F1, fontWeight: "600" },
 
   paymentSection: {
     backgroundColor: "#fff",
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
   },
 
   payButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: #6366F1,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   errorText: {
     fontSize: 14,
-    color: colors.error,
+    color: #EF4444,
     textAlign: "center",
     marginTop: 8,
   },
