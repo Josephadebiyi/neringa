@@ -8,7 +8,9 @@ Build a fully functional mobile app for "Baggo" that connects travelers with pac
 4. Payment integration (Stripe, Paystack)
 5. Trip management and package requests
 6. Push notifications
-7. **Intelligent Shipment Assessment System** (NEW)
+7. **Intelligent Shipment Assessment System**
+8. **Admin Pricing System** (NEW)
+9. **Enhanced KYC Enforcement** (NEW)
 
 ## Tech Stack
 - **Frontend:** React Native (Expo), TypeScript
@@ -20,160 +22,153 @@ Build a fully functional mobile app for "Baggo" that connects travelers with pac
 ```
 /app/baggo
 ├── boggoAdmin/     # React/Vite Admin Panel
+│   └── src/react-app/pages/
+│       └── Routes.tsx           # NEW: Route pricing management
 ├── backend/        # Node.js/Express Backend (port 5000)
-│   ├── services/
-│   │   ├── shipmentAssessment.js  # Risk scoring engine
-│   │   └── pdfGenerator.js        # Customs PDF generation
-│   ├── data/
-│   │   └── customsRules.js        # HS codes, duties, restrictions
 │   ├── controllers/
-│   ├── middleware/
+│   │   └── routeController.js   # NEW: Route CRUD operations
 │   ├── models/
-│   └── server.js
+│   │   ├── RouteModel.js        # NEW: Route pricing schema
+│   │   └── ShipmentModel.js     # NEW: Shipment booking schema
+│   ├── services/
+│   │   ├── shipmentAssessment.js
+│   │   └── pdfGenerator.js
+│   ├── data/
+│   │   └── customsRules.js
+│   └── server.js                # Enhanced KYC webhook
 └── client/         # React Native (Expo) Mobile App
     ├── app/
     ├── components/
-    │   ├── ShipmentAssessment.tsx    # Assessment modal
-    │   └── ConfidenceScoreBadge.tsx  # Score badges
     ├── contexts/
     ├── hooks/
     └── utils/
-        └── shipmentAssessment.ts  # API service
 ```
 
 ## What's Been Implemented
 
-### February 17, 2026 - Shipment Assessment System
+### February 17, 2026 - Session 2
 
-#### NEW: Intelligent Shipment Assessment System ✅
-Complete implementation of shipment compatibility assessment with:
+#### NEW: Enhanced KYC Enforcement System ✅
+Complete overhaul of DIDIT webhook with:
 
-**Backend Services:**
-- `/app/baggo/backend/services/shipmentAssessment.js` - Risk scoring engine
-- `/app/baggo/backend/services/pdfGenerator.js` - PDF generation with PDFKit
-- `/app/baggo/backend/data/customsRules.js` - Comprehensive customs database
+1. **Data Matching**
+   - Compares full name from document with signup name
+   - Compares date of birth from document with signup DOB
+   - Fuzzy matching for names (handles partial matches)
+   - Rejects verification on mismatch with clear reason
+
+2. **Identity Fingerprinting (Duplicate Protection)**
+   - Generates SHA-256 hash of: `documentNumber + issuingCountry + DOB`
+   - Checks for existing fingerprint before approval
+   - Blocks verification if document already used by another account
+   - Status: `blocked_duplicate` for caught duplicates
+
+3. **Profile Overwrite**
+   - On successful verification, overwrites user's name and DOB with document data
+   - Stores verified document data for audit trail
+   - Maintains `kycVerifiedData` object with all document fields
+
+**KYC Status Values:**
+- `not_started` - User hasn't initiated KYC
+- `pending` - Verification in progress
+- `approved` - Successfully verified
+- `declined` - DIDIT rejected the documents
+- `failed_verification` - Data mismatch detected
+- `blocked_duplicate` - Document already used
+
+#### NEW: Admin Pricing System ✅
+Complete route/pricing management:
+
+**Backend (routeController.js):**
+- Create, Read, Update, Delete routes
+- Search routes by origin/destination
+- Calculate pricing for weight
+- Get trip pricing based on route match
+- Auto-detect African routes for Paystack
+
+**Models:**
+- `RouteModel.js`: Route schema with pricing, commission, weight limits
+- `ShipmentModel.js`: Shipment booking with payment tracking
+
+**Admin Dashboard:**
+- `Routes.tsx`: Full CRUD UI for route management
+- Add/Edit modal with all route fields
+- Transport mode selection (Air, Bus, Ship, Train, Car)
+- Active/Inactive toggle
+- Search and filter functionality
 
 **API Endpoints:**
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/shipment/assess` | POST | Full shipment assessment with risk scores |
-| `/api/shipment/quick-check` | POST | Quick compatibility filter for trips |
-| `/api/shipment/generate-pdf` | POST | Generate customs declaration PDF |
-| `/api/shipment/customs-pdf/:id` | GET | Download stored PDF |
-| `/api/shipment/history` | GET | User's assessment history |
-| `/api/trips/search-compatible` | POST | Search with compatibility filter |
-| `/api/customs/rules/:country` | GET | Country-specific rules |
-| `/api/customs/hs-codes` | GET | HS code database |
+| `/api/Adminbaggo/routes` | GET | List all routes (admin) |
+| `/api/Adminbaggo/routes` | POST | Create route (admin) |
+| `/api/Adminbaggo/routes/:id` | PUT | Update route (admin) |
+| `/api/Adminbaggo/routes/:id` | DELETE | Delete route (admin) |
+| `/api/routes/search` | GET | Search routes (public) |
+| `/api/routes/calculate-price` | POST | Calculate pricing (public) |
+| `/api/routes/trip-pricing` | POST | Get pricing for trip (public) |
+| `/api/payment/gateway/:countryCode` | GET | Get payment gateway for country |
 
-**Features:**
-1. **Shipment Compatibility Check** (Yes/No/Conditional)
-2. **Delivery Confidence Score** (0-100)
-3. **Risk Classification:**
-   - Border/Customs Risk
-   - Delay Risk
-   - Damage Risk
-   - Confiscation Risk
-4. **Price Suggestions** based on weight, risk, urgency, transport mode
-5. **Customs Compliance:**
-   - HS Code classification
-   - Duty & VAT estimates
-   - Required documents
-6. **PDF Customs Declaration** with:
-   - Route information
-   - Item details
-   - Customs classification
-   - Carrier information
-   - Declaration statement
-   - Signature boxes
+**Payment Gateway Detection:**
+- African countries → Paystack
+- Other countries → Stripe
+- Auto-currency detection based on country
 
-**Risk Scoring Weights:**
-- Traveler Reliability: 30%
-- Item Category Risk: 25%
-- Route Risk: 25%
-- Transport Mode: 20%
-
-**Supported Countries:**
-EU, GB, US, NG, GH, KE, ZA, FR, DE, CA (+ DEFAULT fallback)
-
-**Transport Modes:**
-Air, Bus, Ship, Train, Car - each with specific restrictions
-
-**Frontend Components:**
-- `ShipmentAssessment.tsx` - Full assessment modal
-- `ConfidenceScoreBadge.tsx` - Score display badges
-- `shipmentAssessment.ts` - API service utilities
-- Updated `search-travelers.tsx` - Compatibility filtering
-
-### Previous Session - Dark Mode & Push Notifications
-
-#### Dark Mode Refactor: ✅ COMPLETE
-All 35+ screens use dynamic theming via `ThemeContext`
-
-#### Push Notifications: ✅ COMPLETE
-- Integrated `PushNotificationSetup` into root layout
-- Backend handles token registration
-
-#### Currency Conversion: ✅ COMPLETE
-- `useCurrency` hook for currency detection and conversion
-
-#### KYC Webhook: ✅ COMPLETE
-- Webhook URL: `https://neringa.onrender.com/api/didit/webhook`
-
-## API Usage Examples
-
-### Assess a Shipment
+**Route Schema:**
 ```javascript
-POST /api/shipment/assess
 {
-  "tripId": "trip_id_here",
-  "item": {
-    "type": "smartphone",
-    "category": "electronics",
-    "value": 500,
-    "quantity": 1,
-    "weight": 0.5
-  },
-  "senderCountry": "GB"
+  originCity, originCountry, originCountryCode,
+  destinationCity, destinationCountry, destinationCountryCode,
+  basePricePerKg: Number,
+  currency: 'NGN' | 'USD' | 'GBP' | 'EUR' | 'GHS' | 'KES' | 'ZAR',
+  travelerCommissionPercent: Number (default: 70),
+  platformFeePercent: Number (auto-calculated),
+  minWeightKg, maxWeightKg,
+  estimatedDeliveryMinDays, estimatedDeliveryMaxDays,
+  supportedTransportModes: ['air', 'bus', 'ship', 'train', 'car'],
+  isAfricanRoute: Boolean (auto-detected),
+  isActive: Boolean
 }
 ```
 
-### Quick Compatibility Check
-```javascript
-POST /api/shipment/quick-check
-{
-  "trips": [...],
-  "item": { "weight": 3, "category": "electronics", ... }
-}
-```
+### Previous Sessions
 
-### Generate PDF
-```javascript
-POST /api/shipment/generate-pdf
-{
-  "declarationData": { ... }
-}
-// Returns base64 PDF
-```
+#### Intelligent Shipment Assessment System ✅
+- Risk scoring engine
+- Customs compliance checking
+- PDF declaration generation
 
-## Database Schema Updates
-```javascript
-User: {
-  shipmentAssessments: [Mixed], // Assessment history
-  completedTrips: Number,
-  cancellations: Number,
-  rating: Number,
-  // ... existing fields
-}
-```
+#### Push Notifications ✅
+- Expo push notification integration
+- KYC status notifications
+
+#### Currency Conversion ✅
+- `useCurrency` hook
+- Exchange rate API integration
 
 ## Remaining Work
-- **Testing:** Full end-to-end testing with Expo
-- **Admin Dashboard:** Verification and testing
+
+### P0 - In Progress
+- [ ] Integrate admin pricing into mobile app trip display
+- [ ] Implement Paystack payment flow in mobile app
+- [ ] Post-payment tracking number generation
+
+### P1 - Upcoming
+- [ ] Resend email integration for receipts
+- [ ] PDF receipt generation and download
+- [ ] Push notifications for shipment status updates
+
+### P2 - Future
+- [ ] Re-attempt Dark Mode (different approach needed)
+- [ ] EAS Build verification
+- [ ] Full admin dashboard testing
 
 ## Environment Variables
 Backend (.env):
 - MONGO_URI
 - JWT_SECRET
 - DIDIT_API_KEY, DIDIT_WEBHOOK_SECRET
-- STRIPE_SECRET_KEY
+- STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY
+- PAYSTACK_SECRET
 - RESEND_API_KEY
+- BASE_URL
