@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   formSection: {
     backgroundColor: '#FFFFFF',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 8,
     marginTop: 12,
     fontWeight: '500',

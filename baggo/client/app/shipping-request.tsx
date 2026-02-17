@@ -636,7 +636,7 @@ useEffect(() => {
         {/* Package Photo */}
         <View style={styles.section}>
           <Text style={styles.label}>Package Photo (optional)</Text>
-          <Text style={{ marginBottom: 8, color: '#111111'Light }}>Add one photo of the package</Text>
+          <Text style={{ marginBottom: 8, color: '#6B7280' }}>Add one photo of the package</Text>
 
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'center' }}>
             <TouchableOpacity
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
@@ -775,7 +775,7 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 12, fontWeight: '600', color: '#6366F1' },
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   routeText: { fontSize: 14, color: '#111111' },
-  arrow: { fontSize: 14, color: '#111111'Light },
+  arrow: { fontSize: 14, color: '#6B7280' },
   section: { padding: 20 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111111', marginBottom: 16 },
   inputGroup: { marginBottom: 16 },
@@ -835,21 +835,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  unit: { fontSize: 15, fontWeight: '600', color: '#111111'Light },
-  currency: { fontSize: 16, fontWeight: '600', color: '#111111'Light },
-  insuranceCard: { backgroundColor: '#F8F6F3'Light, borderRadius: 12, padding: 16, marginTop: 8 },
+  unit: { fontSize: 15, fontWeight: '600', color: '#6B7280' },
+  currency: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
+  insuranceCard: { backgroundColor: '#F3F4F6', borderRadius: 12, padding: 16, marginTop: 8 },
   insuranceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   insuranceTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111111' },
-  insuranceText: { fontSize: 13, color: '#111111'Light, marginTop: 8, marginLeft: 28 },
+  insuranceText: { fontSize: 13, color: '#6B7280', marginTop: 8, marginLeft: 28 },
   priceCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20 },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  priceLabel: { fontSize: 15, color: '#111111'Light },
+  priceLabel: { fontSize: 15, color: '#6B7280' },
   priceValue: { fontSize: 15, fontWeight: '600', color: '#111111' },
   divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
   totalLabel: { fontSize: 17, fontWeight: 'bold', color: '#111111' },
   totalValue: { fontSize: 20, fontWeight: 'bold', color: '#6366F1' },
   footer: { padding: 20, paddingBottom: 32, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
   continueButton: { backgroundColor: '#6366F1', borderRadius: 12, height: 56, justifyContent: 'center', alignItems: 'center' },
-  continueButtonDisabled: { backgroundColor: '#111111'Muted },
+  continueButtonDisabled: { backgroundColor: '#9CA3AF' },
   continueButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
 });

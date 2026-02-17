@@ -1222,7 +1222,7 @@ const handleCurrencySelect = (newCurrency: string) => {
                     backgroundColor:
                       txn.type === 'credit'
                         ? #22C55ELight
-                        : '#F8F6F3'Light,
+                        : '#F3F4F6',
                   },
                 ]}
               >
@@ -1570,7 +1570,7 @@ const handleCurrencySelect = (newCurrency: string) => {
       <Text style={styles.modalLabel}>Select Bank</Text>
       <ScrollView style={{ maxHeight: 200, marginBottom: 10 }}>
       {paystackBanks.length === 0 ? (
-        <Text style={{ padding: 12, color: '#111111'Light }}>
+        <Text style={{ padding: 12, color: '#6B7280' }}>
           No banks loaded — check console logs.
         </Text>
       ) : (
@@ -1642,7 +1642,7 @@ const handleCurrencySelect = (newCurrency: string) => {
         </TouchableOpacity>
       </View>
 
-      <Text style={{ fontSize: 14, color: '#111111'Light, marginBottom: 20, lineHeight: 20 }}>
+      <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 20, lineHeight: 20 }}>
         We're sorry to see you go. Please help us improve by answering these questions.
       </Text>
 
@@ -1766,7 +1766,7 @@ stripeTitle: {
 stripeConnected: {
   flexDirection: 'row',
   alignItems: 'center',
-  backgroundColor: '#22C55E'Light,
+  backgroundColor: '#86EFAC',
   padding: 12,
   borderRadius: 12,
   gap: 8,
@@ -1931,7 +1931,7 @@ connectButtonText: {
   },
   transactionDate: {
     fontSize: 12,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   transactionAmount: {
     fontSize: 16,
@@ -1953,7 +1953,7 @@ connectButtonText: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1969,7 +1969,7 @@ connectButtonText: {
   },
   menuSubtitle: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   signOutButton: {
     flexDirection: 'row',
@@ -2051,12 +2051,12 @@ bankName: {
   },
   methodOptionActive: {
     borderColor: '#6366F1',
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
   },
   methodText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   methodTextActive: {
     color: '#6366F1',
@@ -2093,7 +2093,7 @@ bankName: {
   elevation: 2,
 },
 referralLabel: {
-  color: '#111111'Muted,
+  color: '#9CA3AF',
   fontSize: 13,
   marginBottom: 4,
 },
@@ -2101,7 +2101,7 @@ referralBox: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  backgroundColor: '#F8F6F3'Light,
+  backgroundColor: '#F3F4F6',
   paddingVertical: 8,
   paddingHorizontal: 12,
   borderRadius: 8,
@@ -2109,7 +2109,7 @@ referralBox: {
 referralCode: {
   fontWeight: '600',
   fontSize: 15,
-  color: '#6366F1'Dark,
+  color: '#4F46E5',
 },
 copyText: {
   color: '#6366F1',
@@ -2119,7 +2119,7 @@ copyText: {
 
   otpDescription: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -2174,7 +2174,7 @@ copyText: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2195,7 +2195,7 @@ copyText: {
   },
   currencyCode: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   currencyCheck: {
     width: 24,

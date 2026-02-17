@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: '#111111'Inverse,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: '#111111'Inverse,
+    backgroundColor: '#FFFFFF',
     marginBottom: 20,
   },
   avatar: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111111'Inverse,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     color: '#111111',
   },
   inputTextLocked: {
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   textArea: {
     minHeight: 60,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: '#111111'Inverse,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111111'Inverse,
+    color: '#FFFFFF',
   },
   // Avatar styles
   avatarPreset: {
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#111111'Inverse,
+    borderColor: '#FFFFFF',
   },
   // Modal styles
   modalOverlay: {
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#111111'Inverse,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 24,
   },
   avatarGrid: {

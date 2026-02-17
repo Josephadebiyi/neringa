@@ -388,7 +388,7 @@ export default function EditTripScreen() {
                   style={[styles.modeCard, isSelected && styles.modeCardSelected]}
                   onPress={() => setTravelMeans(mode.id)}
                 >
-                  <Icon size={24} color={isSelected ? #6366F1 : '#111111'Light} />
+                  <Icon size={24} color={isSelected ? #6366F1 : '#6B7280'} />
                   <Text style={[styles.modeLabel, isSelected && styles.modeLabelSelected]}>{mode.label}</Text>
                 </TouchableOpacity>
               );
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     color: '#111111',
   },
   placeholder: {
-    color: '#111111'Muted,
+    color: '#9CA3AF',
   },
   textInput: {
     flex: 1,
@@ -620,12 +620,12 @@ const styles = StyleSheet.create({
   },
   unit: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginLeft: 8,
   },
   currencyIcon: {
     fontSize: 18,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   modeGrid: {
     flexDirection: "row",
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   modeLabel: {
     marginTop: 8,
     fontSize: 12,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   modeLabelSelected: {
     color: '#6366F1',
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
   },
   deleteInfo: {
     textAlign: "center",
-    color: '#111111'Muted,
+    color: '#9CA3AF',
     fontSize: 12,
     marginTop: 12,
   },

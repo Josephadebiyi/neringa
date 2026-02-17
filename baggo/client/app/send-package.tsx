@@ -652,7 +652,7 @@ const handleSelectCity = (cityName: string) => {
             {/* IMAGE UPLOAD SECTION (single image) */}
             <View style={styles.section}>
       <Text style={styles.label}>Package Photo (optional)</Text>
-      <Text style={{ marginBottom: 8, color: '#111111'Light }}>
+      <Text style={{ marginBottom: 8, color: '#6B7280' }}>
         Add one photo of the package
       </Text>
 
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   stepSubtitle: {
     fontSize: 15,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 24,
   },
   section: {
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
   unit: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   divider: {
     height: 1,
@@ -1079,7 +1079,7 @@ const styles = StyleSheet.create({
   },
   routeArrow: {
     fontSize: 20,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginVertical: 8,
     marginLeft: 8,
   },
@@ -1098,7 +1098,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   continueButtonDisabled: {
-    backgroundColor: '#111111'Muted,
+    backgroundColor: '#9CA3AF',
   },
   continueButtonText: {
     fontSize: 16,

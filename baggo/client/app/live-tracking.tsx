@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     right: 0,
     textAlign: 'center',
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   routeLine: {
     position: 'absolute',
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 4,
   },
   infoText: {

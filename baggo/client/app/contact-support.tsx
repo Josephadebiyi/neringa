@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   contactHours: {
     fontSize: 11,
-    color: '#111111'Muted,
+    color: '#9CA3AF',
   },
   section: {
     padding: 20,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   },
   faqAnswer: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     lineHeight: 20,
   },
   resourceCard: {
@@ -353,6 +353,6 @@ const styles = StyleSheet.create({
   },
   resourceDesc: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
 });

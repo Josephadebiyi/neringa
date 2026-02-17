@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     lineHeight: 20,
     marginBottom: 24,
   },
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 8,
     fontWeight: '500',
   },
@@ -251,6 +251,6 @@ const styles = StyleSheet.create({
   },
   deliveryDate: {
     fontSize: 15,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
 });

@@ -458,11 +458,11 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 12,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   lastMessage: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   unreadBadge: {
     backgroundColor: '#6366F1',
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,

@@ -130,7 +130,7 @@ export default function NotificationsScreen() {
           { justifyContent: 'center', alignItems: 'center' }, // ✅ centers it vertically + horizontally
         ]}
       >
-        <Text style={{ fontSize: 16, color: '#111111'Light }}>
+        <Text style={{ fontSize: 16, color: '#6B7280' }}>
           Loading notifications...
         </Text>
       </View>
@@ -358,12 +358,12 @@ const styles = StyleSheet.create({
    },
    message: {
      fontSize: 15,
-     color: '#111111'Light,
+     color: '#6B7280',
      marginBottom: 16,
    },
    time: {
      fontSize: 13,
-     color: '#111111'Muted,
+     color: '#9CA3AF',
      marginBottom: 20,
    },
    closeButton: {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111111'Light,
+    color: '#6B7280',
     paddingHorizontal: 20,
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
   },
   notificationUnread: {
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
   },
   iconContainer: {
     width: 48,
@@ -433,13 +433,13 @@ const styles = StyleSheet.create({
   },
   notificationMessage: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     lineHeight: 20,
     marginBottom: 4,
   },
   notificationTime: {
     fontSize: 12,
-    color: '#111111'Muted,
+    color: '#9CA3AF',
   },
   unreadDot: {
     width: 8,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   retryButton: {
     marginTop: 10,

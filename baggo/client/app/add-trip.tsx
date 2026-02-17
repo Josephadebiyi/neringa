@@ -331,7 +331,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "airplane" && styles.modeButtonActive]}
       onPress={() => settravelMeans("airplane")}
     >
-      <Plane size={18} color={travelMeans === "airplane" ? #FFFFFF : '#111111'Light} />
+      <Plane size={18} color={travelMeans === "airplane" ? #FFFFFF : '#6B7280'} />
       <Text style={[styles.modeText, { color: travelMeans === "airplane" ? #FFFFFF : '#111111' }]}>
         Airplane
       </Text>
@@ -341,7 +341,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "bus" && styles.modeButtonActive]}
       onPress={() => settravelMeans("bus")}
     >
-      <Bus size={18} color={travelMeans === "bus" ? #FFFFFF : '#111111'Light} />
+      <Bus size={18} color={travelMeans === "bus" ? #FFFFFF : '#6B7280'} />
       <Text style={[styles.modeText, { color: travelMeans === "bus" ? #FFFFFF : '#111111' }]}>
         Bus
       </Text>
@@ -351,7 +351,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "train" && styles.modeButtonActive]}
       onPress={() => settravelMeans("train")}
     >
-      <Train size={18} color={travelMeans === "train" ? #FFFFFF : '#111111'Light} />
+      <Train size={18} color={travelMeans === "train" ? #FFFFFF : '#6B7280'} />
       <Text style={[styles.modeText, { color: travelMeans === "train" ? #FFFFFF : '#111111' }]}>
         Train
       </Text>
@@ -361,7 +361,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "car" && styles.modeButtonActive]}
       onPress={() => settravelMeans("car")}
     >
-      <Car size={18} color={travelMeans === "car" ? #FFFFFF : '#111111'Light} />
+      <Car size={18} color={travelMeans === "car" ? #FFFFFF : '#6B7280'} />
       <Text style={[styles.modeText, { color: travelMeans === "car" ? #FFFFFF : '#111111' }]}>
         Car
       </Text>
@@ -371,7 +371,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "ship" && styles.modeButtonActive]}
       onPress={() => settravelMeans("ship")}
     >
-      <Ship size={18} color={travelMeans === "ship" ? #FFFFFF : '#111111'Light} />
+      <Ship size={18} color={travelMeans === "ship" ? #FFFFFF : '#6B7280'} />
       <Text style={[styles.modeText, { color: travelMeans === "ship" ? #FFFFFF : '#111111' }]}>
         Ship
       </Text>
@@ -381,7 +381,7 @@ export default function AddTripScreen() {
       style={[styles.modeButton, travelMeans === "other" && styles.modeButtonActive]}
       onPress={() => settravelMeans("other")}
     >
-      <MoreHorizontal size={18} color={travelMeans === "other" ? #FFFFFF : '#111111'Light} />
+      <MoreHorizontal size={18} color={travelMeans === "other" ? #FFFFFF : '#6B7280'} />
       <Text style={[styles.modeText, { color: travelMeans === "other" ? #FFFFFF : '#111111' }]}>
         Other
       </Text>
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "600" },
   content: { padding: 20 },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 6 },
-  subtitle: { color: '#111111'Light, marginBottom: 24 },
+  subtitle: { color: '#6B7280', marginBottom: 24 },
   label: { fontWeight: "600", color: '#111111', marginTop: 18, marginBottom: 8 },
   inputContainer: {
     flexDirection: "row",

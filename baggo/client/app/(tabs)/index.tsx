@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 16,
   },
   orderCard: {
@@ -1052,7 +1052,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1074,17 +1074,17 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     fontWeight: '500',
   },
   orderTraveler: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 4,
   },
   orderInsurance: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -1153,13 +1153,13 @@ const styles = StyleSheet.create({
   },
   tripCount: {
     fontSize: 12,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   modeIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
   },
   priceText: {
     marginLeft: 'auto',
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
   },
   benefitDesc: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     lineHeight: 20,
   },
   promosSection: {
@@ -1319,13 +1319,13 @@ const styles = StyleSheet.create({
   },
   noTripsText: {
     fontSize: 16,
-    color: '#111111'Light,
+    color: '#6B7280',
     textAlign: 'center',
     marginVertical: 20,
   },
   noOrdersText: {
     fontSize: 16,
-    color: '#111111'Light,
+    color: '#6B7280',
     textAlign: 'center',
     marginVertical: 20,
   },

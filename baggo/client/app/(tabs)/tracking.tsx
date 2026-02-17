@@ -266,7 +266,7 @@ export default function TrackingScreen(): JSX.Element {
                             ? #6366F1
                             : order.status === 'rejected'
                             ? colors.error
-                            : '#111111'Light,
+                            : '#6B7280',
                       },
                     ]}
                   >
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   trackingSubtitle: {
     fontSize: 15,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 16,
   },
   recentCard: {
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F6F3'Light,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   },
   recentTracking: {
     fontSize: 13,
-    color: '#111111'Light,
+    color: '#6B7280',
     marginBottom: 4,
   },
   recentStatus: {
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   noOrdersText: {
     fontSize: 16,
-    color: '#111111'Light,
+    color: '#6B7280',
     textAlign: 'center',
     marginVertical: 20,
   },
