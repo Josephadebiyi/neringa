@@ -18,6 +18,7 @@ import KYCVerificationManager from "@/react-app/pages/kyc.tsx"
 import PushNotificationPage from "@/react-app/pages/push-notification"
 import DisputesPage from "@/react-app/pages/disputes"
 import RefundsPage from "@/react-app/pages/Refund"
+import RoutesPage from "@/react-app/pages/Routes"
 
 
 
