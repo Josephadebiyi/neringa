@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   { icon: Home, label: "Dashboard", path: "/dashboard" },
   { icon: User, label: "Users", path: "/users" },
   { icon: RefreshCw, label: "Tracking", path: "/tracking"},
+  { icon: Route, label: "Route Pricing", path: "/routes" },
   { icon: Scale, label: "PricePerKg", path: "/priceperkg" },
     { icon: Bell , label: "push Notification", path: "/push-notification" },
     { icon: IdCard, label: "Kyc", path: "/kyc" },
