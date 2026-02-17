@@ -644,4 +644,23 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
   },
+  compatBadgeRow: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  assessButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  assessButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
