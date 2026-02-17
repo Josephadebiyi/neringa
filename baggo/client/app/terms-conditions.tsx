@@ -17,7 +17,7 @@ export default function TermsConditionsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={#111111} />
+          <ChevronLeft size={24} color="#111111" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Terms & Conditions</Text>
         <View style={{ width: 40 }} />
