@@ -179,6 +179,16 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/routes"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <RoutesPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>
