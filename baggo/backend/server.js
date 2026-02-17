@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import fetch from 'node-fetch';
+import crypto from 'crypto';
 import { connection } from './db/database.js';
 import userRouter from './routers/userRouters.js';
 import cloudinary from 'cloudinary';
