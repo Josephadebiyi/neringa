@@ -111,6 +111,37 @@ app.use('/api/baggo', userRouter);
 app.use('/api/Adminbaggo', AdminRouter);
 app.use("/api/prices", priceRoutes);
 
+// ✅ Route Pricing API (Public endpoints for mobile app)
+import {
+  searchRoutes,
+  calculatePrice,
+  getPricingForTrip,
+  isAfricanCountry,
+  getPaymentGatewayForCountry,
+  getCurrencyForCountry,
+} from './controllers/routeController.js';
+
+// Public route search and pricing endpoints
+app.get('/api/routes/search', searchRoutes);
+app.post('/api/routes/calculate-price', calculatePrice);
+app.post('/api/routes/trip-pricing', getPricingForTrip);
+
+// Get payment gateway for user's country
+app.get('/api/payment/gateway/:countryCode', (req, res) => {
+  const { countryCode } = req.params;
+  const gateway = getPaymentGatewayForCountry(countryCode);
+  const isAfrican = isAfricanCountry(countryCode);
+  const currency = getCurrencyForCountry(countryCode);
+  
+  res.json({
+    success: true,
+    countryCode: countryCode.toUpperCase(),
+    paymentGateway: gateway,
+    isAfricanCountry: isAfrican,
+    currency,
+  });
+});
+
 // ✅ Simple KYC Test Route (for testing connection)
 app.post('/kyc/start-verification', (req, res) => {
   console.log("KYC request received from app");
