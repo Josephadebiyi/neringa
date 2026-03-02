@@ -108,8 +108,8 @@ app.set('io', io);
 messageController(io);
 
 // ✅ Main Routes
-app.use('/api/baggo', userRouter);
-app.use('/api/Adminbaggo', AdminRouter);
+app.use('/api/bago', userRouter);
+app.use('/api/Adminbago', AdminRouter);
 app.use("/api/prices", priceRoutes);
 
 // ✅ Route Pricing API (Public endpoints for mobile app)
@@ -133,7 +133,7 @@ app.get('/api/payment/gateway/:countryCode', (req, res) => {
   const gateway = getPaymentGatewayForCountry(countryCode);
   const isAfrican = isAfricanCountry(countryCode);
   const currency = getCurrencyForCountry(countryCode);
-  
+
   res.json({
     success: true,
     countryCode: countryCode.toUpperCase(),
@@ -164,7 +164,7 @@ app.post('/api/payment/create-intent', async (req, res) => {
   if (!stripe) {
     return res.status(503).json({ error: 'Payment service not configured' });
   }
-  
+
   const { amount, travellerName, travellerEmail } = req.body;
 
   console.log('💡 /create-intent called with:', { amount, travellerName, travellerEmail });
@@ -179,12 +179,12 @@ app.post('/api/payment/create-intent', async (req, res) => {
     console.log('💡 Calculated stripeAmount (in cents):', stripeAmount);
 
     const paymentIntent = await stripe.paymentIntents.create({
-    amount: stripeAmount,
-    currency: 'usd',
-    receipt_email: travellerEmail, // ✅ this is what Stripe dashboard uses
-    metadata: { travellerName },   // optional for reference
-    automatic_payment_methods: { enabled: true },
-  });
+      amount: stripeAmount,
+      currency: 'usd',
+      receipt_email: travellerEmail, // ✅ this is what Stripe dashboard uses
+      metadata: { travellerName },   // optional for reference
+      automatic_payment_methods: { enabled: true },
+    });
 
 
     console.log('💡 PaymentIntent created successfully:', paymentIntent.id);
@@ -208,10 +208,10 @@ app.post('/api/stripe/connect/onboard', async (req, res) => {
   }
   try {
     const { userId, email } = req.body;
-    if (!userId || !email) return res.status(400).json({ success:false, message: 'userId and email are required' });
+    if (!userId || !email) return res.status(400).json({ success: false, message: 'userId and email are required' });
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success:false, message: 'User not found' });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     // create or reuse connected account
     const stripeAccountId = await createStripeAccountForUser(user);
@@ -220,14 +220,14 @@ app.post('/api/stripe/connect/onboard', async (req, res) => {
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
       return_url: `${process.env.BASE_URL}/api/stripe/onboarding/complete?userId=${userId}`,
-  refresh_url: `${process.env.BASE_URL}/api/stripe/onboarding/refresh?userId=${userId}`,
+      refresh_url: `${process.env.BASE_URL}/api/stripe/onboarding/refresh?userId=${userId}`,
       type: 'account_onboarding',
     });
 
     res.json({ success: true, url: accountLink.url });
   } catch (error) {
     console.error('❌ Stripe Onboarding Error:', error);
-    res.status(500).json({ success:false, message: error.message || 'Server error' });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 });
 
@@ -351,7 +351,7 @@ app.get('/api/stripe/connect/status/:userId', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-app.get('/', async (req, res)=>{
+app.get('/', async (req, res) => {
   res.send("hello")
 })
 
@@ -537,7 +537,7 @@ app.post('/send-notification', async (req, res) => {
 // Helper function to send push notification to individual user
 const sendPushNotification = async (pushToken, title, body, data = {}) => {
   if (!pushToken) return false;
-  
+
   try {
     const message = {
       to: pushToken,
@@ -796,11 +796,11 @@ app.post("/send-otp", async (req, res) => {
 
 
     const emailResponse = await resend.emails.send({
-    from: "Baggo <no-reply@sendwithbago.com>",
-    to: user.email,
-    subject: "Your Withdrawal OTP Code",
-    html
-  });
+      from: "Baggo <no-reply@sendwithbago.com>",
+      to: user.email,
+      subject: "Your Withdrawal OTP Code",
+      html
+    });
 
 
     console.log("📨 Email API response:", emailResponse);
@@ -965,7 +965,7 @@ app.post("/api/payment/initialize", async (req, res) => {
       email,
       amount: amount * 100, // Paystack expects amount in kobo
       currency,
-       callback_url: "https://sendwithbago.com/",
+      callback_url: "https://sendwithbago.com/",
       ...(mobile_money ? { mobile_money } : {}),
     };
 
@@ -1038,19 +1038,19 @@ const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || 'dHeVarhBUK-4xU
 import { isAuthenticated } from './Auth/UserAuthentication.js';
 
 // Create DIDIT verification session - PROTECTED ROUTE
-app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
+app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
   try {
     // User is authenticated via Bearer token - req.user is populated
     const user = req.user;
-    
+
     if (!user) {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
 
     // Check if user already has approved KYC
     if (user.kycStatus === 'approved') {
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(200).json({
+        success: true,
         message: "KYC already approved",
         status: 'approved'
       });
@@ -1093,8 +1093,8 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
 
       console.log("✅ DIDIT session created:", data.session_id);
 
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         sessionId: data.session_id,
         sessionToken: data.session_token,
         sessionUrl: data.url,
@@ -1104,8 +1104,8 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
 
     // API call failed
     console.error("❌ DIDIT API Error:", data);
-    return res.status(400).json({ 
-      success: false, 
+    return res.status(400).json({
+      success: false,
       message: data.detail || data.message || "Failed to create verification session",
       error: data
     });
@@ -1116,7 +1116,7 @@ app.post("/api/baggo/kyc/create-session", isAuthenticated, async (req, res) => {
 });
 
 // DIDIT webhook callback - handles verification completion events
-app.post("/api/baggo/kyc/callback", async (req, res) => {
+app.post("/api/bago/kyc/callback", async (req, res) => {
   console.log("📥 DIDIT Callback received (old endpoint):", req.body);
   // Redirect to new webhook endpoint
   res.status(200).json({ success: true, message: "Please use /api/didit/webhook" });
@@ -1147,31 +1147,31 @@ function generateIdentityFingerprint(documentNumber, issuingCountry, dateOfBirth
  */
 function compareNames(name1, name2) {
   if (!name1 || !name2) return false;
-  
+
   // Normalize: lowercase, trim, remove extra spaces
   const normalize = (str) => str.toLowerCase().trim().replace(/\s+/g, ' ');
   const n1 = normalize(name1);
   const n2 = normalize(name2);
-  
+
   // Exact match
   if (n1 === n2) return true;
-  
+
   // Check if one contains the other (for partial names)
   if (n1.includes(n2) || n2.includes(n1)) return true;
-  
+
   // Compare individual words (at least 2 words should match for full names)
   const words1 = n1.split(' ');
   const words2 = n2.split(' ');
   const matchingWords = words1.filter(w => words2.includes(w));
-  
+
   // If at least 2 words match, consider it a match
   if (matchingWords.length >= 2) return true;
-  
+
   // If it's a short name (1 word), require exact match
   if (words1.length === 1 || words2.length === 1) {
     return words1[0] === words2[0];
   }
-  
+
   return false;
 }
 
@@ -1180,14 +1180,14 @@ function compareNames(name1, name2) {
  */
 function compareDates(date1, date2) {
   if (!date1 || !date2) return false;
-  
+
   const d1 = new Date(date1);
   const d2 = new Date(date2);
-  
+
   // Compare year, month, day only (ignore time)
   return d1.getFullYear() === d2.getFullYear() &&
-         d1.getMonth() === d2.getMonth() &&
-         d1.getDate() === d2.getDate();
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
 }
 
 app.post("/api/didit/webhook", async (req, res) => {
@@ -1198,9 +1198,9 @@ app.post("/api/didit/webhook", async (req, res) => {
     console.log("Body:", JSON.stringify(req.body, null, 2));
     console.log("=".repeat(60));
 
-    const { 
-      session_id, 
-      status, 
+    const {
+      session_id,
+      status,
       vendor_data,
       // Document data from DIDIT (may vary based on their API structure)
       document_data,
@@ -1249,22 +1249,22 @@ app.post("/api/didit/webhook", async (req, res) => {
     console.log("📋 Current kycStatus:", user.kycStatus, "New status from DIDIT:", status);
 
     const normalizedStatus = status?.toLowerCase();
-    
+
     // Only process if DIDIT says approved - we add our own validation layer
     if (normalizedStatus === 'approved') {
       // Extract document data from various possible DIDIT payload structures
       const docData = document_data || extracted_data || verification_data || kyc_data || {};
-      
+
       // Try to get document fields (DIDIT API structure may vary)
-      const verifiedFullName = docData.full_name || docData.name || docData.fullName || 
-                               `${docData.first_name || docData.firstName || ''} ${docData.last_name || docData.lastName || ''}`.trim();
+      const verifiedFullName = docData.full_name || docData.name || docData.fullName ||
+        `${docData.first_name || docData.firstName || ''} ${docData.last_name || docData.lastName || ''}`.trim();
       const verifiedFirstName = docData.first_name || docData.firstName || docData.given_name || verifiedFullName?.split(' ')[0];
       const verifiedLastName = docData.last_name || docData.lastName || docData.surname || docData.family_name || verifiedFullName?.split(' ').slice(1).join(' ');
       const verifiedDOB = docData.date_of_birth || docData.dateOfBirth || docData.dob || docData.birth_date;
       const documentNumber = docData.document_number || docData.documentNumber || docData.doc_number || docData.id_number;
       const documentType = docData.document_type || docData.documentType || docData.doc_type || 'ID';
       const issuingCountry = docData.issuing_country || docData.issuingCountry || docData.country || docData.nationality;
-      
+
       console.log("📄 Extracted Document Data:");
       console.log("   Full Name:", verifiedFullName);
       console.log("   First Name:", verifiedFirstName);
@@ -1273,16 +1273,16 @@ app.post("/api/didit/webhook", async (req, res) => {
       console.log("   Document #:", documentNumber);
       console.log("   Document Type:", documentType);
       console.log("   Issuing Country:", issuingCountry);
-      
+
       // ============================================
       // STEP 1: DATA MATCHING (Name & DOB Verification)
       // ============================================
       const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-      
+
       let nameMatches = true;
       let dobMatches = true;
       let matchFailureReason = null;
-      
+
       // Only enforce matching if we have data from both sides
       if (verifiedFullName && userFullName) {
         nameMatches = compareNames(verifiedFullName, userFullName);
@@ -1291,7 +1291,7 @@ app.post("/api/didit/webhook", async (req, res) => {
           matchFailureReason = `Name mismatch: Document shows "${verifiedFullName}" but signup name is "${userFullName}"`;
         }
       }
-      
+
       if (verifiedDOB && user.dateOfBirth) {
         dobMatches = compareDates(verifiedDOB, user.dateOfBirth);
         if (!dobMatches) {
@@ -1304,7 +1304,7 @@ app.post("/api/didit/webhook", async (req, res) => {
           matchFailureReason += `Date of birth mismatch`;
         }
       }
-      
+
       // If data doesn't match, reject the verification
       if (!nameMatches || !dobMatches) {
         console.log("❌ KYC REJECTED due to data mismatch");
@@ -1321,7 +1321,7 @@ app.post("/api/didit/webhook", async (req, res) => {
           verificationStatus: 'mismatch',
         };
         await user.save();
-        
+
         // Notify user of failure
         if (user.pushTokens?.length > 0) {
           try {
@@ -1335,7 +1335,7 @@ app.post("/api/didit/webhook", async (req, res) => {
             console.log("⚠️ Failed to send push notification:", pushErr.message);
           }
         }
-        
+
         await Notification.create({
           userId: user._id,
           title: 'Verification Failed - Data Mismatch',
@@ -1343,27 +1343,27 @@ app.post("/api/didit/webhook", async (req, res) => {
           type: 'kyc',
           read: false,
         });
-        
+
         return res.status(200).json({
           success: true,
           message: "KYC rejected - data mismatch",
           kycStatus: user.kycStatus,
         });
       }
-      
+
       // ============================================
       // STEP 2: DUPLICATE IDENTITY PROTECTION
       // ============================================
       if (documentNumber && issuingCountry && verifiedDOB) {
         const fingerprint = generateIdentityFingerprint(documentNumber, issuingCountry, verifiedDOB);
         console.log("🔐 Generated identity fingerprint:", fingerprint?.substring(0, 16) + "...");
-        
+
         // Check if this identity is already used by another account
         const existingUser = await User.findOne({
           identityFingerprint: fingerprint,
           _id: { $ne: user._id }, // Exclude current user
         });
-        
+
         if (existingUser) {
           console.log(`❌ DUPLICATE IDENTITY DETECTED! Already used by user: ${existingUser._id}`);
           user.kycStatus = 'blocked_duplicate';
@@ -1379,7 +1379,7 @@ app.post("/api/didit/webhook", async (req, res) => {
             verificationStatus: 'duplicate_blocked',
           };
           await user.save();
-          
+
           // Notify user
           if (user.pushTokens?.length > 0) {
             try {
@@ -1393,7 +1393,7 @@ app.post("/api/didit/webhook", async (req, res) => {
               console.log("⚠️ Failed to send push notification:", pushErr.message);
             }
           }
-          
+
           await Notification.create({
             userId: user._id,
             title: 'Verification Blocked',
@@ -1401,23 +1401,23 @@ app.post("/api/didit/webhook", async (req, res) => {
             type: 'kyc',
             read: false,
           });
-          
+
           return res.status(200).json({
             success: true,
             message: "KYC blocked - duplicate identity",
             kycStatus: user.kycStatus,
           });
         }
-        
+
         // Store fingerprint for future duplicate checks
         user.identityFingerprint = fingerprint;
       }
-      
+
       // ============================================
       // STEP 3: PROFILE OVERWRITE & APPROVAL
       // ============================================
       console.log("✅ All checks passed - APPROVING KYC");
-      
+
       // Overwrite profile with verified document data
       if (verifiedFirstName) {
         user.firstName = verifiedFirstName;
@@ -1428,7 +1428,7 @@ app.post("/api/didit/webhook", async (req, res) => {
       if (verifiedDOB) {
         user.dateOfBirth = new Date(verifiedDOB);
       }
-      
+
       // Store verified data for audit
       user.kycVerifiedData = {
         fullName: verifiedFullName,
@@ -1440,7 +1440,7 @@ app.post("/api/didit/webhook", async (req, res) => {
         issuingCountry: issuingCountry,
         verificationStatus: 'approved',
       };
-      
+
       // Update KYC fields
       user.kycStatus = 'approved';
       user.kycVerifiedAt = new Date();
@@ -1452,10 +1452,10 @@ app.post("/api/didit/webhook", async (req, res) => {
         lastName: verifiedLastName || user.lastName,
         dateOfBirth: verifiedDOB ? new Date(verifiedDOB) : user.dateOfBirth,
       };
-      
+
       await user.save();
       console.log("💾 User KYC APPROVED and profile updated");
-      
+
       // Send success notification
       if (user.pushTokens?.length > 0) {
         try {
@@ -1470,7 +1470,7 @@ app.post("/api/didit/webhook", async (req, res) => {
           console.log("⚠️ Failed to send push notification:", pushErr.message);
         }
       }
-      
+
       await Notification.create({
         userId: user._id,
         title: 'Identity Verified',
@@ -1478,22 +1478,22 @@ app.post("/api/didit/webhook", async (req, res) => {
         type: 'kyc',
         read: false,
       });
-      
+
       return res.status(200).json({
         success: true,
         message: "KYC approved successfully",
         kycStatus: user.kycStatus,
       });
-      
+
     } else if (normalizedStatus === 'declined' || normalizedStatus === 'rejected') {
       // DIDIT declined the verification
       user.kycStatus = 'declined';
       user.status = 'rejected';
       user.kycFailureReason = 'Document verification was declined by the verification provider';
       await user.save();
-      
+
       console.log("❌ KYC DECLINED by DIDIT for user:", user.email);
-      
+
       if (user.pushTokens?.length > 0) {
         try {
           await sendPushNotification(
@@ -1506,7 +1506,7 @@ app.post("/api/didit/webhook", async (req, res) => {
           console.log("⚠️ Failed to send push notification:", pushErr.message);
         }
       }
-      
+
       await Notification.create({
         userId: user._id,
         title: 'Verification Unsuccessful',
@@ -1514,15 +1514,15 @@ app.post("/api/didit/webhook", async (req, res) => {
         type: 'kyc',
         read: false,
       });
-      
+
     } else if (normalizedStatus === 'pending' || normalizedStatus === 'processing' || normalizedStatus === 'submitted') {
       user.kycStatus = 'pending';
       await user.save();
       console.log("⏳ KYC PENDING for user:", user.email);
     }
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: "KYC webhook processed",
       userId: user._id.toString(),
       kycStatus: user.kycStatus
@@ -1535,12 +1535,12 @@ app.post("/api/didit/webhook", async (req, res) => {
 });
 
 // Get KYC status - PROTECTED ROUTE
-app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
+app.get("/api/bago/kyc/status", isAuthenticated, async (req, res) => {
   try {
     // User is authenticated via Bearer token
     const user = req.user;
     const previousStatus = user.kycStatus;
-    
+
     // If user has a DIDIT session and status is pending, check actual DIDIT status
     if (user.diditSessionId && user.kycStatus === 'pending') {
       try {
@@ -1551,13 +1551,13 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
             'x-api-key': DIDIT_API_KEY,
           },
         });
-        
+
         if (diditResponse.ok) {
           const diditData = await diditResponse.json();
           const diditStatus = diditData.status?.toLowerCase();
-          
+
           console.log(`📋 DIDIT session ${user.diditSessionId} status: ${diditStatus}`);
-          
+
           // Sync DIDIT status to our database
           if (diditStatus === 'approved') {
             user.kycStatus = 'approved';
@@ -1567,7 +1567,7 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
             user.isVerified = true;
             await user.save();
             console.log(`✅ User ${user.email} KYC auto-approved from DIDIT`);
-            
+
             // Send push notification for KYC approval
             if (previousStatus !== 'approved' && user.expoPushToken) {
               await sendPushNotification(
@@ -1577,7 +1577,7 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
                 { type: 'kyc_approved' }
               );
             }
-            
+
             // Create in-app notification
             await Notification.create({
               userId: user._id,
@@ -1586,12 +1586,12 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
               type: 'kyc',
               read: false,
             });
-            
+
           } else if (diditStatus === 'declined') {
             user.kycStatus = 'declined';
             await user.save();
             console.log(`❌ User ${user.email} KYC declined from DIDIT`);
-            
+
             // Send push notification for KYC decline
             if (previousStatus !== 'declined' && user.expoPushToken) {
               await sendPushNotification(
@@ -1601,7 +1601,7 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
                 { type: 'kyc_declined' }
               );
             }
-            
+
             // Create in-app notification
             await Notification.create({
               userId: user._id,
@@ -1618,8 +1618,8 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
       }
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       email: user.email,
       kycStatus: user.kycStatus || 'not_started',
       kycVerifiedAt: user.kycVerifiedAt || null,
@@ -1632,7 +1632,7 @@ app.get("/api/baggo/kyc/status", isAuthenticated, async (req, res) => {
 });
 
 // Check session status from DIDIT
-app.get("/api/baggo/kyc/check-session/:sessionId", async (req, res) => {
+app.get("/api/bago/kyc/check-session/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
 
@@ -1658,10 +1658,10 @@ app.get("/api/baggo/kyc/check-session/:sessionId", async (req, res) => {
 });
 
 // Admin: Manually approve KYC (for testing)
-app.post("/api/baggo/kyc/admin-approve", async (req, res) => {
+app.post("/api/bago/kyc/admin-approve", async (req, res) => {
   try {
     const { userId, adminKey } = req.body;
-    
+
     // Simple admin key check (you should use proper admin auth)
     if (adminKey !== 'bago_admin_2024') {
       return res.status(403).json({ success: false, message: "Unauthorized" });
@@ -1684,11 +1684,11 @@ app.post("/api/baggo/kyc/admin-approve", async (req, res) => {
 });
 
 // Update KYC status manually (for webhook simulation)
-app.post("/api/baggo/kyc/update-status", async (req, res) => {
+app.post("/api/bago/kyc/update-status", async (req, res) => {
   try {
     const userId = req.cookies.userId;
     const { status } = req.body;
-    
+
     if (!userId) {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
@@ -1718,7 +1718,7 @@ app.post("/api/baggo/kyc/update-status", async (req, res) => {
 // ======================================
 // 🗑️ DELETE ACCOUNT
 // ======================================
-app.post("/api/baggo/delete-account", isAuthenticated, async (req, res) => {
+app.post("/api/bago/delete-account", isAuthenticated, async (req, res) => {
   try {
     const userId = req.user._id;
     const { reason, improvement } = req.body;
@@ -1730,7 +1730,7 @@ app.post("/api/baggo/delete-account", isAuthenticated, async (req, res) => {
 
     // Delete user's related data
     await Kyc.deleteMany({ userid: userId });
-    
+
     // Delete the user
     await User.findByIdAndDelete(userId);
 
@@ -1758,7 +1758,7 @@ async function fetchExchangeRates() {
     // Use ExchangeRate-API (free tier)
     const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
     const data = await response.json();
-    
+
     if (data && data.rates) {
       exchangeRatesCache = {
         rates: data.rates,
@@ -1777,8 +1777,8 @@ async function fetchExchangeRates() {
 // Get exchange rates (with caching - refresh every hour)
 async function getExchangeRates() {
   const oneHour = 60 * 60 * 1000;
-  if (!exchangeRatesCache.lastUpdated || 
-      (new Date() - exchangeRatesCache.lastUpdated) > oneHour) {
+  if (!exchangeRatesCache.lastUpdated ||
+    (new Date() - exchangeRatesCache.lastUpdated) > oneHour) {
     return await fetchExchangeRates();
   }
   return exchangeRatesCache.rates;
@@ -1788,21 +1788,21 @@ async function getExchangeRates() {
 app.get("/api/currency/convert", async (req, res) => {
   try {
     const { amount, from, to } = req.query;
-    
+
     if (!amount || !from || !to) {
       return res.status(400).json({ success: false, message: "Missing amount, from, or to currency" });
     }
-    
+
     const rates = await getExchangeRates();
-    
+
     if (!rates[from] || !rates[to]) {
       return res.status(400).json({ success: false, message: "Invalid currency code" });
     }
-    
+
     // Convert to USD first, then to target currency
     const amountInUSD = parseFloat(amount) / rates[from];
     const convertedAmount = amountInUSD * rates[to];
-    
+
     res.json({
       success: true,
       amount: parseFloat(amount),
@@ -1833,18 +1833,18 @@ app.get("/api/currency/rates", async (req, res) => {
 });
 
 // Update user's preferred currency - PROTECTED ROUTE
-app.post("/api/baggo/user/currency", isAuthenticated, async (req, res) => {
+app.post("/api/bago/user/currency", isAuthenticated, async (req, res) => {
   try {
     const { currency } = req.body;
     const user = req.user;
-    
+
     if (!currency) {
       return res.status(400).json({ success: false, message: "Currency required" });
     }
-    
+
     user.preferredCurrency = currency;
     await user.save();
-    
+
     res.json({ success: true, message: "Currency updated", currency });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to update currency", error: err.message });
@@ -1863,11 +1863,11 @@ app.post("/api/baggo/user/currency", isAuthenticated, async (req, res) => {
 app.post("/api/shipment/assess", isAuthenticated, async (req, res) => {
   try {
     const { tripId, item, senderCountry } = req.body;
-    
+
     if (!tripId || !item) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "tripId and item details are required" 
+      return res.status(400).json({
+        success: false,
+        message: "tripId and item details are required"
       });
     }
 
@@ -1909,7 +1909,7 @@ app.post("/api/shipment/assess", isAuthenticated, async (req, res) => {
 
     // Add to user's shipment assessments (could also be a separate collection)
     await User.findByIdAndUpdate(req.user._id, {
-      $push: { 
+      $push: {
         shipmentAssessments: {
           $each: [assessmentDoc],
           $slice: -50 // Keep last 50 assessments
@@ -1924,10 +1924,10 @@ app.post("/api/shipment/assess", isAuthenticated, async (req, res) => {
 
   } catch (err) {
     console.error("❌ Shipment assessment error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to assess shipment", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to assess shipment",
+      error: err.message
     });
   }
 });
@@ -1939,16 +1939,16 @@ app.post("/api/shipment/assess", isAuthenticated, async (req, res) => {
 app.post("/api/shipment/quick-check", async (req, res) => {
   try {
     const { trips, item } = req.body;
-    
+
     if (!trips || !item) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "trips array and item details required" 
+      return res.status(400).json({
+        success: false,
+        message: "trips array and item details required"
       });
     }
 
     const compatibleTrips = filterCompatibleTrips(trips, item);
-    
+
     res.json({
       success: true,
       totalTrips: trips.length,
@@ -1958,10 +1958,10 @@ app.post("/api/shipment/quick-check", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Quick check error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to check compatibility", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to check compatibility",
+      error: err.message
     });
   }
 });
@@ -2017,10 +2017,10 @@ app.get("/api/shipment/compatibility/:tripId", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Compatibility check error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to check compatibility", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to check compatibility",
+      error: err.message
     });
   }
 });
@@ -2045,9 +2045,9 @@ app.get("/api/shipment/customs-pdf/:assessmentId", isAuthenticated, async (req, 
     );
 
     if (!assessment) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Assessment not found. Please run assessment first." 
+      return res.status(404).json({
+        success: false,
+        message: "Assessment not found. Please run assessment first."
       });
     }
 
@@ -2063,10 +2063,10 @@ app.get("/api/shipment/customs-pdf/:assessmentId", isAuthenticated, async (req, 
 
   } catch (err) {
     console.error("❌ PDF generation error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to generate PDF", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate PDF",
+      error: err.message
     });
   }
 });
@@ -2101,10 +2101,10 @@ app.post("/api/shipment/generate-pdf", isAuthenticated, async (req, res) => {
 
   } catch (err) {
     console.error("❌ PDF generation error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to generate PDF", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate PDF",
+      error: err.message
     });
   }
 });
@@ -2116,12 +2116,12 @@ app.post("/api/shipment/generate-pdf", isAuthenticated, async (req, res) => {
 app.get("/api/customs/rules/:countryCode", async (req, res) => {
   try {
     const { countryCode } = req.params;
-    
+
     // Import customs rules
     const { COUNTRY_RULES, TRANSPORT_RESTRICTIONS, HS_CODES } = await import('./data/customsRules.js');
-    
+
     const rules = COUNTRY_RULES[countryCode.toUpperCase()] || COUNTRY_RULES.DEFAULT;
-    
+
     res.json({
       success: true,
       countryCode: countryCode.toUpperCase(),
@@ -2132,10 +2132,10 @@ app.get("/api/customs/rules/:countryCode", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Customs rules error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to get customs rules", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to get customs rules",
+      error: err.message
     });
   }
 });
@@ -2147,7 +2147,7 @@ app.get("/api/customs/rules/:countryCode", async (req, res) => {
 app.get("/api/customs/hs-codes", async (req, res) => {
   try {
     const { HS_CODES } = await import('./data/customsRules.js');
-    
+
     res.json({
       success: true,
       hsCodes: HS_CODES
@@ -2155,10 +2155,10 @@ app.get("/api/customs/hs-codes", async (req, res) => {
 
   } catch (err) {
     console.error("❌ HS codes error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to get HS codes", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to get HS codes",
+      error: err.message
     });
   }
 });
@@ -2180,7 +2180,7 @@ app.post("/api/trips/search-compatible", async (req, res) => {
 
     // Build query
     const query = { "trips.0": { $exists: true } };
-    
+
     // Get all users with trips
     const usersWithTrips = await User.find(query, {
       trips: 1,
@@ -2195,10 +2195,10 @@ app.post("/api/trips/search-compatible", async (req, res) => {
 
     // Flatten and filter trips
     let allTrips = [];
-    
+
     for (const user of usersWithTrips) {
       if (!user.trips) continue;
-      
+
       for (const trip of user.trips) {
         // Basic route matching
         const matchesRoute = (
@@ -2212,7 +2212,7 @@ app.post("/api/trips/search-compatible", async (req, res) => {
 
         // Check compatibility
         const compatibility = quickCompatibilityCheck(trip, item);
-        
+
         if (compatibility.compatible) {
           allTrips.push({
             ...trip.toObject(),
@@ -2240,10 +2240,10 @@ app.post("/api/trips/search-compatible", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Search compatible trips error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to search trips", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to search trips",
+      error: err.message
     });
   }
 });
@@ -2255,13 +2255,13 @@ app.post("/api/trips/search-compatible", async (req, res) => {
 app.get("/api/shipment/history", isAuthenticated, async (req, res) => {
   try {
     const user = await User.findById(req.user._id, { shipmentAssessments: 1 });
-    
+
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
     const assessments = user.shipmentAssessments || [];
-    
+
     res.json({
       success: true,
       count: assessments.length,
@@ -2270,10 +2270,10 @@ app.get("/api/shipment/history", isAuthenticated, async (req, res) => {
 
   } catch (err) {
     console.error("❌ Get assessment history error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to get assessment history", 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to get assessment history",
+      error: err.message
     });
   }
 });

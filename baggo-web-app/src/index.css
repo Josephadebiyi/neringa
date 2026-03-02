@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #7c3aed;
+  --color-brand-secondary: #0ea5e9;
+  --color-brand-accent: #f43f5e;
+
+  --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2.5rem;
+}
+
+@layer base {
+  html {
+    @apply overflow-x-hidden;
+  }
+
+  body {
+    @apply bg-[#FDFDFF] text-slate-900 font-sans antialiased overflow-x-hidden;
+    position: relative;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-black tracking-tight;
+  }
+}
+
+@layer components {
+
+  /* Bold Startup Button Base */
+  .btn-bold {
+    @apply relative inline-flex items-center justify-center px-8 py-4 font-black transition-all duration-300 rounded-2xl active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-bold-primary {
+    @apply relative inline-flex items-center justify-center px-8 py-4 font-black transition-all duration-300 rounded-2xl active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+    @apply bg-brand-primary text-white shadow-[0_8px_30px_#7c3aed4d] hover:shadow-[0_12px_40px_#7c3aed66] hover:-translate-y-0.5;
+  }
+
+  .btn-bold-white {
+    @apply relative inline-flex items-center justify-center px-8 py-4 font-black transition-all duration-300 rounded-2xl active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+    @apply bg-white text-brand-primary shadow-[0_8px_30px_#0000000d] hover:shadow-[0_12px_40px_#0000001a] hover:-translate-y-0.5;
+  }
+
+  /* Search Input Field */
+  .search-input {
+    @apply w-full bg-slate-50 border-2 border-transparent focus:border-brand-primary/20 focus:bg-white rounded-2xl px-6 py-4 font-bold text-slate-900 transition-all outline-none placeholder:text-slate-400;
+  }
+
+  /* Card Styles */
+  .card-bold {
+    @apply bg-white border-2 border-slate-100 rounded-[2.5rem] p-8 transition-all hover:border-brand-primary/20 hover:shadow-xl hover:shadow-brand-primary/5;
+  }
+
+  /* Glass Effects */
+  .glass-bold {
+    @apply bg-white/80 backdrop-blur-xl border-2 border-white/50 rounded-3xl;
+  }
+}
+
+/* Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}

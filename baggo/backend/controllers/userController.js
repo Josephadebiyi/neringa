@@ -9,7 +9,13 @@ import Request from '../models/RequestScheme.js';
 import { isAfricanCountry, getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 
 dotenv.config();
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend (optional)
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+} else {
+  console.warn('⚠️ RESEND_API_KEY not set - Email features disabled');
+}
 
 
 // Cloudinary configuration
@@ -34,58 +40,58 @@ const uploadToCloudinary = async (dataUri) => {
  * @route POST /api/user/add-image
  * @access Private
  */
- export const uploadOrUpdateImage = async (req, res) => {
-   try {
-     const userId = req.user._id;
-     if (!mongoose.Types.ObjectId.isValid(userId)) {
-       return res.status(400).json({ message: 'Invalid user ID' });
-     }
+export const uploadOrUpdateImage = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
 
-     const user = await User.findById(userId);
-     if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-     let imageUrl = null;
+    let imageUrl = null;
 
-     // ✅ Handle both multipart or base64 uploads
-     if (req.files && req.files.image) {
-       const fileObj = req.files.image;
-       const mime = fileObj.mimetype || 'image/jpeg';
-       const base64 = fileObj.data.toString('base64');
-       const dataUri = `data:${mime};base64,${base64}`;
-       imageUrl = await uploadToCloudinary(dataUri);
-     } else if (req.body.image) {
-       const imageInput = req.body.image;
-       if (/^https?:\/\//i.test(imageInput)) {
-         imageUrl = imageInput;
-       } else if (/^data:([a-zA-Z0-9\/+.-]+);base64,/.test(imageInput)) {
-         imageUrl = await uploadToCloudinary(imageInput);
-       } else {
-         const dataUri = `data:image/jpeg;base64,${imageInput}`;
-         imageUrl = await uploadToCloudinary(dataUri);
-       }
-     }
+    // ✅ Handle both multipart or base64 uploads
+    if (req.files && req.files.image) {
+      const fileObj = req.files.image;
+      const mime = fileObj.mimetype || 'image/jpeg';
+      const base64 = fileObj.data.toString('base64');
+      const dataUri = `data:${mime};base64,${base64}`;
+      imageUrl = await uploadToCloudinary(dataUri);
+    } else if (req.body.image) {
+      const imageInput = req.body.image;
+      if (/^https?:\/\//i.test(imageInput)) {
+        imageUrl = imageInput;
+      } else if (/^data:([a-zA-Z0-9\/+.-]+);base64,/.test(imageInput)) {
+        imageUrl = await uploadToCloudinary(imageInput);
+      } else {
+        const dataUri = `data:image/jpeg;base64,${imageInput}`;
+        imageUrl = await uploadToCloudinary(dataUri);
+      }
+    }
 
-     // Validate image input
-     if (!imageUrl && !user.image) {
-       return res.status(400).json({ message: 'Image is required' });
-     }
+    // Validate image input
+    if (!imageUrl && !user.image) {
+      return res.status(400).json({ message: 'Image is required' });
+    }
 
-     // ✅ If updating, delete the old image from Cloudinary (optional)
-     if (user.image && imageUrl && user.image.includes('cloudinary')) {
-       try {
-         const publicId = user.image.split('/').pop().split('.')[0];
-         await cloudinary.v2.uploader.destroy(`user_images/${publicId}`);
-       } catch (err) {
-         console.warn('Failed to delete old Cloudinary image:', err.message);
-       }
-     }
+    // ✅ If updating, delete the old image from Cloudinary (optional)
+    if (user.image && imageUrl && user.image.includes('cloudinary')) {
+      try {
+        const publicId = user.image.split('/').pop().split('.')[0];
+        await cloudinary.v2.uploader.destroy(`user_images/${publicId}`);
+      } catch (err) {
+        console.warn('Failed to delete old Cloudinary image:', err.message);
+      }
+    }
 
-     // ✅ Update user record
+    // ✅ Update user record
     if (imageUrl) {
       user.image = imageUrl;
       user.selectedAvatar = null; // Clear avatar when using custom image
     }
-    
+
     // Handle selectedAvatar from request
     if (req.body.selectedAvatar !== undefined) {
       if (req.body.selectedAvatar === null || req.body.selectedAvatar === 'null') {
@@ -97,25 +103,25 @@ const uploadToCloudinary = async (dataUri) => {
         }
       }
     }
-    
+
     if (req.body.receive !== undefined) {
       user.receive = req.body.receive === 'true' || req.body.receive === true;
     }
 
-     await user.save();
+    await user.save();
 
-     res.status(200).json({
-       success: true,
-       message: user.image ? 'Image updated successfully' : 'Avatar updated successfully',
-       image: user.image,
-       selectedAvatar: user.selectedAvatar,
-       receive: user.receive,
-     });
-   } catch (error) {
-     console.error('Image Upload/Update Error:', error);
-     res.status(500).json({ message: error.message });
-   }
- };
+    res.status(200).json({
+      success: true,
+      message: user.image ? 'Image updated successfully' : 'Avatar updated successfully',
+      image: user.image,
+      selectedAvatar: user.selectedAvatar,
+      receive: user.receive,
+    });
+  } catch (error) {
+    console.error('Image Upload/Update Error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
 /**
  * @desc Update user avatar selection
@@ -160,7 +166,7 @@ export const updateAvatar = async (req, res) => {
 
 
 
- export const signUp = async (req, res) => {
+export const signUp = async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, confirmPassword, referralCode, dateOfBirth, country } = req.body;
 
@@ -194,7 +200,7 @@ export const updateAvatar = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    const verifyLink = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/baggo/verify-email?token=${verificationToken}`;
+    const verifyLink = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/bago/verify-email?token=${verificationToken}`;
     console.log("📩 Verification link:", verifyLink);
 
     // 🔹 Styled HTML (inline CSS for email clients)
@@ -260,26 +266,32 @@ export const updateAvatar = async (req, res) => {
     `;
 
     // 🔹 Send verification email with click tracking disabled
-    const { data, error } = await resend.emails.send({
-      from: "Baggo <no-reply@sendwithbago.com>",
-      to: email,
-      subject: "Verify your Baggo account",
-      html,
-      headers: {
-        'X-Entity-Ref-ID': `verify-${Date.now()}`,
-      },
-      tags: [
-        { name: 'category', value: 'verification' }
-      ]
-    });
+    if (resend) {
+      const { data, error } = await resend.emails.send({
+        from: "Baggo <no-reply@sendwithbago.com>",
+        to: email,
+        subject: "Verify your Baggo account",
+        html,
+        headers: {
+          'X-Entity-Ref-ID': `verify-${Date.now()}`,
+        },
+        tags: [
+          { name: 'category', value: 'verification' }
+        ]
+      });
 
-    if (error) {
-      console.error("❌ Resend email error:", error);
-      return res.status(500).json({ message: "Failed to send verification email" });
+      if (error) {
+        console.error("❌ Resend email error:", error);
+        return res.status(500).json({ message: "Failed to send verification email" });
+      }
+
+      console.log("✅ Verification email sent via Resend:", data);
+    } else {
+      console.log("⚠️ RESEND not configured. Email NOT sent to:", email);
+      console.log("🔗 Verification Link:", verifyLink);
     }
 
-    console.log("✅ Verification email sent via Resend:", data);
-    res.status(200).json({ message: "Verification email sent. Please check your inbox." });
+    res.status(200).json({ message: "Verification email sent. Please check your inbox (or console for link)." });
   } catch (error) {
     console.error("🔥 Signup error:", error);
     res.status(400).json({ message: error.message });
@@ -325,7 +337,7 @@ export const verifyEmail = async (req, res) => {
     // Determine payment gateway based on country
     const paymentGateway = getPaymentGateway(decoded.country);
     const preferredCurrency = getCurrencyByCountry(decoded.country);
-    
+
     const newUser = new User({
       firstName: decoded.firstName,
       lastName: decoded.lastName,
@@ -504,16 +516,21 @@ export const forgotPassword = async (req, res) => {
     `;
 
     // Send OTP via Resend (functionality unchanged)
-    const { error } = await resend.emails.send({
-      from: 'Baggo <no-reply@sendwithbago.com>',
-      to: email,
-      subject: 'Password Reset OTP',
-      html,
-    });
+    if (resend) {
+      const { error } = await resend.emails.send({
+        from: 'Baggo <no-reply@sendwithbago.com>',
+        to: email,
+        subject: 'Password Reset OTP',
+        html,
+      });
 
-    if (error) {
-      console.error('❌ Resend error:', error);
-      return res.status(500).json({ message: 'Failed to send OTP email' });
+      if (error) {
+        console.error('❌ Resend error:', error);
+        return res.status(500).json({ message: 'Failed to send OTP email' });
+      }
+    } else {
+      console.log("⚠️ RESEND not configured. OTP NOT sent to:", email);
+      console.log("🔢 Reset OTP:", otp);
     }
 
     res.status(200).json({ message: 'OTP sent successfully' });
@@ -642,16 +659,21 @@ export const resendOtp = async (req, res) => {
     `;
 
     // Send via Resend (same pattern you used)
-    const { error } = await resend.emails.send({
-      from: "Baggo <no-reply@sendwithbago.com>",
-      to: normalizedEmail,
-      subject: "Your Bago OTP — Resent",
-      html,
-    });
+    if (resend) {
+      const { error } = await resend.emails.send({
+        from: "Baggo <no-reply@sendwithbago.com>",
+        to: normalizedEmail,
+        subject: "Your Bago OTP — Resent",
+        html,
+      });
 
-    if (error) {
-      console.error("❌ Resend error (resendOtp):", error);
-      return res.status(500).json({ message: "Failed to resend OTP email" });
+      if (error) {
+        console.error("❌ Resend error (resendOtp):", error);
+        return res.status(500).json({ message: "Failed to resend OTP email" });
+      }
+    } else {
+      console.log("⚠️ RESEND not configured. OTP NOT sent to:", normalizedEmail);
+      console.log("🔢 Resent OTP:", otp);
     }
 
     return res.status(200).json({ message: "OTP resent successfully" });
@@ -756,7 +778,7 @@ export const signIn = async (req, res) => {
 
 
 
- export const  getUser = async (req, res) => {
+export const getUser = async (req, res) => {
   try {
     const userId = req.user._id;
     const user = await User.findById(userId).select('-password');
@@ -1069,128 +1091,128 @@ export const releaseFromEscrow = async (req, res) => {
  * @route POST /api/user/add-to-escrow
  * @access Private/Admin/System
  */
- export const addToEscrow = async (req, res) => {
-   try {
-     const { userId, amount } = req.body;
+export const addToEscrow = async (req, res) => {
+  try {
+    const { userId, amount } = req.body;
 
-     console.log("🟢 Incoming Escrow Request:", req.body);
+    console.log("🟢 Incoming Escrow Request:", req.body);
 
-     if (!userId || !amount || amount <= 0) {
-       console.log("⚠️ Invalid request data:", { userId, amount });
-       return res
-         .status(400)
-         .json({ message: "Invalid request: userId and positive amount required" });
-     }
+    if (!userId || !amount || amount <= 0) {
+      console.log("⚠️ Invalid request data:", { userId, amount });
+      return res
+        .status(400)
+        .json({ message: "Invalid request: userId and positive amount required" });
+    }
 
-     console.log("🔍 Finding user with ID:", userId);
-     const user = await User.findById(userId);
+    console.log("🔍 Finding user with ID:", userId);
+    const user = await User.findById(userId);
 
-     if (!user) {
-       console.log("❌ User not found for ID:", userId);
-       return res.status(404).json({ message: "User not found" });
-     }
+    if (!user) {
+      console.log("❌ User not found for ID:", userId);
+      return res.status(404).json({ message: "User not found" });
+    }
 
-     console.log("💰 Current escrowBalance before update:", user.escrowBalance);
-     console.log("💰 Current balance before update:", user.balance);
+    console.log("💰 Current escrowBalance before update:", user.escrowBalance);
+    console.log("💰 Current balance before update:", user.balance);
 
-     // ✅ Add funds to escrow
-     user.escrowBalance += amount;
+    // ✅ Add funds to escrow
+    user.escrowBalance += amount;
 
-     console.log("✅ New escrowBalance after update:", user.escrowBalance);
+    console.log("✅ New escrowBalance after update:", user.escrowBalance);
 
-     // ✅ Record transaction
-     user.escrowHistory.push({
-       type: "escrow_hold", // make sure this matches your schema enum
-       amount,
-       date: new Date(),
-     });
+    // ✅ Record transaction
+    user.escrowHistory.push({
+      type: "escrow_hold", // make sure this matches your schema enum
+      amount,
+      date: new Date(),
+    });
 
-     console.log("🧾 Updated escrowHistory:", user.escrowHistory[user.escrowHistory.length - 1]);
+    console.log("🧾 Updated escrowHistory:", user.escrowHistory[user.escrowHistory.length - 1]);
 
-     await user.save();
-     console.log("💾 User saved successfully to database");
+    await user.save();
+    console.log("💾 User saved successfully to database");
 
-     res.status(200).json({
-       success: true,
-       message: "Funds successfully added to escrow",
-       escrowBalance: user.escrowBalance,
-     });
-   } catch (error) {
-     console.error("🔥 Add to Escrow Error:", error.message);
-     console.error("📜 Full Error Stack:", error);
-     res.status(500).json({ message: error.message });
-   }
- };
-
-
-
-
-
-
- export const handleCancelledRequestEscrow = async (req, res) => {
-   try {
-     const { requestId, description } = req.body;
-
-     if (!requestId) {
-       return res.status(400).json({ message: "requestId is required" });
-     }
-
-     // Find the request
-     const request = await Request.findById(requestId).populate("sender");
-     if (!request) {
-       return res.status(404).json({ message: "Request not found" });
-     }
-
-     const user = request.sender;
-     if (!user) return res.status(404).json({ message: "Sender not found" });
-
-     // Only cancel if not already cancelled
-     if (request.status === "cancelled") {
-       return res.status(400).json({ message: "Request is already cancelled" });
-     }
-
-     // Update status to cancelled
-     request.status = "cancelled";
-     await request.save();
-
-     // Deduct escrow if any
-     const escrowAmount = request.amount || 0;
-     if (escrowAmount > 0) {
-       if (user.escrowBalance < escrowAmount) {
-         return res.status(400).json({ message: "User escrow balance insufficient" });
-       }
-
-       user.escrowBalance -= escrowAmount;
-       user.escrowHistory.push({
-         type: "escrow_removed",
-         amount: escrowAmount,
-         description: description || `Removed escrow for cancelled request ${requestId}`,
-       });
-
-       await user.save();
-
-       // Optional: mark escrow cleared on request
-       request.escrowCleared = true;
-       await request.save();
-     }
-
-     res.status(200).json({
-       success: true,
-       message: `Request cancelled and escrow of ${escrowAmount} removed`,
-       escrowBalance: user.escrowBalance,
-     });
-
-   } catch (error) {
-     console.error("Escrow removal error:", error);
-     res.status(500).json({ message: error.message });
-   }
- };
+    res.status(200).json({
+      success: true,
+      message: "Funds successfully added to escrow",
+      escrowBalance: user.escrowBalance,
+    });
+  } catch (error) {
+    console.error("🔥 Add to Escrow Error:", error.message);
+    console.error("📜 Full Error Stack:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
 
 
 
 
- export const useReferralDiscount = async (req, res) => {
+
+export const handleCancelledRequestEscrow = async (req, res) => {
+  try {
+    const { requestId, description } = req.body;
+
+    if (!requestId) {
+      return res.status(400).json({ message: "requestId is required" });
+    }
+
+    // Find the request
+    const request = await Request.findById(requestId).populate("sender");
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    const user = request.sender;
+    if (!user) return res.status(404).json({ message: "Sender not found" });
+
+    // Only cancel if not already cancelled
+    if (request.status === "cancelled") {
+      return res.status(400).json({ message: "Request is already cancelled" });
+    }
+
+    // Update status to cancelled
+    request.status = "cancelled";
+    await request.save();
+
+    // Deduct escrow if any
+    const escrowAmount = request.amount || 0;
+    if (escrowAmount > 0) {
+      if (user.escrowBalance < escrowAmount) {
+        return res.status(400).json({ message: "User escrow balance insufficient" });
+      }
+
+      user.escrowBalance -= escrowAmount;
+      user.escrowHistory.push({
+        type: "escrow_removed",
+        amount: escrowAmount,
+        description: description || `Removed escrow for cancelled request ${requestId}`,
+      });
+
+      await user.save();
+
+      // Optional: mark escrow cleared on request
+      request.escrowCleared = true;
+      await request.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Request cancelled and escrow of ${escrowAmount} removed`,
+      escrowBalance: user.escrowBalance,
+    });
+
+  } catch (error) {
+    console.error("Escrow removal error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
+
+export const useReferralDiscount = async (req, res) => {
   try {
     const { userId } = req.body;
 
