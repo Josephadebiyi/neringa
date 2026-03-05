@@ -8,14 +8,19 @@ app = FastAPI()
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://sendwithbago.com",
+        "https://www.sendwithbago.com",
+        "http://localhost:5173",
+        "https://neringa.onrender.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Node.js backend URL
-NODE_BACKEND = "http://localhost:5000"
+NODE_BACKEND = "http://localhost:3000"
 
 @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 async def proxy(request: Request, path: str):

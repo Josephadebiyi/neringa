@@ -14,6 +14,14 @@ export default function Signup() {
         confirmPassword: '',
         referralCode: ''
     });
+
+    const BAGO_COUNTRIES = [
+        "United States", "United Kingdom", "Canada", "Australia",
+        "Germany", "France", "Spain", "Italy", "Nigeria",
+        "South Africa", "Kenya", "Ghana", "India", "China",
+        "Japan", "Brazil", "Mexico", "United Arab Emirates"
+    ].sort();
+
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
@@ -35,15 +43,20 @@ export default function Signup() {
         }
 
         try {
+            console.log('Attempting signup with:', { ...formData, password: '***' });
             const response = await api.post('/api/bago/signup', formData);
+            console.log('Signup response:', response.data);
+
             if (response.data.success) {
-                setSuccess('Account created! Please check your email to verify.');
-                setTimeout(() => navigate('/login'), 3000);
+                setSuccess(response.data.message || 'Account created! Please check your email to verify.');
+                // Removed automatic redirect as per user preference
             } else {
                 setError(response.data.message || 'Signup failed');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Error occurred during signup');
+            console.error('Signup error details:', err);
+            const errorMessage = err.response?.data?.message || err.message || 'Error occurred during signup';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -94,57 +107,93 @@ export default function Signup() {
                         </Link>
                     </div>
                     <h2 className="text-3xl font-bold text-[#054752] mb-2">Join Bago</h2>
-                    <p className="text-[#708c91] font-medium mb-8">Create your seamless logistics account.</p>
 
                     {error && <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm">{error}</div>}
-                    {success && <div className="bg-green-50 text-green-600 p-4 rounded-xl mb-6 text-sm">{success}</div>}
 
-                    <form onSubmit={handleSignup} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                                <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="John" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                    {success ? (
+                        <div className="text-center py-8">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Check size={40} className="text-green-600" />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                                <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Smith" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                            </div>
+                            <h2 className="text-2xl font-bold text-[#054752] mb-4">Check Your Email!</h2>
+                            <p className="text-[#708c91] font-medium mb-8 leading-relaxed">
+                                {success}
+                            </p>
+                            <Link
+                                to="/login"
+                                className="inline-block bg-[#5845D8] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#4838B5] transition-all shadow-md"
+                            >
+                                Back to Sign In
+                            </Link>
                         </div>
+                    ) : (
+                        <>
+                            <p className="text-[#708c91] font-medium mb-8">Create your seamless logistics account.</p>
+                            <form onSubmit={handleSignup} className="space-y-5">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                                        <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="John" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                                        <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Doe" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
+                                </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                            <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="john.smith@example.com" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                            <p className="text-xs text-gray-500 mt-1">We'll send ride confirmations and updates here</p>
-                        </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                                    <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    <p className="text-xs text-gray-500 mt-1">We'll send ride confirmations and updates here</p>
+                                </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                                <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                <p className="text-xs text-gray-500 mt-1">Must be 18+ to join</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+1 234 567 8900" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                <p className="text-xs text-gray-500 mt-1">For ride coordination</p>
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                                        <select
+                                            name="country"
+                                            value={formData.country}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors bg-white"
+                                            required
+                                        >
+                                            {BAGO_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+1 234 567 8900" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                        <p className="text-xs text-gray-500 mt-1">For ride coordination</p>
+                                    </div>
+                                </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Min. 8 characters" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                                <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                            </div>
-                        </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                                    <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    <p className="text-xs text-gray-500 mt-1">Must be 18+ to join</p>
+                                </div>
 
-                        <button type="submit" disabled={loading} className="w-full bg-[#5845D8] text-white py-4 rounded-xl font-bold text-base hover:bg-[#4838B5] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mt-6">
-                            {loading ? 'Creating your account...' : 'Create Account & Start Traveling'}
-                        </button>
-                    </form>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                        <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                                        <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-[#5845D8] text-white py-4 rounded-xl font-bold mt-4 hover:bg-[#4838B5] transition-all shadow-lg hover:shadow-xl disabled:opacity-70 flex items-center justify-center gap-2"
+                                >
+                                    {loading ? 'Creating Account...' : 'Continue'}
+                                </button>
+                            </form>
+                        </>
+                    )}
 
                     <div className="mt-6 text-center">
                         <p className="text-xs text-gray-500 mb-4">

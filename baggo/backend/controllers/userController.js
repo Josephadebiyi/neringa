@@ -291,7 +291,7 @@ export const signUp = async (req, res) => {
       console.log("🔗 Verification Link:", verifyLink);
     }
 
-    res.status(200).json({ message: "Verification email sent. Please check your inbox (or console for link)." });
+    res.status(200).json({ success: true, message: "Verification email sent. Please check your inbox (or console for link)." });
   } catch (error) {
     console.error("🔥 Signup error:", error);
     res.status(400).json({ message: error.message });
@@ -444,7 +444,9 @@ export const forgotPassword = async (req, res) => {
     await user.save();
 
     // Build verification URL (optional CTA in email)
-    const verifyUrl = `https://sendwithbago.com/auth/verify-otp?email=${encodeURIComponent(email)}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+    const verifyUrl = `${frontendUrl}/verify-otp?email=${encodeURIComponent(email)}`;
+
 
     // Styled HTML for the email (UI only)
     const html = `
@@ -591,7 +593,9 @@ export const resendOtp = async (req, res) => {
     await user.save();
 
     // Build verification URL (optional)
-    const verifyUrl = `https://sendwithbago.com/auth/verify-otp?email=${encodeURIComponent(normalizedEmail)}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+    const verifyUrl = `${frontendUrl}/verify-otp?email=${encodeURIComponent(normalizedEmail)}`;
+
 
     // Styled HTML template (UI only) — shows the new OTP
     const html = `

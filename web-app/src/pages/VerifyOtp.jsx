@@ -11,7 +11,8 @@ export default function VerifyOtp() {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const email = location.state?.email;
+    const queryEmail = new URLSearchParams(location.search).get('email');
+    const email = location.state?.email || queryEmail;
 
     useEffect(() => {
         if (!email) {
