@@ -1,7 +1,7 @@
 // Centralized API service for admin panel
-const API_BASE = 'https://neringa.onrender.com/api';
-const ADMIN_API = `${API_BASE}/Adminbaggo`;
-const MAIN_API = `${API_BASE}/baggo`;
+const API_BASE = import.meta.env.VITE_API_URL || 'https://neringa.onrender.com/api';
+const ADMIN_API = `${API_BASE}/Adminbago`;
+const MAIN_API = `${API_BASE}/bago`;
 
 // Helper function for API calls
 async function apiCall(url: string, options: RequestInit = {}) {
@@ -13,12 +13,12 @@ async function apiCall(url: string, options: RequestInit = {}) {
       ...options.headers,
     },
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
     throw new Error(error.message || 'Request failed');
   }
-  
+
   return response.json();
 }
 

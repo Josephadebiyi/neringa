@@ -30,16 +30,16 @@ export default function SignIn() {
     try {
       // Use the AuthContext signIn method which handles token storage AND updates global state
       const { error: signInError } = await signIn(email.toLowerCase(), password);
-      
+
       if (signInError) {
         throw new Error(signInError.message || 'Sign in failed');
       }
 
       console.log('Sign in successful - context updated');
-      
+
       // Reset loading state
       setLoading(false);
-      
+
       // Navigate to main app
       router.replace('/(tabs)');
     } catch (err: any) {
@@ -98,7 +98,7 @@ export default function SignIn() {
                 )}
               </TouchableOpacity>
             </View>
-            
+
             <TouchableOpacity
               onPress={() => router.push('/auth/forgot-password')}
               disabled={loading}

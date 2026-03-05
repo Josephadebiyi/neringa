@@ -687,9 +687,24 @@ export const resendOtp = async (req, res) => {
 export const resetPassword = async (req, res) => {
   try {
     const { email, newPassword } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Unauthorized, missing reset token' });
+    }
+    const token = authHeader.split(' ')[1];
 
     if (!email || !newPassword) {
       return res.status(400).json({ message: 'Email and new password are required' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.email.toLowerCase() !== email.toLowerCase()) {
+        return res.status(401).json({ message: 'Unauthorized, token email mismatch' });
+      }
+    } catch (err) {
+      return res.status(401).json({ message: 'Invalid or expired reset token' });
     }
 
     const normalizedEmail = email.toLowerCase();
@@ -952,7 +967,7 @@ export const withdrawFunds = async (req, res) => {
  */
 export const getWallet = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.user._id;
 
     const user = await User.findById(userId).select("balance balanceHistory firstName lastName email");
 

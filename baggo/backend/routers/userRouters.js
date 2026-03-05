@@ -1,12 +1,12 @@
 import express from 'express';
-import { edit, getUser, logout,useReferralDiscount, signIn,verifyEmail,createDelivery,forgotPassword,resendOtp,verifyOtp,resetPassword, signUp,sendToEscrow,releaseFromEscrow,addToEscrow,handleCancelledRequestEscrow, getWallet,withdrawFunds,addFunds,uploadOrUpdateImage, updateAvatar } from '../controllers/userController.js';
+import { edit, getUser, logout, useReferralDiscount, signIn, verifyEmail, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar } from '../controllers/userController.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
 import { createPackage } from '../controllers/PackageController.js';
-import { getNotifications,getCompletedRequests,getDisputes,updatePaymentStatus, updateDispute,getRequests, uploadRequestImage,confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
+import { getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
 import { recentOrder } from '../controllers/getRecentRequest.js';
 import { getConversations, getMessages } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
@@ -33,21 +33,21 @@ userRouter.use(
 
 userRouter.post('/signup', signUp);
 userRouter.post('/signin', signIn);
-userRouter.get('/verify-email',verifyEmail );
-userRouter.post("/coupon",isAuthenticated,createDelivery);
-userRouter.post('/user/image',isAuthenticated, uploadOrUpdateImage);
-userRouter.post('/user/avatar',isAuthenticated, updateAvatar);
+userRouter.get('/verify-email', verifyEmail);
+userRouter.post("/coupon", isAuthenticated, createDelivery);
+userRouter.post('/user/image', isAuthenticated, uploadOrUpdateImage);
+userRouter.post('/user/avatar', isAuthenticated, updateAvatar);
 userRouter.post('/forgot-password', forgotPassword);
 userRouter.post('/verify-otp', verifyOtp);
 userRouter.post('/reset-password', resetPassword);
 userRouter.post("/resend-otp", resendOtp);
-userRouter.post('/AddAtrip',isAuthenticated, AddAtrip)
+userRouter.post('/AddAtrip', isAuthenticated, AddAtrip)
 userRouter.post('/:tripId/reviews', isAuthenticated, AddReviewToTrip);
-userRouter.get("/MyTrips", isAuthenticated,  MyTrips )
-userRouter.get("/getuser", isAuthenticated,  getUser)
+userRouter.get("/MyTrips", isAuthenticated, MyTrips)
+userRouter.get("/getuser", isAuthenticated, getUser)
 userRouter.get("/getTravelers", getTravelers)
-userRouter.get("/Profile",  isAuthenticated, Profile)
-userRouter.get("/logout",  logout )
+userRouter.get("/Profile", isAuthenticated, Profile)
+userRouter.get("/logout", logout)
 userRouter.put("/edit", isAuthenticated, edit)
 userRouter.put("/Trip/:id", isAuthenticated, UpdateTrip);
 userRouter.delete("/Trip/:id", isAuthenticated, DeleteTrip);
@@ -59,15 +59,15 @@ userRouter.get("/get-refund", getAllRefunds);
 userRouter.get("/request/:requestId", getRefundByRequestId);
 
 
-userRouter.post("/KycVerifications", isAuthenticated,  KycVerifications)
-userRouter.get("/getKyc", isAuthenticated,  getKyc)
+userRouter.post("/KycVerifications", isAuthenticated, KycVerifications)
+userRouter.get("/getKyc", isAuthenticated, getKyc)
 userRouter.post('/use-referral-discount', useReferralDiscount);
 
 userRouter.post('/request/:requestId/raise-dispute', raiseDispute);
 userRouter.put("/request/:requestId/payment", updatePaymentStatus);
 
 // userRouter.get("/getWalletBalance", isAuthenticated,  getWalletBalance)
-userRouter.post("/createPackage", isAuthenticated,  createPackage)
+userRouter.post("/createPackage", isAuthenticated, createPackage)
 userRouter.post("/RequestPackage", isAuthenticated, RequestPackage)
 userRouter.get("/recentOrder", isAuthenticated, recentOrder)
 userRouter.get("/getRequests/:tripId", isAuthenticated, getRequests)
@@ -80,11 +80,11 @@ userRouter.put('/request/:requestId/confirm-received', isAuthenticated, confirmR
 
 // 💰 Wallet & Payments
 userRouter.get('/getWallet', isAuthenticated, getWallet);
-userRouter.get('/getWalletBalance', isAuthenticated, withdrawFunds);
-userRouter.get('/processPayment', isAuthenticated, addFunds);
+userRouter.post('/withdrawFunds', isAuthenticated, withdrawFunds);
+userRouter.post('/addFunds', isAuthenticated, addFunds);
 userRouter.post('/send-to-escrow', isAuthenticated, sendToEscrow);
 userRouter.post('/release-from-escrow', isAuthenticated, releaseFromEscrow);
-userRouter.post('/add-to-escrow',addToEscrow);
+userRouter.post('/add-to-escrow', addToEscrow);
 userRouter.post("/remove-cancelled-escrow", handleCancelledRequestEscrow);
 
 
@@ -96,5 +96,5 @@ userRouter.put("/markNotificationAsRead/:notificationId", isAuthenticated, markN
 userRouter.get("/GetDetails/:requestId", isAuthenticated, GetDetials)
 userRouter.put("/markAllNotificationsAsRead", isAuthenticated, markAllNotificationsAsRead)
 // userRouter.get("/processPayment", isAuthenticated,  processPayment)
-userRouter.put("/updateRequestDates/:requestId",   isAuthenticated ,updateRequestDates)
+userRouter.put("/updateRequestDates/:requestId", isAuthenticated, updateRequestDates)
 export default userRouter;

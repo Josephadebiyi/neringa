@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 // List of African country codes for payment gateway detection
 const AFRICAN_COUNTRY_CODES = [
-  'NG', 'GH', 'KE', 'ZA', 'EG', 'MA', 'TZ', 'UG', 'RW', 'ET', 
+  'NG', 'GH', 'KE', 'ZA', 'EG', 'MA', 'TZ', 'UG', 'RW', 'ET',
   'SN', 'CI', 'CM', 'ZM', 'ZW', 'AO', 'BW', 'MW', 'MZ', 'NA',
   'BJ', 'BF', 'GA', 'GM', 'GN', 'LR', 'ML', 'MR', 'NE', 'SL', 'TG'
 ];
@@ -57,21 +57,21 @@ const shipmentSchema = new mongoose.Schema({
     ref: 'Route',
     required: true,
   },
-  
+
   // Sender info
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
-  
+
   // Traveler info (carrier)
   travelerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
-  
+
   // Trip reference
   tripId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -137,7 +137,7 @@ const shipmentSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
   },
-  
+
   // Shipment status
   status: {
     type: String,
@@ -191,7 +191,7 @@ const shipmentSchema = new mongoose.Schema({
 });
 
 // Generate unique tracking number
-shipmentSchema.pre('save', async function(next) {
+shipmentSchema.pre('save', async function (next) {
   if (!this.trackingNumber && this.paymentStatus === 'paid') {
     const prefix = 'BGO';
     const timestamp = Date.now().toString(36).toUpperCase();
@@ -202,7 +202,6 @@ shipmentSchema.pre('save', async function(next) {
 });
 
 // Index for tracking number lookup
-shipmentSchema.index({ trackingNumber: 1 });
 shipmentSchema.index({ senderId: 1, status: 1 });
 shipmentSchema.index({ travelerId: 1, status: 1 });
 shipmentSchema.index({ paymentStatus: 1 });

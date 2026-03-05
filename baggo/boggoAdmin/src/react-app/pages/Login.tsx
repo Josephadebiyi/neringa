@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ADMIN_API } from '../services/api';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -17,7 +18,7 @@ export default function Login() {
 
     try {
       const response = await fetch(
-        'https://neringa.onrender.com/api/Adminbaggo/AdminLogin',
+        `${ADMIN_API}/AdminLogin`,
         {
           method: 'POST',
           headers: {

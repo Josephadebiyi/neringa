@@ -48,7 +48,7 @@ export default function VerifyOTP() {
       }
 
       setSuccess('OTP verified successfully!');
-      setTimeout(() => router.push({ pathname: '/auth/change-password', params: { email } }), 1000);
+      setTimeout(() => router.push({ pathname: '/auth/change-password', params: { email, token: data.token } }), 1000);
     } catch (err: any) {
       setError(err.message || 'An error occurred during verification');
     } finally {

@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=General+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply antialiased text-gray-800 bg-gray-50;
+        font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: 'Inter', system-ui, sans-serif;
+        letter-spacing: -0.02em;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply bg-[#5845D8] text-white px-8 py-4 rounded-full font-semibold transition-all duration-300 hover:bg-[#4838B5] hover:shadow-lg hover:shadow-purple-500/30 flex items-center justify-center gap-2;
+    }
+
+    .btn-outline {
+        @apply bg-transparent border-2 border-white/20 text-white px-8 py-4 rounded-full font-semibold transition-all duration-300 hover:bg-white/10 flex items-center justify-center gap-2;
+    }
+
+    .btn-dark {
+        @apply bg-[#0B0F19] text-white px-8 py-4 rounded-full font-semibold transition-all duration-300 hover:bg-black flex items-center justify-center gap-2;
+    }
+
+    .nav-link {
+        @apply text-sm font-medium text-white/80 hover:text-white transition-colors cursor-pointer;
+    }
+
+    .nav-link-dark {
+        @apply text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer;
+    }
+}
+
+.gradient-text {
+    background: linear-gradient(135deg, #5845D8 0%, #3B2DA3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-gradient {
+    background: linear-gradient(180deg, rgba(11, 15, 25, 0.4) 0%, rgba(11, 15, 25, 0.95) 100%);
+}
+
+.card-blur {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}

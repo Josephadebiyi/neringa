@@ -23,7 +23,7 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { email } = useLocalSearchParams(); // 👈 get user email passed from Verify OTP
+  const { email, token } = useLocalSearchParams(); // 👈 get user email and token passed from Verify OTP
 
   const handleResetPassword = async () => {
     setError('');
@@ -56,7 +56,10 @@ export default function ResetPassword() {
     try {
       const response = await fetch(`${backendomain.backendomain}/api/baggo/reset-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ email, newPassword }), // 👈 send email + password
       });
 
