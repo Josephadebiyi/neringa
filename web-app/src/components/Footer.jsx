@@ -8,16 +8,26 @@ export default function Footer() {
     const { t, currentLanguage, setLanguage, languages, currentLangData, currency, setCurrency, currencies, currentCurrencyData } = useLanguage();
 
     return (
-        <footer className="bg-black text-white pt-24 pb-12 mt-20 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[#00D094]/5 rounded-full blur-[120px] -mr-32 -mt-32"></div>
+        <footer className="bg-[#1F2937] text-white pt-24 pb-12 mt-20 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-[120px] -mr-32 -mt-32"></div>
             <div className="px-6 md:px-12 max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-16 mb-24 relative z-10">
                 <div className="lg:col-span-1">
                     <Link to="/" className="flex items-center mb-8">
                         <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-10 invert brightness-200" />
                     </Link>
-                    <p className="text-white/40 text-sm font-medium leading-relaxed max-w-xs">
+                    <p className="text-white/60 text-sm font-medium leading-relaxed max-w-xs mb-6">
                         Building the most human-centric logistics network in the world. Ship fast, send anywhere.
                     </p>
+
+                    {/* App Store Buttons */}
+                    <div className="flex flex-col gap-3 mt-6">
+                        <a href="#" className="block">
+                            <img src="/app-store.svg" alt="Download on App Store" className="h-10 opacity-90 hover:opacity-100 transition" />
+                        </a>
+                        <a href="#" className="block">
+                            <img src="/google-play.svg" alt="Get it on Google Play" className="h-10 opacity-90 hover:opacity-100 transition" />
+                        </a>
+                    </div>
                 </div>
                 <div className="flex flex-col gap-6">
                     <h4 className="font-black text-white text-lg uppercase tracking-widest text-[12px] opacity-30">Ship with Bago</h4>

@@ -834,7 +834,7 @@ export default function Home() {
             <HeroSection />
             <StickySearch />
             <div className="h-4 md:h-0"></div>
-            {/* <RecentTrips user={user} /> */}
+            <RecentTrips user={user} />
             <PromoBar />
             <FeaturesSection />
             <TripTypeSection />
