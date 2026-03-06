@@ -956,12 +956,12 @@ export default function Home() {
         <div className="min-h-screen bg-[#F8F6F3] font-sans">
             <Navbar />
             <HeroSection />
+            <AppPromotionSection />
+            <FAQSection />
             <div className="h-4 md:h-0"></div>
             <RecentTrips user={user} />
             <FeaturesSection />
             <TripTypeSection />
-            <FAQSection />
-            <AppPromotionSection />
             <CommunityCTA />
             <DiscountPromo />
             <Footer />
