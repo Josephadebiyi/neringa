@@ -145,7 +145,7 @@ export default function Dashboard() {
                                     </div>
                                 )}
                                 <p className="text-sm text-gray-500 mb-4">You need to verify your identity to post trips or request deliveries.</p>
-                                <button onClick={handleStartKyc} className="btn-primary w-full">Verify with DIDIT</button>
+                                <button onClick={handleStartKyc} className="btn-primary w-full text-white font-bold py-3">ID Verification</button>
                             </div>
                         )}
                     </div>

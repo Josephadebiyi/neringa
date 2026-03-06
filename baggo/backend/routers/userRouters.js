@@ -1,5 +1,5 @@
 import express from 'express';
-import { edit, getUser, logout, useReferralDiscount, signIn, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar } from '../controllers/userController.js';
+import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar } from '../controllers/userController.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
@@ -33,6 +33,7 @@ userRouter.use(
 
 userRouter.post('/signup', signUp);
 userRouter.post('/signin', signIn);
+userRouter.post('/google-auth', googleAuth);
 userRouter.post('/verify-signup-otp', verifySignupOtp);
 userRouter.post("/coupon", isAuthenticated, createDelivery);
 userRouter.post('/user/image', isAuthenticated, uploadOrUpdateImage);

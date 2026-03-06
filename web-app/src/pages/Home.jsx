@@ -54,12 +54,6 @@ const Navbar = () => {
                 <button onClick={() => navigate('/how-it-works')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
                     How it works
                 </button>
-                <button onClick={() => navigate('/search?mode=carpool')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
-                    {t('carpool')}
-                </button>
-                <button onClick={() => navigate('/search?mode=bus')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
-                    {t('bus')}
-                </button>
             </div>
 
             <div className="flex items-center gap-6">
@@ -452,12 +446,13 @@ const StickySearch = () => {
 const PromoBar = () => {
     return (
         <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-10">
-            <div className="bg-[#0b4d4a] rounded-3xl p-10 md:p-14 text-center shadow-lg relative overflow-hidden">
+            <div className="bg-[#5845D8] rounded-3xl p-10 md:p-14 text-center shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
                 <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">Earn from your travels.</h2>
                 <p className="text-white/80 text-sm md:text-base max-w-2xl mx-auto mb-8 leading-relaxed font-medium">
                     Help others send packages while you travel by bus or flight. It's simple: publish your trip, deliver the package, and earn money for your luggage space.
                 </p>
-                <Link to="/post-trip" className="inline-flex items-center gap-3 bg-white text-[#054752] px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-all">
+                <Link to="/post-trip" className="inline-flex items-center gap-3 bg-white text-[#5845D8] px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-all">
                     <span>Post my trip</span>
                 </Link>
             </div>
@@ -474,31 +469,31 @@ const FeaturesSection = () => {
                         icon: ShieldCheck,
                         title: 'Insurance Online Payments',
                         desc: 'With Bago your money is safe at all times. Bago uses a secure payment system and you have a guaranteed refund.',
-                        color: 'bg-blue-50 text-blue-500'
+                        color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: Package,
                         title: 'Guaranteed delivery',
                         desc: 'If a traveler cancels your order or delivers an item in poor condition, we will process a full refund and try to find a new traveler for you.',
-                        color: 'bg-[#f0f9ff] text-[#0ea5e9]'
+                        color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: CreditCard,
                         title: 'Multiple Payment Options',
                         desc: 'To make your life easier, we accept a variety of payment methods such as Visa, MasterCard and American Express, with more options available soon.',
-                        color: 'bg-[#f5f3ff] text-[#8b5cf6]'
+                        color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: Calculator,
                         title: 'No Hidden Fees',
                         desc: 'For total transparency, Bago uses machine learning to calculate applicable rates and taxes before you post your order. That way you will know exactly how much you are paying.',
-                        color: 'bg-[#ecfdf5] text-[#10b981]'
+                        color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: UserCircle,
                         title: 'Community of Verified Senders and Travelers',
                         desc: 'At Bago, trust is our highest priority, and we work hard to ensure that our community treats all its members with the utmost respect.',
-                        color: 'bg-[#fff7ed] text-[#f97316]'
+                        color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: Headphones,
@@ -541,13 +536,13 @@ const CommunityCTA = () => {
                 <div className="flex flex-col md:flex-row gap-6 justify-center">
                     <button
                         onClick={() => navigate('/search')}
-                        className="px-12 py-5 bg-[#52a5b6] text-white font-bold rounded-lg text-lg hover:bg-[#4591a1] transition-all min-w-[240px]"
+                        className="px-12 py-5 bg-[#5845D8] text-white font-bold rounded-lg text-lg hover:bg-[#4838B5] transition-all min-w-[240px]"
                     >
                         Send with Bago
                     </button>
                     <button
                         onClick={() => navigate('/post-trip')}
-                        className="px-12 py-5 bg-[#52a5b6] text-white font-bold rounded-lg text-lg hover:bg-[#4591a1] transition-all min-w-[240px]"
+                        className="px-12 py-5 bg-[#5845D8] text-white font-bold rounded-lg text-lg hover:bg-[#4838B5] transition-all min-w-[240px]"
                     >
                         Travel with Bago
                     </button>
@@ -594,99 +589,17 @@ const TripTypeSection = () => {
     );
 };
 
-const RatingsSection = () => {
-    const { t } = useLanguage();
-
-    return (
-        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16">
-            <div className="flex flex-col md:flex-row items-center gap-16">
-                <div className="w-full md:w-1/2">
-                    <img
-                        src="/rating_app.png"
-                        alt="App rating"
-                        className="rounded-3xl w-full h-auto shadow-xl"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                </div>
-                <div className="w-full md:w-1/2">
-                    <h2 className="text-4xl md:text-5xl font-black text-[#054752] mb-6 leading-tight">
-                        {t('ratingsTitle')}<br />
-                        {t('ratingsSubtitle')}<br />
-                        {t('ratingsSubtitle2')}
-                    </h2>
-                    <p className="text-[#708c91] text-[16px] font-medium leading-relaxed mb-8">
-                        {t('ratingsDesc')}
-                    </p>
-                    <Link to="/search" className="inline-block bg-[#5845D8] text-white px-10 py-3 rounded-full font-bold hover:bg-[#4838B5] transition-colors shadow-lg hover:shadow-xl">
-                        {t('getGoing')}
-                    </Link>
-                </div>
-            </div>
-        </section>
-    );
-};
 
 const TrackingSection = () => {
     return (
         <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16 bg-[#f8f9fa] rounded-3xl my-8">
             <div className="flex flex-col md:flex-row items-center gap-16">
                 <div className="w-full md:w-1/2 flex justify-center py-6">
-                    <div className="w-full max-w-[300px] h-[550px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border-[8px] border-gray-900 border-b-[12px] transform transition-transform hover:-translate-y-2 duration-500">
-                        {/* Dynamic Island Notch */}
-                        <div className="absolute top-0 inset-x-0 h-6 flex justify-center z-30">
-                            <div className="w-24 h-6 bg-black rounded-b-[1.2rem] border border-black text-center flex items-center justify-center">
-                                <span className="w-2 h-2 rounded-full bg-[#1b1c1e] relative right-3 shadow-inner"></span>
-                            </div>
-                        </div>
-
-                        {/* Top Header Section */}
-                        <div className="bg-[#5845D8] pt-12 pb-14 px-5 text-center z-20 shadow-sm relative rounded-b-[2rem]">
-                            <div className="absolute top-10 left-5">
-                                <ArrowRight className="text-white rotate-180" size={18} />
-                            </div>
-                            <h3 className="text-white text-sm font-bold opacity-100 mb-6">Delivery Status</h3>
-
-                            <div className="w-16 h-16 bg-white/20 rounded-full mx-auto flex items-center justify-center mb-3 backdrop-blur-sm shadow-inner">
-                                <Package size={28} className="text-[#FFD166]" />
-                            </div>
-                            <h4 className="text-white font-extrabold text-lg mb-0.5">Nintendo Switch Oled</h4>
-                            <p className="text-white/80 text-[11px] font-medium">Order ID: JB39029910020</p>
-                        </div>
-
-                        {/* Overlapping Card Section */}
-                        <div className="flex-1 bg-white pt-6 px-6 overflow-hidden -mt-8 z-20 relative rounded-3xl shadow-[0_-8px_20px_rgba(0,0,0,0.1)] mx-3 mb-4 flex flex-col">
-                            <div className="mb-5">
-                                <h5 className="font-extrabold text-[#054752] text-xs mb-2">Status Order</h5>
-                                <div className="bg-[#85e0a3]/30 text-[#2fa554] text-[10px] font-bold px-3 py-1.5 rounded-full w-fit">In Delivery Courier</div>
-                            </div>
-
-                            {/* Status Timeline */}
-                            <div className="relative border-l-2 border-gray-100 ml-2.5 mt-2 space-y-6 flex-1">
-                                <div className="relative pl-6">
-                                    <div className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-[#5845D8] border-2 border-white shadow-sm"></div>
-                                    <p className="text-[11px] font-extrabold text-[#054752] leading-none mb-1.5">Request Accepted</p>
-                                    <p className="text-[9px] text-gray-400 font-medium">10:00 am • Feb 2th 2023</p>
-                                </div>
-                                <div className="relative pl-6">
-                                    <div className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-[#5845D8] border-2 border-white shadow-sm"></div>
-                                    <p className="text-[11px] font-extrabold text-[#054752] leading-none mb-1.5">Parcel Picked</p>
-                                    <p className="text-[9px] text-gray-400 font-medium">10:30 am • Feb 2th 2023</p>
-                                </div>
-                                <div className="relative pl-6 before:content-[''] before:absolute before:left-[1px] before:top-4 before:-bottom-6 before:w-[2px] before:bg-gradient-to-b before:from-[#5845D8] before:to-gray-100">
-                                    <div className="absolute -left-[8px] top-0 w-3.5 h-3.5 rounded-full bg-[#5845D8] border-2 border-white shadow-sm z-10 flex items-center justify-center">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
-                                    </div>
-                                    <p className="text-[11px] font-extrabold text-[#054752] leading-none mb-1.5">On The Way</p>
-                                    <p className="text-[9px] text-gray-400 font-medium">11:00 am • Feb 2th 2023</p>
-                                </div>
-                                <div className="relative pl-6 opacity-40">
-                                    <div className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-gray-200 border-2 border-white shadow-sm z-10"></div>
-                                    <p className="text-[11px] font-extrabold text-gray-500 leading-none mb-1.5">Delivered</p>
-                                    <p className="text-[9px] text-gray-400 font-medium">Pending</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <img
+                        src="/mobile-mockup.png"
+                        alt="Bago App Mockup"
+                        className="w-full max-w-[320px] h-auto rounded-3xl shadow-2xl"
+                    />
                 </div>
                 <div className="w-full md:w-1/2">
                     <h2 className="text-4xl md:text-5xl font-bold text-[#054752] mb-6 leading-tight tracking-tight">
@@ -835,7 +748,6 @@ export default function Home() {
             <PromoBar />
             <FeaturesSection />
             <TripTypeSection />
-            <RatingsSection />
             <CommunityCTA />
             <TrackingSection />
             <CarSection />

@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api';
+import api, { saveToken } from '../api';
+import { useGoogleLogin } from '@react-oauth/google';
+import { useAuth } from '../AuthContext';
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/style.css';
 
 export default function Signup() {
     const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
         email: '',
         phone: '',
         country: 'United States',
-        dateOfBirth: '',
         password: '',
-        confirmPassword: '',
         referralCode: ''
     });
 
@@ -30,6 +30,30 @@ export default function Signup() {
     const [showOtp, setShowOtp] = useState(false);
     const [signupToken, setSignupToken] = useState('');
     const [otp, setOtp] = useState('');
+    const { login } = useAuth();
+
+    const handleGoogleSignup = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            setLoading(true);
+            setError('');
+            try {
+                const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
+                if (response.data.success) {
+                    saveToken(response.data.token);
+                    login(response.data.user);
+                    navigate('/dashboard');
+                } else {
+                    setError(response.data.message || 'Google signup failed');
+                }
+            } catch (err) {
+                console.error("Google Auth Error:", err);
+                setError(err.response?.data?.message || 'Google signup failed. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: () => setError('Google signup failed'),
+    });
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -40,11 +64,6 @@ export default function Signup() {
         setError('');
         setLoading(true);
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            setLoading(false);
-            return;
-        }
 
         try {
             const response = await api.post('/api/bago/signup', formData);
@@ -187,25 +206,31 @@ export default function Signup() {
                     ) : (
                         <>
                             <p className="text-[#708c91] font-medium mb-8">Create your seamless logistics account.</p>
-                            <form onSubmit={handleSignup} className="space-y-5">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                                        <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="John" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                                        <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Doe" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                    </div>
-                                </div>
 
+                            <div className="space-y-4 mb-8">
+                                <button
+                                    onClick={() => handleGoogleSignup()}
+                                    className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 py-3.5 rounded-xl font-bold text-[#054752] hover:bg-gray-50 transition-all shadow-sm"
+                                >
+                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                                    <span>Continue with Google</span>
+                                </button>
+
+                                <div className="relative flex items-center py-2">
+                                    <div className="flex-grow border-t border-gray-100"></div>
+                                    <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase tracking-widest">Or with email</span>
+                                    <div className="flex-grow border-t border-gray-100"></div>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleSignup} className="space-y-5">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                                     <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
                                     <p className="text-xs text-gray-500 mt-1">We'll send ride confirmations and updates here</p>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                                         <select
@@ -220,26 +245,33 @@ export default function Signup() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+1 234 567 8900" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                        <p className="text-xs text-gray-500 mt-1">For ride coordination</p>
+                                        <PhoneInput
+                                            country={'us'}
+                                            value={formData.phone}
+                                            onChange={phone => setFormData({ ...formData, phone })}
+                                            inputStyle={{
+                                                width: '100%',
+                                                height: '48px',
+                                                borderRadius: '12px',
+                                                border: '1px solid #E5E7EB',
+                                                fontSize: '16px'
+                                            }}
+                                            containerStyle={{
+                                                width: '100%'
+                                            }}
+                                            buttonStyle={{
+                                                borderRadius: '12px 0 0 12px',
+                                                border: '1px solid #E5E7EB',
+                                                backgroundColor: 'white'
+                                            }}
+                                        />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                                    <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                    <p className="text-xs text-gray-500 mt-1">Must be 18+ to join</p>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                        <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                                        <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                    </div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                    <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
                                 </div>
 
                                 <button

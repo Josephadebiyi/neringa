@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import api, { saveToken } from '../api';
+import { useGoogleLogin } from '@react-oauth/google';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -32,6 +33,29 @@ export default function Login() {
         }
     };
 
+    const handleGoogleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            setLoading(true);
+            setError('');
+            try {
+                const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
+                if (response.data.success) {
+                    saveToken(response.data.token);
+                    login(response.data.user);
+                    navigate('/dashboard');
+                } else {
+                    setError(response.data.message || 'Google login failed');
+                }
+            } catch (err) {
+                console.error("Google Auth Error:", err);
+                setError(err.response?.data?.message || 'Google login failed. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: () => setError('Google login failed'),
+    });
+
     return (
         <div className="min-h-screen bg-bg-theme flex overflow-hidden lg:flex-row flex-col">
             {/* Left side banner */}
@@ -58,12 +82,27 @@ export default function Login() {
                 <div className="w-full max-w-md">
                     <h2 className="text-3xl font-bold text-[#054752] mb-2">Sign In</h2>
                     <p className="text-[#708c91] font-medium mb-10">Welcome back to Bago.</p>
-
                     {error && (
                         <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl mb-6 text-sm font-medium">
                             {error}
                         </div>
                     )}
+
+                    <div className="space-y-4 mb-8">
+                        <button
+                            onClick={() => handleGoogleLogin()}
+                            className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 py-3.5 rounded-xl font-bold text-[#054752] hover:bg-gray-50 transition-all shadow-sm"
+                        >
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                            <span>Continue with Google</span>
+                        </button>
+
+                        <div className="relative flex items-center py-2">
+                            <div className="flex-grow border-t border-gray-100"></div>
+                            <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase tracking-widest">Or with email</span>
+                            <div className="flex-grow border-t border-gray-100"></div>
+                        </div>
+                    </div>
 
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div>

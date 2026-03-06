@@ -7,6 +7,7 @@ import cloudinary from 'cloudinary';
 import { Resend } from 'resend';
 import Request from '../models/RequestScheme.js';
 import { isAfricanCountry, getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
+import { OAuth2Client } from 'google-auth-library';
 
 dotenv.config();
 // Initialize Resend (optional)
@@ -832,6 +833,84 @@ export const getUser = async (req, res) => {
   }
 };
 
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+export const googleAuth = async (req, res) => {
+  try {
+    const { idToken, accessToken } = req.body;
+    let email, given_name, family_name, picture;
+
+    if (idToken) {
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      email = payload.email;
+      given_name = payload.given_name;
+      family_name = payload.family_name;
+      picture = payload.picture;
+    } else if (accessToken) {
+      // Fetch user info using access token
+      const response = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
+      email = response.data.email;
+      given_name = response.data.given_name;
+      family_name = response.data.family_name;
+      picture = response.data.picture;
+    } else {
+      return res.status(400).json({ success: false, message: "Google token is required" });
+    }
+
+    if (!email) return res.status(400).json({ success: false, message: "Could not retrieve email from Google" });
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      // Create new user if not exists
+      user = new User({
+        firstName: given_name || "User",
+        lastName: family_name || "Bago",
+        email: email.toLowerCase(),
+        image: picture,
+        password: Math.random().toString(36).slice(-10),
+        emailVerified: true,
+        isVerified: false,
+        status: 'pending',
+        country: 'United States',
+        phone: 'Not provided',
+        paymentGateway: 'stripe',
+        preferredCurrency: 'USD'
+      });
+      await user.save();
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.status(200).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        image: user.image,
+        isVerified: user.isVerified,
+        kycStatus: user.kycStatus
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Google Auth Error:", error.response?.data || error.message);
+    res.status(500).json({ success: false, message: "Google authentication failed" });
+  }
+};
 
 export const logout = async (req, res) => {
   try {
