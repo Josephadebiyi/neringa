@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
-import Home from './pages/Home';
+import HomeSimple from './pages/HomeSimple';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import SignupTest from './pages/SignupTest';
@@ -20,6 +20,7 @@ import Privacy from './pages/Privacy';
 import HelpCenter from './pages/HelpCenter';
 import TrackShipment from './pages/TrackShipment';
 import Banned from './pages/Banned';
+import Test from './Test';
 
 const GOOGLE_CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
 
@@ -29,7 +30,8 @@ function App() {
             <LanguageProvider>
                 <BrowserRouter>
                     <Routes>
-                        <Route path="/" element={<Home />} />
+                        <Route path="/test" element={<Test />} />
+                        <Route path="/" element={<HomeSimple />} />
                         <Route path="/about" element={<AboutUs />} />
                         <Route path="/how-it-works" element={<HowToUse />} />
                         <Route path="/login" element={<Login />} />
