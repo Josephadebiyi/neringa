@@ -1,11 +1,14 @@
 import fetch from "node-fetch";
 import FormData from "form-data";
+import axios from 'axios';
 import Kyc from "../models/kycScheme.js";
 import Setting from "../models/settingSheme.js";
 import User from "../models/userScheme.js";
 import cloudinary from "cloudinary";
 import fs from "fs";
 import path from "path";
+import dotenv from 'dotenv';
+dotenv.config();
 
 // ✅ Verify KYC status manually or auto
 export const Verifykyc = async (req, res, next) => {
@@ -30,11 +33,6 @@ export const Verifykyc = async (req, res, next) => {
   }
 };
 
-import axios from 'axios';
-import Kyc from "../models/kycScheme.js";
-import User from "../models/userScheme.js";
-import dotenv from 'dotenv';
-dotenv.config();
 
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY || 'W9Z65OUcc-JjmtqR10AXNKFg1LMj6L1ohVyi-YGSAHk';
 const DIDIT_WORKFLOW_ID = '701347c6-bd51-4ab7-8a35-8a442db4b63c';
