@@ -26,7 +26,7 @@ const Navbar = () => {
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <div className="flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="lg:hidden flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8]">
+                <button onClick={() => navigate(-1)} className="lg:hidden flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8]">
                     <ChevronLeft size={20} />
                     <span className="font-bold text-xs">Back</span>
                 </button>
@@ -37,7 +37,7 @@ const Navbar = () => {
 
             <div className="flex items-center gap-4">
                 <Link to="/login" className="flex items-center p-1 hover:bg-gray-50 rounded-full transition-all">
-                    <UserCircle size={28} className="text-[#d9d9d9] hover:text-[#054752] transition-colors" />
+                    <UserCircle size={28} className="text-[#d9d9d9] hover:text-[#012126] transition-colors" />
                 </Link>
             </div>
         </nav>
@@ -79,7 +79,7 @@ const TripCard = ({ trip }) => {
                             {trip.firstName?.charAt(0) || 'T'}
                         </div>
                         <div>
-                            <h3 className="font-bold text-[#054752] text-sm tracking-tight">{trip.firstName || 'Traveler'}</h3>
+                            <h3 className="font-bold text-[#012126] text-sm tracking-tight">{trip.firstName || 'Traveler'}</h3>
                             <div className="flex items-center gap-1 text-[10px] text-amber-500 font-black">
                                 <Star size={10} fill="currentColor" />
                                 <span>{trip.rating || '4.9'}</span>
@@ -90,9 +90,9 @@ const TripCard = ({ trip }) => {
                     <div className="space-y-2.5 mb-5 px-1">
                         <div className="flex items-center gap-2">
                             <MapPin size={14} className="text-[#5845D8]" />
-                            <span className="font-bold text-[#054752] text-xs">{trip.origin || trip.originCity}</span>
+                            <span className="font-bold text-[#012126] text-xs">{trip.origin || trip.originCity}</span>
                             <ArrowRight size={12} className="text-gray-300" />
-                            <span className="font-bold text-[#054752] text-xs">{trip.destination || trip.destinationCity}</span>
+                            <span className="font-bold text-[#012126] text-xs">{trip.destination || trip.destinationCity}</span>
                         </div>
                         <div className="flex items-center gap-4 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
                             <div className="flex items-center gap-1.5">
@@ -111,7 +111,7 @@ const TripCard = ({ trip }) => {
                     <div className="flex items-center justify-between pt-4 border-t border-gray-50 mb-4">
                         <div>
                             <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5">Space</p>
-                            <p className="font-bold text-[#054752] text-xs">{trip.availableWeight || '5'} kg available</p>
+                            <p className="font-bold text-[#012126] text-xs">{trip.availableWeight || '5'} kg available</p>
                         </div>
                         <div className="text-right">
                             <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5">Rate</p>
@@ -135,7 +135,7 @@ const TripCard = ({ trip }) => {
 const FilterPanel = ({ filters, setFilters, onApply }) => {
     return (
         <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm sticky top-24 font-sans">
-            <h3 className="font-black text-[#054752] text-[11px] uppercase tracking-[2px] mb-6 flex items-center gap-2">
+            <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-[2px] mb-6 flex items-center gap-2">
                 <SlidersHorizontal size={14} className="text-[#5845D8]" />
                 Filters
             </h3>
@@ -143,7 +143,7 @@ const FilterPanel = ({ filters, setFilters, onApply }) => {
             <div className="space-y-5">
                 {/* Date Range */}
                 <div>
-                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 tracking-wider ml-1">Travel Date</label>
+                    <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-2 tracking-wider ml-1">Travel Date</label>
                     <input
                         type="date"
                         className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 flex-row-reverse"
@@ -154,7 +154,7 @@ const FilterPanel = ({ filters, setFilters, onApply }) => {
 
                 {/* Transport Mode */}
                 <div>
-                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 tracking-wider ml-1">Transport Mode</label>
+                    <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-2 tracking-wider ml-1">Transport Mode</label>
                     <select
                         className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 appearance-none"
                         value={filters.transportMode}
@@ -171,7 +171,7 @@ const FilterPanel = ({ filters, setFilters, onApply }) => {
 
                 {/* Weight Needed */}
                 <div>
-                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 tracking-wider ml-1">Weight (kg)</label>
+                    <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-2 tracking-wider ml-1">Weight (kg)</label>
                     <input
                         type="number"
                         min="1"
@@ -299,10 +299,10 @@ export default function Search() {
             <div className="max-w-[1240px] mx-auto px-6 md:px-12 py-8 font-sans">
                 {/* Search Header */}
                 <div className="mb-6 px-1">
-                    <h1 className="text-2xl font-black text-[#054752] mb-1 leading-tight tracking-tight">
+                    <h1 className="text-2xl font-black text-[#012126] mb-1 leading-tight tracking-tight">
                         Available Travelers
                     </h1>
-                    <p className="text-[#708c91] font-bold text-sm">
+                    <p className="text-[#6B7280] font-bold text-sm">
                         {filters.origin && filters.destination
                             ? `${filters.origin.city} → ${filters.destination.city}`
                             : 'Find travelers to deliver your package'}
@@ -313,7 +313,7 @@ export default function Search() {
                 <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 md:p-6 mb-8">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black text-[#708c91] uppercase tracking-wider px-1">Departure</label>
+                            <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-wider px-1">Departure</label>
                             <Select
                                 options={locationOptions}
                                 value={filters.origin}
@@ -335,7 +335,7 @@ export default function Search() {
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black text-[#708c91] uppercase tracking-wider px-1">Arrival</label>
+                            <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-wider px-1">Arrival</label>
                             <Select
                                 options={locationOptions}
                                 value={filters.destination}
@@ -357,7 +357,7 @@ export default function Search() {
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black text-[#708c91] uppercase tracking-wider px-1">Weight (kg)</label>
+                            <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-wider px-1">Weight (kg)</label>
                             <input
                                 type="number"
                                 placeholder="e.g. 5"

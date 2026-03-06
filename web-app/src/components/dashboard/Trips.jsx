@@ -90,7 +90,7 @@ export default function Trips({ user }) {
         <div className="space-y-6 font-sans">
             <div className="flex items-center justify-between mb-8 px-1">
                 <div>
-                    <h2 className="text-lg font-black text-[#054752] tracking-tight uppercase">My Trips</h2>
+                    <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">My Trips</h2>
                     <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">Manage your flight and bus routes.</p>
                 </div>
                 <button
@@ -107,7 +107,7 @@ export default function Trips({ user }) {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Plane size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#054752] mb-1.5 text-center uppercase tracking-tight">No active trips</h3>
+                    <h3 className="text-sm font-black text-[#012126] mb-1.5 text-center uppercase tracking-tight">No active trips</h3>
                     <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-8 font-bold uppercase tracking-wider opacity-60 leading-relaxed">You haven't posted any routes yet. Start earning by sharing luggage space.</p>
                 </div>
             ) : (
@@ -122,9 +122,9 @@ export default function Trips({ user }) {
                                 </div>
                                 <div className="flex-1">
                                     <div className="flex items-center gap-1.5">
-                                        <h4 className="font-black text-[#054752] text-xs uppercase tracking-tight">{trip.fromLocation}</h4>
+                                        <h4 className="font-black text-[#012126] text-xs uppercase tracking-tight">{trip.fromLocation}</h4>
                                         <ChevronRight size={12} className="text-gray-300" />
-                                        <h4 className="font-black text-[#054752] text-xs uppercase tracking-tight">{trip.toLocation}</h4>
+                                        <h4 className="font-black text-[#012126] text-xs uppercase tracking-tight">{trip.toLocation}</h4>
                                     </div>
                                     <p className="text-[9px] font-black text-gray-400 flex items-center gap-1 mt-1 uppercase tracking-widest opacity-70">
                                         <Calendar size={9} />
@@ -136,7 +136,7 @@ export default function Trips({ user }) {
                             <div className="grid grid-cols-2 gap-3 mb-5 bg-gray-50/50 rounded-xl p-3.5 relative z-10 border border-gray-50">
                                 <div>
                                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">Available Space</p>
-                                    <div className="flex items-center gap-1.5 text-[#054752] font-black text-xs uppercase tracking-tighter">
+                                    <div className="flex items-center gap-1.5 text-[#012126] font-black text-xs uppercase tracking-tighter">
                                         <Weight size={12} className="text-[#5845D8]/60" />
                                         <span>{trip.availableKg} KG</span>
                                     </div>
@@ -152,7 +152,7 @@ export default function Trips({ user }) {
                             <div className="flex gap-3 relative z-10">
                                 <button
                                     onClick={() => startEditing(trip)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-100 rounded-xl text-[10px] font-black text-[#054752] uppercase tracking-widest hover:bg-gray-50 transition-all"
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-100 rounded-xl text-[10px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-50 transition-all"
                                 >
                                     <Edit3 size={14} />
                                     Edit
@@ -175,7 +175,7 @@ export default function Trips({ user }) {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
                     <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                            <h3 className="text-xl font-black text-[#054752] uppercase tracking-tight">Edit Trip</h3>
+                            <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">Edit Trip</h3>
                             <button onClick={() => setEditingTrip(null)} className="p-1.5 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-gray-600"><X size={20} /></button>
                         </div>
                         <form onSubmit={handleUpdateTrip} className="p-6 space-y-5">

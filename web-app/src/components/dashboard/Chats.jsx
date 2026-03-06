@@ -91,11 +91,11 @@ export default function Chats({ user }) {
     };
 
     return (
-        <div className="flex h-[calc(100vh-140px)] bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm font-sans text-[#054752]">
+        <div className="flex h-[calc(100vh-140px)] bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm font-sans text-[#012126]">
             {/* Sidebar List */}
             <div className="w-[320px] border-r border-gray-100 flex flex-col bg-white">
                 <div className="p-5 border-b border-gray-50 flex items-center justify-between">
-                    <h3 className="font-black text-[#054752] text-[10px] uppercase tracking-widest">Active Chats</h3>
+                    <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Active Chats</h3>
                     <div className="w-5 h-5 rounded-full bg-gray-50 flex items-center justify-center">
                         <MessageCircle size={10} className="text-[#5845D8]" />
                     </div>
@@ -117,7 +117,7 @@ export default function Chats({ user }) {
                                 </div>
                                 <div className="flex-1 text-left min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <p className="font-black text-[#054752] text-[11px] truncate uppercase tracking-tight">{conv.otherUser?.firstName || 'User'}</p>
+                                        <p className="font-black text-[#012126] text-[11px] truncate uppercase tracking-tight">{conv.otherUser?.firstName || 'User'}</p>
                                         <p className="text-[8px] text-gray-300 font-black">2m</p>
                                     </div>
                                     <p className="text-[9px] text-gray-400 truncate font-bold uppercase tracking-wide opacity-70 group-hover:opacity-100 transition-opacity">{conv.lastMessage || 'Open chat'}</p>
@@ -139,7 +139,7 @@ export default function Chats({ user }) {
                                     {selectedConv.otherUser?.firstName?.charAt(0)}
                                 </div>
                                 <div>
-                                    <p className="font-black text-[#054752] text-[11px] tracking-tight uppercase">{selectedConv.otherUser?.firstName} {selectedConv.otherUser?.lastName}</p>
+                                    <p className="font-black text-[#012126] text-[11px] tracking-tight uppercase">{selectedConv.otherUser?.firstName} {selectedConv.otherUser?.lastName}</p>
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></div>
                                         <p className="text-[7px] text-green-600 font-black uppercase tracking-widest">Active Now</p>
@@ -157,7 +157,7 @@ export default function Chats({ user }) {
                                 const isMe = msg.sender === (user?._id || user?.id);
                                 return (
                                     <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                        <div className={`max-w-[70%] px-4 py-3 rounded-2xl text-[11px] font-bold leading-relaxed ${isMe ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/10 rounded-tr-none' : 'bg-white border border-gray-100 text-[#054752] shadow-sm rounded-tl-none'}`}>
+                                        <div className={`max-w-[70%] px-4 py-3 rounded-2xl text-[11px] font-bold leading-relaxed ${isMe ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/10 rounded-tr-none' : 'bg-white border border-gray-100 text-[#012126] shadow-sm rounded-tl-none'}`}>
                                             {msg.text}
                                             <p className={`text-[7px] mt-1.5 opacity-40 font-black uppercase tracking-widest ${isMe ? 'text-white' : 'text-gray-400'}`}>09:41 AM</p>
                                         </div>
@@ -190,7 +190,7 @@ export default function Chats({ user }) {
                                         if (showWarning) setShowWarning(false);
                                     }}
                                     placeholder="Type your message..."
-                                    className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold text-[#054752] placeholder:text-gray-300 placeholder:uppercase placeholder:tracking-widest placeholder:text-[9px]"
+                                    className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold text-[#012126] placeholder:text-gray-300 placeholder:uppercase placeholder:tracking-widest placeholder:text-[9px]"
                                 />
                                 <button
                                     type="submit"
@@ -208,7 +208,7 @@ export default function Chats({ user }) {
                             <div className="absolute inset-0 bg-[#5845D8]/5 rounded-full animate-ping duration-[3000ms]"></div>
                             <MessageCircle size={32} className="text-[#5845D8] opacity-20 relative z-10" />
                         </div>
-                        <h3 className="text-xs font-black text-[#054752] mb-2 uppercase tracking-[0.2em]">Select a conversation</h3>
+                        <h3 className="text-xs font-black text-[#012126] mb-2 uppercase tracking-[0.2em]">Select a conversation</h3>
                         <p className="text-gray-400 text-[10px] font-bold max-w-xs mx-auto uppercase tracking-widest leading-loose opacity-60">Choose a chat to start messaging with travelers or senders securely.</p>
                     </div>
                 )}

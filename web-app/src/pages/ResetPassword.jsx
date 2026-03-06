@@ -63,7 +63,7 @@ export default function ResetPassword() {
 
     return (
         <div className="min-h-screen bg-bg-theme flex overflow-hidden lg:flex-row flex-col">
-            <div className="lg:w-1/2 w-full lg:min-h-screen h-[40vh] relative bg-[#054752] flex flex-col justify-between p-8 md:p-16 overflow-hidden">
+            <div className="lg:w-1/2 w-full lg:min-h-screen h-[40vh] relative bg-[#012126] flex flex-col justify-between p-8 md:p-16 overflow-hidden">
                 <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-tl-[120px] -mr-20 -mb-20"></div>
                 <div className="absolute top-20 right-20 w-48 h-48 bg-[#5845D8] rounded-full blur-[80px] opacity-40"></div>
 
@@ -83,8 +83,8 @@ export default function ResetPassword() {
 
             <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.02)]">
                 <div className="w-full max-w-md">
-                    <h2 className="text-3xl font-bold text-[#054752] mb-2">Create Password</h2>
-                    <p className="text-[#708c91] font-medium mb-10">Make sure it's strong and something you'll remember.</p>
+                    <h2 className="text-3xl font-bold text-[#012126] mb-2">Create Password</h2>
+                    <p className="text-[#6B7280] font-medium mb-10">Make sure it's strong and something you'll remember.</p>
 
                     {error && (
                         <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl mb-6 text-sm font-medium">
@@ -99,24 +99,24 @@ export default function ResetPassword() {
 
                     <form onSubmit={handleResetSubmit} className="space-y-6">
                         <div>
-                            <label className="block text-sm font-bold text-[#054752] mb-2">New Password</label>
+                            <label className="block text-sm font-bold text-[#012126] mb-2">New Password</label>
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
+                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-medium"
                                 placeholder="••••••••"
                                 required
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-[#054752] mb-2">Confirm Password</label>
+                            <label className="block text-sm font-bold text-[#012126] mb-2">Confirm Password</label>
                             <input
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
+                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-medium"
                                 placeholder="••••••••"
                                 required
                             />
@@ -131,7 +131,7 @@ export default function ResetPassword() {
                         </button>
                     </form>
 
-                    <p className="mt-10 text-center text-[#708c91] font-medium">
+                    <p className="mt-10 text-center text-[#6B7280] font-medium">
                         Remember your old password?{' '}
                         <Link to="/login" className="text-[#5845D8] font-bold hover:text-[#4838B5] transition-colors">
                             Sign In

@@ -137,13 +137,13 @@ export default function Settings({ user, checkAuthStatus }) {
     };
 
     return (
-        <div className="space-y-6 max-w-[1200px] pb-10 font-sans text-[#054752]">
+        <div className="space-y-6 max-w-[1200px] pb-10 font-sans text-[#012126]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Profile Edit */}
                 <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <User className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#054752] text-[10px] uppercase tracking-widest">Personal Info</h3>
+                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Personal Info</h3>
                     </div>
 
                     <div className="flex justify-center mb-5 relative group">
@@ -199,7 +199,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <Mail className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#054752] text-[10px] uppercase tracking-widest">Email Settings</h3>
+                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Email Settings</h3>
                     </div>
 
                     <div className="space-y-4">
@@ -261,14 +261,14 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#5845D8]/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
                 <div className="flex items-center gap-3 border-b border-gray-50 pb-4 mb-6">
                     <Landmark className="text-[#5845D8]" size={18} />
-                    <h3 className="font-black text-[#054752] text-[11px] uppercase tracking-widest">Withdrawal Methods</h3>
+                    <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">Withdrawal Methods</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-6">
                         <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col justify-between group hover:border-[#5845D8]/20 transition-all">
                             <div>
-                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#054752] mb-3 uppercase tracking-widest">
+                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">1</span>
                                     Stripe Connect
                                 </h4>
@@ -305,7 +305,7 @@ export default function Settings({ user, checkAuthStatus }) {
                     {showBankOption && (
                         <div className="space-y-4">
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
-                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#054752] mb-4 uppercase tracking-widest">
+                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-4 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
                                     Bank Transfer (NGN)
                                 </h4>
@@ -315,21 +315,21 @@ export default function Settings({ user, checkAuthStatus }) {
                                         value={bankName}
                                         onChange={(e) => setBankName(e.target.value)}
                                         placeholder="Bank Name"
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#054752] shadow-sm uppercase tracking-tight"
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight"
                                     />
                                     <input
                                         type="text"
                                         value={accountNumber}
                                         onChange={(e) => setAccountNumber(e.target.value)}
                                         placeholder="Account Number"
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#054752] shadow-sm tracking-widest"
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm tracking-widest"
                                     />
                                     <input
                                         type="text"
                                         value={accountHolderName}
                                         onChange={(e) => setAccountHolderName(e.target.value)}
                                         placeholder="Account Holder Name"
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#054752] shadow-sm uppercase tracking-tight"
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight"
                                     />
                                 </div>
                             </div>
@@ -341,7 +341,7 @@ export default function Settings({ user, checkAuthStatus }) {
                     <button
                         onClick={handleUpdateProfile}
                         disabled={loading}
-                        className="px-6 py-3 bg-[#054752] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center gap-2 shadow-lg"
+                        className="px-6 py-3 bg-[#012126] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center gap-2 shadow-lg"
                     >
                         {loading ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                         Save Details
@@ -355,7 +355,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="flex items-center justify-between border-b border-gray-50 pb-4 mb-6">
                     <div className="flex items-center gap-2.5">
                         <CreditCard className="text-[#5845D8]" size={18} />
-                        <h3 className="font-black text-[#054752] text-[11px] uppercase tracking-widest">Stored Cards</h3>
+                        <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">Stored Cards</h3>
                     </div>
                     <button
                         onClick={() => setShowAddCard(!showAddCard)}
@@ -367,7 +367,7 @@ export default function Settings({ user, checkAuthStatus }) {
 
                 {showAddCard && (
                     <div className="mb-6 p-5 bg-gray-50/50 rounded-2xl border border-[#5845D8]/10 animate-in slide-in-from-top duration-300">
-                        <h4 className="text-[10px] font-black text-[#054752] mb-3 uppercase tracking-widest">Enter card details</h4>
+                        <h4 className="text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">Enter card details</h4>
                         <form onSubmit={handleAddCard} className="space-y-3">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <input
@@ -417,7 +417,7 @@ export default function Settings({ user, checkAuthStatus }) {
                         </div>
                     ) : (
                         cards.map(card => (
-                            <div key={card.id} className="p-5 rounded-[24px] bg-[#054752] text-white relative h-36 shadow-lg overflow-hidden group border border-[#054752]">
+                            <div key={card.id} className="p-5 rounded-[24px] bg-[#012126] text-white relative h-36 shadow-lg overflow-hidden group border border-[#012126]">
                                 <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-6 -mt-6"></div>
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-1.5">
@@ -455,7 +455,7 @@ export default function Settings({ user, checkAuthStatus }) {
 
             {/* Status Messages */}
             {successMessage && (
-                <div className="fixed bottom-10 right-10 bg-[#054752] text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50 border border-white/20 backdrop-blur-md">
+                <div className="fixed bottom-10 right-10 bg-[#012126] text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50 border border-white/20 backdrop-blur-md">
                     <CheckCircle className="text-green-400" size={18} />
                     <span className="font-black text-[11px] uppercase tracking-wide">{successMessage}</span>
                     <button onClick={() => setSuccessMessage('')} className="ml-3 opacity-40 hover:opacity-100 transition-opacity">✕</button>
@@ -474,7 +474,7 @@ export default function Settings({ user, checkAuthStatus }) {
 
 const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountNumber, accountHolderName, setAccountHolderName }) => (
     <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-        <h4 className="flex items-center gap-2 text-sm font-black text-[#054752] mb-4">
+        <h4 className="flex items-center gap-2 text-sm font-black text-[#012126] mb-4">
             <span className="w-6 h-6 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[10px]">2</span>
             Nigerian Bank Transfer (NGN)
         </h4>
@@ -484,21 +484,21 @@ const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountN
                 value={bankName}
                 onChange={(e) => setBankName(e.target.value)}
                 placeholder="Bank Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#054752]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
             />
             <input
                 type="text"
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
                 placeholder="Account Number"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#054752]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
             />
             <input
                 type="text"
                 value={accountHolderName}
                 onChange={(e) => setAccountHolderName(e.target.value)}
                 placeholder="Account Holder Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-100 focus:border-[#5845D8] outline-none text-sm font-bold text-[#054752]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-100 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
             />
         </div>
     </div>

@@ -181,14 +181,14 @@ export default function Signup() {
                 <div className="w-full max-w-md py-12">
                     <div className="mb-8 text-center lg:text-left">
                         <h2 className="text-2xl font-black text-[#012126] mb-1.5 tracking-tight">Create Account</h2>
-                        <p className="text-[#708c91] font-semibold text-base">Get started with Bago today.</p>
+                        <p className="text-[#6B7280] font-semibold text-base">Get started with Bago today.</p>
                     </div>
 
                     {showOtp ? (
                         <div className="space-y-6">
                             <div className="bg-[#5845D8]/5 p-7 rounded-[24px] border border-[#5845D8]/10 text-center">
                                 <h3 className="text-base font-bold text-[#012126] mb-1">Check your inbox</h3>
-                                <p className="text-[#708c91] font-semibold text-xs">
+                                <p className="text-[#6B7280] font-semibold text-xs">
                                     We sent a code to <br /><span className="font-bold text-[#5845D8]">{formData.email}</span>
                                 </p>
                             </div>
@@ -229,7 +229,7 @@ export default function Signup() {
                                 <button
                                     type="button"
                                     onClick={() => setShowOtp(false)}
-                                    className="w-full text-[9px] font-black text-[#708c91] hover:text-[#012126] transition-colors uppercase tracking-widest"
+                                    className="w-full text-[9px] font-black text-[#6B7280] hover:text-[#012126] transition-colors uppercase tracking-widest"
                                 >
                                     ← Back to details
                                 </button>
@@ -361,14 +361,14 @@ export default function Signup() {
                                     {loading ? 'Processing...' : 'Create Account'}
                                 </button>
 
-                                <p className="text-center text-[9px] text-[#708c91] mt-6 px-6 font-bold uppercase tracking-widest leading-relaxed">
+                                <p className="text-center text-[9px] text-[#6B7280] mt-6 px-6 font-bold uppercase tracking-widest leading-relaxed">
                                     By joining, you agree to our <Link to="/terms" className="text-[#5845D8] underline">Terms</Link> & <Link to="/privacy" className="text-[#5845D8] underline">Privacy</Link>.
                                 </p>
                             </form>
                         </div>
                     )}
 
-                    <p className="mt-10 text-center text-[#708c91] font-bold text-[13px]">
+                    <p className="mt-10 text-center text-[#6B7280] font-bold text-[13px]">
                         Already have an account?{' '}
                         <Link to="/login" className="text-[#5845D8] font-black border-b-2 border-transparent hover:border-[#5845D8] transition-all ml-1">
                             Sign in here

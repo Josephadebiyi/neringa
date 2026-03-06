@@ -37,7 +37,7 @@ const Navbar = ({ step }) => {
     const steps = ['Route & Details', 'Review', 'Payment', 'Done'];
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8]">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8]">
                 <ChevronLeft size={20} />
                 <span className="font-bold text-xs">{t('back')}</span>
             </button>
@@ -72,7 +72,7 @@ const CityField = ({ countryLabel, value, onChange, name, label }) => {
                     name={name}
                     value={value}
                     onChange={onChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#054752] focus:bg-white focus:shadow-sm"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#012126] focus:bg-white focus:shadow-sm"
                 >
                     <option value="">Any city in {countryLabel}</option>
                     {cities.map(loc => (
@@ -93,7 +93,7 @@ const CityField = ({ countryLabel, value, onChange, name, label }) => {
                 value={value}
                 onChange={onChange}
                 placeholder={`Enter city in ${countryLabel}...`}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#054752] focus:bg-white focus:shadow-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
             />
         </div>
     );
@@ -265,8 +265,8 @@ export default function PostTrip() {
                 {step === 1 && (
                     <>
                         <div className="mb-6 font-sans">
-                            <h1 className="text-xl font-black text-[#054752] mb-1 uppercase tracking-tight">{t('postTripTitle')}</h1>
-                            <p className="text-[#708c91] font-black text-[9px] uppercase tracking-widest opacity-60">{t('postTripSubtitle')}</p>
+                            <h1 className="text-xl font-black text-[#012126] mb-1 uppercase tracking-tight">{t('postTripTitle')}</h1>
+                            <p className="text-[#6B7280] font-black text-[9px] uppercase tracking-widest opacity-60">{t('postTripSubtitle')}</p>
                         </div>
 
                         <form onSubmit={handleFormNext} className="space-y-6 font-sans">
@@ -278,7 +278,7 @@ export default function PostTrip() {
 
                             {/* ── Route ── */}
                             <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm transition-all hover:shadow-md">
-                                <h3 className="text-[10px] font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-[0.2em] opacity-80">
+                                <h3 className="text-[10px] font-black text-[#012126] mb-5 flex items-center gap-2 uppercase tracking-[0.2em] opacity-80">
                                     <MapPin size={14} className="text-[#5845D8]" />
                                     {t('route')}
                                 </h3>
@@ -292,7 +292,7 @@ export default function PostTrip() {
                                                 name="originCountry"
                                                 value={formData.originCountry}
                                                 onChange={handleChange}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#054752] focus:bg-white focus:shadow-sm"
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#012126] focus:bg-white focus:shadow-sm"
                                                 required
                                             >
                                                 <option value="">{t('selectCountry')}</option>
@@ -318,7 +318,7 @@ export default function PostTrip() {
                                                 name="destinationCountry"
                                                 value={formData.destinationCountry}
                                                 onChange={handleChange}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#054752] focus:bg-white focus:shadow-sm"
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#012126] focus:bg-white focus:shadow-sm"
                                                 required
                                             >
                                                 <option value="">{t('selectCountry')}</option>
@@ -339,7 +339,7 @@ export default function PostTrip() {
 
                                 {/* Live route preview */}
                                 {(formData.originCountry || formData.destinationCountry) && (
-                                    <div className="mt-6 bg-[#5845D8]/5 rounded-xl p-3 flex items-center gap-3 text-[9px] font-black text-[#054752] uppercase tracking-widest border border-[#5845D8]/10 animate-in fade-in duration-500">
+                                    <div className="mt-6 bg-[#5845D8]/5 rounded-xl p-3 flex items-center gap-3 text-[9px] font-black text-[#012126] uppercase tracking-widest border border-[#5845D8]/10 animate-in fade-in duration-500">
                                         <span className="opacity-70">{originFlag} {fromDisplay || '…'}</span>
                                         <ArrowRight size={12} className="text-[#5845D8] flex-shrink-0 animate-pulse" />
                                         <span className="opacity-70">{destFlag} {toDisplay || '…'}</span>
@@ -349,7 +349,7 @@ export default function PostTrip() {
 
                             {/* ── Dates ── */}
                             <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm transition-all hover:shadow-md">
-                                <h3 className="text-[10px] font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-[0.2em] opacity-80">
+                                <h3 className="text-[10px] font-black text-[#012126] mb-5 flex items-center gap-2 uppercase tracking-[0.2em] opacity-80">
                                     <Calendar size={14} className="text-[#5845D8]" />
                                     {t('travelDates')}
                                 </h3>
@@ -360,7 +360,7 @@ export default function PostTrip() {
                                             type="date" name="departureDate" value={formData.departureDate}
                                             onChange={handleChange}
                                             min={new Date().toISOString().split('T')[0]}
-                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all flex-row-reverse text-[#054752]"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all flex-row-reverse text-[#012126]"
                                             required
                                         />
                                     </div>
@@ -370,7 +370,7 @@ export default function PostTrip() {
                                             type="date" name="arrivalDate" value={formData.arrivalDate}
                                             onChange={handleChange}
                                             min={formData.departureDate || new Date().toISOString().split('T')[0]}
-                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all flex-row-reverse text-[#054752]"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all flex-row-reverse text-[#012126]"
                                             required
                                         />
                                     </div>
@@ -379,7 +379,7 @@ export default function PostTrip() {
 
                             {/* ── Transport ── */}
                             <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm transition-all hover:shadow-md">
-                                <h3 className="text-[10px] font-black text-[#054752] mb-5 uppercase tracking-[0.2em] opacity-80">{t('transportMode')}</h3>
+                                <h3 className="text-[10px] font-black text-[#012126] mb-5 uppercase tracking-[0.2em] opacity-80">{t('transportMode')}</h3>
                                 <div className="grid grid-cols-5 gap-3">
                                     {transportModes.map(({ value, icon: Icon, label }) => (
                                         <button
@@ -396,7 +396,7 @@ export default function PostTrip() {
 
                             {/* ── Capacity & Pricing ── */}
                             <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm transition-all hover:shadow-md">
-                                <h3 className="text-[10px] font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-[0.2em] opacity-80">
+                                <h3 className="text-[10px] font-black text-[#012126] mb-5 flex items-center gap-2 uppercase tracking-[0.2em] opacity-80">
                                     <Package size={14} className="text-[#5845D8]" />
                                     {t('capacity')} & Pricing
                                 </h3>
@@ -407,7 +407,7 @@ export default function PostTrip() {
                                             <input
                                                 type="number" name="availableWeight" value={formData.availableWeight}
                                                 onChange={handleChange} min="1" max="50" step="0.5"
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all text-[#054752] pr-10"
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all text-[#012126] pr-10"
                                                 placeholder="e.g. 10" required
                                             />
                                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] font-black text-gray-400 uppercase tracking-widest pointer-events-none">KG</span>
@@ -422,7 +422,7 @@ export default function PostTrip() {
                                     </div>
                                     <div>
                                         <h4 className="font-black text-[#5845D8] text-[9px] uppercase tracking-widest mb-1.5 opacity-90">{t('earningsWallet')}</h4>
-                                        <p className="text-[9px] text-[#054752] leading-loose font-bold uppercase tracking-wide opacity-60 m-0">{t('earningsDesc')}</p>
+                                        <p className="text-[9px] text-[#012126] leading-loose font-bold uppercase tracking-wide opacity-60 m-0">{t('earningsDesc')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -434,7 +434,7 @@ export default function PostTrip() {
                                 </label>
                                 <textarea
                                     name="additionalNotes" value={formData.additionalNotes} onChange={handleChange}
-                                    rows="3" className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none resize-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all text-[#054752] focus:bg-white placeholder:text-gray-300 placeholder:text-[9px] placeholder:uppercase placeholder:tracking-widest"
+                                    rows="3" className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none resize-none text-[11px] font-black bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white placeholder:text-gray-300 placeholder:text-[9px] placeholder:uppercase placeholder:tracking-widest"
                                     placeholder={t('notesPlaceholder')}
                                 />
                             </div>
@@ -456,13 +456,13 @@ export default function PostTrip() {
                 {step === 2 && (
                     <div className="font-sans">
                         <div className="mb-8">
-                            <h1 className="text-xl font-black text-[#054752] mb-1 uppercase tracking-tight">Review Your Trip</h1>
-                            <p className="text-[#708c91] font-black text-[9px] uppercase tracking-widest opacity-60">Confirm all details before publishing</p>
+                            <h1 className="text-xl font-black text-[#012126] mb-1 uppercase tracking-tight">Review Your Trip</h1>
+                            <p className="text-[#6B7280] font-black text-[9px] uppercase tracking-widest opacity-60">Confirm all details before publishing</p>
                         </div>
 
                         <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden mb-8 transition-all hover:shadow-md">
                             {/* Route banner */}
-                            <div className="bg-gradient-to-br from-[#054752] to-[#5845D8] p-8 text-white relative overflow-hidden">
+                            <div className="bg-gradient-to-br from-[#012126] to-[#5845D8] p-8 text-white relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="text-center">
@@ -503,7 +503,7 @@ export default function PostTrip() {
                                 ].map(({ label, value }) => (
                                     <div key={label} className="bg-gray-50/50 rounded-2xl p-4 border border-gray-100/50">
                                         <p className="text-[8px] font-black text-gray-400 uppercase tracking-[0.15em] mb-2 ml-0.5">{label}</p>
-                                        <p className="font-black text-[#054752] text-[11px] uppercase tracking-tight">{value}</p>
+                                        <p className="font-black text-[#012126] text-[11px] uppercase tracking-tight">{value}</p>
                                     </div>
                                 ))}
                             </div>
@@ -511,13 +511,13 @@ export default function PostTrip() {
                             {formData.additionalNotes && (
                                 <div className="px-6 pb-6 mt-2">
                                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-[0.15em] mb-2 ml-0.5">Additional Notes</p>
-                                    <p className="text-[10px] text-[#054752] font-bold leading-relaxed bg-gray-50/50 p-4 rounded-2xl border border-gray-100/50 opacity-80">{formData.additionalNotes}</p>
+                                    <p className="text-[10px] text-[#012126] font-bold leading-relaxed bg-gray-50/50 p-4 rounded-2xl border border-gray-100/50 opacity-80">{formData.additionalNotes}</p>
                                 </div>
                             )}
                         </div>
 
                         <div className="flex gap-4">
-                            <button onClick={() => setStep(1)} className="flex-1 py-4 rounded-2xl border-2 border-gray-100 font-black text-[10px] uppercase tracking-widest text-[#054752] hover:bg-gray-50 transition-all active:scale-95">
+                            <button onClick={() => setStep(1)} className="flex-1 py-4 rounded-2xl border-2 border-gray-100 font-black text-[10px] uppercase tracking-widest text-[#012126] hover:bg-gray-50 transition-all active:scale-95">
                                 ← Edit
                             </button>
                             <button onClick={handleReviewNext} className="flex-2 flex-grow-[2] bg-[#5845D8] text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-[#4838B5] transition-all shadow-xl shadow-[#5845D8]/20 flex items-center justify-center gap-2 active:scale-95">
@@ -531,8 +531,8 @@ export default function PostTrip() {
                 {step === 3 && (
                     <div className="font-sans">
                         <div className="mb-8 text-center sm:text-left">
-                            <h1 className="text-xl font-black text-[#054752] mb-1 uppercase tracking-tight">Payout Setup</h1>
-                            <p className="text-[#708c91] font-black text-[9px] uppercase tracking-widest opacity-60">How you'll receive earnings from senders</p>
+                            <h1 className="text-xl font-black text-[#012126] mb-1 uppercase tracking-tight">Payout Setup</h1>
+                            <p className="text-[#6B7280] font-black text-[9px] uppercase tracking-widest opacity-60">How you'll receive earnings from senders</p>
                         </div>
 
                         {error && (
@@ -547,11 +547,11 @@ export default function PostTrip() {
                                 <div className="w-9 h-9 rounded-full bg-[#5845D8]/5 flex items-center justify-center text-[#5845D8]">
                                     <Shield size={16} />
                                 </div>
-                                <h3 className="font-black text-[11px] text-[#054752] uppercase tracking-[0.1em]">
+                                <h3 className="font-black text-[11px] text-[#012126] uppercase tracking-[0.1em]">
                                     Secure Escrow System
                                 </h3>
                             </div>
-                            <p className="text-[10px] text-[#054752] leading-relaxed font-bold opacity-60 uppercase tracking-wide">
+                            <p className="text-[10px] text-[#012126] leading-relaxed font-bold opacity-60 uppercase tracking-wide">
                                 Payments are held securely by Bago's escrow. Funds are only released after delivery is confirmed — protecting both you and the sender.
                             </p>
 
@@ -561,7 +561,7 @@ export default function PostTrip() {
                                         <div className="w-7 h-7 rounded-full bg-[#5845D8] text-white flex items-center justify-center shadow-md shadow-[#5845D8]/20">
                                             <CreditCard size={12} />
                                         </div>
-                                        <span className="font-black text-[10px] text-[#054752] uppercase tracking-widest">Stripe Payout</span>
+                                        <span className="font-black text-[10px] text-[#012126] uppercase tracking-widest">Stripe Payout</span>
                                     </div>
                                     <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-relaxed opacity-70">Direct bank transfers via Stripe Connect. Global coverage.</p>
                                 </div>
@@ -570,7 +570,7 @@ export default function PostTrip() {
                                         <div className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md shadow-green-500/20">
                                             <DollarSign size={12} />
                                         </div>
-                                        <span className="font-black text-[10px] text-[#054752] uppercase tracking-widest">Bago Wallet</span>
+                                        <span className="font-black text-[10px] text-[#012126] uppercase tracking-widest">Bago Wallet</span>
                                     </div>
                                     <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-relaxed opacity-70">Instant digital credit. Withdraw to any account anytime.</p>
                                 </div>
@@ -586,8 +586,8 @@ export default function PostTrip() {
 
                         {/* Trip summary recap */}
                         <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm mb-8">
-                            <h3 className="text-[10px] font-black text-[#054752] mb-5 uppercase tracking-[0.2em] opacity-80">Trip Summary</h3>
-                            <div className="flex items-center gap-3 text-[10px] font-black text-[#054752] bg-gray-50/50 rounded-2xl p-4 border border-gray-100/50 uppercase tracking-widest">
+                            <h3 className="text-[10px] font-black text-[#012126] mb-5 uppercase tracking-[0.2em] opacity-80">Trip Summary</h3>
+                            <div className="flex items-center gap-3 text-[10px] font-black text-[#012126] bg-gray-50/50 rounded-2xl p-4 border border-gray-100/50 uppercase tracking-widest">
                                 <span>{originFlag} {fromDisplay}</span>
                                 <ArrowRight size={12} className="text-[#5845D8] flex-shrink-0" />
                                 <span>{destFlag} {toDisplay}</span>
@@ -595,17 +595,17 @@ export default function PostTrip() {
                             <div className="mt-5 grid grid-cols-3 gap-4">
                                 <div className="bg-gray-50/50 p-3 rounded-xl border border-gray-100/30">
                                     <p className="text-gray-400 text-[7px] font-black uppercase tracking-widest mb-1.5 opacity-60 text-center">Departure</p>
-                                    <p className="font-black text-[#054752] text-[9px] text-center">{formData.departureDate}</p>
+                                    <p className="font-black text-[#012126] text-[9px] text-center">{formData.departureDate}</p>
                                 </div>
                                 <div className="col-span-2 bg-gray-50/50 p-3 rounded-xl border border-gray-100/30">
                                     <p className="text-gray-400 text-[7px] font-black uppercase tracking-widest mb-1.5 opacity-60 text-center">Available Capacity</p>
-                                    <p className="font-black text-[#054752] text-[9px] text-center">{formData.availableWeight} KG</p>
+                                    <p className="font-black text-[#012126] text-[9px] text-center">{formData.availableWeight} KG</p>
                                 </div>
                             </div>
                         </div>
 
                         <div className="flex gap-4">
-                            <button onClick={() => setStep(2)} className="flex-1 py-4 rounded-2xl border-2 border-gray-100 font-black text-[10px] uppercase tracking-widest text-[#054752] hover:bg-gray-50 transition-all active:scale-95">
+                            <button onClick={() => setStep(2)} className="flex-1 py-4 rounded-2xl border-2 border-gray-100 font-black text-[10px] uppercase tracking-widest text-[#012126] hover:bg-gray-50 transition-all active:scale-95">
                                 ← Back
                             </button>
                             <button
@@ -634,16 +634,16 @@ export default function PostTrip() {
                             </div>
                         </div>
 
-                        <h2 className="text-2xl font-black text-[#054752] mb-3 uppercase tracking-tight">Trip Published! 🎉</h2>
-                        <p className="text-[#708c91] text-[11px] font-black uppercase tracking-widest opacity-60 mb-2 leading-relaxed">
+                        <h2 className="text-2xl font-black text-[#012126] mb-3 uppercase tracking-tight">Trip Published! 🎉</h2>
+                        <p className="text-[#6B7280] text-[11px] font-black uppercase tracking-widest opacity-60 mb-2 leading-relaxed">
                             Your trip is now live & visible.
                         </p>
-                        <p className="text-[#054752] text-[10px] font-bold uppercase tracking-wide opacity-50 mb-10 max-w-sm mx-auto leading-relaxed">
+                        <p className="text-[#012126] text-[10px] font-bold uppercase tracking-wide opacity-50 mb-10 max-w-sm mx-auto leading-relaxed">
                             Package senders on this route can now discover and book your available luggage space.
                         </p>
 
                         {/* Route recap */}
-                        <div className="inline-flex items-center gap-4 bg-white border border-gray-100 rounded-[20px] px-8 py-5 mb-12 text-[10px] font-black text-[#054752] shadow-xl shadow-gray-200/40 uppercase tracking-[0.1em]">
+                        <div className="inline-flex items-center gap-4 bg-white border border-gray-100 rounded-[20px] px-8 py-5 mb-12 text-[10px] font-black text-[#012126] shadow-xl shadow-gray-200/40 uppercase tracking-[0.1em]">
                             <span className="flex items-center gap-2">{originFlag} {fromDisplay}</span>
                             <div className="w-10 h-[2px] bg-gradient-to-r from-gray-100 via-[#5845D8]/30 to-gray-100 rounded-full"></div>
                             <span className="flex items-center gap-2">{destFlag} {toDisplay}</span>
@@ -651,7 +651,7 @@ export default function PostTrip() {
 
                         {/* What's next */}
                         <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm text-left mb-10">
-                            <h3 className="text-[10px] font-black text-[#054752] mb-8 text-center uppercase tracking-[0.3em] opacity-40">Next Phases</h3>
+                            <h3 className="text-[10px] font-black text-[#012126] mb-8 text-center uppercase tracking-[0.3em] opacity-40">Next Phases</h3>
                             <div className="space-y-6">
                                 {[
                                     { icon: '📩', title: 'Booking Requests', desc: 'Senders on your route will send requests directly.' },
@@ -662,8 +662,8 @@ export default function PostTrip() {
                                     <div key={title} className="flex gap-5 group items-center">
                                         <span className="text-2xl group-hover:scale-125 transition-transform duration-500">{icon}</span>
                                         <div>
-                                            <p className="font-black text-[#054752] text-[10px] uppercase tracking-widest mb-1">{title}</p>
-                                            <p className="text-[9px] text-[#708c91] font-bold uppercase tracking-tight opacity-50 group-hover:opacity-80 transition-opacity">{desc}</p>
+                                            <p className="font-black text-[#012126] text-[10px] uppercase tracking-widest mb-1">{title}</p>
+                                            <p className="text-[9px] text-[#6B7280] font-bold uppercase tracking-tight opacity-50 group-hover:opacity-80 transition-opacity">{desc}</p>
                                         </div>
                                     </div>
                                 ))}

@@ -79,14 +79,14 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 font-sans text-[#054752]">
+        <div className="space-y-6 animate-in fade-in duration-500 font-sans text-[#012126]">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {/* KYC Card */}
                 {kycStatus !== 'approved' && (
                     <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-20 h-20 bg-[#5845D8]/5 rounded-bl-[50px] -mr-8 -mt-8 group-hover:bg-[#5845D8]/10 transition-all"></div>
                         <div className="flex items-center justify-between mb-4 relative z-10">
-                            <h3 className="font-black text-[#054752] flex items-center gap-2 text-[9px] uppercase tracking-widest">
+                            <h3 className="font-black text-[#012126] flex items-center gap-2 text-[9px] uppercase tracking-widest">
                                 <Shield size={14} className="text-[#5845D8]" /> Verification
                             </h3>
                         </div>
@@ -115,7 +115,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                         <div className="absolute right-0 top-0 w-16 h-16 bg-gray-50 rounded-bl-[40px] -mr-4 -mt-4 group-hover:bg-[#5845D8]/5 transition-all"></div>
                         <div>
                             <Package size={24} className="mb-3 text-[#5845D8]" />
-                            <h3 className="text-base font-black text-[#054752] mb-1 tracking-tight uppercase">Send Package</h3>
+                            <h3 className="text-base font-black text-[#012126] mb-1 tracking-tight uppercase">Send Package</h3>
                             <p className="text-gray-400 text-[9px] font-black leading-relaxed uppercase tracking-wider opacity-80">Find a traveler heading to your destination.</p>
                         </div>
                         <div className="font-black text-[#5845D8] mt-5 flex items-center gap-2 group-hover:gap-3 transition-all uppercase tracking-widest text-[7px]">
@@ -137,7 +137,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                         <div className={`mx-auto w-7 h-7 rounded-xl bg-gray-50 flex items-center justify-center mb-2 ${stat.color} group-hover:bg-white transition-colors`}>
                             <stat.icon size={14} />
                         </div>
-                        <p className="text-sm font-black text-[#054752] tracking-tight">{stat.value}</p>
+                        <p className="text-sm font-black text-[#012126] tracking-tight">{stat.value}</p>
                         <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mt-1 opacity-60 group-hover:opacity-100 transition-opacity">{stat.label}</p>
                     </div>
                 ))}

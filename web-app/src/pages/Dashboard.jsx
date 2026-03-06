@@ -125,7 +125,7 @@ export default function Dashboard() {
                 <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
                     <AlertCircle size={40} />
                 </div>
-                <h3 className="text-2xl font-black text-[#054752] mb-3">Something went wrong</h3>
+                <h3 className="text-2xl font-black text-[#012126] mb-3">Something went wrong</h3>
                 <p className="text-gray-500 font-medium mb-8">We had trouble loading this section. Please try refreshing or return to overview.</p>
                 <div className="flex flex-col gap-3">
                     <button onClick={() => window.location.reload()} className="bg-[#5845D8] text-white font-bold py-4 rounded-2xl shadow-lg ring-offset-2 active:scale-95 transition-all">
@@ -149,7 +149,7 @@ export default function Dashboard() {
                     </div>
                 </div>
                 <div className="text-center">
-                    <p className="font-black text-[#054752] uppercase tracking-widest text-xs mb-1">Bago</p>
+                    <p className="font-black text-[#012126] uppercase tracking-widest text-xs mb-1">Bago</p>
                     <p className="text-[#5845D8] font-bold animate-pulse text-sm">Preparing your dashboard...</p>
                 </div>
             </div>
@@ -194,7 +194,7 @@ export default function Dashboard() {
                             onClick={() => handleTabChange(item.id)}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${activeTab === item.id
                                 ? 'bg-[#5845D8] text-white shadow-md shadow-[#5845D8]/20'
-                                : 'text-[#708c91] hover:bg-gray-50 hover:text-[#054752]'
+                                : 'text-[#6B7280] hover:bg-gray-50 hover:text-[#012126]'
                                 }`}
                         >
                             <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 2} />
@@ -210,7 +210,7 @@ export default function Dashboard() {
                             {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-bold text-[#054752] truncate">
+                            <p className="text-[12px] font-bold text-[#012126] truncate">
                                 {user?.firstName !== 'Bago' ? `${user?.firstName} ${user?.lastName}` : user?.email?.split('@')[0]}
                             </p>
                             <div className="flex items-center gap-1">
@@ -238,18 +238,18 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3">
                         {/* Mobile hamburger */}
                         <button
-                            className="md:hidden p-2 rounded-xl bg-gray-50 text-[#054752] hover:bg-gray-100"
+                            className="md:hidden p-2 rounded-xl bg-gray-50 text-[#012126] hover:bg-gray-100"
                             onClick={() => setSidebarOpen(true)}
                         >
                             <Menu size={20} />
                         </button>
                         <div>
-                            <h1 className="text-xs font-black text-[#054752] uppercase tracking-widest">{activeTab}</h1>
+                            <h1 className="text-xs font-black text-[#012126] uppercase tracking-widest">{activeTab}</h1>
                             <p className="text-[9px] text-gray-400 font-bold hidden sm:block uppercase tracking-tight">Personal Dashboard</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link to="/" className="text-[10px] text-[#708c91] hover:text-[#5845D8] font-bold uppercase tracking-wider hidden sm:block">
+                        <Link to="/" className="text-[10px] text-[#6B7280] hover:text-[#5845D8] font-bold uppercase tracking-wider hidden sm:block">
                             ← Back to site
                         </Link>
                         <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs">

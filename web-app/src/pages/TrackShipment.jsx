@@ -19,7 +19,7 @@ const Navbar = () => {
     const navigate = useNavigate();
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8] transition-all font-bold text-xs">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8] transition-all font-bold text-xs">
                 <ChevronLeft size={20} />
                 <span>Back</span>
             </button>
@@ -76,8 +76,8 @@ export default function TrackShipment() {
 
             <div className="max-w-4xl mx-auto px-6 py-12 font-sans">
                 <div className="text-center mb-10">
-                    <h1 className="text-3xl md:text-4xl font-black text-[#054752] mb-3 tracking-tight">Track Shipment</h1>
-                    <p className="text-[#708c91] font-bold text-sm max-w-lg mx-auto leading-relaxed">Enter your tracking number to see the real-time status of your package.</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-[#012126] mb-3 tracking-tight">Track Shipment</h1>
+                    <p className="text-[#6B7280] font-bold text-sm max-w-lg mx-auto leading-relaxed">Enter your tracking number to see the real-time status of your package.</p>
                 </div>
 
                 {/* Track Input */}
@@ -87,7 +87,7 @@ export default function TrackShipment() {
                         <input
                             type="text"
                             placeholder="e.g. BAGO-A1B2C3D4"
-                            className="w-full py-3 pl-11 pr-6 rounded-xl bg-gray-50 text-[#054752] font-bold text-xs outline-none border border-transparent focus:border-[#5845D8] focus:bg-white transition-all"
+                            className="w-full py-3 pl-11 pr-6 rounded-xl bg-gray-50 text-[#012126] font-bold text-xs outline-none border border-transparent focus:border-[#5845D8] focus:bg-white transition-all"
                             value={trackingNumber}
                             onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())}
                         />
@@ -113,12 +113,12 @@ export default function TrackShipment() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
                             <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-2 opacity-[0.03] group-hover:scale-110 transition-transform">
-                                    <Truck size={64} className="text-[#054752]" />
+                                    <Truck size={64} className="text-[#012126]" />
                                 </div>
                                 <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">Current Status</p>
                                 <div className="flex items-center gap-2">
                                     <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse"></span>
-                                    <h3 className="text-base font-black text-[#054752] capitalize">{shipment.status}</h3>
+                                    <h3 className="text-base font-black text-[#012126] capitalize">{shipment.status}</h3>
                                 </div>
                             </div>
                             <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm relative overflow-hidden group">
@@ -130,10 +130,10 @@ export default function TrackShipment() {
                             </div>
                             <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-2 opacity-[0.03] group-hover:scale-110 transition-transform">
-                                    <Calendar size={64} className="text-[#054752]" />
+                                    <Calendar size={64} className="text-[#012126]" />
                                 </div>
                                 <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">Estimated Arrival</p>
-                                <h3 className="text-base font-black text-[#054752]">
+                                <h3 className="text-base font-black text-[#012126]">
                                     {shipment.estimatedArrival ? new Date(shipment.estimatedArrival).toLocaleDateString() : 'Pending'}
                                 </h3>
                             </div>
@@ -161,7 +161,7 @@ export default function TrackShipment() {
                                                 <Icon size={16} />
                                             </div>
                                             <div className="text-center">
-                                                <p className={`text-[11px] font-black tracking-tight ${isCompleted ? 'text-[#054752]' : 'text-gray-300'}`}>{step.label}</p>
+                                                <p className={`text-[11px] font-black tracking-tight ${isCompleted ? 'text-[#012126]' : 'text-gray-300'}`}>{step.label}</p>
                                                 {isCurrent && <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-[1.5px] mt-0.5 animate-bounce">Active</p>}
                                             </div>
                                         </div>
@@ -173,7 +173,7 @@ export default function TrackShipment() {
                         {/* Recent Movements */}
                         <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
                             <div className="p-6 border-b border-gray-50 bg-gray-50/30">
-                                <h3 className="text-sm font-black text-[#054752] uppercase tracking-[2px] ml-1">Shipment History</h3>
+                                <h3 className="text-sm font-black text-[#012126] uppercase tracking-[2px] ml-1">Shipment History</h3>
                             </div>
                             <div className="p-8">
                                 <div className="space-y-8 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-px before:bg-gray-100">
@@ -185,13 +185,13 @@ export default function TrackShipment() {
                                                 </div>
                                                 <div>
                                                     <div className="flex flex-col md:flex-row md:items-center gap-2 mb-1.5">
-                                                        <h4 className="text-sm font-bold text-[#054752] capitalize">{move.status}</h4>
+                                                        <h4 className="text-sm font-bold text-[#012126] capitalize">{move.status}</h4>
                                                         <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">
                                                             {new Date(move.timestamp).toLocaleString()}
                                                         </span>
                                                     </div>
-                                                    <p className="text-[#708c91] font-semibold text-xs leading-relaxed">
-                                                        <span className="text-[#054752] font-black uppercase text-[10px] tracking-widest mr-1 opacity-70">Location:</span> {move.location || 'In transit'}<br />
+                                                    <p className="text-[#6B7280] font-semibold text-xs leading-relaxed">
+                                                        <span className="text-[#012126] font-black uppercase text-[10px] tracking-widest mr-1 opacity-70">Location:</span> {move.location || 'In transit'}<br />
                                                         {move.notes && <span className="italic mt-1 block font-medium">"{move.notes}"</span>}
                                                     </p>
                                                 </div>
@@ -204,12 +204,12 @@ export default function TrackShipment() {
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1.5">
-                                                    <h4 className="text-sm font-bold text-[#054752]">Shipment Created</h4>
+                                                    <h4 className="text-sm font-bold text-[#012126]">Shipment Created</h4>
                                                     <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">
                                                         {new Date(shipment.createdAt).toLocaleString()}
                                                     </span>
                                                 </div>
-                                                <p className="text-[#708c91] font-semibold text-xs">Bago system received the delivery request.</p>
+                                                <p className="text-[#6B7280] font-semibold text-xs">Bago system received the delivery request.</p>
                                             </div>
                                         </div>
                                     )}
@@ -223,7 +223,7 @@ export default function TrackShipment() {
             {/* Safety Banner */}
             {!shipment && !loading && (
                 <div className="max-w-4xl mx-auto px-6 pb-20 font-sans">
-                    <div className="bg-[#054752] rounded-[32px] p-8 md:p-10 text-white flex flex-col md:flex-row items-center gap-8 shadow-xl relative overflow-hidden group">
+                    <div className="bg-[#012126] rounded-[32px] p-8 md:p-10 text-white flex flex-col md:flex-row items-center gap-8 shadow-xl relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl group-hover:scale-110 transition-transform"></div>
                         <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
                             <Shield size={32} className="text-white" />

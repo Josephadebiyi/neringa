@@ -77,7 +77,7 @@ const RecentTrips = ({ user }) => {
 
     return (
         <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-12">
-            <h2 className="text-3xl font-black text-[#054752] mb-8">
+            <h2 className="text-3xl font-black text-[#012126] mb-8">
                 {user?.country ? `Recent Delivery Routes near ${user.country}` : 'Recent Delivery Routes'}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -90,11 +90,11 @@ const RecentTrips = ({ user }) => {
                             <span className="text-[#5845D8] font-black text-lg">Active</span>
                         </div>
                         <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-lg font-bold text-[#054752] truncate max-w-[120px]">{trip.fromLocation.split(',')[0]}</h3>
-                            <ArrowRight size={16} className="text-[#708c91] flex-shrink-0" />
-                            <h3 className="text-lg font-bold text-[#054752] truncate max-w-[120px]">{trip.toLocation.split(',')[0]}</h3>
+                            <h3 className="text-lg font-bold text-[#012126] truncate max-w-[120px]">{trip.fromLocation.split(',')[0]}</h3>
+                            <ArrowRight size={16} className="text-[#6B7280] flex-shrink-0" />
+                            <h3 className="text-lg font-bold text-[#012126] truncate max-w-[120px]">{trip.toLocation.split(',')[0]}</h3>
                         </div>
-                        <p className="text-[#708c91] text-sm font-medium mb-4">
+                        <p className="text-[#6B7280] text-sm font-medium mb-4">
                             {new Date(trip.departureDate).toLocaleDateString()}
                         </p>
                         <div className="flex items-center justify-between text-sm">

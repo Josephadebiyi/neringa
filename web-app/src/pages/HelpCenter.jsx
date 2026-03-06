@@ -21,7 +21,7 @@ const Navbar = () => {
     const { t } = useLanguage();
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8] transition-all font-bold text-xs">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8] transition-all font-bold text-xs">
                 <ChevronLeft size={20} />
                 <span>{t('back')}</span>
             </button>
@@ -41,12 +41,12 @@ const FAQItem = ({ question, answer }) => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full py-5 flex justify-between items-center text-left group"
             >
-                <span className="text-sm font-bold text-[#054752] group-hover:text-[#5845D8] transition-colors uppercase tracking-tight">{question}</span>
+                <span className="text-sm font-bold text-[#012126] group-hover:text-[#5845D8] transition-colors uppercase tracking-tight">{question}</span>
                 <ChevronDown size={16} className={`text-gray-300 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
                 <div className="pb-5 animate-in slide-in-from-top-2 duration-300 px-1">
-                    <p className="text-[11px] text-[#708c91] leading-relaxed font-bold uppercase tracking-wider opacity-80">{answer}</p>
+                    <p className="text-[11px] text-[#6B7280] leading-relaxed font-bold uppercase tracking-wider opacity-80">{answer}</p>
                 </div>
             )}
         </div>
@@ -91,7 +91,7 @@ export default function HelpCenter() {
             <Navbar />
 
             {/* Hero Search */}
-            <div className="bg-[#054752] py-16 px-6 text-center text-white relative overflow-hidden font-sans">
+            <div className="bg-[#012126] py-16 px-6 text-center text-white relative overflow-hidden font-sans">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
                 <div className="max-w-2xl mx-auto relative z-10">
                     <h1 className="text-3xl md:text-4xl font-black mb-5 tracking-tight">{t('helpCenterTitle')}</h1>
@@ -99,7 +99,7 @@ export default function HelpCenter() {
                         <input
                             type="text"
                             placeholder={t('searchHelp')}
-                            className="w-full py-3.5 pl-11 pr-6 rounded-xl bg-white text-[#054752] font-bold text-xs outline-none shadow-xl border-none focus:ring-2 focus:ring-[#5845D8]/20 transition-all"
+                            className="w-full py-3.5 pl-11 pr-6 rounded-xl bg-white text-[#012126] font-bold text-xs outline-none shadow-xl border-none focus:ring-2 focus:ring-[#5845D8]/20 transition-all"
                         />
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
                     </div>
@@ -114,7 +114,7 @@ export default function HelpCenter() {
                             <div className={`w-12 h-12 ${cat.color} rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform shadow-sm`}>
                                 <cat.icon size={22} />
                             </div>
-                            <h3 className="text-sm font-black text-[#054752] uppercase tracking-tight">{cat.title}</h3>
+                            <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">{cat.title}</h3>
                             <p className="text-[10px] text-gray-400 font-bold mt-2 flex items-center gap-1 group-hover:text-[#5845D8] transition-colors uppercase tracking-widest">
                                 EXPLORE ARTICLES <ArrowRight size={10} />
                             </p>
@@ -127,7 +127,7 @@ export default function HelpCenter() {
                     <div className="lg:col-span-2">
                         <div className="flex items-center gap-3 mb-6">
                             <HelpCircle size={20} className="text-[#5845D8]" />
-                            <h2 className="text-xl font-black text-[#054752] uppercase tracking-tight">Support Topics</h2>
+                            <h2 className="text-xl font-black text-[#012126] uppercase tracking-tight">Support Topics</h2>
                         </div>
                         <div className="bg-white rounded-[32px] p-6 md:p-10 border border-gray-100 shadow-sm">
                             {faqs.map((faq, i) => (
@@ -164,8 +164,8 @@ export default function HelpCenter() {
                     <div className="w-16 h-16 bg-purple-50 text-[#5845D8] rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
                         <MessageCircle size={28} />
                     </div>
-                    <h2 className="text-2xl font-black text-[#054752] mb-3 tracking-tight">Chat with our Bago Assistants</h2>
-                    <p className="text-[#708c91] text-xs font-bold mb-10 uppercase tracking-widest opacity-70 leading-relaxed max-w-xl mx-auto">
+                    <h2 className="text-2xl font-black text-[#012126] mb-3 tracking-tight">Chat with our Bago Assistants</h2>
+                    <p className="text-[#6B7280] text-xs font-bold mb-10 uppercase tracking-widest opacity-70 leading-relaxed max-w-xl mx-auto">
                         Our AI-powered help assistants can answer most questions instantly about routes, pricing, and guidelines.
                     </p>
                     <Link to="/search" className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#5845D8] text-white font-black text-[10px] uppercase tracking-[1.5px] rounded-xl hover:shadow-xl transition-all shadow-md shadow-[#5845D8]/20">

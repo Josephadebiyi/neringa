@@ -40,7 +40,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout }) {
                         onClick={() => setActiveTab(item.id)}
                         className={`w-full flex items-center justify-between px-5 py-3 rounded-2xl transition-all group relative overflow-hidden ${activeTab === item.id
                             ? 'bg-[#5845D8] text-white shadow-xl shadow-[#5845D8]/15 active:scale-95'
-                            : 'text-[#708c91] hover:bg-gray-50 hover:text-[#054752]'
+                            : 'text-[#6B7280] hover:bg-gray-50 hover:text-[#012126]'
                             }`}
                     >
                         <div className="flex items-center gap-3.5 relative z-10">
@@ -65,7 +65,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout }) {
                         {user?.image ? <img src={user.image} alt="" className="w-full h-full object-cover" /> : user?.firstName?.charAt(0)}
                     </div>
                     <div className="flex-1 overflow-hidden">
-                        <p className="text-[11px] font-black text-[#054752] truncate uppercase tracking-tight">{user?.firstName} {user?.lastName}</p>
+                        <p className="text-[11px] font-black text-[#012126] truncate uppercase tracking-tight">{user?.firstName} {user?.lastName}</p>
                         <div className="flex items-center gap-1 mt-0.5">
                             <Shield size={9} className={user?.kycStatus === 'approved' ? "text-green-500" : "text-gray-300"} />
                             <span className={`text-[8px] font-black uppercase tracking-widest ${user?.kycStatus === 'approved' ? "text-green-500" : "text-gray-400 opacity-60"}`}>{user?.kycStatus === 'approved' ? 'Verified' : 'Member'}</span>

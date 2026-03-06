@@ -59,7 +59,7 @@ export default function Shipments({ user }) {
     return (
         <div className="space-y-6 font-sans">
             <div className="mb-8 px-1">
-                <h2 className="text-lg font-black text-[#054752] tracking-tight uppercase">My Shipments</h2>
+                <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">My Shipments</h2>
                 <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">Track and manage your package deliveries.</p>
             </div>
 
@@ -68,7 +68,7 @@ export default function Shipments({ user }) {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Package size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#054752] mb-1.5 text-center uppercase tracking-tight">No active shipments</h3>
+                    <h3 className="text-sm font-black text-[#012126] mb-1.5 text-center uppercase tracking-tight">No active shipments</h3>
                     <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-8 font-bold uppercase tracking-wider opacity-60 leading-relaxed">You haven't requested any deliveries yet.</p>
                 </div>
             ) : (
@@ -81,9 +81,9 @@ export default function Shipments({ user }) {
 
                             <div className="flex-1 text-center md:text-left">
                                 <div className="flex items-center justify-center md:justify-start gap-1.5 mb-1.5">
-                                    <span className="text-xs font-black text-[#054752] uppercase tracking-tight">{req.originCity || 'Dubai'}</span>
+                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.originCity || 'Dubai'}</span>
                                     <ChevronRight size={12} className="text-gray-300" />
-                                    <span className="text-xs font-black text-[#054752] uppercase tracking-tight">{req.destinationCity || 'Lagos'}</span>
+                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.destinationCity || 'Lagos'}</span>
                                 </div>
                                 <div className="flex flex-wrap justify-center md:justify-start gap-3 text-[9px] font-black text-gray-400 uppercase tracking-widest opacity-70">
                                     <span className="flex items-center gap-1"><Clock size={10} /> {req.trackingNumber || 'BAGO-XXXX'}</span>
@@ -96,7 +96,7 @@ export default function Shipments({ user }) {
                                     {req.status || 'Pending'}
                                 </span>
                                 <div className="flex gap-2">
-                                    <button className="p-2 rounded-xl border border-gray-100 text-[#054752] hover:bg-gray-50 transition-all shadow-sm">
+                                    <button className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm">
                                         <MessageSquare size={14} />
                                     </button>
                                     <button
@@ -123,25 +123,25 @@ export default function Shipments({ user }) {
                                     <AlertTriangle size={24} />
                                 </div>
                                 <div className="text-center">
-                                    <h3 className="text-xl font-black text-[#054752] uppercase tracking-tight">Open a Dispute</h3>
+                                    <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">Open a Dispute</h3>
                                     <p className="text-[9px] text-red-600 font-black mt-1 uppercase tracking-widest opacity-70">Order #{selectedRequest.trackingNumber}</p>
                                 </div>
                             </div>
                             <form onSubmit={handleRaiseDispute} className="p-6 md:p-8 space-y-6">
                                 <div className="bg-[#F8F6F3] p-4 rounded-xl border border-gray-50 flex gap-2.5 italic">
                                     <div className="text-red-500 shrink-0 mt-0.5"><AlertTriangle size={14} /></div>
-                                    <p className="text-[10px] font-bold text-[#054752]/70 leading-relaxed uppercase tracking-wide">
+                                    <p className="text-[10px] font-bold text-[#012126]/70 leading-relaxed uppercase tracking-wide">
                                         Raising a dispute will pause payment release to the traveler. Our team will investigate and mediate within 24-48h.
                                     </p>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[9px] font-black text-[#054752] uppercase tracking-widest ml-1 cursor-none">Dispute Details</label>
+                                    <label className="text-[9px] font-black text-[#012126] uppercase tracking-widest ml-1 cursor-none">Dispute Details</label>
                                     <textarea
                                         value={disputeReason}
                                         onChange={(e) => setDisputeReason(e.target.value)}
                                         placeholder="Please describe exactly what happened (e.g. package damaged, traveler unreachable...)"
-                                        className="w-full px-5 py-4 bg-[#F8F6F3] rounded-2xl border border-transparent outline-none text-xs font-bold min-h-[120px] focus:ring-4 focus:ring-red-500/5 focus:border-red-500/20 transition-all text-[#054752] placeholder:text-gray-300"
+                                        className="w-full px-5 py-4 bg-[#F8F6F3] rounded-2xl border border-transparent outline-none text-xs font-bold min-h-[120px] focus:ring-4 focus:ring-red-500/5 focus:border-red-500/20 transition-all text-[#012126] placeholder:text-gray-300"
                                         required
                                     />
                                 </div>

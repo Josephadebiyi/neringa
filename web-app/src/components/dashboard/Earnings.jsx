@@ -58,7 +58,7 @@ export default function Earnings({ user, checkAuthStatus }) {
         <div className="space-y-6 font-sans">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {/* Balance Card */}
-                <div className="md:col-span-2 bg-[#054752] rounded-[24px] p-6 text-white relative overflow-hidden shadow-xl border border-[#054752]">
+                <div className="md:col-span-2 bg-[#012126] rounded-[24px] p-6 text-white relative overflow-hidden shadow-xl border border-[#012126]">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-[40px] -mr-12 -mt-12 text-xs uppercase tracking-widest font-bold"></div>
                     <div className="relative z-10 flex flex-col justify-between h-full min-h-[160px]">
                         <div className="flex justify-between items-start">
@@ -74,7 +74,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <div className="flex flex-wrap gap-2 pt-6">
                             <button
                                 onClick={() => setMethod('stripe')}
-                                className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${method === 'stripe' ? 'bg-white text-[#054752] border-white shadow-lg' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}
+                                className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${method === 'stripe' ? 'bg-white text-[#012126] border-white shadow-lg' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}
                             >
                                 <CreditCard size={14} />
                                 <span className="text-[9px] font-black uppercase tracking-widest">Stripe</span>
@@ -82,7 +82,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             {showBankOption && (
                                 <button
                                     onClick={() => setMethod('bank')}
-                                    className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${method === 'bank' ? 'bg-white text-[#054752] border-white shadow-lg' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}
+                                    className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${method === 'bank' ? 'bg-white text-[#012126] border-white shadow-lg' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}
                                 >
                                     <Landmark size={14} />
                                     <span className="text-[9px] font-black uppercase tracking-widest">Transfer</span>
@@ -95,7 +95,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                 {/* Withdrawal Form */}
                 <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full min-h-[160px]">
                     <div>
-                        <h3 className="text-sm font-black text-[#054752] mb-0.5 tracking-tight uppercase">Withdraw</h3>
+                        <h3 className="text-sm font-black text-[#012126] mb-0.5 tracking-tight uppercase">Withdraw</h3>
                         <p className="text-gray-400 text-[8px] font-black mb-4 uppercase tracking-widest opacity-60">
                             Via {method === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}
                         </p>
@@ -108,7 +108,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     value={withdrawAmount}
                                     onChange={(e) => setWithdrawAmount(e.target.value)}
                                     placeholder="0.00"
-                                    className="w-full pl-8 pr-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none font-black text-sm transition-all text-[#054752] placeholder:text-gray-200"
+                                    className="w-full pl-8 pr-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none font-black text-sm transition-all text-[#012126] placeholder:text-gray-200"
                                 />
                             </div>
                             <button
@@ -133,7 +133,7 @@ export default function Earnings({ user, checkAuthStatus }) {
             {/* Transaction History */}
             <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                    <h3 className="text-sm font-black text-[#054752] tracking-tight uppercase">Recent Activity</h3>
+                    <h3 className="text-sm font-black text-[#012126] tracking-tight uppercase">Recent Activity</h3>
                     <button onClick={checkAuthStatus} className="text-[#5845D8] font-black text-[9px] uppercase tracking-widest flex items-center gap-1.5 hover:opacity-70 transition-opacity">
                         <RefreshCw size={10} /> Refresh
                     </button>
@@ -152,7 +152,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                         {tx.type === 'withdraw' ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
                                     </div>
                                     <div>
-                                        <p className="font-black text-[#054752] text-[11px] uppercase tracking-tight">{tx.description || (tx.type === 'withdraw' ? 'Payout' : 'Earnings')}</p>
+                                        <p className="font-black text-[#012126] text-[11px] uppercase tracking-tight">{tx.description || (tx.type === 'withdraw' ? 'Payout' : 'Earnings')}</p>
                                         <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest opacity-60">{new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
                                     </div>
                                 </div>

@@ -22,7 +22,7 @@ const Navbar = () => {
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <div className="flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8]">
+                <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8]">
                     <ChevronLeft size={20} />
                     <span className="font-bold text-xs">Back</span>
                 </button>
@@ -229,10 +229,10 @@ export default function SendPackage() {
 
             <div className="max-w-3xl mx-auto px-6 py-6 font-sans">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-black text-[#054752] mb-1">
+                    <h1 className="text-2xl font-black text-[#012126] mb-1">
                         {selectedTrip ? 'Send Shipping Request' : 'Send a Package'}
                     </h1>
-                    <p className="text-[#708c91] font-semibold text-sm">
+                    <p className="text-[#6B7280] font-semibold text-sm">
                         {selectedTrip ? `Requesting space from ${selectedTrip.firstName || 'Traveler'}` : 'Find a trusted traveler to deliver your package'}
                     </p>
                 </div>
@@ -243,8 +243,8 @@ export default function SendPackage() {
                             {selectedTrip.firstName?.charAt(0) || 'T'}
                         </div>
                         <div className="flex-1">
-                            <h3 className="text-base font-bold text-[#054752]">Traveler Info</h3>
-                            <p className="text-[#708c91] font-bold text-sm tracking-tight">{selectedTrip.origin} → {selectedTrip.destination}</p>
+                            <h3 className="text-base font-bold text-[#012126]">Traveler Info</h3>
+                            <p className="text-[#6B7280] font-bold text-sm tracking-tight">{selectedTrip.origin} → {selectedTrip.destination}</p>
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{new Date(selectedTrip.departureDate).toLocaleDateString()} • {selectedTrip.transportMode} traveler</p>
                         </div>
                         <div className="text-right bg-white p-3 rounded-xl border border-gray-50 shadow-sm min-w-[130px]">
@@ -285,13 +285,13 @@ export default function SendPackage() {
 
                     {/* Package Information */}
                     <div className="mb-8">
-                        <h3 className="text-sm font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-widest">
+                        <h3 className="text-sm font-black text-[#012126] mb-5 flex items-center gap-2 uppercase tracking-widest">
                             <Package size={16} className="text-[#5845D8]" />
                             Package Info
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Package Name</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">Package Name</label>
                                 <input
                                     type="text"
                                     name="packageName"
@@ -303,7 +303,7 @@ export default function SendPackage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Description</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">Description</label>
                                 <textarea
                                     name="packageDescription"
                                     value={formData.packageDescription}
@@ -316,7 +316,7 @@ export default function SendPackage() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1 flex items-center gap-1.5">
+                                    <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1 flex items-center gap-1.5">
                                         <Weight size={14} />
                                         Weight (kg)
                                     </label>
@@ -334,7 +334,7 @@ export default function SendPackage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1 flex items-center gap-1.5">
+                                    <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1 flex items-center gap-1.5">
                                         <DollarSign size={14} />
                                         Value (USD)
                                     </label>
@@ -357,13 +357,13 @@ export default function SendPackage() {
 
                     {/* Receiver Information */}
                     <div className="mb-8">
-                        <h3 className="text-sm font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-widest">
+                        <h3 className="text-sm font-black text-[#012126] mb-5 flex items-center gap-2 uppercase tracking-widest">
                             <User size={16} className="text-[#5845D8]" />
                             Receiver Info
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Receiver Name</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">Receiver Name</label>
                                 <input
                                     type="text"
                                     name="receiverName"
@@ -375,7 +375,7 @@ export default function SendPackage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Phone Number</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">Phone Number</label>
                                 <input
                                     type="tel"
                                     name="receiverPhone"
@@ -391,13 +391,13 @@ export default function SendPackage() {
 
                     {/* Delivery Route */}
                     <div className="mb-8">
-                        <h3 className="text-sm font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-widest">
+                        <h3 className="text-sm font-black text-[#012126] mb-5 flex items-center gap-2 uppercase tracking-widest">
                             <MapPin size={16} className="text-[#5845D8]" />
                             Delivery Route
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">From City</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">From City</label>
                                 <input
                                     type="text"
                                     name="fromCity"
@@ -409,7 +409,7 @@ export default function SendPackage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">From Country</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">From Country</label>
                                 <input
                                     type="text"
                                     name="fromCountry"
@@ -421,7 +421,7 @@ export default function SendPackage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">To City</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">To City</label>
                                 <input
                                     type="text"
                                     name="toCity"
@@ -433,7 +433,7 @@ export default function SendPackage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">To Country</label>
+                                <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">To Country</label>
                                 <input
                                     type="text"
                                     name="toCountry"
@@ -449,7 +449,7 @@ export default function SendPackage() {
 
                     {/* Delivery Deadline */}
                     <div className="mb-8">
-                        <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Deadline Date</label>
+                        <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-1.5 tracking-wider ml-1">Deadline Date</label>
                         <input
                             type="date"
                             name="deliveryDeadline"
@@ -463,7 +463,7 @@ export default function SendPackage() {
 
                     {/* Package Attributes */}
                     <div className="mb-8">
-                        <h3 className="text-sm font-black text-[#054752] mb-4 uppercase tracking-widest">Attributes</h3>
+                        <h3 className="text-sm font-black text-[#012126] mb-4 uppercase tracking-widest">Attributes</h3>
                         <div className="space-y-3">
                             <label className="flex items-center gap-3 cursor-pointer group">
                                 <input
@@ -473,7 +473,7 @@ export default function SendPackage() {
                                     onChange={handleChange}
                                     className="w-4 h-4 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
                                 />
-                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#054752] transition-colors">Fragile - Handle with care</span>
+                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#012126] transition-colors">Fragile - Handle with care</span>
                             </label>
                             <label className="flex items-center gap-3 cursor-pointer group">
                                 <input
@@ -483,7 +483,7 @@ export default function SendPackage() {
                                     onChange={handleChange}
                                     className="w-4 h-4 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
                                 />
-                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#054752] transition-colors">Perishable goods</span>
+                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#012126] transition-colors">Perishable goods</span>
                             </label>
                             <label className="flex items-center gap-3 cursor-pointer group">
                                 <input
@@ -493,14 +493,14 @@ export default function SendPackage() {
                                     onChange={handleChange}
                                     className="w-4 h-4 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
                                 />
-                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#054752] transition-colors">Requires refrigeration</span>
+                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#012126] transition-colors">Requires refrigeration</span>
                             </label>
                         </div>
                     </div>
 
                     {/* Special Instructions */}
                     <div className="mb-8">
-                        <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 ml-1 flex items-center gap-1.5 tracking-wider">
+                        <label className="block text-[10px] font-black text-[#6B7280] uppercase mb-2 ml-1 flex items-center gap-1.5 tracking-wider">
                             <FileText size={14} />
                             Special Instructions <span className="text-gray-400 font-normal lowercase">(optional)</span>
                         </label>

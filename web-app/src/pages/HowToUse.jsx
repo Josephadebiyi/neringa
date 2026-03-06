@@ -21,7 +21,7 @@ const Navbar = () => {
     return (
         <nav className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-4 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <div className="flex items-center gap-4">
-                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[#054752] hover:text-[#5845D8] transition-all group font-bold">
+                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[#012126] hover:text-[#5845D8] transition-all group font-bold">
                     <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
                     <span>{t('back')}</span>
                 </button>
@@ -61,10 +61,10 @@ export default function HowToUse() {
                 <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#B0891D]/5 rounded-full blur-[100px] -mr-40 -mb-40"></div>
 
                 <div className="max-w-4xl mx-auto relative z-10">
-                    <h1 className="text-6xl md:text-9xl font-black text-[#054752] mb-12 tracking-tighter leading-[0.85]">
+                    <h1 className="text-6xl md:text-9xl font-black text-[#012126] mb-12 tracking-tighter leading-[0.85]">
                         How Bago <span className="opacity-20 text-gray-400">works.</span>
                     </h1>
-                    <p className="text-[#708c91] text-xl font-medium leading-relaxed max-w-2xl mx-auto">
+                    <p className="text-[#6B7280] text-xl font-medium leading-relaxed max-w-2xl mx-auto">
                         Whether you're sending a gift to a loved one or monetizing your extra luggage space, Bago makes the process seamless, secure, and stress-free.
                     </p>
                 </div>
@@ -81,7 +81,7 @@ export default function HowToUse() {
                                 <div className="p-4 bg-blue-50 text-blue-600 rounded-3xl">
                                     <Send size={32} />
                                 </div>
-                                <h2 className="text-3xl font-black text-[#054752]">{t('forSenders')}</h2>
+                                <h2 className="text-3xl font-black text-[#012126]">{t('forSenders')}</h2>
                             </div>
 
                             <div className="space-y-12">
@@ -91,8 +91,8 @@ export default function HowToUse() {
                                             {i + 1}
                                         </div>
                                         <div>
-                                            <h4 className="text-xl font-bold text-[#054752] mb-2">{step.title}</h4>
-                                            <p className="text-[#708c91] font-medium leading-relaxed">{step.desc}</p>
+                                            <h4 className="text-xl font-bold text-[#012126] mb-2">{step.title}</h4>
+                                            <p className="text-[#6B7280] font-medium leading-relaxed">{step.desc}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -105,7 +105,7 @@ export default function HowToUse() {
                                 <div className="p-4 bg-purple-50 text-purple-600 rounded-3xl">
                                     <TrendingUp size={32} />
                                 </div>
-                                <h2 className="text-3xl font-black text-[#054752]">{t('forTravelers')}</h2>
+                                <h2 className="text-3xl font-black text-[#012126]">{t('forTravelers')}</h2>
                             </div>
 
                             <div className="space-y-12">
@@ -115,8 +115,8 @@ export default function HowToUse() {
                                             {i + 1}
                                         </div>
                                         <div>
-                                            <h4 className="text-xl font-bold text-[#054752] mb-2">{step.title}</h4>
-                                            <p className="text-[#708c91] font-medium leading-relaxed">{step.desc}</p>
+                                            <h4 className="text-xl font-bold text-[#012126] mb-2">{step.title}</h4>
+                                            <p className="text-[#6B7280] font-medium leading-relaxed">{step.desc}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -131,8 +131,8 @@ export default function HowToUse() {
                 <div className="max-w-4xl mx-auto">
                     <div className="text-center mb-12">
                         <div className="bg-red-50 text-red-600 px-6 py-2 rounded-full font-bold inline-block mb-4">Safety First</div>
-                        <h2 className="text-4xl font-black text-[#054752] mb-4 tracking-tight">{t('prohibitedItems')}</h2>
-                        <p className="text-[#708c91] font-medium leading-relaxed">
+                        <h2 className="text-4xl font-black text-[#012126] mb-4 tracking-tight">{t('prohibitedItems')}</h2>
+                        <p className="text-[#6B7280] font-medium leading-relaxed">
                             {t('prohibitedSubtitle')}
                         </p>
                     </div>
@@ -150,7 +150,7 @@ export default function HowToUse() {
                         ].map((item, i) => (
                             <div key={i} className="p-6 bg-[#f8f9fa] rounded-3xl border border-gray-100 hover:border-red-100 transition-colors">
                                 <div className="text-4xl mb-4">{item.icon}</div>
-                                <p className="text-[#054752] font-semibold text-sm">{item.name}</p>
+                                <p className="text-[#012126] font-semibold text-sm">{item.name}</p>
                             </div>
                         ))}
                     </div>
@@ -162,15 +162,15 @@ export default function HowToUse() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-left">
                         <div className="bg-white p-12 rounded-[50px] border border-gray-100 shadow-sm hover:shadow-2xl transition-all">
                             <ShieldCheck className="text-[#6B5CFF] mb-8" size={48} />
-                            <h3 className="text-3xl font-black text-[#054752] mb-6 tracking-tight">{t('openPackagePolicy')}</h3>
-                            <p className="text-[#708c91] font-medium leading-relaxed text-lg">
+                            <h3 className="text-3xl font-black text-[#012126] mb-6 tracking-tight">{t('openPackagePolicy')}</h3>
+                            <p className="text-[#6B7280] font-medium leading-relaxed text-lg">
                                 {t('openPackageDesc')}
                             </p>
                         </div>
                         <div className="bg-white p-12 rounded-[50px] border border-gray-100 shadow-sm hover:shadow-2xl transition-all">
                             <ShieldCheck className="text-[#00D094] mb-8" size={48} />
-                            <h3 className="text-3xl font-black text-[#054752] mb-6 tracking-tight">{t('insuranceProtection')}</h3>
-                            <p className="text-[#708c91] font-medium leading-relaxed text-lg">
+                            <h3 className="text-3xl font-black text-[#012126] mb-6 tracking-tight">{t('insuranceProtection')}</h3>
+                            <p className="text-[#6B7280] font-medium leading-relaxed text-lg">
                                 {t('insuranceDesc')}
                             </p>
                         </div>

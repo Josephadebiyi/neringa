@@ -162,13 +162,13 @@ export default function Login() {
                                 {!loading && <ArrowRight size={18} />}
                             </button>
 
-                            <p className="text-center text-[10px] text-[#708c91] mt-8 px-6 font-bold uppercase tracking-wider">
+                            <p className="text-center text-[10px] text-[#6B7280] mt-8 px-6 font-bold uppercase tracking-wider">
                                 Secure login protected by Bago Encryption.
                             </p>
                         </form>
                     </div>
 
-                    <p className="mt-12 text-center text-[#708c91] font-bold text-sm">
+                    <p className="mt-12 text-center text-[#6B7280] font-bold text-sm">
                         Don't have an account yet?{' '}
                         <Link to="/signup" className="text-[#5845D8] font-black border-b-2 border-transparent hover:border-[#5845D8] transition-all ml-1">
                             Join Bago today
