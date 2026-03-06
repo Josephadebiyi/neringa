@@ -34,6 +34,7 @@ export default function Login() {
     };
 
     const handleGoogleLogin = useGoogleLogin({
+        redirect_uri: window.location.origin,
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             setError('');

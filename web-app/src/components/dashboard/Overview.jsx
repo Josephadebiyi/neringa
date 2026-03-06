@@ -7,44 +7,38 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* KYC Card */}
-                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#5845D8]/5 rounded-bl-[80px] -mr-10 -mt-10 group-hover:bg-[#5845D8]/10 transition-all"></div>
-                    <div className="flex items-center justify-between mb-8 relative z-10">
-                        <h3 className="font-black text-[#054752] flex items-center gap-3 text-lg uppercase tracking-tight">
-                            <Shield size={24} className="text-[#5845D8]" /> Verification
-                        </h3>
-                    </div>
+                {kycStatus !== 'approved' && (
+                    <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#5845D8]/5 rounded-bl-[80px] -mr-10 -mt-10 group-hover:bg-[#5845D8]/10 transition-all"></div>
+                        <div className="flex items-center justify-between mb-8 relative z-10">
+                            <h3 className="font-black text-[#054752] flex items-center gap-3 text-lg uppercase tracking-tight">
+                                <Shield size={24} className="text-[#5845D8]" /> Verification
+                            </h3>
+                        </div>
 
-                    <div className="flex-1 flex flex-col justify-center relative z-10">
-                        {kycStatus === 'approved' ? (
-                            <div className="flex items-center gap-4 text-green-600 bg-green-50/50 p-6 rounded-3xl border border-green-100/50">
-                                <CheckCircle size={32} />
-                                <div>
-                                    <p className="font-black uppercase tracking-widest text-xs">Verified Member</p>
-                                    <p className="text-sm font-bold opacity-80">Identity fully confirmed.</p>
+                        <div className="flex-1 flex flex-col justify-center relative z-10">
+                            {kycStatus === 'pending' || kycStatus === 'processing' ? (
+                                <div className="flex items-center gap-4 text-amber-600 bg-amber-50/50 p-6 rounded-3xl border border-amber-100/50">
+                                    <Clock size={32} className="animate-pulse" />
+                                    <div>
+                                        <p className="font-black uppercase tracking-widest text-xs">Under Review</p>
+                                        <p className="text-sm font-bold opacity-80">Hang tight! Reviewing docs.</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : kycStatus === 'pending' || kycStatus === 'processing' ? (
-                            <div className="flex items-center gap-4 text-amber-600 bg-amber-50/50 p-6 rounded-3xl border border-amber-100/50">
-                                <Clock size={32} className="animate-pulse" />
-                                <div>
-                                    <p className="font-black uppercase tracking-widest text-xs">Under Review</p>
-                                    <p className="text-sm font-bold opacity-80">Hang tight! Reviewing docs.</p>
+                            ) : (
+                                <div className="space-y-6">
+                                    <p className="text-sm text-gray-500 font-medium leading-relaxed">You need to verify your identity to post trips or request deliveries securely.</p>
+                                    <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-4 rounded-2xl shadow-xl shadow-[#5845D8]/20 hover:scale-[1.02] transition-all active:scale-95">
+                                        Verify Now
+                                    </button>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                <p className="text-sm text-gray-500 font-medium leading-relaxed">You need to verify your identity to post trips or request deliveries securely.</p>
-                                <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-4 rounded-2xl shadow-xl shadow-[#5845D8]/20 hover:scale-[1.02] transition-all active:scale-95">
-                                    Verify Now
-                                </button>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Quick Actions */}
-                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className={`${kycStatus === 'approved' ? 'md:col-span-3' : 'md:col-span-2'} grid grid-cols-1 sm:grid-cols-2 gap-6`}>
                     <Link to="/post-trip" className="bg-[#5845D8] p-8 rounded-[32px] text-white shadow-xl shadow-[#5845D8]/20 relative overflow-hidden group cursor-pointer hover:shadow-2xl transition-all h-full flex flex-col justify-between">
                         <div className="absolute -right-4 -top-4 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
                         <div>

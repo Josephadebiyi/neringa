@@ -1073,17 +1073,42 @@ export const addFunds = async (req, res) => {
  */
 export const withdrawFunds = async (req, res) => {
   try {
-    const { userId, amount, description } = req.body;
+    const { amount, method, bankDetails, stripeConnectAccountId, description } = req.body;
+    const userId = req.user._id;
 
-    if (!userId || !amount || amount <= 0) {
-      return res.status(400).json({ message: "Invalid request: userId and positive amount required" });
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid request: positive amount required" });
     }
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     if (user.balance < amount) {
-      return res.status(400).json({ message: "Insufficient balance" });
+      return res.status(400).json({ success: false, message: "Insufficient balance" });
+    }
+
+    // Validate based on method
+    if (method === 'stripe') {
+      const connectId = stripeConnectAccountId || user.stripeConnectAccountId;
+      if (!connectId) {
+        return res.status(400).json({ success: false, message: "Stripe Connect account not connected" });
+      }
+      // Future: stripe.payouts.create({ amount, currency: 'usd', destination: connectId })
+    } else if (method === 'bank') {
+      const details = bankDetails || user.bankDetails;
+      if (!details || !details.accountNumber || !details.bankName) {
+        return res.status(400).json({ success: false, message: "Bank details missing for NGN transfer" });
+      }
+      // Save bank details if provided
+      if (bankDetails) {
+        user.bankDetails = {
+          bankName: bankDetails.bankName,
+          accountNumber: bankDetails.accountNumber,
+          accountHolderName: bankDetails.accountHolderName || `${user.firstName} ${user.lastName}`
+        };
+      }
+    } else {
+      return res.status(400).json({ success: false, message: "Please specify a payout method ('stripe' or 'bank')" });
     }
 
     // Deduct amount
@@ -1091,16 +1116,17 @@ export const withdrawFunds = async (req, res) => {
 
     // Add history record
     user.balanceHistory.push({
-      type: "withdraw",
+      type: "withdrawal",
       amount,
-      description: description || "Funds withdrawn",
+      status: 'pending',
+      description: description || `Withdrawal via ${method === 'bank' ? 'Nigerian Bank Transfer' : 'Stripe Connect'}`,
     });
 
     await user.save();
 
     res.status(200).json({
       success: true,
-      message: "Withdrawal successful",
+      message: "Withdrawal request received and is being processed",
       balance: user.balance,
     });
   } catch (error) {

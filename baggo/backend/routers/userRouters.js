@@ -8,7 +8,7 @@ import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '
 import { createPackage } from '../controllers/PackageController.js';
 import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
 import { recentOrder } from '../controllers/getRecentRequest.js';
-import { getConversations, getMessages } from '../controllers/MessageController.js';
+import { getConversations, getMessages, sendMessage } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import {
   requestRefund,
@@ -95,6 +95,7 @@ userRouter.post("/remove-cancelled-escrow", handleCancelledRequestEscrow);
 
 userRouter.get('/conversations', isAuthenticated, getConversations);
 userRouter.get('/conversations/:conversationId/messages', isAuthenticated, getMessages);
+userRouter.post('/conversations/:conversationId/send', isAuthenticated, sendMessage);
 userRouter.get("/getNotifications", isAuthenticated, getNotifications)
 userRouter.put("/markNotificationAsRead/:notificationId", isAuthenticated, markNotificationAsRead)
 userRouter.get("/GetDetails/:requestId", isAuthenticated, GetDetials)

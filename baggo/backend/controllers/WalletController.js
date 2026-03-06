@@ -75,7 +75,7 @@ export const getWalletBalance = async (req, res) => {
 
 
 // Initialize Stripe with secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Payment function
 export const processPayment = async (req, res) => {

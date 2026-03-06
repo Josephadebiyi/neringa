@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import api from '../../api';
 import { Wallet, ArrowUpRight, ArrowDownLeft, Landmark, RefreshCw, CreditCard, AlertCircle, CheckCircle } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function Earnings({ user, checkAuthStatus }) {
+    const { currency } = useLanguage();
     const [balance, setBalance] = useState(user?.balance || 0);
     const [history, setHistory] = useState(user?.balanceHistory || []);
     const [loading, setLoading] = useState(false);
@@ -10,8 +12,9 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [status, setStatus] = useState({ type: '', message: '' });
 
-    const isEurope = user?.paymentGateway === 'stripe' || ['UK', 'FR', 'DE', 'ES', 'IT', 'NL'].includes(user?.country);
-    const gateway = isEurope ? 'Stripe Connect' : 'Paystack';
+    const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS'];
+    const showBankOption = user?.country === 'Nigeria' || africanCurrencies.includes(currency);
+    const [method, setMethod] = useState(user?.country === 'Nigeria' ? 'bank' : 'stripe');
 
     const handleWithdraw = async (e) => {
         e.preventDefault();
@@ -21,13 +24,23 @@ export default function Earnings({ user, checkAuthStatus }) {
             return;
         }
 
+        // Validate method selection
+        if (method === 'bank' && (!user?.bankDetails?.accountNumber || !user?.bankDetails?.bankName)) {
+            setStatus({ type: 'error', message: 'Please add bank details in Settings first' });
+            return;
+        }
+        if (method === 'stripe' && !user?.stripeConnectAccountId) {
+            setStatus({ type: 'error', message: 'Please add Stripe Connect ID in Settings first' });
+            return;
+        }
+
         setIsWithdrawing(true);
         setStatus({ type: '', message: '' });
         try {
             const res = await api.post('/api/bago/withdrawFunds', {
-                userId: user.id,
                 amount: Number(withdrawAmount),
-                description: `Withdrawal via ${gateway}`
+                method: method,
+                description: `Withdrawal via ${method === 'bank' ? 'Bank Transfer' : 'Stripe'}`
             });
             if (res.data.success) {
                 setStatus({ type: 'success', message: 'Withdrawal request submitted!' });
@@ -59,14 +72,22 @@ export default function Earnings({ user, checkAuthStatus }) {
                         </div>
 
                         <div className="flex flex-wrap gap-4">
-                            <div className="px-5 py-3 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 flex items-center gap-2">
-                                <Landmark size={18} className="text-green-400" />
-                                <span className="text-sm font-bold uppercase tracking-wider">{gateway}</span>
-                            </div>
-                            <div className="px-5 py-3 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 flex items-center gap-2">
-                                <CreditCard size={18} className="text-blue-400" />
-                                <span className="text-sm font-bold uppercase tracking-wider">Default Payout</span>
-                            </div>
+                            <button
+                                onClick={() => setMethod('stripe')}
+                                className={`px-5 py-3 rounded-xl border transition-all flex items-center gap-2 ${method === 'stripe' ? 'bg-white text-[#054752] border-white' : 'bg-white/10 text-white border-white/10 hover:bg-white/20'}`}
+                            >
+                                <CreditCard size={18} />
+                                <span className="text-sm font-bold uppercase tracking-wider">Stripe</span>
+                            </button>
+                            {showBankOption && (
+                                <button
+                                    onClick={() => setMethod('bank')}
+                                    className={`px-5 py-3 rounded-xl border transition-all flex items-center gap-2 ${method === 'bank' ? 'bg-white text-[#054752] border-white' : 'bg-white/10 text-white border-white/10 hover:bg-white/20'}`}
+                                >
+                                    <Landmark size={18} />
+                                    <span className="text-sm font-bold uppercase tracking-wider">Bank Transfer</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -75,7 +96,9 @@ export default function Earnings({ user, checkAuthStatus }) {
                 <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm flex flex-col justify-between">
                     <div>
                         <h3 className="text-xl font-black text-[#054752] mb-1">Withdraw</h3>
-                        <p className="text-gray-400 text-xs font-bold mb-6">Process payouts to your bank account.</p>
+                        <p className="text-gray-400 text-xs font-bold mb-6">
+                            Via {method === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}
+                        </p>
 
                         <form onSubmit={handleWithdraw} className="space-y-4">
                             <div className="relative">
@@ -93,13 +116,13 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 disabled={isWithdrawing || !withdrawAmount}
                                 className="w-full bg-[#5845D8] text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {isWithdrawing ? <RefreshCw className="animate-spin" size={20} /> : 'Transfer Space'}
+                                {isWithdrawing ? <RefreshCw className="animate-spin" size={20} /> : 'Transfer Funds'}
                             </button>
                         </form>
                     </div>
 
                     {status.message && (
-                        <div className={`mt-4 p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                        <div className={`mt-4 p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'} animate-in fade-in duration-300`}>
                             {status.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
                             {status.message}
                         </div>

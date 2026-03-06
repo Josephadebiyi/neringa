@@ -18,14 +18,9 @@ import {
     ArrowRight
 } from 'lucide-react';
 import api from '../api';
-import { locations } from '../utils/countries';
+import { locations, countries } from '../utils/countries';
 
-// Build a unique sorted list of countries with flags from our locations data
-const COUNTRY_OPTIONS = Array.from(
-    new Map(
-        locations.map(loc => [loc.country, { name: loc.country, flag: loc.flag }])
-    ).values()
-).sort((a, b) => a.name.localeCompare(b.name));
+const COUNTRY_OPTIONS = countries.sort((a, b) => a.label.localeCompare(b.label));
 
 // Cities filtered by country
 const getCitiesForCountry = (countryName) =>
@@ -67,19 +62,32 @@ export default function PostTrip() {
         additionalNotes: ''
     });
 
-    // Origin cities based on selected country
-    const originCities = formData.originCountry
-        ? getCitiesForCountry(formData.originCountry)
-        : [];
-    const destinationCities = formData.destinationCountry
-        ? getCitiesForCountry(formData.destinationCountry)
-        : [];
+    const originCities = formData.originCountry ? getCitiesForCountry(formData.originCountry) : [];
+    const destinationCities = formData.destinationCountry ? getCitiesForCountry(formData.destinationCountry) : [];
 
     useEffect(() => {
         const saved = localStorage.getItem('pending_trip_post');
         if (saved) {
             try { setFormData(JSON.parse(saved)); } catch (e) { }
         }
+
+        // Auto-detect origin country
+        const detectLocation = async () => {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                if (data.country_name) {
+                    setFormData(prev => ({
+                        ...prev,
+                        originCountry: data.country_name
+                    }));
+                }
+            } catch (err) {
+                console.error("IP detection failed:", err);
+            }
+        };
+        detectLocation();
+
         if (isAuthenticated) checkKycStatus();
     }, [isAuthenticated]);
 
@@ -104,7 +112,7 @@ export default function PostTrip() {
     };
 
     const getCountryFlag = (countryName) => {
-        const found = COUNTRY_OPTIONS.find(c => c.name === countryName);
+        const found = COUNTRY_OPTIONS.find(c => c.label === countryName);
         return found?.flag || '';
     };
 

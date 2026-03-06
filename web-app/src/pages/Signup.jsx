@@ -32,6 +32,7 @@ export default function Signup() {
     const [detectedCountry, setDetectedCountry] = useState('');
 
     const handleGoogleSignup = useGoogleLogin({
+        redirect_uri: window.location.origin,
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             setError('');
@@ -80,10 +81,6 @@ export default function Signup() {
         e.preventDefault();
         setError('');
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
         if (formData.password.length < 6) {
             setError('Password must be at least 6 characters');
             return;
@@ -100,15 +97,13 @@ export default function Signup() {
         setLoading(true);
 
         try {
-            // Send minimal data — name and DOB will come from KYC
             const payload = {
                 email: formData.email,
                 phone: formData.phone,
                 country: formData.country,
                 password: formData.password,
-                confirmPassword: formData.confirmPassword,
+                confirmPassword: formData.password, // backend might still expect it
                 referralCode: formData.referralCode,
-                // Placeholder name — will be overwritten by DIDIT KYC
                 firstName: 'Bago',
                 lastName: 'User',
                 dateOfBirth: '2000-01-01',
@@ -148,200 +143,210 @@ export default function Signup() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F8F6F3] flex flex-col">
-            {/* Header */}
-            <nav className="w-full bg-white border-b border-gray-100 py-3 px-6 flex justify-between items-center">
-                <Link to="/" className="flex items-center">
-                    <img src="/bago_logo.png" alt="Bago" className="h-8 w-auto" />
-                </Link>
-                <p className="text-sm text-[#708c91]">
-                    Already have an account?{' '}
-                    <Link to="/login" className="text-[#5845D8] font-bold hover:underline">Log in</Link>
-                </p>
-            </nav>
+        <div className="min-h-screen bg-white flex lg:flex-row flex-col overflow-hidden">
+            {/* Left side banner */}
+            <div className="lg:w-1/2 w-full lg:min-h-screen h-[35vh] relative bg-[#054752] flex flex-col justify-between p-8 md:p-16 overflow-hidden">
+                <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-tl-[120px] -mr-20 -mb-20"></div>
+                <div className="absolute top-20 right-20 w-48 h-48 bg-[#5845D8] rounded-full blur-[80px] opacity-40"></div>
 
-            <div className="flex flex-1 items-center justify-center py-10 px-4">
-                <div className="w-full max-w-md">
-                    <div className="mb-8 text-center">
-                        <h1 className="text-3xl font-black text-[#054752] mb-2">Create your account</h1>
-                        <p className="text-[#708c91] text-sm font-medium">
-                            Your name & date of birth will be filled automatically after identity verification (KYC).
-                        </p>
-                    </div>
+                <div className="z-10">
+                    <Link to="/">
+                        <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-10 brightness-0 invert opacity-90" />
+                    </Link>
+                </div>
 
-                    {/* Google Signup */}
-                    <button
-                        onClick={() => handleGoogleSignup()}
-                        disabled={loading}
-                        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 text-[#054752] py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors mb-6 shadow-sm"
-                    >
-                        <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-                        Continue with Google
-                    </button>
+                <div className="z-10 text-white mt-auto mb-10 md:mb-16">
+                    <h1 className="text-4xl lg:text-6xl font-bold mb-6 leading-tight tracking-tight">Move stuff. <br />Make money.</h1>
+                    <p className="text-base md:text-lg text-white/80 max-w-sm font-medium leading-relaxed">
+                        Join thousands of travelers and senders in the Bago community.
+                    </p>
+                </div>
+            </div>
 
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="flex-1 h-px bg-gray-200" />
-                        <span className="text-sm text-gray-400 font-medium">or sign up with email</span>
-                        <div className="flex-1 h-px bg-gray-200" />
-                    </div>
+            {/* Right side form */}
+            <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 overflow-y-auto max-h-screen custom-scrollbar">
+                <div className="w-full max-w-md py-10">
+                    <h2 className="text-3xl font-bold text-[#054752] mb-2">Create Account</h2>
+                    <p className="text-[#708c91] font-medium mb-8">Get started with Bago in minutes.</p>
 
                     {showOtp ? (
-                        <form onSubmit={handleOtpVerify} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                            <h2 className="text-xl font-bold text-[#054752] mb-2">Check your email</h2>
-                            <p className="text-sm text-[#708c91] mb-6">
-                                We sent a 6-digit code to <strong>{formData.email}</strong>. Enter it below to verify your account.
-                            </p>
+                        <div className="space-y-6">
+                            <div className="bg-[#5845D8]/5 p-6 rounded-2xl border border-[#5845D8]/10 text-center">
+                                <h3 className="text-lg font-bold text-[#054752] mb-2">Check your email</h3>
+                                <p className="text-sm text-[#708c91]">
+                                    We sent a code to <span className="font-bold text-[#5845D8]">{formData.email}</span>
+                                </p>
+                            </div>
 
                             {success && (
-                                <div className="bg-green-50 text-green-700 p-3 rounded-xl mb-4 text-sm font-medium">{success}</div>
+                                <div className="bg-green-50 border border-green-100 text-green-700 p-4 rounded-xl text-sm font-medium">{success}</div>
                             )}
                             {error && (
-                                <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 text-sm">{error}</div>
+                                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm font-medium">{error}</div>
                             )}
 
-                            <input
-                                type="text"
-                                value={otp}
-                                onChange={e => setOtp(e.target.value)}
-                                placeholder="Enter 6-digit code"
-                                maxLength={6}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-center text-2xl font-bold tracking-widest focus:border-[#5845D8] outline-none mb-4"
-                                required
-                            />
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold hover:bg-[#4838B5] transition-colors disabled:opacity-50"
-                            >
-                                {loading ? 'Verifying…' : 'Verify & Complete'}
-                            </button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleSignup} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-4">
-                            {error && (
-                                <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm">{error}</div>
-                            )}
-
-                            {/* Email */}
-                            <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-1.5">Email address</label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    placeholder="you@example.com"
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm"
-                                    required
-                                />
-                            </div>
-
-                            {/* Country selection */}
-                            <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-1.5">Country</label>
-                                <select
-                                    value={formData.countryCode}
-                                    onChange={handleCountrySelect}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm bg-white appearance-none"
-                                    required
+                            <form onSubmit={handleOtpVerify} className="space-y-6">
+                                <div className="flex justify-center">
+                                    <input
+                                        type="text"
+                                        value={otp}
+                                        onChange={e => setOtp(e.target.value)}
+                                        placeholder="000000"
+                                        maxLength={6}
+                                        className="w-full px-6 py-4 rounded-2xl border-2 border-gray-100 text-center text-4xl font-black tracking-[1em] focus:border-[#5845D8] focus:bg-white bg-[#f8f9fa] outline-none transition-all text-[#5845D8]"
+                                        required
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-2xl font-bold transition-all shadow-md disabled:opacity-50"
                                 >
-                                    <option value="">Select your country…</option>
-                                    {countries.map(c => (
-                                        <option key={c.value} value={c.value}>
-                                            {c.flag} {c.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Phone */}
-                            <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-1.5">Phone number</label>
-                                <PhoneInput
-                                    country={formData.countryCode?.toLowerCase() || 'gb'}
-                                    value={formData.phone}
-                                    onChange={handlePhoneChange}
-                                    inputStyle={{
-                                        width: '100%',
-                                        padding: '12px 14px 12px 52px',
-                                        borderRadius: '12px',
-                                        border: '1px solid #e5e7eb',
-                                        fontSize: '14px',
-                                        outline: 'none'
-                                    }}
-                                    buttonStyle={{
-                                        borderRadius: '12px 0 0 12px',
-                                        border: '1px solid #e5e7eb',
-                                        borderRight: 'none',
-                                        background: '#f9fafb'
-                                    }}
-                                    dropdownStyle={{ zIndex: 9999 }}
-                                    inputProps={{ required: true }}
-                                />
-                            </div>
-
-                            {/* Password */}
-                            <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-1.5">Password</label>
-                                <input
-                                    type="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    placeholder="At least 6 characters"
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm"
-                                    required
-                                />
-                            </div>
-
-                            {/* Confirm Password */}
-                            <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-1.5">Confirm password</label>
-                                <input
-                                    type="password"
-                                    name="confirmPassword"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    placeholder="Re-enter your password"
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm"
-                                    required
-                                />
-                            </div>
-
-                            {/* Referral (optional) */}
-                            <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-1.5">
-                                    Referral code <span className="text-gray-400 font-normal">(optional)</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="referralCode"
-                                    value={formData.referralCode}
-                                    onChange={handleChange}
-                                    placeholder="Enter referral code"
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm"
-                                />
-                            </div>
-
+                                    {loading ? 'Verifying...' : 'Verify Email'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOtp(false)}
+                                    className="w-full text-sm font-bold text-[#708c91] hover:text-[#054752] transition-colors"
+                                >
+                                    ← Change details
+                                </button>
+                            </form>
+                        </div>
+                    ) : (
+                        <div className="space-y-8">
+                            {/* Google Signup */}
                             <button
-                                type="submit"
+                                onClick={() => handleGoogleSignup()}
                                 disabled={loading}
-                                className="w-full bg-[#5845D8] text-white py-3.5 rounded-xl font-bold text-base hover:bg-[#4838B5] transition-colors disabled:opacity-50 mt-2"
+                                className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 py-3.5 rounded-xl font-bold text-[#054752] hover:bg-gray-50 transition-all shadow-sm"
                             >
-                                {loading ? 'Creating account…' : 'Create account'}
+                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                                <span>Sign up with Google</span>
                             </button>
 
-                            <p className="text-xs text-center text-gray-400 leading-relaxed">
-                                By signing up, you agree to our{' '}
-                                <Link to="/terms" className="text-[#5845D8] hover:underline">Terms</Link>{' '}
-                                and{' '}
-                                <Link to="/privacy" className="text-[#5845D8] hover:underline">Privacy Policy</Link>.
-                            </p>
-                        </form>
+                            <div className="relative flex items-center py-2">
+                                <div className="flex-grow border-t border-gray-100"></div>
+                                <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase tracking-widest">Or with email</span>
+                                <div className="flex-grow border-t border-gray-100"></div>
+                            </div>
+
+                            {error && (
+                                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm font-medium">{error}</div>
+                            )}
+
+                            <form onSubmit={handleSignup} className="space-y-5">
+                                <div className="grid grid-cols-1 gap-5">
+                                    <div>
+                                        <label className="block text-sm font-bold text-[#054752] mb-2">Email address</label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
+                                            placeholder="name@example.com"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-[#054752] mb-2">Country</label>
+                                        <div className="relative">
+                                            <select
+                                                value={formData.countryCode}
+                                                onChange={handleCountrySelect}
+                                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium appearance-none cursor-pointer"
+                                                required
+                                            >
+                                                <option value="">Select country</option>
+                                                {countries.map(c => (
+                                                    <option key={c.value} value={c.value}>{c.flag} {c.label}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-[#054752] mb-2">Phone number</label>
+                                        <PhoneInput
+                                            country={formData.countryCode?.toLowerCase() || 'gb'}
+                                            value={formData.phone}
+                                            onChange={handlePhoneChange}
+                                            inputStyle={{
+                                                width: '100%',
+                                                height: '52px',
+                                                padding: '12px 14px 12px 52px',
+                                                borderRadius: '12px',
+                                                border: '1px solid #e5e7eb',
+                                                fontSize: '14px',
+                                                background: '#f8f9fa',
+                                                fontFamily: 'inherit'
+                                            }}
+                                            buttonStyle={{
+                                                borderRadius: '12px 0 0 12px',
+                                                border: '1px solid #e5e7eb',
+                                                borderRight: 'none',
+                                                background: '#f8f9fa'
+                                            }}
+                                            dropdownStyle={{ zIndex: 9999, borderRadius: '12px' }}
+                                            inputProps={{ required: true }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-[#054752] mb-2">Password</label>
+                                        <input
+                                            type="password"
+                                            name="password"
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
+                                            placeholder="••••••••"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-[#054752] mb-2">Referral code (Optional)</label>
+                                        <input
+                                            type="text"
+                                            name="referralCode"
+                                            value={formData.referralCode}
+                                            onChange={handleChange}
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
+                                            placeholder="REFERRAL123"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-xl font-bold mt-4 transition-all shadow-md hover:shadow-lg disabled:opacity-70"
+                                >
+                                    {loading ? 'Creating Account...' : 'Continue'}
+                                </button>
+
+                                <p className="text-center text-[11px] text-[#708c91] mt-6 px-4">
+                                    By clicking Continue, you agree to Bago's <Link to="/terms" className="text-[#5845D8] font-bold">Terms</Link> and <Link to="/privacy" className="text-[#5845D8] font-bold">Privacy Policy</Link>.
+                                </p>
+                            </form>
+                        </div>
                     )}
+
+                    <p className="mt-8 text-center text-[#708c91] font-medium">
+                        Already have an account?{' '}
+                        <Link to="/login" className="text-[#5845D8] font-bold hover:text-[#4838B5] transition-colors">
+                            Sign in
+                        </Link>
+                    </p>
                 </div>
             </div>
         </div>
     );
 }
+

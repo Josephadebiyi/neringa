@@ -71,10 +71,9 @@ export default function SendPackage() {
 
     const checkKycStatus = async () => {
         try {
-            const response = await api.get('/api/bago/getKyc');
+            const response = await api.get('/api/bago/kyc/status');
             if (response.data.success) {
-                const status = response.data.data?.kyc ? 'approved' : 'not_started';
-                setKycStatus(status);
+                setKycStatus(response.data.kycStatus || 'not_started');
             }
         } catch (error) {
             console.error('Failed to check KYC status:', error);

@@ -217,16 +217,18 @@ export function LanguageProvider({ children }) {
 
     useEffect(() => {
         const checkLocationSettings = async () => {
-            if (!localStorage.getItem('baggo_language') || !localStorage.getItem('baggo_currency')) {
+            const hasLang = localStorage.getItem('baggo_language');
+            const hasCurr = localStorage.getItem('baggo_currency');
+
+            if (!hasLang || !hasCurr) {
                 try {
                     const response = await fetch('https://ipapi.co/json/');
                     const data = await response.json();
 
-                    if (!localStorage.getItem('baggo_currency') && data.currency) {
+                    if (!hasCurr && data.currency) {
                         setCurrency(data.currency);
                     }
-                    if (!localStorage.getItem('baggo_language') && data.languages) {
-                        // e.g "en-US,en;q=0.9" -> "en"
+                    if (!hasLang && data.languages) {
                         const langCode = data.languages.split(',')[0].split('-')[0].toLowerCase();
                         if (languages.find(l => l.code === langCode)) {
                             setCurrentLanguage(langCode);
@@ -237,6 +239,27 @@ export function LanguageProvider({ children }) {
                 }
             }
         };
+
+        // If we have a user but no stored currency, check their country
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (user && user.country && !localStorage.getItem('baggo_currency')) {
+            const countryToCurrency = {
+                'Nigeria': 'NGN',
+                'United Kingdom': 'GBP',
+                'France': 'EUR',
+                'Germany': 'EUR',
+                'Spain': 'EUR',
+                'Italy': 'EUR',
+                'Canada': 'CAD',
+                'Australia': 'AUD',
+                'South Africa': 'ZAR',
+                'Kenya': 'KES',
+                'Ghana': 'GHS'
+            };
+            const mapped = countryToCurrency[user.country];
+            if (mapped) setCurrency(mapped);
+        }
+
         checkLocationSettings();
     }, []);
 

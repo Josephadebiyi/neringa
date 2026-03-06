@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import Overview from '../components/dashboard/Overview';
 import Trips from '../components/dashboard/Trips';
@@ -27,7 +27,7 @@ const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'trips', label: 'My Trips', icon: Plane },
     { id: 'shipments', label: 'My Shipments', icon: Package },
-    { id: 'chats', label: 'Messages', icon: MessageCircle },
+    { id: 'chats', label: 'Chats', icon: MessageCircle },
     { id: 'earnings', label: 'Earnings', icon: Wallet },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
@@ -39,6 +39,17 @@ export default function Dashboard() {
     const [kycLoading, setKycLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
+    const location = useLocation();
+    const [msg, setMsg] = useState(location.state?.message || '');
+
+    useEffect(() => {
+        if (location.state?.message) {
+            setMsg(location.state.message);
+            // Clear message after 5 seconds
+            const timer = setTimeout(() => setMsg(''), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [location.state]);
 
     useEffect(() => {
         if (!loading && !isAuthenticated) {
@@ -157,8 +168,8 @@ export default function Dashboard() {
                             key={item.id}
                             onClick={() => handleTabChange(item.id)}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${activeTab === item.id
-                                    ? 'bg-[#5845D8] text-white shadow-md shadow-[#5845D8]/20'
-                                    : 'text-[#708c91] hover:bg-gray-50 hover:text-[#054752]'
+                                ? 'bg-[#5845D8] text-white shadow-md shadow-[#5845D8]/20'
+                                : 'text-[#708c91] hover:bg-gray-50 hover:text-[#054752]'
                                 }`}
                         >
                             <item.icon size={19} strokeWidth={activeTab === item.id ? 2.5 : 2} />
@@ -224,6 +235,12 @@ export default function Dashboard() {
 
                 {/* Page content */}
                 <div className="p-4 md:p-8 max-w-6xl mx-auto">
+                    {msg && (
+                        <div className="mb-6 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3 text-amber-900 font-bold animate-in slide-in-from-top duration-300">
+                            <AlertCircle className="text-amber-500" size={20} />
+                            {msg}
+                        </div>
+                    )}
                     {renderTabContent()}
                 </div>
             </main>

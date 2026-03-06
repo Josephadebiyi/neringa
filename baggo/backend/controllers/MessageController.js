@@ -70,7 +70,7 @@ export const getConversations = async (req, res) => {
       .populate('sender', 'email firstName')
       .populate('traveler', 'email firstName')
       .sort({ updated_at: -1 });
-  console.log("conversation",conversations  )
+    console.log("conversation", conversations)
     res.status(200).json({
       success: true,
       data: { conversations },
@@ -136,6 +136,66 @@ export const getMessages = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching messages:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// REST endpoint to send a message
+export const sendMessage = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { text } = req.body;
+    const userId = req.user._id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+
+    // Check if participant
+    if (conversation.sender.toString() !== userId.toString() &&
+      conversation.traveler.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const message = new Message({
+      conversation: conversationId,
+      sender: userId,
+      text: text,
+    });
+    await message.save();
+
+    conversation.last_message = text;
+    conversation.updated_at = Date.now();
+
+    // Increment unread count for the OTHER user
+    if (conversation.sender.toString() === userId.toString()) {
+      conversation.unread_count_traveler += 1;
+    } else {
+      conversation.unread_count_sender += 1;
+    }
+
+    await conversation.save();
+
+    // Try to emit via socket if available
+    const io = req.app.get('io');
+    if (io) {
+      io.to(conversationId).emit('new_message', {
+        _id: message._id,
+        conversationId,
+        text,
+        sender: userId,
+        timestamp: message.timestamp,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      data: message,
+      message: 'Message sent'
+    });
+  } catch (error) {
+    console.error('Error in sendMessage REST:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
-import { Send, AlertTriangle, User, Paperclip } from 'lucide-react';
+import { Send, AlertTriangle, User, Paperclip, MessageCircle } from 'lucide-react';
 
-const BANNED_KEYWORDS = ['phone', 'whatsapp', 'number', 'call', 'telegram', 'instagram', 'facebook', 'email', '+'];
+const BANNED_KEYWORDS = ['phone', 'whatsapp', 'number', 'call', 'telegram', 'instagram', 'facebook', 'email', '+', 'gmail', 'yahoo', 'dm', 'contact me', 'text me'];
 
 export default function Chats({ user }) {
     const [conversations, setConversations] = useState([]);
@@ -25,19 +25,36 @@ export default function Chats({ user }) {
     const fetchConversations = async () => {
         try {
             const res = await api.get('/api/bago/conversations');
-            setConversations(res.data || []);
+            // Backend returns { success: true, data: { conversations: [] } }
+            const rawConversations = res.data?.data?.conversations || [];
+
+            // Map to identify 'otherUser' for the UI
+            const processed = rawConversations.map(conv => {
+                const currentUserId = user?._id || user?.id;
+                const otherUser = conv.sender?._id === currentUserId ? conv.traveler : conv.sender;
+                return {
+                    ...conv,
+                    otherUser: otherUser || { firstName: 'User' },
+                    lastMessage: conv.last_message || 'Click to chat'
+                };
+            });
+
+            setConversations(processed);
         } catch (err) {
             console.error("Failed to fetch conversations", err);
+            setConversations([]);
         }
     };
 
     const fetchMessages = async (convId) => {
         try {
             const res = await api.get(`/api/bago/conversations/${convId}/messages`);
-            setMessages(res.data?.messages || []);
+            // Backend returns { success: true, data: { messages: [] } }
+            setMessages(res.data?.data?.messages || []);
             scrollToBottom();
         } catch (err) {
             console.error("Failed to fetch messages", err);
+            setMessages([]);
         }
     };
 
@@ -60,13 +77,14 @@ export default function Chats({ user }) {
         }
 
         try {
-            // Placeholder endpoint - adjust based on actual backend API
             const res = await api.post(`/api/bago/conversations/${selectedConv._id}/send`, {
-                content: newMessage
+                text: newMessage
             });
-            setMessages([...messages, res.data]);
-            setNewMessage('');
-            scrollToBottom();
+            if (res.data?.success) {
+                setMessages([...messages, res.data.data]);
+                setNewMessage('');
+                scrollToBottom();
+            }
         } catch (err) {
             console.error("Failed to send message", err);
         }
@@ -123,13 +141,16 @@ export default function Chats({ user }) {
 
                         {/* Messages */}
                         <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/20">
-                            {messages.map((msg, i) => (
-                                <div key={i} className={`flex ${msg.sender === user?.id ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[70%] p-4 rounded-2xl text-sm font-medium ${msg.sender === user?.id ? 'bg-[#5845D8] text-white' : 'bg-white border border-gray-100 text-[#054752] shadow-sm'}`}>
-                                        {msg.content}
+                            {messages.map((msg, i) => {
+                                const isMe = msg.sender === (user?._id || user?.id);
+                                return (
+                                    <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[70%] p-4 rounded-2xl text-sm font-medium ${isMe ? 'bg-[#5845D8] text-white' : 'bg-white border border-gray-100 text-[#054752] shadow-sm'}`}>
+                                            {msg.text}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             <div ref={messagesEndRef} />
                         </div>
 

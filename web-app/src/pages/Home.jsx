@@ -32,6 +32,7 @@ import api from '../api';
 import RecentTrips from '../components/RecentTrips';
 import Select from 'react-select';
 import { locations } from '../utils/countries';
+import Footer from '../components/Footer';
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -97,20 +98,6 @@ const Navbar = () => {
                     )}
                 </div>
 
-                {/* Currency Selector - native select for reliability */}
-                <div className="hidden md:flex items-center">
-                    <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="text-sm font-semibold text-[#054752] bg-transparent border-none outline-none cursor-pointer hover:text-[#5845D8] transition-colors py-2 px-1 rounded-lg hover:bg-gray-50"
-                        title="Select currency"
-                    >
-                        {currencies.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                        ))}
-                    </select>
-                </div>
-
                 <button onClick={() => navigate('/search')} className="hidden md:flex items-center cursor-pointer group">
                     <Search size={22} className="text-[#054752] group-hover:text-[#5845D8] transition-colors" />
                 </button>
@@ -128,13 +115,14 @@ const Navbar = () => {
                     {isAuthenticated ? (
                         <Link to="/dashboard" className="flex items-center gap-3 bg-[#5845D8]/5 border border-[#5845D8]/20 px-4 py-2 rounded-full hover:bg-[#5845D8]/10 transition-all group">
                             <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm group-hover:scale-105 transition-transform">
-                                {user?.firstName?.charAt(0)}
+                                {user?.firstName?.charAt(0) || user?.email?.charAt(0)}
                             </div>
                             <span className="text-sm font-bold text-[#054752]">Dashboard</span>
                         </Link>
                     ) : (
-                        <Link to="/signup" className="flex items-center">
-                            <UserCircle size={32} className="text-[#d9d9d9] hover:text-[#054752] transition-colors" />
+                        <Link to="/login" className="flex items-center gap-2 px-6 py-2.5 bg-[#5845D8] text-white rounded-full font-bold hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/10 group">
+                            <UserCircle size={20} className="text-white/80 group-hover:text-white transition-colors" />
+                            <span>Login / Signup</span>
                         </Link>
                     )}
                 </div>
@@ -737,62 +725,6 @@ const DiscountPromo = () => {
     );
 };
 
-const Footer = () => {
-    return (
-        <footer className="bg-[#f2f2f2] pt-16 pb-6 mt-10">
-            <div className="px-6 md:px-12 max-w-[1240px] mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12 mb-16">
-                <div className="flex flex-col gap-5">
-                    <h4 className="font-bold text-[#054752] text-md">Compare our ride options</h4>
-                    <div className="flex flex-col gap-4 text-[14px] font-medium text-[#708c91]">
-                        <Link to="/search?origin=London&destination=Paris" className="hover:text-[#5845D8] transition-colors">London → Paris</Link>
-                        <Link to="/search?origin=Paris&destination=London" className="hover:text-[#5845D8] transition-colors">Paris → London</Link>
-                        <Link to="/search?origin=Manchester&destination=London" className="hover:text-[#5845D8] transition-colors">Manchester → London</Link>
-                        <Link to="/search?origin=London&destination=Brussels" className="hover:text-[#5845D8] transition-colors">London → Brussels</Link>
-                        <Link to="/search" className="hover:text-[#5845D8] transition-colors">Popular rides on Baggo</Link>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-5">
-                    <h4 className="font-bold text-[#054752] text-md">Travel with carpool</h4>
-                    <div className="flex flex-col gap-4 text-[14px] font-medium text-[#708c91]">
-                        <Link to="/search?mode=carpool" className="hover:text-[#5845D8] transition-colors">Popular carpool rides</Link>
-                        <Link to="/search?mode=carpool" className="hover:text-[#5845D8] transition-colors">Popular carpool destinations</Link>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-5">
-                    <h4 className="font-bold text-[#054752] text-md">Travel with Baggo Bus</h4>
-                    <div className="flex flex-col gap-4 text-[14px] font-medium text-[#708c91]">
-                        <Link to="/search?mode=bus" className="hover:text-[#5845D8] transition-colors">Popular Baggo Bus lines</Link>
-                        <Link to="/search?mode=bus" className="hover:text-[#5845D8] transition-colors">Popular Baggo Bus destinations</Link>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-5">
-                    <h4 className="font-bold text-[#054752] text-md">Find out more</h4>
-                    <div className="flex flex-col gap-4 text-[14px] font-medium text-[#708c91]">
-                        <Link to="/about" className="hover:text-[#5845D8] transition-colors">Who we are</Link>
-                        <Link to="/how-it-works" className="hover:text-[#5845D8] transition-colors">How does Baggo work?</Link>
-                        <Link to="/help" className="hover:text-[#5845D8] transition-colors">Help Centre</Link>
-                        <Link to="/track" className="hover:text-[#5845D8] transition-colors">Track Shipment</Link>
-                        <div className="mt-4 flex gap-4">
-                            <img src="/app-store.svg" alt="App Store" className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity" onError={(e) => { e.target.style.display = 'none'; }} />
-                            <img src="/google-play.svg" alt="Google Play" className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity" onError={(e) => { e.target.style.display = 'none'; }} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="px-6 md:px-12 max-w-[1240px] mx-auto border-t border-gray-300 pt-6 flex flex-col md:flex-row justify-between items-center text-[12px] font-medium text-[#708c91]">
-                <div className="flex gap-6 mb-4 md:mb-0">
-                    <Link to="/terms" className="hover:text-[#054752] transition-colors">Terms and Conditions</Link>
-                    <Link to="/privacy" className="hover:text-[#054752] transition-colors">Privacy Policy</Link>
-                </div>
-                <div className="flex items-center gap-2">
-                    <img src="/bago_logo.png" alt="Baggo" className="h-4 w-auto grayscale brightness-50 opacity-60" />
-                    <span>Baggo, 2026 ©</span>
-                </div>
-            </div>
-        </footer>
-    );
-};
 
 export default function Home() {
     const { user } = useAuth();

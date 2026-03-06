@@ -34,15 +34,13 @@ const transactionSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
-    required: [true, 'First name is required'],
     trim: true,
-    minlength: [2, 'First name must be at least 2 characters'],
+    default: 'Bago',
   },
   lastName: {
     type: String,
-    required: [true, 'Last name is required'],
     trim: true,
-    minlength: [2, 'Last name must be at least 2 characters'],
+    default: 'User',
   },
   image: {
     type: String,
@@ -85,8 +83,14 @@ const userSchema = new mongoose.Schema({
   emailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String },
   isVerified: { type: Boolean, default: false },
-  stripeAccountId: { type: String, default: null },
+  stripeAccountId: { type: String, default: null }, // for customers
+  stripeConnectAccountId: { type: String, default: null }, // for payouts
   stripeVerified: { type: Boolean, default: false },
+  bankDetails: {
+    bankName: { type: String, default: null },
+    accountNumber: { type: String, default: null },
+    accountHolderName: { type: String, default: null },
+  },
   pushTokens: {
     type: [String],
     default: [],

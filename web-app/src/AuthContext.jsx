@@ -4,9 +4,15 @@ import api, { getToken, removeToken } from './api';
 const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('user'));
+        } catch {
+            return null;
+        }
+    });
+    const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('auth_token'));
     const [loading, setLoading] = useState(true);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     useEffect(() => {
         checkAuthStatus();
@@ -22,12 +28,16 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await api.get('/api/bago/getuser');
             if (response.data.success) {
-                setUser(response.data.user);
+                const userData = response.data.user;
+                setUser(userData);
                 setIsAuthenticated(true);
+                localStorage.setItem('user', JSON.stringify(userData));
             }
         } catch (error) {
             console.error('Failed to authenticate:', error);
             removeToken();
+            setUser(null);
+            setIsAuthenticated(false);
         } finally {
             setLoading(false);
         }
@@ -36,6 +46,7 @@ export const AuthProvider = ({ children }) => {
     const login = (userData) => {
         setUser(userData);
         setIsAuthenticated(true);
+        localStorage.setItem('user', JSON.stringify(userData));
     };
 
     const logout = () => {

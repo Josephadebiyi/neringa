@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
-import { Package, MapPin, Calendar, Clock, ChevronRight, AlertTriangle, ShieldCheck, CheckCircle, RefreshCw, X, MessageSquare } from 'lucide-react';
+import { Package, MapPin, Calendar, Clock, ChevronRight, AlertTriangle, ShieldCheck, CheckCircle, RefreshCw, X, MessageSquare, User } from 'lucide-react';
 
 export default function Shipments({ user }) {
     const [requests, setRequests] = useState([]);
@@ -164,4 +164,4 @@ export default function Shipments({ user }) {
         </div>
     );
 }
-import { User } from 'lucide-react';
+
