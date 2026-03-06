@@ -24,7 +24,9 @@ import {
     AlertCircle,
     Calculator,
     CreditCard,
-    Headphones
+    Headphones,
+    Plus,
+    Minus
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../AuthContext';
@@ -291,31 +293,55 @@ const Navbar = () => {
 };
 
 const HeroSection = () => {
+    const navigate = useNavigate();
+    const { t } = useLanguage();
+
     return (
-        <section className="relative w-full max-w-[1240px] mx-auto pt-10 px-6 md:px-12 pb-16">
-            <div className="flex flex-col md:flex-row gap-8 items-center justify-between">
-                <div className="w-full md:w-[60%] mb-12 md:mb-0">
-                    <h1 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight mb-5">
-                        <span className="text-gray-500">Real People.</span> <br />
-                        <span className="text-[#B0891D]">Real Routes.</span> <br />
-                        <span className="text-[#5845D8]">Real Fast.</span>
+        <section className="relative px-6 md:px-12 py-16 md:py-24 max-w-[1400px] mx-auto overflow-hidden">
+            <div className="flex flex-col lg:flex-row items-center gap-16">
+                {/* Left Content */}
+                <div className="flex-1 text-center lg:text-left z-10">
+                    <h1 className="text-6xl md:text-8xl font-black text-[#054752] mb-8 tracking-tighter leading-[0.9]">
+                        Global Package <span className="opacity-20">Delivery.</span>
                     </h1>
-                    <p className="text-[#708c91] text-base font-medium mb-8 max-w-md">
-                        Connect with reliable delivery partners traveling across the globe. Professional, secure, and affordable package delivery.
+                    <p className="text-[#708c91] text-lg font-medium mb-10 max-w-lg mx-auto lg:mx-0 leading-relaxed">
+                        The easiest and most affordable way to send packages across the world. We connect you with verified travelers ready to deliver.
                     </p>
-                    <div className="flex gap-4">
-                        <img src="/app-store.svg" alt="App Store" className="h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity" onError={(e) => { e.target.style.display = 'none'; }} />
-                        <img src="/google-play.svg" alt="Google Play" className="h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity" onError={(e) => { e.target.style.display = 'none'; }} />
+                    <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
+                        <button
+                            onClick={() => navigate('/signup')}
+                            className="px-10 py-5 bg-[#00D094] text-[#054752] font-black rounded-full text-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                        >
+                            Get started for free
+                        </button>
+                        <button
+                            onClick={() => navigate('/how-it-works')}
+                            className="px-10 py-5 bg-white border-2 border-gray-100 text-[#054752] font-black rounded-full text-xl hover:bg-gray-50 transition-all"
+                        >
+                            Learn more
+                        </button>
                     </div>
                 </div>
 
-                <div className="w-full md:w-[50%] h-[350px] overflow-hidden rounded-2xl shadow-lg">
-                    <img
-                        src="/hero_v3.png"
-                        alt="Join Bago Community"
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                    />
+                {/* Right Image/Card */}
+                <div className="flex-1 w-full relative">
+                    <div className="bg-[#6B5CFF] rounded-[40px] p-8 md:p-12 relative overflow-hidden shadow-2xl min-h-[500px] flex items-center justify-between gap-8">
+                        <div className="max-w-[180px] z-10 hidden md:block">
+                            <h3 className="text-3xl font-black text-white mb-4">Build the future of logistics with us.</h3>
+                            <p className="text-white/70 text-sm font-medium">
+                                Launch the new era of creative solutions and unlock the power to ship anything, anywhere.
+                            </p>
+                        </div>
+                        <div className="flex-1 h-full min-h-[400px] rounded-[30px] overflow-hidden shadow-inner relative">
+                            <img
+                                src="/assets/hero_traveler.png"
+                                alt="Join Bago"
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                    </div>
+                    {/* Floating decoration */}
+                    <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-[#00D094] rounded-full blur-2xl opacity-20 hidden lg:block"></div>
                 </div>
             </div>
         </section>
@@ -478,7 +504,7 @@ const StickySearch = () => {
                     </div>
                     <button
                         type="submit"
-                        className="w-full md:w-[15%] px-8 bg-[#5845D8] text-white py-4 font-bold hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 rounded-b-2xl md:rounded-b-none md:rounded-r-2xl"
+                        className="w-full md:w-[15%] px-8 bg-[#6B5CFF] text-white py-4 font-bold hover:bg-[#5845D8] transition-all flex items-center justify-center gap-2 rounded-b-2xl md:rounded-b-none md:rounded-r-2xl"
                     >
                         <Search size={20} />
                         <span className="hidden md:inline">{t('search')}</span>
@@ -489,18 +515,91 @@ const StickySearch = () => {
     );
 };
 
-const PromoBar = () => {
+const BrandsSection = () => {
     return (
-        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-10">
-            <div className="bg-[#5845D8] rounded-3xl p-10 md:p-14 text-center shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">Earn from your travels.</h2>
-                <p className="text-white/80 text-sm md:text-base max-w-2xl mx-auto mb-8 leading-relaxed font-medium">
-                    Help others send packages while you travel by bus or flight. It's simple: publish your trip, deliver the package, and earn money for your luggage space.
-                </p>
-                <Link to="/post-trip" className="inline-flex items-center gap-3 bg-white text-[#5845D8] px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-all">
-                    <span>Post my trip</span>
-                </Link>
+        <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-20 bg-white">
+            <div className="text-center mb-12">
+                <span className="px-5 py-2 bg-blue-50 text-blue-600 rounded-full text-xs font-black uppercase tracking-widest">Partners</span>
+                <h2 className="text-4xl md:text-7xl font-black text-[#054752] mt-8 leading-[0.9] tracking-tighter">
+                    Developed in <span className="opacity-20">partnership</span> with <br /> top global logistics networks.
+                </h2>
+            </div>
+
+            <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-30 grayscale invert-[0.3]">
+                {/* Logo cloud - using mock placeholders for branding as per design style */}
+                <div className="text-3xl font-black italic tracking-tighter">DHL-ish</div>
+                <div className="text-3xl font-black italic tracking-tighter">FEDEX-ish</div>
+                <div className="text-3xl font-black italic tracking-tighter">UPS-ish</div>
+                <div className="text-3xl font-black italic tracking-tighter">AIR FRANCE</div>
+                <div className="text-3xl font-black italic tracking-tighter">BRITISH AIRWAYS</div>
+                <div className="text-3xl font-black italic tracking-tighter">LUFTHANSA</div>
+            </div>
+        </section>
+    );
+};
+
+const FAQSection = () => {
+    const [openIndex, setOpenIndex] = useState(0);
+
+    const faqs = [
+        {
+            q: "What types of items can I send through Bago?",
+            a: "You can send almost anything from documents and clothing to electronics and gifts, provided they are not on our prohibited items list and comply with international shipping laws."
+        },
+        {
+            q: "Are my packages insured?",
+            a: "Yes! Every verified shipment is backed by our secure escrow system and insurance protection policy to ensure peace of mind for both senders and travelers."
+        },
+        {
+            q: "Who can I mail my packages to?",
+            a: "You can send packages to any of the cities available on our platform. Our travelers cover thousands of routes across the globe every day."
+        },
+        {
+            q: "How are the shipping rates determined?",
+            a: "Rates are based on regional standards set by our platform and travelers, taking into account the route, package weight, and delivery speed."
+        }
+    ];
+
+    return (
+        <section className="bg-black py-24 px-6 md:px-12">
+            <div className="max-w-[1240px] mx-auto flex flex-col xl:flex-row gap-20">
+                <div className="flex-1">
+                    <span className="px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest">FAQs</span>
+                    <h2 className="text-4xl md:text-6xl font-black text-white mt-8 leading-tight">
+                        Here are Answers Related to <span className="text-[#00D094]">Bago Service</span>
+                    </h2>
+
+                    <div className="mt-20 relative w-full h-[400px] overflow-hidden rounded-[40px]">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black z-10"></div>
+                        <img src="/assets/traveler_join.png" alt="Traveler" className="w-full h-full object-cover" />
+                        <div className="absolute bottom-10 left-10 z-20 max-w-sm">
+                            <h3 className="text-3xl font-black text-white mb-6">Join us in building the rails for global shipping.</h3>
+                            <button className="px-8 py-4 bg-[#00D094] text-black font-black rounded-full shadow-lg hover:scale-105 transition-all">Get started for free</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 flex flex-col gap-4">
+                    {faqs.map((faq, i) => (
+                        <div
+                            key={i}
+                            className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden cursor-pointer transition-all hover:bg-white/10"
+                            onClick={() => setOpenIndex(openIndex === i ? -1 : i)}
+                        >
+                            <div className="px-8 py-6 flex items-center justify-between gap-4">
+                                <h4 className="text-lg font-bold text-white/90">{faq.q}</h4>
+                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0">
+                                    {openIndex === i ? <Minus size={18} /> : <Plus size={18} />}
+                                </div>
+                            </div>
+                            {openIndex === i && (
+                                <div className="px-8 pb-8 text-white/50 font-medium leading-relaxed">
+                                    {faq.a}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
         </section>
     );
@@ -739,6 +838,7 @@ export default function Home() {
             <PromoBar />
             <FeaturesSection />
             <TripTypeSection />
+            <FAQSection />
             <CommunityCTA />
             <TrackingSection />
             <CarSection />

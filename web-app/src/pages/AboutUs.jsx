@@ -36,15 +36,13 @@ export default function AboutUs() {
         <div className="min-h-screen bg-[#F8F6F3]">
             <Navbar />
 
-            {/* Hero Section */}
-            <section className="relative overflow-hidden pt-20 pb-32 px-6">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#5845D8]/5 rounded-full blur-[100px] -mr-64 -mt-32"></div>
-                <div className="max-w-4xl mx-auto text-center relative z-10">
-                    <h1 className="text-5xl md:text-7xl font-black text-[#054752] mb-8 tracking-tight">
-                        {t('aboutHero')}
+            <section className="relative overflow-hidden pt-24 pb-32 px-6 max-w-[1400px] mx-auto">
+                <div className="text-center relative z-10">
+                    <h1 className="text-6xl md:text-9xl font-black text-[#054752] mb-12 tracking-tighter leading-[0.85]">
+                        Re-imagine <span className="opacity-20 text-gray-400">logistics.</span>
                     </h1>
                     <p className="text-xl text-[#708c91] font-medium leading-relaxed max-w-2xl mx-auto">
-                        {t('aboutSubtitle')}
+                        We're building the most human-centric logistics network in the world. Bago connects travelers with people who need to send packages globally.
                     </p>
                 </div>
             </section>
@@ -53,12 +51,12 @@ export default function AboutUs() {
             <section className="bg-white py-24 px-6 md:px-12">
                 <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
                     <div className="relative">
-                        <div className="absolute -inset-4 bg-[#B0891D]/10 rounded-[40px] rotate-3 blur-sm"></div>
                         <img
-                            src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1200"
+                            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=1200"
                             alt="Our Team"
-                            className="relative rounded-[32px] shadow-2xl z-10 w-full h-[500px] object-cover"
+                            className="relative rounded-[50px] shadow-2xl z-10 w-full h-[600px] object-cover"
                         />
+                        <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-[#00D094] rounded-full blur-2xl opacity-30"></div>
                     </div>
                     <div>
                         <div className="flex items-center gap-3 text-[#5845D8] font-bold mb-6 uppercase tracking-widest text-sm">
@@ -82,7 +80,7 @@ export default function AboutUs() {
                     <h2 className="text-4xl font-black text-[#054752] mb-4">{t('coreValues')}</h2>
                     <p className="text-[#708c91] font-medium">The principles that guide every feature we build.</p>
                 </div>
-                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
                     {[
                         {
                             icon: ShieldCheck,
@@ -94,7 +92,7 @@ export default function AboutUs() {
                             icon: Globe,
                             title: t('globalCommunity'),
                             desc: t('globalDesc'),
-                            color: 'bg-green-50 text-green-600'
+                            color: 'bg-[#00D094]/10 text-[#00D094]'
                         },
                         {
                             icon: TrendingUp,
@@ -103,12 +101,12 @@ export default function AboutUs() {
                             color: 'bg-purple-50 text-purple-600'
                         }
                     ].map((v, i) => (
-                        <div key={i} className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all hover:-translate-y-2">
-                            <div className={`w-14 h-14 ${v.color} rounded-2xl flex items-center justify-center mb-6`}>
-                                <v.icon size={32} />
+                        <div key={i} className="bg-white p-12 rounded-[40px] shadow-sm border border-gray-100 hover:shadow-2xl transition-all hover:-translate-y-3">
+                            <div className={`w-16 h-16 ${v.color} rounded-2xl flex items-center justify-center mb-8`}>
+                                <v.icon size={36} />
                             </div>
-                            <h3 className="text-2xl font-black text-[#054752] mb-4">{v.title}</h3>
-                            <p className="text-[#708c91] font-medium leading-relaxed">{v.desc}</p>
+                            <h3 className="text-3xl font-black text-[#054752] mb-6 tracking-tight">{v.title}</h3>
+                            <p className="text-[#708c91] font-medium leading-relaxed text-lg">{v.desc}</p>
                         </div>
                     ))}
                 </div>
@@ -145,11 +143,11 @@ export default function AboutUs() {
                         Become part of the most human-centric logistics network in the world.
                         Start sending or start earning today.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link to="/signup" className="px-10 py-4 bg-[#5845D8] text-white font-bold rounded-2xl shadow-lg hover:bg-[#4838B5] transition-all">
+                    <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                        <Link to="/signup" className="px-12 py-5 bg-[#00D094] text-[#054752] font-black rounded-full shadow-xl hover:scale-105 transition-all text-xl">
                             {t('signup')}
                         </Link>
-                        <Link to="/search" className="px-10 py-4 border-2 border-[#054752] text-[#054752] font-bold rounded-2xl hover:bg-[#054752] hover:text-white transition-all">
+                        <Link to="/search" className="px-12 py-5 border-2 border-[#054752] text-[#054752] font-black rounded-full hover:bg-[#054752] hover:text-white transition-all text-xl">
                             {t('search')}
                         </Link>
                     </div>
