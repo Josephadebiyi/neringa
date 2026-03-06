@@ -143,7 +143,7 @@ export default function Signup() {
     };
 
     return (
-        <div className="min-h-screen bg-white flex lg:flex-row flex-col overflow-hidden">
+        <div className="min-h-screen bg-white flex lg:flex-row flex-col">
             {/* Left side banner */}
             <div className="lg:w-1/2 w-full lg:min-h-screen h-[35vh] relative bg-[#054752] flex flex-col justify-between p-8 md:p-16 overflow-hidden">
                 <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-tl-[120px] -mr-20 -mb-20"></div>
@@ -164,8 +164,8 @@ export default function Signup() {
             </div>
 
             {/* Right side form */}
-            <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 overflow-y-auto max-h-screen custom-scrollbar">
-                <div className="w-full max-w-md py-10">
+            <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 lg:min-h-screen">
+                <div className="w-full max-w-md py-12">
                     <h2 className="text-3xl font-bold text-[#054752] mb-2">Create Account</h2>
                     <p className="text-[#708c91] font-medium mb-8">Get started with Bago in minutes.</p>
 

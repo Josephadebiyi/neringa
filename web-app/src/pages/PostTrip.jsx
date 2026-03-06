@@ -115,9 +115,8 @@ export default function PostTrip() {
         destinationCity: '',
         departureDate: '',
         arrivalDate: '',
-        transportMode: 'air',
+        transportMode: 'airplane',
         availableWeight: '',
-        pricePerKg: '',
         additionalNotes: ''
     });
 
@@ -222,7 +221,6 @@ export default function PostTrip() {
                 departureDate: formData.departureDate,
                 arrivalDate: formData.arrivalDate,
                 availableKg: formData.availableWeight,
-                pricePerKg: formData.pricePerKg || null,
                 travelMeans: formData.transportMode,
                 notes: formData.additionalNotes
             };
@@ -241,7 +239,7 @@ export default function PostTrip() {
     };
 
     const transportModes = [
-        { value: 'air', icon: Plane, label: 'Air' },
+        { value: 'airplane', icon: Plane, label: 'Air' },
         { value: 'bus', icon: Bus, label: 'Bus' },
         { value: 'car', icon: Car, label: 'Car' },
         { value: 'train', icon: Train, label: 'Train' },
@@ -415,19 +413,6 @@ export default function PostTrip() {
                                         />
                                         <p className="text-xs text-gray-400 mt-1">{t('maxWeight')}</p>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">Price per kg (optional)</label>
-                                        <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">$</span>
-                                            <input
-                                                type="number" name="pricePerKg" value={formData.pricePerKg}
-                                                onChange={handleChange} min="0" step="0.5"
-                                                className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm"
-                                                placeholder="e.g. 5"
-                                            />
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-1">Leave blank to negotiate with senders</p>
-                                    </div>
                                 </div>
 
                                 <div className="mt-4 bg-[#5845D8]/5 border border-[#5845D8]/20 rounded-xl p-4">
@@ -484,7 +469,7 @@ export default function PostTrip() {
                                     <div className="flex-1 flex items-center justify-center">
                                         <div className="flex items-center gap-2">
                                             <div className="h-px w-8 bg-white/30"></div>
-                                            {formData.transportMode === 'air' && <Plane size={20} />}
+                                            {formData.transportMode === 'airplane' && <Plane size={20} />}
                                             {formData.transportMode === 'bus' && <Bus size={20} />}
                                             {formData.transportMode === 'car' && <Car size={20} />}
                                             {formData.transportMode === 'train' && <Train size={20} />}
@@ -507,7 +492,6 @@ export default function PostTrip() {
                                     { label: 'Departure', value: formData.departureDate },
                                     { label: 'Arrival', value: formData.arrivalDate },
                                     { label: 'Available Weight', value: `${formData.availableWeight} kg` },
-                                    { label: 'Price per kg', value: formData.pricePerKg ? `$${formData.pricePerKg}` : 'Negotiable' },
                                     { label: 'Transport', value: formData.transportMode.charAt(0).toUpperCase() + formData.transportMode.slice(1) },
                                 ].map(({ label, value }) => (
                                     <div key={label} className="bg-gray-50 rounded-xl p-4">
@@ -596,13 +580,9 @@ export default function PostTrip() {
                                     <p className="text-gray-400 text-xs">Departure</p>
                                     <p className="font-bold text-[#054752]">{formData.departureDate}</p>
                                 </div>
-                                <div>
+                                <div className="col-span-2">
                                     <p className="text-gray-400 text-xs">Weight</p>
                                     <p className="font-bold text-[#054752]">{formData.availableWeight} kg</p>
-                                </div>
-                                <div>
-                                    <p className="text-gray-400 text-xs">Price/kg</p>
-                                    <p className="font-bold text-[#054752]">{formData.pricePerKg ? `$${formData.pricePerKg}` : 'Negotiable'}</p>
                                 </div>
                             </div>
                         </div>
@@ -684,8 +664,8 @@ export default function PostTrip() {
                                 onClick={() => {
                                     setFormData({
                                         originCountry: '', originCity: '', destinationCountry: '', destinationCity: '',
-                                        departureDate: '', arrivalDate: '', transportMode: 'air',
-                                        availableWeight: '', pricePerKg: '', additionalNotes: ''
+                                        departureDate: '', arrivalDate: '', transportMode: 'airplane',
+                                        availableWeight: '', additionalNotes: ''
                                     });
                                     setStep(1);
                                 }}

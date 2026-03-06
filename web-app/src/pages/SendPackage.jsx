@@ -14,6 +14,7 @@ import {
     Check
 } from 'lucide-react';
 import api from '../api';
+import { countries } from '../utils/countries';
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -40,7 +41,10 @@ export default function SendPackage() {
     const { user, isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [priceLoading, setPriceLoading] = useState(false);
     const [error, setError] = useState('');
+    const [platformRate, setPlatformRate] = useState(0);
+    const [currency, setCurrency] = useState('USD');
     const [kycStatus, setKycStatus] = useState('');
     const location = useLocation();
     const selectedTrip = location.state?.trip;
@@ -66,8 +70,55 @@ export default function SendPackage() {
             navigate('/login');
         } else {
             checkKycStatus();
+            if (selectedTrip) {
+                fetchPricing();
+            }
         }
     }, [isAuthenticated, navigate]);
+
+    const fetchPricing = async () => {
+        setPriceLoading(true);
+        try {
+            // Helper to get country code from name
+            const getCountryCode = (locationStr) => {
+                if (!locationStr) return 'US';
+                const parts = locationStr.split(',');
+                const countryName = parts[parts.length - 1].trim();
+                const country = countries.find(c => c.label.toLowerCase() === countryName.toLowerCase());
+                return country ? country.value : 'US';
+            };
+
+            const fromParts = selectedTrip.fromLocation.split(',');
+            const toParts = selectedTrip.toLocation.split(',');
+
+            const payload = {
+                fromCity: fromParts[0].trim(),
+                fromCountryCode: getCountryCode(selectedTrip.fromLocation),
+                toCity: toParts[0].trim(),
+                toCountryCode: getCountryCode(selectedTrip.toLocation),
+                weightKg: formData.packageWeight || 1
+            };
+
+            const response = await api.post('/api/routes/trip-pricing', payload);
+            if (response.data.success) {
+                setPlatformRate(response.data.route.basePricePerKg);
+                setCurrency(response.data.route.currency || 'USD');
+            }
+        } catch (error) {
+            console.error('Failed to fetch pricing:', error);
+            // Fallback to a default if admin hasn't set it? 
+            // Or show error. The user wants admin to set it.
+            setPlatformRate(15); // Higher fallback to be safe
+        } finally {
+            setPriceLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedTrip && formData.packageWeight) {
+            fetchPricing();
+        }
+    }, [formData.packageWeight]);
 
     const checkKycStatus = async () => {
         try {
@@ -147,7 +198,6 @@ export default function SendPackage() {
             setLoading(false);
         }
     };
-    const platformRate = 12; // Example fixed price per kg
     const estimatedCost = formData.packageWeight ? (parseFloat(formData.packageWeight) * platformRate).toFixed(2) : 0;
 
     if (kycStatus !== 'approved' && kycStatus !== '') {
@@ -199,7 +249,9 @@ export default function SendPackage() {
                         </div>
                         <div className="text-right bg-white p-4 rounded-xl border border-gray-100 shadow-sm min-w-[150px]">
                             <p className="text-xs text-gray-500 uppercase font-bold">Standard Rate</p>
-                            <p className="text-2xl font-black text-[#5845D8]">${platformRate}/kg</p>
+                            <p className="text-2xl font-black text-[#5845D8]">
+                                {priceLoading ? '...' : `${currency === 'NGN' ? '₦' : '$'}${platformRate}/kg`}
+                            </p>
                         </div>
                     </div>
                 )}
@@ -224,7 +276,9 @@ export default function SendPackage() {
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-2xl font-black text-green-600">${estimatedCost}</p>
+                                <p className="text-2xl font-black text-green-600">
+                                    {currency === 'NGN' ? '₦' : '$'}{estimatedCost}
+                                </p>
                             </div>
                         </div>
                     )}
