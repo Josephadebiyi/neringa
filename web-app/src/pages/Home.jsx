@@ -36,6 +36,7 @@ import { locations } from '../utils/countries';
 const Navbar = () => {
     const navigate = useNavigate();
     const { t, currentLanguage, setLanguage, languages, currentLangData, currency, setCurrency } = useLanguage();
+    const { user, isAuthenticated } = useAuth();
     const [showLangDropdown, setShowLangDropdown] = useState(false);
     const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -451,15 +452,24 @@ const StickySearch = () => {
             ...base,
             display: 'none',
         }),
+        menu: (base) => ({
+            ...base,
+            zIndex: 9999,
+            minWidth: '200px',
+        }),
+        menuPortal: (base) => ({
+            ...base,
+            zIndex: 9999,
+        }),
     };
 
     return (
-        <div className="sticky top-[75px] z-50 w-full px-6 md:px-12 max-w-[1240px] mx-auto">
-            <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 flex flex-col relative overflow-hidden -mt-8 mb-8">
+        <div className="md:sticky md:top-[75px] z-40 w-full px-6 md:px-12 max-w-[1240px] mx-auto">
+            <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 -mt-8 mb-8">
                 <form onSubmit={handleSearch} className="flex flex-col md:flex-row items-stretch w-full">
-                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
+                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
                         <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <Select
                                 options={locationOptions}
                                 value={origin}
@@ -467,12 +477,14 @@ const StickySearch = () => {
                                 placeholder="From (City)"
                                 styles={customStyles}
                                 isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
                     </div>
-                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
+                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
                         <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <Select
                                 options={locationOptions}
                                 value={destination}
@@ -480,6 +492,8 @@ const StickySearch = () => {
                                 placeholder="To (City)"
                                 styles={customStyles}
                                 isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
                     </div>
@@ -496,10 +510,10 @@ const StickySearch = () => {
                     </div>
                     <button
                         type="submit"
-                        className="w-full md:w-[15%] px-8 bg-[#5845D8] text-white py-4 font-bold hover:bg-[#4838B5] transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                        className="w-full md:w-[15%] px-8 bg-[#5845D8] text-white py-4 font-bold hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 rounded-b-2xl md:rounded-b-none md:rounded-r-2xl"
                     >
-                        <Search size={20} className="md:hidden" />
-                        <span>{t('search')}</span>
+                        <Search size={20} />
+                        <span className="hidden md:inline">{t('search')}</span>
                     </button>
                 </form>
             </div>

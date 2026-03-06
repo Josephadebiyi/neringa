@@ -265,8 +265,14 @@ export const signUp = async (req, res) => {
       lastName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
     }
 
-    if (!firstName || !email || !phone || !password || !confirmPassword || !dateOfBirth || !country) {
-      return res.status(400).json({ message: "Please fill in all fields including name, date of birth and country" });
+    // Use placeholder values for fields filled in later by KYC
+    if (!firstName) firstName = 'Bago';
+    if (!lastName) lastName = 'User';
+    if (!dateOfBirth) dateOfBirth = '2000-01-01';
+
+    // Only require truly essential signup fields
+    if (!email || !phone || !password || !confirmPassword || !country) {
+      return res.status(400).json({ message: "Please fill in all required fields: email, phone, country, and password" });
     }
 
     if (password !== confirmPassword) {
