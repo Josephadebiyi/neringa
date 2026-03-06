@@ -56,6 +56,9 @@ const Navbar = () => {
                 <button onClick={() => navigate('/how-it-works')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
                     How it works
                 </button>
+                <button onClick={() => navigate('/track')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
+                    Track
+                </button>
             </div>
 
             <div className="flex items-center gap-6">
@@ -747,6 +750,7 @@ const Footer = () => {
                         <Link to="/about" className="hover:text-[#5845D8] transition-colors">Who we are</Link>
                         <Link to="/how-it-works" className="hover:text-[#5845D8] transition-colors">How does Baggo work?</Link>
                         <Link to="/help" className="hover:text-[#5845D8] transition-colors">Help Centre</Link>
+                        <Link to="/track" className="hover:text-[#5845D8] transition-colors">Track Shipment</Link>
                         <div className="mt-4 flex gap-4">
                             <img src="/app-store.svg" alt="App Store" className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity" onError={(e) => { e.target.style.display = 'none'; }} />
                             <img src="/google-play.svg" alt="Google Play" className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity" onError={(e) => { e.target.style.display = 'none'; }} />
