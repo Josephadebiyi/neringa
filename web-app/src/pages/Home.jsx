@@ -38,7 +38,6 @@ const Navbar = () => {
     const { t, currentLanguage, setLanguage, languages, currentLangData, currency, setCurrency } = useLanguage();
     const { user, isAuthenticated } = useAuth();
     const [showLangDropdown, setShowLangDropdown] = useState(false);
-    const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
 
     const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NGN', 'ZAR', 'KES', 'GHS'];
@@ -98,37 +97,18 @@ const Navbar = () => {
                     )}
                 </div>
 
-                {/* Currency Selector */}
-                <div className="relative">
-                    <button
-                        onClick={() => {
-                            setShowCurrencyDropdown(!showCurrencyDropdown);
-                            setShowLangDropdown(false);
-                        }}
-                        className="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                {/* Currency Selector - native select for reliability */}
+                <div className="hidden md:flex items-center">
+                    <select
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        className="text-sm font-semibold text-[#054752] bg-transparent border-none outline-none cursor-pointer hover:text-[#5845D8] transition-colors py-2 px-1 rounded-lg hover:bg-gray-50"
+                        title="Select currency"
                     >
-                        <span className="text-sm font-medium text-[#054752]">{currency}</span>
-                        <ChevronDown size={14} className={`text-[#054752] transition-transform ${showCurrencyDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showCurrencyDropdown && (
-                        <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50 max-h-60 overflow-y-auto">
-                            {currencies.map((c) => (
-                                <button
-                                    key={c}
-                                    onClick={() => {
-                                        setCurrency(c);
-                                        setShowCurrencyDropdown(false);
-                                    }}
-                                    className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center justify-between ${currency === c ? 'bg-purple-50 font-bold text-[#5845D8]' : 'font-medium text-[#054752]'
-                                        }`}
-                                >
-                                    <span>{c}</span>
-                                    {currency === c && <Check size={14} />}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                        {currencies.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <button onClick={() => navigate('/search')} className="hidden md:flex items-center cursor-pointer group">
@@ -216,7 +196,7 @@ const Navbar = () => {
                                         className="w-full py-4 text-xl font-black text-[#5845D8] flex items-center gap-4 hover:text-[#4838B5] transition-colors"
                                     >
                                         <PlusCircle size={24} />
-                                        <span>Offer Ride</span>
+                                        <span>Post a Trip</span>
                                     </button>
                                     <Link
                                         to="/about"
