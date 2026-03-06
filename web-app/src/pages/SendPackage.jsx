@@ -20,19 +20,19 @@ const Navbar = () => {
     const navigate = useNavigate();
 
     return (
-        <nav className="w-full bg-white border-b border-gray-100 py-3 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
-            <div className="flex items-center gap-4">
-                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[#054752] hover:text-[#5845D8]">
-                    <ChevronLeft size={24} />
-                    <span className="font-semibold">Back</span>
+        <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
+            <div className="flex items-center gap-3">
+                <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8]">
+                    <ChevronLeft size={20} />
+                    <span className="font-bold text-xs">Back</span>
                 </button>
             </div>
 
             <Link to="/" className="flex items-center">
-                <img src="/bago_logo.png" alt="Bago" className="h-8 w-auto" />
+                <img src="/bago_logo.png" alt="Bago" className="h-7 w-auto" />
             </Link>
 
-            <div className="w-20"></div>
+            <div className="w-16"></div>
         </nav>
     );
 };
@@ -227,56 +227,56 @@ export default function SendPackage() {
         <div className="min-h-screen bg-[#F8F6F3]">
             <Navbar />
 
-            <div className="max-w-3xl mx-auto px-6 py-8">
-                <div className="mb-8">
-                    <h1 className="text-3xl md:text-4xl font-black text-[#054752] mb-2">
+            <div className="max-w-3xl mx-auto px-6 py-6 font-sans">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-black text-[#054752] mb-1">
                         {selectedTrip ? 'Send Shipping Request' : 'Send a Package'}
                     </h1>
-                    <p className="text-[#708c91] font-medium">
+                    <p className="text-[#708c91] font-semibold text-sm">
                         {selectedTrip ? `Requesting space from ${selectedTrip.firstName || 'Traveler'}` : 'Find a trusted traveler to deliver your package'}
                     </p>
                 </div>
 
                 {selectedTrip && (
-                    <div className="bg-[#5845D8]/5 border border-[#5845D8]/20 rounded-2xl p-6 mb-8 flex flex-col md:flex-row gap-6 items-center">
-                        <div className="w-16 h-16 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-2xl">
+                    <div className="bg-[#5845D8]/5 border border-[#5845D8]/10 rounded-[24px] p-5 mb-6 flex flex-col md:flex-row gap-5 items-center">
+                        <div className="w-14 h-14 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xl shadow-lg border-4 border-white">
                             {selectedTrip.firstName?.charAt(0) || 'T'}
                         </div>
                         <div className="flex-1">
-                            <h3 className="text-xl font-bold text-[#054752]">Traveler Info</h3>
-                            <p className="text-[#708c91] font-medium">{selectedTrip.origin} → {selectedTrip.destination}</p>
-                            <p className="text-sm text-gray-500">{new Date(selectedTrip.departureDate).toLocaleDateString()} • {selectedTrip.transportMode} traveler</p>
+                            <h3 className="text-base font-bold text-[#054752]">Traveler Info</h3>
+                            <p className="text-[#708c91] font-bold text-sm tracking-tight">{selectedTrip.origin} → {selectedTrip.destination}</p>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{new Date(selectedTrip.departureDate).toLocaleDateString()} • {selectedTrip.transportMode} traveler</p>
                         </div>
-                        <div className="text-right bg-white p-4 rounded-xl border border-gray-100 shadow-sm min-w-[150px]">
-                            <p className="text-xs text-gray-500 uppercase font-bold">Standard Rate</p>
-                            <p className="text-2xl font-black text-[#5845D8]">
+                        <div className="text-right bg-white p-3 rounded-xl border border-gray-50 shadow-sm min-w-[130px]">
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest">Rate</p>
+                            <p className="text-xl font-black text-[#5845D8]">
                                 {priceLoading ? '...' : `${currency === 'NGN' ? '₦' : '$'}${platformRate}/kg`}
                             </p>
                         </div>
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 md:p-8 border border-gray-100">
+                <form onSubmit={handleSubmit} className="bg-white rounded-[24px] p-6 md:p-8 border border-gray-100 shadow-sm">
                     {error && (
-                        <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 flex items-center gap-2">
-                            <AlertCircle size={20} />
+                        <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-6 flex items-center gap-2 text-[11px] font-bold">
+                            <AlertCircle size={14} />
                             <span>{error}</span>
                         </div>
                     )}
 
                     {estimatedCost > 0 && (
-                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+                        <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-6 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="bg-green-100 p-2 rounded-lg">
-                                    <Check className="text-green-600" size={20} />
+                                    <Check className="text-green-600" size={16} />
                                 </div>
-                                <div>
-                                    <p className="text-sm font-bold text-green-900 uppercase">Estimated Shipping Cost</p>
-                                    <p className="text-xs text-green-700">Based on weight: {formData.packageWeight} kg</p>
+                                <div className="space-y-0.5">
+                                    <p className="text-[9px] font-black text-green-800 uppercase tracking-widest">Estimated Shipping Cost</p>
+                                    <p className="text-xs text-green-700 font-bold">Based on weight: {formData.packageWeight} kg</p>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-2xl font-black text-green-600">
+                                <p className="text-xl font-black text-green-600">
                                     {currency === 'NGN' ? '₦' : '$'}{estimatedCost}
                                 </p>
                             </div>
@@ -285,40 +285,40 @@ export default function SendPackage() {
 
                     {/* Package Information */}
                     <div className="mb-8">
-                        <h3 className="text-lg font-bold text-[#054752] mb-4 flex items-center gap-2">
-                            <Package size={20} className="text-[#5845D8]" />
-                            Package Information
+                        <h3 className="text-sm font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-widest">
+                            <Package size={16} className="text-[#5845D8]" />
+                            Package Info
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">Package Name</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Package Name</label>
                                 <input
                                     type="text"
                                     name="packageName"
                                     value={formData.packageName}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="e.g., Electronics, Documents, Clothing"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">Package Description</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Description</label>
                                 <textarea
                                     name="packageDescription"
                                     value={formData.packageDescription}
                                     onChange={handleChange}
-                                    rows="3"
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none resize-none"
+                                    rows="2"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none resize-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="Provide detailed description of the contents..."
                                     required
                                 />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-[#054752] mb-2 flex items-center gap-2">
-                                        <Weight size={16} />
-                                        Package Weight (kg)
+                                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1 flex items-center gap-1.5">
+                                        <Weight size={14} />
+                                        Weight (kg)
                                     </label>
                                     <input
                                         type="number"
@@ -328,15 +328,15 @@ export default function SendPackage() {
                                         min="0.1"
                                         max="50"
                                         step="0.1"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                         placeholder="e.g., 2.5"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-[#054752] mb-2 flex items-center gap-2">
-                                        <DollarSign size={16} />
-                                        Package Value (USD)
+                                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1 flex items-center gap-1.5">
+                                        <DollarSign size={14} />
+                                        Value (USD)
                                     </label>
                                     <input
                                         type="number"
@@ -345,11 +345,11 @@ export default function SendPackage() {
                                         onChange={handleChange}
                                         min="1"
                                         step="1"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                         placeholder="e.g., 100"
                                         required
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">For insurance purposes</p>
+                                    <p className="text-[9px] text-gray-400 font-bold mt-1.5 ml-1 uppercase tracking-tighter">For insurance purposes</p>
                                 </div>
                             </div>
                         </div>
@@ -357,31 +357,31 @@ export default function SendPackage() {
 
                     {/* Receiver Information */}
                     <div className="mb-8">
-                        <h3 className="text-lg font-bold text-[#054752] mb-4 flex items-center gap-2">
-                            <User size={20} className="text-[#5845D8]" />
-                            Receiver Information
+                        <h3 className="text-sm font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-widest">
+                            <User size={16} className="text-[#5845D8]" />
+                            Receiver Info
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">Receiver Name</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Receiver Name</label>
                                 <input
                                     type="text"
                                     name="receiverName"
                                     value={formData.receiverName}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="John Doe"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">Receiver Phone</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Phone Number</label>
                                 <input
                                     type="tel"
                                     name="receiverPhone"
                                     value={formData.receiverPhone}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="+1234567890"
                                     required
                                 />
@@ -391,55 +391,55 @@ export default function SendPackage() {
 
                     {/* Delivery Route */}
                     <div className="mb-8">
-                        <h3 className="text-lg font-bold text-[#054752] mb-4 flex items-center gap-2">
-                            <MapPin size={20} className="text-[#5845D8]" />
+                        <h3 className="text-sm font-black text-[#054752] mb-5 flex items-center gap-2 uppercase tracking-widest">
+                            <MapPin size={16} className="text-[#5845D8]" />
                             Delivery Route
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">From City</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">From City</label>
                                 <input
                                     type="text"
                                     name="fromCity"
                                     value={formData.fromCity}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="e.g., New York"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">From Country</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">From Country</label>
                                 <input
                                     type="text"
                                     name="fromCountry"
                                     value={formData.fromCountry}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="e.g., United States"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">To City</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">To City</label>
                                 <input
                                     type="text"
                                     name="toCity"
                                     value={formData.toCity}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="e.g., London"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-[#054752] mb-2">To Country</label>
+                                <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">To Country</label>
                                 <input
                                     type="text"
                                     name="toCountry"
                                     value={formData.toCountry}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                                     placeholder="e.g., United Kingdom"
                                     required
                                 />
@@ -449,67 +449,67 @@ export default function SendPackage() {
 
                     {/* Delivery Deadline */}
                     <div className="mb-8">
-                        <label className="block text-sm font-semibold text-[#054752] mb-2">Delivery Deadline</label>
+                        <label className="block text-[10px] font-black text-[#708c91] uppercase mb-1.5 tracking-wider ml-1">Deadline Date</label>
                         <input
                             type="date"
                             name="deliveryDeadline"
                             value={formData.deliveryDeadline}
                             onChange={handleChange}
                             min={new Date().toISOString().split('T')[0]}
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 hover:bg-white transition-all flex-row-reverse"
                             required
                         />
                     </div>
 
                     {/* Package Attributes */}
                     <div className="mb-8">
-                        <h3 className="text-lg font-bold text-[#054752] mb-4">Package Attributes</h3>
+                        <h3 className="text-sm font-black text-[#054752] mb-4 uppercase tracking-widest">Attributes</h3>
                         <div className="space-y-3">
-                            <label className="flex items-center gap-3 cursor-pointer">
+                            <label className="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
                                     name="fragile"
                                     checked={formData.fragile}
                                     onChange={handleChange}
-                                    className="w-5 h-5 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
+                                    className="w-4 h-4 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
                                 />
-                                <span className="text-sm font-medium text-gray-700">Fragile - Handle with care</span>
+                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#054752] transition-colors">Fragile - Handle with care</span>
                             </label>
-                            <label className="flex items-center gap-3 cursor-pointer">
+                            <label className="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
                                     name="perishable"
                                     checked={formData.perishable}
                                     onChange={handleChange}
-                                    className="w-5 h-5 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
+                                    className="w-4 h-4 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
                                 />
-                                <span className="text-sm font-medium text-gray-700">Perishable goods</span>
+                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#054752] transition-colors">Perishable goods</span>
                             </label>
-                            <label className="flex items-center gap-3 cursor-pointer">
+                            <label className="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
                                     name="requiresRefrigeration"
                                     checked={formData.requiresRefrigeration}
                                     onChange={handleChange}
-                                    className="w-5 h-5 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
+                                    className="w-4 h-4 rounded border-gray-300 text-[#5845D8] focus:ring-[#5845D8]"
                                 />
-                                <span className="text-sm font-medium text-gray-700">Requires refrigeration</span>
+                                <span className="text-xs font-bold text-gray-500 group-hover:text-[#054752] transition-colors">Requires refrigeration</span>
                             </label>
                         </div>
                     </div>
 
                     {/* Special Instructions */}
                     <div className="mb-8">
-                        <label className="block text-sm font-semibold text-[#054752] mb-2 flex items-center gap-2">
-                            <FileText size={16} />
-                            Special Instructions (Optional)
+                        <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 ml-1 flex items-center gap-1.5 tracking-wider">
+                            <FileText size={14} />
+                            Special Instructions <span className="text-gray-400 font-normal lowercase">(optional)</span>
                         </label>
                         <textarea
                             name="specialInstructions"
                             value={formData.specialInstructions}
                             onChange={handleChange}
-                            rows="4"
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none resize-none"
+                            rows="2"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none resize-none text-xs font-bold bg-gray-50 hover:bg-white transition-all"
                             placeholder="Any special handling requirements or delivery instructions..."
                         />
                     </div>
@@ -517,13 +517,13 @@ export default function SendPackage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-[#5845D8] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#4838B5] transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        className="w-full bg-[#5845D8] text-white py-4 rounded-xl font-bold text-sm hover:bg-[#4838B5] transition-all shadow-lg shadow-[#5845D8]/20 disabled:bg-gray-200 disabled:cursor-not-allowed"
                     >
                         {loading ? 'Processing...' : (selectedTrip ? 'Send Shipping Request' : 'Find Travelers')}
                     </button>
 
-                    <p className="text-sm text-gray-500 text-center mt-4">
-                        By sending a package, you agree to our terms of service and shipping guidelines.
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center mt-6 px-6 leading-relaxed">
+                        By sending a package, you agree to our <Link to="/terms" className="underline">terms</Link> & <Link to="/privacy" className="underline">shipping guidelines</Link>.
                     </p>
                 </form>
             </div>

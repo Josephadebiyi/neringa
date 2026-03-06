@@ -24,19 +24,20 @@ const Navbar = () => {
     const navigate = useNavigate();
 
     return (
-        <nav className="w-full bg-white border-b border-gray-100 py-3 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
-            <div className="flex items-center gap-4">
-                <button onClick={() => navigate(-1)} className="lg:hidden">
-                    <ChevronLeft size={24} className="text-[#054752]" />
+        <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
+            <div className="flex items-center gap-3">
+                <button onClick={() => navigate(-1)} className="lg:hidden flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8]">
+                    <ChevronLeft size={20} />
+                    <span className="font-bold text-xs">Back</span>
                 </button>
                 <Link to="/" className="flex items-center">
-                    <img src="/bago_logo.png" alt="Bago" className="h-8 w-auto" />
+                    <img src="/bago_logo.png" alt="Bago" className="h-7 w-auto" />
                 </Link>
             </div>
 
-            <div className="flex items-center gap-5">
-                <Link to="/login" className="flex items-center">
-                    <UserCircle size={32} className="text-[#d9d9d9] hover:text-[#054752] transition-colors" />
+            <div className="flex items-center gap-4">
+                <Link to="/login" className="flex items-center p-1 hover:bg-gray-50 rounded-full transition-all">
+                    <UserCircle size={28} className="text-[#d9d9d9] hover:text-[#054752] transition-colors" />
                 </Link>
             </div>
         </nav>
@@ -70,47 +71,51 @@ const TripCard = ({ trip }) => {
     };
 
     return (
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-all cursor-pointer group">
+        <div className="bg-white rounded-[24px] p-5 border border-gray-100 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group shadow-sm">
             <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-lg">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-base shadow-sm border-2 border-white">
                             {trip.firstName?.charAt(0) || 'T'}
                         </div>
                         <div>
-                            <h3 className="font-bold text-[#054752] text-lg">{trip.firstName || 'Traveler'}</h3>
+                            <h3 className="font-bold text-[#054752] text-sm tracking-tight">{trip.firstName || 'Traveler'}</h3>
+                            <div className="flex items-center gap-1 text-[10px] text-amber-500 font-black">
+                                <Star size={10} fill="currentColor" />
+                                <span>{trip.rating || '4.9'}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="space-y-2 mb-4">
+                    <div className="space-y-2.5 mb-5 px-1">
                         <div className="flex items-center gap-2">
-                            <MapPin size={18} className="text-[#5845D8]" />
-                            <span className="font-semibold text-[#054752]">{trip.origin || trip.originCity}</span>
-                            <ArrowRight size={16} className="text-gray-400" />
-                            <span className="font-semibold text-[#054752]">{trip.destination || trip.destinationCity}</span>
+                            <MapPin size={14} className="text-[#5845D8]" />
+                            <span className="font-bold text-[#054752] text-xs">{trip.origin || trip.originCity}</span>
+                            <ArrowRight size={12} className="text-gray-300" />
+                            <span className="font-bold text-[#054752] text-xs">{trip.destination || trip.destinationCity}</span>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                                <Calendar size={16} className="text-gray-400" />
+                        <div className="flex items-center gap-4 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                            <div className="flex items-center gap-1.5">
+                                <Calendar size={12} className="text-gray-400" />
                                 <span>{trip.departureDate ? new Date(trip.departureDate).toLocaleDateString() : 'TBD'}</span>
                             </div>
                             {trip.transportMode && (
-                                <div className="flex items-center gap-2">
-                                    <Plane size={16} className="text-gray-400" />
-                                    <span className="capitalize">{trip.transportMode}</span>
+                                <div className="flex items-center gap-1.5">
+                                    <Plane size={12} className="text-gray-400" />
+                                    <span>{trip.transportMode}</span>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-50 mb-4">
                         <div>
-                            <p className="text-xs text-gray-500">Available space</p>
-                            <p className="font-bold text-[#054752]">{trip.availableWeight || '5'} kg</p>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5">Space</p>
+                            <p className="font-bold text-[#054752] text-xs">{trip.availableWeight || '5'} kg available</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-xs text-gray-500">Fixed rate</p>
-                            <p className="font-bold text-[#5845D8] text-xl">Platform Standard</p>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5">Rate</p>
+                            <p className="font-black text-[#5845D8] text-sm italic">Standard</p>
                         </div>
                     </div>
                 </div>
@@ -118,10 +123,10 @@ const TripCard = ({ trip }) => {
 
             <button
                 onClick={handleBookingClick}
-                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-semibold hover:bg-[#4838B5] transition-colors flex items-center justify-center gap-2 group-hover:gap-3"
+                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10"
             >
-                Send Shipping Request
-                <Package size={18} />
+                Send Request
+                <Package size={14} />
             </button>
         </div>
     );
@@ -129,19 +134,19 @@ const TripCard = ({ trip }) => {
 
 const FilterPanel = ({ filters, setFilters, onApply }) => {
     return (
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 sticky top-24">
-            <h3 className="font-bold text-[#054752] text-lg mb-6 flex items-center gap-2">
-                <SlidersHorizontal size={20} />
+        <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm sticky top-24 font-sans">
+            <h3 className="font-black text-[#054752] text-[11px] uppercase tracking-[2px] mb-6 flex items-center gap-2">
+                <SlidersHorizontal size={14} className="text-[#5845D8]" />
                 Filters
             </h3>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
                 {/* Date Range */}
                 <div>
-                    <label className="block text-sm font-semibold text-[#054752] mb-2">Travel Date</label>
+                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 tracking-wider ml-1">Travel Date</label>
                     <input
                         type="date"
-                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 flex-row-reverse"
                         value={filters.date}
                         onChange={(e) => setFilters({ ...filters, date: e.target.value })}
                     />
@@ -149,9 +154,9 @@ const FilterPanel = ({ filters, setFilters, onApply }) => {
 
                 {/* Transport Mode */}
                 <div>
-                    <label className="block text-sm font-semibold text-[#054752] mb-2">Transport Mode</label>
+                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 tracking-wider ml-1">Transport Mode</label>
                     <select
-                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50 appearance-none"
                         value={filters.transportMode}
                         onChange={(e) => setFilters({ ...filters, transportMode: e.target.value })}
                     >
@@ -164,45 +169,28 @@ const FilterPanel = ({ filters, setFilters, onApply }) => {
                     </select>
                 </div>
 
-                {/* Price Range */}
-                <div>
-                    <label className="block text-sm font-semibold text-[#054752] mb-2">Max Price per kg</label>
-                    <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="5"
-                        className="w-full"
-                        value={filters.maxPrice}
-                        onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
-                    />
-                    <div className="flex justify-between text-sm text-gray-600 mt-1">
-                        <span>$0</span>
-                        <span className="font-semibold text-[#5845D8]">${filters.maxPrice}</span>
-                        <span>$100</span>
-                    </div>
-                </div>
-
                 {/* Weight Needed */}
                 <div>
-                    <label className="block text-sm font-semibold text-[#054752] mb-2">Weight Needed (kg)</label>
+                    <label className="block text-[10px] font-black text-[#708c91] uppercase mb-2 tracking-wider ml-1">Weight (kg)</label>
                     <input
                         type="number"
                         min="1"
                         max="50"
-                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8] outline-none text-xs font-bold bg-gray-50"
                         value={filters.weight}
                         onChange={(e) => setFilters({ ...filters, weight: e.target.value })}
                         placeholder="e.g., 5"
                     />
                 </div>
 
-                <button
-                    onClick={onApply}
-                    className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-semibold hover:bg-[#4838B5] transition-colors"
-                >
-                    Apply Filters
-                </button>
+                <div className="pt-2">
+                    <button
+                        onClick={onApply}
+                        className="w-full bg-[#5845D8] text-white py-3.5 rounded-xl font-black text-[10px] uppercase tracking-[1px] hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/20"
+                    >
+                        Apply Filters
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -308,13 +296,13 @@ export default function Search() {
         <div className="min-h-screen bg-[#F8F6F3]">
             <Navbar />
 
-            <div className="max-w-[1240px] mx-auto px-6 md:px-12 py-8">
+            <div className="max-w-[1240px] mx-auto px-6 md:px-12 py-8 font-sans">
                 {/* Search Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl md:text-4xl font-black text-[#054752] mb-2">
+                <div className="mb-6 px-1">
+                    <h1 className="text-2xl font-black text-[#054752] mb-1 leading-tight tracking-tight">
                         Available Travelers
                     </h1>
-                    <p className="text-[#708c91] font-medium">
+                    <p className="text-[#708c91] font-bold text-sm">
                         {filters.origin && filters.destination
                             ? `${filters.origin.city} → ${filters.destination.city}`
                             : 'Find travelers to deliver your package'}
@@ -322,52 +310,58 @@ export default function Search() {
                 </div>
 
                 {/* Search Bar */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
+                <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 md:p-6 mb-8">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-bold text-gray-500 uppercase px-1">From (City/Country)</label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black text-[#708c91] uppercase tracking-wider px-1">Departure</label>
                             <Select
                                 options={locationOptions}
                                 value={filters.origin}
                                 onChange={(val) => setFilters({ ...filters, origin: val })}
-                                placeholder="Departure location"
-                                className="w-full text-sm font-medium"
+                                placeholder="Select city"
+                                className="w-full text-xs font-bold"
                                 styles={{
                                     control: (base) => ({
                                         ...base,
                                         borderRadius: '12px',
-                                        borderColor: '#E5E7EB',
-                                        padding: '4px',
+                                        borderColor: '#F3F4F6',
+                                        backgroundColor: '#F9FAFB',
+                                        padding: '2px',
+                                        minHeight: '44px',
                                         '&:hover': { borderColor: '#5845D8' }
-                                    })
+                                    }),
+                                    placeholder: (base) => ({ ...base, color: '#9CA3AF' })
                                 }}
                             />
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-bold text-gray-500 uppercase px-1">To (City/Country)</label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black text-[#708c91] uppercase tracking-wider px-1">Arrival</label>
                             <Select
                                 options={locationOptions}
                                 value={filters.destination}
                                 onChange={(val) => setFilters({ ...filters, destination: val })}
-                                placeholder="Arrival location"
-                                className="w-full text-sm font-medium"
+                                placeholder="Select city"
+                                className="w-full text-xs font-bold"
                                 styles={{
                                     control: (base) => ({
                                         ...base,
                                         borderRadius: '12px',
-                                        borderColor: '#E5E7EB',
-                                        padding: '4px',
+                                        borderColor: '#F3F4F6',
+                                        backgroundColor: '#F9FAFB',
+                                        padding: '2px',
+                                        minHeight: '44px',
                                         '&:hover': { borderColor: '#5845D8' }
-                                    })
+                                    }),
+                                    placeholder: (base) => ({ ...base, color: '#9CA3AF' })
                                 }}
                             />
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-bold text-gray-500 uppercase px-1">Weight (kg)</label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black text-[#708c91] uppercase tracking-wider px-1">Weight (kg)</label>
                             <input
                                 type="number"
                                 placeholder="e.g. 5"
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:border-[#5845D8] focus:bg-white outline-none text-xs font-bold h-[44px] transition-all"
                                 value={filters.weight}
                                 onChange={(e) => setFilters({ ...filters, weight: e.target.value })}
                             />
@@ -375,10 +369,10 @@ export default function Search() {
                         <div className="flex items-end">
                             <button
                                 onClick={handleApplyFilters}
-                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold hover:bg-[#4838B5] transition-colors shadow-md h-[50px] flex items-center justify-center gap-2"
+                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-[1px] hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/20 h-[44px] flex items-center justify-center gap-2"
                             >
-                                <SearchIcon size={20} />
-                                Find Travelers
+                                <SearchIcon size={14} />
+                                Find Routes
                             </button>
                         </div>
                     </div>

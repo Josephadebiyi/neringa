@@ -294,71 +294,9 @@ const Navbar = () => {
 
 const HeroSection = () => {
     const navigate = useNavigate();
-    const { t } = useLanguage();
+    const { t, currency } = useLanguage();
 
-    return (
-        <section className="relative px-6 md:px-12 py-16 md:py-24 max-w-[1400px] mx-auto overflow-hidden">
-            <div className="flex flex-col lg:flex-row items-center gap-16">
-                {/* Left Content */}
-                <div className="flex-1 text-center lg:text-left z-10">
-                    <h1 className="text-6xl md:text-8xl font-black text-[#054752] mb-8 tracking-tighter leading-[0.9]">
-                        Global Package <span className="opacity-20">Delivery.</span>
-                    </h1>
-                    <p className="text-[#708c91] text-lg font-medium mb-10 max-w-lg mx-auto lg:mx-0 leading-relaxed">
-                        The easiest and most affordable way to send packages across the world. We connect you with verified travelers ready to deliver.
-                    </p>
-                    <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
-                        <button
-                            onClick={() => navigate('/signup')}
-                            className="px-10 py-5 bg-[#00D094] text-[#054752] font-black rounded-full text-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-                        >
-                            Get started for free
-                        </button>
-                        <button
-                            onClick={() => navigate('/how-it-works')}
-                            className="px-10 py-5 bg-white border-2 border-gray-100 text-[#054752] font-black rounded-full text-xl hover:bg-gray-50 transition-all"
-                        >
-                            Learn more
-                        </button>
-                    </div>
-                </div>
-
-                {/* Right Image/Card */}
-                <div className="flex-1 w-full relative">
-                    <div className="bg-[#6B5CFF] rounded-[40px] p-8 md:p-12 relative overflow-hidden shadow-2xl min-h-[500px] flex items-center justify-between gap-8">
-                        <div className="max-w-[180px] z-10 hidden md:block">
-                            <h3 className="text-3xl font-black text-white mb-4">Build the future of logistics with us.</h3>
-                            <p className="text-white/70 text-sm font-medium">
-                                Launch the new era of creative solutions and unlock the power to ship anything, anywhere.
-                            </p>
-                        </div>
-                        <div className="flex-1 h-full min-h-[400px] rounded-[30px] overflow-hidden shadow-inner relative">
-                            <img
-                                src="/assets/hero_traveler.png"
-                                alt="Join Bago"
-                                className="w-full h-full object-cover"
-                            />
-                        </div>
-                    </div>
-                    {/* Floating decoration */}
-                    <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-[#00D094] rounded-full blur-2xl opacity-20 hidden lg:block"></div>
-                </div>
-            </div>
-        </section>
-    );
-};
-
-const BAGO_COUNTRIES = [
-    "United States", "United Kingdom", "Canada", "Australia",
-    "Germany", "France", "Spain", "Italy", "Nigeria",
-    "South Africa", "Kenya", "Ghana", "India", "China",
-    "Japan", "Brazil", "Mexico", "United Arab Emirates"
-].sort();
-
-const StickySearch = () => {
-    const navigate = useNavigate();
-    const { t } = useLanguage();
-
+    // Search states
     const [origin, setOrigin] = useState(null);
     const [destination, setDestination] = useState(null);
     const [date, setDate] = useState('');
@@ -367,8 +305,8 @@ const StickySearch = () => {
         value: loc.city,
         label: (
             <div className="flex items-center gap-2">
-                <span>{loc.flag}</span>
-                <span>{loc.label}</span>
+                <span className="text-base">{loc.flag}</span>
+                <span className="font-bold">{loc.label}</span>
             </div>
         ),
         city: loc.city,
@@ -385,7 +323,7 @@ const StickySearch = () => {
                     const detected = locationOptions.find(opt => opt.city === data.city) || (data.city ? {
                         value: data.city,
                         label: (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 text-[13px] font-bold">
                                 <span>📍</span>
                                 <span>{data.city}, {data.country_name || ''}</span>
                             </div>
@@ -404,12 +342,10 @@ const StickySearch = () => {
 
     const handleSearch = (e) => {
         e.preventDefault();
-
         const params = new URLSearchParams();
         if (origin) params.append('origin', origin.city);
         if (destination) params.append('destination', destination.city);
         if (date) params.append('date', date);
-
         navigate(`/search?${params.toString()}`);
     };
 
@@ -420,27 +356,26 @@ const StickySearch = () => {
             boxShadow: 'none',
             background: 'transparent',
             minHeight: 'auto',
+            padding: 0,
         }),
         valueContainer: (base) => ({
             ...base,
-            padding: '0 8px',
-        }),
-        input: (base) => ({
-            ...base,
-            margin: 0,
-            padding: 0,
+            padding: '0 4px',
         }),
         placeholder: (base) => ({
             ...base,
             color: '#708c91',
             fontSize: '14px',
-            fontWeight: '500',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            opacity: 0.5
         }),
         singleValue: (base) => ({
             ...base,
             color: '#054752',
-            fontSize: '14px',
-            fontWeight: '500',
+            fontSize: '16px',
+            fontWeight: '900',
         }),
         indicatorsContainer: (base) => ({
             ...base,
@@ -449,69 +384,234 @@ const StickySearch = () => {
         menu: (base) => ({
             ...base,
             zIndex: 9999,
-            minWidth: '200px',
+            borderRadius: '24px',
+            border: '1px solid #f0f0f0',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.12)',
+            marginTop: '12px',
+            overflow: 'hidden'
         }),
-        menuPortal: (base) => ({
+        option: (base, state) => ({
             ...base,
-            zIndex: 9999,
-        }),
+            backgroundColor: state.isFocused ? '#5845D810' : 'white',
+            color: '#054752',
+            fontSize: '14px',
+            fontWeight: '800',
+            padding: '16px 20px',
+            cursor: 'pointer'
+        })
     };
 
     return (
-        <div className="md:sticky md:top-[75px] z-40 w-full px-6 md:px-12 max-w-[1240px] mx-auto">
-            <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 -mt-8 mb-8">
-                <form onSubmit={handleSearch} className="flex flex-col md:flex-row items-stretch w-full">
-                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-                        <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <Select
-                                options={locationOptions}
-                                value={origin}
-                                onChange={setOrigin}
-                                placeholder="From (City)"
-                                styles={customStyles}
-                                isClearable
-                                menuPortalTarget={document.body}
-                                menuPosition="fixed"
-                            />
+        <section className="relative w-full">
+            {/* Main Hero Background Section */}
+            <div className="relative bg-[#054752] pt-4 pb-12 md:pt-6 md:pb-20 px-6 overflow-hidden">
+                {/* 3D Background Illustration Overlay */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 1.1, x: 20 }}
+                    animate={{ opacity: 0.3, scale: 1, x: 0 }}
+                    transition={{ duration: 2, ease: "easeOut" }}
+                    className="absolute inset-0 pointer-events-none"
+                >
+                    <img
+                        src="/assets/bago_hero_vibe.png"
+                        alt="Global Logistics Background"
+                        className="w-full h-full object-cover object-right-bottom scale-110 md:scale-100 mix-blend-screen"
+                    />
+                </motion.div>
+
+                {/* Content Overlay */}
+                <div className="max-w-[1400px] mx-auto relative z-10">
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+                        {/* Text Content Column */}
+                        <div className="max-w-2xl text-center md:text-left">
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.8 }}
+                                className="inline-flex items-center gap-3 px-4 py-1.5 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 mb-2"
+                            >
+                                <span className="flex h-1.5 w-1.5 rounded-full bg-[#A78BFA] animate-pulse"></span>
+                                <span className="text-white font-black text-[9px] uppercase tracking-[0.2em]">Next Generation Shipping</span>
+                            </motion.div>
+
+                            <motion.h1
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.8, delay: 0.1 }}
+                                className="text-4xl md:text-[48px] font-black text-white mb-1 tracking-[-0.04em] leading-[0.85]"
+                            >
+                                International <br />
+                                <span className="text-[#A78BFA]">package delivery</span> <br />
+                                redefined.
+                            </motion.h1>
+
+                            <motion.p
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.8, delay: 0.2 }}
+                                className="hidden md:block text-white/70 text-sm md:text-[15px] font-bold mb-3 max-w-lg leading-tight tracking-tight opacity-90 mx-auto md:mx-0"
+                            >
+                                The easiest and most affordable way to send packages across the world. Connect with verified travelers ready to deliver your items.
+                            </motion.p>
                         </div>
+
+                        {/* Parallel App Download and Visuals */}
+                        <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 1, delay: 0.4 }}
+                            className="hidden lg:flex flex-row items-end gap-10 relative pr-4"
+                        >
+                            {/* Fancy STAMP - now part of the parallel flow */}
+                            <motion.div
+                                initial={{ scale: 2, rotate: 0, opacity: 0 }}
+                                animate={{ scale: 1, rotate: -12, opacity: 0.8 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 15, delay: 1 }}
+                                className="px-6 py-2.5 border-[4px] border-[#A78BFA] text-[#A78BFA] font-black rounded-xl text-[16px] uppercase tracking-[0.2em] font-mono shadow-[0_0_40px_rgba(167,139,250,0.2)] bg-[#054752]/40 backdrop-blur-sm"
+                            >
+                                DELIVERED
+                            </motion.div>
+
+                            <div className="flex flex-col items-end gap-3">
+                                <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Download official apps</p>
+                                <div className="flex flex-row gap-3">
+                                    <img src="/app-store.svg" alt="App Store" className="h-[36px] cursor-pointer hover:scale-105 transition-transform" />
+                                    <img src="/google-play.svg" alt="Google Play" className="h-[36px] cursor-pointer hover:scale-105 transition-transform" />
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex -space-x-1">
+                                        {[1, 2, 3, 4, 5].map(i => (
+                                            <div key={i} className="w-3.5 h-3.5 rounded-full bg-[#FFD700] flex items-center justify-center p-0.5 border border-[#054752]">
+                                                <Check size={8} strokeWidth={4} className="text-[#054752]" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <span className="text-white/40 text-[8px] font-black uppercase tracking-widest">4.9/5 RATED</span>
+                                </div>
+                            </div>
+                        </motion.div>
                     </div>
-                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-                        <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <Select
-                                options={locationOptions}
-                                value={destination}
-                                onChange={setDestination}
-                                placeholder="To (City)"
-                                styles={customStyles}
-                                isClearable
-                                menuPortalTarget={document.body}
-                                menuPosition="fixed"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex w-full md:w-[25%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-                        <Calendar size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            min={new Date().toISOString().split('T')[0]}
-                            className="outline-none text-sm font-medium w-full bg-transparent text-[#054752] cursor-pointer"
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="w-full md:w-[15%] px-8 bg-[#6B5CFF] text-white py-4 font-bold hover:bg-[#5845D8] transition-all flex items-center justify-center gap-2 rounded-b-2xl md:rounded-b-none md:rounded-r-2xl"
-                    >
-                        <Search size={20} />
-                        <span className="hidden md:inline">{t('search')}</span>
-                    </button>
-                </form>
+                </div>
             </div>
-        </div>
+
+            {/* Omio-Perfect Search Bar Cluster */}
+            <div className="max-w-[1100px] mx-auto px-6 -mt-10 md:-mt-12 relative z-40">
+                <motion.div
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8, delay: 0.4 }}
+                    className="bg-white rounded-[24px] shadow-[0_30px_90px_-20px_rgba(0,0,0,0.2)] p-1.5"
+                >
+                    <form onSubmit={handleSearch} className="flex flex-col lg:flex-row items-stretch">
+                        {/* From Field */}
+                        <div className="flex-1 flex flex-col justify-center px-6 py-3 rounded-[20px] hover:bg-gray-50 transition-colors group relative cursor-pointer min-w-0">
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                <div className="w-1 h-1 rounded-full bg-[#5845D8]"></div>
+                                Leaving From
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <MapPin size={18} className="text-[#5845D8] flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <Select
+                                        options={locationOptions}
+                                        value={origin}
+                                        onChange={setOrigin}
+                                        placeholder="Pick a city"
+                                        styles={customStyles}
+                                        isClearable
+                                        menuPortalTarget={document.body}
+                                        menuPosition="fixed"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="hidden lg:block w-[1px] bg-gray-100 my-4"></div>
+
+                        {/* To Field */}
+                        <div className="flex-1 flex flex-col justify-center px-6 py-3 rounded-[20px] hover:bg-gray-50 transition-colors group relative cursor-pointer min-w-0">
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                <div className="w-1 h-1 rounded-full bg-[#5845D8]"></div>
+                                Going To
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <MapPin size={18} className="text-[#5845D8] flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <Select
+                                        options={locationOptions}
+                                        value={destination}
+                                        onChange={setDestination}
+                                        placeholder="Pick a city"
+                                        styles={customStyles}
+                                        isClearable
+                                        menuPortalTarget={document.body}
+                                        menuPosition="fixed"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="hidden lg:block w-[1px] bg-gray-100 my-4"></div>
+
+                        {/* Date Field */}
+                        <div className="flex-1 lg:max-w-[200px] flex flex-col justify-center px-6 py-3 rounded-[20px] hover:bg-gray-50 transition-colors group min-w-0">
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Departure Date</label>
+                            <div className="flex items-center gap-2">
+                                <Calendar size={18} className="text-[#5845D8] flex-shrink-0" />
+                                <input
+                                    type="date"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    className="outline-none text-[14px] font-black w-full bg-transparent text-[#054752] cursor-pointer"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Search Action */}
+                        <button
+                            type="submit"
+                            className="bg-[#5845D8] text-white px-8 py-4 rounded-[20px] font-black text-[14px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-3 shadow-2xl shadow-[#5845D8]/30 group active:scale-95 ml-1 mr-1 my-1 lg:my-0"
+                        >
+                            <Search size={20} className="group-hover:scale-110 transition-transform" />
+                            <span>Compare Global Routes</span>
+                        </button>
+                    </form>
+                </motion.div>
+
+                {/* Sub-Search Metadata (Omio Toggles) */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    transition={{ duration: 1, delay: 1 }}
+                    viewport={{ once: true }}
+                    className="mt-6 flex flex-wrap items-center justify-center md:justify-start gap-8 px-8"
+                >
+                    <div className="flex items-center gap-3 group cursor-pointer">
+                        <div className="w-10 h-5 rounded-full bg-gray-200 p-1 transition-colors group-hover:bg-[#5845D8]/20 relative">
+                            <div className="w-3 h-3 rounded-full bg-white shadow-sm"></div>
+                        </div>
+                        <span className="text-[11px] font-black text-[#708c91] uppercase tracking-[0.1em]">Flexible dates</span>
+                    </div>
+                    <div className="flex items-center gap-3 group cursor-pointer">
+                        <div className="w-10 h-5 rounded-full bg-gray-200 p-1 transition-colors group-hover:bg-[#5845D8]/20 relative">
+                            <div className="w-3 h-3 rounded-full bg-white shadow-sm"></div>
+                        </div>
+                        <span className="text-[11px] font-black text-[#708c91] uppercase tracking-[0.1em]">Student discount</span>
+                    </div>
+                    <div className="flex items-center gap-3 group cursor-pointer">
+                        <div className="w-10 h-5 rounded-full bg-gray-200 p-1 transition-colors group-hover:bg-[#5845D8]/20 relative">
+                            <div className="w-3 h-3 rounded-full bg-white shadow-sm"></div>
+                        </div>
+                        <span className="text-[11px] font-black text-[#708c91] uppercase tracking-[0.1em]">Track routes</span>
+                    </div>
+                </motion.div>
+            </div>
+        </section>
     );
 };
 
@@ -825,6 +925,109 @@ const DiscountPromo = () => {
 };
 
 
+const AppPromotionSection = () => {
+    return (
+        <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-24 bg-white overflow-hidden">
+            <div className="flex flex-col lg:flex-row items-center gap-20">
+                {/* QR Code / Visual Side */}
+                <motion.div
+                    initial={{ opacity: 0, x: -50 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8 }}
+                    className="flex-1 relative flex justify-center lg:justify-end pr-0 lg:pr-12"
+                >
+                    <div className="relative w-full max-w-[400px] h-auto group">
+                        {/* Decorative circle */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[#5845D8]/5 rounded-full blur-3xl -z-10 group-hover:bg-[#5845D8]/10 transition-colors duration-1000"></div>
+
+                        <motion.img
+                            animate={{ y: [0, -20, 0] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                            src="/mobile-mockup.png"
+                            alt="Scan to get Bago app"
+                            className="w-full h-auto drop-shadow-2xl"
+                        />
+
+                        {/* QR Code Overlay (Styled like Omio) */}
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            whileInView={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: 0.5, type: "spring" }}
+                            className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-xl p-4 rounded-3xl shadow-xl border border-white/50 flex flex-col items-center gap-2 scale-90 md:scale-100"
+                        >
+                            <div className="w-24 h-24 bg-white rounded-xl flex items-center justify-center p-2 border border-gray-100">
+                                {/* Mock QR Code */}
+                                <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://bago.com')] bg-cover opacity-80"></div>
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#054752] opacity-60">Scan to get app</span>
+                        </motion.div>
+                    </div>
+                </motion.div>
+
+                {/* Content Side */}
+                <div className="flex-1 text-center lg:text-left">
+                    <motion.h2
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.6 }}
+                        className="text-5xl md:text-7xl font-black text-[#054752] mb-6 leading-[0.9] tracking-tighter"
+                    >
+                        Our free <span className="opacity-20 underline decoration-[#00D094] decoration-8 underline-offset-[12px]">app.</span>
+                    </motion.h2>
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
+                        className="text-[#708c91] text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
+                    >
+                        One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.
+                    </motion.p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-10 mb-12">
+                        {[
+                            { icon: Smartphone, title: 'Mobile tracking', desc: 'Watch your package move in real-time on our map.' },
+                            { icon: Globe, title: 'Global routes', desc: 'Access thousands of shipping routes instantly.' },
+                            { icon: ShieldCheck, title: 'Live updates', desc: 'Get push notifications for every status change.' },
+                            { icon: Headphones, title: '24/7 Support', desc: 'Chat with our team anytime, anywhere.' }
+                        ].map((item, i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, y: 10 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: i * 0.1 }}
+                                className="flex flex-col items-center lg:items-start gap-4 group cursor-default"
+                            >
+                                <div className="w-12 h-12 rounded-2xl bg-[#5845D8]/5 flex items-center justify-center text-[#5845D8] group-hover:bg-[#5845D8] group-hover:text-white transition-all duration-300 transform group-hover:-rotate-6">
+                                    <item.icon size={22} />
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-[#054752] text-sm uppercase tracking-widest mb-2 group-hover:text-[#5845D8] transition-colors">{item.title}</h4>
+                                    <p className="text-[13px] text-[#708c91] font-bold leading-relaxed opacity-60">{item.desc}</p>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.6, delay: 0.5 }}
+                        className="flex flex-wrap justify-center lg:justify-start gap-4"
+                    >
+                        <img src="/app-store.svg" alt="App Store" className="h-[50px] cursor-pointer hover:scale-105 active:scale-95 transition-transform drop-shadow-md" />
+                        <img src="/google-play.svg" alt="Google Play" className="h-[50px] cursor-pointer hover:scale-105 active:scale-95 transition-transform drop-shadow-md" />
+                    </motion.div>
+                </div>
+            </div>
+        </section>
+    );
+};
+
 export default function Home() {
     const { user } = useAuth();
 
@@ -832,13 +1035,12 @@ export default function Home() {
         <div className="min-h-screen bg-[#F8F6F3] font-sans">
             <Navbar />
             <HeroSection />
-            <StickySearch />
             <div className="h-4 md:h-0"></div>
             <RecentTrips user={user} />
-            <PromoBar />
             <FeaturesSection />
             <TripTypeSection />
             <FAQSection />
+            <AppPromotionSection />
             <CommunityCTA />
             <TrackingSection />
             <CarSection />
@@ -847,3 +1049,8 @@ export default function Home() {
         </div>
     );
 }
+
+// Add keyframes for float animation in tailwind if not already present
+// or add it inline if needed, but assuming global css might have it or we can add it here
+// Since we can't easily add global css from here, I'll use inline styles or standard framer motion if available
+// but for simplicity, the float animation can be a standard tailwind class if defined.

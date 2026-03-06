@@ -15,17 +15,17 @@ const Navbar = () => {
     const navigate = useNavigate();
     const { t } = useLanguage();
     return (
-        <nav className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-4 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
+        <nav className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <div className="flex items-center gap-4">
-                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[#054752] hover:text-[#5845D8] transition-all group font-bold">
-                    <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+                <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#054752] hover:text-[#5845D8] transition-all group font-bold text-xs">
+                    <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
                     <span>{t('back')}</span>
                 </button>
             </div>
             <Link to="/" className="flex items-center">
-                <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-10" />
+                <img src="/bago_logo.png" alt="Bago" className="h-7 md:h-8" />
             </Link>
-            <div className="w-20 hidden md:block"></div>
+            <div className="w-16 hidden md:block"></div>
         </nav>
     );
 };
@@ -36,38 +36,38 @@ export default function AboutUs() {
         <div className="min-h-screen bg-[#F8F6F3]">
             <Navbar />
 
-            <section className="relative overflow-hidden pt-24 pb-32 px-6 max-w-[1400px] mx-auto">
+            <section className="relative overflow-hidden pt-16 pb-24 px-6 max-w-[1240px] mx-auto font-sans">
                 <div className="text-center relative z-10">
-                    <h1 className="text-6xl md:text-9xl font-black text-[#054752] mb-12 tracking-tighter leading-[0.85]">
-                        Re-imagine <span className="opacity-20 text-gray-400">logistics.</span>
+                    <h1 className="text-5xl md:text-7xl font-black text-[#054752] mb-10 tracking-tighter leading-[0.9]">
+                        Re-imagine <span className="opacity-15 text-gray-400">logistics.</span>
                     </h1>
-                    <p className="text-xl text-[#708c91] font-medium leading-relaxed max-w-2xl mx-auto">
+                    <p className="text-sm md:text-base text-[#708c91] font-bold leading-relaxed max-w-xl mx-auto uppercase tracking-wide">
                         We're building the most human-centric logistics network in the world. Bago connects travelers with people who need to send packages globally.
                     </p>
                 </div>
             </section>
 
             {/* Our Story */}
-            <section className="bg-white py-24 px-6 md:px-12">
-                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+            <section className="bg-white py-20 px-6 md:px-12 font-sans">
+                <div className="max-w-[1240px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="relative">
                         <img
                             src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=1200"
                             alt="Our Team"
-                            className="relative rounded-[50px] shadow-2xl z-10 w-full h-[600px] object-cover"
+                            className="relative rounded-[40px] shadow-xl z-10 w-full h-[450px] object-cover"
                         />
-                        <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-[#00D094] rounded-full blur-2xl opacity-30"></div>
+                        <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-[#00D094] rounded-full blur-3xl opacity-20"></div>
                     </div>
-                    <div>
-                        <div className="flex items-center gap-3 text-[#5845D8] font-bold mb-6 uppercase tracking-widest text-sm">
-                            <span className="w-10 h-[1px] bg-[#5845D8]"></span>
+                    <div className="px-4">
+                        <div className="flex items-center gap-2 text-[#5845D8] font-black mb-4 uppercase tracking-[3px] text-[10px]">
+                            <span className="w-8 h-[2px] bg-[#5845D8]"></span>
                             {t('ourStory')}
                         </div>
-                        <h2 className="text-4xl font-black text-[#054752] mb-6 leading-tight">{t('storyTitle')}</h2>
-                        <p className="text-[#708c91] text-lg font-medium leading-relaxed mb-6">
+                        <h2 className="text-2xl md:text-3xl font-black text-[#054752] mb-6 leading-tight tracking-tight">{t('storyTitle')}</h2>
+                        <p className="text-[#708c91] text-xs font-bold leading-relaxed mb-4 uppercase tracking-wider opacity-80">
                             {t('storyDesc1')}
                         </p>
-                        <p className="text-[#708c91] text-lg font-medium leading-relaxed">
+                        <p className="text-[#708c91] text-xs font-bold leading-relaxed uppercase tracking-wider opacity-80">
                             {t('storyDesc2')}
                         </p>
                     </div>
@@ -75,79 +75,79 @@ export default function AboutUs() {
             </section>
 
             {/* Values */}
-            <section className="py-24 px-6 md:px-12">
-                <div className="max-w-6xl mx-auto text-center mb-16">
-                    <h2 className="text-4xl font-black text-[#054752] mb-4">{t('coreValues')}</h2>
-                    <p className="text-[#708c91] font-medium">The principles that guide every feature we build.</p>
+            <section className="py-20 px-6 md:px-12 font-sans">
+                <div className="max-w-[1240px] mx-auto text-center mb-16">
+                    <h2 className="text-2xl font-black text-[#054752] mb-3 tracking-tight">{t('coreValues')}</h2>
+                    <p className="text-[#708c91] font-bold text-xs uppercase tracking-widest">The principles that guide every feature we build.</p>
                 </div>
-                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
+                <div className="max-w-[1240px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
                     {[
                         {
                             icon: ShieldCheck,
                             title: t('trustSafety'),
                             desc: t('trustDesc'),
-                            color: 'bg-blue-50 text-blue-600'
+                            color: 'bg-blue-50 text-blue-500'
                         },
                         {
                             icon: Globe,
                             title: t('globalCommunity'),
                             desc: t('globalDesc'),
-                            color: 'bg-[#00D094]/10 text-[#00D094]'
+                            color: 'bg-[#00D094]/5 text-[#00D094]'
                         },
                         {
                             icon: TrendingUp,
                             title: t('innovation'),
                             desc: t('innovationDesc'),
-                            color: 'bg-purple-50 text-purple-600'
+                            color: 'bg-purple-50 text-purple-500'
                         }
                     ].map((v, i) => (
-                        <div key={i} className="bg-white p-12 rounded-[40px] shadow-sm border border-gray-100 hover:shadow-2xl transition-all hover:-translate-y-3">
-                            <div className={`w-16 h-16 ${v.color} rounded-2xl flex items-center justify-center mb-8`}>
-                                <v.icon size={36} />
+                        <div key={i} className="bg-white p-10 rounded-[32px] shadow-sm border border-gray-100 hover:shadow-xl transition-all hover:-translate-y-2">
+                            <div className={`w-14 h-14 ${v.color} rounded-2xl flex items-center justify-center mb-8 shadow-sm`}>
+                                <v.icon size={28} />
                             </div>
-                            <h3 className="text-3xl font-black text-[#054752] mb-6 tracking-tight">{v.title}</h3>
-                            <p className="text-[#708c91] font-medium leading-relaxed text-lg">{v.desc}</p>
+                            <h3 className="text-xl font-black text-[#054752] mb-4 tracking-tight">{v.title}</h3>
+                            <p className="text-[#708c91] font-bold leading-relaxed text-[11px] uppercase tracking-wider opacity-70">{v.desc}</p>
                         </div>
                     ))}
                 </div>
             </section>
 
             {/* Stats */}
-            <section className="bg-[#054752] py-20 px-6 overflow-hidden relative">
-                <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl"></div>
-                <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 text-center text-white relative z-10">
+            <section className="bg-[#054752] py-16 px-6 overflow-hidden relative font-sans">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
+                <div className="max-w-[1240px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10 text-center text-white relative z-10">
                     <div>
-                        <div className="text-4xl md:text-5xl font-black mb-2">50k+</div>
-                        <div className="text-white/60 font-medium uppercase tracking-widest text-xs">Packages Sent</div>
+                        <div className="text-3xl font-black mb-1 tracking-tight">50k+</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Packages Sent</div>
                     </div>
                     <div>
-                        <div className="text-4xl md:text-5xl font-black mb-2">10k+</div>
-                        <div className="text-white/60 font-medium uppercase tracking-widest text-xs">Verified Travelers</div>
+                        <div className="text-3xl font-black mb-1 tracking-tight">10k+</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Verified Travelers</div>
                     </div>
                     <div>
-                        <div className="text-4xl md:text-5xl font-black mb-2">120+</div>
-                        <div className="text-white/60 font-medium uppercase tracking-widest text-xs">Countries Covered</div>
+                        <div className="text-3xl font-black mb-1 tracking-tight">120+</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Countries Covered</div>
                     </div>
                     <div>
-                        <div className="text-4xl md:text-5xl font-black mb-2">4.9/5</div>
-                        <div className="text-white/60 font-medium uppercase tracking-widest text-xs">Average Rating</div>
+                        <div className="text-3xl font-black mb-1 tracking-tight">4.9/5</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Average Rating</div>
                     </div>
                 </div>
             </section>
 
             {/* CTA */}
-            <section className="py-24 px-6 text-center">
-                <div className="max-w-2xl mx-auto">
-                    <h2 className="text-4xl font-black text-[#054752] mb-6">Join the movement.</h2>
-                    <p className="text-[#708c91] text-lg font-medium mb-10 leading-relaxed">
+            <section className="py-24 px-6 text-center font-sans">
+                <div className="max-w-xl mx-auto">
+                    <h2 className="text-3xl font-black text-[#054752] mb-5 tracking-tight">Join the movement.</h2>
+                    <p className="text-[#708c91] text-xs font-bold mb-10 leading-relaxed uppercase tracking-widest opacity-80">
                         Become part of the most human-centric logistics network in the world.
                         Start sending or start earning today.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                        <Link to="/signup" className="px-12 py-5 bg-[#00D094] text-[#054752] font-black rounded-full shadow-xl hover:scale-105 transition-all text-xl">
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <Link to="/signup" className="px-10 py-4 bg-[#00D094] text-[#054752] font-black rounded-xl shadow-lg hover:scale-105 transition-all text-sm uppercase tracking-widest">
                             {t('signup')}
                         </Link>
-                        <Link to="/search" className="px-12 py-5 border-2 border-[#054752] text-[#054752] font-black rounded-full hover:bg-[#054752] hover:text-white transition-all text-xl">
+                        <Link to="/search" className="px-10 py-4 border border-[#054752] text-[#054752] font-black rounded-xl hover:bg-[#054752] hover:text-white transition-all text-sm uppercase tracking-widest">
                             {t('search')}
                         </Link>
                     </div>

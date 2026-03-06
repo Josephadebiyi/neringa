@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
-import HomeNew from './pages/HomeNew';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import SignupTest from './pages/SignupTest';
@@ -31,7 +31,7 @@ function App() {
                 <BrowserRouter>
                     <Routes>
                         <Route path="/test" element={<Test />} />
-                        <Route path="/" element={<HomeNew />} />
+                        <Route path="/" element={<Home />} />
                         <Route path="/about" element={<AboutUs />} />
                         <Route path="/how-it-works" element={<HowToUse />} />
                         <Route path="/login" element={<Login />} />

@@ -145,149 +145,173 @@ const Navbar = () => {
 const HeroSection = () => {
     const { t } = useLanguage();
     const navigate = useNavigate();
+
+    return (
+        <div className="relative bg-white pt-8 pb-12 overflow-hidden">
+            {/* Background Image with subtle overlay */}
+            <div className="absolute inset-0 z-0 opacity-5">
+                <img
+                    src="/assets/hero_bg.png"
+                    alt="Background"
+                    className="w-full h-full object-cover"
+                />
+            </div>
+
+            <div className="relative z-10 px-6 md:px-12 max-w-[1400px] mx-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center text-left">
+                    <motion.div
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.8 }}
+                        className="py-12"
+                    >
+                        <span className="px-3 py-1 bg-[#5845D8]/5 text-[#5845D8] border border-[#5845D8]/10 rounded-full text-[10px] font-black uppercase tracking-wider mb-6 inline-block">The Future of Logistics</span>
+                        <h1 className="text-4xl md:text-5xl lg:text-[56px] font-extrabold text-[#054752] mb-6 tracking-tight leading-[1.1]">
+                            Move stuff. <br />
+                            <span className="text-[#5845D8]">Make money.</span>
+                        </h1>
+                        <p className="text-[#708c91] text-base md:text-lg font-medium mb-8 max-w-md leading-relaxed">
+                            Join the world's most human-centric logistics network. Send packages faster or earn while you travel.
+                        </p>
+
+                        <div className="flex flex-wrap gap-4 mb-10">
+                            <button
+                                onClick={() => navigate('/signup')}
+                                className="px-8 py-3.5 bg-[#5845D8] text-white font-bold rounded-xl text-[15px] shadow-lg shadow-[#5845D8]/20 hover:shadow-[#5845D8]/40 hover:scale-105 transition-all flex items-center gap-2"
+                            >
+                                Get started free
+                                <ArrowRight size={20} />
+                            </button>
+                            <button
+                                onClick={() => navigate('/how-it-works')}
+                                className="px-8 py-3.5 bg-white border-2 border-gray-100 text-[#054752] font-bold rounded-xl text-[15px] hover:border-[#5845D8]/30 hover:bg-gray-50 transition-all"
+                            >
+                                How it works
+                            </button>
+                        </div>
+
+                        {/* App Store Buttons In Hero */}
+                        <div className="flex items-center gap-4">
+                            <a href="#" className="hover:scale-105 transition-transform duration-300">
+                                <img src="/app-store.svg" alt="App Store" className="h-9 w-auto" />
+                            </a>
+                            <a href="#" className="hover:scale-105 transition-transform duration-300">
+                                <img src="/google-play.svg" alt="Google Play" className="h-9 w-auto" />
+                            </a>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 1 }}
+                        className="relative hidden lg:block"
+                    >
+                        <div className="rounded-[40px] overflow-hidden shadow-2xl border-4 border-white group relative">
+                            <img
+                                src="/assets/hero_bago_group.png"
+                                alt="Premium Traveler Bago"
+                                className="w-full h-auto object-cover scale-100 group-hover:scale-105 transition-transform duration-1000"
+                            />
+                        </div>
+                    </motion.div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Search Section (Below Hero)
+const SearchSection = () => {
+    const navigate = useNavigate();
+    const { t } = useLanguage();
     const [fromCountry, setFromCountry] = useState(null);
     const [toCountry, setToCountry] = useState(null);
     const [date, setDate] = useState('');
 
     const handleSearch = () => {
-        const searchParams = new URLSearchParams();
-        if (fromCountry) searchParams.append('from', fromCountry.value);
-        if (toCountry) searchParams.append('to', toCountry.value);
-        if (date) searchParams.append('date', date);
-        navigate(`/search?${searchParams.toString()}`);
+        const params = new URLSearchParams();
+        if (fromCountry) params.append('origin', fromCountry.label);
+        if (toCountry) params.append('destination', toCountry.label);
+        if (date) params.append('date', date);
+        navigate(`/search?${params.toString()}`);
     };
 
     const customSelectStyles = {
         control: (base) => ({
             ...base,
-            minHeight: '56px',
-            borderRadius: '16px',
-            border: '2px solid #E5E7EB',
+            border: 'none',
             boxShadow: 'none',
-            '&:hover': { borderColor: '#5845D8' }
+            background: 'transparent',
+            minHeight: 'auto',
+            padding: '2px 0',
         }),
-        option: (base, state) => ({
-            ...base,
-            backgroundColor: state.isSelected ? '#5845D8' : state.isFocused ? '#F3F4F6' : 'white',
-            color: state.isSelected ? 'white' : '#111827'
-        })
+        placeholder: (base) => ({ ...base, color: '#94a3b8', fontSize: '11px', fontWeight: 'bold' }),
+        singleValue: (base) => ({ ...base, color: '#054752', fontSize: '12px', fontWeight: '700' }),
+        input: (base) => ({ ...base, margin: 0, padding: 0 }),
     };
 
     return (
-        <div className="relative bg-gradient-to-br from-[#054752] via-[#054752] to-[#032c33] text-white overflow-hidden">
-            {/* Background decorations */}
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#5845D8]/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+        <div className="relative z-20 px-6 md:px-12 max-w-[1100px] mx-auto -mt-8 mb-16">
+            <div className="bg-white rounded-[24px] shadow-[0_12px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100 p-2 md:p-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+                    <div className="group flex items-center gap-3 px-5 py-3 rounded-2xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100">
+                        <div className="w-8 h-8 rounded-full bg-[#5845D8]/5 flex items-center justify-center text-[#5845D8]">
+                            <MapPin size={16} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[9px] uppercase tracking-wider font-bold text-gray-400 mb-0.5">Leaving From</p>
+                            <Select
+                                options={locations}
+                                value={fromCountry}
+                                onChange={setFromCountry}
+                                placeholder="Departure City"
+                                styles={customSelectStyles}
+                                isClearable
+                            />
+                        </div>
+                    </div>
 
-            <div className="relative z-10 px-6 md:px-12 max-w-[1240px] mx-auto py-16 md:py-24">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                    {/* Left Content */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.6 }}
+                    <div className="group flex items-center gap-3 px-5 py-3 rounded-2xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100">
+                        <div className="w-8 h-8 rounded-full bg-[#5845D8]/5 flex items-center justify-center text-[#5845D8]">
+                            <MapPin size={16} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[9px] uppercase tracking-wider font-bold text-gray-400 mb-0.5">Going To</p>
+                            <Select
+                                options={locations}
+                                value={toCountry}
+                                onChange={setToCountry}
+                                placeholder="Arrival City"
+                                styles={customSelectStyles}
+                                isClearable
+                            />
+                        </div>
+                    </div>
+
+                    <div className="group flex items-center gap-3 px-5 py-3 rounded-2xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100">
+                        <div className="w-8 h-8 rounded-full bg-[#5845D8]/5 flex items-center justify-center text-[#5845D8]">
+                            <Calendar size={16} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[9px] uppercase tracking-wider font-bold text-gray-400 mb-0.5">When</p>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                className="w-full bg-transparent font-bold text-[#054752] text-[12px] outline-none cursor-pointer"
+                                placeholder="Select date"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleSearch}
+                        className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-3 md:py-0 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10"
                     >
-                        <h1 className="text-5xl md:text-7xl font-black mb-6 leading-[1.1] tracking-tight">
-                            {t('heroTitle') || 'Global Package Delivery.'}
-                        </h1>
-                        <p className="text-xl md:text-2xl mb-8 text-gray-200 font-medium">
-                            {t('heroSubtitle') || 'Send packages'} <span className="font-bold text-white">{t('heroWith') || 'with courier partners.'}</span>
-                        </p>
-
-                        <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                            <button
-                                onClick={() => navigate('/post-trip')}
-                                className="group bg-white text-[#054752] px-8 py-4 rounded-2xl font-bold text-lg hover:shadow-2xl transition-all flex items-center justify-center gap-3 hover:scale-105"
-                            >
-                                <Plane size={24} />
-                                {t('shareRide') || 'Post a trip'}
-                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                            </button>
-                            <button
-                                onClick={() => navigate('/send-package')}
-                                className="bg-[#5845D8] text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-[#4534B8] transition-all flex items-center justify-center gap-3 shadow-xl shadow-purple-500/30"
-                            >
-                                <Package size={24} />
-                                Send Package
-                            </button>
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-3 gap-6 pt-8 border-t border-white/20">
-                            <div>
-                                <div className="text-3xl font-black mb-1">150+</div>
-                                <div className="text-sm text-gray-300 font-medium">Countries</div>
-                            </div>
-                            <div>
-                                <div className="text-3xl font-black mb-1">10K+</div>
-                                <div className="text-sm text-gray-300 font-medium">Active Users</div>
-                            </div>
-                            <div>
-                                <div className="text-3xl font-black mb-1">50K+</div>
-                                <div className="text-sm text-gray-300 font-medium">Deliveries</div>
-                            </div>
-                        </div>
-                    </motion.div>
-
-                    {/* Right - Search Card */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
-                        className="bg-white rounded-[32px] p-8 shadow-2xl"
-                    >
-                        <h3 className="text-2xl font-black text-[#054752] mb-6">Find Your Route</h3>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-sm font-bold text-gray-700 mb-2 block">
-                                    {t('leavingFrom') || 'Departure Country or City'}
-                                </label>
-                                <Select
-                                    options={locations}
-                                    value={fromCountry}
-                                    onChange={setFromCountry}
-                                    placeholder="Select departure..."
-                                    styles={customSelectStyles}
-                                    className="text-gray-800"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-bold text-gray-700 mb-2 block">
-                                    {t('goingTo') || 'Arrival Country or City'}
-                                </label>
-                                <Select
-                                    options={locations}
-                                    value={toCountry}
-                                    onChange={setToCountry}
-                                    placeholder="Select arrival..."
-                                    styles={customSelectStyles}
-                                    className="text-gray-800"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-bold text-gray-700 mb-2 block">
-                                    {t('today') || 'Date'}
-                                </label>
-                                <input
-                                    type="date"
-                                    value={date}
-                                    onChange={(e) => setDate(e.target.value)}
-                                    className="w-full px-4 py-4 rounded-2xl border-2 border-gray-200 text-gray-800 font-medium focus:outline-none focus:border-[#5845D8] transition"
-                                />
-                            </div>
-
-                            <button
-                                onClick={handleSearch}
-                                className="w-full bg-[#5845D8] text-white py-4 rounded-2xl font-bold text-lg hover:bg-[#4534B8] transition-all flex items-center justify-center gap-3 shadow-xl shadow-purple-500/30"
-                            >
-                                <Search size={20} />
-                                {t('search') || 'Search'}
-                            </button>
-                        </div>
-                    </motion.div>
+                        <Search size={18} />
+                        Search Routes
+                    </button>
                 </div>
             </div>
         </div>
@@ -299,33 +323,52 @@ const FeaturesSection = () => {
     const { t } = useLanguage();
     const features = [
         {
-            icon: <Package size={32} />,
-            title: t('featureTitle1') || 'Send everywhere',
-            desc: t('featureDesc1') || 'Send packages safely to any city. Our delivery partners go everywhere you need.',
-            color: 'bg-purple-50 text-purple-600'
+            icon: ShieldCheck,
+            title: 'Insurance Online Payments',
+            desc: 'With Bago your money is safe at all times. Bago uses a secure payment system and you have a guaranteed refund.',
+            color: 'bg-purple-50 text-[#5845D8]'
         },
         {
-            icon: <Plane size={32} />,
-            title: t('featureTitle2') || 'Earn from luggage space',
-            desc: t('featureDesc2') || 'Turn your extra luggage space into cash. A simple way to subsidize your travel costs.',
-            color: 'bg-blue-50 text-blue-600'
+            icon: Package,
+            title: 'Guaranteed Delivery',
+            desc: 'If a traveler cancels your order or delivers an item in poor condition, we will process a full refund and find a new route.',
+            color: 'bg-indigo-50 text-[#5845D8]'
         },
         {
-            icon: <ShieldCheck size={32} />,
-            title: t('featureTitle3') || 'Trust built-in',
-            desc: t('featureDesc3') || 'We verify every delivery partner and sender. Your package is in safe hands, every step of the way.',
-            color: 'bg-green-50 text-green-600'
+            icon: CreditCard,
+            title: 'Multiple Payment Options',
+            desc: 'We accept a variety of payment methods such as Visa, MasterCard and American Express, with more options available soon.',
+            color: 'bg-blue-50 text-[#5845D8]'
+        },
+        {
+            icon: Calculator,
+            title: 'No Hidden Fees',
+            desc: 'Total transparency. Bago uses smart logic to calculate applicable rates and taxes before you post your order.',
+            color: 'bg-violet-50 text-[#5845D8]'
+        },
+        {
+            icon: UserCircle,
+            title: 'Verified Community',
+            desc: 'At Bago, trust is our highest priority. We work hard to ensure that our community treats all its members with respect.',
+            color: 'bg-fuchsia-50 text-[#5845D8]'
+        },
+        {
+            icon: Headphones,
+            title: '24/7 Support',
+            desc: 'Our team of customer service professionals are at your disposal to resolve any incident that may arise.',
+            color: 'bg-slate-50 text-[#5845D8]'
         }
     ];
 
     return (
-        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-20">
-            <div className="text-center mb-16">
-                <h2 className="text-4xl md:text-5xl font-black text-[#054752] mb-4">Why Choose Bago?</h2>
-                <p className="text-xl text-gray-600 max-w-2xl mx-auto">The smartest way to send and earn</p>
+        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-16 mb-4">
+            <div className="text-center mb-12">
+                <span className="px-3 py-1 bg-[#5845D8]/5 text-[#5845D8] rounded-full text-[9px] font-black uppercase tracking-[2px] mb-3 inline-block">The Bago Guarantee</span>
+                <h2 className="text-3xl md:text-[40px] font-bold text-[#054752] mb-4 tracking-tight">Safe, secure and seamless.</h2>
+                <p className="text-base text-[#708c91] max-w-xl mx-auto font-medium">We've built a platform based on trust and reliability.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {features.map((feature, idx) => (
                     <motion.div
                         key={idx}
@@ -333,13 +376,13 @@ const FeaturesSection = () => {
                         whileInView={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.1 }}
                         viewport={{ once: true }}
-                        className="bg-white rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all border border-gray-100"
+                        className="group bg-white rounded-[32px] p-8 border border-gray-100 hover:border-[#5845D8]/20 transition-all duration-500 hover:shadow-[0_15px_35px_-12px_rgba(0,0,0,0.08)] relative overflow-hidden"
                     >
-                        <div className={`w-16 h-16 ${feature.color} rounded-2xl flex items-center justify-center mb-6`}>
-                            {feature.icon}
+                        <div className={`w-14 h-14 ${feature.color} rounded-2xl flex items-center justify-center mb-6 relative z-10 transition-transform group-hover:scale-110 duration-500`}>
+                            <feature.icon size={28} strokeWidth={1.5} />
                         </div>
-                        <h3 className="text-2xl font-black text-[#054752] mb-3">{feature.title}</h3>
-                        <p className="text-gray-600 leading-relaxed">{feature.desc}</p>
+                        <h3 className="text-xl font-bold text-[#054752] mb-3 relative z-10 tracking-tight">{feature.title}</h3>
+                        <p className="text-[#708c91] leading-relaxed font-medium text-sm relative z-10">{feature.desc}</p>
                     </motion.div>
                 ))}
             </div>
@@ -349,88 +392,109 @@ const FeaturesSection = () => {
 
 // FAQ Section
 const FAQSection = () => {
-    const [openIndex, setOpenIndex] = useState(null);
+    const [openIndex, setOpenIndex] = useState(0);
+    const navigate = useNavigate();
 
     const faqs = [
         {
             q: "How does Bago work?",
-            a: "Bago connects travelers with people who need to send packages. Travelers post their routes and available luggage space, while senders find travelers going their route and request delivery."
+            a: "Bago connects travelers with people who need to send packages. Travelers post routes and available space, while senders find matches and ship via our secure platform."
         },
         {
             q: "Is my package insured?",
-            a: "Yes! Every verified shipment is backed by our Insurance Protection Policy through our secure escrow system."
+            a: "Absolutely! Every verified shipment is backed by our Insurance Protection Policy and processed through our secure escrow system for total peace of mind."
         },
         {
             q: "How do I get paid as a courier?",
-            a: "Once you successfully deliver a package, the escrow funds are released immediately to your Bago wallet. You can withdraw via Stripe Connect or Paystack."
+            a: "Upon successful delivery and recipient confirmation, funds are released to your Bago wallet immediately. You can withdraw to your bank via Stripe or Paystack."
         },
         {
-            q: "What items are prohibited?",
-            a: "Prohibited items include weapons, illegal substances, hazardous materials, and perishables. Travelers have the right to inspect packages before accepting."
+            q: "What items can I send?",
+            a: "You can send almost anything—clothing, electronics, gifts, documents—as long as they are not illegal, hazardous, or prohibited by international laws."
         }
     ];
 
     return (
-        <section className="px-6 md:px-12 max-w-[1000px] mx-auto py-20">
-            <div className="text-center mb-12">
-                <h2 className="text-4xl md:text-5xl font-black text-[#054752] mb-4">Frequently Asked Questions</h2>
-                <p className="text-xl text-gray-600">Everything you need to know</p>
-            </div>
+        <section className="bg-black py-20 px-6 md:px-12 mt-12 rounded-t-[48px]">
+            <div className="max-w-[1240px] mx-auto flex flex-col xl:flex-row gap-16">
+                <div className="flex-1">
+                    <span className="px-3 py-1 bg-white/10 text-white/50 border border-white/20 rounded-full text-[10px] font-bold uppercase tracking-wider">Help Center</span>
+                    <h2 className="text-4xl md:text-5xl font-bold text-white mt-6 leading-[1.1] tracking-tight">
+                        Here are Answers Related to <span className="text-[#5845D8]">Bago Services.</span>
+                    </h2>
 
-            <div className="space-y-4">
-                {faqs.map((faq, idx) => (
-                    <div key={idx} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                        <button
-                            onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
-                            className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-gray-50 transition"
-                        >
-                            <span className="font-bold text-[#054752] text-lg">{faq.q}</span>
-                            {openIndex === idx ? <Minus size={20} className="text-[#5845D8]" /> : <Plus size={20} className="text-gray-400" />}
-                        </button>
-                        {openIndex === idx && (
-                            <div className="px-6 pb-5 text-gray-600 leading-relaxed">
-                                {faq.a}
-                            </div>
-                        )}
+                    <div className="mt-12 relative w-full h-[400px] overflow-hidden rounded-[32px] group">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent z-10"></div>
+                        <img
+                            src="/assets/traveler_join.png"
+                            alt="Join our community"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+                        <div className="absolute bottom-10 left-10 z-20 max-w-sm">
+                            <h3 className="text-2xl font-bold text-white mb-6 leading-tight">Join us in building the rails that will power the future of logistics.</h3>
+                            <button
+                                onClick={() => navigate('/signup')}
+                                className="px-8 py-3.5 bg-[#5845D8] text-white font-bold rounded-xl shadow-lg hover:shadow-[#5845D8]/30 transition-all flex items-center gap-2 text-sm"
+                            >
+                                Get started free
+                                <ArrowRight size={18} />
+                            </button>
+                        </div>
                     </div>
-                ))}
+                </div>
+
+                <div className="flex-1 flex flex-col gap-4 pt-10">
+                    {faqs.map((faq, idx) => (
+                        <div
+                            key={idx}
+                            className={`rounded-2xl border transition-all cursor-pointer ${openIndex === idx ? 'bg-white/10 border-white/20' : 'bg-transparent border-white/5 hover:border-white/20'}`}
+                            onClick={() => setOpenIndex(openIndex === idx ? -1 : idx)}
+                        >
+                            <div className="px-8 py-6 flex items-center justify-between gap-4">
+                                <h4 className="text-lg font-bold text-white/90 leading-tight tracking-tight">{faq.q}</h4>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all ${openIndex === idx ? 'bg-[#5845D8] text-white rotate-180' : 'bg-white/10 text-white'}`}>
+                                    {openIndex === idx ? <Minus size={16} /> : <Plus size={16} />}
+                                </div>
+                            </div>
+                            <AnimatePresence>
+                                {openIndex === idx && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="px-8 pb-6 text-white/50 text-sm font-medium leading-relaxed max-w-lg">
+                                            {faq.a}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    ))}
+                </div>
             </div>
         </section>
     );
 };
 
-// CTA Section
-const CTASection = () => {
-    const navigate = useNavigate();
-    const { t } = useLanguage();
-
+// Brands/Partners Section
+const BrandsSection = () => {
     return (
-        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-20">
-            <div className="bg-gradient-to-r from-[#5845D8] to-[#764ba2] rounded-[40px] p-12 md:p-16 text-white text-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16 bg-white">
+            <div className="text-center mb-12">
+                <span className="px-3 py-1 bg-[#5845D8]/5 text-[#5845D8] border border-[#5845D8]/10 rounded-full text-[10px] font-bold uppercase tracking-wider">Partnership</span>
+                <h2 className="text-3xl md:text-4xl font-bold text-[#054752] mt-6 leading-[1.1] tracking-tight">
+                    Built in <span className="opacity-20 border-b-4 border-gray-100 italic">partnership</span> with <br className="hidden md:block" /> top global logistics networks.
+                </h2>
+            </div>
 
-                <div className="relative z-10">
-                    <h2 className="text-4xl md:text-5xl font-black mb-6">Ready to get started?</h2>
-                    <p className="text-xl mb-10 text-white/90 max-w-2xl mx-auto">
-                        Join thousands of travelers and senders worldwide. Start saving money or earning extra income today.
-                    </p>
-
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                            onClick={() => navigate('/signup')}
-                            className="bg-white text-[#5845D8] px-10 py-4 rounded-2xl font-black text-lg hover:shadow-2xl transition-all"
-                        >
-                            Sign Up Free
-                        </button>
-                        <button
-                            onClick={() => navigate('/how-it-works')}
-                            className="bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white px-10 py-4 rounded-2xl font-black text-lg hover:bg-white/20 transition-all"
-                        >
-                            Learn More
-                        </button>
-                    </div>
-                </div>
+            <div className="flex flex-wrap justify-center items-center gap-10 md:gap-16 opacity-30 grayscale filter invert-[0.1]">
+                <div className="text-xl md:text-2xl font-black italic tracking-tighter text-[#054752]">DHL EXPRESS</div>
+                <div className="text-xl md:text-2xl font-black italic tracking-tighter text-[#054752]">FEDEX GLOBAL</div>
+                <div className="text-xl md:text-2xl font-black italic tracking-tighter text-[#054752]">UPS LOGISTICS</div>
+                <div className="text-xl md:text-2xl font-black italic tracking-tighter text-[#054752]">AIR FRANCE</div>
+                <div className="text-xl md:text-2xl font-black italic tracking-tighter text-[#054752]">EMIRATES SKY</div>
             </div>
         </section>
     );
@@ -438,15 +502,14 @@ const CTASection = () => {
 
 // Main Home Component
 export default function HomeNew() {
-    const { user } = useAuth();
-
     return (
-        <div className="min-h-screen bg-[#F8F6F3] font-sans">
+        <div className="min-h-screen bg-[#F8F6F3] font-sans selection:bg-[#5845D8] selection:text-white">
             <Navbar />
             <HeroSection />
+            <SearchSection />
             <FeaturesSection />
             <FAQSection />
-            <CTASection />
+            <BrandsSection />
             <Footer />
         </div>
     );

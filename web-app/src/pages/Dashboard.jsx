@@ -187,7 +187,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Nav Items */}
-                <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
                     {menuItems.map((item) => (
                         <button
                             key={item.id}
@@ -197,25 +197,25 @@ export default function Dashboard() {
                                 : 'text-[#708c91] hover:bg-gray-50 hover:text-[#054752]'
                                 }`}
                         >
-                            <item.icon size={19} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-                            <span className="font-bold text-sm">{item.label}</span>
+                            <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                            <span className="font-bold text-[13px]">{item.label}</span>
                         </button>
                     ))}
                 </nav>
 
                 {/* User footer */}
                 <div className="p-4 border-t border-gray-100">
-                    <div className="flex items-center gap-3 mb-3 px-1">
-                        <div className="w-9 h-9 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-base flex-shrink-0">
+                    <div className="flex items-center gap-3 mb-4 px-1">
+                        <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
                             {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-[#054752] truncate">
+                            <p className="text-[12px] font-bold text-[#054752] truncate">
                                 {user?.firstName !== 'Bago' ? `${user?.firstName} ${user?.lastName}` : user?.email?.split('@')[0]}
                             </p>
                             <div className="flex items-center gap-1">
-                                <Shield size={9} className={kycStatus === 'approved' ? 'text-green-500' : 'text-gray-300'} />
-                                <span className="text-[9px] text-gray-400 font-bold uppercase">
+                                <Shield size={8} className={kycStatus === 'approved' ? 'text-green-500' : 'text-gray-300'} />
+                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">
                                     {kycStatus === 'approved' ? 'Verified' : 'Unverified'}
                                 </span>
                             </div>
@@ -223,9 +223,9 @@ export default function Dashboard() {
                     </div>
                     <button
                         onClick={logout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all text-sm"
+                        className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all text-[12px]"
                     >
-                        <LogOut size={18} />
+                        <LogOut size={16} />
                         <span>Sign Out</span>
                     </button>
                 </div>
@@ -234,25 +234,25 @@ export default function Dashboard() {
             {/* ── Main Content ── */}
             <main className="flex-1 md:ml-64 min-h-screen">
                 {/* Top bar */}
-                <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 md:px-8 py-3 flex items-center justify-between">
+                <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 md:px-8 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Mobile hamburger */}
                         <button
                             className="md:hidden p-2 rounded-xl bg-gray-50 text-[#054752] hover:bg-gray-100"
                             onClick={() => setSidebarOpen(true)}
                         >
-                            <Menu size={22} />
+                            <Menu size={20} />
                         </button>
                         <div>
-                            <h1 className="text-sm font-black text-[#054752] capitalize">{activeTab}</h1>
-                            <p className="text-[10px] text-gray-400 hidden sm:block">Welcome back{user?.firstName !== 'Bago' ? `, ${user?.firstName}` : ''}</p>
+                            <h1 className="text-xs font-black text-[#054752] uppercase tracking-widest">{activeTab}</h1>
+                            <p className="text-[9px] text-gray-400 font-bold hidden sm:block uppercase tracking-tight">Personal Dashboard</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Link to="/" className="text-xs text-[#708c91] hover:text-[#5845D8] font-semibold hidden sm:block">
+                    <div className="flex items-center gap-4">
+                        <Link to="/" className="text-[10px] text-[#708c91] hover:text-[#5845D8] font-bold uppercase tracking-wider hidden sm:block">
                             ← Back to site
                         </Link>
-                        <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-sm">
+                        <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs">
                             {userInitial}
                         </div>
                     </div>

@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { countries } from '../utils/countries';
+import { CheckCircle, AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
 
 export default function Signup() {
     const [formData, setFormData] = useState({
@@ -143,46 +144,66 @@ export default function Signup() {
     };
 
     return (
-        <div className="min-h-screen bg-white flex lg:flex-row flex-col">
+        <div className="min-h-screen bg-white flex lg:flex-row flex-col overflow-hidden">
             {/* Left side banner */}
-            <div className="lg:w-1/2 w-full lg:min-h-screen h-[35vh] relative bg-[#054752] flex flex-col justify-between p-8 md:p-16 overflow-hidden">
-                <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-tl-[120px] -mr-20 -mb-20"></div>
-                <div className="absolute top-20 right-20 w-48 h-48 bg-[#5845D8] rounded-full blur-[80px] opacity-40"></div>
+            <div className="lg:w-1/2 w-full lg:h-screen h-[35vh] relative flex flex-col justify-between p-8 md:p-16 overflow-hidden bg-[#054752] sticky top-0">
+                {/* Background Graphics */}
+                <div className="absolute inset-0 z-0">
+                    <img src="/assets/hero_bg.png" className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#5845D8]/80 to-[#054752]/90"></div>
+                </div>
+
+                <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-white/5 rounded-full -mr-32 -mb-32 blur-3xl"></div>
 
                 <div className="z-10">
-                    <Link to="/">
-                        <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-10 brightness-0 invert opacity-90" />
+                    <Link to="/" className="inline-block transition-transform hover:scale-105">
+                        <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-12 brightness-0 invert opacity-90" />
                     </Link>
                 </div>
 
-                <div className="z-10 text-white mt-auto mb-10 md:mb-16">
-                    <h1 className="text-4xl lg:text-6xl font-bold mb-6 leading-tight tracking-tight">Move stuff. <br />Make money.</h1>
-                    <p className="text-base md:text-lg text-white/80 max-w-sm font-medium leading-relaxed">
-                        Join thousands of travelers and senders in the Bago community.
+                <div className="z-10 text-white mt-auto">
+                    <span className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[9px] font-black uppercase tracking-[2px] mb-4 inline-block">Join our network</span>
+                    <h1 className="text-3xl lg:text-5xl font-black mb-4 leading-none tracking-tighter">Move stuff. <br /><span className="text-[#5845D8]">Make money.</span></h1>
+                    <p className="text-sm md:text-base text-white/70 max-w-sm font-semibold leading-relaxed mb-6">
+                        The world's most human-centric logistics network is waiting for you.
                     </p>
+
+                    {/* App download teasers */}
+                    <div className="flex items-center gap-3 opacity-70 grayscale pointer-events-none mb-8">
+                        <img src="/app-store.svg" alt="" className="h-7 w-auto" />
+                        <img src="/google-play.svg" alt="" className="h-7 w-auto" />
+                    </div>
                 </div>
             </div>
 
             {/* Right side form */}
-            <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 lg:min-h-screen">
+            <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 lg:min-h-screen overflow-y-auto">
                 <div className="w-full max-w-md py-12">
-                    <h2 className="text-3xl font-bold text-[#054752] mb-2">Create Account</h2>
-                    <p className="text-[#708c91] font-medium mb-8">Get started with Bago in minutes.</p>
+                    <div className="mb-8 text-center lg:text-left">
+                        <h2 className="text-2xl font-black text-[#054752] mb-1.5 tracking-tight">Create Account</h2>
+                        <p className="text-[#708c91] font-semibold text-base">Get started with Bago today.</p>
+                    </div>
 
                     {showOtp ? (
                         <div className="space-y-6">
-                            <div className="bg-[#5845D8]/5 p-6 rounded-2xl border border-[#5845D8]/10 text-center">
-                                <h3 className="text-lg font-bold text-[#054752] mb-2">Check your email</h3>
-                                <p className="text-sm text-[#708c91]">
-                                    We sent a code to <span className="font-bold text-[#5845D8]">{formData.email}</span>
+                            <div className="bg-[#5845D8]/5 p-7 rounded-[24px] border border-[#5845D8]/10 text-center">
+                                <h3 className="text-base font-bold text-[#054752] mb-1">Check your inbox</h3>
+                                <p className="text-[#708c91] font-semibold text-xs">
+                                    We sent a code to <br /><span className="font-bold text-[#5845D8]">{formData.email}</span>
                                 </p>
                             </div>
 
                             {success && (
-                                <div className="bg-green-50 border border-green-100 text-green-700 p-4 rounded-xl text-sm font-medium">{success}</div>
+                                <div className="bg-[#5845D8]/5 border border-[#5845D8]/20 text-[#054752] p-3 rounded-xl text-[11px] font-bold flex items-center gap-2.5">
+                                    <CheckCircle size={14} className="text-[#5845D8]" />
+                                    {success}
+                                </div>
                             )}
                             {error && (
-                                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm font-medium">{error}</div>
+                                <div className="bg-red-50 border border-red-100 text-red-600 p-3 rounded-xl text-[11px] font-bold flex items-center gap-2.5">
+                                    <AlertCircle size={14} />
+                                    {error}
+                                </div>
                             )}
 
                             <form onSubmit={handleOtpVerify} className="space-y-6">
@@ -193,132 +214,141 @@ export default function Signup() {
                                         onChange={e => setOtp(e.target.value)}
                                         placeholder="000000"
                                         maxLength={6}
-                                        className="w-full px-6 py-4 rounded-2xl border-2 border-gray-100 text-center text-4xl font-black tracking-[1em] focus:border-[#5845D8] focus:bg-white bg-[#f8f9fa] outline-none transition-all text-[#5845D8]"
+                                        className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-100 text-center text-2xl font-black tracking-[0.4em] focus:border-[#5845D8] focus:bg-white bg-[#f8f9fa] outline-none transition-all text-[#5845D8] shadow-sm"
                                         required
                                     />
                                 </div>
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-2xl font-bold transition-all shadow-md disabled:opacity-50"
+                                    className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-[#5845D8]/20 disabled:opacity-50 flex items-center justify-center gap-2.5"
                                 >
-                                    {loading ? 'Verifying...' : 'Verify Email'}
+                                    {loading ? 'Verifying...' : 'Verify My Email'}
+                                    {!loading && <ArrowRight size={16} />}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setShowOtp(false)}
-                                    className="w-full text-sm font-bold text-[#708c91] hover:text-[#054752] transition-colors"
+                                    className="w-full text-[9px] font-black text-[#708c91] hover:text-[#054752] transition-colors uppercase tracking-widest"
                                 >
-                                    ← Change details
+                                    ← Back to details
                                 </button>
                             </form>
                         </div>
                     ) : (
-                        <div className="space-y-8">
+                        <div className="space-y-6">
                             {/* Google Signup */}
                             <button
                                 onClick={() => handleGoogleSignup()}
                                 disabled={loading}
-                                className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 py-3.5 rounded-xl font-bold text-[#054752] hover:bg-gray-50 transition-all shadow-sm"
+                                className="w-full flex items-center justify-center gap-3 bg-white border border-gray-100 py-3 rounded-xl font-bold text-[#054752] text-sm hover:bg-gray-50 transition-all shadow-sm group"
                             >
-                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                                <span>Sign up with Google</span>
+                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                <span>Continue with Google</span>
                             </button>
 
-                            <div className="relative flex items-center py-2">
-                                <div className="flex-grow border-t border-gray-100"></div>
-                                <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase tracking-widest">Or with email</span>
-                                <div className="flex-grow border-t border-gray-100"></div>
+                            <div className="relative flex items-center">
+                                <div className="flex-grow border-t border-gray-50"></div>
+                                <span className="flex-shrink mx-4 text-gray-300 text-[9px] font-black uppercase tracking-[2px]">Quick Signup</span>
+                                <div className="flex-grow border-t border-gray-50"></div>
                             </div>
 
                             {error && (
-                                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm font-medium">{error}</div>
+                                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm font-bold flex items-center gap-3 animate-shake">
+                                    <AlertCircle size={18} />
+                                    {error}
+                                </div>
                             )}
 
-                            <form onSubmit={handleSignup} className="space-y-5">
+                            <form onSubmit={handleSignup} className="space-y-6">
                                 <div className="grid grid-cols-1 gap-5">
-                                    <div>
-                                        <label className="block text-sm font-bold text-[#054752] mb-2">Email address</label>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Email address</label>
                                         <input
                                             type="email"
                                             name="email"
                                             value={formData.email}
                                             onChange={handleChange}
-                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
                                             placeholder="name@example.com"
                                             required
                                         />
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-bold text-[#054752] mb-2">Country</label>
-                                        <div className="relative">
-                                            <select
-                                                value={formData.countryCode}
-                                                onChange={handleCountrySelect}
-                                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium appearance-none cursor-pointer"
-                                                required
-                                            >
-                                                <option value="">Select country</option>
-                                                {countries.map(c => (
-                                                    <option key={c.value} value={c.value}>{c.flag} {c.label}</option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Country</label>
+                                            <div className="relative">
+                                                <select
+                                                    value={formData.countryCode}
+                                                    onChange={handleCountrySelect}
+                                                    className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm appearance-none cursor-pointer"
+                                                    required
+                                                >
+                                                    <option value="">Choose...</option>
+                                                    {countries.map(c => (
+                                                        <option key={c.value} value={c.value}>{c.flag} {c.label}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                                    <ChevronDown size={14} />
+                                                </div>
                                             </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Phone number</label>
+                                            <PhoneInput
+                                                country={formData.countryCode?.toLowerCase() || 'gb'}
+                                                value={formData.phone}
+                                                onChange={handlePhoneChange}
+                                                inputStyle={{
+                                                    width: '100%',
+                                                    height: '52px',
+                                                    padding: '12px 14px 12px 52px',
+                                                    borderRadius: '12px',
+                                                    border: '2px solid transparent',
+                                                    fontSize: '13px',
+                                                    fontWeight: '700',
+                                                    background: '#f8f9fa',
+                                                    fontFamily: 'inherit',
+                                                    color: '#054752'
+                                                }}
+                                                buttonStyle={{
+                                                    borderRadius: '12px 0 0 12px',
+                                                    border: '2px solid transparent',
+                                                    borderRight: 'none',
+                                                    background: 'transparent',
+                                                    paddingLeft: '8px'
+                                                }}
+                                                dropdownStyle={{ zIndex: 9999, borderRadius: '15px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                                                inputProps={{ required: true }}
+                                            />
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-bold text-[#054752] mb-2">Phone number</label>
-                                        <PhoneInput
-                                            country={formData.countryCode?.toLowerCase() || 'gb'}
-                                            value={formData.phone}
-                                            onChange={handlePhoneChange}
-                                            inputStyle={{
-                                                width: '100%',
-                                                height: '52px',
-                                                padding: '12px 14px 12px 52px',
-                                                borderRadius: '12px',
-                                                border: '1px solid #e5e7eb',
-                                                fontSize: '14px',
-                                                background: '#f8f9fa',
-                                                fontFamily: 'inherit'
-                                            }}
-                                            buttonStyle={{
-                                                borderRadius: '12px 0 0 12px',
-                                                border: '1px solid #e5e7eb',
-                                                borderRight: 'none',
-                                                background: '#f8f9fa'
-                                            }}
-                                            dropdownStyle={{ zIndex: 9999, borderRadius: '12px' }}
-                                            inputProps={{ required: true }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-bold text-[#054752] mb-2">Password</label>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Password</label>
                                         <input
                                             type="password"
                                             name="password"
                                             value={formData.password}
                                             onChange={handleChange}
-                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
                                             placeholder="••••••••"
                                             required
                                         />
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-bold text-[#054752] mb-2">Referral code (Optional)</label>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Referral (Optional)</label>
                                         <input
                                             type="text"
                                             name="referralCode"
                                             value={formData.referralCode}
                                             onChange={handleChange}
-                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-medium"
-                                            placeholder="REFERRAL123"
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
+                                            placeholder="Code"
                                         />
                                     </div>
                                 </div>
@@ -326,22 +356,22 @@ export default function Signup() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-xl font-bold mt-4 transition-all shadow-md hover:shadow-lg disabled:opacity-70"
+                                    className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-xl font-bold text-base mt-2 transition-all shadow-xl shadow-[#5845D8]/20 hover:shadow-[#5845D8]/40 hover:-translate-y-0.5 disabled:opacity-70 disabled:translate-y-0"
                                 >
-                                    {loading ? 'Creating Account...' : 'Continue'}
+                                    {loading ? 'Processing...' : 'Create Account'}
                                 </button>
 
-                                <p className="text-center text-[11px] text-[#708c91] mt-6 px-4">
-                                    By clicking Continue, you agree to Bago's <Link to="/terms" className="text-[#5845D8] font-bold">Terms</Link> and <Link to="/privacy" className="text-[#5845D8] font-bold">Privacy Policy</Link>.
+                                <p className="text-center text-[9px] text-[#708c91] mt-6 px-6 font-bold uppercase tracking-widest leading-relaxed">
+                                    By joining, you agree to our <Link to="/terms" className="text-[#5845D8] underline">Terms</Link> & <Link to="/privacy" className="text-[#5845D8] underline">Privacy</Link>.
                                 </p>
                             </form>
                         </div>
                     )}
 
-                    <p className="mt-8 text-center text-[#708c91] font-medium">
+                    <p className="mt-10 text-center text-[#708c91] font-bold text-[13px]">
                         Already have an account?{' '}
-                        <Link to="/login" className="text-[#5845D8] font-bold hover:text-[#4838B5] transition-colors">
-                            Sign in
+                        <Link to="/login" className="text-[#5845D8] font-black border-b-2 border-transparent hover:border-[#5845D8] transition-all ml-1">
+                            Sign in here
                         </Link>
                     </p>
                 </div>
