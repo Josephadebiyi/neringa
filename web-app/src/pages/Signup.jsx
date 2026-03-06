@@ -146,11 +146,11 @@ export default function Signup() {
     return (
         <div className="min-h-screen bg-white flex lg:flex-row flex-col overflow-hidden">
             {/* Left side banner */}
-            <div className="lg:w-1/2 w-full lg:h-screen h-[35vh] relative flex flex-col justify-between p-8 md:p-16 overflow-hidden bg-[#054752] sticky top-0">
+            <div className="lg:w-1/2 w-full lg:h-screen h-[35vh] relative flex flex-col justify-between p-8 md:p-16 overflow-hidden bg-[#012126] sticky top-0">
                 {/* Background Graphics */}
                 <div className="absolute inset-0 z-0">
                     <img src="/assets/hero_bg.png" className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="" />
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#5845D8]/80 to-[#054752]/90"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#5845D8]/80 to-[#012126]/90"></div>
                 </div>
 
                 <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-white/5 rounded-full -mr-32 -mb-32 blur-3xl"></div>
@@ -180,21 +180,21 @@ export default function Signup() {
             <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 lg:min-h-screen overflow-y-auto">
                 <div className="w-full max-w-md py-12">
                     <div className="mb-8 text-center lg:text-left">
-                        <h2 className="text-2xl font-black text-[#054752] mb-1.5 tracking-tight">Create Account</h2>
+                        <h2 className="text-2xl font-black text-[#012126] mb-1.5 tracking-tight">Create Account</h2>
                         <p className="text-[#708c91] font-semibold text-base">Get started with Bago today.</p>
                     </div>
 
                     {showOtp ? (
                         <div className="space-y-6">
                             <div className="bg-[#5845D8]/5 p-7 rounded-[24px] border border-[#5845D8]/10 text-center">
-                                <h3 className="text-base font-bold text-[#054752] mb-1">Check your inbox</h3>
+                                <h3 className="text-base font-bold text-[#012126] mb-1">Check your inbox</h3>
                                 <p className="text-[#708c91] font-semibold text-xs">
                                     We sent a code to <br /><span className="font-bold text-[#5845D8]">{formData.email}</span>
                                 </p>
                             </div>
 
                             {success && (
-                                <div className="bg-[#5845D8]/5 border border-[#5845D8]/20 text-[#054752] p-3 rounded-xl text-[11px] font-bold flex items-center gap-2.5">
+                                <div className="bg-[#5845D8]/5 border border-[#5845D8]/20 text-[#012126] p-3 rounded-xl text-[11px] font-bold flex items-center gap-2.5">
                                     <CheckCircle size={14} className="text-[#5845D8]" />
                                     {success}
                                 </div>
@@ -229,7 +229,7 @@ export default function Signup() {
                                 <button
                                     type="button"
                                     onClick={() => setShowOtp(false)}
-                                    className="w-full text-[9px] font-black text-[#708c91] hover:text-[#054752] transition-colors uppercase tracking-widest"
+                                    className="w-full text-[9px] font-black text-[#708c91] hover:text-[#012126] transition-colors uppercase tracking-widest"
                                 >
                                     ← Back to details
                                 </button>
@@ -241,7 +241,7 @@ export default function Signup() {
                             <button
                                 onClick={() => handleGoogleSignup()}
                                 disabled={loading}
-                                className="w-full flex items-center justify-center gap-3 bg-white border border-gray-100 py-3 rounded-xl font-bold text-[#054752] text-sm hover:bg-gray-50 transition-all shadow-sm group"
+                                className="w-full flex items-center justify-center gap-3 bg-white border border-gray-100 py-3 rounded-xl font-bold text-[#012126] text-sm hover:bg-gray-50 transition-all shadow-sm group"
                             >
                                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                 <span>Continue with Google</span>
@@ -263,13 +263,13 @@ export default function Signup() {
                             <form onSubmit={handleSignup} className="space-y-6">
                                 <div className="grid grid-cols-1 gap-5">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Email address</label>
+                                        <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">Email address</label>
                                         <input
                                             type="email"
                                             name="email"
                                             value={formData.email}
                                             onChange={handleChange}
-                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                             placeholder="name@example.com"
                                             required
                                         />
@@ -277,12 +277,12 @@ export default function Signup() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Country</label>
+                                            <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">Country</label>
                                             <div className="relative">
                                                 <select
                                                     value={formData.countryCode}
                                                     onChange={handleCountrySelect}
-                                                    className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm appearance-none cursor-pointer"
+                                                    className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm appearance-none cursor-pointer"
                                                     required
                                                 >
                                                     <option value="">Choose...</option>
@@ -297,7 +297,7 @@ export default function Signup() {
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Phone number</label>
+                                            <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">Phone number</label>
                                             <PhoneInput
                                                 country={formData.countryCode?.toLowerCase() || 'gb'}
                                                 value={formData.phone}
@@ -312,7 +312,7 @@ export default function Signup() {
                                                     fontWeight: '700',
                                                     background: '#f8f9fa',
                                                     fontFamily: 'inherit',
-                                                    color: '#054752'
+                                                    color: '#012126'
                                                 }}
                                                 buttonStyle={{
                                                     borderRadius: '12px 0 0 12px',
@@ -328,26 +328,26 @@ export default function Signup() {
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Password</label>
+                                        <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">Password</label>
                                         <input
                                             type="password"
                                             name="password"
                                             value={formData.password}
                                             onChange={handleChange}
-                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                             placeholder="••••••••"
                                             required
                                         />
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Referral (Optional)</label>
+                                        <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">Referral (Optional)</label>
                                         <input
                                             type="text"
                                             name="referralCode"
                                             value={formData.referralCode}
                                             onChange={handleChange}
-                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
+                                            className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                             placeholder="Code"
                                         />
                                     </div>

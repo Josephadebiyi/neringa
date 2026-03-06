@@ -404,7 +404,7 @@ const HeroSection = () => {
     return (
         <section className="relative w-full">
             {/* Main Hero Background Section */}
-            <div className="relative bg-[#5845D8] pt-4 pb-12 md:pt-6 md:pb-20 px-6 overflow-hidden">
+            <div className="relative bg-[#012126] pt-4 pb-12 md:pt-6 md:pb-20 px-6 overflow-hidden">
                 {/* 3D Background Illustration Overlay */}
                 <motion.div
                     initial={{ opacity: 0, scale: 1.1, x: 20 }}
@@ -848,7 +848,7 @@ const DiscountPromo = () => {
 
 const AppPromotionSection = () => {
     return (
-        <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-24 bg-[#5845D8] overflow-hidden">
+        <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-24 bg-white overflow-hidden">
             <div className="flex flex-col lg:flex-row items-center gap-20">
                 {/* QR Code / Visual Side */}
                 <motion.div
@@ -881,7 +881,7 @@ const AppPromotionSection = () => {
                                 {/* Mock QR Code */}
                                 <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://bago.com')] bg-cover opacity-80"></div>
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5845D8]/60">Scan to get app</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] opacity-60">Scan to get app</span>
                         </motion.div>
                     </div>
                 </motion.div>
@@ -893,16 +893,16 @@ const AppPromotionSection = () => {
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6 }}
-                        className="text-5xl md:text-7xl font-black text-white mb-6 leading-[0.9] tracking-tighter"
+                        className="text-5xl md:text-7xl font-black text-[#5845D8] mb-6 leading-[0.9] tracking-tighter"
                     >
-                        Our free <span className="opacity-20 underline decoration-white/30 decoration-8 underline-offset-[12px]">app.</span>
+                        Our free <span className="opacity-20 underline decoration-[#5845D8] decoration-8 underline-offset-[12px]">app.</span>
                     </motion.h2>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6, delay: 0.1 }}
-                        className="text-white/80 text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
+                        className="text-[#6B7280] text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
                     >
                         One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.
                     </motion.p>
@@ -922,12 +922,12 @@ const AppPromotionSection = () => {
                                 transition={{ delay: i * 0.1 }}
                                 className="flex flex-col items-center lg:items-start gap-4 group cursor-default"
                             >
-                                <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white group-hover:bg-white group-hover:text-[#5845D8] transition-all duration-300 transform group-hover:-rotate-6">
+                                <div className="w-12 h-12 rounded-2xl bg-[#5845D8]/5 flex items-center justify-center text-[#5845D8] group-hover:bg-[#5845D8] group-hover:text-white transition-all duration-300 transform group-hover:-rotate-6">
                                     <item.icon size={22} />
                                 </div>
                                 <div>
-                                    <h4 className="font-black text-white text-sm uppercase tracking-widest mb-2 group-hover:text-white/80 transition-colors">{item.title}</h4>
-                                    <p className="text-[13px] text-white/60 font-bold leading-relaxed opacity-60">{item.desc}</p>
+                                    <h4 className="font-black text-[#5845D8] text-sm uppercase tracking-widest mb-2 group-hover:text-[#5845D8] transition-colors">{item.title}</h4>
+                                    <p className="text-[13px] text-[#6B7280] font-bold leading-relaxed opacity-60">{item.desc}</p>
                                 </div>
                             </motion.div>
                         ))}

@@ -61,11 +61,11 @@ export default function Login() {
     return (
         <div className="min-h-screen bg-white flex lg:flex-row flex-col overflow-hidden">
             {/* Left side banner */}
-            <div className="lg:w-1/2 w-full lg:h-screen h-[35vh] relative flex flex-col justify-between p-8 md:p-16 overflow-hidden bg-[#054752] sticky top-0">
+            <div className="lg:w-1/2 w-full lg:h-screen h-[35vh] relative flex flex-col justify-between p-8 md:p-16 overflow-hidden bg-[#012126] sticky top-0">
                 {/* Background Graphics */}
                 <div className="absolute inset-0 z-0">
                     <img src="/assets/hero_bg.png" className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="" />
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#5845D8]/80 to-[#054752]/90"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#5845D8]/80 to-[#012126]/90"></div>
                 </div>
 
                 <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-white/5 rounded-full -mr-32 -mb-32 blur-3xl"></div>
@@ -95,8 +95,8 @@ export default function Login() {
             <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 lg:h-screen overflow-y-auto">
                 <div className="w-full max-w-md py-12">
                     <div className="mb-8 text-center lg:text-left">
-                        <h2 className="text-2xl font-bold text-[#054752] mb-2 tracking-tight">Sign In</h2>
-                        <p className="text-[#708c91] font-semibold text-base">Access your Bago account.</p>
+                        <h2 className="text-2xl font-bold text-[#012126] mb-2 tracking-tight">Sign In</h2>
+                        <p className="text-[#6B7280] font-semibold text-base">Access your Bago account.</p>
                     </div>
 
                     <div className="space-y-8">
@@ -104,7 +104,7 @@ export default function Login() {
                         <button
                             onClick={() => handleGoogleLogin()}
                             disabled={loading}
-                            className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-[#054752] hover:bg-gray-50 transition-all shadow-sm group"
+                            className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-[#012126] hover:bg-gray-50 transition-all shadow-sm group"
                         >
                             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             <span className="text-sm">Continue with Google</span>
@@ -126,12 +126,12 @@ export default function Login() {
                         <form onSubmit={handleLogin} className="space-y-6">
                             <div className="grid grid-cols-1 gap-5">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest ml-1">Email address</label>
+                                    <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">Email address</label>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
+                                        className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                         placeholder="name@example.com"
                                         required
                                     />
@@ -139,14 +139,14 @@ export default function Login() {
 
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between mb-0.5 px-1">
-                                        <label className="text-[10px] font-black text-[#054752] uppercase tracking-widest">Password</label>
+                                        <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest">Password</label>
                                         <Link to="/forgot-password" shaking="true" className="text-[9px] font-black text-[#5845D8] hover:text-[#4838B5] transition-colors tracking-widest uppercase underline">Forgot password?</Link>
                                     </div>
                                     <input
                                         type="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#054752] font-bold text-sm"
+                                        className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                         placeholder="••••••••"
                                         required
                                     />
