@@ -53,13 +53,13 @@ const Navbar = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex gap-10 items-center">
-                <button onClick={() => navigate('/about')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
+                <button onClick={() => navigate('/about')} className="text-[#5845D8] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
                     Who we are
                 </button>
-                <button onClick={() => navigate('/how-it-works')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
+                <button onClick={() => navigate('/how-it-works')} className="text-[#5845D8] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
                     How it works
                 </button>
-                <button onClick={() => navigate('/track')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
+                <button onClick={() => navigate('/track')} className="text-[#5845D8] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
                     Track
                 </button>
             </div>
@@ -71,10 +71,10 @@ const Navbar = () => {
                         onClick={() => setShowLangDropdown(!showLangDropdown)}
                         className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                        <Globe size={18} className="text-[#054752]" />
+                        <Globe size={18} className="text-[#5845D8]" />
                         <span className="text-[22px]">{currentLangData?.flag}</span>
-                        <span className="text-sm font-medium text-[#054752]">{currentLangData?.code.toUpperCase()}</span>
-                        <ChevronDown size={16} className={`text-[#054752] transition-transform ${showLangDropdown ? 'rotate-180' : ''}`} />
+                        <span className="text-sm font-medium text-[#5845D8]">{currentLangData?.code.toUpperCase()}</span>
+                        <ChevronDown size={16} className={`text-[#5845D8] transition-transform ${showLangDropdown ? 'rotate-180' : ''}`} />
                     </button>
 
                     {showLangDropdown && (
@@ -90,7 +90,7 @@ const Navbar = () => {
                                         }`}
                                 >
                                     <span className="text-[24px]">{lang.flag}</span>
-                                    <span className="text-sm font-medium text-[#054752]">{lang.name}</span>
+                                    <span className="text-sm font-medium text-[#5845D8]">{lang.name}</span>
                                     {currentLanguage === lang.code && (
                                         <Check size={16} className="ml-auto text-[#5845D8]" />
                                     )}
@@ -101,7 +101,7 @@ const Navbar = () => {
                 </div>
 
                 <button onClick={() => navigate('/search')} className="hidden md:flex items-center cursor-pointer group">
-                    <Search size={22} className="text-[#054752] group-hover:text-[#5845D8] transition-colors" />
+                    <Search size={22} className="text-[#5845D8] group-hover:text-[#5845D8] transition-colors" />
                 </button>
 
                 <Link to="/post-trip" className="hidden md:flex items-center gap-2 cursor-pointer text-[#5845D8] hover:text-[#4838B5] transition-colors">
@@ -111,15 +111,15 @@ const Navbar = () => {
 
                 <div className="hidden md:flex items-center gap-5">
                     <div className="flex items-center gap-2 cursor-pointer group">
-                        <Smartphone size={20} className="text-[#054752] group-hover:text-[#5845D8] transition-colors" />
-                        <span className="text-[#054752] text-sm font-semibold group-hover:text-[#5845D8] transition-colors">{t('getApp')}</span>
+                        <Smartphone size={20} className="text-[#5845D8] group-hover:text-[#5845D8] transition-colors" />
+                        <span className="text-[#5845D8] text-sm font-semibold group-hover:text-[#5845D8] transition-colors">{t('getApp')}</span>
                     </div>
                     {isAuthenticated ? (
                         <Link to="/dashboard" className="flex items-center gap-3 bg-[#5845D8]/5 border border-[#5845D8]/20 px-4 py-2 rounded-full hover:bg-[#5845D8]/10 transition-all group">
                             <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm group-hover:scale-105 transition-transform">
                                 {user?.firstName?.charAt(0) || user?.email?.charAt(0)}
                             </div>
-                            <span className="text-sm font-bold text-[#054752]">Dashboard</span>
+                            <span className="text-sm font-bold text-[#5845D8]">Dashboard</span>
                         </Link>
                     ) : (
                         <Link to="/login" className="flex items-center gap-2 px-6 py-2.5 bg-[#5845D8] text-white rounded-full font-bold hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/10 group">
@@ -132,7 +132,7 @@ const Navbar = () => {
                 {/* Mobile Menu Button */}
                 <button
                     onClick={() => setShowMobileMenu(true)}
-                    className="md:hidden flex items-center p-2 rounded-xl bg-gray-50 text-[#054752] hover:text-[#5845D8] transition-all"
+                    className="md:hidden flex items-center p-2 rounded-xl bg-gray-50 text-[#5845D8] hover:text-[#5845D8] transition-all"
                 >
                     <Menu size={26} />
                 </button>
@@ -165,7 +165,7 @@ const Navbar = () => {
                                 </Link>
                                 <button
                                     onClick={() => setShowMobileMenu(false)}
-                                    className="p-2 rounded-full bg-gray-100 text-[#054752] hover:bg-gray-200 transition-colors"
+                                    className="p-2 rounded-full bg-gray-100 text-[#5845D8] hover:bg-gray-200 transition-colors"
                                 >
                                     <X size={24} />
                                 </button>
@@ -176,7 +176,7 @@ const Navbar = () => {
                                 <div className="space-y-4 text-center">
                                     <button
                                         onClick={() => { navigate('/search'); setShowMobileMenu(false); }}
-                                        className="w-full py-4 text-xl font-black text-[#054752] flex items-center gap-4 hover:text-[#5845D8] transition-colors"
+                                        className="w-full py-4 text-xl font-black text-[#5845D8] flex items-center gap-4 hover:text-[#5845D8] transition-colors"
                                     >
                                         <Search size={24} />
                                         <span>Find a Route</span>
@@ -191,7 +191,7 @@ const Navbar = () => {
                                     <Link
                                         to="/about"
                                         onClick={() => setShowMobileMenu(false)}
-                                        className="block py-4 text-xl font-black text-[#054752] flex items-center gap-4 border-t border-gray-100 pt-8"
+                                        className="block py-4 text-xl font-black text-[#5845D8] flex items-center gap-4 border-t border-gray-100 pt-8"
                                     >
                                         <AlertCircle size={24} />
                                         Who we are
@@ -199,7 +199,7 @@ const Navbar = () => {
                                     <Link
                                         to="/how-it-works"
                                         onClick={() => setShowMobileMenu(false)}
-                                        className="block py-4 text-xl font-black text-[#054752] flex items-center gap-4"
+                                        className="block py-4 text-xl font-black text-[#5845D8] flex items-center gap-4"
                                     >
                                         <CheckCircle size={24} />
                                         How it works
@@ -214,7 +214,7 @@ const Navbar = () => {
                                         <select
                                             value={currentLanguage}
                                             onChange={(e) => setLanguage(e.target.value)}
-                                            className="w-full p-4 rounded-2xl border border-gray-100 bg-gray-50/50 appearance-none text-[#054752] font-black focus:border-[#5845D8] outline-none transition-all"
+                                            className="w-full p-4 rounded-2xl border border-gray-100 bg-gray-50/50 appearance-none text-[#5845D8] font-black focus:border-[#5845D8] outline-none transition-all"
                                         >
                                             {languages.map((lang) => (
                                                 <option key={lang.code} value={lang.code}>
@@ -240,7 +240,7 @@ const Navbar = () => {
                                                 }}
                                                 className={`px-4 py-3 rounded-xl border text-sm font-black transition-all ${currency === c
                                                     ? 'border-[#5845D8] bg-[#5845D8] text-white'
-                                                    : 'border-gray-100 bg-gray-50/50 text-[#054752]'
+                                                    : 'border-gray-100 bg-gray-50/50 text-[#5845D8]'
                                                     }`}
                                             >
                                                 {c}
@@ -259,8 +259,8 @@ const Navbar = () => {
                                                 {user?.firstName?.charAt(0)}
                                             </div>
                                             <div className="flex-1 overflow-hidden">
-                                                <p className="font-bold text-[#054752] truncate">{user?.firstName} {user?.lastName}</p>
-                                                <p className="text-xs text-[#708c91] truncate font-medium">{user?.email}</p>
+                                                <p className="font-bold text-[#5845D8] truncate">{user?.firstName} {user?.lastName}</p>
+                                                <p className="text-xs text-[#6B7280] truncate font-medium">{user?.email}</p>
                                             </div>
                                         </div>
                                         <Link
@@ -364,7 +364,7 @@ const HeroSection = () => {
         }),
         placeholder: (base) => ({
             ...base,
-            color: '#708c91',
+            color: '#6B7280',
             fontSize: '14px',
             fontWeight: '900',
             textTransform: 'uppercase',
@@ -373,7 +373,7 @@ const HeroSection = () => {
         }),
         singleValue: (base) => ({
             ...base,
-            color: '#054752',
+            color: '#5845D8',
             fontSize: '16px',
             fontWeight: '900',
         }),
@@ -393,7 +393,7 @@ const HeroSection = () => {
         option: (base, state) => ({
             ...base,
             backgroundColor: state.isFocused ? '#5845D810' : 'white',
-            color: '#054752',
+            color: '#5845D8',
             fontSize: '14px',
             fontWeight: '800',
             padding: '16px 20px',
@@ -404,7 +404,7 @@ const HeroSection = () => {
     return (
         <section className="relative w-full">
             {/* Main Hero Background Section */}
-            <div className="relative bg-[#054752] pt-4 pb-12 md:pt-6 md:pb-20 px-6 overflow-hidden">
+            <div className="relative bg-[#5845D8] pt-4 pb-12 md:pt-6 md:pb-20 px-6 overflow-hidden">
                 {/* 3D Background Illustration Overlay */}
                 <motion.div
                     initial={{ opacity: 0, scale: 1.1, x: 20 }}
@@ -467,7 +467,7 @@ const HeroSection = () => {
                                 initial={{ scale: 2, rotate: 0, opacity: 0 }}
                                 animate={{ scale: 1, rotate: -12, opacity: 0.8 }}
                                 transition={{ type: "spring", stiffness: 300, damping: 15, delay: 1 }}
-                                className="px-6 py-2.5 border-[4px] border-[#A78BFA] text-[#A78BFA] font-black rounded-xl text-[16px] uppercase tracking-[0.2em] font-mono shadow-[0_0_40px_rgba(167,139,250,0.2)] bg-[#054752]/40 backdrop-blur-sm"
+                                className="px-6 py-2.5 border-[4px] border-[#A78BFA] text-[#A78BFA] font-black rounded-xl text-[16px] uppercase tracking-[0.2em] font-mono shadow-[0_0_40px_rgba(167,139,250,0.2)] bg-[#5845D8]/40 backdrop-blur-sm"
                             >
                                 DELIVERED
                             </motion.div>
@@ -481,8 +481,8 @@ const HeroSection = () => {
                                 <div className="flex items-center gap-3">
                                     <div className="flex -space-x-1">
                                         {[1, 2, 3, 4, 5].map(i => (
-                                            <div key={i} className="w-3.5 h-3.5 rounded-full bg-[#FFD700] flex items-center justify-center p-0.5 border border-[#054752]">
-                                                <Check size={8} strokeWidth={4} className="text-[#054752]" />
+                                            <div key={i} className="w-3.5 h-3.5 rounded-full bg-[#FFD700] flex items-center justify-center p-0.5 border border-[#5845D8]">
+                                                <Check size={8} strokeWidth={4} className="text-[#5845D8]" />
                                             </div>
                                         ))}
                                     </div>
@@ -566,7 +566,7 @@ const HeroSection = () => {
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
                                     min={new Date().toISOString().split('T')[0]}
-                                    className="outline-none text-[14px] font-black w-full bg-transparent text-[#054752] cursor-pointer"
+                                    className="outline-none text-[14px] font-black w-full bg-transparent text-[#5845D8] cursor-pointer"
                                     required
                                 />
                             </div>
@@ -583,32 +583,13 @@ const HeroSection = () => {
                     </form>
                 </motion.div>
 
-                {/* Sub-Search Metadata (Omio Toggles) */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     transition={{ duration: 1, delay: 1 }}
                     viewport={{ once: true }}
-                    className="mt-6 flex flex-wrap items-center justify-center md:justify-start gap-8 px-8"
+                    className="h-10 invisible"
                 >
-                    <div className="flex items-center gap-3 group cursor-pointer">
-                        <div className="w-10 h-5 rounded-full bg-gray-200 p-1 transition-colors group-hover:bg-[#5845D8]/20 relative">
-                            <div className="w-3 h-3 rounded-full bg-white shadow-sm"></div>
-                        </div>
-                        <span className="text-[11px] font-black text-[#708c91] uppercase tracking-[0.1em]">Flexible dates</span>
-                    </div>
-                    <div className="flex items-center gap-3 group cursor-pointer">
-                        <div className="w-10 h-5 rounded-full bg-gray-200 p-1 transition-colors group-hover:bg-[#5845D8]/20 relative">
-                            <div className="w-3 h-3 rounded-full bg-white shadow-sm"></div>
-                        </div>
-                        <span className="text-[11px] font-black text-[#708c91] uppercase tracking-[0.1em]">Student discount</span>
-                    </div>
-                    <div className="flex items-center gap-3 group cursor-pointer">
-                        <div className="w-10 h-5 rounded-full bg-gray-200 p-1 transition-colors group-hover:bg-[#5845D8]/20 relative">
-                            <div className="w-3 h-3 rounded-full bg-white shadow-sm"></div>
-                        </div>
-                        <span className="text-[11px] font-black text-[#708c91] uppercase tracking-[0.1em]">Track routes</span>
-                    </div>
                 </motion.div>
             </div>
         </section>
@@ -620,7 +601,7 @@ const BrandsSection = () => {
         <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-20 bg-white">
             <div className="text-center mb-12">
                 <span className="px-5 py-2 bg-blue-50 text-blue-600 rounded-full text-xs font-black uppercase tracking-widest">Partners</span>
-                <h2 className="text-4xl md:text-7xl font-black text-[#054752] mt-8 leading-[0.9] tracking-tighter">
+                <h2 className="text-4xl md:text-7xl font-black text-[#5845D8] mt-8 leading-[0.9] tracking-tighter">
                     Developed in <span className="opacity-20">partnership</span> with <br /> top global logistics networks.
                 </h2>
             </div>
@@ -666,7 +647,7 @@ const FAQSection = () => {
                 <div className="flex-1">
                     <span className="px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest">FAQs</span>
                     <h2 className="text-4xl md:text-6xl font-black text-white mt-8 leading-tight">
-                        Here are Answers Related to <span className="text-[#00D094]">Bago Service</span>
+                        Here are Answers Related to <span className="text-[#5845D8]">Bago Service</span>
                     </h2>
 
                     <div className="mt-20 relative w-full h-[400px] overflow-hidden rounded-[40px]">
@@ -674,7 +655,7 @@ const FAQSection = () => {
                         <img src="/assets/traveler_join.png" alt="Traveler" className="w-full h-full object-cover" />
                         <div className="absolute bottom-10 left-10 z-20 max-w-sm">
                             <h3 className="text-3xl font-black text-white mb-6">Join us in building the rails for global shipping.</h3>
-                            <button className="px-8 py-4 bg-[#00D094] text-black font-black rounded-full shadow-lg hover:scale-105 transition-all">Get started for free</button>
+                            <button className="px-8 py-4 bg-[#5845D8] text-black font-black rounded-full shadow-lg hover:scale-105 transition-all">Get started for free</button>
                         </div>
                     </div>
                 </div>
@@ -751,8 +732,8 @@ const FeaturesSection = () => {
                         <div className={`w-32 h-32 ${feature.color} rounded-full flex items-center justify-center mb-8 transition-transform group-hover:scale-110 duration-500`}>
                             <feature.icon size={60} strokeWidth={1.5} />
                         </div>
-                        <h3 className="text-xl font-bold text-[#054752] mb-4">{feature.title}</h3>
-                        <p className="text-[#708c91] text-sm font-medium leading-relaxed px-4">
+                        <h3 className="text-xl font-bold text-[#5845D8] mb-4">{feature.title}</h3>
+                        <p className="text-[#6B7280] text-sm font-medium leading-relaxed px-4">
                             {feature.desc}
                         </p>
                     </div>
@@ -803,15 +784,15 @@ const TripTypeSection = () => {
 
     return (
         <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16">
-            <h2 className="text-3xl md:text-4xl font-black text-[#054752] text-center mb-12">{t('tripTypeTitle')}</h2>
+            <h2 className="text-3xl md:text-4xl font-black text-[#5845D8] text-center mb-12">{t('tripTypeTitle')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div onClick={() => navigate('/search?mode=flight')} className="bg-[#f0f4f5] rounded-2xl p-8 flex items-center gap-6 cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]">
                     <div className="bg-white p-4 rounded-xl shadow-sm">
                         <Plane size={40} className="text-[#5845D8]" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-xl font-black text-[#054752]">By flight</h3>
-                        <p className="text-[#708c91] font-medium text-[15px]">Fly with travelers and send your packages faster.</p>
+                        <h3 className="text-xl font-black text-[#5845D8]">By flight</h3>
+                        <p className="text-[#6B7280] font-medium text-[15px]">Fly with travelers and send your packages faster.</p>
                     </div>
                     <div className="bg-[#5845D8] rounded-full p-2 hover:bg-[#4838B5] transition-colors">
                         <ArrowRight size={20} className="text-white" />
@@ -822,8 +803,8 @@ const TripTypeSection = () => {
                         <Bus size={40} className="text-[#5845D8]" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-xl font-black text-[#054752]">By bus</h3>
-                        <p className="text-[#708c91] font-medium text-[15px]">Send your packages with bus travelers.</p>
+                        <h3 className="text-xl font-black text-[#5845D8]">By bus</h3>
+                        <p className="text-[#6B7280] font-medium text-[15px]">Send your packages with bus travelers.</p>
                     </div>
                     <div className="bg-[#5845D8] rounded-full p-2 hover:bg-[#4838B5] transition-colors">
                         <ArrowRight size={20} className="text-white" />
@@ -835,66 +816,6 @@ const TripTypeSection = () => {
 };
 
 
-const TrackingSection = () => {
-    return (
-        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16 bg-[#f8f9fa] rounded-3xl my-8">
-            <div className="flex flex-col md:flex-row items-center gap-16">
-                <div className="w-full md:w-1/2 flex justify-center py-6">
-                    <img
-                        src="/mobile-mockup.png"
-                        alt="Bago App Mockup"
-                        className="w-full max-w-[320px] h-auto rounded-3xl shadow-2xl"
-                    />
-                </div>
-                <div className="w-full md:w-1/2">
-                    <h2 className="text-4xl md:text-5xl font-bold text-[#054752] mb-6 leading-tight tracking-tight">
-                        Real-time tracking. <br />
-                        Total peace of <br />
-                        mind.
-                    </h2>
-                    <p className="text-[#708c91] text-base font-medium leading-relaxed mb-8 max-w-md">
-                        Follow your package every step of the way. From pickup to delivery, you will know exactly where your items are and when they will arrive. Send with total confidence!
-                    </p>
-                    <Link to="/search" className="inline-block bg-[#5845D8] text-white px-8 py-3 rounded-full font-bold hover:bg-[#4838B5] transition-colors">
-                        Check live status
-                    </Link>
-                </div>
-            </div>
-        </section>
-    );
-};
-
-const CarSection = () => {
-    const { t } = useLanguage();
-
-    return (
-        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16">
-            <div className="flex flex-col-reverse md:flex-row items-center gap-16">
-                <div className="w-full md:w-1/2">
-                    <h2 className="text-4xl md:text-5xl font-black text-[#054752] mb-8">
-                        {t('testimonialTitle')}
-                    </h2>
-                    <div className="relative">
-                        <p className="text-[#054752] text-xl font-medium leading-relaxed mb-8 italic">
-                            {t('testimonialQuote')}
-                        </p>
-                        <p className="text-[#054752] font-bold text-lg">
-                            {t('testimonialAuthor')}
-                        </p>
-                    </div>
-                </div>
-                <div className="w-full md:w-1/2">
-                    <img
-                        src="/two_people_car.png"
-                        alt="Friends in car"
-                        className="rounded-3xl w-full h-auto shadow-xl"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                </div>
-            </div>
-        </section>
-    );
-};
 
 const DiscountPromo = () => {
     return (
@@ -960,7 +881,7 @@ const AppPromotionSection = () => {
                                 {/* Mock QR Code */}
                                 <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://bago.com')] bg-cover opacity-80"></div>
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[#054752] opacity-60">Scan to get app</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] opacity-60">Scan to get app</span>
                         </motion.div>
                     </div>
                 </motion.div>
@@ -972,16 +893,16 @@ const AppPromotionSection = () => {
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6 }}
-                        className="text-5xl md:text-7xl font-black text-[#054752] mb-6 leading-[0.9] tracking-tighter"
+                        className="text-5xl md:text-7xl font-black text-[#5845D8] mb-6 leading-[0.9] tracking-tighter"
                     >
-                        Our free <span className="opacity-20 underline decoration-[#00D094] decoration-8 underline-offset-[12px]">app.</span>
+                        Our free <span className="opacity-20 underline decoration-[#5845D8] decoration-8 underline-offset-[12px]">app.</span>
                     </motion.h2>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6, delay: 0.1 }}
-                        className="text-[#708c91] text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
+                        className="text-[#6B7280] text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
                     >
                         One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.
                     </motion.p>
@@ -1005,8 +926,8 @@ const AppPromotionSection = () => {
                                     <item.icon size={22} />
                                 </div>
                                 <div>
-                                    <h4 className="font-black text-[#054752] text-sm uppercase tracking-widest mb-2 group-hover:text-[#5845D8] transition-colors">{item.title}</h4>
-                                    <p className="text-[13px] text-[#708c91] font-bold leading-relaxed opacity-60">{item.desc}</p>
+                                    <h4 className="font-black text-[#5845D8] text-sm uppercase tracking-widest mb-2 group-hover:text-[#5845D8] transition-colors">{item.title}</h4>
+                                    <p className="text-[13px] text-[#6B7280] font-bold leading-relaxed opacity-60">{item.desc}</p>
                                 </div>
                             </motion.div>
                         ))}
@@ -1042,8 +963,6 @@ export default function Home() {
             <FAQSection />
             <AppPromotionSection />
             <CommunityCTA />
-            <TrackingSection />
-            <CarSection />
             <DiscountPromo />
             <Footer />
         </div>
