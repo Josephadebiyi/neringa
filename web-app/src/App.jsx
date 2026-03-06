@@ -17,6 +17,7 @@ import AboutUs from './pages/AboutUs';
 import HowToUse from './pages/HowToUse';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import HelpCenter from './pages/HelpCenter';
 
 const GOOGLE_CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
 
@@ -33,6 +34,7 @@ function App() {
                         <Route path="/signup" element={<Signup />} />
                         <Route path="/terms" element={<Terms />} />
                         <Route path="/privacy" element={<Privacy />} />
+                        <Route path="/help" element={<HelpCenter />} />
                         <Route path="/signup-test" element={<SignupTest />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/search" element={<Search />} />

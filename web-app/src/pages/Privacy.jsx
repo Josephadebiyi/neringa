@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Lock, Eye, Database, Globe } from 'lucide-react';
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -23,49 +23,90 @@ export default function Privacy() {
         <div className="min-h-screen bg-[#F8F6F3]">
             <Navbar />
             <div className="max-w-4xl mx-auto py-16 px-6">
-                <h1 className="text-4xl font-black text-[#054752] mb-8">Privacy Policy</h1>
-                <div className="bg-white rounded-[32px] p-8 md:p-12 shadow-sm border border-gray-100 prose prose-slate max-w-none">
+                <div className="mb-12 text-center">
+                    <h1 className="text-4xl md:text-5xl font-black text-[#054752] mb-4">Privacy Policy</h1>
                     <p className="text-[#708c91] font-medium leading-relaxed">Last Updated: March 6, 2026</p>
+                </div>
 
-                    <h2 className="text-2xl font-bold text-[#054752] mt-8 mb-4">1. Information We Collect</h2>
-                    <p className="text-[#708c91] leading-relaxed mb-6">
-                        We collect information you provide directly to us when you create an account, including your email, name (from KYC), and contact details. We also collect information from third-party identity verification services to ensure the security of our platform.
-                    </p>
+                <div className="bg-white rounded-[40px] p-8 md:p-14 shadow-sm border border-gray-100 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#B0891D]/5 rounded-bl-[100px]"></div>
 
-                    <h2 className="text-2xl font-bold text-[#054752] mt-8 mb-4">2. How We Use Your Information</h2>
-                    <p className="text-[#708c91] leading-relaxed mb-6">
-                        We use the information we collect to:
-                    </p>
-                    <ul className="list-disc list-inside text-[#708c91] mb-6 space-y-2">
-                        <li>Facilitate connections between Senders and Travelers.</li>
-                        <li>Verify your identity and maintain a secure community.</li>
-                        <li>Process payments and payouts.</li>
-                        <li>Send you updates, security alerts, and support messages.</li>
-                        <li>Improve and optimize our platform.</li>
-                    </ul>
+                    <div className="prose prose-slate max-w-none space-y-10">
+                        <section className="bg-green-50/30 -mx-8 md:-mx-14 p-8 md:p-14 border-b border-green-100">
+                            <div className="flex items-center gap-3 mb-4 text-green-600">
+                                <Globe size={24} />
+                                <h2 className="text-2xl font-black m-0">GDPR Compliance</h2>
+                            </div>
+                            <p className="text-[#708c91] leading-relaxed font-medium">
+                                At Bago, we are committed to protecting your privacy in accordance with the General Data Protection Regulation (GDPR) and other global privacy standards. This policy explains how we collect, use, and share your data when you use our platform.
+                            </p>
+                        </section>
 
-                    <h2 className="text-2xl font-bold text-[#054752] mt-8 mb-4">3. Data Sharing</h2>
-                    <p className="text-[#708c91] leading-relaxed mb-6">
-                        We do not sell your personal data. We share information only in necessary circumstances:
-                        - With other users to facilitate a delivery (e.g., sharing a Sender's phone number with a Traveler).
-                        - With payment processors to handle transactions.
-                        - With legal authorities if required by law.
-                    </p>
+                        <section>
+                            <div className="flex items-center gap-3 mb-4 text-[#054752]">
+                                <Database size={24} />
+                                <h2 className="text-2xl font-black m-0">1. Information We Collect</h2>
+                            </div>
+                            <div className="space-y-4">
+                                <p className="text-[#708c91] leading-relaxed font-medium">
+                                    We collect information that you provide to us directly, including:
+                                </p>
+                                <ul className="text-[#708c91] leading-relaxed font-medium space-y-2 list-disc pl-5">
+                                    <li><strong>Identity Data:</strong> Name, date of birth, and government-issued ID for KYC verification.</li>
+                                    <li><strong>Contact Data:</strong> Email address, phone number, and mailing address.</li>
+                                    <li><strong>Travel Data:</strong> Flight details, bus tickets, origins, and destinations.</li>
+                                    <li><strong>Financial Data:</strong> Bank account details and payment information (handled by secure partners like Stripe and Paystack).</li>
+                                </ul>
+                            </div>
+                        </section>
 
-                    <h2 className="text-2xl font-bold text-[#054752] mt-8 mb-4">4. Data Security</h2>
-                    <p className="text-[#708c91] leading-relaxed mb-6">
-                        We implement industry-standard security measures to protect your information. However, no method of transmission over the Internet or electronic storage is 100% secure.
-                    </p>
+                        <section>
+                            <div className="flex items-center gap-3 mb-4 text-[#5845D8]">
+                                <Lock size={24} />
+                                <h2 className="text-2xl font-black m-0">2. How We Use Your Data</h2>
+                            </div>
+                            <p className="text-[#708c91] leading-relaxed font-medium">
+                                We use your data to facilitate peer-to-peer shipping, process payments, prevent fraud, and comply with legal obligations. Your identity data is shared with our verification partner (Didit) for the sole purpose of ensuring platform security.
+                            </p>
+                        </section>
 
-                    <h2 className="text-2xl font-bold text-[#054752] mt-8 mb-4">5. Cookies and Tracking</h2>
-                    <p className="text-[#708c91] leading-relaxed mb-6">
-                        Bago uses cookies and similar technologies to enhance your experience, remember your preferences, and analyze how our service is used.
-                    </p>
+                        <section className="bg-yellow-50/50 -mx-8 md:-mx-14 p-8 md:p-14 border-y border-yellow-100">
+                            <div className="flex items-center gap-3 mb-4 text-[#B0891D]">
+                                <Eye size={24} />
+                                <h2 className="text-2xl font-black m-0">3. Your Data Rights</h2>
+                            </div>
+                            <p className="text-[#708c91] leading-relaxed font-medium mb-4">
+                                Under GDPR, you have the following rights regarding your personal data:
+                            </p>
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {[
+                                    { title: 'Right to Access', desc: 'Request a copy of your personal data.' },
+                                    { title: 'Right to Erasure', desc: "Request the deletion of your account and data ('Right to be forgotten')." },
+                                    { title: 'Right to Rectification', desc: 'Correct any inaccurate information.' },
+                                    { title: 'Right to Portability', desc: 'Transfer your data to another service.' }
+                                ].map((right, i) => (
+                                    <li key={i} className="flex flex-col p-4 bg-white rounded-2xl border border-yellow-100">
+                                        <span className="font-bold text-[#054752]">{right.title}</span>
+                                        <span className="text-xs text-gray-500">{right.desc}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
 
-                    <h2 className="text-2xl font-bold text-[#054752] mt-8 mb-4">6. Your Rights</h2>
-                    <p className="text-[#708c91] leading-relaxed mb-6">
-                        Depending on your location, you may have rights to access, correct, or delete your personal data. Please contact us at support@bago.com to exercise these rights.
-                    </p>
+                        <section>
+                            <h2 className="text-2xl font-black text-[#054752] mb-4">4. Data Security</h2>
+                            <p className="text-[#708c91] leading-relaxed font-medium">
+                                We implement industry-standard encryption (SSL/TLS) and security protocols to protect your data. Payment information is never stored directly on our servers; it is managed by PCI-compliant payment processors.
+                            </p>
+                        </section>
+
+                        <section className="pt-8 border-t border-gray-100 text-center">
+                            <p className="text-[#708c91] font-bold">
+                                Want to exercise your data rights?
+                                <a href="mailto:privacy@sendwithbago.com" className="text-[#5845D8] ml-2 underline">Email our Privacy Officer</a>
+                            </p>
+                        </section>
+                    </div>
                 </div>
             </div>
         </div>

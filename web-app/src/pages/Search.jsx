@@ -79,10 +79,6 @@ const TripCard = ({ trip }) => {
                         </div>
                         <div>
                             <h3 className="font-bold text-[#054752] text-lg">{trip.firstName || 'Traveler'}</h3>
-                            <div className="flex items-center gap-2">
-                                <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                                <span className="text-sm font-medium text-gray-600">{trip.rating || '5.0'}</span>
-                            </div>
                         </div>
                     </div>
 

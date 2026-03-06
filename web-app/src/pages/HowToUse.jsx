@@ -10,7 +10,8 @@ import {
     ShieldCheck,
     CreditCard,
     CheckCircle,
-    ArrowRight
+    ArrowRight,
+    Globe
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -144,6 +145,28 @@ export default function HowToUse() {
                                 <p className="text-[#054752] font-semibold text-sm">{item.name}</p>
                             </div>
                         ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Safety Policies */}
+            <section className="py-24 px-6 md:px-12 bg-[#F8F6F3]">
+                <div className="max-w-6xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div className="bg-white p-10 rounded-[40px] border border-gray-100 shadow-sm">
+                            <ShieldCheck className="text-[#5845D8] mb-6" size={40} />
+                            <h3 className="text-2xl font-black text-[#054752] mb-4">Open Package Policy</h3>
+                            <p className="text-[#708c91] font-medium leading-relaxed">
+                                Our community is built on trust. For safety reasons, Bago maintains an <strong>Open Package Policy</strong>. Travelers have the right to inspect package contents during pickup. Senders must keep items unsealed until inspected by the traveler to ensure compliance with our safety guidelines.
+                            </p>
+                        </div>
+                        <div className="bg-white p-10 rounded-[40px] border border-gray-100 shadow-sm">
+                            <ShieldCheck className="text-[#5845D8] mb-6" size={40} />
+                            <h3 className="text-2xl font-black text-[#054752] mb-4">Insurance Protection</h3>
+                            <p className="text-[#708c91] font-medium leading-relaxed">
+                                Every verified shipment is backed by our <strong>Insurance Protection Policy</strong>. Our escrow system holds payments securely, and in the rare event of loss or damage, Bago mediates the dispute to ensure fair resolution and refunds where applicable.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </section>

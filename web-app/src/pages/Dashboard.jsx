@@ -59,8 +59,9 @@ export default function Dashboard() {
     const handleStartKyc = async () => {
         try {
             const response = await api.post('/api/bago/KycVerifications');
-            if (response.data.success && response.data.diditSessionUrl) {
-                window.location.href = response.data.diditSessionUrl;
+            const url = response.data.diditSessionUrl || response.data.sessionUrl;
+            if (response.data.success && url) {
+                window.location.href = url;
             }
         } catch (err) {
             console.error('Failed to start KYC', err);
@@ -75,7 +76,7 @@ export default function Dashboard() {
             {/* Top Navbar */}
             <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
                 <Link to="/">
-                    <img src="/logo.png" alt="Bago" className="h-8" onError={(e) => { e.target.src = '/vite.svg' }} />
+                    <img src="/bago_logo.png" alt="Bago" className="h-8" />
                 </Link>
                 <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
