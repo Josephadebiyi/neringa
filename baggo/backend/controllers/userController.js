@@ -123,6 +123,92 @@ export const uploadOrUpdateImage = async (req, res) => {
   }
 };
 
+// ✅ Request Email Change (Sends OTP to new email)
+export const requestEmailChange = async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!newEmail) return res.status(400).json({ message: 'New email is required' });
+    if (newEmail.toLowerCase() === user.email.toLowerCase()) {
+      return res.status(400).json({ message: 'New email must be different from current email' });
+    }
+
+    // Check if new email is already taken
+    const existing = await User.findOne({ email: newEmail.toLowerCase() });
+    if (existing) return res.status(400).json({ message: 'Email already in use' });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.pendingEmail = newEmail.toLowerCase();
+    user.emailChangeOtp = {
+      code: otp,
+      expiresAt: Date.now() + 15 * 60 * 1000 // 15 minutes
+    };
+    await user.save();
+
+    // Send OTP to the NEW email
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+        <h2 style="color: #5845D8;">Confirm Your New Email</h2>
+        <p>You requested to change your Bago account email to ${newEmail}.</p>
+        <p>Please use the following code to verify this change:</p>
+        <div style="font-size: 32px; font-bold: bold; letter-spacing: 5px; color: #111827; background: #f3f4f6; padding: 15px; text-align: center; border-radius: 8px;">
+          ${otp}
+        </div>
+        <p>If you did not request this, please ignore this email.</p>
+      </div>
+    `;
+
+    if (resend) {
+      await resend.emails.send({
+        from: "Baggo <no-reply@sendwithbago.com>",
+        to: newEmail,
+        subject: "Bago - Your Email Verification Code",
+        html,
+      });
+    }
+
+    res.status(200).json({ success: true, message: "Verification code sent to your new email." });
+  } catch (error) {
+    console.error("❌ Request email change error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ✅ Verify Email Change
+export const verifyEmailChange = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user.pendingEmail || !user.emailChangeOtp) {
+      return res.status(400).json({ message: "No email change request found" });
+    }
+
+    if (user.emailChangeOtp.expiresAt < Date.now()) {
+      return res.status(400).json({ message: "Verification code expired" });
+    }
+
+    if (user.emailChangeOtp.code !== otp) {
+      return res.status(400).json({ message: "Invalid verification code" });
+    }
+
+    // Update email
+    const oldEmail = user.email;
+    user.email = user.pendingEmail;
+    user.pendingEmail = null;
+    user.emailChangeOtp = undefined;
+    await user.save();
+
+    console.log(`✅ Email changed from ${oldEmail} to ${user.email} for user ${user._id}`);
+
+    res.status(200).json({ success: true, message: "Email updated successfully!" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 /**
  * @desc Update user avatar selection
  * @route POST /api/baggo/user/avatar
@@ -168,10 +254,17 @@ export const updateAvatar = async (req, res) => {
 
 export const signUp = async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, password, confirmPassword, referralCode, dateOfBirth, country } = req.body;
+    let { firstName, lastName, fullName, email, phone, password, confirmPassword, referralCode, dateOfBirth, country } = req.body;
 
-    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword || !dateOfBirth || !country) {
-      return res.status(400).json({ message: "Please fill in all fields including date of birth and country" });
+    // Handle fullName if firstName/lastName are missing
+    if (!firstName && fullName) {
+      const parts = fullName.trim().split(/\s+/);
+      firstName = parts[0];
+      lastName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
+    }
+
+    if (!firstName || !email || !phone || !password || !confirmPassword || !dateOfBirth || !country) {
+      return res.status(400).json({ message: "Please fill in all fields including name, date of birth and country" });
     }
 
     if (password !== confirmPassword) {
@@ -179,119 +272,63 @@ export const signUp = async (req, res) => {
     }
 
     // Check if email already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // ✅ Referral system: check if entered referral code belongs to an existing user
+    // Referral system
     let referredBy = null;
     if (referralCode) {
       const referrer = await User.findOne({ referralCode });
-      if (referrer) {
-        referredBy = referralCode;
-      }
+      if (referrer) referredBy = referralCode;
     }
 
-    // 🔹 Create token that contains user data (not saving yet)
-    const verificationToken = jwt.sign(
-      { firstName, lastName, email, phone, password, referredBy, dateOfBirth, country },
+    // Generate 6-digit OTP for activation
+    const activationOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store user data + OTP in a temporary JWT (valid for 1 hour)
+    const signupToken = jwt.sign(
+      { firstName, lastName, email: email.toLowerCase(), phone, password, referredBy, dateOfBirth, country, otp: activationOtp },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1h" }
     );
 
-    const verifyLink = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/bago/verify-email?token=${verificationToken}`;
-    console.log("📩 Verification link:", verifyLink);
-
-    // 🔹 Styled HTML (inline CSS for email clients)
+    // Styled HTML for OTP email
     const html = `
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width,initial-scale=1" />
-          <title>Verify your Baggo account</title>
-        </head>
-        <body style="margin:0; padding:0; background:#f3f4f6; font-family: Arial, sans-serif;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6; padding:32px 0;">
-            <tr>
-              <td align="center">
-                <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%; max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.06);">
-                  <!-- Header -->
-                  <tr>
-                    <td style="background: linear-gradient(90deg, #5240E8 0%, #6B5CFF 100%); padding:20px; text-align:center;">
-                      <a href="${process.env.FRONTEND_URL || '#'}" target="_blank" style="text-decoration:none;">
-                        <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" alt="Bago" width="140" style="display:block; border:0;"/>
-                      </a>
-                    </td>
-                  </tr>
-
-                  <!-- Body -->
-                  <tr>
-                    <td style="padding:32px;">
-                      <h1 style="margin:0 0 12px; color:#111827; font-size:20px;">Welcome to Bago, ${firstName}!</h1>
-                      <p style="margin:0 0 18px; color:#6b7280; font-size:14px; line-height:1.5;">
-                        Thanks for signing up. To finish creating your account and secure it, please confirm your email address by clicking the button below.
-                      </p>
-
-                      <div style="text-align:center; margin:26px 0;">
-                        <a href="${verifyLink}" target="_blank" style="display:inline-block; padding:12px 22px; background:#5240E8; color:#ffffff; text-decoration:none; border-radius:8px; font-weight:700;">
-                          Verify Email
-                        </a>
-                      </div>
-
-                      <p style="margin:0; color:#6b7280; font-size:13px;">
-                        If you didn't create this account, you can safely ignore this email.
-                      </p>
-                    </td>
-                  </tr>
-
-                  <!-- Footer -->
-                  <tr>
-                    <td style="background:#fbfbfe; padding:16px 24px; text-align:center; color:#9ca3af; font-size:12px;">
-                      <div style="margin-bottom:6px;">© ${new Date().getFullYear()} Bago. All rights reserved.</div>
-                      <div>
-                        <a href="${process.env.FRONTEND_URL || '#'}" style="color:#5240E8; text-decoration:none;">Visit Bago</a>
-                        <span style="margin:0 8px; color:#d1d5db;">•</span>
-                        <a href="#" style="color:#9ca3af; text-decoration:underline;">Unsubscribe</a>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-      </html>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+           <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" alt="Bago" width="120"/>
+        </div>
+        <h2 style="color: #5845D8; text-align: center;">Verify Your Account</h2>
+        <p>Hi ${firstName},</p>
+        <p>Thank you for joining Bago! To complete your registration, please use the 6-digit verification code below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <span style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #111827; background: #f3f4f6; padding: 15px 30px; border-radius: 8px;">${activationOtp}</span>
+        </div>
+        <p style="color: #6b7280; font-size: 14px; text-align: center;">This code will expire in 1 hour.</p>
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 20px 0;"/>
+        <p style="font-size: 12px; color: #9ca3af; text-align: center;">If you did not request this, please ignore this email.</p>
+      </div>
     `;
 
-    // 🔹 Send verification email with click tracking disabled
     if (resend) {
-      const { data, error } = await resend.emails.send({
+      await resend.emails.send({
         from: "Baggo <no-reply@sendwithbago.com>",
         to: email,
-        subject: "Verify your Baggo account",
+        subject: `${activationOtp} is your Bago verification code`,
         html,
-        headers: {
-          'X-Entity-Ref-ID': `verify-${Date.now()}`,
-        },
-        tags: [
-          { name: 'category', value: 'verification' }
-        ]
       });
-
-      if (error) {
-        console.error("❌ Resend email error:", error);
-        return res.status(500).json({ message: "Failed to send verification email" });
-      }
-
-      console.log("✅ Verification email sent via Resend:", data);
+      console.log("✅ Signup OTP sent via Resend to:", email);
     } else {
-      console.log("⚠️ RESEND not configured. Email NOT sent to:", email);
-      console.log("🔗 Verification Link:", verifyLink);
+      console.log("⚠️ RESEND not configured. OTP:", activationOtp);
     }
 
-    res.status(200).json({ success: true, message: "Verification email sent. Please check your inbox (or console for link)." });
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to your email.",
+      signupToken // Send this back for the client to include in verification request
+    });
   } catch (error) {
     console.error("🔥 Signup error:", error);
     res.status(400).json({ message: error.message });
@@ -300,50 +337,40 @@ export const signUp = async (req, res) => {
 
 
 
-export const verifyEmail = async (req, res) => {
+
+export const verifySignupOtp = async (req, res) => {
   try {
-    const { token } = req.query;
-    if (!token)
-      return res
-        .status(400)
-        .send("<h2 style='color:red;text-align:center'>Missing token</h2>");
+    const { signupToken, otp } = req.body;
 
-    // Decode token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Check if email is already verified
-    const existingUser = await User.findOne({ email: decoded.email });
-    if (existingUser) {
-      return res.send(`
-        <!doctype html>
-        <html>
-          <head>
-            <meta charset="utf-8"/>
-            <title>Email Already Verified</title>
-          </head>
-          <body style="background:#f3f4f6; font-family:Arial,sans-serif; text-align:center; padding:60px;">
-            <div style="background:#fff; max-width:480px; margin:auto; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,0.08); padding:40px;">
-              <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919726/Bago_New_5_lmj6a4.png" alt="Bago" width="120" style="margin-bottom:20px"/>
-              <h2 style="color:#4F46E5;">Email Already Verified</h2>
-              <p style="color:#6B7280;">This email is already registered and verified.</p>
-              <a href="https://sendwithbago.com/" style="display:inline-block; margin-top:20px; background:#4F46E5; color:#fff; padding:12px 22px; border-radius:6px; text-decoration:none;">Go to App</a>
-            </div>
-          </body>
-        </html>
-      `);
+    if (!signupToken || !otp) {
+      return res.status(400).json({ message: "Token and OTP are required" });
     }
 
-    // Save verified user (no manual hashing here)
+    // Decode and verify the signup token
+    const decoded = jwt.verify(signupToken, process.env.JWT_SECRET);
+
+    // Check if OTP matches
+    if (decoded.otp !== otp) {
+      return res.status(400).json({ message: "Invalid verification code" });
+    }
+
+    // Check if email is already registered (last minute check)
+    const existingUser = await User.findOne({ email: decoded.email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
     // Determine payment gateway based on country
     const paymentGateway = getPaymentGateway(decoded.country);
     const preferredCurrency = getCurrencyByCountry(decoded.country);
 
+    // Create the user
     const newUser = new User({
       firstName: decoded.firstName,
       lastName: decoded.lastName,
       email: decoded.email,
       phone: decoded.phone,
-      password: decoded.password, // plain text (will be hashed in pre-save)
+      password: decoded.password, // Pre-save hook hashes it
       referredBy: decoded.referredBy || null,
       dateOfBirth: decoded.dateOfBirth || null,
       country: decoded.country || null,
@@ -351,45 +378,39 @@ export const verifyEmail = async (req, res) => {
       preferredCurrency: preferredCurrency,
       emailVerified: true,
     });
-    await newUser.save(); // your pre-save hook will hash automatically
 
-    // ✅ Styled success page
-    return res.send(`
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8"/>
-          <title>Email Verified</title>
-        </head>
-        <body style="background:#f3f4f6; font-family:Arial,sans-serif; text-align:center; padding:60px;">
-          <div style="background:#fff; max-width:480px; margin:auto; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,0.08); padding:40px;">
-            <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919726/Bago_New_5_lmj6a4.png" alt="Bago" width="120" style="margin-bottom:20px"/>
-            <h2 style="color:#4F46E5;">Your Email Has Been Verified 🎉</h2>
-            <p style="color:#6B7280;">Your account has been created successfully. You can now log in to your Baggo account.</p>
-          </div>
-        </body>
-      </html>
-    `);
+    await newUser.save();
+
+    // Send Welcome Email
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+        <h2 style="color: #5845D8;">Welcome to Bago, ${decoded.firstName}!</h2>
+        <p>Your account has been successfully verified.</p>
+        <p>You can now log in and start sending packages or earning as a traveler.</p>
+        <a href="${process.env.FRONTEND_URL || 'https://sendwithbago.com'}/login" style="display:inline-block; padding:10px 20px; background: #5845D8; color: white; text-decoration: none; border-radius: 5px;">Login Now</a>
+      </div>
+    `;
+
+    if (resend) {
+      await resend.emails.send({
+        from: "Baggo <no-reply@sendwithbago.com>",
+        to: decoded.email,
+        subject: "Welcome to Bago - Account Verified",
+        html,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Account verified successfully! You can now log in.",
+    });
   } catch (error) {
-    console.error("❌ Email verification error:", error);
-
-    // Expired/invalid token page
-    return res.status(400).send(`
-      <!doctype html>
-      <html>
-        <head><meta charset="utf-8"/><title>Invalid or Expired Link</title></head>
-        <body style="background:#f3f4f6; font-family:Arial,sans-serif; text-align:center; padding:60px;">
-          <div style="background:#fff; max-width:480px; margin:auto; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,0.08); padding:40px;">
-            <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919726/Bago_New_5_lmj6a4.png" alt="Bago" width="120" style="margin-bottom:20px"/>
-            <h2 style="color:#DC2626;">Invalid or Expired Link</h2>
-            <p style="color:#6B7280;">Your verification link has expired or is invalid. Please sign up again.</p>
-
-          </div>
-        </body>
-      </html>
-    `);
+    console.error("❌ verification error:", error);
+    const message = error.name === 'TokenExpiredError' ? "Verification session expired. Please sign up again." : error.message;
+    res.status(400).json({ message });
   }
 };
+
 
 export const createDelivery = async (req, res) => {
   try {

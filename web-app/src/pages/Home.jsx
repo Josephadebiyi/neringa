@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -20,7 +21,10 @@ import {
     Smartphone,
     Menu,
     X,
-    AlertCircle
+    AlertCircle,
+    Calculator,
+    CreditCard,
+    Headphones
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../AuthContext';
@@ -44,6 +48,12 @@ const Navbar = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex gap-10 items-center">
+                <button onClick={() => navigate('/about')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
+                    Who we are
+                </button>
+                <button onClick={() => navigate('/how-it-works')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
+                    How it works
+                </button>
                 <button onClick={() => navigate('/search?mode=carpool')} className="text-[#054752] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
                     {t('carpool')}
                 </button>
@@ -142,54 +152,145 @@ const Navbar = () => {
 
                 {/* Mobile Menu Button */}
                 <button
-                    onClick={() => setShowMobileMenu(!showMobileMenu)}
-                    className="md:hidden flex items-center"
+                    onClick={() => setShowMobileMenu(true)}
+                    className="md:hidden flex items-center p-2 rounded-xl bg-gray-50 text-[#054752] hover:text-[#5845D8] transition-all"
                 >
-                    {showMobileMenu ? <X size={24} className="text-[#054752]" /> : <Menu size={24} className="text-[#054752]" />}
+                    <Menu size={26} />
                 </button>
             </div>
 
-            {/* Mobile Menu */}
-            {
-                showMobileMenu && (
-                    <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg md:hidden z-40">
-                        <div className="px-6 py-4 space-y-4">
-                            <button onClick={() => navigate('/search?mode=carpool')} className="block w-full text-left text-[#054752] font-semibold py-2">
-                                {t('carpool')}
-                            </button>
-                            <button onClick={() => navigate('/search?mode=bus')} className="block w-full text-left text-[#054752] font-semibold py-2">
-                                {t('bus')}
-                            </button>
-                            <Link to="/post-trip" className="block text-[#5845D8] font-semibold py-2">
-                                {t('offerRide')}
-                            </Link>
+            {/* Mobile Side Menu */}
+            <AnimatePresence>
+                {showMobileMenu && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowMobileMenu(false)}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] md:hidden"
+                        />
 
-                            {/* Mobile Language Selector */}
-                            <div className="border-t border-gray-200 pt-4 mt-4">
-                                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">Language</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {languages.map((lang) => (
-                                        <button
-                                            key={lang.code}
-                                            onClick={() => {
-                                                setLanguage(lang.code);
-                                                setShowMobileMenu(false);
-                                            }}
-                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${currentLanguage === lang.code
-                                                ? 'border-[#5845D8] bg-purple-50'
-                                                : 'border-gray-200 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <span className="text-[20px]">{lang.flag}</span>
-                                            <span className="text-sm font-medium">{lang.name}</span>
-                                        </button>
-                                    ))}
+                        {/* Side Sheet */}
+                        <motion.div
+                            initial={{ x: '100.5%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '100.5%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="fixed right-0 top-0 bottom-0 w-[85%] max-w-[360px] bg-white z-[101] shadow-2xl flex flex-col md:hidden overflow-y-auto"
+                        >
+                            <div className="p-6 flex justify-between items-center border-b border-gray-100 sticky top-0 bg-white z-10">
+                                <Link to="/" onClick={() => setShowMobileMenu(false)}>
+                                    <img src="/bago_logo.png" alt="Bago" className="h-8" />
+                                </Link>
+                                <button
+                                    onClick={() => setShowMobileMenu(false)}
+                                    className="p-2 rounded-full bg-gray-100 text-[#054752] hover:bg-gray-200 transition-colors"
+                                >
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 px-6 py-8 space-y-8">
+                                {/* Navigation Links */}
+                                <div className="space-y-4 text-center">
+                                    <button
+                                        onClick={() => { navigate('/search'); setShowMobileMenu(false); }}
+                                        className="w-full py-4 text-xl font-black text-[#054752] flex items-center gap-4 hover:text-[#5845D8] transition-colors"
+                                    >
+                                        <Search size={24} />
+                                        <span>Find a Route</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { navigate('/post-trip'); setShowMobileMenu(false); }}
+                                        className="w-full py-4 text-xl font-black text-[#5845D8] flex items-center gap-4 hover:text-[#4838B5] transition-colors"
+                                    >
+                                        <PlusCircle size={24} />
+                                        <span>Offer Ride</span>
+                                    </button>
+                                    <Link
+                                        to="/about"
+                                        onClick={() => setShowMobileMenu(false)}
+                                        className="block py-4 text-xl font-black text-[#054752] flex items-center gap-4 border-t border-gray-100 pt-8"
+                                    >
+                                        <AlertCircle size={24} />
+                                        Who we are
+                                    </Link>
+                                    <Link
+                                        to="/how-it-works"
+                                        onClick={() => setShowMobileMenu(false)}
+                                        className="block py-4 text-xl font-black text-[#054752] flex items-center gap-4"
+                                    >
+                                        <CheckCircle size={24} />
+                                        How it works
+                                    </Link>
+                                </div>
+
+                                {/* Language/Currency Section */}
+                                <div className="pt-8 border-t border-gray-100 space-y-8">
+                                    <div>
+                                        <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Select Language</h5>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {languages.map((lang) => (
+                                                <button
+                                                    key={lang.code}
+                                                    onClick={() => {
+                                                        setLanguage(lang.code);
+                                                        setShowMobileMenu(false);
+                                                    }}
+                                                    className={`flex items-center flex-col gap-2 p-4 rounded-2xl border transition-all ${currentLanguage === lang.code
+                                                        ? 'border-[#5845D8] bg-[#5845D8]/5 ring-1 ring-[#5845D8]'
+                                                        : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100'
+                                                        }`}
+                                                >
+                                                    <span className="text-3xl">{lang.flag}</span>
+                                                    <span className="text-xs font-black text-[#054752]">{lang.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Preferred Currency</h5>
+                                        <div className="flex flex-wrap gap-2">
+                                            {currencies.map((c) => (
+                                                <button
+                                                    key={c}
+                                                    onClick={() => {
+                                                        setCurrency(c);
+                                                        setShowMobileMenu(false);
+                                                    }}
+                                                    className={`px-4 py-3 rounded-xl border text-sm font-black transition-all ${currency === c
+                                                        ? 'border-[#5845D8] bg-[#5845D8] text-white'
+                                                        : 'border-gray-100 bg-gray-50/50 text-[#054752]'
+                                                        }`}
+                                                >
+                                                    {c}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                )
-            }
+
+                            {/* Auth Actions */}
+                            <div className="p-6 border-t border-gray-100 bg-gray-50/50">
+                                <Link
+                                    to="/login"
+                                    onClick={() => setShowMobileMenu(false)}
+                                    className="w-full block text-center py-4 bg-[#5845D8] text-white rounded-2xl font-black text-lg shadow-lg"
+                                >
+                                    Log In / Register
+                                </Link>
+                                <p className="mt-6 text-center text-xs font-medium text-gray-400">
+                                    Trusted by 10k+ Travelers worldwide.
+                                </p>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </nav >
     );
 };
@@ -365,31 +466,91 @@ const PromoBar = () => {
 };
 
 const FeaturesSection = () => {
-    const { t } = useLanguage();
-
     return (
-        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-16">
-                <div className="flex flex-col gap-4">
-                    <div className="bg-[#f0f4f5] p-3 rounded-xl inline-block w-fit">
-                        <Package size={28} className="text-[#5845D8]" />
+        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-20">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-20">
+                {[
+                    {
+                        icon: ShieldCheck,
+                        title: 'Insurance Online Payments',
+                        desc: 'With Bago your money is safe at all times. Bago uses a secure payment system and you have a guaranteed refund.',
+                        color: 'bg-blue-50 text-blue-500'
+                    },
+                    {
+                        icon: Package,
+                        title: 'Guaranteed delivery',
+                        desc: 'If a traveler cancels your order or delivers an item in poor condition, we will process a full refund and try to find a new traveler for you.',
+                        color: 'bg-[#f0f9ff] text-[#0ea5e9]'
+                    },
+                    {
+                        icon: CreditCard,
+                        title: 'Multiple Payment Options',
+                        desc: 'To make your life easier, we accept a variety of payment methods such as Visa, MasterCard and American Express, with more options available soon.',
+                        color: 'bg-[#f5f3ff] text-[#8b5cf6]'
+                    },
+                    {
+                        icon: Calculator,
+                        title: 'No Hidden Fees',
+                        desc: 'For total transparency, Bago uses machine learning to calculate applicable rates and taxes before you post your order. That way you will know exactly how much you are paying.',
+                        color: 'bg-[#ecfdf5] text-[#10b981]'
+                    },
+                    {
+                        icon: UserCircle,
+                        title: 'Community of Verified Senders and Travelers',
+                        desc: 'At Bago, trust is our highest priority, and we work hard to ensure that our community treats all its members with the utmost respect.',
+                        color: 'bg-[#fff7ed] text-[#f97316]'
+                    },
+                    {
+                        icon: Headphones,
+                        title: '24/7 support',
+                        desc: 'Our team of customer service professionals are at your disposal to resolve any incident that may arise during the order and delivery process.',
+                        color: 'bg-[#fef2f2] text-[#ef4444]'
+                    }
+                ].map((feature, i) => (
+                    <div key={i} className="flex flex-col items-center text-center group">
+                        <div className={`w-32 h-32 ${feature.color} rounded-full flex items-center justify-center mb-8 transition-transform group-hover:scale-110 duration-500`}>
+                            <feature.icon size={60} strokeWidth={1.5} />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#054752] mb-4">{feature.title}</h3>
+                        <p className="text-[#708c91] text-sm font-medium leading-relaxed px-4">
+                            {feature.desc}
+                        </p>
                     </div>
-                    <h3 className="text-xl font-bold text-[#054752]">Deliver your packages safely</h3>
-                    <p className="text-[#708c91] font-medium leading-relaxed">Send packages safely to any city. Our travelers go everywhere you need.</p>
-                </div>
-                <div className="flex flex-col gap-4">
-                    <div className="bg-[#f0f4f5] p-3 rounded-xl inline-block w-fit">
-                        <CheckCircle size={28} className="text-[#5845D8]" />
-                    </div>
-                    <h3 className="text-xl font-bold text-[#054752]">Trusted Travelers</h3>
-                    <p className="text-[#708c91] font-medium leading-relaxed">We verify every traveler and sender. Your package is in safe hands, every step of the way.</p>
-                </div>
-                <div className="flex flex-col gap-4">
-                    <div className="bg-[#f0f4f5] p-3 rounded-xl inline-block w-fit">
-                        <Plane size={28} className="text-[#5845D8]" />
-                    </div>
-                    <h3 className="text-xl font-bold text-[#054752]">Luggage Space</h3>
-                    <p className="text-[#708c91] font-medium leading-relaxed">Turn your extra luggage space into cash. A simple way to subsidize your travel costs.</p>
+                ))}
+            </div>
+        </section>
+    );
+};
+
+const CommunityCTA = () => {
+    const navigate = useNavigate();
+    return (
+        <section className="w-full relative py-32 overflow-hidden flex items-center justify-center">
+            {/* Background Image with Overlay */}
+            <div className="absolute inset-0 z-0">
+                <img
+                    src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80"
+                    alt="Global Community"
+                    className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+            </div>
+
+            <div className="relative z-10 text-center px-6">
+                <h2 className="text-4xl md:text-5xl font-black text-white mb-12 tracking-tight">Join our global community</h2>
+                <div className="flex flex-col md:flex-row gap-6 justify-center">
+                    <button
+                        onClick={() => navigate('/search')}
+                        className="px-12 py-5 bg-[#52a5b6] text-white font-bold rounded-lg text-lg hover:bg-[#4591a1] transition-all min-w-[240px]"
+                    >
+                        Send with Bago
+                    </button>
+                    <button
+                        onClick={() => navigate('/post-trip')}
+                        className="px-12 py-5 bg-[#52a5b6] text-white font-bold rounded-lg text-lg hover:bg-[#4591a1] transition-all min-w-[240px]"
+                    >
+                        Travel with Bago
+                    </button>
                 </div>
             </div>
         </section>
@@ -675,6 +836,7 @@ export default function Home() {
             <FeaturesSection />
             <TripTypeSection />
             <RatingsSection />
+            <CommunityCTA />
             <TrackingSection />
             <CarSection />
             <DiscountPromo />

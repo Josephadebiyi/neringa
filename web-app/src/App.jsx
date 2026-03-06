@@ -12,6 +12,8 @@ import SendPackage from './pages/SendPackage';
 import ForgotPassword from './pages/ForgotPassword';
 import VerifyOtp from './pages/VerifyOtp';
 import ResetPassword from './pages/ResetPassword';
+import AboutUs from './pages/AboutUs';
+import HowToUse from './pages/HowToUse';
 
 function App() {
     return (
@@ -19,6 +21,8 @@ function App() {
             <BrowserRouter>
                 <Routes>
                     <Route path="/" element={<Home />} />
+                    <Route path="/about" element={<AboutUs />} />
+                    <Route path="/how-it-works" element={<HowToUse />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
                     <Route path="/signup-test" element={<SignupTest />} />

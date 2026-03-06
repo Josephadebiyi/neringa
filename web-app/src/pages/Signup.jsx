@@ -27,6 +27,10 @@ export default function Signup() {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    const [showOtp, setShowOtp] = useState(false);
+    const [signupToken, setSignupToken] = useState('');
+    const [otp, setOtp] = useState('');
+
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
@@ -43,24 +47,78 @@ export default function Signup() {
         }
 
         try {
-            console.log('Attempting signup with:', { ...formData, password: '***' });
             const response = await api.post('/api/bago/signup', formData);
-            console.log('Signup response:', response.data);
-
             if (response.data.success) {
-                setSuccess(response.data.message || 'Account created! Please check your email to verify.');
-                // Removed automatic redirect as per user preference
+                setSignupToken(response.data.signupToken);
+                setShowOtp(true);
+                setSuccess(response.data.message || 'OTP sent to your email.');
             } else {
                 setError(response.data.message || 'Signup failed');
             }
         } catch (err) {
-            console.error('Signup error details:', err);
-            const errorMessage = err.response?.data?.message || err.message || 'Error occurred during signup';
-            setError(errorMessage);
+            setError(err.response?.data?.message || 'Error occurred during signup');
         } finally {
             setLoading(false);
         }
     };
+
+    const handleOtpVerify = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+
+        try {
+            const response = await api.post('/api/bago/verify-signup-otp', { signupToken, otp });
+            if (response.data.success) {
+                setSuccess('Account verified successfully!');
+                setTimeout(() => navigate('/login'), 2000);
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Invalid or expired OTP');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (showOtp) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center p-8">
+                <div className="w-full max-w-md text-center">
+                    <div className="mb-8">
+                        <img src="/bago_logo.png" alt="Bago" className="h-10 mx-auto" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-[#054752] mb-4">Verify Your Email</h2>
+                    <p className="text-[#708c91] mb-8 font-medium">We've sent a 6-digit code to <span className="text-[#054752] font-bold">{formData.email}</span></p>
+
+                    {error && <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm">{error}</div>}
+                    {success && <div className="bg-green-50 text-green-600 p-4 rounded-xl mb-6 text-sm">{success}</div>}
+
+                    <form onSubmit={handleOtpVerify} className="space-y-6">
+                        <input
+                            type="text"
+                            maxLength="6"
+                            placeholder="000000"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                            className="w-full text-center text-3xl font-bold tracking-[0.5em] py-4 rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none transition-all bg-gray-50/50"
+                            autoFocus
+                            required
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-[#5845D8] text-white py-4 rounded-xl font-bold hover:bg-[#4838B5] transition-all shadow-lg text-lg"
+                        >
+                            {loading ? 'Verifying...' : 'Verify & Complete'}
+                        </button>
+                    </form>
+                    <p className="mt-8 text-sm text-gray-500">
+                        Didn't receive a code? <button type="button" className="text-[#5845D8] font-bold hover:underline" onClick={handleSignup}>Resend Code</button>
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-white flex overflow-hidden lg:flex-row flex-col">

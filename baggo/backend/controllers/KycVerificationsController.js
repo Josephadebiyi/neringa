@@ -30,149 +30,151 @@ export const Verifykyc = async (req, res, next) => {
   }
 };
 
-// ✅ Main KYC Verification with Face++ (ID + Selfie match)
-// ✅ Main KYC Verification with Face++ (ID + Selfie match)
-export const KycVerifications = async (req, res, next) => {
+import axios from 'axios';
+import Kyc from "../models/kycScheme.js";
+import User from "../models/userScheme.js";
+import dotenv from 'dotenv';
+dotenv.config();
+
+const DIDIT_API_KEY = process.env.DIDIT_API_KEY || 'W9Z65OUcc-JjmtqR10AXNKFg1LMj6L1ohVyi-YGSAHk';
+const DIDIT_WORKFLOW_ID = '701347c6-bd51-4ab7-8a35-8a442db4b63c';
+
+// ✅ Generate DIDIT Session for the user (The fix for "Could not start")
+export const createDiditSession = async (req, res, next) => {
   try {
-    if (!req.user || !req.user._id)
-      return res.status(401).json({ message: "User not authenticated" });
+    const user = req.user;
+    if (!user) return res.status(401).json({ success: false, message: "User not authenticated" });
 
-    const userid = req.user._id;
-    const { identityDocument, proofOfAddress, verificationSelfie } = req.body;
-
-    // Validate fields
-    if (!identityDocument || !proofOfAddress || !verificationSelfie)
-      return res.status(400).json({ message: "All image fields are required" });
-
-      // ✅ Check if this user already submitted KYC
-    const existingUserKyc = await Kyc.findOne({ userid });
-    if (existingUserKyc) {
-      return res.status(400).json({
-        message: "You already submitted KYC. Please wait for review.",
+    // Reuse existing approved state
+    if (user.kycStatus === 'approved') {
+      return res.status(200).json({
+        success: true,
+        message: "KYC already approved",
+        status: 'approved'
       });
     }
 
-    // ✅ Prevent reusing the same ID or selfie across different accounts
-    const duplicateKyc = await Kyc.findOne({
-      $or: [
-        { identityDocument: identityDocument },
-        { verificationSelfie: verificationSelfie },
-      ],
-    });
+    // Build the request URL and payload. 
+    // FIXED: Use correct endpoint and ensure headers match DIDIT requirements
+    const vendorData = JSON.stringify({ userId: user._id.toString(), email: user.email });
 
-    // If found, and the existing record belongs to another user → block it
-    if (duplicateKyc && duplicateKyc.userid.toString() !== userid.toString()) {
-      return res.status(400).json({
-        message:
-          "This ID document or selfie has already been used on another account. Please upload a unique document.",
+    const config = {
+      headers: {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'x-api-key': DIDIT_API_KEY,
+      }
+    };
+
+    const payload = {
+      workflow_id: DIDIT_WORKFLOW_ID,
+      vendor_data: vendorData,
+      callback: `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`,
+    };
+
+    console.log("📝 Sending request to DIDIT for user:", user._id);
+    const response = await axios.post('https://verification.didit.me/v3/session/', payload, config);
+
+    if (response.data && response.data.session_id) {
+      await User.findByIdAndUpdate(user._id, {
+        diditSessionId: response.data.session_id,
+        diditSessionToken: response.data.session_token,
+        kycStatus: 'pending'
       });
-    }
 
-    // ✅ Upload all images to Cloudinary
-    let idUpload, proofUpload, selfieUpload;
-    try {
-      [idUpload, proofUpload, selfieUpload] = await Promise.all([
-        cloudinary.v2.uploader.upload(identityDocument, { resource_type: "image" }),
-        cloudinary.v2.uploader.upload(proofOfAddress, { resource_type: "image" }),
-        cloudinary.v2.uploader.upload(verificationSelfie, { resource_type: "image" }),
-      ]);
-    } catch (uploadError) {
-      return res.status(500).json({ message: "Image upload failed. Please try again.", error: uploadError.message });
-    }
-
-    // ✅ Save preliminary KYC record
-    const newKyc = new Kyc({
-      userid,
-      identityDocument: idUpload.secure_url,
-      proofOfAddress: proofUpload.secure_url,
-      verificationSelfie: selfieUpload.secure_url,
-    });
-    await newKyc.save();
-
-    // ✅ Face++ Compare API
-    const apiKey = "yvg7MVe6IPFMUkLaLXM4Zq9i19WqgMch";
-    const apiSecret = "0NPMWdGi2Jjxa1MhqoOS0t4tTRepCsV_";
-
-    const compareUrl = "https://api-us.faceplusplus.com/facepp/v3/compare";
-    const compareBody = new URLSearchParams({
-      api_key: apiKey,
-      api_secret: apiSecret,
-      image_url1: idUpload.secure_url,
-      image_url2: selfieUpload.secure_url,
-    });
-
-    const compareResponse = await fetch(compareUrl, {
-      method: "POST",
-      body: compareBody,
-    });
-
-    const compareData = await compareResponse.json();
-
-    // ✅ Handle Face++ specific errors
-    if (compareData.error_message) {
-      return res.status(400).json({
-        message: `Face verification failed: ${compareData.error_message}`,
-      });
-    }
-
-    if (!compareData.confidence) {
-      return res.status(400).json({
-        message: "No faces detected. Please re-upload clearer photos.",
-      });
-    }
-
-    // ✅ Determine verification success
-    let verified = compareData.confidence >= 75;
-
-    // ✅ Update user verification status
-    const user = await User.findById(userid);
-    const setting = await Setting.findOne({});
-    const autoVerify = setting?.autoVerification || false;
-
-    if (verified) {
-      user.isVerified = true;
-      user.status = "verified";
-      await user.save();
-
-      newKyc.faceMatchScore = compareData.confidence || 0;
-      newKyc.faceVerified = true;
-      await newKyc.save();
-
-      return res.status(201).json({
-        message: "KYC verified successfully through Face++!",
-        confidence: compareData.confidence,
+      return res.json({
+        success: true,
+        sessionId: response.data.session_id,
+        sessionToken: response.data.session_token,
+        sessionUrl: response.data.url,
+        message: "Verification session created"
       });
     } else {
-      user.status = "pending";
-      await user.save();
-
-      newKyc.faceMatchScore = compareData.confidence || 0;
-      newKyc.faceVerified = false;
-      await newKyc.save();
-
-      return res.status(400).json({
-        message: "Face does not match ID. Please re-upload clearer photos.",
-        confidence: compareData.confidence,
-      });
+      throw new Error(response.data.message || "DIDIT initialization failed");
     }
-
-  } catch (error) {
-    console.error("KycVerifications error:", error.message);
-
-    // ✅ Handle MongoDB duplicate errors clearly
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: "Duplicate KYC detected. This user has already submitted verification.",
-        error: error.message,
-      });
-    }
-
-    return res.status(500).json({
-      message: "An unexpected error occurred during KYC verification.",
-      error: error.message,
+  } catch (err) {
+    console.error("❌ DIDIT Create Session Error:", err.response?.data || err.message);
+    res.status(500).json({
+      success: false,
+      message: err.response?.data?.detail || "Failed to create KYC session",
+      error: err.response?.data || err.message
     });
   }
 };
+
+// Handle Fetching Result after verification success
+export const fetchDiditResult = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const user = req.user;
+
+    const response = await axios.get(`https://verification.didit.me/v3/session/${sessionId}/`, {
+      headers: {
+        'accept': 'application/json',
+        'x-api-key': DIDIT_API_KEY,
+      }
+    });
+
+    const data = response.data;
+    console.log("📥 DIDIT Result data:", data);
+
+    if (data.status === 'approved') {
+      const extracted = data.extracted_data || data.document_data || {};
+      const fullName = extracted.full_name || extracted.fullName || `${extracted.first_name || ''} ${extracted.last_name || ''}`.trim();
+      const dob = extracted.date_of_birth || extracted.dateOfBirth;
+
+      // Automatically store in user profile
+      const updateData = {
+        kycStatus: 'approved',
+        status: 'verified',
+        isVerified: true,
+        kycVerifiedAt: new Date(),
+        kycVerifiedData: {
+          fullName,
+          dateOfBirth: dob ? new Date(dob) : null,
+          documentNumber: extracted.document_number,
+          issuingCountry: extracted.issuing_country,
+          verificationStatus: 'approved'
+        }
+      };
+
+      // Also overwrite main profile fields as requested
+      if (fullName) {
+        const parts = fullName.split(' ');
+        if (parts.length >= 2) {
+          updateData.firstName = parts[0];
+          updateData.lastName = parts.slice(1).join(' ');
+        } else {
+          updateData.firstName = fullName;
+        }
+      }
+      if (dob) updateData.dateOfBirth = new Date(dob);
+
+      await User.findByIdAndUpdate(user._id, updateData);
+
+      return res.json({
+        success: true,
+        message: "KYC approved and profile updated",
+        fullName,
+        dateOfBirth: dob,
+        kycStatus: 'approved'
+      });
+    }
+
+    res.json({
+      success: false,
+      message: "KYC is not yet approved",
+      status: data.status
+    });
+  } catch (err) {
+    console.error("❌ Fetch DIDIT Result Error:", err.response?.data || err.message);
+    res.status(500).json({ success: false, message: "Error fetching KYC result" });
+  }
+};
+
+// Replaced previous Face++ KycVerifications with a placeholder if needed
+export const KycVerifications = createDiditSession;
+
 
 
 

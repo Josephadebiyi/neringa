@@ -123,7 +123,7 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false, // ensures 3% discount is applied only once
   },
-  
+
   // 🆔 DIDIT.me KYC Verification
   kycStatus: {
     type: String,
@@ -201,6 +201,9 @@ const userSchema = new mongoose.Schema({
     min: 0,
     max: 5,
   },
+  // 📧 Email Change Logic
+  pendingEmail: { type: String, default: null },
+  emailChangeOtp: { code: String, expiresAt: Date },
 });
 
 // 🔒 Hash password before saving

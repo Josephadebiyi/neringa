@@ -1,10 +1,10 @@
 import express from 'express';
-import { edit, getUser, logout, useReferralDiscount, signIn, verifyEmail, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar } from '../controllers/userController.js';
+import { edit, getUser, logout, useReferralDiscount, signIn, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar } from '../controllers/userController.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
-import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
+import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
 import { createPackage } from '../controllers/PackageController.js';
 import { getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
 import { recentOrder } from '../controllers/getRecentRequest.js';
@@ -33,7 +33,7 @@ userRouter.use(
 
 userRouter.post('/signup', signUp);
 userRouter.post('/signin', signIn);
-userRouter.get('/verify-email', verifyEmail);
+userRouter.post('/verify-signup-otp', verifySignupOtp);
 userRouter.post("/coupon", isAuthenticated, createDelivery);
 userRouter.post('/user/image', isAuthenticated, uploadOrUpdateImage);
 userRouter.post('/user/avatar', isAuthenticated, updateAvatar);
@@ -61,6 +61,8 @@ userRouter.get("/request/:requestId", getRefundByRequestId);
 
 userRouter.post("/KycVerifications", isAuthenticated, KycVerifications)
 userRouter.get("/getKyc", isAuthenticated, getKyc)
+userRouter.post('/kyc/create-session', isAuthenticated, createDiditSession);
+userRouter.get('/kyc/fetch-result/:sessionId', isAuthenticated, fetchDiditResult);
 userRouter.post('/use-referral-discount', useReferralDiscount);
 
 userRouter.post('/request/:requestId/raise-dispute', raiseDispute);
