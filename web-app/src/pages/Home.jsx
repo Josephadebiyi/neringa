@@ -312,8 +312,8 @@ const HeroSection = () => {
 
                 <div className="w-full md:w-[50%] h-[350px] overflow-hidden rounded-2xl shadow-lg">
                     <img
-                        src="/hero_new.png"
-                        alt="Real Delivery Service"
+                        src="/hero_v3.png"
+                        alt="Join Bago Community"
                         className="w-full h-full object-cover"
                         onError={(e) => { e.target.style.display = 'none'; }}
                     />
