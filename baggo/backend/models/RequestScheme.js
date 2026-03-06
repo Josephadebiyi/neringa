@@ -7,6 +7,11 @@ const RequestSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Sender user ID is required'],
     },
+    trackingNumber: {
+      type: String,
+      unique: true,
+      sparse: true, // Only if it exists
+    },
     image: { type: String, default: null },
     senderProof: { type: String, default: null }, // stores single image URL / dataURI
     senderReceived: { type: Boolean, default: false }, // sender confirms receipt
@@ -64,21 +69,21 @@ const RequestSchema = new mongoose.Schema(
       },
     ],
     paymentInfo: {
-    requestId: {
-      type: String,   // Stripe/Paystack payment ID must be STRING
-      default: null,
+      requestId: {
+        type: String,   // Stripe/Paystack payment ID must be STRING
+        default: null,
+      },
+      method: {
+        type: String,
+        enum: ['stripe', 'paystack', null],
+        default: null,
+      },
+      status: {
+        type: String,
+        enum: ['paid', 'failed', null],
+        default: null,
+      },
     },
-    method: {
-      type: String,
-      enum: ['stripe', 'paystack', null],
-      default: null,
-    },
-    status: {
-      type: String,
-      enum: ['paid', 'failed', null],
-      default: null,
-    },
-  },
 
 
     estimatedDeparture: {
@@ -87,7 +92,7 @@ const RequestSchema = new mongoose.Schema(
     estimatedArrival: {
       type: Date,
     },
-updatedAt: Date,
+    updatedAt: Date,
     // 🆕 dispute field
     dispute: {
       type: {

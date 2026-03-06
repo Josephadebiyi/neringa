@@ -8,10 +8,10 @@ import {
     MapPin,
     Calendar,
     Clock,
-    CheckCircle2,
+    CheckCircle,
     Truck,
     ArrowRight,
-    Loader2,
+    RefreshCw,
     Shield
 } from 'lucide-react';
 
@@ -64,7 +64,7 @@ export default function TrackShipment() {
 
     const steps = [
         { label: 'Requested', status: 'pending', icon: Package },
-        { label: 'Accepted', status: 'accepted', icon: CheckCircle2 },
+        { label: 'Accepted', status: 'accepted', icon: CheckCircle },
         { label: 'In Transit', status: 'intransit', icon: Truck },
         { label: 'Out for Delivery', status: 'delivering', icon: MapPin },
         { label: 'Completed', status: 'completed', icon: Shield }
@@ -97,7 +97,7 @@ export default function TrackShipment() {
                         disabled={loading}
                         className="px-10 py-4 bg-[#5845D8] text-white font-black rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 disabled:opacity-70"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Track Now'}
+                        {loading ? <RefreshCw className="animate-spin" size={20} /> : 'Track Now'}
                     </button>
                 </form>
 

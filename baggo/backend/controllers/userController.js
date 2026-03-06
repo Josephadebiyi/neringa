@@ -8,6 +8,7 @@ import { Resend } from 'resend';
 import Request from '../models/RequestScheme.js';
 import { isAfricanCountry, getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { OAuth2Client } from 'google-auth-library';
+import axios from 'axios';
 
 dotenv.config();
 // Initialize Resend (optional)
@@ -383,21 +384,55 @@ export const verifySignupOtp = async (req, res) => {
     await newUser.save();
 
     // Send Welcome Email
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-        <h2 style="color: #5845D8;">Welcome to Bago, ${decoded.firstName}!</h2>
-        <p>Your account has been successfully verified.</p>
-        <p>You can now log in and start sending packages or earning as a traveler.</p>
-        <a href="${process.env.FRONTEND_URL || 'https://sendwithbago.com'}/login" style="display:inline-block; padding:10px 20px; background: #5845D8; color: white; text-decoration: none; border-radius: 5px;">Login Now</a>
+    const welcomeHtml = `
+      <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 0; border: 1px solid #f0f0f0; border-radius: 24px; overflow: hidden; background-color: #ffffff;">
+        <div style="background-color: #5845D8; padding: 40px 20px; text-align: center;">
+          <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" alt="Bago" width="140" style="margin-bottom: 20px;"/>
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">Welcome to the Community!</h1>
+        </div>
+        
+        <div style="padding: 40px 30px;">
+          <div style="border-radius: 16px; overflow: hidden; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <img src="https://neringa.onrender.com/hero_v3.png" alt="Bago Hero" style="width: 100%; height: auto; display: block;" />
+          </div>
+
+          <h2 style="color: #054752; font-size: 22px; font-weight: 700; margin-top: 0;">Hi ${decoded.firstName},</h2>
+          <p style="color: #708c91; font-size: 16px; line-height: 1.6; font-weight: 500;">
+            We're thrilled to have you on board! Your account has been successfully verified, and you're now part of a global community transforming how the world moves packages.
+          </p>
+          
+          <div style="margin: 35px 0; text-align: center;">
+            <a href="${process.env.FRONTEND_URL || 'https://sendwithbago.com'}/login" 
+               style="display: inline-block; padding: 18px 45px; background-color: #5845D8; color: #ffffff; text-decoration: none; border-radius: 14px; font-weight: 700; font-size: 16px; box-shadow: 0 10px 20px rgba(88, 69, 216, 0.2);">
+               Get Started Now
+            </a>
+          </div>
+
+          <div style="background-color: #f8f9fa; border-radius: 16px; padding: 25px; margin-top: 30px;">
+            <h4 style="color: #054752; margin: 0 0 10px 0; font-size: 16px;">What's next?</h4>
+            <ul style="color: #708c91; font-size: 14px; padding-left: 20px; margin: 0; line-height: 1.8;">
+              <li>Complete your ID verification to start posting trips.</li>
+              <li>Browse available travelers to send your first package.</li>
+              <li>Set up your Bago wallet for instant payouts.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="background-color: #f3f4f6; padding: 30px; text-align: center; border-top: 1px solid #eeeeee;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            © 2026 Bago Logistics. All rights reserved.<br/>
+            You received this email because you signed up for Bago.
+          </p>
+        </div>
       </div>
     `;
 
     if (resend) {
       await resend.emails.send({
-        from: "Baggo <no-reply@sendwithbago.com>",
+        from: "Bago Team <no-reply@sendwithbago.com>",
         to: decoded.email,
-        subject: "Welcome to Bago - Account Verified",
-        html,
+        subject: `Welcome to Bago, ${decoded.firstName}! 🚀`,
+        html: welcomeHtml,
       });
     }
 
@@ -882,6 +917,8 @@ export const googleAuth = async (req, res) => {
         paymentGateway: 'stripe',
         preferredCurrency: 'USD'
       });
+      // Skip phone validation for google users
+      user.phone = undefined;
       await user.save();
     }
 

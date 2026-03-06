@@ -45,18 +45,18 @@ const RecentTrips = ({ user }) => {
             try {
                 // Fetch all travelers and filter by user country or just show recent
                 const response = await api.get('/api/bago/getTravelers');
-                if (response.data.success) {
+                const data = response.data?.data;
+                if (response.data?.success && Array.isArray(data)) {
                     if (user?.country) {
-                        const userCountryTrips = response.data.data.filter(t =>
+                        const userCountryTrips = data.filter(t =>
                             (t.originCountry && t.originCountry.toLowerCase() === user.country.toLowerCase()) ||
                             (t.destinationCountry && t.destinationCountry.toLowerCase() === user.country.toLowerCase())
                         ).slice(0, 3);
-                        setTrips(userCountryTrips.length > 0 ? userCountryTrips : response.data.data.slice(0, 3));
+                        setTrips(userCountryTrips.length > 0 ? userCountryTrips : data.slice(0, 3));
                     } else {
-                        setTrips(response.data.data.slice(0, 3));
+                        setTrips(data.slice(0, 3));
                     }
-                }
-                if (!response.data.success || response.data.data.length === 0) {
+                } else {
                     setTrips(DUMMY_TRIPS);
                 }
             } catch (error) {

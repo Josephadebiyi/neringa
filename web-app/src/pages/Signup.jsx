@@ -8,10 +8,14 @@ import 'react-phone-input-2/lib/style.css';
 
 export default function Signup() {
     const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
         email: '',
         phone: '',
+        dateOfBirth: '',
         country: 'United States',
         password: '',
+        confirmPassword: '',
         referralCode: ''
     });
 
@@ -224,10 +228,26 @@ export default function Signup() {
                             </div>
 
                             <form onSubmit={handleSignup} className="space-y-5">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                                        <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="John" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                                        <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Doe" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                                     <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                    <p className="text-xs text-gray-500 mt-1">We'll send ride confirmations and updates here</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                                    <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors bg-white font-medium" required />
+                                    <p className="text-xs text-gray-500 mt-1">You must be 18+ to use Bago Services</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -256,22 +276,21 @@ export default function Signup() {
                                                 border: '1px solid #E5E7EB',
                                                 fontSize: '16px'
                                             }}
-                                            containerStyle={{
-                                                width: '100%'
-                                            }}
-                                            buttonStyle={{
-                                                borderRadius: '12px 0 0 12px',
-                                                border: '1px solid #E5E7EB',
-                                                backgroundColor: 'white'
-                                            }}
+                                            containerStyle={{ width: '100%' }}
+                                            buttonStyle={{ borderRadius: '12px 0 0 12px', border: '1px solid #E5E7EB', backgroundColor: 'white' }}
                                         />
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                    <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
-                                    <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                        <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                                        <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none transition-colors" required />
+                                    </div>
                                 </div>
 
                                 <button

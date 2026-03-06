@@ -185,6 +185,9 @@ export const RequestPackage = async (req, res, next) => {
     // SAVE REQUEST
     // ----------------------------------------------
 
+    // Generate unique tracking number
+    const trackingNumber = `BAGO-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
     const newRequest = new Request({
       sender: senderId,
       traveler: travelerId,
@@ -192,6 +195,7 @@ export const RequestPackage = async (req, res, next) => {
       amount,
       image: uploadedImageUrl || null,
       status: "pending",
+      trackingNumber,
       insurance: insurance === "yes" || insurance === true,
       insuranceCost: insurance ? parseFloat(insuranceCost) || 0 : 0,
       trip: tripId,
@@ -439,7 +443,7 @@ const createNotification = async (request, status, location) => {
     const packageDetails = `${request.package.description || 'No description'}, ${request.package.packageWeight || 0} kg, from ${request.package.fromCity || 'Unknown'}, ${request.package.fromCountry || 'Unknown'} to ${request.package.toCity || 'Unknown'}, ${request.package.toCountry || 'Unknown'}`;
 
     let senderMessage, travelerMessage;
-    switch(status) {
+    switch (status) {
       case 'accepted':
         senderMessage = `Your package (${packageDetails}) has been accepted by ${request.traveler.name || request.traveler.email}.`;
         travelerMessage = `You accepted the package (${packageDetails}) from ${request.sender.name || request.sender.email}.`;
@@ -781,17 +785,17 @@ export const uploadRequestImage = async (req, res) => {
     let imageUrl = null;
 
     // 1) multipart file (express-fileupload)
-  if (req.files && (req.files.senderProof || req.files.image || req.files.images)) {
-    const fileField = req.files.senderProof || req.files.image || req.files.images;
-    const fileObj = Array.isArray(fileField) ? fileField[0] : fileField;
+    if (req.files && (req.files.senderProof || req.files.image || req.files.images)) {
+      const fileField = req.files.senderProof || req.files.image || req.files.images;
+      const fileObj = Array.isArray(fileField) ? fileField[0] : fileField;
 
-    if (!fileObj || !fileObj.data) {
-      return res.status(400).json({ success: false, message: 'Uploaded file invalid' });
+      if (!fileObj || !fileObj.data) {
+        return res.status(400).json({ success: false, message: 'Uploaded file invalid' });
+      }
+
+      const mime = fileObj.mimetype || 'image/jpeg';
+      imageUrl = await uploadToCloudinary(fileObj.data, { mime });
     }
-
-    const mime = fileObj.mimetype || 'image/jpeg';
-    imageUrl = await uploadToCloudinary(fileObj.data, { mime });
-  }
 
     // 2) base64 or URL in JSON body
     else if (req.body.image) {
@@ -1121,5 +1125,29 @@ export const updatePaymentStatus = async (req, res) => {
       message: "Internal server error",
       error: err.message,
     });
+  }
+};
+
+export const getPublicTracking = async (req, res) => {
+  try {
+    const { trackingNumber } = req.params;
+
+    const request = await Request.findOne({ trackingNumber })
+      .populate('package', 'description packageWeight fromCity fromCountry toCity toCountry transportMode')
+      .populate('traveler', 'firstName lastName')
+      .populate('trip', 'origin destination departureDate')
+      .select('status movementTracking createdAt estimatedDeparture estimatedArrival trackingNumber');
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Invalid tracking number' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: request
+    });
+  } catch (error) {
+    console.error('Error in getPublicTracking:', error);
+    res.status(500).json({ success: false, message: 'Server error tracking shipment' });
   }
 };

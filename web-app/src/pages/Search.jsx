@@ -251,44 +251,46 @@ export default function Search() {
         setLoading(true);
         try {
             const response = await api.get('/api/bago/getTravelers');
-            if (response.data.success) {
+            if (response.data.success && response.data.data) {
                 const { gettravelers, findUsers } = response.data.data;
 
-                // Map and join traveler info
-                const joinedTrips = gettravelers.map(trip => {
-                    const traveler = findUsers.find(u => u._id === trip.user);
-                    return {
-                        ...trip,
-                        firstName: traveler?.name || traveler?.firstName || 'Traveler',
-                        origin: trip.fromLocation,
-                        destination: trip.toLocation,
-                        departureDate: trip.departureDate,
-                        availableWeight: trip.availableKg,
-                        transportMode: trip.travelMeans,
-                        rating: traveler?.rating || (4.5 + Math.random() * 0.5).toFixed(1) // Fallback rating
-                    };
-                });
+                if (Array.isArray(gettravelers)) {
+                    // Map and join traveler info
+                    const joinedTrips = gettravelers.map(trip => {
+                        const traveler = Array.isArray(findUsers) ? findUsers.find(u => u._id === trip.user) : null;
+                        return {
+                            ...trip,
+                            firstName: traveler?.name || traveler?.firstName || 'Traveler',
+                            origin: trip.fromLocation,
+                            destination: trip.toLocation,
+                            departureDate: trip.departureDate,
+                            availableWeight: trip.availableKg,
+                            transportMode: trip.travelMeans,
+                            rating: traveler?.rating || (4.5 + Math.random() * 0.5).toFixed(1) // Fallback rating
+                        };
+                    });
 
-                // Filter based on search params
-                let filtered = joinedTrips;
-                if (filters.origin) {
-                    filtered = filtered.filter(t =>
-                        t.origin.toLowerCase().includes(filters.origin.city.toLowerCase())
-                    );
-                }
-                if (filters.destination) {
-                    filtered = filtered.filter(t =>
-                        t.destination.toLowerCase().includes(filters.destination.city.toLowerCase())
-                    );
-                }
-                if (filters.weight) {
-                    filtered = filtered.filter(t => t.availableWeight >= parseFloat(filters.weight));
-                }
-                if (filters.transportMode) {
-                    filtered = filtered.filter(t => t.transportMode === filters.transportMode);
-                }
+                    // Filter based on search params
+                    let filtered = joinedTrips;
+                    if (filters.origin && filters.origin.city) {
+                        filtered = filtered.filter(t =>
+                            t.origin && t.origin.toLowerCase().includes(filters.origin.city.toLowerCase())
+                        );
+                    }
+                    if (filters.destination && filters.destination.city) {
+                        filtered = filtered.filter(t =>
+                            t.destination && t.destination.toLowerCase().includes(filters.destination.city.toLowerCase())
+                        );
+                    }
+                    if (filters.weight) {
+                        filtered = filtered.filter(t => t.availableWeight >= parseFloat(filters.weight));
+                    }
+                    if (filters.transportMode) {
+                        filtered = filtered.filter(t => t.transportMode === filters.transportMode);
+                    }
 
-                setTrips(filtered);
+                    setTrips(filtered);
+                }
             }
         } catch (error) {
             console.error('Failed to fetch trips:', error);

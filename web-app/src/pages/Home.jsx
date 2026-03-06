@@ -14,7 +14,7 @@ import {
     PlusCircle,
     UserCircle,
     ArrowRight,
-    Bus as BusIcon,
+    Bus,
     Car,
     ShieldCheck,
     Check,
@@ -144,9 +144,18 @@ const Navbar = () => {
                         <Smartphone size={20} className="text-[#054752] group-hover:text-[#5845D8] transition-colors" />
                         <span className="text-[#054752] text-sm font-semibold group-hover:text-[#5845D8] transition-colors">{t('getApp')}</span>
                     </div>
-                    <Link to="/signup" className="flex items-center">
-                        <UserCircle size={32} className="text-[#d9d9d9] hover:text-[#054752] transition-colors" />
-                    </Link>
+                    {isAuthenticated ? (
+                        <Link to="/dashboard" className="flex items-center gap-3 bg-[#5845D8]/5 border border-[#5845D8]/20 px-4 py-2 rounded-full hover:bg-[#5845D8]/10 transition-all group">
+                            <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm group-hover:scale-105 transition-transform">
+                                {user?.firstName?.charAt(0)}
+                            </div>
+                            <span className="text-sm font-bold text-[#054752]">Dashboard</span>
+                        </Link>
+                    ) : (
+                        <Link to="/signup" className="flex items-center">
+                            <UserCircle size={32} className="text-[#d9d9d9] hover:text-[#054752] transition-colors" />
+                        </Link>
+                    )}
                 </div>
 
                 {/* Mobile Menu Button */}
@@ -227,61 +236,79 @@ const Navbar = () => {
                                 </div>
 
                                 {/* Language/Currency Section */}
-                                <div className="pt-8 border-t border-gray-100 space-y-8">
-                                    <div>
-                                        <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Select Language</h5>
-                                        <div className="grid grid-cols-2 gap-3">
+                                {/* Language Selector Mobile */}
+                                <div className="pt-8 border-t border-gray-100">
+                                    <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Select Language</h5>
+                                    <div className="relative">
+                                        <select
+                                            value={currentLanguage}
+                                            onChange={(e) => setLanguage(e.target.value)}
+                                            className="w-full p-4 rounded-2xl border border-gray-100 bg-gray-50/50 appearance-none text-[#054752] font-black focus:border-[#5845D8] outline-none transition-all"
+                                        >
                                             {languages.map((lang) => (
-                                                <button
-                                                    key={lang.code}
-                                                    onClick={() => {
-                                                        setLanguage(lang.code);
-                                                        setShowMobileMenu(false);
-                                                    }}
-                                                    className={`flex items-center flex-col gap-2 p-4 rounded-2xl border transition-all ${currentLanguage === lang.code
-                                                        ? 'border-[#5845D8] bg-[#5845D8]/5 ring-1 ring-[#5845D8]'
-                                                        : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100'
-                                                        }`}
-                                                >
-                                                    <span className="text-3xl">{lang.flag}</span>
-                                                    <span className="text-xs font-black text-[#054752]">{lang.name}</span>
-                                                </button>
+                                                <option key={lang.code} value={lang.code}>
+                                                    {lang.flag} {lang.name}
+                                                </option>
                                             ))}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            <ChevronDown size={20} className="text-gray-400" />
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Preferred Currency</h5>
-                                        <div className="flex flex-wrap gap-2">
-                                            {currencies.map((c) => (
-                                                <button
-                                                    key={c}
-                                                    onClick={() => {
-                                                        setCurrency(c);
-                                                        setShowMobileMenu(false);
-                                                    }}
-                                                    className={`px-4 py-3 rounded-xl border text-sm font-black transition-all ${currency === c
-                                                        ? 'border-[#5845D8] bg-[#5845D8] text-white'
-                                                        : 'border-gray-100 bg-gray-50/50 text-[#054752]'
-                                                        }`}
-                                                >
-                                                    {c}
-                                                </button>
-                                            ))}
-                                        </div>
+                                <div>
+                                    <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Preferred Currency</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                        {currencies.map((c) => (
+                                            <button
+                                                key={c}
+                                                onClick={() => {
+                                                    setCurrency(c);
+                                                    setShowMobileMenu(false);
+                                                }}
+                                                className={`px-4 py-3 rounded-xl border text-sm font-black transition-all ${currency === c
+                                                    ? 'border-[#5845D8] bg-[#5845D8] text-white'
+                                                    : 'border-gray-100 bg-gray-50/50 text-[#054752]'
+                                                    }`}
+                                            >
+                                                {c}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
 
                             {/* Auth Actions */}
                             <div className="p-6 border-t border-gray-100 bg-gray-50/50">
-                                <Link
-                                    to="/login"
-                                    onClick={() => setShowMobileMenu(false)}
-                                    className="w-full block text-center py-4 bg-[#5845D8] text-white rounded-2xl font-black text-lg shadow-lg"
-                                >
-                                    Log In / Register
-                                </Link>
+                                {isAuthenticated ? (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                            <div className="w-12 h-12 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xl uppercase">
+                                                {user?.firstName?.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 overflow-hidden">
+                                                <p className="font-bold text-[#054752] truncate">{user?.firstName} {user?.lastName}</p>
+                                                <p className="text-xs text-[#708c91] truncate font-medium">{user?.email}</p>
+                                            </div>
+                                        </div>
+                                        <Link
+                                            to="/dashboard"
+                                            onClick={() => setShowMobileMenu(false)}
+                                            className="w-full block text-center py-4 bg-[#5845D8] text-white rounded-2xl font-black text-lg shadow-lg hover:shadow-xl transition-all"
+                                        >
+                                            Go to Dashboard
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <Link
+                                        to="/login"
+                                        onClick={() => setShowMobileMenu(false)}
+                                        className="w-full block text-center py-4 bg-[#5845D8] text-white rounded-2xl font-black text-lg shadow-lg"
+                                    >
+                                        Log In / Register
+                                    </Link>
+                                )}
                                 <p className="mt-6 text-center text-xs font-medium text-gray-400">
                                     Trusted by 10k+ Travelers worldwide.
                                 </p>
@@ -290,7 +317,7 @@ const Navbar = () => {
                     </>
                 )}
             </AnimatePresence>
-        </nav >
+        </nav>
     );
 };
 
@@ -360,18 +387,18 @@ const StickySearch = () => {
                 const response = await fetch('https://ipapi.co/json/');
                 const data = await response.json();
                 if (data.city) {
-                    const detected = locationOptions.find(opt => opt.city === data.city) || {
+                    const detected = locationOptions.find(opt => opt.city === data.city) || (data.city ? {
                         value: data.city,
                         label: (
                             <div className="flex items-center gap-2">
                                 <span>📍</span>
-                                <span>{data.city}, {data.country_name}</span>
+                                <span>{data.city}, {data.country_name || ''}</span>
                             </div>
                         ),
                         city: data.city,
-                        country: data.country_name
-                    };
-                    setOrigin(detected);
+                        country: data.country_name || ''
+                    } : null);
+                    if (detected) setOrigin(detected);
                 }
             } catch (err) {
                 console.error("Failed to auto-detect location", err);
@@ -611,7 +638,7 @@ const TripTypeSection = () => {
                 </div>
                 <div onClick={() => navigate('/search?mode=bus')} className="bg-[#f0f4f5] rounded-2xl p-8 flex items-center gap-6 cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]">
                     <div className="bg-white p-4 rounded-xl shadow-sm">
-                        <BusIcon size={40} className="text-[#5845D8]" />
+                        <Bus size={40} className="text-[#5845D8]" />
                     </div>
                     <div className="flex-1">
                         <h3 className="text-xl font-black text-[#054752]">By bus</h3>

@@ -70,9 +70,7 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
     trim: true,
-    match: [/^\+?\d{10,15}$/, 'Please enter a valid phone number'],
   },
   otp: { code: String, expiresAt: Date },
   recipient_code: { type: String, default: null },
