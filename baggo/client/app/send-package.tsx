@@ -8,11 +8,11 @@ import {
   Alert,
   Modal,
   FlatList,
-  Platform ,
+  Platform,
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { useState, useEffect, useRef  } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { MapPin, Weight, ChevronLeft } from 'lucide-react-native';
 import axios from 'axios';
@@ -41,13 +41,16 @@ export default function SendPackageScreen() {
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
   const [description, setDescription] = useState('');
+  const [length, setLength] = useState('');
+  const [width, setWidth] = useState('');
+  const [height, setHeight] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // single image state
   const [image, setImage] = useState<string | null>(null)
-;
+    ;
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-;
+    ;
 
   // ---- modal + countries state ----
   const [showCountryModal, setShowCountryModal] = useState(false);
@@ -209,32 +212,32 @@ export default function SendPackageScreen() {
   };
 
 
-const openCityModal = async (field: 'from' | 'to') => {
-  const country = field === 'from' ? fromCountry : toCountry;
-  if (!country) {
-    Alert.alert('Select Country First', 'Please choose a country before selecting a city.');
-    return;
-  }
+  const openCityModal = async (field: 'from' | 'to') => {
+    const country = field === 'from' ? fromCountry : toCountry;
+    if (!country) {
+      Alert.alert('Select Country First', 'Please choose a country before selecting a city.');
+      return;
+    }
 
-  setSelectingCityField(field);
-  setShowCityModal(true);
-  setCitySearch('');
-  setCities([]); // clear old data
-  setLoadingCities(true);
+    setSelectingCityField(field);
+    setShowCityModal(true);
+    setCitySearch('');
+    setCities([]); // clear old data
+    setLoadingCities(true);
 
-  const fetchedCities = await fetchCities(country);
-  setCities(fetchedCities);
-  setLoadingCities(false);
-};
+    const fetchedCities = await fetchCities(country);
+    setCities(fetchedCities);
+    setLoadingCities(false);
+  };
 
 
 
-const handleSelectCity = (cityName: string) => {
-  if (selectingCityField === 'from') setFromCity(cityName);
-  else if (selectingCityField === 'to') setToCity(cityName);
-  setShowCityModal(false);
-  setSelectingCityField(null);
-};
+  const handleSelectCity = (cityName: string) => {
+    if (selectingCityField === 'from') setFromCity(cityName);
+    else if (selectingCityField === 'to') setToCity(cityName);
+    setShowCityModal(false);
+    setSelectingCityField(null);
+  };
 
 
   const filteredCountries = countries.filter((c) =>
@@ -379,8 +382,17 @@ const handleSelectCity = (cityName: string) => {
           );
         }
 
-        const weightNum = parseFloat(packageWeight);
-        const amount = Number(matchedPrice.pricePerKg) * weightNum;
+        const weightNum = parseFloat(packageWeight) || 0;
+        const lengthNum = parseFloat(length) || 0;
+        const widthNum = parseFloat(width) || 0;
+        const heightNum = parseFloat(height) || 0;
+
+        const basePrice = Number(matchedPrice?.basePrice) || 15;
+        const weightMultiplier = Number(matchedPrice?.weightMultiplier) || 5;
+        const dimensionMultiplier = Number(matchedPrice?.dimensionMultiplier) || 0.05;
+
+        const dimensionFactor = (lengthNum * widthNum * heightNum) * dimensionMultiplier;
+        const amount = basePrice + (weightNum * weightMultiplier) + dimensionFactor;
 
         // ✅ FIX: Create FormData for image upload
         const formData = new FormData();
@@ -389,20 +401,22 @@ const handleSelectCity = (cityName: string) => {
         formData.append("fromCity", fromCity);
         formData.append("toCountry", toCountry);
         formData.append("toCity", toCity);
-        formData.append("packageWeight", weightNum);
+        formData.append("packageWeight", weightNum.toString());
         formData.append("receiverName", receiverName);
         formData.append("receiverPhone", receiverPhone);
         formData.append("description", description);
-        formData.append("value", parseFloat(value) || 0);
+        formData.append("value", (parseFloat(value) || 0).toString());
+        formData.append("length", lengthNum.toString());
+        formData.append("width", widthNum.toString());
+        formData.append("height", heightNum.toString());
 
         if (image) {
-    formData.append("image", {
-      uri: image,       // now this is a compressed file URI
-      name: "package.jpg",
-      type: "image/jpeg",
-    });
-  }
-
+          formData.append("image", {
+            uri: image,
+            name: "package.jpg",
+            type: "image/jpeg",
+          } as any);
+        }
 
         // 🔥 REAL file upload here
         const response = await axios.post(
@@ -414,7 +428,7 @@ const handleSelectCity = (cityName: string) => {
           }
         );
 
-        const packageId = response.data.package?._id;
+        const packageId = (response.data as any).package?._id;
 
         // Store preview for later (optional)
         if (image) {
@@ -437,15 +451,18 @@ const handleSelectCity = (cityName: string) => {
             value,
             image,
             packageId,
+            length: lengthNum,
+            width: widthNum,
+            height: heightNum,
             amount: amount.toFixed(2),
-          },
+          } as any,
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("❌ Error creating package:", error);
         Alert.alert(
           "Error",
           error.response?.data?.message ||
-            "No Route Found"
+          "No Route Found"
         );
       } finally {
         setIsLoading(false);
@@ -473,11 +490,11 @@ const handleSelectCity = (cityName: string) => {
       </View>
 
       <ScrollView
-  ref={scrollRef}
-  style={styles.content}
-  showsVerticalScrollIndicator={false}
-  onContentSizeChange={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
->
+        ref={scrollRef}
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
+      >
 
         {step === 1 ? (
           <View>
@@ -498,16 +515,16 @@ const handleSelectCity = (cityName: string) => {
             </View>
 
             <View style={styles.section}>
-    <Text style={styles.label}>Origin City</Text>
-    <TouchableOpacity
-      style={styles.inputContainer}
-      onPress={() => openCityModal('from')}
-      activeOpacity={0.8}
-    >
-      <MapPin size={20} color={'#6B6B6B'} />
-      <Text style={styles.input}>{fromCity || 'Select city'}</Text>
-    </TouchableOpacity>
-  </View>
+              <Text style={styles.label}>Origin City</Text>
+              <TouchableOpacity
+                style={styles.inputContainer}
+                onPress={() => openCityModal('from')}
+                activeOpacity={0.8}
+              >
+                <MapPin size={20} color={'#6B6B6B'} />
+                <Text style={styles.input}>{fromCity || 'Select city'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.divider} />
 
@@ -527,16 +544,16 @@ const handleSelectCity = (cityName: string) => {
             </View>
 
             <View style={styles.section}>
-    <Text style={styles.label}>Destination City</Text>
-    <TouchableOpacity
-      style={styles.inputContainer}
-      onPress={() => openCityModal('to')}
-      activeOpacity={0.8}
-    >
-      <MapPin size={20} color={'#6B6B6B'} />
-      <Text style={styles.input}>{toCity || 'Select city'}</Text>
-    </TouchableOpacity>
-  </View>
+              <Text style={styles.label}>Destination City</Text>
+              <TouchableOpacity
+                style={styles.inputContainer}
+                onPress={() => openCityModal('to')}
+                activeOpacity={0.8}
+              >
+                <MapPin size={20} color={'#6B6B6B'} />
+                <Text style={styles.input}>{toCity || 'Select city'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <View>
@@ -575,61 +592,97 @@ const handleSelectCity = (cityName: string) => {
 
 
             <View style={styles.section}>
-    <Text style={styles.label}>Receiver Phone</Text>
-    <View style={[styles.weightInput, { flexDirection: 'row', alignItems: 'center' }]}>
+              <Text style={styles.label}>Receiver Phone</Text>
+              <View style={[styles.weightInput, { flexDirection: 'row', alignItems: 'center' }]}>
 
-      <TouchableOpacity
-        style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
-        onPress={() => {
-          setSelectingField(null); // make sure no "from/to" conflict
-          setShowCountryModal(true);
-        }}
-      >
-        {receiverFlag ? (
-          <Image source={{ uri: receiverFlag }} style={{ width: 32, height: 22, borderRadius: 4, marginRight: 6 }} />
-        ) : (
-          <View style={{ width: 32, height: 22, borderRadius: 4, backgroundColor: '#E5E5E5', marginRight: 6 }} />
-        )}
-        <Text style={{ fontSize: 15, color: '#1A1A1A' }}>
-          {receiverCountryCode || '+'}
-        </Text>
-      </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
+                  onPress={() => {
+                    setSelectingField(null); // make sure no "from/to" conflict
+                    setShowCountryModal(true);
+                  }}
+                >
+                  {receiverFlag ? (
+                    <Image source={{ uri: receiverFlag }} style={{ width: 32, height: 22, borderRadius: 4, marginRight: 6 }} />
+                  ) : (
+                    <View style={{ width: 32, height: 22, borderRadius: 4, backgroundColor: '#E5E5E5', marginRight: 6 }} />
+                  )}
+                  <Text style={{ fontSize: 15, color: '#1A1A1A' }}>
+                    {receiverCountryCode || '+'}
+                  </Text>
+                </TouchableOpacity>
 
-      <TextInput
-        style={[
-          styles.input,
-          {
-            flex: 1,
-            color: '#1A1A1A',
-          },
-        ]}
-        placeholder="000 000 0000"
-        placeholderTextColor={'#9E9E9E'}
-        keyboardType="phone-pad"
-        value={receiverPhone}
-        onChangeText={setReceiverPhone}
-        underlineColorAndroid="transparent"
-      />
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      flex: 1,
+                      color: '#1A1A1A',
+                    },
+                  ]}
+                  placeholder="000 000 0000"
+                  placeholderTextColor={'#9E9E9E'}
+                  keyboardType="phone-pad"
+                  value={receiverPhone}
+                  onChangeText={setReceiverPhone}
+                  underlineColorAndroid="transparent"
+                />
 
 
-    </View>
-  </View>
+              </View>
+            </View>
 
 
 
             <View style={styles.section}>
-  <Text style={styles.label}>Package Value (€)</Text>
-  <View style={styles.weightInput}>
-    <TextInput
-      style={styles.input}
-      placeholder="Enter package value"
-      placeholderTextColor={'#9E9E9E'}
-      keyboardType="decimal-pad"
-      value={value}
-      onChangeText={setValue}
-    />
-  </View>
-</View>
+              <Text style={styles.label}>Dimensions (Optional - cm)</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={[styles.weightInput, { flex: 1 }]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="L"
+                    placeholderTextColor={'#9E9E9E'}
+                    keyboardType="decimal-pad"
+                    value={length}
+                    onChangeText={setLength}
+                  />
+                </View>
+                <View style={[styles.weightInput, { flex: 1 }]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="W"
+                    placeholderTextColor={'#9E9E9E'}
+                    keyboardType="decimal-pad"
+                    value={width}
+                    onChangeText={setWidth}
+                  />
+                </View>
+                <View style={[styles.weightInput, { flex: 1 }]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="H"
+                    placeholderTextColor={'#9E9E9E'}
+                    keyboardType="decimal-pad"
+                    value={height}
+                    onChangeText={setHeight}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.label}>Package Value (€)</Text>
+              <View style={styles.weightInput}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter package value"
+                  placeholderTextColor={'#9E9E9E'}
+                  keyboardType="decimal-pad"
+                  value={value}
+                  onChangeText={setValue}
+                />
+              </View>
+            </View>
 
 
             <View style={styles.section}>
@@ -650,50 +703,50 @@ const handleSelectCity = (cityName: string) => {
 
             {/* IMAGE UPLOAD SECTION (single image) */}
             <View style={styles.section}>
-      <Text style={styles.label}>Package Photo (optional)</Text>
-      <Text style={{ marginBottom: 8, color: '#6B6B6B' }}>
-        Add one photo of the package
-      </Text>
+              <Text style={styles.label}>Package Photo (optional)</Text>
+              <Text style={{ marginBottom: 8, color: '#6B6B6B' }}>
+                Add one photo of the package
+              </Text>
 
-      <View style={{ flexDirection: "row", gap: 12, marginBottom: 12, alignItems: "center" }}>
-        <TouchableOpacity
-          onPress={pickImage}
-          style={[
-            styles.inputContainer,
-            { width: 120, height: 120, justifyContent: "center", alignItems: "center" },
-          ]}
-        >
-          <Text style={{ color: '#5845D8', fontWeight: "700" }}>
-            {imagePreview ? "Change" : "Add Photo"}
-          </Text>
-        </TouchableOpacity>
+              <View style={{ flexDirection: "row", gap: 12, marginBottom: 12, alignItems: "center" }}>
+                <TouchableOpacity
+                  onPress={pickImage}
+                  style={[
+                    styles.inputContainer,
+                    { width: 120, height: 120, justifyContent: "center", alignItems: "center" },
+                  ]}
+                >
+                  <Text style={{ color: '#5845D8', fontWeight: "700" }}>
+                    {imagePreview ? "Change" : "Add Photo"}
+                  </Text>
+                </TouchableOpacity>
 
-        {imagePreview ? (
-          <View style={{ marginRight: 12 }}>
-            <Image
-              source={{ uri: imagePreview }}
-              style={{ width: 120, height: 120, borderRadius: 12 }}
-            />
-            <TouchableOpacity
-              onPress={removeImage}
-              style={{
-                position: "absolute",
-                top: 6,
-                right: 6,
-                backgroundColor: "rgba(0,0,0,0.6)",
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "700" }}>×</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-      </View>
-    </View>
+                {imagePreview ? (
+                  <View style={{ marginRight: 12 }}>
+                    <Image
+                      source={{ uri: imagePreview }}
+                      style={{ width: 120, height: 120, borderRadius: 12 }}
+                    />
+                    <TouchableOpacity
+                      onPress={removeImage}
+                      style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        backgroundColor: "rgba(0,0,0,0.6)",
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "700" }}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
+            </View>
 
 
             <View style={styles.routeCard}>
@@ -867,7 +920,7 @@ const handleSelectCity = (cityName: string) => {
           style={[
             styles.continueButton,
             (step === 1 && (!fromCountry || !fromCity || !toCountry || !toCity)) ||
-            (step === 2 && (!packageWeight || !receiverName || !receiverPhone || !description))
+              (step === 2 && (!packageWeight || !receiverName || !receiverPhone || !description))
               ? styles.continueButtonDisabled
               : {},
           ]}

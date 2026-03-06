@@ -21,7 +21,7 @@ export default function KYCVerificationScreen() {
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
   const { user, isAuthenticated, refreshUser } = useAuth();
-  
+
   const [loading, setLoading] = useState(true);
   const [kycStatus, setKycStatus] = useState('not_started');
   const [sessionUrl, setSessionUrl] = useState<string | null>(null);
@@ -43,11 +43,11 @@ export default function KYCVerificationScreen() {
 
       // Use the API interceptor - token is automatically attached
       const response = await api.get('/api/baggo/kyc/status');
-      
+
       if (response.data.success) {
         const status = response.data.kycStatus;
         console.log('KYC Status from backend:', status);
-        
+
         // If already approved or declined from backend, use that directly
         if (status === 'approved') {
           setKycStatus('approved');
@@ -56,22 +56,22 @@ export default function KYCVerificationScreen() {
           await refreshUser();
           return;
         }
-        
+
         if (status === 'declined') {
           setKycStatus('declined');
           setCanRetry(true);
           return;
         }
-        
+
         // If status is pending, check the actual DIDIT session status
         if (status === 'pending' && response.data.sessionId) {
           try {
             const sessionResponse = await api.get(`/api/baggo/kyc/check-session/${response.data.sessionId}`);
             const sessionData = sessionResponse.data.session;
             const diditStatus = sessionData.status?.toLowerCase();
-            
+
             console.log('DIDIT Session status:', diditStatus);
-            
+
             // Map DIDIT session status to our status
             if (diditStatus === 'created' || diditStatus === 'started') {
               // Session was created but not completed - allow retry
@@ -115,14 +115,14 @@ export default function KYCVerificationScreen() {
       }
     } catch (err: any) {
       console.log('KYC status error:', err?.response?.data || err.message);
-      
+
       // Handle auth errors
       if (err?.response?.status === 401) {
         Alert.alert('Session Expired', 'Please log in again.');
         router.replace('/auth/signin');
         return;
       }
-      
+
       setKycStatus('not_started');
       setCanRetry(true);
     } finally {
@@ -135,7 +135,7 @@ export default function KYCVerificationScreen() {
       Alert.alert('Not Logged In', 'Please log in to verify your identity.');
       return;
     }
-    
+
     setCreatingSession(true);
     try {
       // Use the API interceptor - Bearer token is automatically attached
@@ -147,7 +147,7 @@ export default function KYCVerificationScreen() {
           Alert.alert('Already Verified', 'Your identity has already been verified.');
           return;
         }
-        
+
         // Use the session URL from DIDIT
         const verificationUrl = response.data.sessionUrl;
         setSessionUrl(verificationUrl);
@@ -157,14 +157,14 @@ export default function KYCVerificationScreen() {
       }
     } catch (err: any) {
       console.log('KYC create session error:', err?.response?.data || err.message);
-      
+
       // Handle specific error cases
       if (err?.response?.status === 401) {
         Alert.alert('Session Expired', 'Please log in again to continue.');
         router.replace('/auth/signin');
         return;
       }
-      
+
       const message = err?.response?.data?.message || 'Failed to start verification. Please try again.';
       Alert.alert('Verification Unavailable', message);
     } finally {
@@ -174,11 +174,11 @@ export default function KYCVerificationScreen() {
 
   const handleWebViewNavigation = (navState: any) => {
     const url = navState.url.toLowerCase();
-    
+
     // Check if verification is complete or submitted
     if (
-      url.includes('callback') || 
-      url.includes('success') || 
+      url.includes('callback') ||
+      url.includes('success') ||
       url.includes('complete') ||
       url.includes('approved') ||
       url.includes('submitted') ||
@@ -187,25 +187,25 @@ export default function KYCVerificationScreen() {
       setShowWebView(false);
       setKycStatus('pending');
       setCanRetry(false);
-      
+
       // Check actual status after a short delay
       setTimeout(() => {
         checkKYCStatus();
       }, 2000);
-      
+
       Alert.alert(
-        'Verification Submitted', 
+        'Verification Submitted',
         'Your verification is being processed. This usually takes a few minutes. We\'ll update your status automatically.'
       );
     }
-    
+
     // User cancelled or went back
     if (url.includes('cancel') || url.includes('abort') || url.includes('exit')) {
       setShowWebView(false);
       setKycStatus('not_started');
       setCanRetry(true);
       Alert.alert(
-        'Verification Cancelled', 
+        'Verification Cancelled',
         'You can restart the verification process anytime.'
       );
     }
@@ -217,7 +217,7 @@ export default function KYCVerificationScreen() {
     // Keep current status but allow retry since they didn't complete
     setCanRetry(true);
     Alert.alert(
-      'Verification Incomplete', 
+      'Verification Incomplete',
       'You can continue the verification process anytime by tapping "Continue Verification".'
     );
   };
@@ -229,7 +229,10 @@ export default function KYCVerificationScreen() {
       case 'pending':
         return <Clock size={80} color="#F59E0B" />;
       case 'declined':
+      case 'failed_verification':
         return <XCircle size={80} color="#EF4444" />;
+      case 'blocked_duplicate':
+        return <Shield size={80} color="#EF4444" />;
       default:
         return <Shield size={80} color={'#5845D8'} />;
     }
@@ -253,6 +256,18 @@ export default function KYCVerificationScreen() {
         return {
           title: 'Verification Failed',
           subtitle: 'Your verification was declined. Please try again with valid documents.',
+          color: '#EF4444',
+        };
+      case 'failed_verification':
+        return {
+          title: 'Data Mismatch',
+          subtitle: 'The name or birth date on your ID does not match your Bago profile.',
+          color: '#EF4444',
+        };
+      case 'blocked_duplicate':
+        return {
+          title: 'Account Blocked',
+          subtitle: 'This identity document has already been used by another account.',
           color: '#EF4444',
         };
       default:
@@ -350,9 +365,9 @@ export default function KYCVerificationScreen() {
         </View>
 
         {/* Action Buttons based on status */}
-        {(kycStatus === 'not_started' || kycStatus === 'declined') && (
-          <TouchableOpacity 
-            style={[styles.verifyButton, { backgroundColor: '#5845D8' }]} 
+        {(kycStatus === 'not_started' || kycStatus === 'declined' || kycStatus === 'failed_verification') && (
+          <TouchableOpacity
+            style={[styles.verifyButton, { backgroundColor: '#5845D8' }]}
             onPress={startVerification}
             disabled={creatingSession}
           >
@@ -360,7 +375,7 @@ export default function KYCVerificationScreen() {
               <ActivityIndicator color={'#FFFFFF'} />
             ) : (
               <Text style={[styles.verifyButtonText, { color: '#FFFFFF' }]}>
-                {kycStatus === 'declined' ? 'Try Again' : canRetry ? 'Continue Verification' : 'Start Verification'}
+                {kycStatus === 'declined' || kycStatus === 'failed_verification' ? 'Try Again' : canRetry ? 'Continue Verification' : 'Start Verification'}
               </Text>
             )}
           </TouchableOpacity>
@@ -368,15 +383,15 @@ export default function KYCVerificationScreen() {
 
         {kycStatus === 'pending' && (
           <>
-            <TouchableOpacity 
-              style={[styles.verifyButton, styles.refreshButton, { backgroundColor: '#FFFFFF', borderColor: '#5845D8' }]} 
+            <TouchableOpacity
+              style={[styles.verifyButton, styles.refreshButton, { backgroundColor: '#FFFFFF', borderColor: '#5845D8' }]}
               onPress={checkKYCStatus}
             >
               <Text style={[styles.refreshButtonText, { color: '#5845D8' }]}>Refresh Status</Text>
             </TouchableOpacity>
             {canRetry && (
-              <TouchableOpacity 
-                style={[styles.verifyButton, { marginTop: 12, backgroundColor: '#5845D8' }]} 
+              <TouchableOpacity
+                style={[styles.verifyButton, { marginTop: 12, backgroundColor: '#5845D8' }]}
                 onPress={startVerification}
                 disabled={creatingSession}
               >
@@ -391,8 +406,8 @@ export default function KYCVerificationScreen() {
         )}
 
         {kycStatus === 'approved' && (
-          <TouchableOpacity 
-            style={[styles.verifyButton, { backgroundColor: '#4CAF50' }]} 
+          <TouchableOpacity
+            style={[styles.verifyButton, { backgroundColor: '#4CAF50' }]}
             onPress={() => router.back()}
           >
             <Text style={[styles.verifyButtonText, { color: '#FFFFFF' }]}>Continue to App</Text>
@@ -404,11 +419,11 @@ export default function KYCVerificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
   },
-  centerContent: { 
-    justifyContent: 'center', 
+  centerContent: {
+    justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
@@ -426,12 +441,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { 
-    fontSize: 18, 
-    fontWeight: '600', 
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
   },
-  content: { 
-    flex: 1, 
+  content: {
+    flex: 1,
     padding: 20,
   },
   statusCard: {
@@ -445,32 +460,32 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 5,
   },
-  statusTitle: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    marginTop: 20, 
+  statusTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 20,
     marginBottom: 8,
   },
-  statusSubtitle: { 
-    fontSize: 14, 
-    textAlign: 'center', 
+  statusSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
     lineHeight: 20,
   },
-  infoSection: { 
+  infoSection: {
     marginBottom: 24,
   },
-  infoTitle: { 
-    fontSize: 16, 
-    fontWeight: '600', 
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     marginBottom: 12,
   },
-  infoCard: { 
-    borderRadius: 16, 
+  infoCard: {
+    borderRadius: 16,
     padding: 16,
   },
-  infoItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
   },
   infoIcon: {
@@ -481,16 +496,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  infoText: { 
+  infoText: {
     flex: 1,
   },
-  infoItemTitle: { 
-    fontSize: 14, 
-    fontWeight: '600', 
+  infoItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
     marginBottom: 2,
   },
-  infoItemDesc: { 
-    fontSize: 12, 
+  infoItemDesc: {
+    fontSize: 12,
   },
   verifyButton: {
     borderRadius: 12,
@@ -498,20 +513,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 'auto',
   },
-  verifyButtonText: { 
-    fontSize: 16, 
+  verifyButtonText: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  refreshButton: { 
-    borderWidth: 1, 
+  refreshButton: {
+    borderWidth: 1,
   },
-  refreshButtonText: { 
-    fontSize: 16, 
+  refreshButtonText: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  successButton: { 
+  successButton: {
   },
-  webview: { 
+  webview: {
     flex: 1,
   },
   webviewLoading: {

@@ -31,6 +31,21 @@ const packageSchema = new mongoose.Schema({
     required: true,
     min: [0, 'Weight must be a positive number'],
   },
+  length: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  width: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  height: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
   value: {
     type: Number,
     default: 0,

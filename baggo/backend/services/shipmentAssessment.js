@@ -1,8 +1,3 @@
-/**
- * Shipment Assessment Engine
- * Evaluates shipment compatibility, calculates risk scores, and generates compliance data
- */
-
 import {
   HS_CODES,
   UNIVERSAL_PROHIBITED,
@@ -12,6 +7,7 @@ import {
   ROUTE_RISK,
   DUTY_RATES
 } from '../data/customsRules.js';
+import PricePerKg from '../models/priceperkgSchema.js';
 
 // Risk weight configuration
 const RISK_WEIGHTS = {
@@ -69,7 +65,7 @@ export async function assessShipment({
   assessment.requirements = requirements;
 
   // 6. Calculate suggested price
-  const priceEstimate = calculatePriceEstimate(trip, item, riskScores);
+  const priceEstimate = await calculatePriceEstimate(trip, item, riskScores);
   assessment.priceEstimate = priceEstimate;
 
   // 7. Generate declaration data for PDF
@@ -131,7 +127,7 @@ function checkCompatibility(trip, item) {
   if (item.dimensions) {
     const { length = 0, width = 0, height = 0 } = item.dimensions;
     const maxDims = modeRestrictions.maxDimensionsCm;
-    
+
     if (length > maxDims.length || width > maxDims.width || height > maxDims.height) {
       status = status === 'Yes' ? 'Conditional' : status;
       reasons.push(`Dimensions exceed ${transportMode} limits`);
@@ -184,7 +180,7 @@ function calculateRiskScores(trip, item, traveler) {
   const itemValue = parseFloat(item.value) || 0;
   const countryRules = COUNTRY_RULES[destCountry] || COUNTRY_RULES.DEFAULT;
   const exceedsDutyFree = itemValue > countryRules.dutyFreeThreshold;
-  
+
   const borderRisk = Math.min(100, routeRisk + (exceedsDutyFree ? 20 : 0));
 
   // 2. Delay Risk
@@ -197,16 +193,16 @@ function calculateRiskScores(trip, item, traveler) {
   const fragileCategories = ['electronics', 'jewelry', 'art', 'glass', 'ceramics'];
   const isFragile = fragileCategories.some(cat => itemCategory.includes(cat));
   const transportDamageRisk = { air: 20, bus: 35, ship: 30, train: 25, car: 15 };
-  const damageRisk = Math.min(100, 
+  const damageRisk = Math.min(100,
     (transportDamageRisk[transportMode] || 25) + (isFragile ? 25 : 0)
   );
 
   // 4. Confiscation Risk
   const itemRiskScore = ITEM_RISK_SCORES[itemCategory] || ITEM_RISK_SCORES.DEFAULT || 30;
-  const hasRestrictions = countryRules.restricted?.some(r => 
+  const hasRestrictions = countryRules.restricted?.some(r =>
     itemCategory.includes(r.item) || (item.type || '').toLowerCase().includes(r.item)
   );
-  const confiscationRisk = Math.min(100, 
+  const confiscationRisk = Math.min(100,
     itemRiskScore + (hasRestrictions ? 30 : 0) + (exceedsDutyFree ? 10 : 0)
   );
 
@@ -230,7 +226,7 @@ function calculateRiskScores(trip, item, traveler) {
  */
 function calculateOverallRisk(border, delay, damage, confiscation) {
   const avgRisk = (border + delay + damage + confiscation) / 4;
-  
+
   if (avgRisk < 25) return 'LOW';
   if (avgRisk < 50) return 'MEDIUM';
   if (avgRisk < 75) return 'HIGH';
@@ -245,7 +241,7 @@ function calculateConfidenceScore(riskScores, traveler) {
   const completedTrips = traveler.completedTrips || 0;
   const cancellations = traveler.cancellations || 0;
   const rating = traveler.rating || traveler.averageRating || 3;
-  
+
   const reliabilityBase = Math.min(100, completedTrips * 5);
   const cancellationPenalty = cancellations * 10;
   const ratingBonus = (rating - 3) * 10; // Bonus/penalty from average
@@ -263,7 +259,7 @@ function calculateConfidenceScore(riskScores, traveler) {
   const transportScore = 100 - riskScores.delayRisk;
 
   // Weighted average
-  const confidenceScore = 
+  const confidenceScore =
     travelerScore * RISK_WEIGHTS.travelerReliability +
     itemScore * RISK_WEIGHTS.itemCategoryRisk +
     routeScore * RISK_WEIGHTS.routeRisk +
@@ -278,14 +274,14 @@ function calculateConfidenceScore(riskScores, traveler) {
 function getCustomsCompliance(trip, item, senderCountry) {
   const destCountry = getCountryCode(trip.toCountry || trip.destinationCountry);
   const countryRules = COUNTRY_RULES[destCountry] || COUNTRY_RULES.DEFAULT;
-  
+
   const itemCategory = item.category?.toLowerCase() || 'general';
   const hsCode = HS_CODES[itemCategory] || HS_CODES['household_items'];
-  
+
   const itemValue = parseFloat(item.value) || 0;
   const dutyRates = DUTY_RATES[itemCategory] || DUTY_RATES.DEFAULT;
   const dutyRate = dutyRates[destCountry] || dutyRates.DEFAULT || 0.10;
-  
+
   const exceedsDutyFree = itemValue > countryRules.dutyFreeThreshold;
   const estimatedDuty = exceedsDutyFree ? itemValue * (typeof dutyRate === 'number' ? dutyRate : 0.10) : 0;
   const estimatedVAT = exceedsDutyFree ? (itemValue + estimatedDuty) * countryRules.vatRate : 0;
@@ -305,7 +301,7 @@ function getCustomsCompliance(trip, item, senderCountry) {
     vatRate: countryRules.vatRate * 100 + '%',
     dutyRate: typeof dutyRate === 'number' ? (dutyRate * 100 + '%') : dutyRate,
     requiredDocuments: countryRules.documentation,
-    restrictions: countryRules.restricted?.filter(r => 
+    restrictions: countryRules.restricted?.filter(r =>
       itemCategory.includes(r.item) || (item.type || '').toLowerCase().includes(r.item)
     ) || []
   };
@@ -372,44 +368,60 @@ function generateRequirements(trip, item, customsData) {
 /**
  * Calculate price estimate
  */
-function calculatePriceEstimate(trip, item, riskScores) {
+async function calculatePriceEstimate(trip, item, riskScores) {
   const itemWeight = parseFloat(item.weight) || 1;
   const transportMode = trip.travelMeans || trip.mode || 'air';
-  
-  // Base price per kg by transport mode
-  const basePricePerKg = {
-    air: 15,
-    bus: 8,
-    ship: 5,
-    train: 10,
-    car: 12
-  };
 
-  const basePrice = (basePricePerKg[transportMode] || 10) * itemWeight;
+  // Origin & Destination
+  const fromCity = (trip.fromCity || trip.origin || 'Lagos').trim();
+  const toCity = (trip.toCity || trip.destination || 'Abuja').trim();
+
+  // Try to find custom pricing for this route
+  let pricingRule = await PricePerKg.findOne({
+    from: { $regex: new RegExp(fromCity, 'i') },
+    to: { $regex: new RegExp(toCity, 'i') }
+  });
+
+  // Default values if no custom pricing is found
+  const basePriceValue = pricingRule?.basePrice || 15.00;
+  const weightMultiplier = pricingRule?.weightMultiplier || 5.00;
+  const dimMultiplier = pricingRule?.dimensionMultiplier || 0.05;
+  const currencyCode = pricingRule?.currency || 'USD';
+
+  // Calculate dimension factor (Volume)
+  let dimensionFactor = 0;
+  if (item.dimensions) {
+    const { length = 0, width = 0, height = 0 } = item.dimensions;
+    dimensionFactor = (length * width * height) * dimMultiplier;
+  }
+
+  // Final base price calculation
+  const totalBasePrice = basePriceValue + (itemWeight * weightMultiplier) + dimensionFactor;
 
   // Risk premium (0-50% based on risk level)
   const avgRisk = (riskScores.borderCustomsRisk + riskScores.confiscationRisk) / 2;
-  const riskPremium = basePrice * (avgRisk / 200); // Max 50% premium
+  const riskPremium = totalBasePrice * (avgRisk / 200);
 
-  // Urgency factor (if trip is within 3 days)
+  // Urgency factor
   const tripDate = new Date(trip.departureDate || trip.date);
   const daysUntilTrip = Math.max(0, (tripDate - new Date()) / (1000 * 60 * 60 * 24));
-  const urgencyPremium = daysUntilTrip < 3 ? basePrice * 0.25 : 0;
+  const urgencyPremium = daysUntilTrip < 3 ? totalBasePrice * 0.25 : 0;
 
-  // Distance factor (simplified - could use actual distance API)
-  const distanceFactor = 1.0; // Placeholder
-
-  const totalPrice = basePrice + riskPremium + urgencyPremium;
+  const totalPrice = totalBasePrice + riskPremium + urgencyPremium;
 
   return {
-    basePrice: Math.round(basePrice * 100) / 100,
+    basePrice: Math.round(totalBasePrice * 100) / 100,
+    baseFee: basePriceValue,
+    weightCharge: Math.round((itemWeight * weightMultiplier) * 100) / 100,
+    dimensionCharge: Math.round(dimensionFactor * 100) / 100,
     riskPremium: Math.round(riskPremium * 100) / 100,
     urgencyPremium: Math.round(urgencyPremium * 100) / 100,
     totalPrice: Math.round(totalPrice * 100) / 100,
-    currency: 'EUR',
+    currency: currencyCode,
     breakdown: {
       weightKg: itemWeight,
-      pricePerKg: basePricePerKg[transportMode] || 10,
+      weightMultiplier,
+      dimensionMultiplier: dimMultiplier,
       transportMode,
       daysUntilTrip: Math.round(daysUntilTrip)
     }
@@ -423,7 +435,7 @@ function generateDeclarationData(trip, item, customsData, traveler) {
   return {
     shipmentId: `BGO-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
     generatedAt: new Date().toISOString(),
-    
+
     // Route info
     origin: {
       city: trip.fromCity || trip.from || 'Unknown',
@@ -433,11 +445,11 @@ function generateDeclarationData(trip, item, customsData, traveler) {
       city: trip.toCity || trip.to || 'Unknown',
       country: trip.toCountry || trip.destinationCountry || 'Unknown'
     },
-    
+
     // Transport
     transportMode: trip.travelMeans || trip.mode || 'air',
     departureDate: trip.departureDate || trip.date,
-    
+
     // Item details
     item: {
       description: item.type || item.description || 'General goods',
@@ -448,7 +460,7 @@ function generateDeclarationData(trip, item, customsData, traveler) {
       declaredValue: customsData.declaredValue,
       currency: customsData.currency
     },
-    
+
     // Customs info
     customs: {
       hsCode: customsData.hsCode,
@@ -457,14 +469,14 @@ function generateDeclarationData(trip, item, customsData, traveler) {
       estimatedVAT: customsData.estimatedVAT,
       totalTaxes: customsData.totalTaxes
     },
-    
+
     // Traveler info
     traveler: {
       name: traveler.firstName ? `${traveler.firstName} ${traveler.lastName || ''}`.trim() : traveler.name || 'Traveler',
       rating: traveler.rating || traveler.averageRating || 0,
       completedTrips: traveler.completedTrips || 0
     },
-    
+
     // Declaration text
     declarationText: generateDeclarationText(item, customsData)
   };
@@ -477,7 +489,7 @@ function generateDeclarationText(item, customsData) {
   const itemDesc = item.type || item.description || 'General goods';
   const value = customsData.declaredValue;
   const currency = customsData.currency;
-  
+
   return `I declare that I am carrying the following goods for personal delivery:
 
 Item: ${itemDesc}
@@ -494,10 +506,10 @@ I confirm that:
 3. I am transporting this item on behalf of a third party
 4. I will comply with all customs regulations
 
-${customsData.exceedsDutyFree ? 
-  `Note: This shipment exceeds the duty-free threshold of ${currency} ${customsData.dutyFreeThreshold}. 
-   Estimated duties and taxes may apply: ${currency} ${customsData.totalTaxes}` : 
-  'This shipment is within the duty-free threshold.'}`;
+${customsData.exceedsDutyFree ?
+      `Note: This shipment exceeds the duty-free threshold of ${currency} ${customsData.dutyFreeThreshold}. 
+   Estimated duties and taxes may apply: ${currency} ${customsData.totalTaxes}` :
+      'This shipment is within the duty-free threshold.'}`;
 }
 
 /**
@@ -505,7 +517,7 @@ ${customsData.exceedsDutyFree ?
  */
 function getCountryCode(countryName) {
   if (!countryName) return 'DEFAULT';
-  
+
   const countryMap = {
     'united kingdom': 'GB', 'uk': 'GB', 'britain': 'GB', 'england': 'GB',
     'united states': 'US', 'usa': 'US', 'america': 'US',
@@ -516,20 +528,20 @@ function getCountryCode(countryName) {
   };
 
   const normalized = countryName.toLowerCase().trim();
-  
+
   // Check direct mapping
   if (countryMap[normalized]) return countryMap[normalized];
-  
+
   // Check if it's already a country code
   if (normalized.length === 2) return normalized.toUpperCase();
-  
+
   // Check partial matches
   for (const [key, code] of Object.entries(countryMap)) {
     if (normalized.includes(key) || key.includes(normalized)) {
       return code;
     }
   }
-  
+
   return 'DEFAULT';
 }
 
@@ -538,7 +550,7 @@ function getCountryCode(countryName) {
  */
 export function filterCompatibleTrips(trips, item) {
   const results = [];
-  
+
   for (const trip of trips) {
     const compatibility = checkCompatibility(trip, item);
     if (compatibility.status !== 'No') {
@@ -549,7 +561,7 @@ export function filterCompatibleTrips(trips, item) {
       });
     }
   }
-  
+
   return results;
 }
 
@@ -559,12 +571,12 @@ export function filterCompatibleTrips(trips, item) {
 export function quickCompatibilityCheck(trip, item) {
   const itemWeight = parseFloat(item.weight) || 0;
   const availableKg = parseFloat(trip.availableKg) || 0;
-  
+
   // Quick weight check
   if (itemWeight > availableKg) {
     return { compatible: false, reason: 'Weight exceeds capacity' };
   }
-  
+
   // Quick prohibited check
   const itemType = (item.type || '').toLowerCase();
   for (const prohibited of UNIVERSAL_PROHIBITED) {
@@ -572,7 +584,7 @@ export function quickCompatibilityCheck(trip, item) {
       return { compatible: false, reason: 'Prohibited item' };
     }
   }
-  
+
   return { compatible: true, reason: 'Compatible' };
 }
 

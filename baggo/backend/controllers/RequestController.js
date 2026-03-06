@@ -185,9 +185,6 @@ export const RequestPackage = async (req, res, next) => {
     // SAVE REQUEST
     // ----------------------------------------------
 
-    // Generate unique tracking number
-    const trackingNumber = `BAGO-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-
     const newRequest = new Request({
       sender: senderId,
       traveler: travelerId,
@@ -195,7 +192,7 @@ export const RequestPackage = async (req, res, next) => {
       amount,
       image: uploadedImageUrl || null,
       status: "pending",
-      trackingNumber,
+      trackingNumber: null, // Generated after payment success
       insurance: insurance === "yes" || insurance === true,
       insuranceCost: insurance ? parseFloat(insuranceCost) || 0 : 0,
       trip: tripId,
@@ -1109,9 +1106,16 @@ export const updatePaymentStatus = async (req, res) => {
     request.paymentInfo.requestId = requestId; // optional, if you want to store request reference
     request.updatedAt = new Date();
 
-    await request.save();
+    // Generate unique tracking number only after successful payment
+    if (paymentInfo.status === 'paid' && !request.trackingNumber) {
+      const prefix = 'BAGO';
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      request.trackingNumber = `${prefix}-${timestamp}${random}`;
+      console.log(`📡 Tracking number generated: ${request.trackingNumber}`);
+    }
 
-    console.log("💡 Updated paymentInfo in DB:", request.paymentInfo);
+    await request.save();
 
     return res.status(200).json({
       message: "Payment updated successfully",

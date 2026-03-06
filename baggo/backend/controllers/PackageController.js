@@ -35,6 +35,9 @@ export const createPackage = async (req, res) => {
       receiverPhone,
       description,
       value, // optional value field (string or numeric)
+      length,
+      width,
+      height,
     } = req.body;
 
     // Validate minimum required fields
@@ -46,6 +49,10 @@ export const createPackage = async (req, res) => {
     }
 
     const weightNum = Number(packageWeight);
+    const lengthNum = Number(length) || 0;
+    const widthNum = Number(width) || 0;
+    const heightNum = Number(height) || 0;
+
     if (Number.isNaN(weightNum) || weightNum <= 0) {
       return res.status(400).json({ message: 'Package weight must be a positive number' });
     }
@@ -55,45 +62,33 @@ export const createPackage = async (req, res) => {
     }
 
     // Handle image input — support multiple input shapes:
-    // 1) multipart file(s): req.files.image or req.files.images (express-fileupload)
-    // 2) base64 string(s) in req.body.images (string or array of dataURI strings)
-    // We'll accept one image (first) per your "only one image" request.
     let imageUrls = [];
 
     // 1) multipart file present?
     if (req.files && (req.files.image || req.files.images)) {
-      // If images is array-like or single file
       const fileField = req.files.image || req.files.images;
-      // fileField may be an array or single file object
       const fileObj = Array.isArray(fileField) ? fileField[0] : fileField;
 
-      // fileObj has: name, mimetype, data (Buffer) if useTempFiles: false
-      if (!fileObj || !fileObj.data) {
-        return res.status(400).json({ message: 'Invalid uploaded file' });
+      if (fileObj && fileObj.data) {
+        const mime = fileObj.mimetype || 'image/jpeg';
+        const base64 = fileObj.data.toString('base64');
+        const dataUri = `data:${mime};base64,${base64}`;
+        const url = await uploadToCloudinary(dataUri);
+        imageUrls.push(url);
       }
-
-      // convert buffer to base64 data URI
-      const mime = fileObj.mimetype || 'image/jpeg';
-      const base64 = fileObj.data.toString('base64');
-      const dataUri = `data:${mime};base64,${base64}`;
-
-      const url = await uploadToCloudinary(dataUri);
-      imageUrls.push(url);
     }
-    // 2) base64 in JSON body? accept req.body.image (single) or req.body.images (array)
+    // 2) base64 in JSON body?
     else if (req.body.image || req.body.images) {
       const bodyImgs = req.body.image ? req.body.image : req.body.images;
       const arr = Array.isArray(bodyImgs) ? bodyImgs : [bodyImgs];
       const first = arr[0];
       if (first) {
-        // if it's already an http url, keep; else assume dataURI base64
         if (/^https?:\/\//i.test(first)) {
           imageUrls.push(first);
         } else if (/^data:([a-zA-Z0-9\/+.-]+);base64,/.test(first)) {
           const url = await uploadToCloudinary(first);
           imageUrls.push(url);
         } else {
-          // If the client sent raw base64 without data URI prefix, allow that:
           const dataUri = `data:image/jpeg;base64,${first}`;
           const url = await uploadToCloudinary(dataUri);
           imageUrls.push(url);
@@ -101,7 +96,7 @@ export const createPackage = async (req, res) => {
       }
     }
 
-    // Create and save package (images is array of urls or empty)
+    // Create and save package
     const newPackage = new Package({
       userId,
       fromCountry,
@@ -109,11 +104,14 @@ export const createPackage = async (req, res) => {
       toCountry,
       toCity,
       packageWeight: weightNum,
+      length: lengthNum,
+      width: widthNum,
+      height: heightNum,
       receiverName,
       receiverPhone,
       description,
-      images: imageUrls,     // store array of strings (urls)
-      value: value || null,  // store provided value
+      image: imageUrls[0] || null,
+      value: value || null,
     });
 
     await newPackage.save();

@@ -115,49 +115,58 @@ export default function Shipments({ user }) {
 
             {/* Dispute Modal */}
             {selectedRequest && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-                    <div className="bg-white w-full max-w-lg rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="p-8 border-b border-gray-50 flex flex-col items-center gap-4 bg-red-50/30">
-                            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
-                                <AlertTriangle size={32} />
-                            </div>
-                            <div className="text-center">
-                                <h3 className="text-2xl font-black text-[#054752]">Open a Dispute</h3>
-                                <p className="text-sm text-red-600 font-bold mt-1">Order #{selectedRequest.trackingNumber}</p>
-                            </div>
-                        </div>
-                        <form onSubmit={handleRaiseDispute} className="p-8 space-y-6">
-                            <i className="text-xs font-medium text-gray-500 block text-center bg-gray-50 p-4 rounded-xl">
-                                Raising a dispute will pause payment release to the traveler. Our support team will investigate and mediate.
-                            </i>
-                            <div className="space-y-2">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Reason for Dispute</label>
-                                <textarea
-                                    value={disputeReason}
-                                    onChange={(e) => setDisputeReason(e.target.value)}
-                                    placeholder="Please describe exactly what happened (e.g. package damaged, traveler unreachable, items missing...)"
-                                    className="w-full px-4 py-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none text-sm font-medium min-h-[120px] focus:border-red-400 focus:bg-white transition-all"
-                                    required
-                                />
-                            </div>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                    <div className="relative bg-white w-full max-w-lg rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100/50">
+                        {/* Corner Accent */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-bl-full -mr-16 -mt-16 z-0"></div>
 
-                            <div className="flex gap-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedRequest(null)}
-                                    className="flex-1 py-4 rounded-2xl font-black text-gray-500 hover:bg-gray-100 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmittingDispute}
-                                    className="flex-[2] bg-red-500 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-red-200 hover:bg-red-600 transition-all flex items-center justify-center gap-3"
-                                >
-                                    {isSubmittingDispute ? <RefreshCw className="animate-spin" size={20} /> : 'Submit Dispute'}
-                                </button>
+                        <div className="relative z-10">
+                            <div className="p-8 md:p-10 border-b border-gray-50 flex flex-col items-center gap-4 bg-red-50/20">
+                                <div className="w-20 h-20 bg-white text-red-500 rounded-[24px] flex items-center justify-center shadow-lg shadow-red-500/10">
+                                    <AlertTriangle size={36} />
+                                </div>
+                                <div className="text-center">
+                                    <h3 className="text-2xl font-black text-[#054752] uppercase tracking-tight">Open a Dispute</h3>
+                                    <p className="text-xs text-red-600 font-black mt-1 uppercase tracking-widest">Order #{selectedRequest.trackingNumber}</p>
+                                </div>
                             </div>
-                        </form>
+                            <form onSubmit={handleRaiseDispute} className="p-8 md:p-10 space-y-8">
+                                <div className="bg-[#F8F6F3] p-5 rounded-2xl border border-gray-100 flex gap-3 italic">
+                                    <div className="text-red-500 shrink-0 mt-0.5"><AlertCircle size={16} /></div>
+                                    <p className="text-xs font-semibold text-[#054752]/70 leading-relaxed">
+                                        Raising a dispute will pause payment release to the traveler. Our support team will investigate and mediate.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-xs font-extrabold text-[#054752] uppercase tracking-[0.2em] ml-1">Reason for Dispute</label>
+                                    <textarea
+                                        value={disputeReason}
+                                        onChange={(e) => setDisputeReason(e.target.value)}
+                                        placeholder="Please describe exactly what happened (e.g. package damaged, traveler unreachable, items missing...)"
+                                        className="w-full px-6 py-5 bg-[#F8F6F3] rounded-3xl border border-transparent outline-none text-sm font-medium min-h-[140px] focus:ring-4 focus:ring-red-500/5 focus:border-red-500/30 transition-all text-[#054752]"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="flex gap-4 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedRequest(null)}
+                                        className="flex-1 py-5 rounded-2xl font-black text-gray-400 hover:text-gray-600 transition-all active:scale-95"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingDispute}
+                                        className="flex-[2] bg-red-500 text-white py-5 rounded-[22px] font-black text-lg shadow-2xl shadow-red-500/20 hover:bg-black hover:shadow-black/10 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                                    >
+                                        {isSubmittingDispute ? <RefreshCw className="animate-spin" size={20} /> : 'Submit Dispute'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}

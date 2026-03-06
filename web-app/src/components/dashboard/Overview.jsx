@@ -3,6 +3,81 @@ import { Shield, Plane, Package, CheckCircle, Clock, AlertCircle } from 'lucide-
 import { Link } from 'react-router-dom';
 
 export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStatus }) {
+    const renderKycContent = () => {
+        switch (kycStatus) {
+            case 'approved':
+                return (
+                    <div className="flex items-center gap-4 text-green-600 bg-green-50/50 p-6 rounded-3xl border border-green-100/50">
+                        <CheckCircle size={32} />
+                        <div>
+                            <p className="font-black uppercase tracking-widest text-xs">Verified</p>
+                            <p className="text-sm font-bold opacity-80">Full access enabled.</p>
+                        </div>
+                    </div>
+                );
+            case 'pending':
+            case 'processing':
+                return (
+                    <div className="flex items-center gap-4 text-amber-600 bg-amber-50/50 p-6 rounded-3xl border border-amber-100/50">
+                        <Clock size={32} className="animate-pulse" />
+                        <div>
+                            <p className="font-black uppercase tracking-widest text-xs">Under Review</p>
+                            <p className="text-sm font-bold opacity-80">Hang tight! Reviewing docs.</p>
+                        </div>
+                    </div>
+                );
+            case 'declined':
+                return (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4 text-red-600 bg-red-50/50 p-6 rounded-3xl border border-red-100/50">
+                            <AlertCircle size={32} />
+                            <div>
+                                <p className="font-black uppercase tracking-widest text-xs">Declined</p>
+                                <p className="text-sm font-bold opacity-80">Documents were rejected.</p>
+                            </div>
+                        </div>
+                        <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-4 rounded-2xl shadow-xl hover:scale-[1.02] transition-all">
+                            Try Again
+                        </button>
+                    </div>
+                );
+            case 'failed_verification':
+                return (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4 text-red-600 bg-red-50/50 p-6 rounded-3xl border border-red-100/50">
+                            <AlertCircle size={32} />
+                            <div>
+                                <p className="font-black uppercase tracking-widest text-xs">Data Mismatch</p>
+                                <p className="text-sm font-bold opacity-80">Your ID doesn't match your profile.</p>
+                            </div>
+                        </div>
+                        <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-4 rounded-2xl shadow-xl hover:scale-[1.02] transition-all">
+                            Verify Again
+                        </button>
+                    </div>
+                );
+            case 'blocked_duplicate':
+                return (
+                    <div className="flex items-center gap-4 text-red-600 bg-red-50/50 p-6 rounded-3xl border border-red-100/50">
+                        <Shield size={32} />
+                        <div>
+                            <p className="font-black uppercase tracking-widest text-xs">Blocked</p>
+                            <p className="text-sm font-bold opacity-80">ID used by another account.</p>
+                        </div>
+                    </div>
+                );
+            default:
+                return (
+                    <div className="space-y-6">
+                        <p className="text-sm text-gray-500 font-medium leading-relaxed">You need to verify your identity to post trips or request deliveries securely.</p>
+                        <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-4 rounded-2xl shadow-xl shadow-[#5845D8]/20 hover:scale-[1.02] transition-all active:scale-95">
+                            Verify Now
+                        </button>
+                    </div>
+                );
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -17,22 +92,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                         </div>
 
                         <div className="flex-1 flex flex-col justify-center relative z-10">
-                            {kycStatus === 'pending' || kycStatus === 'processing' ? (
-                                <div className="flex items-center gap-4 text-amber-600 bg-amber-50/50 p-6 rounded-3xl border border-amber-100/50">
-                                    <Clock size={32} className="animate-pulse" />
-                                    <div>
-                                        <p className="font-black uppercase tracking-widest text-xs">Under Review</p>
-                                        <p className="text-sm font-bold opacity-80">Hang tight! Reviewing docs.</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    <p className="text-sm text-gray-500 font-medium leading-relaxed">You need to verify your identity to post trips or request deliveries securely.</p>
-                                    <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-4 rounded-2xl shadow-xl shadow-[#5845D8]/20 hover:scale-[1.02] transition-all active:scale-95">
-                                        Verify Now
-                                    </button>
-                                </div>
-                            )}
+                            {renderKycContent()}
                         </div>
                     </div>
                 )}

@@ -55,9 +55,12 @@ export default function Dashboard() {
         if (!loading && !isAuthenticated) {
             navigate('/login?redirect=/dashboard');
         } else if (isAuthenticated) {
+            if (user?.isBanned) {
+                navigate('/banned');
+            }
             fetchKycStatus();
         }
-    }, [loading, isAuthenticated]);
+    }, [loading, isAuthenticated, user, navigate]);
 
     const fetchKycStatus = async () => {
         try {
@@ -100,7 +103,6 @@ export default function Dashboard() {
     };
 
     const renderTabContent = () => {
-        // Wrap each in error boundary-like try
         try {
             switch (activeTab) {
                 case 'overview': return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} />;
@@ -113,20 +115,43 @@ export default function Dashboard() {
             }
         } catch (err) {
             console.error('Tab render error:', err);
-            return (
-                <div className="text-center py-20">
-                    <p className="text-red-500 font-semibold">Something went wrong loading this section.</p>
-                    <button onClick={() => setActiveTab('overview')} className="mt-4 text-[#5845D8] underline text-sm">Go back to Overview</button>
-                </div>
-            );
+            return renderError(err);
         }
     };
 
+    const renderError = (error) => (
+        <div className="min-h-[60vh] flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+                <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <AlertCircle size={40} />
+                </div>
+                <h3 className="text-2xl font-black text-[#054752] mb-3">Something went wrong</h3>
+                <p className="text-gray-500 font-medium mb-8">We had trouble loading this section. Please try refreshing or return to overview.</p>
+                <div className="flex flex-col gap-3">
+                    <button onClick={() => window.location.reload()} className="bg-[#5845D8] text-white font-bold py-4 rounded-2xl shadow-lg ring-offset-2 active:scale-95 transition-all">
+                        Refresh Page
+                    </button>
+                    <button onClick={() => setActiveTab('overview')} className="text-[#5845D8] font-bold py-2 hover:opacity-70 transition-all">
+                        Back to Overview
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     if (loading || kycLoading) return (
         <div className="min-h-screen flex items-center justify-center bg-[#F8F6F3]">
-            <div className="flex flex-col items-center gap-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-[#5845D8]"></div>
-                <p className="font-black text-[#5845D8] animate-pulse uppercase tracking-widest text-xs">Loading Bago...</p>
+            <div className="flex flex-col items-center gap-6">
+                <div className="relative">
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#5845D8]"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="h-8 w-8 bg-[#5845D8]/10 rounded-full animate-pulse"></div>
+                    </div>
+                </div>
+                <div className="text-center">
+                    <p className="font-black text-[#054752] uppercase tracking-widest text-xs mb-1">Bago</p>
+                    <p className="text-[#5845D8] font-bold animate-pulse text-sm">Preparing your dashboard...</p>
+                </div>
             </div>
         </div>
     );

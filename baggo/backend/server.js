@@ -263,35 +263,91 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
     console.log(`✅ Stripe onboarding completed for user ${user.email}`);
 
     res.send(`
+       <!DOCTYPE html>
        <html>
          <head>
-           <title>Stripe Onboarding Complete</title>
+           <meta charset="utf-8">
+           <meta name="viewport" content="width=device-width, initial-scale=1">
+           <title>Bago — Onboarding Complete</title>
            <style>
+             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
              body {
-               font-family: Arial, sans-serif;
-               background-color: #f9fafb;
-               color: #111827;
+               font-family: 'Inter', system-ui, sans-serif;
+               background-color: #F8F6F3;
+               margin: 0;
                display: flex;
-               flex-direction: column;
                align-items: center;
                justify-content: center;
                height: 100vh;
-               text-align: center;
+               color: #054752;
              }
-             h2 {
-               color: #16a34a;
-               font-size: 1.8rem;
+             .card {
+               background: white;
+               padding: 48px;
+               border-radius: 32px;
+               box-shadow: 0 20px 50px rgba(5, 71, 82, 0.05);
+               max-width: 480px;
+               width: 90%;
+               text-align: center;
+               border: 1px solid rgba(5, 71, 82, 0.05);
+             }
+             .logo {
+               height: 48px;
+               margin-bottom: 32px;
+             }
+             .icon-circle {
+               width: 80px;
+               height: 80px;
+               background: #ECFDED;
+               color: #16A34A;
+               border-radius: 50%;
+               display: flex;
+               align-items: center;
+               justify-content: center;
+               font-size: 40px;
+               margin: 0 auto 24px;
+             }
+             h1 {
+               font-size: 24px;
+               font-weight: 800;
+               margin: 0 0 12px;
+               color: #054752;
              }
              p {
-               font-size: 1rem;
-               margin-top: 10px;
-               color: #374151;
+               font-size: 16px;
+               color: #708c91;
+               margin: 0 0 32px;
+               line-height: 1.6;
              }
+             .btn {
+               background: #5845D8;
+               color: white;
+               text-decoration: none;
+               padding: 16px 32px;
+               border-radius: 16px;
+               font-weight: 700;
+               display: block;
+               transition: transform 0.2s;
+               cursor: pointer;
+               border: none;
+             }
+             .btn:active { transform: scale(0.98); }
            </style>
          </head>
          <body>
-           <h2>✅ Stripe Onboarding Completed Successfully!</h2>
-           <p>You can now close this window and return to the app.</p>
+           <div class="card">
+             <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" class="logo" alt="Bago">
+             <div class="icon-circle">✓</div>
+             <h1>Payout Settings Enabled</h1>
+             <p>Your Stripe account has been linked successfully. You can now receive payouts from your earnings.</p>
+             <button onclick="window.close()" class="btn">Return to App</button>
+           </div>
+           <script>
+              setTimeout(() => {
+                // If in webview, this might not work, but good to have
+                window.location.href = 'baggo://dashboard';
+              }, 3000);
+           </script>
          </body>
        </html>
      `);
@@ -318,8 +374,87 @@ app.get('/api/stripe/onboarding/refresh', async (req, res) => {
     console.log(`⚠️ Stripe onboarding refresh triggered for user ${user.email}`);
 
     res.send(`
-      <h2>⚠️ Onboarding session expired or canceled.</h2>
-      <p>Please return to the app and restart the onboarding process.</p>
+       <!DOCTYPE html>
+       <html>
+         <head>
+           <meta charset="utf-8">
+           <meta name="viewport" content="width=device-width, initial-scale=1">
+           <title>Bago — Session Expired</title>
+           <style>
+             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+             body {
+               font-family: 'Inter', system-ui, sans-serif;
+               background-color: #F8F6F3;
+               margin: 0;
+               display: flex;
+               align-items: center;
+               justify-content: center;
+               height: 100vh;
+               color: #054752;
+             }
+             .card {
+               background: white;
+               padding: 48px;
+               border-radius: 32px;
+               box-shadow: 0 20px 50px rgba(5, 71, 82, 0.05);
+               max-width: 480px;
+               width: 90%;
+               text-align: center;
+               border: 1px solid rgba(5, 71, 82, 0.05);
+             }
+             .logo {
+               height: 48px;
+               margin-bottom: 32px;
+             }
+             .icon-circle {
+               width: 80px;
+               height: 80px;
+               background: #FEF2F2;
+               color: #EF4444;
+               border-radius: 50%;
+               display: flex;
+               align-items: center;
+               justify-content: center;
+               font-size: 40px;
+               margin: 0 auto 24px;
+             }
+             h1 {
+               font-size: 24px;
+               font-weight: 800;
+               margin: 0 0 12px;
+               color: #054752;
+             }
+             p {
+               font-size: 16px;
+               color: #708c91;
+               margin: 0 0 32px;
+               line-height: 1.6;
+             }
+             .btn {
+               background: #5845D8;
+               color: white;
+               text-decoration: none;
+               padding: 16px 32px;
+               border-radius: 16px;
+               font-weight: 700;
+               display: block;
+               transition: transform 0.2s;
+               cursor: pointer;
+               border: none;
+             }
+             .btn:active { transform: scale(0.98); }
+           </style>
+         </head>
+         <body>
+           <div class="card">
+             <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" class="logo" alt="Bago">
+             <div class="icon-circle">!</div>
+             <h1>Session Interrupted</h1>
+             <p>The onboarding session expired or was cancelled. Your progress won't be saved until you complete the link.</p>
+             <button onclick="window.close()" class="btn">Return to App</button>
+           </div>
+         </body>
+       </html>
     `);
   } catch (error) {
     console.error('❌ Stripe Onboarding Refresh Error:', error);

@@ -21,12 +21,18 @@ export const recentOrder = async (req, res, next) => {
 
 
     const data = recent.map((request) => ({
-      requestId: request._id,
+      _id: request._id,
       package: request.package,
-      traveler: request.traveler,
+      travelerName: request.traveler?.firstName || 'Traveler',
+      travelerEmail: request.traveler?.email,
+      originCity: request.package?.fromCity,
+      originCountry: request.package?.fromCountry,
+      destinationCity: request.package?.toCity,
+      destinationCountry: request.package?.toCountry,
       status: request.status,
       insurance: request.insurance,
       insuranceCost: request.insuranceCost,
+      trackingNumber: request.trackingNumber,
       createdAt: request.createdAt,
     }));
 
