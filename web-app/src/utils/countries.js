@@ -1,0 +1,40 @@
+export const countries = [
+    { label: 'United States', value: 'US', flag: '🇺🇸' },
+    { label: 'United Kingdom', value: 'GB', flag: '🇬🇧' },
+    { label: 'Canada', value: 'CA', flag: '🇨🇦' },
+    { label: 'Australia', value: 'AU', flag: '🇦🇺' },
+    { label: 'Germany', value: 'DE', flag: '🇩🇪' },
+    { label: 'France', value: 'FR', flag: '🇫🇷' },
+    { label: 'Spain', value: 'ES', flag: '🇪🇸' },
+    { label: 'Italy', value: 'IT', flag: '🇮🇹' },
+    { label: 'Nigeria', value: 'NG', flag: '🇳🇬' },
+    { label: 'South Africa', value: 'ZA', flag: '🇿🇦' },
+    { label: 'Kenya', value: 'KE', flag: '🇰🇪' },
+    { label: 'Ghana', value: 'GH', flag: '🇬🇭' },
+    { label: 'India', value: 'IN', flag: '🇮🇳' },
+    { label: 'China', value: 'CN', flag: '🇨🇳' },
+    { label: 'Japan', value: 'JP', flag: '🇯🇵' },
+    { label: 'Brazil', value: 'BR', flag: '🇧🇷' },
+    { label: 'Mexico', value: 'MX', flag: '🇲🇽' },
+    { label: 'United Arab Emirates', value: 'AE', flag: '🇦🇪' }
+];
+
+export const locations = [
+    { label: 'London, UK', city: 'London', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'New York, USA', city: 'New York', country: 'United States', flag: '🇺🇸' },
+    { label: 'Lagos, Nigeria', city: 'Lagos', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Abuja, Nigeria', city: 'Abuja', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Accra, Ghana', city: 'Accra', country: 'Ghana', flag: '🇬🇭' },
+    { label: 'Nairobi, Kenya', city: 'Nairobi', country: 'Kenya', flag: '🇰🇪' },
+    { label: 'Johannesburg, South Africa', city: 'Johannesburg', country: 'South Africa', flag: '🇿🇦' },
+    { label: 'Paris, France', city: 'Paris', country: 'France', flag: '🇫🇷' },
+    { label: 'Berlin, Germany', city: 'Berlin', country: 'Germany', flag: '🇩🇪' },
+    { label: 'Toronto, Canada', city: 'Toronto', country: 'Canada', flag: '🇨🇦' },
+    { label: 'Sydney, Australia', city: 'Sydney', country: 'Australia', flag: '🇦🇺' },
+    { label: 'Dubai, UAE', city: 'Dubai', country: 'United Arab Emirates', flag: '🇦🇪' },
+    { label: 'Mumbai, India', city: 'Mumbai', country: 'India', flag: '🇮🇳' },
+    { label: 'Beijing, China', city: 'Beijing', country: 'China', flag: '🇨🇳' },
+    { label: 'Tokyo, Japan', city: 'Tokyo', country: 'Japan', flag: '🇯🇵' },
+    { label: 'Madrid, Spain', city: 'Madrid', country: 'Spain', flag: '🇪🇸' },
+    { label: 'Rome, Italy', city: 'Rome', country: 'Italy', flag: '🇮🇹' }
+].sort((a, b) => a.label.localeCompare(b.label));

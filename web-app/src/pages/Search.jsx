@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import api from '../api';
+import Select from 'react-select';
+import { locations } from '../utils/countries';
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -214,10 +216,32 @@ export default function Search() {
     const [searchParams] = useSearchParams();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    const locationOptions = locations.map(loc => ({
+        value: loc.city,
+        label: (
+            <div className="flex items-center gap-2">
+                <span>{loc.flag}</span>
+                <span>{loc.label}</span>
+            </div>
+        ),
+        city: loc.city,
+        country: loc.country,
+        flag: loc.flag
+    }));
+
+    const initialOrigin = searchParams.get('origin')
+        ? locationOptions.find(o => o.city === searchParams.get('origin')) || { value: searchParams.get('origin'), label: searchParams.get('origin'), city: searchParams.get('origin') }
+        : null;
+
+    const initialDestination = searchParams.get('destination')
+        ? locationOptions.find(o => o.city === searchParams.get('destination')) || { value: searchParams.get('destination'), label: searchParams.get('destination'), city: searchParams.get('destination') }
+        : null;
+
     const [filters, setFilters] = useState({
-        origin: searchParams.get('origin') || '',
-        destination: searchParams.get('destination') || '',
-        date: '',
+        origin: initialOrigin,
+        destination: initialDestination,
+        date: searchParams.get('date') || '',
         transportMode: '',
         maxPrice: 50,
         weight: ''
@@ -253,12 +277,12 @@ export default function Search() {
                 let filtered = joinedTrips;
                 if (filters.origin) {
                     filtered = filtered.filter(t =>
-                        t.origin.toLowerCase().includes(filters.origin.toLowerCase())
+                        t.origin.toLowerCase().includes(filters.origin.city.toLowerCase())
                     );
                 }
                 if (filters.destination) {
                     filtered = filtered.filter(t =>
-                        t.destination.toLowerCase().includes(filters.destination.toLowerCase())
+                        t.destination.toLowerCase().includes(filters.destination.city.toLowerCase())
                     );
                 }
                 if (filters.weight) {
@@ -294,7 +318,7 @@ export default function Search() {
                     </h1>
                     <p className="text-[#708c91] font-medium">
                         {filters.origin && filters.destination
-                            ? `${filters.origin} → ${filters.destination}`
+                            ? `${filters.origin.city} → ${filters.destination.city}`
                             : 'Find travelers to deliver your package'}
                     </p>
                 </div>
@@ -304,22 +328,40 @@ export default function Search() {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-bold text-gray-500 uppercase px-1">From (City/Country)</label>
-                            <input
-                                type="text"
-                                placeholder="Departure location"
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                            <Select
+                                options={locationOptions}
                                 value={filters.origin}
-                                onChange={(e) => setFilters({ ...filters, origin: e.target.value })}
+                                onChange={(val) => setFilters({ ...filters, origin: val })}
+                                placeholder="Departure location"
+                                className="w-full text-sm font-medium"
+                                styles={{
+                                    control: (base) => ({
+                                        ...base,
+                                        borderRadius: '12px',
+                                        borderColor: '#E5E7EB',
+                                        padding: '4px',
+                                        '&:hover': { borderColor: '#5845D8' }
+                                    })
+                                }}
                             />
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-bold text-gray-500 uppercase px-1">To (City/Country)</label>
-                            <input
-                                type="text"
-                                placeholder="Arrival location"
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none"
+                            <Select
+                                options={locationOptions}
                                 value={filters.destination}
-                                onChange={(e) => setFilters({ ...filters, destination: e.target.value })}
+                                onChange={(val) => setFilters({ ...filters, destination: val })}
+                                placeholder="Arrival location"
+                                className="w-full text-sm font-medium"
+                                styles={{
+                                    control: (base) => ({
+                                        ...base,
+                                        borderRadius: '12px',
+                                        borderColor: '#E5E7EB',
+                                        padding: '4px',
+                                        '&:hover': { borderColor: '#5845D8' }
+                                    })
+                                }}
                             />
                         </div>
                         <div className="flex flex-col gap-1">

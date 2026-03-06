@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
@@ -28,6 +30,9 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const io = new Server(httpServer, {
   cors: {
     origin: true,
@@ -393,6 +398,15 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
   }
 });
 
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../../web-app/dist')));
+
+// The "catchall" handler: for any request that doesn't
+// match one above, send back React's index.html file.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../web-app/dist/index.html'));
+});
 
 // ✅ Error handling middleware
 app.use((err, req, res, next) => {

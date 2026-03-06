@@ -30,6 +30,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../AuthContext';
 import api from '../api';
 import RecentTrips from '../components/RecentTrips';
+import Select from 'react-select';
+import { locations } from '../utils/countries';
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -332,23 +334,41 @@ const StickySearch = () => {
     const navigate = useNavigate();
     const { t } = useLanguage();
 
-    const [originCountry, setOriginCountry] = useState('');
-    const [originCity, setOriginCity] = useState('');
-    const [destinationCountry, setDestinationCountry] = useState('');
-    const [destinationCity, setDestinationCity] = useState('');
+    const [origin, setOrigin] = useState(null);
+    const [destination, setDestination] = useState(null);
     const [date, setDate] = useState('');
+
+    const locationOptions = locations.map(loc => ({
+        value: loc.city,
+        label: (
+            <div className="flex items-center gap-2">
+                <span>{loc.flag}</span>
+                <span>{loc.label}</span>
+            </div>
+        ),
+        city: loc.city,
+        country: loc.country,
+        flag: loc.flag
+    }));
 
     useEffect(() => {
         const fetchLocation = async () => {
             try {
                 const response = await fetch('https://ipapi.co/json/');
                 const data = await response.json();
-                if (data.country_name) {
-                    // Check if detected country is in our list, otherwise keep it empty or add it
-                    setOriginCountry(data.country_name);
-                }
                 if (data.city) {
-                    setOriginCity(data.city);
+                    const detected = locationOptions.find(opt => opt.city === data.city) || {
+                        value: data.city,
+                        label: (
+                            <div className="flex items-center gap-2">
+                                <span>📍</span>
+                                <span>{data.city}, {data.country_name}</span>
+                            </div>
+                        ),
+                        city: data.city,
+                        country: data.country_name
+                    };
+                    setOrigin(detected);
                 }
             } catch (err) {
                 console.error("Failed to auto-detect location", err);
@@ -361,65 +381,79 @@ const StickySearch = () => {
         e.preventDefault();
 
         const params = new URLSearchParams();
-        if (originCity) params.append('origin', originCity);
-        if (destinationCity) params.append('destination', destinationCity);
+        if (origin) params.append('origin', origin.city);
+        if (destination) params.append('destination', destination.city);
         if (date) params.append('date', date);
 
         navigate(`/search?${params.toString()}`);
+    };
+
+    const customStyles = {
+        control: (base) => ({
+            ...base,
+            border: 'none',
+            boxShadow: 'none',
+            background: 'transparent',
+            minHeight: 'auto',
+        }),
+        valueContainer: (base) => ({
+            ...base,
+            padding: '0 8px',
+        }),
+        input: (base) => ({
+            ...base,
+            margin: 0,
+            padding: 0,
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: '#708c91',
+            fontSize: '14px',
+            fontWeight: '500',
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: '#054752',
+            fontSize: '14px',
+            fontWeight: '500',
+        }),
+        indicatorsContainer: (base) => ({
+            ...base,
+            display: 'none',
+        }),
     };
 
     return (
         <div className="sticky top-[75px] z-50 w-full px-6 md:px-12 max-w-[1240px] mx-auto">
             <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 flex flex-col relative overflow-hidden -mt-8 mb-8">
                 <form onSubmit={handleSearch} className="flex flex-col md:flex-row items-stretch w-full">
-                    <div className="flex w-full md:w-1/5 items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
+                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
                         <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <select
-                            value={originCountry}
-                            onChange={(e) => setOriginCountry(e.target.value)}
-                            className="outline-none text-sm font-medium w-full bg-transparent text-[#054752] appearance-none cursor-pointer"
-                            required
-                        >
-                            <option value="" disabled>Departure Country</option>
-                            {BAGO_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                            {originCountry && !BAGO_COUNTRIES.includes(originCountry) && <option value={originCountry}>{originCountry}</option>}
-                        </select>
+                        <div className="flex-1">
+                            <Select
+                                options={locationOptions}
+                                value={origin}
+                                onChange={setOrigin}
+                                placeholder="From (City)"
+                                styles={customStyles}
+                                isClearable
+                            />
+                        </div>
                     </div>
-                    <div className="flex w-full md:w-1/5 items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
+                    <div className="flex w-full md:w-[30%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
                         <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <input
-                            type="text"
-                            value={originCity}
-                            onChange={(e) => setOriginCity(e.target.value)}
-                            placeholder="Departure City"
-                            className="outline-none text-sm font-medium w-full bg-transparent text-[#054752] placeholder-[#708c91]"
-                            required
-                        />
+                        <div className="flex-1">
+                            <Select
+                                options={locationOptions}
+                                value={destination}
+                                onChange={setDestination}
+                                placeholder="To (City)"
+                                styles={customStyles}
+                                isClearable
+                            />
+                        </div>
                     </div>
-                    <div className="flex w-full md:w-1/5 items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
-                        <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <select
-                            value={destinationCountry}
-                            onChange={(e) => setDestinationCountry(e.target.value)}
-                            className="outline-none text-sm font-medium w-full bg-transparent text-[#054752] appearance-none cursor-pointer"
-                            required
-                        >
-                            <option value="" disabled>Destination Country</option>
-                            {BAGO_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex w-full md:w-1/5 items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100 group">
-                        <MapPin size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
-                        <input
-                            type="text"
-                            value={destinationCity}
-                            onChange={(e) => setDestinationCity(e.target.value)}
-                            placeholder="Destination City"
-                            className="outline-none text-sm font-medium w-full bg-transparent text-[#054752] placeholder-[#708c91]"
-                            required
-                        />
-                    </div>
-                    <div className="flex w-full md:w-1/5 items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
+                    <div className="flex w-full md:w-[25%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
                         <Calendar size={20} className="text-[#708c91] mr-3 flex-shrink-0" />
                         <input
                             type="date"
@@ -432,7 +466,7 @@ const StickySearch = () => {
                     </div>
                     <button
                         type="submit"
-                        className="w-full md:w-auto px-8 bg-[#5845D8] text-white py-4 font-bold hover:bg-[#4838B5] transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                        className="w-full md:w-[15%] px-8 bg-[#5845D8] text-white py-4 font-bold hover:bg-[#4838B5] transition-all hover:shadow-lg flex items-center justify-center gap-2"
                     >
                         <Search size={20} className="md:hidden" />
                         <span>{t('search')}</span>
