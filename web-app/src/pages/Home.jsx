@@ -647,7 +647,7 @@ const FAQSection = () => {
                 <div className="flex-1">
                     <span className="px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest">FAQs</span>
                     <h2 className="text-4xl md:text-6xl font-black text-white mt-8 leading-tight">
-                        Here are Answers Related to <span className="text-[#5845D8]">Bago Service</span>
+                        Here are Answers Related to <span className="text-[#A78BFA]">Bago Service</span>
                     </h2>
 
                     <div className="mt-20 relative w-full h-[400px] overflow-hidden rounded-[40px]">
@@ -655,7 +655,7 @@ const FAQSection = () => {
                         <img src="/assets/traveler_join.png" alt="Traveler" className="w-full h-full object-cover" />
                         <div className="absolute bottom-10 left-10 z-20 max-w-sm">
                             <h3 className="text-3xl font-black text-white mb-6">Join us in building the rails for global shipping.</h3>
-                            <button className="px-8 py-4 bg-[#5845D8] text-black font-black rounded-full shadow-lg hover:scale-105 transition-all">Get started for free</button>
+                            <button className="px-8 py-4 bg-[#5845D8] text-white font-black rounded-full shadow-lg hover:scale-105 transition-all">Get started for free</button>
                         </div>
                     </div>
                 </div>
@@ -848,7 +848,7 @@ const DiscountPromo = () => {
 
 const AppPromotionSection = () => {
     return (
-        <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-24 bg-white overflow-hidden">
+        <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-24 bg-[#5845D8] overflow-hidden">
             <div className="flex flex-col lg:flex-row items-center gap-20">
                 {/* QR Code / Visual Side */}
                 <motion.div
@@ -881,7 +881,7 @@ const AppPromotionSection = () => {
                                 {/* Mock QR Code */}
                                 <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://bago.com')] bg-cover opacity-80"></div>
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] opacity-60">Scan to get app</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5845D8]/60">Scan to get app</span>
                         </motion.div>
                     </div>
                 </motion.div>
@@ -893,16 +893,16 @@ const AppPromotionSection = () => {
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6 }}
-                        className="text-5xl md:text-7xl font-black text-[#5845D8] mb-6 leading-[0.9] tracking-tighter"
+                        className="text-5xl md:text-7xl font-black text-white mb-6 leading-[0.9] tracking-tighter"
                     >
-                        Our free <span className="opacity-20 underline decoration-[#5845D8] decoration-8 underline-offset-[12px]">app.</span>
+                        Our free <span className="opacity-20 underline decoration-white/30 decoration-8 underline-offset-[12px]">app.</span>
                     </motion.h2>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6, delay: 0.1 }}
-                        className="text-[#6B7280] text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
+                        className="text-white/80 text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
                     >
                         One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.
                     </motion.p>
@@ -922,12 +922,12 @@ const AppPromotionSection = () => {
                                 transition={{ delay: i * 0.1 }}
                                 className="flex flex-col items-center lg:items-start gap-4 group cursor-default"
                             >
-                                <div className="w-12 h-12 rounded-2xl bg-[#5845D8]/5 flex items-center justify-center text-[#5845D8] group-hover:bg-[#5845D8] group-hover:text-white transition-all duration-300 transform group-hover:-rotate-6">
+                                <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white group-hover:bg-white group-hover:text-[#5845D8] transition-all duration-300 transform group-hover:-rotate-6">
                                     <item.icon size={22} />
                                 </div>
                                 <div>
-                                    <h4 className="font-black text-[#5845D8] text-sm uppercase tracking-widest mb-2 group-hover:text-[#5845D8] transition-colors">{item.title}</h4>
-                                    <p className="text-[13px] text-[#6B7280] font-bold leading-relaxed opacity-60">{item.desc}</p>
+                                    <h4 className="font-black text-white text-sm uppercase tracking-widest mb-2 group-hover:text-white/80 transition-colors">{item.title}</h4>
+                                    <p className="text-[13px] text-white/60 font-bold leading-relaxed opacity-60">{item.desc}</p>
                                 </div>
                             </motion.div>
                         ))}
