@@ -534,14 +534,15 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
 });
 
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../../web-app/dist')));
+// Serve static files from the React app (disabled for development - frontend runs separately)
+// app.use(express.static(path.join(__dirname, '../../web-app/dist')));
 
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../web-app/dist/index.html'));
-});
+// Note: Disabled during development to avoid path-to-regexp error with '*' wildcard
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, '../../web-app/dist/index.html'));
+// });
 
 // ✅ Error handling middleware
 app.use((err, req, res, next) => {
