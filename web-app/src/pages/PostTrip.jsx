@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
     MapPin,
     Calendar,
@@ -22,17 +23,18 @@ import { locations, countries } from '../utils/countries';
 
 const COUNTRY_OPTIONS = countries.sort((a, b) => a.label.localeCompare(b.label));
 
-// Cities filtered by country
-const getCitiesForCountry = (countryName) =>
-    locations.filter(loc => loc.country === countryName);
+// Cities filtered by country — locations uses loc.country which matches c.label
+const getCitiesForCountry = (countryLabel) =>
+    locations.filter(loc => loc.country === countryLabel);
 
 const Navbar = () => {
     const navigate = useNavigate();
+    const { t } = useLanguage();
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-3 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[#054752] hover:text-[#5845D8]">
                 <ChevronLeft size={24} />
-                <span className="font-semibold">Back</span>
+                <span className="font-semibold">{t('back')}</span>
             </button>
             <Link to="/" className="flex items-center">
                 <img src="/bago_logo.png" alt="Bago" className="h-8 w-auto" />
@@ -44,6 +46,7 @@ const Navbar = () => {
 
 export default function PostTrip() {
     const { user, isAuthenticated } = useAuth();
+    const { t } = useLanguage();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -111,8 +114,8 @@ export default function PostTrip() {
         });
     };
 
-    const getCountryFlag = (countryName) => {
-        const found = COUNTRY_OPTIONS.find(c => c.label === countryName);
+    const getCountryFlag = (countryLabel) => {
+        const found = COUNTRY_OPTIONS.find(c => c.label === countryLabel);
         return found?.flag || '';
     };
 
@@ -131,12 +134,18 @@ export default function PostTrip() {
         if (kycStatus !== 'approved') {
             localStorage.setItem('pending_trip_post', JSON.stringify(formData));
             setLoading(false);
-            navigate('/dashboard', { state: { message: 'Please complete Identity Verification before posting your trip.' } });
+            navigate('/dashboard', { state: { message: t('kycRequired') } });
             return;
         }
 
         if (!formData.originCountry || !formData.destinationCountry) {
-            setError('Please select both origin and destination countries.');
+            setError(t('selectCountry'));
+            setLoading(false);
+            return;
+        }
+
+        if (formData.originCountry === formData.destinationCountry && formData.originCity === formData.destinationCity && formData.originCity !== '') {
+            setError('Origin and destination city cannot be the same for domestic trips.');
             setLoading(false);
             return;
         }
@@ -148,9 +157,6 @@ export default function PostTrip() {
         }
 
         try {
-            const originFlag = getCountryFlag(formData.originCountry);
-            const destFlag = getCountryFlag(formData.destinationCountry);
-
             const backendData = {
                 fromLocation: formData.originCity
                     ? `${formData.originCity}, ${formData.originCountry}`
@@ -192,8 +198,8 @@ export default function PostTrip() {
 
             <div className="max-w-2xl mx-auto px-4 py-8">
                 <div className="mb-8">
-                    <h1 className="text-3xl md:text-4xl font-black text-[#054752] mb-2">Post Your Trip</h1>
-                    <p className="text-[#708c91] font-medium">Share your journey and earn by delivering packages</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-[#054752] mb-2">{t('postTripTitle')}</h1>
+                    <p className="text-[#708c91] font-medium">{t('postTripSubtitle')}</p>
                 </div>
 
                 {success ? (
@@ -201,9 +207,9 @@ export default function PostTrip() {
                         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                             <CheckCircle size={44} className="text-green-500" />
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-3">Trip Posted! 🎉</h2>
-                        <p className="text-gray-500 mb-2">Your trip is now live. Package senders can find and book your available space.</p>
-                        <p className="text-sm text-gray-400">Redirecting to your dashboard…</p>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-3">{t('tripPosted')}</h2>
+                        <p className="text-gray-500 mb-2">{t('tripSuccessDesc')}</p>
+                        <p className="text-sm text-gray-400">{t('redirectDashboard')}</p>
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -218,14 +224,14 @@ export default function PostTrip() {
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <h3 className="text-lg font-bold text-[#054752] mb-5 flex items-center gap-2">
                                 <MapPin size={20} className="text-[#5845D8]" />
-                                Route
+                                {t('route')}
                             </h3>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Origin */}
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">From — Country</label>
+                                        <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">{t('fromCountry')}</label>
                                         <select
                                             name="originCountry"
                                             value={formData.originCountry}
@@ -233,24 +239,24 @@ export default function PostTrip() {
                                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm bg-white"
                                             required
                                         >
-                                            <option value="">Select country…</option>
+                                            <option value="">{t('selectCountry')}</option>
                                             {COUNTRY_OPTIONS.map(c => (
-                                                <option key={c.name} value={c.name}>
-                                                    {c.flag} {c.name}
+                                                <option key={c.label} value={c.label}>
+                                                    {c.flag} {c.label}
                                                 </option>
                                             ))}
                                         </select>
                                     </div>
                                     {originCities.length > 0 && (
                                         <div>
-                                            <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">From — City</label>
+                                            <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">{t('fromCity')}</label>
                                             <select
                                                 name="originCity"
                                                 value={formData.originCity}
                                                 onChange={handleChange}
                                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm bg-white"
                                             >
-                                                <option value="">Any city in {formData.originCountry}</option>
+                                                <option value="">{t('anyCity')} {formData.originCountry}</option>
                                                 {originCities.map(loc => (
                                                     <option key={loc.city} value={loc.city}>{loc.city}</option>
                                                 ))}
@@ -262,7 +268,7 @@ export default function PostTrip() {
                                 {/* Destination */}
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">To — Country</label>
+                                        <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">{t('toCountry')}</label>
                                         <select
                                             name="destinationCountry"
                                             value={formData.destinationCountry}
@@ -270,24 +276,24 @@ export default function PostTrip() {
                                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm bg-white"
                                             required
                                         >
-                                            <option value="">Select country…</option>
+                                            <option value="">{t('selectCountry')}</option>
                                             {COUNTRY_OPTIONS.map(c => (
-                                                <option key={c.name} value={c.name}>
-                                                    {c.flag} {c.name}
+                                                <option key={c.label} value={c.label}>
+                                                    {c.flag} {c.label}
                                                 </option>
                                             ))}
                                         </select>
                                     </div>
                                     {destinationCities.length > 0 && (
                                         <div>
-                                            <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">To — City</label>
+                                            <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">{t('toCity')}</label>
                                             <select
                                                 name="destinationCity"
                                                 value={formData.destinationCity}
                                                 onChange={handleChange}
                                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm bg-white"
                                             >
-                                                <option value="">Any city in {formData.destinationCountry}</option>
+                                                <option value="">{t('anyCity')} {formData.destinationCountry}</option>
                                                 {destinationCities.map(loc => (
                                                     <option key={loc.city} value={loc.city}>{loc.city}</option>
                                                 ))}
@@ -311,11 +317,11 @@ export default function PostTrip() {
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <h3 className="text-lg font-bold text-[#054752] mb-5 flex items-center gap-2">
                                 <Calendar size={20} className="text-[#5845D8]" />
-                                Travel Dates
+                                {t('travelDates')}
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">Departure Date</label>
+                                    <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">{t('departureDate')}</label>
                                     <input
                                         type="date"
                                         name="departureDate"
@@ -327,7 +333,7 @@ export default function PostTrip() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">Arrival Date</label>
+                                    <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">{t('arrivalDate')}</label>
                                     <input
                                         type="date"
                                         name="arrivalDate"
@@ -343,7 +349,7 @@ export default function PostTrip() {
 
                         {/* ── Transport Mode ── */}
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                            <h3 className="text-lg font-bold text-[#054752] mb-5">Transport Mode</h3>
+                            <h3 className="text-lg font-bold text-[#054752] mb-5">{t('transportMode')}</h3>
                             <div className="grid grid-cols-5 gap-3">
                                 {transportModes.map(({ value, icon: Icon, label }) => (
                                     <button
@@ -366,10 +372,10 @@ export default function PostTrip() {
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <h3 className="text-lg font-bold text-[#054752] mb-5 flex items-center gap-2">
                                 <Package size={20} className="text-[#5845D8]" />
-                                Capacity
+                                {t('capacity')}
                             </h3>
                             <div>
-                                <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">Available Weight (kg)</label>
+                                <label className="block text-xs font-bold text-[#708c91] uppercase mb-1.5 tracking-wide">{t('availableWeight')}</label>
                                 <input
                                     type="number"
                                     name="availableWeight"
@@ -382,28 +388,28 @@ export default function PostTrip() {
                                     placeholder="e.g., 10"
                                     required
                                 />
-                                <p className="text-xs text-gray-400 mt-1">Maximum 50 kg per trip</p>
+                                <p className="text-xs text-gray-400 mt-1">{t('maxWeight')}</p>
                             </div>
                             <div className="mt-4 bg-[#5845D8]/5 border border-[#5845D8]/20 rounded-xl p-4">
                                 <h4 className="font-bold text-[#5845D8] flex items-center gap-2 text-sm mb-1">
-                                    <Wallet size={16} /> Earnings via Bago Wallet
+                                    <Wallet size={16} /> {t('earningsWallet')}
                                 </h4>
                                 <p className="text-xs text-[#054752] leading-relaxed">
-                                    Earnings are credited to your Bago Wallet after delivery. Withdraw via <strong>Stripe Connect</strong> (Global) or <strong>Paystack</strong> (Africa).
+                                    {t('earningsDesc')}
                                 </p>
                             </div>
                         </div>
 
                         {/* ── Notes ── */}
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                            <label className="block text-sm font-bold text-[#054752] mb-2">Additional Notes <span className="text-gray-400 font-normal">(optional)</span></label>
+                            <label className="block text-sm font-bold text-[#054752] mb-2">{t('additionalNotes')} <span className="text-gray-400 font-normal">({t('optional') || 'optional'})</span></label>
                             <textarea
                                 name="additionalNotes"
                                 value={formData.additionalNotes}
                                 onChange={handleChange}
                                 rows="3"
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#5845D8] outline-none resize-none text-sm"
-                                placeholder="Any special requirements or information about your trip…"
+                                placeholder={t('notesPlaceholder')}
                             />
                         </div>
 
@@ -412,7 +418,7 @@ export default function PostTrip() {
                             disabled={loading}
                             className="w-full bg-[#5845D8] text-white py-4 rounded-xl font-bold text-base hover:bg-[#4838B5] transition-colors disabled:opacity-50 shadow-lg"
                         >
-                            {loading ? 'Posting trip…' : 'Post Trip'}
+                            {loading ? t('postingTrip') : t('shareRide')}
                         </button>
 
                         <p className="text-xs text-gray-400 text-center pb-4">
@@ -424,3 +430,4 @@ export default function PostTrip() {
         </div>
     );
 }
+

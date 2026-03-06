@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 import {
     ChevronLeft,
     Search,
@@ -17,11 +18,12 @@ import {
 
 const Navbar = () => {
     const navigate = useNavigate();
+    const { t } = useLanguage();
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-4 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[#054752] hover:text-[#5845D8] transition-all font-bold">
                 <ChevronLeft size={24} />
-                <span>Back</span>
+                <span>{t('back')}</span>
             </button>
             <Link to="/">
                 <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-10" />
@@ -52,11 +54,13 @@ const FAQItem = ({ question, answer }) => {
 };
 
 export default function HelpCenter() {
+    const { t } = useLanguage();
+
     const categories = [
-        { icon: Package, title: 'Shipping & Delivery', color: 'bg-blue-50 text-blue-600', link: '#shipping' },
-        { icon: CreditCard, title: 'Payments & Fees', color: 'bg-green-50 text-green-600', link: '#payments' },
-        { icon: Shield, title: 'Security & Verification', color: 'bg-purple-50 text-purple-600', link: '#security' },
-        { icon: HelpCircle, title: 'General Info', color: 'bg-orange-50 text-orange-600', link: '#general' }
+        { icon: Package, title: t('shippingGuide'), color: 'bg-blue-50 text-blue-600', link: '#shipping' },
+        { icon: CreditCard, title: t('paymentPricing'), color: 'bg-green-50 text-green-600', link: '#payments' },
+        { icon: Shield, title: t('safetyTrust'), color: 'bg-purple-50 text-purple-600', link: '#security' },
+        { icon: HelpCircle, title: t('accountSettings'), color: 'bg-orange-50 text-orange-600', link: '#general' }
     ];
 
     const faqs = [
@@ -90,11 +94,11 @@ export default function HelpCenter() {
             <div className="bg-[#054752] py-20 px-6 text-center text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
                 <div className="max-w-3xl mx-auto relative z-10">
-                    <h1 className="text-4xl md:text-5xl font-black mb-6">How can we help?</h1>
+                    <h1 className="text-4xl md:text-5xl font-black mb-6">{t('helpCenterTitle')}</h1>
                     <div className="relative max-w-xl mx-auto">
                         <input
                             type="text"
-                            placeholder="Search for articles, topics..."
+                            placeholder={t('searchHelp')}
                             className="w-full py-4 pl-12 pr-6 rounded-2xl bg-white text-[#054752] font-medium outline-none shadow-lg"
                         />
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />

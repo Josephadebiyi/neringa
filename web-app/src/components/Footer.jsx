@@ -5,9 +5,7 @@ import { Globe, ChevronDown, Check } from 'lucide-react';
 
 export default function Footer() {
     const navigate = useNavigate();
-    const { t, currentLanguage, setLanguage, languages, currentLangData, currency, setCurrency } = useLanguage();
-
-    const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NGN', 'ZAR', 'KES', 'GHS'];
+    const { t, currentLanguage, setLanguage, languages, currentLangData, currency, setCurrency, currencies, currentCurrencyData } = useLanguage();
 
     return (
         <footer className="bg-[#f2f2f2] pt-16 pb-12 mt-10">
@@ -15,22 +13,22 @@ export default function Footer() {
                 <div className="flex flex-col gap-5">
                     <h4 className="font-bold text-[#054752] text-md">Ship with Bago</h4>
                     <div className="flex flex-col gap-4 text-[14px] font-medium text-[#708c91]">
-                        <Link to="/search" className="hover:text-[#5845D8] transition-colors">Find a Route</Link>
-                        <Link to="/track" className="hover:text-[#5845D8] transition-colors">Track Shipment</Link>
-                        <Link to="/send-package" className="hover:text-[#5845D8] transition-colors">Send a Package</Link>
+                        <Link to="/search" className="hover:text-[#5845D8] transition-colors">{t('home')}</Link>
+                        <Link to="/track" className="hover:text-[#5845D8] transition-colors">{t('track')}</Link>
+                        <Link to="/send-package" className="hover:text-[#5845D8] transition-colors">{t('sendPackageTitle')}</Link>
                     </div>
                 </div>
                 <div className="flex flex-col gap-5">
                     <h4 className="font-bold text-[#054752] text-md">Travel with Bago</h4>
                     <div className="flex flex-col gap-4 text-[14px] font-medium text-[#708c91]">
-                        <Link to="/post-trip" className="hover:text-[#5845D8] transition-colors">Post a Trip</Link>
-                        <Link to="/how-it-works" className="hover:text-[#5845D8] transition-colors">How it works</Link>
+                        <Link to="/post-trip" className="hover:text-[#5845D8] transition-colors">{t('shareRide')}</Link>
+                        <Link to="/how-it-works" className="hover:text-[#5845D8] transition-colors">{t('howItWorks')}</Link>
                     </div>
                 </div>
                 <div className="flex flex-col gap-5">
                     <h4 className="font-bold text-[#054752] text-md">Find out more</h4>
                     <div className="flex flex-col gap-4 text-[14px] font-medium text-[#708c91]">
-                        <Link to="/about" className="hover:text-[#5845D8] transition-colors">Who we are</Link>
+                        <Link to="/about" className="hover:text-[#5845D8] transition-colors">{t('about')}</Link>
                         <Link to="/help" className="hover:text-[#5845D8] transition-colors">Help Centre</Link>
                         <Link to="/terms" className="hover:text-[#5845D8] transition-colors">Terms and Conditions</Link>
                         <Link to="/privacy" className="hover:text-[#5845D8] transition-colors">Privacy Policy</Link>
@@ -66,7 +64,7 @@ export default function Footer() {
                                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-[#054752] appearance-none outline-none focus:border-[#5845D8] transition-all cursor-pointer"
                             >
                                 {currencies.map(c => (
-                                    <option key={c} value={c}>{c}</option>
+                                    <option key={c.code} value={c.code}>{c.flag} {c.code} ({c.symbol})</option>
                                 ))}
                             </select>
                             <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
