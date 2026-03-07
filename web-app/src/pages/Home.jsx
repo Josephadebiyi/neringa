@@ -75,15 +75,7 @@ const Navbar = () => {
                     )}
                 </div>
 
-                {/* App Store buttons desktop */}
-                <div className="hidden md:flex items-center gap-2">
-                    <a href="#" className="hover:opacity-80 transition-opacity">
-                        <img src="/app-store.svg" alt="App Store" className="h-8 w-auto" />
-                    </a>
-                    <a href="#" className="hover:opacity-80 transition-opacity">
-                        <img src="/google-play.svg" alt="Google Play" className="h-8 w-auto" />
-                    </a>
-                </div>
+
 
                 {/* Auth */}
                 <div className="hidden md:flex items-center gap-3">
@@ -206,38 +198,41 @@ const HeroSection = () => {
 
     return (
         <section className="relative w-full bg-white overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[520px]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[280px] lg:min-h-[320px]">
                 {/* Left */}
-                <div className="flex flex-col justify-center px-6 md:px-12 py-16 lg:py-20 z-10">
-                    <span className="inline-block px-4 py-1.5 bg-[#5845D8]/8 text-[#5845D8] border border-[#5845D8]/15 rounded-full text-[11px] font-black uppercase tracking-widest mb-6 w-fit">
+                <div className="flex flex-col justify-center px-6 md:px-12 py-6 lg:py-8 z-10">
+                    <span className="inline-block px-4 py-1.5 bg-[#5845D8]/8 text-[#5845D8] border border-[#5845D8]/15 rounded-full text-[11px] font-black uppercase tracking-widest mb-4 w-fit">
                         Next Generation Shipping
                     </span>
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#012126] leading-[1.05] tracking-tight mb-6">
-                        {t('heroTitle') || 'International package delivery redefined.'}
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#012126] leading-[0.9] tracking-tighter mb-4">
+                        {(() => {
+                            const title = t('heroTitle') || 'International package delivery redefined.';
+                            const words = title.split(' ');
+                            return words.map((word, i) =>
+                                i === words.length - 1
+                                    ? <span key={i} className="opacity-20 text-gray-400">{word}</span>
+                                    : <React.Fragment key={i}>{word} </React.Fragment>
+                            );
+                        })()}
                     </h1>
-                    <p className="text-[#6B7280] text-base md:text-lg font-medium mb-8 max-w-lg leading-relaxed">
+                    <p className="text-[#6B7280] text-sm md:text-base font-medium mb-4 max-w-lg leading-relaxed">
                         {t('heroSummary') || 'The easiest and most affordable way to send packages across the world. Connect with verified travelers ready to deliver your items.'}
                     </p>
 
-                    {/* Rating badge */}
-                    <div className="flex items-center gap-2 mb-8">
-                        <div className="flex">
-                            {[1, 2, 3, 4, 5].map(i => <Star key={i} size={14} className="text-[#FFB800] fill-[#FFB800]" />)}
+                    {/* Rating badge and App Download in one row */}
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="flex">
+                                {[1, 2, 3, 4, 5].map(i => <Star key={i} size={12} className="text-[#FFB800] fill-[#FFB800]" />)}
+                            </div>
+                            <span className="text-[10px] font-black text-[#012126] tracking-widest">4.9/5 RATED</span>
                         </div>
-                        <span className="text-xs font-black text-[#012126] tracking-widest">4.9/5 RATED</span>
-                    </div>
-
-                    {/* App Download */}
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-3">
-                            {t('downloadOfficialApps') || 'Download official apps'}
-                        </p>
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             <a href="#" className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-200">
-                                <img src="/app-store.svg" alt="App Store" className="h-10 w-auto" />
+                                <img src="/app-store.svg" alt="App Store" className="h-8 w-auto" />
                             </a>
                             <a href="#" className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-200">
-                                <img src="/google-play.svg" alt="Google Play" className="h-10 w-auto" />
+                                <img src="/google-play.svg" alt="Google Play" className="h-8 w-auto" />
                             </a>
                         </div>
                     </div>
@@ -252,7 +247,7 @@ const HeroSection = () => {
                         onError={(e) => { e.target.src = '/hero_v3.png'; }}
                     />
                     {/* DELIVERED stamp overlay */}
-                    <div className="absolute bottom-10 right-10 bg-[#00D094] text-[#012126] font-black text-xs tracking-widest px-5 py-3 rounded-full shadow-xl rotate-[-6deg] uppercase">
+                    <div className="absolute bottom-10 right-10 bg-[#5845D8] text-white font-black text-xs tracking-widest px-5 py-3 rounded-full shadow-xl rotate-[-6deg] uppercase">
                         ✓ {t('deliveredStamp') || 'DELIVERED'}
                     </div>
                 </div>
@@ -407,8 +402,16 @@ const TripTypeSection = () => {
 
     return (
         <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-10 pb-20">
-            <h2 className="text-3xl md:text-4xl font-black text-[#012126] text-center mb-10">
-                {t('tripTypeTitle') || 'How are you shipping today?'}
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-[#012126] text-center mb-10 tracking-tighter leading-[0.9]">
+                {(() => {
+                    const title = t('tripTypeTitle') || 'How are you shipping today?';
+                    const words = title.split(' ');
+                    return words.map((word, i) =>
+                        i === words.length - 1
+                            ? <span key={i} className="opacity-20 text-gray-400">{word}</span>
+                            : <React.Fragment key={i}>{word} </React.Fragment>
+                    );
+                })()}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {[
@@ -458,9 +461,17 @@ const FAQSection = () => {
                     <span className="inline-block px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-[11px] font-bold uppercase tracking-widest mb-8">
                         FAQs
                     </span>
-                    <h2 className="text-4xl md:text-5xl font-black text-white leading-tight mb-0">
-                        {t('answersHeader') || 'Here are Answers Related to'}{' '}
-                        <span className="text-[#00D094]">{t('bagoService') || 'Bago Service'}</span>
+                    <h2 className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter mb-0">
+                        {(() => {
+                            const part1 = t('answersHeader') || 'Here are Answers Related to';
+                            const part2 = t('bagoService') || 'Bago Service';
+                            const words = `${part1} ${part2}`.split(' ');
+                            return words.map((word, i) =>
+                                i >= words.length - 2
+                                    ? <span key={i} className="text-[#5845D8]">{word} </span>
+                                    : <React.Fragment key={i}>{word} </React.Fragment>
+                            );
+                        })()}
                     </h2>
 
                     <div className="mt-16 relative w-full h-[380px] rounded-[36px] overflow-hidden">
@@ -472,7 +483,7 @@ const FAQSection = () => {
                             </h3>
                             <button
                                 onClick={() => navigate('/signup')}
-                                className="px-7 py-3.5 bg-[#00D094] text-black font-black rounded-full shadow-lg hover:scale-105 transition-all text-sm">
+                                className="px-7 py-3.5 bg-[#5845D8] text-white font-black rounded-full shadow-lg hover:scale-105 hover:bg-[#4838B5] transition-all text-sm">
                                 {t('getStartedBtn') || 'Get started for free'}
                             </button>
                         </div>
@@ -526,8 +537,16 @@ const AppSection = () => {
                 </div>
                 {/* Text */}
                 <div className="w-full md:w-7/12">
-                    <h2 className="text-4xl md:text-5xl font-black text-[#012126] mb-5 leading-tight">
-                        {t('ourFreeAppTitle') || 'Our free app.'}
+                    <h2 className="text-5xl md:text-7xl lg:text-8xl font-black text-[#012126] mb-8 leading-[0.9] tracking-tighter">
+                        {(() => {
+                            const title = t('ourFreeAppTitle') || 'Our free app.';
+                            const words = title.split(' ');
+                            return words.map((word, i) =>
+                                i === words.length - 1
+                                    ? <span key={i} className="opacity-20 text-gray-400">{word}</span>
+                                    : <React.Fragment key={i}>{word} </React.Fragment>
+                            );
+                        })()}
                     </h2>
                     <p className="text-[#6B7280] text-base font-medium leading-relaxed mb-8 max-w-md">
                         {t('appDescription') || 'One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.'}
@@ -578,8 +597,16 @@ const CommunityCTA = () => {
                 <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
             </div>
             <div className="relative z-10 text-center px-6">
-                <h2 className="text-4xl md:text-5xl font-black text-white mb-10 tracking-tight">
-                    {t('joinGlobalCommunity') || 'Join our global community'}
+                <h2 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-10 tracking-tighter leading-[0.9]">
+                    {(() => {
+                        const title = t('joinGlobalCommunity') || 'Join our global community';
+                        const words = title.split(' ');
+                        return words.map((word, i) =>
+                            i === words.length - 1
+                                ? <span key={i} className="opacity-20">{word}</span>
+                                : <React.Fragment key={i}>{word} </React.Fragment>
+                        );
+                    })()}
                 </h2>
                 <div className="flex flex-col md:flex-row gap-5 justify-center">
                     <button onClick={() => navigate('/search')}
@@ -676,8 +703,8 @@ const DiscountPromo = () => {
             <div className="bg-gradient-to-r from-[#5845D8] to-[#8B5CF6] rounded-3xl p-8 md:p-12 shadow-[0_8px_40px_rgba(88,69,216,0.25)] text-white flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 <div className="z-10 text-center md:text-left">
-                    <h2 className="text-2xl md:text-3xl font-bold mb-3 flex items-center justify-center md:justify-start gap-3">
-                        <Smartphone className="text-white/80" size={28} />
+                    <h2 className="text-3xl md:text-5xl font-black mb-3 flex items-center justify-center md:justify-start gap-3 tracking-tight">
+                        <Smartphone className="text-white/80" size={32} />
                         {t('firstDeliveryFree') || 'Get Your First Delivery Free!'}
                     </h2>
                     <p className="text-white/85 text-sm font-medium max-w-lg leading-relaxed">
@@ -708,8 +735,16 @@ const PromoBar = () => {
     return (
         <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-6">
             <div className="bg-[#012126] rounded-2xl p-8 md:p-10 text-center">
-                <h2 className="text-3xl md:text-4xl font-black text-white mb-3">
-                    {t('promoTitle') || 'Earn from your travels.'}
+                <h2 className="text-4xl md:text-6xl font-black text-white mb-3 tracking-tighter leading-[0.9]">
+                    {(() => {
+                        const title = t('promoTitle') || 'Earn from your travels.';
+                        const words = title.split(' ');
+                        return words.map((word, i) =>
+                            i === words.length - 1
+                                ? <span key={i} className="opacity-20">{word}</span>
+                                : <React.Fragment key={i}>{word} </React.Fragment>
+                        );
+                    })()}
                 </h2>
                 <p className="text-white/75 text-sm max-w-xl mx-auto mb-7 leading-relaxed font-medium">
                     {t('promoDesc') || 'Help others send packages as a delivery partner. Post your route and get paid for your available luggage space.'}
@@ -738,13 +773,11 @@ export default function Home() {
             <div className="h-6" />
             <RecentTrips user={user} />
             <PromoBar />
-            <FeaturesSection />
+            <AppSection />
             <TripTypeSection />
             <FAQSection />
-            <AppSection />
+            <FeaturesSection />
             <CommunityCTA />
-            <TrackingSection />
-            <CarSection />
             <DiscountPromo />
             <Footer />
         </div>
