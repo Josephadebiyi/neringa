@@ -4,8 +4,10 @@ import { useAuth } from '../AuthContext';
 import api, { saveToken } from '../api';
 import { useGoogleLogin } from '@react-oauth/google';
 import { AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Login() {
+    const { t } = useLanguage();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -77,10 +79,10 @@ export default function Login() {
                 </div>
 
                 <div className="z-10 text-white mt-auto">
-                    <span className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[9px] font-black uppercase tracking-[2px] mb-6 inline-block">Welcome back</span>
-                    <h1 className="text-3xl lg:text-5xl font-extrabold mb-5 leading-[1.1] tracking-tight">Earn more. <br /><span className="text-[#5845D8]">Spend less.</span></h1>
+                    <span className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[9px] font-black uppercase tracking-[2px] mb-6 inline-block">{t('welcomeBack')}</span>
+                    <h1 className="text-3xl lg:text-5xl font-extrabold mb-5 leading-[1.1] tracking-tight">{t('earnMoreSpendLess').split(' ').map((word, i) => i < 2 ? <React.Fragment key={i}>{word} </React.Fragment> : <span key={i} className="text-[#5845D8]">{word} </span>)}</h1>
                     <p className="text-sm md:text-base text-white/70 max-w-sm font-semibold leading-relaxed mb-8">
-                        Log in to access your dashboard and manage your logistics.
+                        {t('loginSubtitle')}
                     </p>
 
                     {/* App download teasers */}
@@ -95,8 +97,8 @@ export default function Login() {
             <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 lg:h-screen overflow-y-auto">
                 <div className="w-full max-w-md py-12">
                     <div className="mb-8 text-center lg:text-left">
-                        <h2 className="text-2xl font-bold text-[#012126] mb-2 tracking-tight">Sign In</h2>
-                        <p className="text-[#6B7280] font-semibold text-base">Access your Bago account.</p>
+                        <h2 className="text-2xl font-bold text-[#012126] mb-2 tracking-tight">{t('signInHeader')}</h2>
+                        <p className="text-[#6B7280] font-semibold text-base">{t('accessAccount')}</p>
                     </div>
 
                     <div className="space-y-8">
@@ -107,12 +109,12 @@ export default function Login() {
                             className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-[#012126] hover:bg-gray-50 transition-all shadow-sm group"
                         >
                             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm">Continue with Google</span>
+                            <span className="text-sm">{t('continueWithGoogle')}</span>
                         </button>
 
                         <div className="relative flex items-center">
                             <div className="flex-grow border-t-2 border-gray-50"></div>
-                            <span className="flex-shrink mx-6 text-gray-300 text-[9px] font-black uppercase tracking-[3px]">Secure Account Login</span>
+                            <span className="flex-shrink mx-6 text-gray-300 text-[9px] font-black uppercase tracking-[3px]">{t('secureAccountLogin')}</span>
                             <div className="flex-grow border-t-2 border-gray-50"></div>
                         </div>
 
@@ -126,7 +128,7 @@ export default function Login() {
                         <form onSubmit={handleLogin} className="space-y-6">
                             <div className="grid grid-cols-1 gap-5">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">Email address</label>
+                                    <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">{t('emailAddressLabel')}</label>
                                     <input
                                         type="email"
                                         value={email}
@@ -139,8 +141,8 @@ export default function Login() {
 
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between mb-0.5 px-1">
-                                        <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest">Password</label>
-                                        <Link to="/forgot-password" shaking="true" className="text-[9px] font-black text-[#5845D8] hover:text-[#4838B5] transition-colors tracking-widest uppercase underline">Forgot password?</Link>
+                                        <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest">{t('passwordLabel')}</label>
+                                        <Link to="/forgot-password" shaking="true" className="text-[9px] font-black text-[#5845D8] hover:text-[#4838B5] transition-colors tracking-widest uppercase underline">{t('forgotPasswordLink')}</Link>
                                     </div>
                                     <input
                                         type="password"
@@ -158,20 +160,20 @@ export default function Login() {
                                 disabled={loading}
                                 className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-xl font-bold text-base mt-2 transition-all shadow-lg shadow-[#5845D8]/20 hover:shadow-[#5845D8]/40 hover:-translate-y-0.5 disabled:opacity-70 disabled:translate-y-0 flex items-center justify-center gap-3"
                             >
-                                {loading ? 'Security Check...' : 'Sign In To Bago'}
+                                {loading ? t('securityCheck') : t('signInBtn')}
                                 {!loading && <ArrowRight size={18} />}
                             </button>
 
                             <p className="text-center text-[10px] text-[#6B7280] mt-8 px-6 font-bold uppercase tracking-wider">
-                                Secure login protected by Bago Encryption.
+                                {t('secureLoginProtected')}
                             </p>
                         </form>
                     </div>
 
                     <p className="mt-12 text-center text-[#6B7280] font-bold text-sm">
-                        Don't have an account yet?{' '}
+                        {t('noAccountYet')}{' '}
                         <Link to="/signup" className="text-[#5845D8] font-black border-b-2 border-transparent hover:border-[#5845D8] transition-all ml-1">
-                            Join Bago today
+                            {t('joinBagoToday')}
                         </Link>
                     </p>
                 </div>

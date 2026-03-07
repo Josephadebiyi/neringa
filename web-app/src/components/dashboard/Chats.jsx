@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
 import { Send, AlertTriangle, User, Paperclip, MessageCircle } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 const BANNED_KEYWORDS = ['phone', 'whatsapp', 'number', 'call', 'telegram', 'instagram', 'facebook', 'email', '+', 'gmail', 'yahoo', 'dm', 'contact me', 'text me'];
 
 export default function Chats({ user }) {
+    const { t } = useLanguage();
     const [conversations, setConversations] = useState([]);
     const [selectedConv, setSelectedConv] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -95,7 +96,7 @@ export default function Chats({ user }) {
             {/* Sidebar List */}
             <div className="w-[320px] border-r border-gray-100 flex flex-col bg-white">
                 <div className="p-5 border-b border-gray-50 flex items-center justify-between">
-                    <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Active Chats</h3>
+                    <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('activeChats')}</h3>
                     <div className="w-5 h-5 rounded-full bg-gray-50 flex items-center justify-center">
                         <MessageCircle size={10} className="text-[#5845D8]" />
                     </div>
@@ -103,7 +104,7 @@ export default function Chats({ user }) {
                 <div className="flex-1 overflow-y-auto">
                     {conversations.length === 0 ? (
                         <div className="p-10 text-center text-gray-400">
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Empty Inbox</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40">{t('emptyInbox')}</p>
                         </div>
                     ) : (
                         conversations.map(conv => (
@@ -120,7 +121,7 @@ export default function Chats({ user }) {
                                         <p className="font-black text-[#012126] text-[11px] truncate uppercase tracking-tight">{conv.otherUser?.firstName || 'User'}</p>
                                         <p className="text-[8px] text-gray-300 font-black">2m</p>
                                     </div>
-                                    <p className="text-[9px] text-gray-400 truncate font-bold uppercase tracking-wide opacity-70 group-hover:opacity-100 transition-opacity">{conv.lastMessage || 'Open chat'}</p>
+                                    <p className="text-[9px] text-gray-400 truncate font-bold uppercase tracking-wide opacity-70 group-hover:opacity-100 transition-opacity">{conv.lastMessage || t('openChat')}</p>
                                 </div>
                             </button>
                         ))
@@ -142,7 +143,7 @@ export default function Chats({ user }) {
                                     <p className="font-black text-[#012126] text-[11px] tracking-tight uppercase">{selectedConv.otherUser?.firstName} {selectedConv.otherUser?.lastName}</p>
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></div>
-                                        <p className="text-[7px] text-green-600 font-black uppercase tracking-widest">Active Now</p>
+                                        <p className="text-[7px] text-green-600 font-black uppercase tracking-widest">{t('activeNow')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -151,7 +152,7 @@ export default function Chats({ user }) {
                         {/* Messages */}
                         <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/30">
                             <div className="flex justify-center mb-6">
-                                <span className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-[7px] font-black text-gray-400 uppercase tracking-widest border border-gray-100 shadow-sm">Encryption Active • Secure Link</span>
+                                <span className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-[7px] font-black text-gray-400 uppercase tracking-widest border border-gray-100 shadow-sm">{t('encryptionActive')}</span>
                             </div>
                             {messages.map((msg, i) => {
                                 const isMe = msg.sender === (user?._id || user?.id);
@@ -172,9 +173,9 @@ export default function Chats({ user }) {
                             <div className="mx-6 mb-4 p-4 bg-amber-50/80 backdrop-blur-md border border-amber-200/50 rounded-2xl flex items-center gap-3 text-amber-900 animate-in slide-in-from-bottom-4 duration-500 shadow-xl shadow-amber-900/5">
                                 <AlertTriangle size={16} className="flex-shrink-0 text-amber-500" />
                                 <p className="text-[9px] font-black leading-relaxed uppercase tracking-wider opacity-80">
-                                    Security Alert: Keep communication within Bago. Exchange of contact details is restricted to protect your payments & safety.
+                                    {t('securityAlert')}
                                 </p>
-                                <button onClick={() => setShowWarning(false)} className="ml-auto text-amber-600 hover:text-amber-800 font-black text-[9px] uppercase tracking-widest transition-colors">Dismiss</button>
+                                <button onClick={() => setShowWarning(false)} className="ml-auto text-amber-600 hover:text-amber-800 font-black text-[9px] uppercase tracking-widest transition-colors">{t('dismiss')}</button>
                             </div>
                         )}
 
@@ -189,7 +190,7 @@ export default function Chats({ user }) {
                                         setNewMessage(e.target.value);
                                         if (showWarning) setShowWarning(false);
                                     }}
-                                    placeholder="Type your message..."
+                                    placeholder={t('typeMessage')}
                                     className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold text-[#012126] placeholder:text-gray-300 placeholder:uppercase placeholder:tracking-widest placeholder:text-[9px]"
                                 />
                                 <button
@@ -208,8 +209,8 @@ export default function Chats({ user }) {
                             <div className="absolute inset-0 bg-[#5845D8]/5 rounded-full animate-ping duration-[3000ms]"></div>
                             <MessageCircle size={32} className="text-[#5845D8] opacity-20 relative z-10" />
                         </div>
-                        <h3 className="text-xs font-black text-[#012126] mb-2 uppercase tracking-[0.2em]">Select a conversation</h3>
-                        <p className="text-gray-400 text-[10px] font-bold max-w-xs mx-auto uppercase tracking-widest leading-loose opacity-60">Choose a chat to start messaging with travelers or senders securely.</p>
+                        <h3 className="text-xs font-black text-[#012126] mb-2 uppercase tracking-[0.2em]">{t('selectConversation')}</h3>
+                        <p className="text-gray-400 text-[10px] font-bold max-w-xs mx-auto uppercase tracking-widest leading-loose opacity-60">{t('selectConversationDesc')}</p>
                     </div>
                 )}
             </div>

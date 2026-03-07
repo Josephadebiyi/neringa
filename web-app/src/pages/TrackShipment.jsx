@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
+import { useLanguage } from '../context/LanguageContext';
 import {
     Search,
     ChevronLeft,
@@ -17,11 +18,12 @@ import {
 
 const Navbar = () => {
     const navigate = useNavigate();
+    const { t } = useLanguage();
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8] transition-all font-bold text-xs">
                 <ChevronLeft size={20} />
-                <span>Back</span>
+                <span>{t('back')}</span>
             </button>
             <Link to="/">
                 <img src="/bago_logo.png" alt="Bago" className="h-7 md:h-8" />
@@ -32,6 +34,7 @@ const Navbar = () => {
 };
 
 export default function TrackShipment() {
+    const { t } = useLanguage();
     const [trackingNumber, setTrackingNumber] = useState('');
     const [shipment, setShipment] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -51,7 +54,7 @@ export default function TrackShipment() {
                 setShipment(response.data.data);
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Shipment not found. Please check your tracking number.');
+            setError(err.response?.data?.message || t('shipmentNotFound'));
         } finally {
             setLoading(false);
         }
@@ -63,11 +66,11 @@ export default function TrackShipment() {
     };
 
     const steps = [
-        { label: 'Requested', status: 'pending', icon: Package },
-        { label: 'Accepted', status: 'accepted', icon: CheckCircle },
-        { label: 'In Transit', status: 'intransit', icon: Truck },
-        { label: 'Out for Delivery', status: 'delivering', icon: MapPin },
-        { label: 'Completed', status: 'completed', icon: Shield }
+        { label: t('requested'), status: 'pending', icon: Package },
+        { label: t('accepted'), status: 'accepted', icon: CheckCircle },
+        { label: t('inTransit'), status: 'intransit', icon: Truck },
+        { label: t('outForDelivery'), status: 'delivering', icon: MapPin },
+        { label: t('completed'), status: 'completed', icon: Shield }
     ];
 
     return (
@@ -76,8 +79,8 @@ export default function TrackShipment() {
 
             <div className="max-w-4xl mx-auto px-6 py-12 font-sans">
                 <div className="text-center mb-10">
-                    <h1 className="text-3xl md:text-4xl font-black text-[#012126] mb-3 tracking-tight">Track Shipment</h1>
-                    <p className="text-[#6B7280] font-bold text-sm max-w-lg mx-auto leading-relaxed">Enter your tracking number to see the real-time status of your package.</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-[#012126] mb-3 tracking-tight">{t('trackShipmentTitle')}</h1>
+                    <p className="text-[#6B7280] font-bold text-sm max-w-lg mx-auto leading-relaxed">{t('trackSubtitle')}</p>
                 </div>
 
                 {/* Track Input */}
@@ -86,7 +89,7 @@ export default function TrackShipment() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
                         <input
                             type="text"
-                            placeholder="e.g. BAGO-A1B2C3D4"
+                            placeholder={t('trackPlaceholder')}
                             className="w-full py-3 pl-11 pr-6 rounded-xl bg-gray-50 text-[#012126] font-bold text-xs outline-none border border-transparent focus:border-[#5845D8] focus:bg-white transition-all"
                             value={trackingNumber}
                             onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())}
@@ -97,7 +100,7 @@ export default function TrackShipment() {
                         disabled={loading}
                         className="px-8 py-3 bg-[#5845D8] text-white font-black text-[11px] uppercase tracking-widest rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 disabled:opacity-70"
                     >
-                        {loading ? <RefreshCw className="animate-spin" size={16} /> : 'Track Now'}
+                        {loading ? <RefreshCw className="animate-spin" size={16} /> : t('trackNow')}
                     </button>
                 </form>
 
@@ -115,7 +118,7 @@ export default function TrackShipment() {
                                 <div className="absolute top-0 right-0 p-2 opacity-[0.03] group-hover:scale-110 transition-transform">
                                     <Truck size={64} className="text-[#012126]" />
                                 </div>
-                                <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">Current Status</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">{t('currentStatus')}</p>
                                 <div className="flex items-center gap-2">
                                     <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse"></span>
                                     <h3 className="text-base font-black text-[#012126] capitalize">{shipment.status}</h3>
@@ -125,14 +128,14 @@ export default function TrackShipment() {
                                 <div className="absolute top-0 right-0 p-2 opacity-[0.03] group-hover:scale-110 transition-transform">
                                     <Package size={64} className="text-[#5845D8]" />
                                 </div>
-                                <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">Tracking Number</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">{t('trackingNumberLabel')}</p>
                                 <h3 className="text-base font-black text-[#5845D8]">{shipment.trackingNumber}</h3>
                             </div>
                             <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-2 opacity-[0.03] group-hover:scale-110 transition-transform">
                                     <Calendar size={64} className="text-[#012126]" />
                                 </div>
-                                <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">Estimated Arrival</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">{t('estimatedArrival')}</p>
                                 <h3 className="text-base font-black text-[#012126]">
                                     {shipment.estimatedArrival ? new Date(shipment.estimatedArrival).toLocaleDateString() : 'Pending'}
                                 </h3>
@@ -173,7 +176,7 @@ export default function TrackShipment() {
                         {/* Recent Movements */}
                         <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
                             <div className="p-6 border-b border-gray-50 bg-gray-50/30">
-                                <h3 className="text-sm font-black text-[#012126] uppercase tracking-[2px] ml-1">Shipment History</h3>
+                                <h3 className="text-sm font-black text-[#012126] uppercase tracking-[2px] ml-1">{t('shipmentHistory')}</h3>
                             </div>
                             <div className="p-8">
                                 <div className="space-y-8 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-px before:bg-gray-100">
@@ -191,7 +194,7 @@ export default function TrackShipment() {
                                                         </span>
                                                     </div>
                                                     <p className="text-[#6B7280] font-semibold text-xs leading-relaxed">
-                                                        <span className="text-[#012126] font-black uppercase text-[10px] tracking-widest mr-1 opacity-70">Location:</span> {move.location || 'In transit'}<br />
+                                                        <span className="text-[#012126] font-black uppercase text-[10px] tracking-widest mr-1 opacity-70">{t('locationLabel')}:</span> {move.location || 'In transit'}<br />
                                                         {move.notes && <span className="italic mt-1 block font-medium">"{move.notes}"</span>}
                                                     </p>
                                                 </div>
@@ -204,7 +207,7 @@ export default function TrackShipment() {
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1.5">
-                                                    <h4 className="text-sm font-bold text-[#012126]">Shipment Created</h4>
+                                                    <h4 className="text-sm font-bold text-[#012126]">{t('shipmentCreated')}</h4>
                                                     <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">
                                                         {new Date(shipment.createdAt).toLocaleString()}
                                                     </span>
@@ -229,10 +232,9 @@ export default function TrackShipment() {
                             <Shield size={32} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black mb-1.5 tracking-tight uppercase">Bago Protection Policy</h3>
+                            <h3 className="text-xl font-black mb-1.5 tracking-tight uppercase">{t('bagoProtectionPolicy')}</h3>
                             <p className="text-white/60 font-bold text-xs leading-relaxed max-w-xl">
-                                Every shipment on our platform is protected by Bago's escrow and insurance system.
-                                We guarantee safe delivery or a full refund.
+                                {t('protectionPolicyDesc')}
                             </p>
                         </div>
                     </div>

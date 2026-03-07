@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import api from '../../api';
 import { Plane, Calendar, MapPin, Trash2, Edit3, Plus, ChevronRight, Weight, RefreshCw, X } from 'lucide-react';
 import { locations } from '../../utils/countries';
+import { useLanguage } from '../../context/LanguageContext';
 import Select from 'react-select';
 
 export default function Trips({ user }) {
+    const { t } = useLanguage();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingTrip, setEditingTrip] = useState(null);
@@ -34,7 +36,7 @@ export default function Trips({ user }) {
     };
 
     const handleDeleteTrip = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this trip? All related shipment requests will be affected.')) return;
+        if (!window.confirm(t('deleteTripConfirm'))) return;
         try {
             await api.delete(`/api/bago/Trip/${id}`);
             setTrips(trips.filter(t => t._id !== id));
@@ -90,15 +92,15 @@ export default function Trips({ user }) {
         <div className="space-y-6 font-sans">
             <div className="flex items-center justify-between mb-8 px-1">
                 <div>
-                    <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">My Trips</h2>
-                    <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">Manage your flight and bus routes.</p>
+                    <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">{t('myTrips')}</h2>
+                    <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">{t('manageFlightBusRoutes')}</p>
                 </div>
                 <button
                     onClick={() => window.location.href = '/post-trip'}
                     className="flex items-center gap-2 bg-[#5845D8] text-white px-4 py-2.5 rounded-xl font-black hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/20 text-[10px] uppercase tracking-widest"
                 >
                     <Plus size={14} />
-                    <span>Post New Trip</span>
+                    <span>{t('postNewTrip')}</span>
                 </button>
             </div>
 
@@ -107,8 +109,8 @@ export default function Trips({ user }) {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Plane size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#012126] mb-1.5 text-center uppercase tracking-tight">No active trips</h3>
-                    <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-8 font-bold uppercase tracking-wider opacity-60 leading-relaxed">You haven't posted any routes yet. Start earning by sharing luggage space.</p>
+                    <h3 className="text-sm font-black text-[#012126] mb-1.5 text-center uppercase tracking-tight">{t('noActiveTrips')}</h3>
+                    <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-8 font-bold uppercase tracking-wider opacity-60 leading-relaxed">{t('noActiveTripsDesc')}</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -135,14 +137,14 @@ export default function Trips({ user }) {
 
                             <div className="grid grid-cols-2 gap-3 mb-5 bg-gray-50/50 rounded-xl p-3.5 relative z-10 border border-gray-50">
                                 <div>
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">Available Space</p>
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">{t('availableSpace')}</p>
                                     <div className="flex items-center gap-1.5 text-[#012126] font-black text-xs uppercase tracking-tighter">
                                         <Weight size={12} className="text-[#5845D8]/60" />
                                         <span>{trip.availableKg} KG</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">Travel Mode</p>
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">{t('travelMode')}</p>
                                     <div className="font-black text-[#5845D8] uppercase text-[10px] tracking-widest">
                                         {trip.travelMeans || 'Flight'}
                                     </div>
@@ -155,14 +157,14 @@ export default function Trips({ user }) {
                                     className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-100 rounded-xl text-[10px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-50 transition-all"
                                 >
                                     <Edit3 size={14} />
-                                    Edit
+                                    {t('edit')}
                                 </button>
                                 <button
                                     onClick={() => handleDeleteTrip(trip._id)}
                                     className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-red-50 rounded-xl text-[10px] font-black text-red-500 uppercase tracking-widest hover:bg-red-50 transition-all"
                                 >
                                     <Trash2 size={14} />
-                                    Delete
+                                    {t('delete')}
                                 </button>
                             </div>
                         </div>
@@ -175,13 +177,13 @@ export default function Trips({ user }) {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
                     <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                            <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">Edit Trip</h3>
+                            <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">{t('editTrip')}</h3>
                             <button onClick={() => setEditingTrip(null)} className="p-1.5 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-gray-600"><X size={20} /></button>
                         </div>
                         <form onSubmit={handleUpdateTrip} className="p-6 space-y-5">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">Origin City</label>
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('originCity')}</label>
                                     <Select
                                         options={locationOptions}
                                         value={fromLocation}
@@ -200,7 +202,7 @@ export default function Trips({ user }) {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">Arrival City</label>
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('arrivalCity')}</label>
                                     <Select
                                         options={locationOptions}
                                         value={toLocation}
@@ -222,7 +224,7 @@ export default function Trips({ user }) {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">Departure Date</label>
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('departureDate')}</label>
                                     <input
                                         type="date"
                                         value={departureDate}
@@ -231,7 +233,7 @@ export default function Trips({ user }) {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">Space (KG)</label>
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('spaceKg')}</label>
                                     <input
                                         type="number"
                                         value={availableKg}
@@ -246,7 +248,7 @@ export default function Trips({ user }) {
                                 disabled={isUpdating}
                                 className="w-full bg-[#5845D8] text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all flex items-center justify-center gap-3 mt-4"
                             >
-                                {isUpdating ? <RefreshCw className="animate-spin" size={16} /> : 'Update Route'}
+                                {isUpdating ? <RefreshCw className="animate-spin" size={16} /> : t('updateRoute')}
                             </button>
                         </form>
                     </div>

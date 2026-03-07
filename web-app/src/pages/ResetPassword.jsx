@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ResetPassword() {
+    const { t } = useLanguage();
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -28,11 +30,11 @@ export default function ResetPassword() {
         setSuccess('');
 
         if (password.length < 6) {
-            return setError('Password must be at least 6 characters long');
+            return setError(t('passwordMinLength'));
         }
 
         if (password !== confirmPassword) {
-            return setError('Passwords do not match');
+            return setError(t('passwordsDoNotMatch'));
         }
 
         setLoading(true);
@@ -48,12 +50,12 @@ export default function ResetPassword() {
                 }
             );
 
-            setSuccess('Password reset successfully!');
+            setSuccess(t('passwordResetSuccess'));
             setTimeout(() => {
                 navigate('/login');
             }, 1500);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to reset password. Token may have expired.');
+            setError(err.response?.data?.message || t('errorOccurred'));
         } finally {
             setLoading(false);
         }
@@ -62,61 +64,64 @@ export default function ResetPassword() {
     if (!email || !token) return null;
 
     return (
-        <div className="min-h-screen bg-bg-theme flex overflow-hidden lg:flex-row flex-col">
-            <div className="lg:w-1/2 w-full lg:min-h-screen h-[40vh] relative bg-[#012126] flex flex-col justify-between p-8 md:p-16 overflow-hidden">
+        <div className="min-h-screen bg-white flex overflow-hidden lg:flex-row flex-col">
+            <div className="lg:w-1/2 w-full lg:min-h-screen h-[40vh] relative bg-[#012126] flex flex-col justify-between p-8 md:p-16 overflow-hidden sticky top-0">
+                <div className="absolute inset-0 z-0">
+                    <img src="/assets/hero_bg.png" className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#5845D8]/80 to-[#012126]/90"></div>
+                </div>
                 <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-tl-[120px] -mr-20 -mb-20"></div>
-                <div className="absolute top-20 right-20 w-48 h-48 bg-[#5845D8] rounded-full blur-[80px] opacity-40"></div>
 
                 <div className="z-10">
                     <Link to="/">
-                        <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-10 brightness-0 invert opacity-90" onError={(e) => { e.target.src = '/vite.svg' }} />
+                        <img src="/bago_logo.png" alt="Bago" className="h-8 md:h-10 brightness-0 invert opacity-90" />
                     </Link>
                 </div>
 
                 <div className="z-10 text-white mt-auto mb-10 md:mb-20">
-                    <h1 className="text-4xl lg:text-6xl font-bold mb-6 leading-tight tracking-tight">Set New <br />Password!</h1>
-                    <p className="text-base md:text-lg text-white/80 max-w-md font-medium leading-relaxed">
-                        Secure your account. Almost back into the ecosystem to manage your packages and trips.
+                    <h1 className="text-4xl lg:text-6xl font-black mb-6 leading-tight tracking-tighter uppercase">{t('setNewPasswordTitle').split(' ').map((word, i) => <React.Fragment key={i}>{word} <br /></React.Fragment>)}</h1>
+                    <p className="text-sm md:text-base text-white/70 max-w-md font-semibold leading-relaxed">
+                        {t('setNewPasswordDesc')}
                     </p>
                 </div>
             </div>
 
-            <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.02)]">
-                <div className="w-full max-w-md">
-                    <h2 className="text-3xl font-bold text-[#012126] mb-2">Create Password</h2>
-                    <p className="text-[#6B7280] font-medium mb-10">Make sure it's strong and something you'll remember.</p>
+            <div className="lg:w-1/2 w-full flex items-center justify-center p-8 bg-white z-10 lg:min-h-screen overflow-y-auto">
+                <div className="w-full max-w-md py-12">
+                    <h2 className="text-2xl font-black text-[#012126] mb-1.5 tracking-tight">{t('createPasswordHeader')}</h2>
+                    <p className="text-[#6B7280] font-semibold text-base mb-10">{t('strongPasswordDesc')}</p>
 
                     {error && (
-                        <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl mb-6 text-sm font-medium">
+                        <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl mb-6 text-xs font-bold">
                             {error}
                         </div>
                     )}
                     {success && (
-                        <div className="bg-green-50 border border-green-100 text-green-600 p-4 rounded-xl mb-6 text-sm font-medium">
+                        <div className="bg-[#5845D8]/5 border border-[#5845D8]/20 text-[#012126] p-4 rounded-xl mb-6 text-xs font-bold">
                             {success}
                         </div>
                     )}
 
                     <form onSubmit={handleResetSubmit} className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-bold text-[#012126] mb-2">New Password</label>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">{t('newPasswordLabel')}</label>
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-medium"
+                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                 placeholder="••••••••"
                                 required
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-bold text-[#012126] mb-2">Confirm Password</label>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-[#012126] uppercase tracking-widest ml-1">{t('confirmPasswordLabel')}</label>
                             <input
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border border-gray-200 focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-medium"
+                                className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                 placeholder="••••••••"
                                 required
                             />
@@ -125,16 +130,16 @@ export default function ResetPassword() {
                         <button
                             type="submit"
                             disabled={loading || success}
-                            className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-xl font-bold mt-2 transition-all shadow-md hover:shadow-lg disabled:opacity-70 disabled:hover:bg-[#5845D8]"
+                            className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-xl font-bold text-base mt-2 transition-all shadow-lg shadow-[#5845D8]/20 disabled:opacity-70 flex items-center justify-center gap-3"
                         >
-                            {loading ? 'Saving Update...' : 'Update Password'}
+                            {loading ? t('savingUpdate') : t('updatePasswordBtn')}
                         </button>
                     </form>
 
-                    <p className="mt-10 text-center text-[#6B7280] font-medium">
-                        Remember your old password?{' '}
-                        <Link to="/login" className="text-[#5845D8] font-bold hover:text-[#4838B5] transition-colors">
-                            Sign In
+                    <p className="mt-12 text-center text-[#6B7280] font-bold text-sm">
+                        {t('rememberOldPassword')}{' '}
+                        <Link to="/login" className="text-[#5845D8] font-black border-b-2 border-transparent hover:border-[#5845D8] transition-all ml-1">
+                            {t('signIn')}
                         </Link>
                     </p>
                 </div>

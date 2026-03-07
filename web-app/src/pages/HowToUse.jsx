@@ -62,10 +62,10 @@ export default function HowToUse() {
 
                 <div className="max-w-4xl mx-auto relative z-10">
                     <h1 className="text-6xl md:text-9xl font-black text-[#012126] mb-12 tracking-tighter leading-[0.85]">
-                        How Bago <span className="opacity-20 text-gray-400">works.</span>
+                        {t('howBagoWorksTitle').split(' ').map((word, i) => word.toLowerCase() === 'works.' ? <span key={i} className="opacity-20 text-gray-400">{word}</span> : <React.Fragment key={i}>{word} </React.Fragment>)}
                     </h1>
                     <p className="text-[#6B7280] text-xl font-medium leading-relaxed max-w-2xl mx-auto">
-                        Whether you're sending a gift to a loved one or monetizing your extra luggage space, Bago makes the process seamless, secure, and stress-free.
+                        {t('howSubtitle')}
                     </p>
                 </div>
             </header>
@@ -130,7 +130,7 @@ export default function HowToUse() {
             <section className="py-24 px-6 md:px-12 bg-white mt-12">
                 <div className="max-w-4xl mx-auto">
                     <div className="text-center mb-12">
-                        <div className="bg-red-50 text-red-600 px-6 py-2 rounded-full font-bold inline-block mb-4">Safety First</div>
+                        <div className="bg-red-50 text-red-600 px-6 py-2 rounded-full font-bold inline-block mb-4">{t('safetyFirst')}</div>
                         <h2 className="text-4xl font-black text-[#012126] mb-4 tracking-tight">{t('prohibitedItems')}</h2>
                         <p className="text-[#6B7280] font-medium leading-relaxed">
                             {t('prohibitedSubtitle')}
@@ -139,14 +139,14 @@ export default function HowToUse() {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
                         {[
-                            { name: 'Illegal Substances', icon: '🚫' },
-                            { name: 'Flammable Items', icon: '🔥' },
-                            { name: 'Live Animals', icon: '🐾' },
-                            { name: 'Prescription Drugs', icon: '💊' },
-                            { name: 'Perishable Food', icon: '🍎' },
-                            { name: 'Liquid Liquids', icon: '💧' },
-                            { name: 'Aerosol Sprays', icon: '💨' },
-                            { name: 'Weaponry', icon: '⚔️' }
+                            { name: t('prohibited_IllegalSubstances'), icon: '🚫' },
+                            { name: t('prohibited_FlammableItems'), icon: '🔥' },
+                            { name: t('prohibited_LiveAnimals'), icon: '🐾' },
+                            { name: t('prohibited_PrescriptionDrugs'), icon: '💊' },
+                            { name: t('prohibited_PerishableFood'), icon: '🍎' },
+                            { name: t('prohibited_LiquidLiquids'), icon: '💧' },
+                            { name: t('prohibited_AerosolSprays'), icon: '💨' },
+                            { name: t('prohibited_Weaponry'), icon: '⚔️' }
                         ].map((item, i) => (
                             <div key={i} className="p-6 bg-[#f8f9fa] rounded-3xl border border-gray-100 hover:border-red-100 transition-colors">
                                 <div className="text-4xl mb-4">{item.icon}</div>
@@ -184,17 +184,17 @@ export default function HowToUse() {
                     <div className="absolute top-0 left-0 w-96 h-96 bg-[#6B5CFF]/10 rounded-full blur-[120px] -ml-48"></div>
                     <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#00D094]/10 rounded-full blur-[120px] -mr-48"></div>
 
-                    <h2 className="text-5xl md:text-8xl font-black mb-12 relative z-10 leading-[0.9] tracking-tighter">Ready to <span className="opacity-20">get started?</span></h2>
+                    <h2 className="text-5xl md:text-8xl font-black mb-12 relative z-10 leading-[0.9] tracking-tighter">{t('readyToGetStarted').split(' ').map((word, i) => word.toLowerCase() === 'started?' ? <span key={i} className="opacity-20">{word}</span> : <React.Fragment key={i}>{word} </React.Fragment>)}</h2>
                     <p className="text-white/50 text-xl font-medium mb-16 max-w-2xl mx-auto leading-relaxed relative z-10">
-                        Join thousands of members already trusting Bago for their logistics and travel needs.
+                        {t('joinThousandsDesc')}
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-6 justify-center relative z-10">
                         <Link to="/signup" className="px-16 py-6 bg-[#00D094] text-black font-black rounded-full text-2xl shadow-xl hover:scale-105 transition-all">
-                            Create Account
+                            {t('createAccountHeader')}
                         </Link>
                         <Link to="/search" className="px-16 py-6 bg-white/10 border border-white/20 text-white font-black rounded-full text-2xl shadow-xl hover:bg-white/20 transition-all flex items-center justify-center gap-3">
-                            Find Routes <ArrowRight size={28} />
+                            {t('findRoutes')} <ArrowRight size={28} />
                         </Link>
                     </div>
                 </div>

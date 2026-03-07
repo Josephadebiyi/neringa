@@ -78,28 +78,28 @@ const RecentTrips = ({ user }) => {
     return (
         <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-12">
             <h2 className="text-3xl font-black text-[#012126] mb-8">
-                {user?.country ? `Recent Delivery Routes near ${user.country}` : 'Recent Delivery Routes'}
+                {user?.country ? `${t('recentRoutes')} ${t('nearX')} ${user.country}` : t('recentRoutes')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {trips.map(trip => (
-                    <div key={trip._id} onClick={() => navigate(`/search?origin=${trip.fromLocation}&destination=${trip.toLocation}`)} className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-all cursor-pointer group">
+                    <div key={trip._id} onClick={() => navigate(`/search?origin=${trip.fromLocation || ''}&destination=${trip.toLocation || ''}`)} className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-all cursor-pointer group">
                         <div className="flex justify-between items-start mb-4">
                             <div className="bg-[#5845D8]/10 p-3 rounded-xl text-[#5845D8]">
                                 {trip.travelMeans === 'bus' ? <Bus size={24} /> : <Plane size={24} />}
                             </div>
-                            <span className="text-[#5845D8] font-black text-lg">Active</span>
+                            <span className="text-[#5845D8] font-black text-lg">{t('tripActive')}</span>
                         </div>
                         <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-lg font-bold text-[#012126] truncate max-w-[120px]">{trip.fromLocation.split(',')[0]}</h3>
+                            <h3 className="text-lg font-bold text-[#012126] truncate max-w-[120px]">{(trip.fromLocation || t('unknown')).split(',')[0]}</h3>
                             <ArrowRight size={16} className="text-[#6B7280] flex-shrink-0" />
-                            <h3 className="text-lg font-bold text-[#012126] truncate max-w-[120px]">{trip.toLocation.split(',')[0]}</h3>
+                            <h3 className="text-lg font-bold text-[#012126] truncate max-w-[120px]">{(trip.toLocation || t('unknown')).split(',')[0]}</h3>
                         </div>
                         <p className="text-[#6B7280] text-sm font-medium mb-4">
-                            {new Date(trip.departureDate).toLocaleDateString()}
+                            {trip.departureDate ? new Date(trip.departureDate).toLocaleDateString() : t('tbd')}
                         </p>
                         <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600 font-medium">Capacity: {trip.availableKg}kg</span>
-                            <span className="text-[#5845D8] font-bold group-hover:underline">View Details</span>
+                            <span className="text-gray-600 font-medium">{t('capacityLabel')}: {trip.availableKg}kg</span>
+                            <span className="text-[#5845D8] font-bold group-hover:underline">{t('viewDetails')}</span>
                         </div>
                     </div>
                 ))}

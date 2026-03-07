@@ -4,7 +4,7 @@ import { User, Mail, CreditCard, Shield, Camera, Check, RefreshCw, Landmark, Plu
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function Settings({ user, checkAuthStatus }) {
-    const { currency } = useLanguage();
+    const { currency, t } = useLanguage();
     const [firstName, setFirstName] = useState(user?.firstName || '');
     const [lastName, setLastName] = useState(user?.lastName || '');
     const [email, setEmail] = useState(user?.email || '');
@@ -49,7 +49,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 window.location.href = res.data.url;
             }
         } catch (err) {
-            setError('Failed to start Stripe onboarding. Please try again.');
+            setError(t('failStripeOnboarding'));
         } finally {
             setStripeLoading(false);
         }
@@ -82,11 +82,11 @@ export default function Settings({ user, checkAuthStatus }) {
                 }
             });
             if (res.data.status === 'success') {
-                setSuccessMessage('Settings updated successfully!');
+                setSuccessMessage(t('settingsUpdated'));
                 await checkAuthStatus();
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update settings');
+            setError(err.response?.data?.message || t('failedUpdateSettings'));
         } finally {
             setLoading(false);
         }
@@ -95,7 +95,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const handleAddCard = (e) => {
         e.preventDefault();
         if (!newCard.number || !newCard.holderName) {
-            setError('Please enter card number and holder name');
+            setError(t('enterCardDetailsError'));
             return;
         }
         // Mock add card logic
@@ -112,14 +112,14 @@ export default function Settings({ user, checkAuthStatus }) {
         setCards([newCardObj, ...cards]);
         setShowAddCard(false);
         setNewCard({ number: '', expiry: '', cvc: '', holderName: '' });
-        setSuccessMessage('Card added successfully!');
+        setSuccessMessage(t('cardAdded'));
     };
 
     const handleDeleteCard = (e, id) => {
         e.preventDefault();
         e.stopPropagation();
         setCards(cards.filter(c => c.id !== id));
-        setSuccessMessage('Card removed');
+        setSuccessMessage(t('cardRemoved'));
     };
 
     const handleRequestEmailChange = async (e) => {
@@ -128,7 +128,7 @@ export default function Settings({ user, checkAuthStatus }) {
         try {
             await api.post('/api/bago/email/request-change', { newEmail });
             setShowEmailOtp(true);
-            setSuccessMessage('OTP sent to your current email');
+            setSuccessMessage(t('otpSentEmail'));
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to request email change');
         } finally {
@@ -143,7 +143,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <User className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Personal Info</h3>
+                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('personalInfo')}</h3>
                     </div>
 
                     <div className="flex justify-center mb-5 relative group">
@@ -154,7 +154,7 @@ export default function Settings({ user, checkAuthStatus }) {
                             </div>
                         </div>
                         {isVerified && (
-                            <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 text-white p-0.5 rounded-full border-[3px] border-white shadow-sm" title="Verified Account">
+                            <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 text-white p-0.5 rounded-full border-[3px] border-white shadow-sm" title={t('verified')}>
                                 <Check size={12} strokeWidth={4} />
                             </div>
                         )}
@@ -163,7 +163,7 @@ export default function Settings({ user, checkAuthStatus }) {
                     <form onSubmit={handleUpdateProfile} className="space-y-4">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">First Name</label>
+                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('firstName')}</label>
                                 <input
                                     type="text"
                                     value={firstName}
@@ -171,10 +171,10 @@ export default function Settings({ user, checkAuthStatus }) {
                                     disabled={isVerified}
                                     className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${isVerified ? 'bg-gray-100 text-gray-400 border-transparent cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
                                 />
-                                {isVerified && <p className="text-[7px] text-green-600 font-black mt-1 uppercase tracking-widest opacity-80">Verified & Locked</p>}
+                                {isVerified && <p className="text-[7px] text-green-600 font-black mt-1 uppercase tracking-widest opacity-80">{t('verifiedLocked')}</p>}
                             </div>
                             <div>
-                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Last Name</label>
+                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('lastName')}</label>
                                 <input
                                     type="text"
                                     value={lastName}
@@ -190,7 +190,7 @@ export default function Settings({ user, checkAuthStatus }) {
                             disabled={loading}
                             className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/15"
                         >
-                            {loading ? <RefreshCw className="animate-spin" size={14} /> : 'Save Changes'}
+                            {loading ? <RefreshCw className="animate-spin" size={14} /> : t('saveChanges')}
                         </button>
                     </form>
                 </div>
@@ -199,12 +199,12 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <Mail className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Email Settings</h3>
+                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
                     </div>
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Current Email</label>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('currentEmail')}</label>
                             <input
                                 type="email"
                                 value={email}
@@ -216,12 +216,12 @@ export default function Settings({ user, checkAuthStatus }) {
                         {!showEmailOtp ? (
                             <form onSubmit={handleRequestEmailChange} className="space-y-4 pt-4 border-t border-gray-50">
                                 <div>
-                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Email</label>
+                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('newEmailLabel')}</label>
                                     <input
                                         type="email"
                                         value={newEmail}
                                         onChange={(e) => setNewEmail(e.target.value)}
-                                        placeholder="Enter new email"
+                                        placeholder={t('enterNewEmail')}
                                         className="w-full px-4 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[11px] transition-all"
                                     />
                                 </div>
@@ -230,13 +230,13 @@ export default function Settings({ user, checkAuthStatus }) {
                                     disabled={!newEmail || loading}
                                     className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50"
                                 >
-                                    Update Address
+                                    {t('updateAddress')}
                                 </button>
                             </form>
                         ) : (
                             <div className="space-y-4 pt-4 border-t border-gray-50 animate-in fade-in duration-300">
                                 <div>
-                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Verification Code</label>
+                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{t('verificationCode')}</label>
                                     <input
                                         type="text"
                                         maxLength={6}
@@ -247,8 +247,8 @@ export default function Settings({ user, checkAuthStatus }) {
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest">Verify</button>
-                                    <button onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">Cancel</button>
+                                    <button className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest">{t('verify')}</button>
+                                    <button onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">{t('cancel')}</button>
                                 </div>
                             </div>
                         )}
@@ -261,7 +261,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#5845D8]/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
                 <div className="flex items-center gap-3 border-b border-gray-50 pb-4 mb-6">
                     <Landmark className="text-[#5845D8]" size={18} />
-                    <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">Withdrawal Methods</h3>
+                    <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">{t('withdrawalMethods')}</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -273,7 +273,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                     Stripe Connect
                                 </h4>
                                 <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-6 uppercase tracking-wide opacity-70">
-                                    Get paid directly to your bank account via Stripe. Quick setup, secure, and supports international payments.
+                                    {t('stripeConnectDesc')}
                                 </p>
                             </div>
 
@@ -283,8 +283,8 @@ export default function Settings({ user, checkAuthStatus }) {
                                         <Check size={14} strokeWidth={4} />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Account Connected</p>
-                                        <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">Ready for payouts</p>
+                                        <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">{t('accountConnected')}</p>
+                                        <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{t('readyForPayouts')}</p>
                                     </div>
                                     <ShieldCheck className="text-green-500/50" size={18} />
                                 </div>
@@ -295,7 +295,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                     className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
                                 >
                                     {stripeLoading ? <RefreshCw className="animate-spin" size={14} /> : (
-                                        <>Connect Stripe <ShieldCheck size={16} /></>
+                                        <>{t('connectStripe')} <ShieldCheck size={16} /></>
                                     )}
                                 </button>
                             )}
@@ -307,28 +307,28 @@ export default function Settings({ user, checkAuthStatus }) {
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
                                 <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-4 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
-                                    Bank Transfer (NGN)
+                                    {t('bankTransferNgn')}
                                 </h4>
                                 <div className="space-y-2.5">
                                     <input
                                         type="text"
                                         value={bankName}
                                         onChange={(e) => setBankName(e.target.value)}
-                                        placeholder="Bank Name"
+                                        placeholder={t('bankName')}
                                         className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight"
                                     />
                                     <input
                                         type="text"
                                         value={accountNumber}
                                         onChange={(e) => setAccountNumber(e.target.value)}
-                                        placeholder="Account Number"
+                                        placeholder={t('accountNumber')}
                                         className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm tracking-widest"
                                     />
                                     <input
                                         type="text"
                                         value={accountHolderName}
                                         onChange={(e) => setAccountHolderName(e.target.value)}
-                                        placeholder="Account Holder Name"
+                                        placeholder={t('accountHolderName')}
                                         className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight"
                                     />
                                 </div>
@@ -344,7 +344,7 @@ export default function Settings({ user, checkAuthStatus }) {
                         className="px-6 py-3 bg-[#012126] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center gap-2 shadow-lg"
                     >
                         {loading ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
-                        Save Details
+                        {t('saveDetails')}
                     </button>
                 </div>
             </div>
@@ -355,31 +355,31 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="flex items-center justify-between border-b border-gray-50 pb-4 mb-6">
                     <div className="flex items-center gap-2.5">
                         <CreditCard className="text-[#5845D8]" size={18} />
-                        <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">Stored Cards</h3>
+                        <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">{t('storedCards')}</h3>
                     </div>
                     <button
                         onClick={() => setShowAddCard(!showAddCard)}
                         className="text-[#5845D8] font-black text-[10px] uppercase tracking-widest flex items-center gap-1 hover:opacity-70 transition-opacity"
                     >
-                        <PlusCircle size={14} /> Add Card
+                        <PlusCircle size={14} /> {t('addCard')}
                     </button>
                 </div>
 
                 {showAddCard && (
                     <div className="mb-6 p-5 bg-gray-50/50 rounded-2xl border border-[#5845D8]/10 animate-in slide-in-from-top duration-300">
-                        <h4 className="text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">Enter card details</h4>
+                        <h4 className="text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">{t('enterCardDetails')}</h4>
                         <form onSubmit={handleAddCard} className="space-y-3">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <input
                                     type="text"
-                                    placeholder="Holder Name"
+                                    placeholder={t('holderName')}
                                     className="px-4 py-2 rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[10px] font-black uppercase tracking-widest"
                                     value={newCard.holderName}
                                     onChange={(e) => setNewCard({ ...newCard, holderName: e.target.value })}
                                 />
                                 <input
                                     type="text"
-                                    placeholder="Card Number"
+                                    placeholder={t('cardNumber')}
                                     className="px-4 py-2 rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[10px] font-black tracking-[4px]"
                                     value={newCard.number}
                                     onChange={(e) => setNewCard({ ...newCard, number: e.target.value })}
@@ -389,7 +389,7 @@ export default function Settings({ user, checkAuthStatus }) {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <input
                                     type="text"
-                                    placeholder="MM/YY"
+                                    placeholder={t('expMonthYear')}
                                     className="px-4 py-2 rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[10px] font-black tracking-widest"
                                     value={newCard.expiry}
                                     onChange={(e) => setNewCard({ ...newCard, expiry: e.target.value })}
@@ -397,13 +397,13 @@ export default function Settings({ user, checkAuthStatus }) {
                                 />
                                 <input
                                     type="text"
-                                    placeholder="CVC"
+                                    placeholder={t('cvc')}
                                     className="px-4 py-2 rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[10px] font-black tracking-[3px]"
                                     value={newCard.cvc}
                                     onChange={(e) => setNewCard({ ...newCard, cvc: e.target.value })}
                                     maxLength={3}
                                 />
-                                <button type="submit" className="md:col-span-2 bg-[#5845D8] text-white py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all">Add Card</button>
+                                <button type="submit" className="md:col-span-2 bg-[#5845D8] text-white py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all">{t('addCard')}</button>
                             </div>
                         </form>
                     </div>
@@ -413,7 +413,7 @@ export default function Settings({ user, checkAuthStatus }) {
                     {cards.length === 0 ? (
                         <div className="col-span-full py-10 text-center text-gray-400">
                             <AlertCircle size={28} className="mx-auto mb-2 opacity-20" />
-                            <p className="text-[9px] font-black uppercase tracking-widest opacity-50">No cards stored</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest opacity-50">{t('noCardsStored')}</p>
                         </div>
                     ) : (
                         cards.map(card => (
@@ -434,17 +434,17 @@ export default function Settings({ user, checkAuthStatus }) {
                                 <p className="text-sm font-black tracking-[3px] mb-3 opacity-90">•••• •••• •••• {card.last4}</p>
                                 <div className="flex justify-between items-end">
                                     <div>
-                                        <p className="text-[7px] text-white/30 font-black uppercase mb-0.5 tracking-widest">Holder</p>
+                                        <p className="text-[7px] text-white/30 font-black uppercase mb-0.5 tracking-widest">{t('holderName')}</p>
                                         <p className="text-[9px] font-black truncate max-w-[120px] uppercase tracking-tight">{card.holderName || (firstName + ' ' + lastName)}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[7px] text-white/30 font-black uppercase mb-0.5 tracking-widest">Exp</p>
+                                        <p className="text-[7px] text-white/30 font-black uppercase mb-0.5 tracking-widest">{t('exp')}</p>
                                         <p className="text-[9px] font-black tracking-widest">{card.expMonth}/{card.expYear}</p>
                                     </div>
                                 </div>
                                 {card.isDefault && (
                                     <div className="absolute bottom-3 right-3 bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-md border border-white/5">
-                                        <span className="text-[7px] font-black uppercase tracking-widest">Default</span>
+                                        <span className="text-[7px] font-black uppercase tracking-widest">{t('default')}</span>
                                     </div>
                                 )}
                             </div>

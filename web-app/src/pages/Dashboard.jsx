@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
 import Overview from '../components/dashboard/Overview';
 import Trips from '../components/dashboard/Trips';
@@ -23,17 +24,18 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const menuItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'trips', label: 'My Trips', icon: Plane },
-    { id: 'shipments', label: 'My Shipments', icon: Package },
-    { id: 'chats', label: 'Chats', icon: MessageCircle },
-    { id: 'earnings', label: 'Earnings', icon: Wallet },
-    { id: 'settings', label: 'Settings', icon: SettingsIcon },
+const getMenuItems = (t) => [
+    { id: 'overview', label: t('overview'), icon: LayoutDashboard },
+    { id: 'trips', label: t('myTrips'), icon: Plane },
+    { id: 'shipments', label: t('myShipments'), icon: Package },
+    { id: 'chats', label: t('chats'), icon: MessageCircle },
+    { id: 'earnings', label: t('earnings'), icon: Wallet },
+    { id: 'settings', label: t('settings'), icon: SettingsIcon },
 ];
 
 export default function Dashboard() {
     const { user, loading, isAuthenticated, logout, checkAuthStatus } = useAuth();
+    const { t } = useLanguage();
     const navigate = useNavigate();
     const [kycStatus, setKycStatus] = useState('not_started');
     const [kycLoading, setKycLoading] = useState(true);
@@ -123,16 +125,16 @@ export default function Dashboard() {
         <div className="min-h-[60vh] flex items-center justify-center p-8">
             <div className="text-center max-w-sm">
                 <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <AlertCircle size={40} />
+                    <LayoutDashboard size={40} />
                 </div>
-                <h3 className="text-2xl font-black text-[#012126] mb-3">Something went wrong</h3>
-                <p className="text-gray-500 font-medium mb-8">We had trouble loading this section. Please try refreshing or return to overview.</p>
+                <h3 className="text-2xl font-black text-[#012126] mb-3">{t('somethingWentWrong')}</h3>
+                <p className="text-gray-500 font-medium mb-8">{t('troubleLoadingSection')}</p>
                 <div className="flex flex-col gap-3">
                     <button onClick={() => window.location.reload()} className="bg-[#5845D8] text-white font-bold py-4 rounded-2xl shadow-lg ring-offset-2 active:scale-95 transition-all">
-                        Refresh Page
+                        {t('refreshPage')}
                     </button>
                     <button onClick={() => setActiveTab('overview')} className="text-[#5845D8] font-bold py-2 hover:opacity-70 transition-all">
-                        Back to Overview
+                        {t('backToOverview')}
                     </button>
                 </div>
             </div>
@@ -150,7 +152,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-center">
                     <p className="font-black text-[#012126] uppercase tracking-widest text-xs mb-1">Bago</p>
-                    <p className="text-[#5845D8] font-bold animate-pulse text-sm">Preparing your dashboard...</p>
+                    <p className="text-[#5845D8] font-bold animate-pulse text-sm">{t('preparingDashboard')}</p>
                 </div>
             </div>
         </div>
@@ -188,7 +190,7 @@ export default function Dashboard() {
 
                 {/* Nav Items */}
                 <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
-                    {menuItems.map((item) => (
+                    {getMenuItems(t).map((item) => (
                         <button
                             key={item.id}
                             onClick={() => handleTabChange(item.id)}
@@ -216,7 +218,7 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1">
                                 <Shield size={8} className={kycStatus === 'approved' ? 'text-green-500' : 'text-gray-300'} />
                                 <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">
-                                    {kycStatus === 'approved' ? 'Verified' : 'Unverified'}
+                                    {kycStatus === 'approved' ? t('verified') : t('unverified')}
                                 </span>
                             </div>
                         </div>
@@ -226,7 +228,7 @@ export default function Dashboard() {
                         className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all text-[12px]"
                     >
                         <LogOut size={16} />
-                        <span>Sign Out</span>
+                        <span>{t('logout')}</span>
                     </button>
                 </div>
             </aside>
@@ -244,13 +246,13 @@ export default function Dashboard() {
                             <Menu size={20} />
                         </button>
                         <div>
-                            <h1 className="text-xs font-black text-[#012126] uppercase tracking-widest">{activeTab}</h1>
-                            <p className="text-[9px] text-gray-400 font-bold hidden sm:block uppercase tracking-tight">Personal Dashboard</p>
+                            <h1 className="text-xs font-black text-[#012126] uppercase tracking-widest">{t(activeTab)}</h1>
+                            <p className="text-[9px] text-gray-400 font-bold hidden sm:block uppercase tracking-tight">{t('personalDashboard')}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <Link to="/" className="text-[10px] text-[#6B7280] hover:text-[#5845D8] font-bold uppercase tracking-wider hidden sm:block">
-                            ← Back to site
+                            {t('backToSite')}
                         </Link>
                         <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs">
                             {userInitial}

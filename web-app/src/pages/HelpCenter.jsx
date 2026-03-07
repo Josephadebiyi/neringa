@@ -65,24 +65,24 @@ export default function HelpCenter() {
 
     const faqs = [
         {
-            category: 'Shipping',
-            question: "What is Bago's 'Open Package Policy'?",
-            answer: "For the safety of our travelers and the platform, Bago enforces an Open Package Policy. Travelers have the absolute right to inspect the contents of any package they carry. Senders must keep items unsealed or be prepared to open them for inspection at the point of handover. This ensures no prohibited or illegal items are transported."
+            category: t('faqCategoryShipping'),
+            question: t('faqQuestion1'),
+            answer: t('faqAnswer1')
         },
         {
-            category: 'Shipping',
-            question: "What happens if a package is damaged or lost?",
-            answer: "Bago provides a basic 'Insurance Protection Policy' for verified transactions. If an item is lost or damage is proven to be the traveler's fault, our escrow system can facilitate refunds. We recommend travelers take photos of the item during pickup and delivery to ensure protection for both parties."
+            category: t('faqCategoryShipping'),
+            question: t('faqQuestion2'),
+            answer: t('faqAnswer2')
         },
         {
-            category: 'Payments',
-            question: "How does the Escrow system work?",
-            answer: "When a sender pays for a delivery, the funds are securely held by Bago's escrow service. The traveler only receives the payment once the sender confirms receipt or the traveler provides verified proof of delivery. This protects both users from fraud."
+            category: t('faqCategoryPayments'),
+            question: t('faqQuestion3'),
+            answer: t('faqAnswer3')
         },
         {
-            category: 'Security',
-            question: "Why do I need to verify my identity?",
-            answer: "Security is our top priority. By requiring KYC (Know Your Customer) verification through Didit, we ensure that every person on the platform is who they say they are. This builds a trusted community of real travelers and real senders."
+            category: t('faqCategorySecurity'),
+            question: t('faqQuestion4'),
+            answer: t('faqAnswer4')
         }
     ];
 
@@ -116,7 +116,7 @@ export default function HelpCenter() {
                             </div>
                             <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">{cat.title}</h3>
                             <p className="text-[10px] text-gray-400 font-bold mt-2 flex items-center gap-1 group-hover:text-[#5845D8] transition-colors uppercase tracking-widest">
-                                EXPLORE ARTICLES <ArrowRight size={10} />
+                                {t('exploreArticles')} <ArrowRight size={10} />
                             </p>
                         </Link>
                     ))}
@@ -127,7 +127,7 @@ export default function HelpCenter() {
                     <div className="lg:col-span-2">
                         <div className="flex items-center gap-3 mb-6">
                             <HelpCircle size={20} className="text-[#5845D8]" />
-                            <h2 className="text-xl font-black text-[#012126] uppercase tracking-tight">Support Topics</h2>
+                            <h2 className="text-xl font-black text-[#012126] uppercase tracking-tight">{t('supportTopics')}</h2>
                         </div>
                         <div className="bg-white rounded-[32px] p-6 md:p-10 border border-gray-100 shadow-sm">
                             {faqs.map((faq, i) => (
@@ -139,18 +139,18 @@ export default function HelpCenter() {
                     <div>
                         <div className="bg-[#5845D8] rounded-[32px] p-8 text-white relative overflow-hidden shadow-xl sticky top-24 border border-[#5845D8]">
                             <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mb-16"></div>
-                            <h3 className="text-lg font-black mb-3 tracking-tight uppercase">Still need help?</h3>
+                            <h3 className="text-lg font-black mb-3 tracking-tight uppercase">{t('stillNeedHelp')}</h3>
                             <p className="text-white/60 font-bold text-[11px] mb-8 leading-relaxed uppercase tracking-wider">
-                                Our support team is available 24/7 to assist you with any questions or issues.
+                                {t('supportTeamAvailability')}
                             </p>
                             <div className="space-y-3">
                                 <a href="mailto:support@sendwithbago.com" className="flex items-center gap-3 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-all font-black text-[10px] uppercase tracking-widest border border-white/5">
                                     <Mail size={18} />
-                                    <span>Support Email</span>
+                                    <span>{t('supportEmail')}</span>
                                 </a>
                                 <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl font-black text-[10px] uppercase tracking-widest opacity-40 border border-transparent">
                                     <Smartphone size={18} />
-                                    <span>In-app Chat</span>
+                                    <span>{t('inAppChat')}</span>
                                 </div>
                             </div>
                         </div>
@@ -164,12 +164,12 @@ export default function HelpCenter() {
                     <div className="w-16 h-16 bg-purple-50 text-[#5845D8] rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
                         <MessageCircle size={28} />
                     </div>
-                    <h2 className="text-2xl font-black text-[#012126] mb-3 tracking-tight">Chat with our Bago Assistants</h2>
+                    <h2 className="text-2xl font-black text-[#012126] mb-3 tracking-tight">{t('chatWithAssistants')}</h2>
                     <p className="text-[#6B7280] text-xs font-bold mb-10 uppercase tracking-widest opacity-70 leading-relaxed max-w-xl mx-auto">
-                        Our AI-powered help assistants can answer most questions instantly about routes, pricing, and guidelines.
+                        {t('chatAssistantsDesc')}
                     </p>
                     <Link to="/search" className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#5845D8] text-white font-black text-[10px] uppercase tracking-[1.5px] rounded-xl hover:shadow-xl transition-all shadow-md shadow-[#5845D8]/20">
-                        Get Started <ArrowRight size={14} />
+                        {t('getStarted')} <ArrowRight size={14} />
                     </Link>
                 </div>
             </section>

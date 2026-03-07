@@ -12,17 +12,19 @@ import {
     Shield
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function Sidebar({ activeTab, setActiveTab, user, logout }) {
+    const { t } = useLanguage();
     const location = useLocation();
 
     const menuItems = [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'trips', label: 'My Trips', icon: Plane },
-        { id: 'shipments', label: 'My Shipments', icon: Package },
-        { id: 'chats', label: 'Messages', icon: MessageCircle, badge: 3 }, // Placeholder badge
-        { id: 'earnings', label: 'Earnings', icon: Wallet },
-        { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'overview', label: t('overview'), icon: LayoutDashboard },
+        { id: 'trips', label: t('myTrips'), icon: Plane },
+        { id: 'shipments', label: t('myShipments'), icon: Package },
+        { id: 'chats', label: t('chats'), icon: MessageCircle, badge: 3 }, // Placeholder badge
+        { id: 'earnings', label: t('earnings'), icon: Wallet },
+        { id: 'settings', label: t('settings'), icon: Settings },
     ];
 
     return (
@@ -68,7 +70,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout }) {
                         <p className="text-[11px] font-black text-[#012126] truncate uppercase tracking-tight">{user?.firstName} {user?.lastName}</p>
                         <div className="flex items-center gap-1 mt-0.5">
                             <Shield size={9} className={user?.kycStatus === 'approved' ? "text-green-500" : "text-gray-300"} />
-                            <span className={`text-[8px] font-black uppercase tracking-widest ${user?.kycStatus === 'approved' ? "text-green-500" : "text-gray-400 opacity-60"}`}>{user?.kycStatus === 'approved' ? 'Verified' : 'Member'}</span>
+                            <span className={`text-[8px] font-black uppercase tracking-widest ${user?.kycStatus === 'approved' ? "text-green-500" : "text-gray-400 opacity-60"}`}>{user?.kycStatus === 'approved' ? t('verified') : t('member')}</span>
                         </div>
                     </div>
                 </div>
@@ -78,7 +80,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout }) {
                     className="w-full flex items-center gap-3.5 px-6 py-3.5 rounded-2xl text-red-500 hover:bg-red-50 font-black transition-all group active:scale-95"
                 >
                     <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-[9px] uppercase tracking-[0.2em]">Sign Out</span>
+                    <span className="text-[9px] uppercase tracking-[0.2em]">{t('signOut')}</span>
                 </button>
             </div>
         </aside>

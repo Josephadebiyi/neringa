@@ -4,7 +4,7 @@ import { Wallet, ArrowUpRight, ArrowDownLeft, Landmark, RefreshCw, CreditCard, A
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function Earnings({ user, checkAuthStatus }) {
-    const { currency } = useLanguage();
+    const { currency, t } = useLanguage();
     const [balance, setBalance] = useState(user?.balance || 0);
     const [history, setHistory] = useState(user?.balanceHistory || []);
     const [loading, setLoading] = useState(false);
@@ -20,17 +20,17 @@ export default function Earnings({ user, checkAuthStatus }) {
         e.preventDefault();
         if (!withdrawAmount || Number(withdrawAmount) <= 0) return;
         if (Number(withdrawAmount) > balance) {
-            setStatus({ type: 'error', message: 'Insufficient balance' });
+            setStatus({ type: 'error', message: t('insufficientBalance') });
             return;
         }
 
         // Validate method selection
         if (method === 'bank' && (!user?.bankDetails?.accountNumber || !user?.bankDetails?.bankName)) {
-            setStatus({ type: 'error', message: 'Please add bank details in Settings first' });
+            setStatus({ type: 'error', message: t('addBankDetailsFirst') });
             return;
         }
         if (method === 'stripe' && !user?.stripeConnectAccountId) {
-            setStatus({ type: 'error', message: 'Please add Stripe Connect ID in Settings first' });
+            setStatus({ type: 'error', message: t('addStripeDetailsFirst') });
             return;
         }
 
@@ -40,15 +40,15 @@ export default function Earnings({ user, checkAuthStatus }) {
             const res = await api.post('/api/bago/withdrawFunds', {
                 amount: Number(withdrawAmount),
                 method: method,
-                description: `Withdrawal via ${method === 'bank' ? 'Bank Transfer' : 'Stripe'}`
+                description: `Withdrawal via ${method === 'bank' ? t('viaBankTransfer') : t('viaStripeConnect')}`
             });
             if (res.data.success) {
-                setStatus({ type: 'success', message: 'Withdrawal request submitted!' });
+                setStatus({ type: 'success', message: t('withdrawalRequestSubmitted') });
                 setWithdrawAmount('');
                 await checkAuthStatus();
             }
         } catch (err) {
-            setStatus({ type: 'error', message: err.response?.data?.message || 'Withdrawal failed' });
+            setStatus({ type: 'error', message: err.response?.data?.message || t('withdrawalFailed') });
         } finally {
             setIsWithdrawing(false);
         }
@@ -63,7 +63,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div className="relative z-10 flex flex-col justify-between h-full min-h-[160px]">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-white/40 font-black uppercase tracking-widest text-[8px] mb-2 tracking-[0.25em]">Available Balance</p>
+                                <p className="text-white/40 font-black uppercase tracking-widest text-[8px] mb-2 tracking-[0.25em]">{t('availableBalance')}</p>
                                 <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none">${balance.toLocaleString()}</h1>
                             </div>
                             <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/5">
@@ -85,7 +85,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${method === 'bank' ? 'bg-white text-[#012126] border-white shadow-lg' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}
                                 >
                                     <Landmark size={14} />
-                                    <span className="text-[9px] font-black uppercase tracking-widest">Transfer</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest">{t('transfer')}</span>
                                 </button>
                             )}
                         </div>
@@ -95,9 +95,9 @@ export default function Earnings({ user, checkAuthStatus }) {
                 {/* Withdrawal Form */}
                 <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full min-h-[160px]">
                     <div>
-                        <h3 className="text-sm font-black text-[#012126] mb-0.5 tracking-tight uppercase">Withdraw</h3>
+                        <h3 className="text-sm font-black text-[#012126] mb-0.5 tracking-tight uppercase">{t('withdraw')}</h3>
                         <p className="text-gray-400 text-[8px] font-black mb-4 uppercase tracking-widest opacity-60">
-                            Via {method === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}
+                            {method === 'bank' ? t('viaBankTransfer') : t('viaStripeConnect')}
                         </p>
 
                         <form onSubmit={handleWithdraw} className="space-y-4">
@@ -116,7 +116,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 disabled={isWithdrawing || !withdrawAmount}
                                 className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {isWithdrawing ? <RefreshCw className="animate-spin" size={14} /> : 'Transfer Funds'}
+                                {isWithdrawing ? <RefreshCw className="animate-spin" size={14} /> : t('transferFunds')}
                             </button>
                         </form>
                     </div>
@@ -133,15 +133,15 @@ export default function Earnings({ user, checkAuthStatus }) {
             {/* Transaction History */}
             <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                    <h3 className="text-sm font-black text-[#012126] tracking-tight uppercase">Recent Activity</h3>
+                    <h3 className="text-sm font-black text-[#012126] tracking-tight uppercase">{t('recentActivity')}</h3>
                     <button onClick={checkAuthStatus} className="text-[#5845D8] font-black text-[9px] uppercase tracking-widest flex items-center gap-1.5 hover:opacity-70 transition-opacity">
-                        <RefreshCw size={10} /> Refresh
+                        <RefreshCw size={10} /> {t('refresh')}
                     </button>
                 </div>
 
                 {history.length === 0 ? (
                     <div className="p-16 text-center">
-                        <p className="text-gray-400 font-black uppercase tracking-widest text-[9px] opacity-40">No transactions recorded</p>
+                        <p className="text-gray-400 font-black uppercase tracking-widest text-[9px] opacity-40">{t('noTransactionsRecorded')}</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-50">
@@ -152,7 +152,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                         {tx.type === 'withdraw' ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
                                     </div>
                                     <div>
-                                        <p className="font-black text-[#012126] text-[11px] uppercase tracking-tight">{tx.description || (tx.type === 'withdraw' ? 'Payout' : 'Earnings')}</p>
+                                        <p className="font-black text-[#012126] text-[11px] uppercase tracking-tight">{tx.description || (tx.type === 'withdraw' ? t('payout') : t('earnings'))}</p>
                                         <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest opacity-60">{new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
                                     </div>
                                 </div>

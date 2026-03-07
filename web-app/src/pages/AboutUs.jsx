@@ -39,10 +39,10 @@ export default function AboutUs() {
             <section className="relative overflow-hidden pt-16 pb-24 px-6 max-w-[1240px] mx-auto font-sans">
                 <div className="text-center relative z-10">
                     <h1 className="text-5xl md:text-7xl font-black text-[#012126] mb-10 tracking-tighter leading-[0.9]">
-                        Re-imagine <span className="opacity-15 text-gray-400">logistics.</span>
+                        {t('reimagineLogistics').split(' ').map((word, i) => word.toLowerCase() === 'logistics.' ? <span key={i} className="opacity-15 text-gray-400">{word}</span> : <React.Fragment key={i}>{word} </React.Fragment>)}
                     </h1>
                     <p className="text-sm md:text-base text-[#6B7280] font-bold leading-relaxed max-w-xl mx-auto uppercase tracking-wide">
-                        We're building the most human-centric logistics network in the world. Bago connects travelers with people who need to send packages globally.
+                        {t('aboutSummary')}
                     </p>
                 </div>
             </section>
@@ -78,7 +78,7 @@ export default function AboutUs() {
             <section className="py-20 px-6 md:px-12 font-sans">
                 <div className="max-w-[1240px] mx-auto text-center mb-16">
                     <h2 className="text-2xl font-black text-[#012126] mb-3 tracking-tight">{t('coreValues')}</h2>
-                    <p className="text-[#6B7280] font-bold text-xs uppercase tracking-widest">The principles that guide every feature we build.</p>
+                    <p className="text-[#6B7280] font-bold text-xs uppercase tracking-widest">{t('coreValuesSubtitle')}</p>
                 </div>
                 <div className="max-w-[1240px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
                     {[
@@ -118,19 +118,19 @@ export default function AboutUs() {
                 <div className="max-w-[1240px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10 text-center text-white relative z-10">
                     <div>
                         <div className="text-3xl font-black mb-1 tracking-tight">50k+</div>
-                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Packages Sent</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">{t('packagesSent')}</div>
                     </div>
                     <div>
                         <div className="text-3xl font-black mb-1 tracking-tight">10k+</div>
-                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Verified Travelers</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">{t('verifiedTravelers')}</div>
                     </div>
                     <div>
                         <div className="text-3xl font-black mb-1 tracking-tight">120+</div>
-                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Countries Covered</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">{t('countriesCovered')}</div>
                     </div>
                     <div>
                         <div className="text-3xl font-black mb-1 tracking-tight">4.9/5</div>
-                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">Average Rating</div>
+                        <div className="text-white/40 font-black uppercase tracking-[2px] text-[9px]">{t('averageRating')}</div>
                     </div>
                 </div>
             </section>
@@ -138,10 +138,9 @@ export default function AboutUs() {
             {/* CTA */}
             <section className="py-24 px-6 text-center font-sans">
                 <div className="max-w-xl mx-auto">
-                    <h2 className="text-3xl font-black text-[#012126] mb-5 tracking-tight">Join the movement.</h2>
+                    <h2 className="text-3xl font-black text-[#012126] mb-5 tracking-tight">{t('joinMovement')}</h2>
                     <p className="text-[#6B7280] text-xs font-bold mb-10 leading-relaxed uppercase tracking-widest opacity-80">
-                        Become part of the most human-centric logistics network in the world.
-                        Start sending or start earning today.
+                        {t('joinMovementDesc')}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link to="/signup" className="px-10 py-4 bg-[#00D094] text-[#012126] font-black rounded-xl shadow-lg hover:scale-105 transition-all text-sm uppercase tracking-widest">

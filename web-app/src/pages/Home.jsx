@@ -54,13 +54,13 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             <div className="hidden md:flex gap-10 items-center">
                 <button onClick={() => navigate('/about')} className="text-[#5845D8] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
-                    Who we are
+                    {t('whoWeAre')}
                 </button>
                 <button onClick={() => navigate('/how-it-works')} className="text-[#5845D8] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
-                    How it works
+                    {t('howItWorks')}
                 </button>
                 <button onClick={() => navigate('/track')} className="text-[#5845D8] font-semibold hover:text-[#5845D8] transition-colors cursor-pointer text-[15px]">
-                    Track
+                    {t('track')}
                 </button>
             </div>
 
@@ -119,12 +119,12 @@ const Navbar = () => {
                             <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm group-hover:scale-105 transition-transform">
                                 {user?.firstName?.charAt(0) || user?.email?.charAt(0)}
                             </div>
-                            <span className="text-sm font-bold text-[#5845D8]">Dashboard</span>
+                            <span className="text-sm font-bold text-[#5845D8]">{t('dashboard')}</span>
                         </Link>
                     ) : (
                         <Link to="/login" className="flex items-center gap-2 px-6 py-2.5 bg-[#5845D8] text-white rounded-full font-bold hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/10 group">
                             <UserCircle size={20} className="text-white/80 group-hover:text-white transition-colors" />
-                            <span>Login / Signup</span>
+                            <span>{t('loginSignup')}</span>
                         </Link>
                     )}
                 </div>
@@ -179,14 +179,14 @@ const Navbar = () => {
                                         className="w-full py-4 text-xl font-black text-[#5845D8] flex items-center gap-4 hover:text-[#5845D8] transition-colors"
                                     >
                                         <Search size={24} />
-                                        <span>Find a Route</span>
+                                        <span>{t('findRoute')}</span>
                                     </button>
                                     <button
                                         onClick={() => { navigate('/post-trip'); setShowMobileMenu(false); }}
                                         className="w-full py-4 text-xl font-black text-[#5845D8] flex items-center gap-4 hover:text-[#4838B5] transition-colors"
                                     >
                                         <PlusCircle size={24} />
-                                        <span>Post a Trip</span>
+                                        <span>{t('postTrip')}</span>
                                     </button>
                                     <Link
                                         to="/about"
@@ -194,7 +194,7 @@ const Navbar = () => {
                                         className="block py-4 text-xl font-black text-[#5845D8] flex items-center gap-4 border-t border-gray-100 pt-8"
                                     >
                                         <AlertCircle size={24} />
-                                        Who we are
+                                        {t('whoWeAre')}
                                     </Link>
                                     <Link
                                         to="/how-it-works"
@@ -202,14 +202,14 @@ const Navbar = () => {
                                         className="block py-4 text-xl font-black text-[#5845D8] flex items-center gap-4"
                                     >
                                         <CheckCircle size={24} />
-                                        How it works
+                                        {t('howItWorks')}
                                     </Link>
                                 </div>
 
                                 {/* Language/Currency Section */}
                                 {/* Language Selector Mobile */}
                                 <div className="pt-8 border-t border-gray-100">
-                                    <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Select Language</h5>
+                                    <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">{t('selectLanguage')}</h5>
                                     <div className="relative">
                                         <select
                                             value={currentLanguage}
@@ -229,7 +229,7 @@ const Navbar = () => {
                                 </div>
 
                                 <div>
-                                    <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">Preferred Currency</h5>
+                                    <h5 className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-6 font-bold">{t('preferredCurrency')}</h5>
                                     <div className="flex flex-wrap gap-2">
                                         {currencies.map((c) => (
                                             <button
@@ -268,27 +268,34 @@ const Navbar = () => {
                                             onClick={() => setShowMobileMenu(false)}
                                             className="w-full block text-center py-4 bg-[#5845D8] text-white rounded-2xl font-black text-lg shadow-lg hover:shadow-xl transition-all"
                                         >
-                                            Go to Dashboard
+                                            {t('goToDashboard')}
                                         </Link>
                                     </div>
                                 ) : (
-                                    <Link
-                                        to="/login"
-                                        onClick={() => setShowMobileMenu(false)}
-                                        className="w-full block text-center py-4 bg-[#5845D8] text-white rounded-2xl font-black text-lg shadow-lg"
-                                    >
-                                        Log In / Register
-                                    </Link>
+                                    <div className="space-y-4">
+                                        <button
+                                            onClick={() => navigate('/login')}
+                                            className="w-full bg-[#5845D8] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20"
+                                        >
+                                            {t('login')}
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/signup')}
+                                            className="w-full bg-white text-[#5845D8] border-2 border-[#5845D8]/10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest"
+                                        >
+                                            {t('signup')}
+                                        </button>
+                                    </div>
                                 )}
                                 <p className="mt-6 text-center text-xs font-medium text-gray-400">
-                                    Trusted by 10k+ Travelers worldwide.
+                                    {t('trustedBy')}
                                 </p>
                             </div>
                         </motion.div>
                     </>
                 )}
             </AnimatePresence>
-        </nav>
+        </nav >
     );
 };
 
@@ -431,7 +438,7 @@ const HeroSection = () => {
                                 className="inline-flex items-center gap-3 px-4 py-1.5 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 mb-2"
                             >
                                 <span className="flex h-1.5 w-1.5 rounded-full bg-[#A78BFA] animate-pulse"></span>
-                                <span className="text-white font-black text-[9px] uppercase tracking-[0.2em]">Next Generation Shipping</span>
+                                <span className="text-white font-black text-[9px] uppercase tracking-[0.2em]">{t('nextGenShipping')}</span>
                             </motion.div>
 
                             <motion.h1
@@ -440,9 +447,17 @@ const HeroSection = () => {
                                 transition={{ duration: 0.8, delay: 0.1 }}
                                 className="text-4xl md:text-[48px] font-black text-white mb-1 tracking-[-0.04em] leading-[0.85]"
                             >
-                                International <br />
-                                <span className="text-[#A78BFA]">package delivery</span> <br />
-                                redefined.
+                                {t('heroTitle').split(' ').map((word, idx) => (
+                                    <React.Fragment key={idx}>
+                                        {word === 'package' || word === 'delivery' ? (
+                                            <span className="text-[#A78BFA]">{word} </span>
+                                        ) : (
+                                            <>{word} </>
+                                        )}
+                                        {idx === 0 && <br />}
+                                        {idx === 2 && <br />}
+                                    </React.Fragment>
+                                ))}
                             </motion.h1>
 
                             <motion.p
@@ -451,7 +466,7 @@ const HeroSection = () => {
                                 transition={{ duration: 0.8, delay: 0.2 }}
                                 className="hidden md:block text-white/70 text-sm md:text-[15px] font-bold mb-3 max-w-lg leading-tight tracking-tight opacity-90 mx-auto md:mx-0"
                             >
-                                The easiest and most affordable way to send packages across the world. Connect with verified travelers ready to deliver your items.
+                                {t('heroSummary')}
                             </motion.p>
                         </div>
 
@@ -469,11 +484,11 @@ const HeroSection = () => {
                                 transition={{ type: "spring", stiffness: 300, damping: 15, delay: 1 }}
                                 className="px-6 py-2.5 border-[4px] border-[#A78BFA] text-[#A78BFA] font-black rounded-xl text-[16px] uppercase tracking-[0.2em] font-mono shadow-[0_0_40px_rgba(167,139,250,0.2)] bg-[#5845D8]/40 backdrop-blur-sm"
                             >
-                                DELIVERED
+                                {t('deliveredStamp')}
                             </motion.div>
 
                             <div className="flex flex-col items-end gap-3">
-                                <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Download official apps</p>
+                                <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em] mb-1">{t('downloadOfficialApps')}</p>
                                 <div className="flex flex-row gap-3">
                                     <img src="/app-store.svg" alt="App Store" className="h-[36px] cursor-pointer hover:scale-105 transition-transform" />
                                     <img src="/google-play.svg" alt="Google Play" className="h-[36px] cursor-pointer hover:scale-105 transition-transform" />
@@ -486,7 +501,7 @@ const HeroSection = () => {
                                             </div>
                                         ))}
                                     </div>
-                                    <span className="text-white/40 text-[8px] font-black uppercase tracking-widest">4.9/5 RATED</span>
+                                    <span className="text-white/40 text-[8px] font-black uppercase tracking-widest">{t('ratedStars')}</span>
                                 </div>
                             </div>
                         </motion.div>
@@ -508,7 +523,7 @@ const HeroSection = () => {
                         <div className="flex-1 flex flex-col justify-center px-6 py-3 rounded-[20px] hover:bg-gray-50 transition-colors group relative cursor-pointer min-w-0">
                             <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
                                 <div className="w-1 h-1 rounded-full bg-[#5845D8]"></div>
-                                Leaving From
+                                {t('leavingFromLabel')}
                             </label>
                             <div className="flex items-center gap-2">
                                 <MapPin size={18} className="text-[#5845D8] flex-shrink-0" />
@@ -517,7 +532,7 @@ const HeroSection = () => {
                                         options={locationOptions}
                                         value={origin}
                                         onChange={setOrigin}
-                                        placeholder="Pick a city"
+                                        placeholder={t('pickCityPlaceHolder')}
                                         styles={customStyles}
                                         isClearable
                                         menuPortalTarget={document.body}
@@ -534,7 +549,7 @@ const HeroSection = () => {
                         <div className="flex-1 flex flex-col justify-center px-6 py-3 rounded-[20px] hover:bg-gray-50 transition-colors group relative cursor-pointer min-w-0">
                             <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
                                 <div className="w-1 h-1 rounded-full bg-[#5845D8]"></div>
-                                Going To
+                                {t('goingToLabel')}
                             </label>
                             <div className="flex items-center gap-2">
                                 <MapPin size={18} className="text-[#5845D8] flex-shrink-0" />
@@ -543,7 +558,7 @@ const HeroSection = () => {
                                         options={locationOptions}
                                         value={destination}
                                         onChange={setDestination}
-                                        placeholder="Pick a city"
+                                        placeholder={t('pickCityPlaceHolder')}
                                         styles={customStyles}
                                         isClearable
                                         menuPortalTarget={document.body}
@@ -558,7 +573,7 @@ const HeroSection = () => {
 
                         {/* Date Field */}
                         <div className="flex-1 lg:max-w-[200px] flex flex-col justify-center px-6 py-3 rounded-[20px] hover:bg-gray-50 transition-colors group min-w-0">
-                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Departure Date</label>
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{t('departureDateLabel')}</label>
                             <div className="flex items-center gap-2">
                                 <Calendar size={18} className="text-[#5845D8] flex-shrink-0" />
                                 <input
@@ -578,7 +593,7 @@ const HeroSection = () => {
                             className="bg-[#5845D8] text-white px-8 py-4 rounded-[20px] font-black text-[14px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-3 shadow-2xl shadow-[#5845D8]/30 group active:scale-95 ml-1 mr-1 my-1 lg:my-0"
                         >
                             <Search size={20} className="group-hover:scale-110 transition-transform" />
-                            <span>Compare Global Routes</span>
+                            <span>{t('searchRoutesBtn')}</span>
                         </button>
                     </form>
                 </motion.div>
@@ -597,12 +612,14 @@ const HeroSection = () => {
 };
 
 const BrandsSection = () => {
+    const { t } = useLanguage();
+
     return (
         <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-20 bg-white">
             <div className="text-center mb-12">
-                <span className="px-5 py-2 bg-blue-50 text-blue-600 rounded-full text-xs font-black uppercase tracking-widest">Partners</span>
+                <span className="px-5 py-2 bg-blue-50 text-blue-600 rounded-full text-xs font-black uppercase tracking-widest">{t('partners')}</span>
                 <h2 className="text-4xl md:text-7xl font-black text-[#5845D8] mt-8 leading-[0.9] tracking-tighter">
-                    Developed in <span className="opacity-20">partnership</span> with <br /> top global logistics networks.
+                    {t('partnershipLogistics')}
                 </h2>
             </div>
 
@@ -621,23 +638,24 @@ const BrandsSection = () => {
 
 const FAQSection = () => {
     const [openIndex, setOpenIndex] = useState(0);
+    const { t } = useLanguage(); // Added useLanguage hook
 
     const faqs = [
         {
-            q: "What types of items can I send through Bago?",
-            a: "You can send almost anything from documents and clothing to electronics and gifts, provided they are not on our prohibited items list and comply with international shipping laws."
+            q: t('faqQ1'),
+            a: t('faqA1')
         },
         {
-            q: "Are my packages insured?",
-            a: "Yes! Every verified shipment is backed by our secure escrow system and insurance protection policy to ensure peace of mind for both senders and travelers."
+            q: t('faqQ2'),
+            a: t('faqA2')
         },
         {
-            q: "Who can I mail my packages to?",
-            a: "You can send packages to any of the cities available on our platform. Our travelers cover thousands of routes across the globe every day."
+            q: t('faqQ3'),
+            a: t('faqA3')
         },
         {
-            q: "How are the shipping rates determined?",
-            a: "Rates are based on regional standards set by our platform and travelers, taking into account the route, package weight, and delivery speed."
+            q: t('faqQ4'),
+            a: t('faqA4')
         }
     ];
 
@@ -645,17 +663,17 @@ const FAQSection = () => {
         <section className="bg-black py-24 px-6 md:px-12">
             <div className="max-w-[1240px] mx-auto flex flex-col xl:flex-row gap-20">
                 <div className="flex-1">
-                    <span className="px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest">FAQs</span>
+                    <span className="px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest">{t('faqsTitle')}</span>
                     <h2 className="text-4xl md:text-6xl font-black text-white mt-8 leading-tight">
-                        Here are Answers Related to <span className="text-[#A78BFA]">Bago Service</span>
+                        {t('answersHeader')} <span className="text-[#A78BFA]">{t('bagoService')}</span>
                     </h2>
 
                     <div className="mt-20 relative w-full h-[400px] overflow-hidden rounded-[40px]">
                         <div className="absolute inset-0 bg-gradient-to-t from-black z-10"></div>
                         <img src="/assets/traveler_join.png" alt="Traveler" className="w-full h-full object-cover" />
                         <div className="absolute bottom-10 left-10 z-20 max-w-sm">
-                            <h3 className="text-3xl font-black text-white mb-6">Join us in building the rails for global shipping.</h3>
-                            <button className="px-8 py-4 bg-[#5845D8] text-white font-black rounded-full shadow-lg hover:scale-105 transition-all">Get started for free</button>
+                            <h3 className="text-3xl font-black text-white mb-6">{t('joinRailsTitle')}</h3>
+                            <button className="px-8 py-4 bg-[#5845D8] text-white font-black rounded-full shadow-lg hover:scale-105 transition-all">{t('getStartedBtn')}</button>
                         </div>
                     </div>
                 </div>
@@ -687,44 +705,46 @@ const FAQSection = () => {
 };
 
 const FeaturesSection = () => {
+    const { t } = useLanguage();
+
     return (
         <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-20">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-20">
                 {[
                     {
                         icon: ShieldCheck,
-                        title: 'Insurance Online Payments',
-                        desc: 'With Bago your money is safe at all times. Bago uses a secure payment system and you have a guaranteed refund.',
+                        title: t('featureTitleInsurance'),
+                        desc: t('featureDescInsurance'),
                         color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: Package,
-                        title: 'Guaranteed delivery',
-                        desc: 'If a traveler cancels your order or delivers an item in poor condition, we will process a full refund and try to find a new traveler for you.',
+                        title: t('featureTitleGuaranteed'),
+                        desc: t('featureDescGuaranteed'),
                         color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: CreditCard,
-                        title: 'Multiple Payment Options',
-                        desc: 'To make your life easier, we accept a variety of payment methods such as Visa, MasterCard and American Express, with more options available soon.',
+                        title: t('featureTitleOptions'),
+                        desc: t('featureDescOptions'),
                         color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: Calculator,
-                        title: 'No Hidden Fees',
-                        desc: 'For total transparency, Bago uses machine learning to calculate applicable rates and taxes before you post your order. That way you will know exactly how much you are paying.',
+                        title: t('featureTitleNoHidden'),
+                        desc: t('featureDescNoHidden'),
                         color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: UserCircle,
-                        title: 'Community of Verified Senders and Travelers',
-                        desc: 'At Bago, trust is our highest priority, and we work hard to ensure that our community treats all its members with the utmost respect.',
+                        title: t('featureTitleCommunity'),
+                        desc: t('featureDescCommunity'),
                         color: 'bg-[#5845D8]/10 text-[#5845D8]'
                     },
                     {
                         icon: Headphones,
-                        title: '24/7 support',
-                        desc: 'Our team of customer service professionals are at your disposal to resolve any incident that may arise during the order and delivery process.',
+                        title: t('featureTitleSupport'),
+                        desc: t('featureDescSupport'),
                         color: 'bg-[#fef2f2] text-[#ef4444]'
                     }
                 ].map((feature, i) => (
@@ -744,6 +764,7 @@ const FeaturesSection = () => {
 };
 
 const CommunityCTA = () => {
+    const { t } = useLanguage();
     const navigate = useNavigate();
     return (
         <section className="w-full relative py-32 overflow-hidden flex items-center justify-center">
@@ -758,19 +779,19 @@ const CommunityCTA = () => {
             </div>
 
             <div className="relative z-10 text-center px-6">
-                <h2 className="text-4xl md:text-5xl font-black text-white mb-12 tracking-tight">Join our global community</h2>
+                <h2 className="text-4xl md:text-5xl font-black text-white mb-12 tracking-tight">{t('joinGlobalCommunity')}</h2>
                 <div className="flex flex-col md:flex-row gap-6 justify-center">
                     <button
                         onClick={() => navigate('/search')}
                         className="px-12 py-5 bg-[#5845D8] text-white font-bold rounded-lg text-lg hover:bg-[#4838B5] transition-all min-w-[240px]"
                     >
-                        Send with Bago
+                        {t('sendWithBago')}
                     </button>
                     <button
                         onClick={() => navigate('/post-trip')}
                         className="px-12 py-5 bg-[#5845D8] text-white font-bold rounded-lg text-lg hover:bg-[#4838B5] transition-all min-w-[240px]"
                     >
-                        Travel with Bago
+                        {t('travelWithBago')}
                     </button>
                 </div>
             </div>
@@ -791,8 +812,8 @@ const TripTypeSection = () => {
                         <Plane size={40} className="text-[#5845D8]" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-xl font-black text-[#5845D8]">By flight</h3>
-                        <p className="text-[#6B7280] font-medium text-[15px]">Fly with travelers and send your packages faster.</p>
+                        <h3 className="text-xl font-black text-[#5845D8]">{t('byFlight')}</h3>
+                        <p className="text-[#6B7280] font-medium text-[15px]">{t('byFlightDesc')}</p>
                     </div>
                     <div className="bg-[#5845D8] rounded-full p-2 hover:bg-[#4838B5] transition-colors">
                         <ArrowRight size={20} className="text-white" />
@@ -803,8 +824,8 @@ const TripTypeSection = () => {
                         <Bus size={40} className="text-[#5845D8]" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-xl font-black text-[#5845D8]">By bus</h3>
-                        <p className="text-[#6B7280] font-medium text-[15px]">Send your packages with bus travelers.</p>
+                        <h3 className="text-xl font-black text-[#5845D8]">{t('byBus')}</h3>
+                        <p className="text-[#6B7280] font-medium text-[15px]">{t('byBusDesc')}</p>
                     </div>
                     <div className="bg-[#5845D8] rounded-full p-2 hover:bg-[#4838B5] transition-colors">
                         <ArrowRight size={20} className="text-white" />
@@ -818,6 +839,7 @@ const TripTypeSection = () => {
 
 
 const DiscountPromo = () => {
+    const { t } = useLanguage();
     return (
         <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-12">
             <div className="bg-gradient-to-r from-[#5845D8] to-[#9B4dca] rounded-3xl p-8 md:p-12 shadow-[0_8px_30px_rgba(88,69,216,0.2)] text-white flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
@@ -826,19 +848,19 @@ const DiscountPromo = () => {
                 <div className="z-10 text-center md:text-left">
                     <h2 className="text-2xl md:text-3xl font-bold mb-3 flex items-center justify-center md:justify-start gap-3">
                         <Smartphone className="text-white/80" size={32} />
-                        Get Your First Delivery Free!
+                        {t('firstDeliveryFree')}
                     </h2>
                     <p className="text-white/90 text-base font-medium max-w-lg leading-relaxed">
-                        Sign up today and get your first package delivered to any destination for free, or a 100% bonus on your first payout as a courier.
+                        {t('discountPromoDesc')}
                     </p>
                 </div>
 
                 <div className="z-10 bg-white/10 p-6 rounded-2xl border border-white/20 backdrop-blur-md text-center shrink-0 w-full md:w-auto">
-                    <p className="text-sm font-bold text-white mb-2 uppercase tracking-wide">Use Promo Code</p>
+                    <p className="text-sm font-bold text-white mb-2 uppercase tracking-wide">{t('usePromoCode')}</p>
                     <div className="bg-white text-[#5845D8] px-8 py-4 rounded-xl font-black text-3xl tracking-wider shadow-inner">
                         BAGO10
                     </div>
-                    <p className="text-white/80 text-xs mt-3">Valid for new users only.</p>
+                    <p className="text-white/80 text-xs mt-3">{t('validNewUsers')}</p>
                 </div>
             </div>
         </section>
@@ -847,6 +869,7 @@ const DiscountPromo = () => {
 
 
 const AppPromotionSection = () => {
+    const { t } = useLanguage();
     return (
         <section className="px-6 md:px-12 max-w-[1400px] mx-auto py-24 bg-white overflow-hidden">
             <div className="flex flex-col lg:flex-row items-center gap-20">
@@ -881,7 +904,7 @@ const AppPromotionSection = () => {
                                 {/* Mock QR Code */}
                                 <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://bago.com')] bg-cover opacity-80"></div>
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] opacity-60">Scan to get app</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] opacity-60">{t('scanToGetApp')}</span>
                         </motion.div>
                     </div>
                 </motion.div>
@@ -895,7 +918,15 @@ const AppPromotionSection = () => {
                         transition={{ duration: 0.6 }}
                         className="text-5xl md:text-7xl font-black text-[#5845D8] mb-6 leading-[0.9] tracking-tighter"
                     >
-                        Our free <span className="opacity-20 underline decoration-[#5845D8] decoration-8 underline-offset-[12px]">app.</span>
+                        {t('ourFreeAppTitle').split(' ').map((word, idx) => (
+                            <React.Fragment key={idx}>
+                                {word.toLowerCase() === 'app.' ? (
+                                    <span className="opacity-20 underline decoration-[#5845D8] decoration-8 underline-offset-[12px]">{word} </span>
+                                ) : (
+                                    <>{word} </>
+                                )}
+                            </React.Fragment>
+                        ))}
                     </motion.h2>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
@@ -904,15 +935,15 @@ const AppPromotionSection = () => {
                         transition={{ duration: 0.6, delay: 0.1 }}
                         className="text-[#6B7280] text-lg font-bold mb-12 max-w-lg leading-relaxed opacity-80"
                     >
-                        One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.
+                        {t('appDescription')}
                     </motion.p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-10 mb-12">
                         {[
-                            { icon: Smartphone, title: 'Mobile tracking', desc: 'Watch your package move in real-time on our map.' },
-                            { icon: Globe, title: 'Global routes', desc: 'Access thousands of shipping routes instantly.' },
-                            { icon: ShieldCheck, title: 'Live updates', desc: 'Get push notifications for every status change.' },
-                            { icon: Headphones, title: '24/7 Support', desc: 'Chat with our team anytime, anywhere.' }
+                            { icon: Smartphone, title: t('mobileTrackingTitle'), desc: t('mobileTrackingDesc') },
+                            { icon: Globe, title: t('globalRoutesTitle'), desc: t('globalRoutesDesc') },
+                            { icon: ShieldCheck, title: t('liveUpdatesTitle'), desc: t('liveUpdatesDesc') },
+                            { icon: Headphones, title: t('supportTitle'), desc: t('supportDesc') }
                         ].map((item, i) => (
                             <motion.div
                                 key={i}
@@ -949,20 +980,82 @@ const AppPromotionSection = () => {
     );
 };
 
-export default function Home() {
-    const { user } = useAuth();
+const TrackingSection = () => {
+    const { t } = useLanguage();
+    return (
+        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16 bg-[#f8f9fa] rounded-3xl my-8">
+            <div className="flex flex-col md:flex-row items-center gap-16">
+                <div className="w-full md:w-1/2 flex justify-center py-6">
+                    <img
+                        src="/mobile-mockup.png"
+                        alt="Bago App Mockup"
+                        className="w-full max-w-[320px] h-auto rounded-3xl shadow-2xl"
+                    />
+                </div>
+                <div className="w-full md:w-1/2">
+                    <h2 className="text-4xl md:text-5xl font-bold text-[#012126] mb-6 leading-tight tracking-tight">
+                        {t('realTimeTrackingTitle').split('. ').map((part, i) => (
+                            <React.Fragment key={i}>
+                                {part}{i === 0 ? '.' : ''} <br />
+                            </React.Fragment>
+                        ))}
+                    </h2>
+                    <p className="text-[#6B7280] text-base font-medium leading-relaxed mb-8 max-w-md">
+                        {t('realTimeTrackingDesc')}
+                    </p>
+                    <Link to="/search" className="inline-block bg-[#5845D8] text-white px-8 py-3 rounded-full font-bold hover:bg-[#4838B5] transition-colors">
+                        {t('checkLiveStatusBtn')}
+                    </Link>
+                </div>
+            </div>
+        </section>
+    );
+};
 
+const CarSection = () => {
+    const { t } = useLanguage();
+
+    return (
+        <section className="px-6 md:px-12 max-w-[1240px] mx-auto py-16">
+            <div className="flex flex-col-reverse md:flex-row items-center gap-16">
+                <div className="w-full md:w-1/2">
+                    <h2 className="text-4xl md:text-5xl font-black text-[#012126] mb-8">
+                        {t('testimonialTitle')}
+                    </h2>
+                    <div className="relative">
+                        <p className="text-[#012126] text-xl font-medium leading-relaxed mb-8 italic">
+                            {t('testimonialQuote')}
+                        </p>
+                        <p className="text-[#012126] font-bold text-lg">
+                            {t('testimonialAuthor')}
+                        </p>
+                    </div>
+                </div>
+                <div className="w-full md:w-1/2">
+                    <img
+                        src="/assets/two_people_car.png"
+                        alt="Friends in car"
+                        className="rounded-3xl w-full h-auto shadow-xl"
+                        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1530685933970-53e349c5a757?auto=format&fit=crop&q=80'; }}
+                    />
+                </div>
+            </div>
+        </section>
+    );
+};
+
+export default function Home() {
     return (
         <div className="min-h-screen bg-[#F8F6F3] font-sans">
             <Navbar />
             <HeroSection />
-            <AppPromotionSection />
-            <FAQSection />
-            <div className="h-4 md:h-0"></div>
-            <RecentTrips user={user} />
             <FeaturesSection />
             <TripTypeSection />
+            <FAQSection />
+            <AppPromotionSection />
             <CommunityCTA />
+            <TrackingSection />
+            <CarSection />
             <DiscountPromo />
             <Footer />
         </div>
