@@ -1,26 +1,28 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/react-app/hooks/useAuth";
-import Login from "@/react-app/pages/Login";
-import DashboardPage from "@/react-app/pages/Dashboard";
-import UsersPage from "@/react-app/pages/Users";
-import TrackingPage from "@/react-app/pages/Tracking";
-import SupportPage from "@/react-app/pages/Support";
-import WithdrawalsPage from "@/react-app/pages/Withdrawals";
-import SettingsPage from "@/react-app/pages/Settings";
-import AnalyticsPage from "@/react-app/pages/Analytics";
-import StaffPage from "@/react-app/pages/Staff";
-import NotificationsPage from "@/react-app/pages/Notifications";
-import EmailCampaignsPage from "@/react-app/pages/EmailCampaigns";
-import DashboardLayout from "@/react-app/components/DashboardLayout";
-import ProtectedRoute from "@/react-app/components/ProtectedRoute";
-import PricePerKgPage from "@/react-app/pages/priceperkg";
-import KYCVerificationManager from "@/react-app/pages/kyc.tsx"
-import PushNotificationPage from "@/react-app/pages/push-notification"
-import DisputesPage from "@/react-app/pages/disputes"
-import RefundsPage from "@/react-app/pages/Refund"
-import RoutesPage from "@/react-app/pages/Routes"
-
-
+import { AuthProvider } from "./hooks/useAuth";
+import Login from "./pages/Login";
+import DashboardPage from "./pages/Dashboard";
+import UsersPage from "./pages/Users";
+import TrackingPage from "./pages/Tracking";
+import SupportPage from "./pages/Support";
+import WithdrawalsPage from "./pages/Withdrawals";
+import SettingsPage from "./pages/Settings";
+import AnalyticsPage from "./pages/Analytics";
+import StaffPage from "./pages/Staff";
+import NotificationsPage from "./pages/Notifications";
+import EmailCampaignsPage from "./pages/EmailCampaigns";
+import DashboardLayout from "./components/DashboardLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PricePerKgPage from "./pages/priceperkg";
+import KYCVerificationManager from "./pages/kyc.tsx"
+import PushNotificationPage from "./pages/push-notification"
+import DisputesPage from "./pages/disputes"
+import RefundsPage from "./pages/Refund"
+import RoutesPage from "./pages/Routes"
+import LocationsPage from "./pages/Locations"
+import PromoEmailPage from "./pages/PromoEmail"
+import TripsPage from "./pages/Trips"
+import PromoCodesPage from "./pages/PromoCodes"
 
 export default function App() {
   return (
@@ -35,6 +37,36 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <DashboardPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trips"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <TripsPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/promo-codes"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <PromoCodesPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/promo-email"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <PromoEmailPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -185,6 +217,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <RoutesPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/locations"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <LocationsPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

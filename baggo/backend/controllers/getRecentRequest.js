@@ -6,15 +6,16 @@ export const recentOrder = async (req, res, next) => {
     const userId = req.user._id;
 
 
-    const recent = await Request.find({ sender: userId })
+    const recent = await Request.find({ $or: [{ sender: userId }, { traveler: userId }] })
       .populate('package')
+      .populate('sender', 'firstName email')
       .populate('traveler', 'firstName email');
 
     if (recent.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         message: 'No orders found',
-        success: false,
-        error: true,
+        success: true,
+        error: false,
         data: [],
       });
     }
@@ -25,6 +26,8 @@ export const recentOrder = async (req, res, next) => {
       package: request.package,
       travelerName: request.traveler?.firstName || 'Traveler',
       travelerEmail: request.traveler?.email,
+      senderName: request.sender?.firstName || 'Sender',
+      senderEmail: request.sender?.email,
       originCity: request.package?.fromCity,
       originCountry: request.package?.fromCountry,
       destinationCity: request.package?.toCity,
@@ -34,6 +37,7 @@ export const recentOrder = async (req, res, next) => {
       insuranceCost: request.insuranceCost,
       trackingNumber: request.trackingNumber,
       createdAt: request.createdAt,
+      role: request.sender._id.toString() === userId.toString() ? 'sender' : 'traveler'
     }));
 
     return res.status(200).json({

@@ -3,7 +3,7 @@ import { Shield, Plane, Package, CheckCircle, Clock, AlertCircle, Wallet } from 
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStatus }) {
+export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStatus, userStats }) {
     const { t } = useLanguage();
     const renderKycContent = () => {
         switch (kycStatus) {
@@ -20,12 +20,20 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
             case 'pending':
             case 'processing':
                 return (
-                    <div className="flex items-center gap-3 text-amber-600 bg-amber-50/30 p-4 rounded-2xl border border-amber-100/30 font-sans">
-                        <Clock size={20} className="animate-pulse" />
-                        <div>
-                            <p className="font-black uppercase tracking-widest text-[8px]">{t('underReview')}</p>
-                            <p className="text-[10px] font-bold opacity-70 uppercase tracking-tight">{t('underReviewDesc')}</p>
+                    <div className="space-y-3 font-sans w-full">
+                        <div className="flex items-center gap-3 text-amber-600 bg-amber-50/30 p-4 rounded-2xl border border-amber-100/30">
+                            <Clock size={20} className="animate-pulse" />
+                            <div>
+                                <p className="font-black uppercase tracking-widest text-[8px]">{t('underReview')}</p>
+                                <p className="text-[10px] font-bold opacity-70 uppercase tracking-tight">{t('underReviewDesc')}</p>
+                            </div>
                         </div>
+                        <button
+                            onClick={handleStartKyc}
+                            className="w-full bg-amber-500 text-white font-black py-2.5 rounded-xl shadow-lg text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all active:scale-95"
+                        >
+                            {t('continueVerification') || 'Continue Verification'}
+                        </button>
                     </div>
                 );
             case 'declined':
@@ -128,11 +136,12 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
             </div>
 
             {/* Stats Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {[
                     { label: t('completed'), value: '0', icon: CheckCircle, color: 'text-green-500' },
                     { label: t('inTransit'), value: '0', icon: Clock, color: 'text-blue-500' },
                     { label: t('totalEarned'), value: '$0.00', icon: Wallet, color: 'text-[#5845D8]' },
+                    { label: t('community'), value: userStats?.totalUsers || '0', icon: Shield, color: 'text-indigo-500' },
                     { label: t('rating'), value: 'N/A', icon: AlertCircle, color: 'text-amber-500' },
                 ].map((stat, i) => (
                     <div key={i} className="bg-white p-4 rounded-[24px] border border-gray-100 shadow-sm text-center group hover:border-[#5845D8]/20 transition-all">

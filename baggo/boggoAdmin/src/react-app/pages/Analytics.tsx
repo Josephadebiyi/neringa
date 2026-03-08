@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Users, MapPin, Calendar, Search } from "lucide-react";
+import { API_BASE_URL } from "../config/api";
 
 // Define the User interface based on the provided JSON
 interface User {
@@ -25,9 +26,13 @@ export default function Analytics() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("https://neringa.onrender.com/api/Adminbaggo/analystic", {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/analystic`, {
         method: "GET",
         credentials: "include",
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       if (response.ok) {
         const data = await response.json();
@@ -120,9 +125,8 @@ export default function Analytics() {
               {filteredUsers.map((user, index) => (
                 <tr
                   key={user._id}
-                  className={`${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  } hover:bg-blue-50 transition-colors duration-200`}
+                  className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    } hover:bg-blue-50 transition-colors duration-200`}
                 >
                   <td className="py-4 px-6">
                     <div className="flex items-center space-x-4">
@@ -159,11 +163,10 @@ export default function Analytics() {
                   </td>
                   <td className="py-4 px-6">
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
-                        user.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                          : "bg-green-100 text-green-800 hover:bg-green-200"
-                      }`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${user.status === "pending"
+                        ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                        : "bg-green-100 text-green-800 hover:bg-green-200"
+                        }`}
                       title={`Status: ${user.status}`}
                     >
                       {user.status}

@@ -1,6 +1,8 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../config/api';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,7 +15,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch('https://neringa.onrender.com/api/Adminbaggo/CheckAdmin', {
+        const response = await fetch(`${API_BASE_URL}/CheckAdmin`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

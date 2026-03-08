@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, Edit, CheckCircle, XCircle } from "lucide-react";
+import { Search, Edit, CheckCircle } from "lucide-react";
+import { MAIN_API_URL } from "../config/api";
 
 export default function DisputesPage() {
   const [disputes, setDisputes] = useState<any[]>([]);
@@ -13,7 +14,7 @@ export default function DisputesPage() {
   const fetchDisputes = async () => {
     try {
       setLoading(true);
-      const res = await fetch("https://neringa.onrender.com/api/baggo/disputes");
+      const res = await fetch(`${MAIN_API_URL}/disputes`);
       const data = await res.json();
       setDisputes(data.data || []);
     } catch (err) {
@@ -55,7 +56,7 @@ export default function DisputesPage() {
     if (!selectedDispute) return;
 
     try {
-      const res = await fetch(`https://neringa.onrender.com/api/baggo/disputes/${selectedDispute.id}`, {
+      const res = await fetch(`${MAIN_API_URL}/disputes/${selectedDispute.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

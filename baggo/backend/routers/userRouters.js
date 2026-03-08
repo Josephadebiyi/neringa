@@ -1,12 +1,12 @@
 import express from 'express';
-import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar } from '../controllers/userController.js';
+import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats } from '../controllers/userController.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
 import { createPackage } from '../controllers/PackageController.js';
-import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
+import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
 import { recentOrder } from '../controllers/getRecentRequest.js';
 import { getConversations, getMessages, sendMessage } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
@@ -81,6 +81,7 @@ userRouter.get('/completed/:userId', getCompletedRequests);
 userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, updateRequestStatus)
 userRouter.put('/request/:requestId/image', isAuthenticated, uploadRequestImage);
 userRouter.put('/request/:requestId/confirm-received', isAuthenticated, confirmReceivedBySender);
+userRouter.put('/request/:requestId/traveler-proof', isAuthenticated, uploadTravelerProof);
 
 // 💰 Wallet & Payments
 userRouter.get('/getWallet', isAuthenticated, getWallet);
@@ -102,4 +103,5 @@ userRouter.get("/GetDetails/:requestId", isAuthenticated, GetDetials)
 userRouter.put("/markAllNotificationsAsRead", isAuthenticated, markAllNotificationsAsRead)
 // userRouter.get("/processPayment", isAuthenticated,  processPayment)
 userRouter.put("/updateRequestDates/:requestId", isAuthenticated, updateRequestDates)
+userRouter.get('/user-stats', getUserStats);
 export default userRouter;

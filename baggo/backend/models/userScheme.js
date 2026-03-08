@@ -61,6 +61,11 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
   },
+  signupMethod: {
+    type: String,
+    enum: ['email', 'google'],
+    default: 'email',
+  },
   status: {
     type: String,
     enum: ['pending', 'verified', 'rejected'],

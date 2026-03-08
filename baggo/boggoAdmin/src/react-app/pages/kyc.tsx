@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Upload, File, Image, User, Eye, Calendar, CheckCircle, XCircle, Clock } from "lucide-react";
+import { API_BASE_URL } from "../config/api";
 
 interface UserData {
   isVerified: boolean;
@@ -40,8 +41,12 @@ export default function KYCVerificationManager() {
   const fetchKYCData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://neringa.onrender.com/api/Adminbaggo/getAllkyc', {
-        credentials: 'include'
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/getAllkyc`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (response.ok) {
@@ -72,10 +77,12 @@ export default function KYCVerificationManager() {
 
     try {
       setProcessing(true);
-      const response = await fetch('https://neringa.onrender.com/api/Adminbaggo/Verifykyc', {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/Verifykyc`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include',
         body: JSON.stringify({ userId, status })
@@ -299,31 +306,28 @@ export default function KYCVerificationManager() {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setSelectedDocument(previewKYC.kyc?.identityDocument || "")}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      selectedDocument === previewKYC.kyc?.identityDocument
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${selectedDocument === previewKYC.kyc?.identityDocument
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     Identity Document
                   </button>
                   <button
                     onClick={() => setSelectedDocument(previewKYC.kyc?.proofOfAddress || "")}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      selectedDocument === previewKYC.kyc?.proofOfAddress
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${selectedDocument === previewKYC.kyc?.proofOfAddress
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     Proof of Address
                   </button>
                   <button
                     onClick={() => setSelectedDocument(previewKYC.kyc?.verificationSelfie || "")}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      selectedDocument === previewKYC.kyc?.verificationSelfie
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${selectedDocument === previewKYC.kyc?.verificationSelfie
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     Verification Selfie
                   </button>

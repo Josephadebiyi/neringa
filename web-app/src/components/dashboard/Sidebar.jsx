@@ -9,12 +9,13 @@ import {
     LogOut,
     Menu,
     X,
-    Shield
+    Shield,
+    CheckCircle
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function Sidebar({ activeTab, setActiveTab, user, logout }) {
+export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen }) {
     const { t } = useLanguage();
     const location = useLocation();
 
@@ -22,24 +23,39 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout }) {
         { id: 'overview', label: t('overview'), icon: LayoutDashboard },
         { id: 'trips', label: t('myTrips'), icon: Plane },
         { id: 'shipments', label: t('myShipments'), icon: Package },
+        { id: 'deliveries', label: t('myDeliveries') || 'My Deliveries', icon: CheckCircle },
         { id: 'chats', label: t('chats'), icon: MessageCircle, badge: 3 }, // Placeholder badge
         { id: 'earnings', label: t('earnings'), icon: Wallet },
         { id: 'settings', label: t('settings'), icon: Settings },
     ];
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-100 flex flex-col z-40 transition-all duration-500 font-sans shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-            <div className="p-8 mb-4">
+        <aside className={`
+            fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-100 flex flex-col z-40
+            transition-transform duration-300 ease-in-out shadow-[4px_0_24px_rgba(0,0,0,0.02)]
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            md:translate-x-0
+        `}>
+            <div className="p-8 mb-4 flex items-center justify-between">
                 <Link to="/" className="group block">
                     <img src="/bago_logo.png" alt="Bago" className="h-7 group-hover:scale-105 transition-transform duration-300" />
                 </Link>
+                <button
+                    className="md:hidden p-1.5 rounded-xl bg-gray-50 text-gray-400 hover:text-[#5845D8] transition-colors"
+                    onClick={() => setSidebarOpen(false)}
+                >
+                    <X size={18} />
+                </button>
             </div>
 
             <div className="flex-1 px-4 space-y-1.5">
                 {menuItems.map((item) => (
                     <button
                         key={item.id}
-                        onClick={() => setActiveTab(item.id)}
+                        onClick={() => {
+                            setActiveTab(item.id);
+                            setSidebarOpen(false);
+                        }}
                         className={`w-full flex items-center justify-between px-5 py-3 rounded-2xl transition-all group relative overflow-hidden ${activeTab === item.id
                             ? 'bg-[#5845D8] text-white shadow-xl shadow-[#5845D8]/15 active:scale-95'
                             : 'text-[#6B7280] hover:bg-gray-50 hover:text-[#012126]'

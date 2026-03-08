@@ -9,15 +9,9 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// helper to upload a base64 data URI (or Buffer converted to dataURI)
+// helper to skip cloudinary and use base64
 const uploadToCloudinary = async (dataUri) => {
-  // expects dataUri like 'data:image/jpeg;base64,...'
-  const result = await cloudinary.v2.uploader.upload(dataUri, {
-    folder: 'packages',
-    resource_type: 'image',
-    timeout: 60000,
-  });
-  return result.secure_url;
+  return dataUri;
 };
 
 export const createPackage = async (req, res) => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { TrendingUp, TrendingDown,  Package , ArrowUpRight, Phone } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { TrendingUp, ArrowUpRight, RefreshCw, DollarSign, Users, AlertCircle } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { API_BASE_URL } from '../config/api';
 
 // Interface for stats from API
 interface DashboardStats {
@@ -9,6 +10,10 @@ interface DashboardStats {
   totalRequests: number;
   totalIncome: number;
   totalCommission: number;
+  activeTrips: number;
+  googleUsers: number;
+  unverifiedUsers: number;
+  verifiedUsers: number;
 }
 
 // Interface for package data
@@ -50,6 +55,8 @@ interface TrackingData {
 interface StatusDistribution {
   name: string;
   value: number;
+  color?: string;
+  [key: string]: any;
 }
 
 // Interface for monthly trends (line chart)
@@ -79,11 +86,10 @@ interface DashboardResponse {
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [statusDistribution, setStatusDistribution] = useState<StatusDistribution[]>([]);
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage] = useState(1);
   const limit = 20;
 
   useEffect(() => {
@@ -96,19 +102,13 @@ export default function Dashboard() {
       setError(null);
 
       const token = localStorage.getItem('adminToken');
-      if (!token) {
-        // No token, redirect to login
-        window.location.href = '/';
-        return;
-      }
-
       const response = await fetch(
-        `https://neringa.onrender.com/api/Adminbaggo/dashboard?page=${currentPage}&limit=${limit}`,
+        `${API_BASE_URL}/dashboard?page=${currentPage}&limit=${limit}`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`, // Send token for auth
+            'Authorization': `Bearer ${token}`,
           },
         }
       );
@@ -127,274 +127,275 @@ export default function Dashboard() {
       }
 
       setStats(data.data.stats);
-      setStatusDistribution(
-        data.data.statusDistribution.map((item, index) => ({
-          ...item,
-          color: ['#4F46E5', '#EC4899', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#6B7280'][index % 7],
-        }))
-      );
       setMonthlyTrends(data.data.monthlyTrends);
     } catch (error: any) {
       console.error('Failed to fetch dashboard data:', error);
       setError(error.message || 'Failed to fetch dashboard data');
-      setStats(null);
-      setStatusDistribution([]);
-      setMonthlyTrends([]);
     } finally {
       setLoading(false);
     }
   };
 
-
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-[70vh]">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
+          <div className="w-16 h-16 border-4 border-[#5240E8] rounded-full border-t-transparent animate-spin absolute top-0 left-0"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-red-600 text-lg">{error}</div>
+      <div className="flex flex-col items-center justify-center h-[70vh] text-center">
+        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-4">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-900">Connection Error</h3>
+        <p className="text-gray-500 mt-2 max-w-xs">{error}</p>
+        <button
+          onClick={() => fetchDashboard()}
+          className="mt-6 px-6 py-2 bg-[#5240E8] text-white rounded-xl font-bold hover:bg-[#4030C8] transition-all font-sans"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Welcome Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#1e2749] to-[#5240E8]">
+            Overview Dashboard
+          </h1>
+          <p className="text-gray-500 font-medium">Monitoring Bago platform performance and growth</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="text-sm font-semibold text-gray-700">Live Status</span>
+          </div>
+          <button
+            onClick={() => fetchDashboard()}
+            className="p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm hover:bg-gray-50 text-gray-600 transition-all"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Primary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Income Card */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Income</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                ${(stats?.totalIncome || 0).toLocaleString()}
-              </p>
+        <div className="premium-card p-6 border-l-4 border-l-[#5240E8]">
+          <div className="flex justify-between items-start">
+            <div className="stats-icon-container bg-[#5240E8]/10 text-[#5240E8]">
+              <DollarSign className="w-7 h-7" />
             </div>
-            <div className="bg-blue-50 p-3 rounded-xl">
-              <TrendingUp className="w-6 h-6 text-blue-600" />
+            <div className="text-right">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Revenue</p>
+              <h3 className="text-2xl font-black text-[#1e2749] mt-1">${(stats?.totalIncome || 0).toLocaleString()}</h3>
             </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg">+12.5%</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">vs last month</span>
           </div>
         </div>
 
-        {/* Packages Card */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Packages</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {(stats?.totalPackages || 0).toLocaleString()}
-              </p>
+        {/* Trips Card */}
+        <div className="premium-card p-6 border-l-4 border-l-[#8B5CF6]">
+          <div className="flex justify-between items-start">
+            <div className="stats-icon-container bg-[#8B5CF6]/10 text-[#8B5CF6]">
+              <TrendingUp className="w-7 h-7" />
             </div>
-            <div className="bg-purple-50 p-3 rounded-xl">
-              <Package className="w-6 h-6 text-purple-600" />
+            <div className="text-right">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Trips</p>
+              <h3 className="text-2xl font-black text-[#1e2749] mt-1">{(stats?.activeTrips || 0).toLocaleString()}</h3>
             </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-lg">Live</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">on platform</span>
           </div>
         </div>
 
-        {/* Users Card */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Users</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {(stats?.totalUsers || 0).toLocaleString()}
-              </p>
+        {/* Google Users Card */}
+        <div className="premium-card p-6 border-l-4 border-l-[#F59E0B]">
+          <div className="flex justify-between items-start">
+            <div className="stats-icon-container bg-[#F59E0B]/10 text-[#F59E0B]">
+              <Users className="w-7 h-7" />
             </div>
-            <div className="bg-green-50 p-3 rounded-xl">
-              <Phone className="w-6 h-6 text-green-600" />
+            <div className="text-right">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Google Auth</p>
+              <h3 className="text-2xl font-black text-[#1e2749] mt-1">{(stats?.googleUsers || 0).toLocaleString()}</h3>
             </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">Verified</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">via google</span>
           </div>
         </div>
 
         {/* Commission Card */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-start justify-between">
+        <div className="premium-card p-6 border-l-4 border-l-[#10B981]">
+          <div className="flex justify-between items-start">
+            <div className="stats-icon-container bg-[#10B981]/10 text-[#10B981]">
+              <ArrowUpRight className="w-7 h-7" />
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Profit</p>
+              <h3 className="text-2xl font-black text-[#1e2749] mt-1">${(stats?.totalCommission || 0).toLocaleString()}</h3>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg">10% Fee</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">effective rate</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Trend Chart */}
+        <div className="lg:col-span-2 premium-card p-8">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Commission</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                ${(stats?.totalCommission || 0).toLocaleString()}
-              </p>
+              <h2 className="text-xl font-bold text-[#1e2749]">Platform Growth</h2>
+              <p className="text-gray-400 text-sm font-medium">Monthly package trends comparison</p>
             </div>
-            <div className="bg-red-50 p-3 rounded-xl">
-              <ArrowUpRight className="w-6 h-6 text-red-600" />
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-[#5240E8]"></span>
+                <span className="text-xs font-bold text-gray-500 uppercase">2024</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-gray-200"></span>
+                <span className="text-xs font-bold text-gray-500 uppercase">2023</span>
+              </div>
             </div>
+          </div>
+
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyTrends}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94A3B8', fontSize: 12, fontWeight: 600 }}
+                  dy={15}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94A3B8', fontSize: 12, fontWeight: 600 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="thisYear"
+                  stroke="#5240E8"
+                  strokeWidth={4}
+                  dot={{ r: 4, fill: '#5240E8', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 8, strokeWidth: 0 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="lastYear"
+                  stroke="#CBD5E1"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Request Status Distribution */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Request Status Distribution</h2>
-          <div className="flex items-center justify-center">
-            <div className="relative w-48 h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {statusDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+        {/* User Categories */}
+        <div className="premium-card p-8 flex flex-col">
+          <h2 className="text-xl font-bold text-[#1e2749] mb-2">User Compliance</h2>
+          <p className="text-gray-400 text-sm font-medium mb-8">Verification status categories</p>
+
+          <div className="space-y-4 flex-1">
+            <div className="p-4 rounded-2xl bg-green-50/50 border border-green-100/50">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-black text-green-600 uppercase tracking-widest">Verified Users</span>
+                <span className="text-xl font-black text-green-700">{(stats?.verifiedUsers || 0)}</span>
+              </div>
+              <div className="w-full bg-green-100 rounded-full h-2">
+                <div
+                  className="bg-green-500 h-2 rounded-full transition-all duration-1000"
+                  style={{ width: `${stats?.totalUsers ? (stats.verifiedUsers / stats.totalUsers) * 100 : 0}%` }}
+                ></div>
+              </div>
             </div>
-          </div>
-          <div className="mt-6 space-y-3">
-            {statusDistribution.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-gray-700 font-medium capitalize">{item.name}</span>
+
+            <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-100/50">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-black text-orange-600 uppercase tracking-widest">Unverified</span>
+                <span className="text-xl font-black text-orange-700">{(stats?.unverifiedUsers || 0)}</span>
+              </div>
+              <div className="w-full bg-orange-100 rounded-full h-2">
+                <div
+                  className="bg-orange-500 h-2 rounded-full transition-all duration-1000"
+                  style={{ width: `${stats?.totalUsers ? (stats.unverifiedUsers / stats.totalUsers) * 100 : 0}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="mt-auto pt-6 border-t border-gray-100">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Verification Health</p>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 text-center">
+                  <div className="text-lg font-black text-[#1e2749]">
+                    {stats?.totalUsers ? Math.round((stats.verifiedUsers / stats.totalUsers) * 100) : 0}%
+                  </div>
+                  <div className="text-[8px] font-black text-gray-400 uppercase tracking-tight">Trust Score</div>
                 </div>
-                <span className="font-semibold" style={{ color: item.color }}>
-                  {item.value.toFixed(1)}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Package Trends */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Package Trends</h2>
-            <div className="flex items-center space-x-4 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-gray-600">This Year</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                <span className="text-gray-600">Last Year</span>
+                <div className="w-px h-8 bg-gray-100"></div>
+                <div className="flex-1 text-center">
+                  <div className="text-lg font-black text-[#1e2749]">
+                    {stats?.totalUsers ? Math.round((stats.googleUsers / stats.totalUsers) * 100) : 0}%
+                  </div>
+                  <div className="text-[8px] font-black text-gray-400 uppercase tracking-tight">Social Linked</div>
+                </div>
               </div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={monthlyTrends}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: '#666' }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: '#666' }}
-                domain={[0, 'auto']}
-              />
-              <Line
-                type="monotone"
-                dataKey="thisYear"
-                stroke="#3B82F6"
-                strokeWidth={3}
-                dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="lastYear"
-                stroke="#EF4444"
-                strokeWidth={3}
-                dot={{ fill: '#EF4444', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Optional Tracking Data Table (Commented Out) */}
-      {/*
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">Recent Packages</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Package</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Route</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {trackingData.map((item) => (
-                <tr key={item.package._id} className="hover:bg-gray-50">
-                  <td className="py-4 px-4">
-                    <div className="font-medium text-gray-900">
-                      {item.package.description || `Package ${item.package._id}`}
-                    </div>
-                    <div className="text-gray-500 text-sm">{item.package._id}</div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="space-y-1">
-                      <div className="text-sm">{item.package.fromCountry}</div>
-                      <div className="text-sm">→ {item.package.toCountry}</div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-gray-500 text-sm">
-                      {item.requests.length > 0 ? item.requests[0].status : 'No requests'}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="text-sm text-gray-600">
-                      {new Date(item.package.createdAt).toLocaleDateString()}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, totalCount)} of {totalCount} results
+      {/* Quick Action: Promo Email */}
+      <div className="premium-card p-8 bg-gradient-to-br from-[#1e2749] to-[#0A0F1E] border-none relative overflow-hidden group">
+        <div className="absolute top-[-50%] right-[-10%] w-[40%] h-[200%] bg-[#5240E8]/10 rotate-12 blur-[100px] group-hover:bg-[#5240E8]/20 transition-all duration-700"></div>
+
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#5240E8]/20 border border-[#5240E8]/30 mb-4">
+              <span className="w-1.5 h-1.5 bg-[#5240E8] rounded-full animate-pulse"></span>
+              <span className="text-[10px] font-black text-[#5240E8] uppercase tracking-widest">New Feature</span>
+            </div>
+            <h2 className="text-2xl font-black text-white mb-2 text-center md:text-left">Targeted Promotional Engine</h2>
+            <p className="text-slate-400 font-medium text-sm text-center md:text-left">
+              Send beautifully crafted promotional emails to specific user categories.
+              Upload images, define custom subjects, and engage your verified or unverified users directly.
+            </p>
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 rounded bg-white border border-gray-300 text-sm font-medium text-gray-500 hover:text-gray-700 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setCurrentPage(Math.min(Math.ceil(totalCount / limit), currentPage + 1))}
-              disabled={currentPage === Math.ceil(totalCount / limit)}
-              className="px-3 py-1 rounded bg-white border border-gray-300 text-sm font-medium text-gray-500 hover:text-gray-700 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
+          <a
+            href="/promo-email"
+            className="px-8 py-4 bg-[#5240E8] hover:bg-[#4030C8] text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:scale-[1.05] active:scale-[0.95] shadow-xl shadow-[#5240E8]/20 whitespace-nowrap"
+          >
+            Launch Promo Tool
+          </a>
         </div>
       </div>
-      */}
     </div>
   );
 }
+

@@ -61,12 +61,13 @@ const TripCard = ({ trip }) => {
 
         try {
             const response = await api.get('/api/bago/kyc/status');
-            const kycStatus = response.data?.kycStatus;
-            if (kycStatus === 'approved') {
+            const status = response.data?.kycStatus;
+
+            if (status === 'approved') {
                 navigate(`/send-package`, { state: { trip } });
             } else {
                 localStorage.setItem('pending_booking', JSON.stringify({ trip }));
-                navigate('/dashboard', { state: { message: t('completeKycFirst') } });
+                navigate('/verify');
             }
         } catch (error) {
             console.error('Failed to verify KYC', error);
@@ -203,6 +204,7 @@ const FilterPanel = ({ filters, setFilters, onApply }) => {
 
 export default function Search() {
     const { t } = useLanguage();
+    const { user, isAuthenticated } = useAuth();
     const [searchParams] = useSearchParams();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -250,19 +252,22 @@ export default function Search() {
 
                 if (Array.isArray(gettravelers)) {
                     // Map and join traveler info
-                    const joinedTrips = gettravelers.map(trip => {
-                        const traveler = Array.isArray(findUsers) ? findUsers.find(u => u._id === trip.user) : null;
-                        return {
-                            ...trip,
-                            firstName: traveler?.name || traveler?.firstName || t('traveler'),
-                            origin: trip.fromLocation,
-                            destination: trip.toLocation,
-                            departureDate: trip.departureDate,
-                            availableWeight: trip.availableKg,
-                            transportMode: trip.travelMeans,
-                            rating: traveler?.rating || (4.5 + Math.random() * 0.5).toFixed(1) // Fallback rating
-                        };
-                    });
+                    const currentUserId = user?._id || user?.id;
+                    const joinedTrips = gettravelers
+                        .filter(trip => trip.user !== currentUserId) // Filter out own trips
+                        .map(trip => {
+                            const traveler = Array.isArray(findUsers) ? findUsers.find(u => u._id === trip.user) : null;
+                            return {
+                                ...trip,
+                                firstName: traveler?.name || traveler?.firstName || t('traveler'),
+                                origin: trip.fromLocation,
+                                destination: trip.toLocation,
+                                departureDate: trip.departureDate,
+                                availableWeight: trip.availableKg,
+                                transportMode: trip.travelMeans,
+                                rating: traveler?.rating || (4.5 + Math.random() * 0.5).toFixed(1) // Fallback rating
+                            };
+                        });
 
                     // Filter based on search params
                     let filtered = joinedTrips;

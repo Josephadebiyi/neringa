@@ -21,6 +21,7 @@ import Privacy from './pages/Privacy';
 import HelpCenter from './pages/HelpCenter';
 import TrackShipment from './pages/TrackShipment';
 import Banned from './pages/Banned';
+import Verify from './pages/Verify';
 import Test from './Test';
 
 const GOOGLE_CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
@@ -50,6 +51,7 @@ function App() {
                         <Route path="/forgot-password" element={<ForgotPassword />} />
                         <Route path="/verify-otp" element={<VerifyOtp />} />
                         <Route path="/reset-password" element={<ResetPassword />} />
+                        <Route path="/verify" element={<Verify />} />
                     </Routes>
                 </BrowserRouter>
             </LanguageProvider>

@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
 import { Send, AlertTriangle, User, Paperclip, MessageCircle } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';

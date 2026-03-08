@@ -68,8 +68,25 @@ export default function SendPackage() {
         perishable: false,
         requiresRefrigeration: false,
         receiverName: '',
-        receiverPhone: ''
+        receiverPhone: '',
+        packageImage: null,
+        imagePreview: null
     });
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData(prev => ({
+                    ...prev,
+                    packageImage: reader.result,
+                    imagePreview: reader.result
+                }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -150,6 +167,24 @@ export default function SendPackage() {
         setError('');
         setLoading(true);
 
+        if (kycStatus !== 'approved') {
+            setError('Please verify your identity to send a package.');
+            setLoading(false);
+            navigate('/verify', {
+                state: {
+                    message: 'Please complete identity verification to send a package.',
+                    from: '/send-package'
+                }
+            });
+            return;
+        }
+
+        if (!formData.packageImage) {
+            setError('Please upload an image of the item.');
+            setLoading(false);
+            return;
+        }
+
         if (parseFloat(formData.packageWeight) <= 0 || parseFloat(formData.packageWeight) > 50) {
             setError(t('packageWeightError'));
             setLoading(false);
@@ -167,7 +202,8 @@ export default function SendPackage() {
                     receiverName: formData.receiverName,
                     receiverPhone: formData.receiverPhone,
                     description: `${formData.packageName}: ${formData.packageDescription}`,
-                    value: formData.packageValue
+                    value: formData.packageValue,
+                    image: formData.packageImage
                 });
 
                 if (packageResponse.status === 201) {
@@ -274,6 +310,50 @@ export default function SendPackage() {
                                                 onChange={handleChange}
                                             />
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">USD</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-8">
+                                    <label className="block text-[8px] font-black text-gray-400 uppercase mb-3 tracking-[0.15em] ml-1">{t('itemImage') || 'Item Image'}</label>
+                                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                                        <div
+                                            onClick={() => document.getElementById('item-image').click()}
+                                            className={`w-full md:w-48 h-48 border-2 border-dashed rounded-[24px] flex flex-col items-center justify-center cursor-pointer transition-all ${formData.imagePreview ? 'border-[#5845D8] bg-[#5845D8]/5' : 'border-gray-100 hover:border-[#5845D8]/20 bg-gray-50/30'}`}
+                                        >
+                                            {formData.imagePreview ? (
+                                                <img src={formData.imagePreview} alt="Preview" className="w-full h-full object-cover rounded-[22px]" />
+                                            ) : (
+                                                <>
+                                                    <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-300 mb-3">
+                                                        <Package size={24} />
+                                                    </div>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center px-4">{t('clickToUpload') || 'Click to upload'}</p>
+                                                </>
+                                            )}
+                                            <input
+                                                id="item-image"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={handleImageChange}
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-3 pt-2">
+                                            <div className="flex items-start gap-2 text-gray-400">
+                                                <Info size={14} className="shrink-0 mt-0.5" />
+                                                <p className="text-[10px] font-medium leading-relaxed uppercase tracking-wider">
+                                                    {t('imageUploadTells') || 'Uploading a clear image of your item helps travelers verify content and provides security for both parties during delivery.'}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-1.5 text-green-600 font-black text-[9px] uppercase tracking-widest">
+                                                    <Check size={12} /> {t('secureStorage') || 'Secure Storage'}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-blue-600 font-black text-[9px] uppercase tracking-widest">
+                                                    <User size={12} /> {t('travelerOnly') || 'Traveler Only Access'}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

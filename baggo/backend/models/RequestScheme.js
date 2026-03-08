@@ -14,6 +14,7 @@ const RequestSchema = new mongoose.Schema(
     },
     image: { type: String, default: null },
     senderProof: { type: String, default: null }, // stores single image URL / dataURI
+    travelerProof: { type: String, default: null }, // traveler proof image (delivery / pickup)
     senderReceived: { type: Boolean, default: false }, // sender confirms receipt
     amount: {
       type: Number,

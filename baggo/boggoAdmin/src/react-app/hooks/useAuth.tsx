@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { API_BASE_URL } from '../config/api';
 
 interface AdminUser {
@@ -30,21 +31,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
+      const token = localStorage.getItem('adminToken');
       const response = await fetch(`${API_BASE_URL}/CheckAdmin`, {
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.admin) {
+        const adminData = data.admin || data.data; // Handle both response shapes
+        if (adminData) {
           setUser({
-            id: data.admin._id,
-            username: data.admin.userName || data.admin.email,
-            email: data.admin.email,
-            firstName: data.admin.firstName,
-            lastName: data.admin.lastName,
+            id: adminData._id,
+            username: adminData.userName || adminData.email,
+            email: adminData.email,
+            firstName: adminData.firstName,
+            lastName: adminData.lastName,
             role: 'admin',
           });
         }
+      } else {
+        localStorage.removeItem('adminToken');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -69,25 +77,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    if (data.token) {
+      localStorage.setItem('adminToken', data.token);
+    }
+
+    const adminData = data.admin || data.data;
     setUser({
-      id: data.admin._id,
-      username: data.admin.userName || data.admin.email,
-      email: data.admin.email,
-      firstName: data.admin.firstName,
-      lastName: data.admin.lastName,
+      id: adminData._id,
+      username: adminData.userName || adminData.email,
+      email: adminData.email,
+      firstName: adminData.firstName,
+      lastName: adminData.lastName,
       role: 'admin',
     });
   };
 
   const logout = async () => {
     try {
-      await fetch(`${API_BASE_URL}/Adminlogout`, { 
+      const token = localStorage.getItem('adminToken');
+      await fetch(`${API_BASE_URL}/Adminlogout`, {
         method: 'GET',
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      localStorage.removeItem('adminToken');
       setUser(null);
     }
   };

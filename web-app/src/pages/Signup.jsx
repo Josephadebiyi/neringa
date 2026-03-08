@@ -35,12 +35,13 @@ export default function Signup() {
     const [detectedCountry, setDetectedCountry] = useState('');
 
     const handleGoogleSignup = useGoogleLogin({
-        redirect_uri: window.location.origin,
         onSuccess: async (tokenResponse) => {
+            console.log('Google login success, response:', tokenResponse);
             setLoading(true);
             setError('');
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
+                console.log('Backend google-auth response:', response.data);
                 if (response.data.success) {
                     saveToken(response.data.token);
                     login(response.data.user);
@@ -49,13 +50,17 @@ export default function Signup() {
                     setError(response.data.message || 'Google signup failed');
                 }
             } catch (err) {
-                console.error("Google Auth Error:", err);
-                setError(err.response?.data?.message || 'Google signup failed. Please try again.');
+                console.error("Google Auth Backend Error:", err);
+                const msg = err.response?.data?.message || err.message || 'Google auth failed. Technical issue.';
+                setError(msg);
             } finally {
                 setLoading(false);
             }
         },
-        onError: () => setError('Google signup failed'),
+        onError: (err) => {
+            console.error('Google login popup error:', err);
+            setError('Google login popup failed. Please allow popups.');
+        }
     });
 
     const handleChange = (e) => {
@@ -121,7 +126,8 @@ export default function Signup() {
                 setError(response.data.message || 'Signup failed');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Error occurred during signup');
+            console.error('Signup Request Error:', err);
+            setError(err.response?.data?.message || err.message || 'Network error: Backend might be offline');
         } finally {
             setLoading(false);
         }
@@ -139,7 +145,8 @@ export default function Signup() {
                 setTimeout(() => navigate('/login'), 2000);
             }
         } catch (err) {
-            setError(err.response?.data?.message || t('invalidOtpError'));
+            console.error('OTP Verification Error:', err);
+            setError(err.response?.data?.message || err.message || 'OTP verification failed. Check connection.');
         } finally {
             setLoading(false);
         }

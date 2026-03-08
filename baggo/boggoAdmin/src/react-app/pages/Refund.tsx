@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, CheckCircle, XCircle } from "lucide-react";
+import { MAIN_API_URL } from "../config/api";
 
 export default function RefundsPage() {
   const [refunds, setRefunds] = useState<any[]>([]);
@@ -11,7 +12,12 @@ export default function RefundsPage() {
   const fetchRefunds = async () => {
     try {
       setLoading(true);
-      const res = await fetch("https://neringa.onrender.com/api/baggo/get-refund");
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${MAIN_API_URL}/get-refund`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await res.json();
       setRefunds(data.data || []);
     } catch (err) {
@@ -48,7 +54,7 @@ export default function RefundsPage() {
 
   const handleAction = async (id: string, action: "approve" | "reject") => {
     try {
-      const endpoint = `https://neringa.onrender.com/api/baggo/${action}/${id}`;
+      const endpoint = `${MAIN_API_URL}/${action}/${id}`;
       const res = await fetch(endpoint, { method: "PUT" });
       if (res.ok) fetchRefunds();
     } catch (err) {
@@ -101,49 +107,49 @@ export default function RefundsPage() {
             <tbody className="divide-y divide-gray-200">
               {filtered.length > 0 ? (
                 filtered.map((item) => {
-      const request = item.paymentInfo?.requestId;
+                  const request = item.paymentInfo?.requestId;
 
-      const senderName = request?.sender?.firstName || "Unknown"; // <--- sender
-      const packageDesc = request?.package?.description || "N/A";
-      const requestDate = request?.createdAt
-        ? new Date(request.createdAt).toLocaleDateString()
-        : "N/A";
+                  const senderName = request?.sender?.firstName || "Unknown"; // <--- sender
+                  const packageDesc = request?.package?.description || "N/A";
+                  const requestDate = request?.createdAt
+                    ? new Date(request.createdAt).toLocaleDateString()
+                    : "N/A";
 
-      return (
-        <tr key={item._id} className="hover:bg-gray-50">
-          <td className="py-4 px-4 text-gray-900">{senderName}</td> {/* <-- show sender */}
-          <td className="py-4 px-4 text-gray-700">{packageDesc}</td>
-          <td className="py-4 px-4 text-gray-700">{requestDate}</td>
-          <td className="py-4 px-4">
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(item.status)}`}
-            >
-              {item.status}
-            </span>
-          </td>
-          <td className="py-4 px-4 flex space-x-2">
-            {item.status === "pending" && (
-              <>
-                <button
-                  onClick={() => handleAction(item._id, "approve")}
-                  className="bg-green-100 text-green-800 px-2 py-1 rounded flex items-center space-x-1"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Approve</span>
-                </button>
-                <button
-                  onClick={() => handleAction(item._id, "reject")}
-                  className="bg-red-100 text-red-800 px-2 py-1 rounded flex items-center space-x-1"
-                >
-                  <XCircle className="w-4 h-4" />
-                  <span>Reject</span>
-                </button>
-              </>
-            )}
-          </td>
-        </tr>
-      );
-    })
+                  return (
+                    <tr key={item._id} className="hover:bg-gray-50">
+                      <td className="py-4 px-4 text-gray-900">{senderName}</td> {/* <-- show sender */}
+                      <td className="py-4 px-4 text-gray-700">{packageDesc}</td>
+                      <td className="py-4 px-4 text-gray-700">{requestDate}</td>
+                      <td className="py-4 px-4">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(item.status)}`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 flex space-x-2">
+                        {item.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => handleAction(item._id, "approve")}
+                              className="bg-green-100 text-green-800 px-2 py-1 rounded flex items-center space-x-1"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              onClick={() => handleAction(item._id, "reject")}
+                              className="bg-red-100 text-red-800 px-2 py-1 rounded flex items-center space-x-1"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              <span>Reject</span>
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
 
               ) : (
                 <tr>

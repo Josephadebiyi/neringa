@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
-  MapPin, 
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  MapPin,
   DollarSign,
   Plane,
   Bus,
@@ -16,8 +16,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
-
-const API_BASE_URL = 'https://neringa.onrender.com/api/Adminbaggo';
+import { API_BASE_URL } from '../config/api';
 
 interface Route {
   id: string;
@@ -125,7 +124,7 @@ export default function RoutesPage() {
         credentials: 'include',
       });
       const data = await response.json();
-      
+
       if (data.success) {
         setRoutes(data.routes || []);
       } else {
@@ -145,10 +144,10 @@ export default function RoutesPage() {
     setError(null);
 
     try {
-      const url = editingRoute 
+      const url = editingRoute
         ? `${API_BASE_URL}/routes/${editingRoute.id}`
         : `${API_BASE_URL}/routes`;
-      
+
       const response = await fetch(url, {
         method: editingRoute ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -248,7 +247,7 @@ export default function RoutesPage() {
     }));
   };
 
-  const filteredRoutes = routes.filter(route => 
+  const filteredRoutes = routes.filter(route =>
     route.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     route.originCity.toLowerCase().includes(searchTerm.toLowerCase()) ||
     route.destinationCity.toLowerCase().includes(searchTerm.toLowerCase())
@@ -340,12 +339,10 @@ export default function RoutesPage() {
                   <tr key={route.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          route.isAfricanRoute ? 'bg-green-100' : 'bg-blue-100'
-                        }`}>
-                          <MapPin className={`w-5 h-5 ${
-                            route.isAfricanRoute ? 'text-green-600' : 'text-blue-600'
-                          }`} />
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${route.isAfricanRoute ? 'bg-green-100' : 'bg-blue-100'
+                          }`}>
+                          <MapPin className={`w-5 h-5 ${route.isAfricanRoute ? 'text-green-600' : 'text-blue-600'
+                            }`} />
                         </div>
                         <div>
                           <div className="font-medium text-gray-900">
@@ -393,11 +390,10 @@ export default function RoutesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                        route.isActive
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${route.isActive
                           ? 'bg-green-100 text-green-700'
                           : 'bg-gray-100 text-gray-600'
-                      }`}>
+                        }`}>
                         {route.isActive ? (
                           <>
                             <Check className="w-3 h-3" />
@@ -659,11 +655,10 @@ export default function RoutesPage() {
                         key={mode.id}
                         type="button"
                         onClick={() => toggleTransportMode(mode.id)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                          isSelected
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${isSelected
                             ? 'bg-[#5240E8] text-white border-[#5240E8]'
                             : 'bg-white text-gray-700 border-gray-200 hover:border-[#5240E8]'
-                        }`}
+                          }`}
                       >
                         <Icon className="w-4 h-4" />
                         {mode.label}
@@ -690,14 +685,12 @@ export default function RoutesPage() {
                 <button
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${
-                    formData.isActive ? 'bg-[#5240E8]' : 'bg-gray-200'
-                  }`}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${formData.isActive ? 'bg-[#5240E8]' : 'bg-gray-200'
+                    }`}
                 >
                   <span
-                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                      formData.isActive ? 'translate-x-7' : 'translate-x-1'
-                    }`}
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.isActive ? 'translate-x-7' : 'translate-x-1'
+                      }`}
                   />
                 </button>
                 <span className="text-sm text-gray-700">

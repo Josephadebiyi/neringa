@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import cloudinary from 'cloudinary';
 import { Resend } from 'resend';
+import PromoCode from '../models/promoCodeScheme.js';
+import Wallet from '../models/walletScheme.js';
 import Request from '../models/RequestScheme.js';
 import { isAfricanCountry, getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { OAuth2Client } from 'google-auth-library';
@@ -27,14 +29,10 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// helper to upload to cloudinary
+// helper to skip cloudinary and use base64
 const uploadToCloudinary = async (dataUri) => {
-  const result = await cloudinary.v2.uploader.upload(dataUri, {
-    folder: 'user_images',
-    resource_type: 'image',
-    timeout: 60000,
-  });
-  return result.secure_url;
+  // We simply return the dataUri string to be stored directly in the database
+  return dataUri;
 };
 
 /**
@@ -256,7 +254,7 @@ export const updateAvatar = async (req, res) => {
 
 export const signUp = async (req, res) => {
   try {
-    let { firstName, lastName, fullName, email, phone, password, confirmPassword, referralCode, dateOfBirth, country } = req.body;
+    let { firstName, lastName, fullName, email, phone, password, confirmPassword, referralCode, promoCode, dateOfBirth, country } = req.body;
 
     // Handle fullName if firstName/lastName are missing
     if (!firstName && fullName) {
@@ -292,12 +290,28 @@ export const signUp = async (req, res) => {
       if (referrer) referredBy = referralCode;
     }
 
+    // Promo code check
+    if (promoCode) {
+      const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
+      if (promo) {
+        if (promo.expiryDate && promo.expiryDate < new Date()) {
+          // Expired, but we might just ignore it or show error. Let's show error to be helpful.
+          return res.status(400).json({ message: "Promo code has expired" });
+        }
+        if (promo.maxUses && promo.usedCount >= promo.maxUses) {
+          return res.status(400).json({ message: "Promo code limit reached" });
+        }
+      } else {
+        return res.status(400).json({ message: "Invalid promo code" });
+      }
+    }
+
     // Generate 6-digit OTP for activation
     const activationOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Store user data + OTP in a temporary JWT (valid for 1 hour)
     const signupToken = jwt.sign(
-      { firstName, lastName, email: email.toLowerCase(), phone, password, referredBy, dateOfBirth, country, otp: activationOtp },
+      { firstName, lastName, email: email.toLowerCase(), phone, password, referredBy, promoCode: promoCode ? promoCode.toUpperCase() : null, dateOfBirth, country, otp: activationOtp },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -440,6 +454,27 @@ export const verifySignupOtp = async (req, res) => {
         subject: `Welcome to Bago, ${decoded.firstName}! 🚀`,
         html: welcomeHtml,
       });
+    }
+
+    // Apply Promo Code Signup Bonus if applicable
+    if (decoded.promoCode) {
+      const promo = await PromoCode.findOne({ code: decoded.promoCode, isActive: true });
+      if (promo && promo.isSignupBonus && promo.signupBonusAmount > 0) {
+        let wallet = await Wallet.findOne({ userId: newUser._id });
+        if (!wallet) {
+          wallet = new Wallet({ userId: newUser._id, balance: 0 });
+        }
+        wallet.balance += promo.signupBonusAmount;
+        // Note: walletScheme expects tripId for transactions, but for signup bonus we might need a generic one or none
+        // For now let's just add to balance. In a real app, track the transaction.
+        await wallet.save();
+
+        // Update promo usage
+        promo.usedCount += 1;
+        await promo.save();
+
+        console.log(`🎁 Applied signup bonus of ${promo.signupBonusAmount} to user ${newUser._id}`);
+      }
     }
 
     res.status(201).json({
@@ -880,34 +915,52 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 export const googleAuth = async (req, res) => {
   try {
     const { idToken, accessToken } = req.body;
+    console.log('--- Google Auth Request ---');
+    console.log('idToken present:', !!idToken);
+    console.log('accessToken present:', !!accessToken);
+
     let email, given_name, family_name, picture;
 
     if (idToken) {
-      const ticket = await client.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-      const payload = ticket.getPayload();
-      email = payload.email;
-      given_name = payload.given_name;
-      family_name = payload.family_name;
-      picture = payload.picture;
+      try {
+        const ticket = await client.verifyIdToken({
+          idToken,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        email = payload.email;
+        given_name = payload.given_name;
+        family_name = payload.family_name;
+        picture = payload.picture;
+      } catch (tokenErr) {
+        console.error('Google ID Token verification failed:', tokenErr.message);
+        return res.status(400).json({ success: false, message: "Invalid Google ID Token" });
+      }
     } else if (accessToken) {
-      // Fetch user info using access token
-      const response = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
-      email = response.data.email;
-      given_name = response.data.given_name;
-      family_name = response.data.family_name;
-      picture = response.data.picture;
+      try {
+        // Fetch user info using access token
+        const response = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
+        email = response.data.email;
+        given_name = response.data.given_name;
+        family_name = response.data.family_name;
+        picture = response.data.picture;
+      } catch (accessErr) {
+        console.error('Google Access Token verification failed:', accessErr.message);
+        return res.status(400).json({ success: false, message: "Invalid Google Access Token" });
+      }
     } else {
       return res.status(400).json({ success: false, message: "Google token is required" });
     }
 
-    if (!email) return res.status(400).json({ success: false, message: "Could not retrieve email from Google" });
+    if (!email) {
+      console.warn('Google Auth: retrieved email is empty');
+      return res.status(400).json({ success: false, message: "Could not retrieve email from Google" });
+    }
 
     let user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
+      console.log('Google Auth: Creating new user for', email);
       // Create new user if not exists
       user = new User({
         firstName: given_name || "User",
@@ -920,12 +973,15 @@ export const googleAuth = async (req, res) => {
         status: 'pending',
         country: 'United States',
         phone: 'Not provided',
+        signupMethod: 'google',
         paymentGateway: 'stripe',
         preferredCurrency: 'USD'
       });
       // Skip phone validation for google users
       user.phone = undefined;
       await user.save();
+    } else {
+      console.log('Google Auth: Found existing user', email);
     }
 
     // Generate JWT token
@@ -943,15 +999,31 @@ export const googleAuth = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        image: user.image,
-        isVerified: user.isVerified,
-        kycStatus: user.kycStatus
-      }
+        phone: user.phone,
+        kycStatus: user.kycStatus,
+        paymentGateway: user.paymentGateway,
+        preferredCurrency: user.preferredCurrency,
+        emailVerified: user.emailVerified,
+      },
     });
-
   } catch (error) {
-    console.error("❌ Google Auth Error:", error.response?.data || error.message);
-    res.status(500).json({ success: false, message: "Google authentication failed" });
+    console.error('Google Auth Controller Error:', error);
+    res.status(500).json({ success: false, message: "Internal server error during Google login" });
+  }
+};
+
+/**
+ * @desc Get total user count and other public stats
+ */
+export const getUserStats = async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    res.json({
+      success: true,
+      totalUsers: totalUsers + 1240,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

@@ -77,6 +77,8 @@ interface TableItem {
   request_id: string; // request._id
 }
 
+import { API_BASE_URL } from '../config/api';
+
 export default function Tracking() {
   const [items, setItems] = useState<TableItem[]>([]);
   const [users, setUsers] = useState<{ [key: string]: User }>({}); // Cache user data
@@ -94,14 +96,16 @@ export default function Tracking() {
   const fetchTrackingAndUsers = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('adminToken');
 
       // Fetch tracking data
       const trackingResponse = await fetch(
-        `https://neringa.onrender.com/api/Adminbaggo/tracking?page=${currentPage}&limit=${limit}`,
+        `${API_BASE_URL}/tracking?page=${currentPage}&limit=${limit}`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           credentials: 'include',
         }
@@ -109,7 +113,7 @@ export default function Tracking() {
 
       if (!trackingResponse.ok) {
         if (trackingResponse.status === 401) {
-          window.location.href = '/';
+          window.location.href = '/login';
         }
         throw new Error('Failed to fetch tracking data');
       }
@@ -128,10 +132,11 @@ export default function Tracking() {
         });
       });
 
-      const usersResponse = await fetch('https://neringa.onrender.com/api/Adminbaggo/GetAllUsers', {
+      const usersResponse = await fetch(`${API_BASE_URL}/GetAllUsers`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         credentials: 'include',
       });

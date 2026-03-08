@@ -1,6 +1,6 @@
 // Centralized API service for admin panel
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-const ADMIN_API = `${API_BASE}/Adminbago`;
+const ADMIN_API = `${API_BASE}/Adminbaggo`;
 const MAIN_API = `${API_BASE}/bago`;
 
 // Helper function for API calls

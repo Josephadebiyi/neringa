@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import api from '../../api';
 import { Package, MapPin, Calendar, Clock, ChevronRight, AlertTriangle, ShieldCheck, CheckCircle, RefreshCw, X, MessageSquare, User } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
@@ -76,8 +77,12 @@ export default function Shipments({ user }) {
                 <div className="space-y-4">
                     {requests.map(req => (
                         <div key={req._id} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
-                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-[#5845D8] flex-shrink-0 group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-50 shadow-sm">
-                                <Package size={20} />
+                            <div className="w-10 h-10 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-50 shadow-sm">
+                                {req.package?.image || req.image ? (
+                                    <img src={req.package?.image || req.image} className="w-full h-full object-cover" alt="Item" />
+                                ) : (
+                                    <Package size={20} />
+                                )}
                             </div>
 
                             <div className="flex-1 text-center md:text-left">
@@ -96,6 +101,14 @@ export default function Shipments({ user }) {
                                 <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${getStatusColor(req.status)}`}>
                                     {req.status || 'Pending'}
                                 </span>
+                                {req.travelerProof && (
+                                    <div className="flex flex-col items-center md:items-end gap-1.5 mt-1">
+                                        <p className="text-[7px] font-black text-[#5845D8] uppercase tracking-widest uppercase italic">{t('travelerUploadedProof') || 'Traveler Uploaded Proof'}</p>
+                                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:scale-105 transition-transform">
+                                            <img src={req.travelerProof} className="w-full h-full object-cover" alt="Delivery Proof" onClick={() => window.open(req.travelerProof, '_blank')} />
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="flex gap-2">
                                     <button className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm">
                                         <MessageSquare size={14} />

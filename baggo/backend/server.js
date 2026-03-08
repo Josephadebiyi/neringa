@@ -52,7 +52,7 @@ if (process.env.STRIPE_SECRET_KEY) {
 const expo = new Expo();
 
 // Initialize Resend (optional)
-let resend = null;
+export let resend = null;
 if (process.env.RESEND_API_KEY) {
   resend = new Resend(process.env.RESEND_API_KEY);
 } else {
@@ -114,7 +114,7 @@ messageController(io);
 
 // ✅ Main Routes
 app.use('/api/bago', userRouter);
-app.use('/api/Adminbago', AdminRouter);
+app.use('/api/Adminbaggo', AdminRouter);
 app.use("/api/prices", priceRoutes);
 
 // ✅ Route Pricing API (Public endpoints for mobile app)
@@ -1339,6 +1339,12 @@ function compareDates(date1, date2) {
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
 }
+
+app.get("/api/didit/webhook", (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+  // Redirect back to dashboard, optionally with a check flag
+  res.redirect(`${frontendUrl}/dashboard?kyc_check=true`);
+});
 
 app.post("/api/didit/webhook", async (req, res) => {
   try {

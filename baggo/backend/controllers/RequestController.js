@@ -16,27 +16,16 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ✅ Cloudinary upload helper
+// ✅ skip cloudinary and use base64
 const uploadToCloudinary = async (dataUriOrBuffer, options = {}) => {
   if (typeof dataUriOrBuffer === 'string') {
-    // base64 / Data URI string
-    const result = await cloudinary.v2.uploader.upload(dataUriOrBuffer, {
-      folder: 'requests',
-      resource_type: 'image',
-      ...options,
-    });
-    return result.secure_url;
+    // Already a base64 / Data URI string
+    return dataUriOrBuffer;
   } else {
-    // handle Buffer (convert to base64 Data URI)
+    // Convert Buffer to base64 Data URI
     const mime = options.mime || 'image/jpeg';
     const base64 = dataUriOrBuffer.toString('base64');
-    const dataUri = `data:${mime};base64,${base64}`;
-    const result = await cloudinary.v2.uploader.upload(dataUri, {
-      folder: 'requests',
-      resource_type: 'image',
-      ...options,
-    });
-    return result.secure_url;
+    return `data:${mime};base64,${base64}`;
   }
 };
 
@@ -843,6 +832,63 @@ export const uploadRequestImage = async (req, res) => {
   }
 };
 
+export const uploadTravelerProof = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    if (!requestId) return res.status(400).json({ success: false, message: 'requestId is required' });
+
+    const request = await Request.findById(requestId);
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+
+    // Verify authorized traveler
+    if (request.traveler.toString() !== req.user?._id?.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to upload proof for this request' });
+    }
+
+    let imageUrl = '';
+
+    // Handle multer file or base64 from body
+    if (req.file) {
+      imageUrl = await uploadToCloudinary(req.file.path);
+    } else if (req.body.image) {
+      const candidate = req.body.image;
+      if (candidate.startsWith('http')) {
+        imageUrl = candidate;
+      } else {
+        const dataUri = candidate.startsWith('data:') ? candidate : `data:image/jpeg;base64,${candidate}`;
+        imageUrl = await uploadToCloudinary(dataUri);
+      }
+    } else {
+      return res.status(400).json({ success: false, message: 'No image provided' });
+    }
+
+    // Update proof image
+    request.travelerProof = imageUrl;
+    await request.save();
+
+    // Notify sender that traveler uploaded proof
+    try {
+      const note = new Notification({
+        user: request.sender,
+        request: request._id,
+        message: `Traveler uploaded proof for your shipment. View current status in your dashboard.`,
+      });
+      await note.save();
+    } catch (nerr) {
+      console.error('Notification error (non-fatal):', nerr);
+    }
+
+    const populated = await Request.findById(requestId)
+      .populate('sender', 'name email')
+      .populate('traveler', 'name email')
+      .populate('package');
+
+    return res.status(200).json({ success: true, message: 'Traveler proof uploaded', data: populated });
+  } catch (err) {
+    console.error('uploadTravelerProof error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
 
 
 

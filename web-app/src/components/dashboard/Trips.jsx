@@ -11,13 +11,15 @@ export default function Trips({ user }) {
     const [loading, setLoading] = useState(true);
     const [editingTrip, setEditingTrip] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
     // Form states for editing
-    const [fromLocation, setFromLocation] = useState(null);
-    const [toLocation, setToLocation] = useState(null);
+    const [fromLocation, setFromLocation] = useState('');
+    const [toLocation, setToLocation] = useState('');
     const [departureDate, setDepartureDate] = useState('');
+    const [arrivalDate, setArrivalDate] = useState('');
     const [availableKg, setAvailableKg] = useState('');
-    const [travelMeans, setTravelMeans] = useState('flight');
+    const [travelMeans, setTravelMeans] = useState('airplane');
 
     useEffect(() => {
         fetchMyTrips();
@@ -27,7 +29,7 @@ export default function Trips({ user }) {
         setLoading(true);
         try {
             const res = await api.get('/api/bago/MyTrips');
-            setTrips(res.data?.data || []);
+            setTrips(res.data?.trips || res.data?.data || []);
         } catch (err) {
             console.error("Failed to fetch trips", err);
         } finally {
@@ -36,44 +38,46 @@ export default function Trips({ user }) {
     };
 
     const handleDeleteTrip = async (id) => {
-        if (!window.confirm(t('deleteTripConfirm'))) return;
         try {
             await api.delete(`/api/bago/Trip/${id}`);
-            setTrips(trips.filter(t => t._id !== id));
+            setTrips(prev => prev.filter(t => t._id !== id));
+            setDeleteConfirmId(null);
         } catch (err) {
-            alert('Failed to delete trip');
+            alert('Failed to delete trip. Please try again.');
         }
     };
 
     const startEditing = (trip) => {
         setEditingTrip(trip);
-        setFromLocation(locationOptions.find(o => o.city === trip.fromLocation) || null);
-        setToLocation(locationOptions.find(o => o.city === trip.toLocation) || null);
-        setDepartureDate(new Date(trip.departureDate).toISOString().split('T')[0]);
-        setAvailableKg(trip.availableKg);
-        setTravelMeans(trip.travelMeans);
+        setFromLocation(trip.fromLocation || '');
+        setToLocation(trip.toLocation || '');
+        setDepartureDate(trip.departureDate ? new Date(trip.departureDate).toISOString().split('T')[0] : '');
+        setArrivalDate(trip.arrivalDate ? new Date(trip.arrivalDate).toISOString().split('T')[0] : '');
+        setAvailableKg(trip.availableKg || '');
+        setTravelMeans(trip.travelMeans || 'airplane');
     };
 
     const handleUpdateTrip = async (e) => {
         e.preventDefault();
+        if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg) {
+            alert('All fields are required.');
+            return;
+        }
         setIsUpdating(true);
         try {
             const payload = {
-                fromLocation: fromLocation?.city,
-                toLocation: toLocation?.city,
-                originCountry: fromLocation?.country,
-                destinationCountry: toLocation?.country,
+                fromLocation,
+                toLocation,
                 departureDate,
-                availableKg,
+                arrivalDate,
+                availableKg: parseFloat(availableKg),
                 travelMeans
             };
-            const res = await api.put(`/api/bago/Trip/${editingTrip._id}`, payload);
-            if (res.data.success) {
-                setEditingTrip(null);
-                fetchMyTrips();
-            }
+            await api.put(`/api/bago/Trip/${editingTrip._id}`, payload);
+            setEditingTrip(null);
+            fetchMyTrips();
         } catch (err) {
-            alert('Failed to update trip');
+            alert(err.response?.data?.message || 'Failed to update trip. Please try again.');
         } finally {
             setIsUpdating(false);
         }
@@ -151,22 +155,41 @@ export default function Trips({ user }) {
                                 </div>
                             </div>
 
-                            <div className="flex gap-3 relative z-10">
-                                <button
-                                    onClick={() => startEditing(trip)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-100 rounded-xl text-[10px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-50 transition-all"
-                                >
-                                    <Edit3 size={14} />
-                                    {t('edit')}
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteTrip(trip._id)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-red-50 rounded-xl text-[10px] font-black text-red-500 uppercase tracking-widest hover:bg-red-50 transition-all"
-                                >
-                                    <Trash2 size={14} />
-                                    {t('delete')}
-                                </button>
-                            </div>
+                            {/* Delete Confirmation */}
+                            {deleteConfirmId === trip._id ? (
+                                <div className="flex gap-2 relative z-10 mt-2 bg-red-50 rounded-xl p-3 border border-red-100 animate-in fade-in duration-150">
+                                    <p className="text-[9px] font-black text-red-600 uppercase tracking-wider flex-1">Delete this trip?</p>
+                                    <button
+                                        onClick={() => handleDeleteTrip(trip._id)}
+                                        className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider"
+                                    >
+                                        Yes, Delete
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteConfirmId(null)}
+                                        className="px-3 py-1.5 bg-white text-gray-500 rounded-lg text-[9px] font-black uppercase tracking-wider border border-gray-100"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-3 relative z-10">
+                                    <button
+                                        onClick={() => startEditing(trip)}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-100 rounded-xl text-[10px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-50 transition-all"
+                                    >
+                                        <Edit3 size={14} />
+                                        {t('edit')}
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteConfirmId(trip._id)}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-red-50 rounded-xl text-[10px] font-black text-red-500 uppercase tracking-widest hover:bg-red-50 transition-all"
+                                    >
+                                        <Trash2 size={14} />
+                                        {t('delete')}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -184,40 +207,22 @@ export default function Trips({ user }) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('originCity')}</label>
-                                    <Select
-                                        options={locationOptions}
+                                    <input
+                                        type="text"
                                         value={fromLocation}
-                                        onChange={setFromLocation}
-                                        className="text-xs font-bold"
-                                        styles={{
-                                            control: (base) => ({
-                                                ...base,
-                                                borderRadius: '12px',
-                                                padding: '2px',
-                                                borderColor: '#f3f4f6',
-                                                boxShadow: 'none',
-                                                '&:hover': { borderColor: '#5845D8' }
-                                            })
-                                        }}
+                                        onChange={(e) => setFromLocation(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all"
+                                        placeholder="City, Country"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('arrivalCity')}</label>
-                                    <Select
-                                        options={locationOptions}
+                                    <input
+                                        type="text"
                                         value={toLocation}
-                                        onChange={setToLocation}
-                                        className="text-xs font-bold"
-                                        styles={{
-                                            control: (base) => ({
-                                                ...base,
-                                                borderRadius: '12px',
-                                                padding: '2px',
-                                                borderColor: '#f3f4f6',
-                                                boxShadow: 'none',
-                                                '&:hover': { borderColor: '#5845D8' }
-                                            })
-                                        }}
+                                        onChange={(e) => setToLocation(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all"
+                                        placeholder="City, Country"
                                     />
                                 </div>
                             </div>
@@ -233,6 +238,18 @@ export default function Trips({ user }) {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('arrivalDate') || 'Arrival Date'}</label>
+                                    <input
+                                        type="date"
+                                        value={arrivalDate}
+                                        onChange={(e) => setArrivalDate(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
                                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('spaceKg')}</label>
                                     <input
                                         type="number"
@@ -240,6 +257,21 @@ export default function Trips({ user }) {
                                         onChange={(e) => setAvailableKg(e.target.value)}
                                         className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all"
                                     />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('travelMode')}</label>
+                                    <select
+                                        value={travelMeans}
+                                        onChange={(e) => setTravelMeans(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all appearance-none"
+                                    >
+                                        <option value="airplane">Airplane</option>
+                                        <option value="bus">Bus</option>
+                                        <option value="train">Train</option>
+                                        <option value="car">Car</option>
+                                        <option value="ship">Ship</option>
+                                        <option value="other">Other</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -251,6 +283,7 @@ export default function Trips({ user }) {
                                 {isUpdating ? <RefreshCw className="animate-spin" size={16} /> : t('updateRoute')}
                             </button>
                         </form>
+
                     </div>
                 </div>
             )}

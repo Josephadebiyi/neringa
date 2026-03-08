@@ -3,9 +3,11 @@ import { useAuth } from '../AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
+import Sidebar from '../components/dashboard/Sidebar';
 import Overview from '../components/dashboard/Overview';
 import Trips from '../components/dashboard/Trips';
 import Shipments from '../components/dashboard/Shipments';
+import Deliveries from '../components/dashboard/Deliveries';
 import Chats from '../components/dashboard/Chats';
 import Earnings from '../components/dashboard/Earnings';
 import Settings from '../components/dashboard/Settings';
@@ -20,18 +22,13 @@ import {
     Menu,
     X,
     Shield,
-    ChevronLeft
+    ChevronLeft,
+    AlertCircle,
+    CheckCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const getMenuItems = (t) => [
-    { id: 'overview', label: t('overview'), icon: LayoutDashboard },
-    { id: 'trips', label: t('myTrips'), icon: Plane },
-    { id: 'shipments', label: t('myShipments'), icon: Package },
-    { id: 'chats', label: t('chats'), icon: MessageCircle },
-    { id: 'earnings', label: t('earnings'), icon: Wallet },
-    { id: 'settings', label: t('settings'), icon: SettingsIcon },
-];
+
 
 export default function Dashboard() {
     const { user, loading, isAuthenticated, logout, checkAuthStatus } = useAuth();
@@ -41,6 +38,7 @@ export default function Dashboard() {
     const [kycLoading, setKycLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
+    const [userStats, setUserStats] = useState({ totalUsers: 0 });
     const location = useLocation();
     const [msg, setMsg] = useState(location.state?.message || '');
 
@@ -51,7 +49,16 @@ export default function Dashboard() {
             const timer = setTimeout(() => setMsg(''), 5000);
             return () => clearTimeout(timer);
         }
-    }, [location.state]);
+
+        // Handle Didit redirect check
+        const params = new URLSearchParams(location.search);
+        if (params.get('kyc_check')) {
+            setMsg('Identity verification submitted! Status will update once processing is complete.');
+            fetchKycStatus();
+            // Clean up the URL
+            navigate('/dashboard', { replace: true });
+        }
+    }, [location.state, location.search, navigate]);
 
     useEffect(() => {
         if (!loading && !isAuthenticated) {
@@ -61,8 +68,20 @@ export default function Dashboard() {
                 navigate('/banned');
             }
             fetchKycStatus();
+            fetchUserStats();
         }
     }, [loading, isAuthenticated, user, navigate]);
+
+    const fetchUserStats = async () => {
+        try {
+            const resp = await api.get('/api/bago/user-stats');
+            if (resp.data.success) {
+                setUserStats({ totalUsers: resp.data.totalUsers });
+            }
+        } catch (err) {
+            console.error('Error fetching user stats:', err);
+        }
+    };
 
     const fetchKycStatus = async () => {
         try {
@@ -87,16 +106,8 @@ export default function Dashboard() {
         }
     };
 
-    const handleStartKyc = async () => {
-        try {
-            const response = await api.post('/api/bago/kyc/create-session');
-            const url = response.data.sessionUrl || response.data.diditSessionUrl;
-            if (url) window.open(url, '_blank');
-            else alert('Verification session created. Please check your email or refresh the page.');
-        } catch (err) {
-            console.error('KYC error:', err);
-            alert('Could not start identity verification. Please try later.');
-        }
+    const handleStartKyc = () => {
+        navigate('/verify');
     };
 
     const handleTabChange = (tabId) => {
@@ -107,9 +118,12 @@ export default function Dashboard() {
     const renderTabContent = () => {
         try {
             switch (activeTab) {
-                case 'overview': return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} />;
+                case 'overview': return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
                 case 'trips': return <Trips user={user} />;
-                case 'shipments': return <Shipments user={user} />;
+                case 'shipments':
+                    return <Shipments user={user} />;
+                case 'deliveries':
+                    return <Deliveries user={user} />;
                 case 'chats': return <Chats user={user} />;
                 case 'earnings': return <Earnings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'settings': return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
@@ -172,66 +186,14 @@ export default function Dashboard() {
             )}
 
             {/* ── Sidebar ── */}
-            <aside className={`
-                fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-100 flex flex-col z-40
-                transition-transform duration-300 ease-in-out
-                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                md:translate-x-0
-            `}>
-                {/* Logo */}
-                <div className="p-5 flex items-center justify-between border-b border-gray-50">
-                    <Link to="/" onClick={() => setSidebarOpen(false)}>
-                        <img src="/bago_logo.png" alt="Bago" className="h-7" />
-                    </Link>
-                    <button className="md:hidden p-1 rounded-lg text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(false)}>
-                        <X size={20} />
-                    </button>
-                </div>
-
-                {/* Nav Items */}
-                <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
-                    {getMenuItems(t).map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => handleTabChange(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${activeTab === item.id
-                                ? 'bg-[#5845D8] text-white shadow-md shadow-[#5845D8]/20'
-                                : 'text-[#6B7280] hover:bg-gray-50 hover:text-[#012126]'
-                                }`}
-                        >
-                            <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-                            <span className="font-bold text-[13px]">{item.label}</span>
-                        </button>
-                    ))}
-                </nav>
-
-                {/* User footer */}
-                <div className="p-4 border-t border-gray-100">
-                    <div className="flex items-center gap-3 mb-4 px-1">
-                        <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                            {userInitial}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-bold text-[#012126] truncate">
-                                {user?.firstName !== 'Bago' ? `${user?.firstName} ${user?.lastName}` : user?.email?.split('@')[0]}
-                            </p>
-                            <div className="flex items-center gap-1">
-                                <Shield size={8} className={kycStatus === 'approved' ? 'text-green-500' : 'text-gray-300'} />
-                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">
-                                    {kycStatus === 'approved' ? t('verified') : t('unverified')}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <button
-                        onClick={logout}
-                        className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-red-500 hover:bg-red-50 font-bold transition-all text-[12px]"
-                    >
-                        <LogOut size={16} />
-                        <span>{t('logout')}</span>
-                    </button>
-                </div>
-            </aside>
+            <Sidebar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                user={user}
+                logout={logout}
+                sidebarOpen={sidebarOpen}
+                setSidebarOpen={setSidebarOpen}
+            />
 
             {/* ── Main Content ── */}
             <main className="flex-1 md:ml-64 min-h-screen">
@@ -250,10 +212,19 @@ export default function Dashboard() {
                             <p className="text-[9px] text-gray-400 font-bold hidden sm:block uppercase tracking-tight">{t('personalDashboard')}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 md:gap-4">
                         <Link to="/" className="text-[10px] text-[#6B7280] hover:text-[#5845D8] font-bold uppercase tracking-wider hidden sm:block">
                             {t('backToSite')}
                         </Link>
+
+                        <button
+                            onClick={logout}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-red-500 bg-red-50/50 hover:bg-red-50 transition-all font-bold text-[10px] uppercase tracking-wider"
+                        >
+                            <LogOut size={14} />
+                            <span className="hidden xs:block">{t('logout')}</span>
+                        </button>
+
                         <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs">
                             {userInitial}
                         </div>

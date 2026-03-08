@@ -20,7 +20,8 @@ import {
     DollarSign,
     CreditCard,
     Shield,
-    Loader2
+    Loader2,
+    FileText
 } from 'lucide-react';
 import api from '../api';
 import { countries, locations } from '../utils/countries';
@@ -166,23 +167,47 @@ export default function PostTrip() {
         }
         if (kycStatus !== 'approved') {
             localStorage.setItem('pending_trip_post', JSON.stringify(formData));
-            navigate('/dashboard', { state: { message: t('kycRequired') } });
+            navigate('/verify');
             return;
         }
-        if (!formData.originCountry || !formData.destinationCountry) {
-            setError(t('originDestError'));
+        // Mandatory field validation
+        if (!formData.originCountry) {
+            setError('Please select an origin country.');
+            return;
+        }
+        if (!formData.destinationCountry) {
+            setError('Please select a destination country.');
+            return;
+        }
+        if (!formData.originCity) {
+            setError('Please enter or select an origin city.');
+            return;
+        }
+        if (!formData.destinationCity) {
+            setError('Please enter or select a destination city.');
+            return;
+        }
+        if (!formData.departureDate) {
+            setError('Please select a departure date.');
+            return;
+        }
+        if (!formData.arrivalDate) {
+            setError('Please select an arrival date.');
+            return;
+        }
+        if (new Date(formData.arrivalDate) < new Date(formData.departureDate)) {
+            setError('Arrival date cannot be before departure date.');
             return;
         }
         if (
             formData.originCountry === formData.destinationCountry &&
-            formData.originCity && formData.destinationCity &&
             formData.originCity === formData.destinationCity
         ) {
-            setError(t('sameCityError'));
+            setError(t('sameCityError') || 'Origin and destination cannot be the same city.');
             return;
         }
         if (!formData.availableWeight || parseFloat(formData.availableWeight) <= 0 || parseFloat(formData.availableWeight) > 50) {
-            setError(t('weightRangeError'));
+            setError(t('weightRangeError') || 'Available weight must be between 1 and 50 kg.');
             return;
         }
         setStep(2);
@@ -193,24 +218,25 @@ export default function PostTrip() {
         setLoading(true);
         setError('');
         try {
-            const res = await api.post('/api/bago/postTrip', {
-                originCountry: formData.originCountry,
-                origin: formData.originCity,
-                destinationCountry: formData.destinationCountry,
-                destination: formData.destinationCity,
+            const res = await api.post('/api/bago/AddAtrip', {
+                fromLocation: `${formData.originCity}, ${formData.originCountry}`,
+                toLocation: `${formData.destinationCity}, ${formData.destinationCountry}`,
                 departureDate: formData.departureDate,
                 arrivalDate: formData.arrivalDate,
-                availableWeight: formData.availableWeight,
-                transportMode: formData.transportMode,
+                availableKg: formData.availableWeight,
+                travelMeans: formData.transportMode,
                 notes: formData.additionalNotes
             });
-            if (res.data.success) {
+            // Backend returns { message: "Trip created successfully", trip: {...} }
+            if (res.status === 201 || res.data?.trip || res.data?.message?.toLowerCase().includes('created')) {
                 localStorage.removeItem('pending_trip_post');
                 setStep(4);
                 window.scrollTo(0, 0);
+            } else {
+                setError(res.data?.message || 'Failed to post trip.');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to post trip.');
+            setError(err.response?.data?.message || 'Failed to post trip. Please try again.');
         } finally {
             setLoading(false);
         }

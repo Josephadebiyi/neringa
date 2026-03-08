@@ -1,34 +1,27 @@
 import User from '../../models/userScheme.js';
 
-// Get All Users with Pagination (Admin Only)
+// Get All Users with Pagination and Filtering (Admin Only)
 export const GetAllUsers = async (req, res, next) => {
   try {
-    // Extract query params for pagination
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const banned = req.query.banned; // optional filter
+    const kycStatus = req.query.kycStatus; // optional filter
+    const signupMethod = req.query.signupMethod; // optional filter
     const skip = (page - 1) * limit;
 
-    // Fetch users with pagination, excluding sensitive fields
-    const users = await User.find({})
-      .select('-password -__v')  // Exclude password and version key
+    const query = {};
+    if (banned !== undefined) query.banned = banned === 'true';
+    if (kycStatus) query.kycStatus = kycStatus;
+    if (signupMethod) query.signupMethod = signupMethod;
+
+    const users = await User.find(query)
+      .select('-password -__v')
       .skip(skip)
       .limit(limit)
-      .sort({ createdAt: -1 });  // Sort by newest first
+      .sort({ createdAt: -1 });
 
-    // Get total count for pagination
-    const totalCount = await User.countDocuments({});
-
-    if (users.length === 0) {
-      return res.status(200).json({
-        message: "No users found",
-        data: [],
-        totalCount: 0,
-        page,
-        limit,
-        error: false,
-        success: true,
-      });
-    }
+    const totalCount = await User.countDocuments(query);
 
     res.status(200).json({
       message: "Operation successful",
@@ -40,21 +33,16 @@ export const GetAllUsers = async (req, res, next) => {
       success: true,
     });
   } catch (error) {
-    console.error('GetAllUsers error:', error.message, error.stack);
-    next(error);  // Pass to error handler middleware
+    console.error('GetAllUsers error:', error.message);
+    next(error);
   }
 };
 
-
 export const banUser = async (req, res, next) => {
   const { userId } = req.params;
-  const { banned } = req.body;  // true/false
+  const { banned } = req.body;
 
   try {
-    if (typeof banned !== 'boolean') {
-      return res.status(400).json({ message: "banned must be a boolean", error: true, success: false });
-    }
-
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found", error: true, success: false });
@@ -65,12 +53,36 @@ export const banUser = async (req, res, next) => {
 
     res.status(200).json({
       message: `User ${banned ? 'banned' : 'unbanned'} successfully`,
-      data: user,
-      error: false,
       success: true,
     });
   } catch (error) {
-    console.error('banUser error:', error.message, error.stack);
+    next(error);
+  }
+};
+
+export const deleteUser = async (req, res, next) => {
+  const { userId } = req.params;
+  try {
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", error: true, success: false });
+    }
+    res.status(200).json({ message: "User deleted successfully", success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUser = async (req, res, next) => {
+  const { userId } = req.params;
+  const updates = req.body;
+  try {
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "User not found", error: true, success: false });
+    }
+    res.status(200).json({ message: "User updated successfully", data: user, success: true });
+  } catch (error) {
     next(error);
   }
 };

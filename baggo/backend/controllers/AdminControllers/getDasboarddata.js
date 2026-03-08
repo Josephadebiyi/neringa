@@ -1,6 +1,7 @@
 import User from '../../models/userScheme.js';
 import Package from '../../models/PackageScheme.js';
 import Request from '../../models/RequestScheme.js';
+import Trip from '../../models/tripScheme.js';
 
 export const dashboard = async (req, res, next) => {
   try {
@@ -8,18 +9,22 @@ export const dashboard = async (req, res, next) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     // Fetch aggregate stats in parallel
-    const [userCount, packageCount, requestCount, incomeStats, statusDistribution, monthlyTrends] =
+    const [
+      userCount,
+      packageCount,
+      requestCount,
+      incomeStats,
+      statusDistribution,
+      monthlyTrends,
+      activeTripsCount,
+      googleSignupCount,
+      unverifiedUserCount,
+      verifiedUserCount
+    ] =
       await Promise.all([
-        // Total users
         User.countDocuments(),
-
-        // Total packages
         Package.countDocuments(),
-
-        // Total requests
         Request.countDocuments(),
-
-        // Total income (sum of insuranceCost for relevant statuses)
         Request.aggregate([
           {
             $match: {
@@ -28,8 +33,6 @@ export const dashboard = async (req, res, next) => {
           },
           { $group: { _id: null, totalIncome: { $sum: '$insuranceCost' } } },
         ]),
-
-        // Request status distribution (for pie chart)
         Request.aggregate([
           {
             $group: {
@@ -45,13 +48,11 @@ export const dashboard = async (req, res, next) => {
             },
           },
         ]),
-
-        // Monthly package trends (for line chart)
         Package.aggregate([
           {
             $match: {
               createdAt: {
-                $gte: new Date(new Date().getFullYear() - 1, 0, 1), // Last year onwards
+                $gte: new Date(new Date().getFullYear() - 1, 0, 1),
               },
             },
           },
@@ -76,6 +77,10 @@ export const dashboard = async (req, res, next) => {
             },
           },
         ]),
+        Trip.countDocuments({ status: 'active' }),
+        User.countDocuments({ signupMethod: 'google' }),
+        User.countDocuments({ kycStatus: { $ne: 'approved' } }),
+        User.countDocuments({ kycStatus: 'approved' }),
       ]);
 
     // Fetch packages with pagination and their requests
@@ -92,7 +97,7 @@ export const dashboard = async (req, res, next) => {
       })
     );
 
-    // Format monthly trends for this year and last year
+    // Format monthly trends
     const thisYear = new Date().getFullYear();
     const lastYear = thisYear - 1;
     const months = [
@@ -114,11 +119,9 @@ export const dashboard = async (req, res, next) => {
       }
     });
 
-    // Calculate total income and commission
     const totalIncome = incomeStats.length > 0 ? incomeStats[0].totalIncome : 0;
-    const totalCommission = totalIncome * 0.1; // 10% commission
+    const totalCommission = totalIncome * 0.1;
 
-    // Calculate status distribution percentages
     const totalRequests = statusDistribution.reduce((sum, status) => sum + status.count, 0);
     const statusData = statusDistribution.map((status) => ({
       name: status.name,
@@ -127,8 +130,6 @@ export const dashboard = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      error: false,
-      message: 'Successful operation',
       data: {
         stats: {
           totalUsers: userCount,
@@ -136,6 +137,10 @@ export const dashboard = async (req, res, next) => {
           totalRequests: requestCount,
           totalIncome,
           totalCommission,
+          activeTrips: activeTripsCount,
+          googleUsers: googleSignupCount,
+          unverifiedUsers: unverifiedUserCount,
+          verifiedUsers: verifiedUserCount
         },
         trackingData,
         statusDistribution: statusData,
@@ -148,6 +153,6 @@ export const dashboard = async (req, res, next) => {
       },
     });
   } catch (error) {
-    next(error); // Pass to error-handling middleware
+    next(error);
   }
 };

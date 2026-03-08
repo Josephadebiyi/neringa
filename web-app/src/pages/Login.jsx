@@ -30,34 +30,47 @@ export default function Login() {
                 setError(response.data.message || 'Login failed');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid email or password');
+            console.error('Login Error:', err);
+            const serverMsg = err.response?.data?.message;
+            if (serverMsg) {
+                setError(serverMsg);
+            } else if (err.code === 'ERR_NETWORK') {
+                setError('Network error: Could not reach the server. Please check your internet or try again later.');
+            } else {
+                setError('An unexpected error occurred. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleLogin = useGoogleLogin({
-        redirect_uri: window.location.origin,
         onSuccess: async (tokenResponse) => {
+            console.log('Google login success, response:', tokenResponse);
             setLoading(true);
             setError('');
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
+                console.log('Backend google-auth response:', response.data);
                 if (response.data.success) {
                     saveToken(response.data.token);
                     login(response.data.user);
                     navigate('/dashboard');
                 } else {
-                    setError(response.data.message || 'Google login failed');
+                    setError(response.data.message || 'Google signup failed');
                 }
             } catch (err) {
-                console.error("Google Auth Error:", err);
-                setError(err.response?.data?.message || 'Google login failed. Please try again.');
+                console.error("Google Auth Backend Error:", err);
+                const msg = err.response?.data?.message || err.message || 'Google auth failed. Technical issue.';
+                setError(msg);
             } finally {
                 setLoading(false);
             }
         },
-        onError: () => setError('Google login failed'),
+        onError: (err) => {
+            console.error('Google login popup error:', err);
+            setError('Google login popup failed. Please allow popups.');
+        }
     });
 
     return (

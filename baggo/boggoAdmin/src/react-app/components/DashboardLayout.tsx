@@ -1,10 +1,10 @@
-import { ReactNode, useState } from "react";
-import { useAuth } from "@/react-app/hooks/useAuth";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useLocation } from "react-router";
 import {
   Home,
   CreditCard,
-  RefreshCw,
   MessageCircle,
   User,
   Settings,
@@ -19,6 +19,10 @@ import {
   RefreshCcw,
   LogOut,
   Route,
+  Globe,
+  Plane,
+  Ticket,
+  Users
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -36,14 +40,19 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: Home, label: "Dashboard", path: "/dashboard" },
   { icon: User, label: "Users", path: "/users" },
-  { icon: RefreshCw, label: "Tracking", path: "/tracking"},
+  { icon: Users, label: "Staff / Sub-Admins", path: "/staff" },
+  { icon: Plane, label: "Listed Trips", path: "/trips" },
+  { icon: Ticket, label: "Promo Codes", path: "/promo-codes" },
+  { icon: Bell, label: "Promo Engine", path: "/promo-email" },
+  { icon: RefreshCcw, label: "Tracking", path: "/tracking" },
   { icon: Route, label: "Route Pricing", path: "/routes" },
+  { icon: Globe, label: "Operating Locations", path: "/locations" },
   { icon: Scale, label: "PricePerKg", path: "/priceperkg" },
-    { icon: Bell , label: "push Notification", path: "/push-notification" },
-    { icon: IdCard, label: "Kyc", path: "/kyc" },
+  { icon: Bell, label: "push Notification", path: "/push-notification" },
+  { icon: IdCard, label: "Kyc", path: "/kyc" },
   { icon: MessageCircle, label: "Support", path: "/support" },
-    { icon: Swords, label: "disputes", path: "/disputes" },
-      { icon: RefreshCcw, label: "refund", path: "/refund" },
+  { icon: Swords, label: "disputes", path: "/disputes" },
+  { icon: RefreshCcw, label: "refund", path: "/refund" },
   { icon: CreditCard, label: "Withdrawals", path: "/withdrawals" },
   { icon: BarChart, label: "Analytics", path: "/analytics" },
   { icon: Settings, label: "Settings", path: "/settings" },
@@ -58,21 +67,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   // Logout handler with API call
   const handleLogout = async () => {
     try {
-      const response = await fetch('https://neringa.onrender.com/api/Adminbaggo/Adminlogout', {
-        method: 'GET',
-        credentials: 'include',  // Sends cookies/credentials for auth
-      });
-
-      if (response.ok) {
-        // Clear auth context/client-side state
-        if (logout) {
-          logout();  // Use your auth hook's logout if available
-        }
-        // Redirect to login
-        navigate('/login');
-      } else {
-        console.error('Logout failed');
+      if (logout) {
+        await logout();
       }
+      navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -168,14 +166,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="text-white text-sm font-medium">
                 Welcome
               </div>
-              <div className="text-gray-400 text-xs">
-                {user?.first_name && user?.last_name
-                  ? `${user.first_name} ${user.last_name}`
+              <div className="text-gray-400 text-xs truncate max-w-[120px]">
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
                   : user?.username || 'Administrator'
                 }
               </div>
             </div>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
           </div>
         </div>
       </div>
@@ -201,8 +198,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </div>
                 <div className="flex items-center space-x-1">
                   <span className="text-sm font-medium text-gray-900">
-                    {user?.first_name && user?.last_name
-                      ? `${user.first_name} ${user.last_name}`
+                    {user?.firstName && user?.lastName
+                      ? `${user.firstName} ${user.lastName}`
                       : user?.username || 'Administrator'
                     }
                   </span>
