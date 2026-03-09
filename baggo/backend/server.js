@@ -43,10 +43,13 @@ const io = new Server(httpServer, {
 
 // ✅ Initialize Stripe (optional - will be null if no key provided)
 let stripe = null;
-if (process.env.STRIPE_SECRET_KEY) {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+if (stripeKey && stripeKey !== 'your_stripe_secret_key' && stripeKey.startsWith('sk_')) {
+  stripe = new Stripe(stripeKey);
+  console.log('✅ Stripe initialized successfully');
 } else {
-  console.warn('⚠️ STRIPE_SECRET_KEY not set - Stripe features disabled');
+  console.warn('⚠️ STRIPE_SECRET_KEY not set or invalid - Stripe features disabled');
+  console.warn('   To enable Stripe: Get your key from https://dashboard.stripe.com/apikeys');
 }
 
 const expo = new Expo();
@@ -63,22 +66,30 @@ startEscrowAutoRelease();
 
 // create or return an existing Stripe account id for a user
 async function createStripeAccountForUser(user) {
-  if (!stripe) throw new Error('Stripe not configured');
+  if (!stripe) {
+    console.warn('❌ createStripeAccountForUser failed: Stripe not configured');
+    throw new Error('Stripe not configured');
+  }
   if (!user) throw new Error('User required');
 
-  if (user.stripeAccountId) return user.stripeAccountId;
+  if (user.stripeConnectAccountId) return user.stripeConnectAccountId;
 
-  const account = await stripe.accounts.create({
-    type: 'express',                  // or 'standard' / 'custom' depending on your model
-    email: user.email,
-    capabilities: { transfers: { requested: true } },
-  });
+  try {
+    const account = await stripe.accounts.create({
+      type: 'express',                  // or 'standard' / 'custom' depending on your model
+      email: user.email,
+      capabilities: { transfers: { requested: true } },
+    });
 
-  user.stripeAccountId = account.id;
-  await user.save();
+    user.stripeConnectAccountId = account.id;
+    await user.save();
 
-  console.log(`Created Stripe account ${account.id} for user ${user._id}`);
-  return account.id;
+    console.log(`✅ Created Stripe account ${account.id} for user ${user._id}`);
+    return account.id;
+  } catch (err) {
+    console.error('❌ Stripe Account Creation Error:', err.message);
+    throw err;
+  }
 }
 
 
@@ -249,10 +260,10 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
     if (!userId) return res.status(400).send('Missing userId');
 
     const user = await User.findById(userId);
-    if (!user || !user.stripeAccountId)
+    if (!user || !user.stripeConnectAccountId)
       return res.status(404).send('User or Stripe account not found');
 
-    const account = await stripe.accounts.retrieve(user.stripeAccountId);
+    const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
 
     // ✅ Check onboarding completion
     const verified = account.details_submitted && account.charges_enabled;
@@ -472,10 +483,10 @@ app.get('/api/stripe/connect/status/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const user = await User.findById(userId);
-    if (!user?.stripeAccountId)
+    if (!user?.stripeConnectAccountId)
       return res.status(400).json({ message: 'User not connected to Stripe' });
 
-    const account = await stripe.accounts.retrieve(user.stripeAccountId);
+    const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
 
     // ✅ Save verification & payout status in DB
     user.stripeVerified = account.charges_enabled && account.payouts_enabled;
@@ -506,7 +517,7 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
       return res.status(400).json({ message: 'userId and totalAmount are required' });
 
     const user = await User.findById(userId);
-    if (!user?.stripeAccountId)
+    if (!user?.stripeConnectAccountId)
       return res.status(400).json({ message: 'User not connected to Stripe' });
 
     // 10% platform fee → keep 10%, send 90%
@@ -517,7 +528,7 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
     const transfer = await stripe.transfers.create({
       amount: userAmount,
       currency: 'usd',
-      destination: user.stripeAccountId,
+      destination: user.stripeConnectAccountId,
       description: `Traveller payout for ${user.email}`,
       metadata: { platformFee: (platformFee / 100).toFixed(2) },
     });
