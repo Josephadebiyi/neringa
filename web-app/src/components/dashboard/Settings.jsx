@@ -49,7 +49,9 @@ export default function Settings({ user, checkAuthStatus }) {
                 window.location.href = res.data.url;
             }
         } catch (err) {
-            setError(t('failStripeOnboarding'));
+            console.error("Stripe Onboarding Error:", err);
+            const msg = err.response?.data?.message || t('failStripeOnboarding');
+            setError(msg);
         } finally {
             setStripeLoading(false);
         }
@@ -168,10 +170,8 @@ export default function Settings({ user, checkAuthStatus }) {
                                     type="text"
                                     value={firstName}
                                     onChange={(e) => setFirstName(e.target.value)}
-                                    disabled={isVerified}
-                                    className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${isVerified ? 'bg-gray-100 text-gray-400 border-transparent cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
+                                    className="w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none"
                                 />
-                                {isVerified && <p className="text-[7px] text-green-600 font-black mt-1 uppercase tracking-widest opacity-80">{t('verifiedLocked')}</p>}
                             </div>
                             <div>
                                 <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('lastName')}</label>
@@ -179,8 +179,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                     type="text"
                                     value={lastName}
                                     onChange={(e) => setLastName(e.target.value)}
-                                    disabled={isVerified}
-                                    className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${isVerified ? 'bg-gray-100 text-gray-400 border-transparent cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
+                                    className="w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none"
                                 />
                             </div>
                         </div>
