@@ -6,6 +6,7 @@ import Trip from '../models/tripScheme.js';
 import { Notification } from '../models/notificationScheme.js';
 import Conversation from '../models/conversationScheme.js'; // Import Conversation model
 import User from '../models/userScheme.js';
+import { sendShippingStatusEmail, sendReceiverShippingStartedEmail } from '../services/emailNotifications.js';
 
 
 
@@ -48,6 +49,7 @@ export const RequestPackage = async (req, res, next) => {
       estimatedArrival,
       amount,
       image, // base64 image (optional)
+      termsAccepted, // terms and conditions acceptance
     } = req.body;
 
     const senderId = req.user._id;
@@ -74,6 +76,14 @@ export const RequestPackage = async (req, res, next) => {
 
     if (!senderId || !travelerId || !packageId || !tripId) {
       return res.status(400).json({ message: "All required fields must be provided" });
+    }
+
+    // Validate terms acceptance
+    if (!termsAccepted) {
+      return res.status(400).json({
+        message: "You must accept the terms and conditions to proceed",
+        code: "TERMS_NOT_ACCEPTED"
+      });
     }
 
     if (
@@ -187,6 +197,8 @@ export const RequestPackage = async (req, res, next) => {
       trip: tripId,
       estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : undefined,
       estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : undefined,
+      termsAccepted: true,
+      termsAcceptedAt: new Date(),
     });
 
     await newRequest.save();
@@ -285,6 +297,23 @@ export const updateRequestStatus = async (req, res) => {
     // Create notifications for accepted, rejected, intransit, delivering, or completed
     if (['accepted', 'rejected', 'intransit', 'delivering', 'completed'].includes(status)) {
       await createNotification(updatedRequest, status, location);
+
+      // ✅ Send email notification to sender
+      await sendShippingStatusEmail(updatedRequest, status, location);
+
+      // ✅ Notify receiver when shipping starts (intransit)
+      if (status === 'intransit' && updatedRequest.package?.receiverEmail) {
+        const packageDetails = `${updatedRequest.package.description}, ${updatedRequest.package.packageWeight}kg`;
+        const senderName = updatedRequest.sender?.name || updatedRequest.sender?.firstName || 'Sender';
+        await sendReceiverShippingStartedEmail(
+          updatedRequest.package.receiverEmail,
+          updatedRequest.package.receiverName,
+          senderName,
+          packageDetails,
+          updatedRequest.trackingNumber
+        );
+        console.log(`✅ Receiver notification sent to ${updatedRequest.package.receiverEmail}`);
+      }
     }
 
     res.status(200).json({

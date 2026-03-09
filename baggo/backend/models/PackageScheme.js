@@ -56,11 +56,22 @@ const packageSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  receiverEmail: {
+    type: String,
+    required: false,
+    trim: true,
+    lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
+  },
   receiverPhone: {
     type: String,
     required: true,
     trim: true,
-    match: [/^\+?[1-9]\d{1,14}$/, 'Please enter a valid phone number'],
+  },
+  receiverPhoneCountryCode: {
+    type: String,
+    default: '+1',
+    trim: true,
   },
   description: {
     type: String,
@@ -68,6 +79,31 @@ const packageSchema = new mongoose.Schema({
     trim: true,
   },
   image: {
+    type: String,
+    default: null,
+  },
+  // ✅ Item category and restricted items validation
+  category: {
+    type: String,
+    enum: [
+      'electronics',
+      'documents',
+      'clothing',
+      'food',
+      'cosmetics',
+      'books',
+      'toys',
+      'jewelry',
+      'medical',
+      'other'
+    ],
+    required: [true, 'Item category is required'],
+  },
+  isRestricted: {
+    type: Boolean,
+    default: false,
+  },
+  restrictedReason: {
     type: String,
     default: null,
   },

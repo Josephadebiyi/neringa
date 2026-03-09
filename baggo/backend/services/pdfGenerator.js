@@ -297,6 +297,182 @@ export async function generateShipmentSummaryPDF(assessment) {
   });
 }
 
+/**
+ * Generate Shipping Label PDF with tracking number and Bago branding
+ * @param {Object} shippingData - Shipping request data
+ * @returns {Promise<Buffer>} PDF as buffer
+ */
+export async function generateShippingLabelPDF(shippingData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 30, bottom: 30, left: 30, right: 30 }
+      });
+
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Bago branding header
+      doc.fontSize(28)
+         .font('Helvetica-Bold')
+         .fillColor('#5240E8')
+         .text('BAGO', { align: 'center' });
+
+      doc.fontSize(10)
+         .font('Helvetica')
+         .fillColor('#666666')
+         .text('Community-Powered Shipping', { align: 'center' });
+
+      doc.moveDown(1);
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Tracking number - large and prominent
+      doc.fontSize(14)
+         .fillColor('#000000')
+         .font('Helvetica-Bold')
+         .text('TRACKING NUMBER', { align: 'center' });
+
+      doc.fontSize(24)
+         .fillColor('#5240E8')
+         .text(shippingData.trackingNumber, { align: 'center' });
+
+      doc.moveDown(1);
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Sender Information
+      doc.fontSize(14)
+         .fillColor('#000000')
+         .font('Helvetica-Bold')
+         .text('FROM (SENDER)');
+      doc.moveDown(0.3);
+
+      doc.fontSize(11)
+         .font('Helvetica')
+         .text(shippingData.sender.name)
+         .text(shippingData.sender.phone || '')
+         .text(shippingData.package.fromCity + ', ' + shippingData.package.fromCountry);
+
+      doc.moveDown(1);
+
+      // Recipient Information
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('TO (RECIPIENT)');
+      doc.moveDown(0.3);
+
+      doc.fontSize(11)
+         .font('Helvetica')
+         .text(shippingData.package.receiverName)
+         .text(shippingData.package.receiverPhone)
+         .text(shippingData.package.toCity + ', ' + shippingData.package.toCountry);
+
+      doc.moveDown(1);
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Package Details
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('PACKAGE INFORMATION');
+      doc.moveDown(0.5);
+
+      const packageInfo = [
+        ['Description:', shippingData.package.description],
+        ['Weight:', `${shippingData.package.packageWeight} kg`],
+        ['Category:', shippingData.package.category || 'General'],
+        ['Value:', `$${shippingData.package.value || 0}`],
+      ];
+
+      if (shippingData.insurance) {
+        packageInfo.push(['Insurance:', `Yes - $${shippingData.insuranceCost}`]);
+      }
+
+      drawTable(doc, packageInfo);
+      doc.moveDown(1);
+
+      // Travel Details
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('TRAVEL INFORMATION');
+      doc.moveDown(0.5);
+
+      const travelInfo = [
+        ['Traveler:', shippingData.traveler.name],
+        ['Travel Mode:', shippingData.trip.travelMeans || 'N/A'],
+        ['Estimated Departure:', formatDate(shippingData.estimatedDeparture)],
+        ['Estimated Arrival:', formatDate(shippingData.estimatedArrival)],
+      ];
+
+      drawTable(doc, travelInfo);
+      doc.moveDown(1);
+
+      // Status section
+      drawLine(doc);
+      doc.moveDown(0.5);
+
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .text('CURRENT STATUS');
+      doc.moveDown(0.3);
+
+      const statusColor = getStatusColor(shippingData.status);
+      doc.fontSize(14)
+         .fillColor(statusColor)
+         .text(shippingData.status.toUpperCase(), { align: 'center' });
+
+      doc.fillColor('#000000');
+      doc.moveDown(1);
+
+      // Terms and Important Info
+      drawLine(doc);
+      doc.moveDown(0.5);
+
+      doc.fontSize(8)
+         .font('Helvetica')
+         .fillColor('#666666')
+         .text('IMPORTANT INFORMATION', { align: 'center' });
+      doc.moveDown(0.3);
+
+      doc.fontSize(7)
+         .text('• This shipment is facilitated by a verified community traveler', { align: 'left' })
+         .text('• Sender and recipient must verify package contents at handover', { align: 'left' })
+         .text('• Report any issues within 48 hours of delivery', { align: 'left' })
+         .text('• Track your shipment: sendwithbago.com/tracking/' + shippingData.trackingNumber, { align: 'left' });
+
+      doc.moveDown(1);
+
+      // Footer
+      doc.fontSize(7)
+         .fillColor('#999999')
+         .text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' })
+         .text('Bago - Connecting Senders with Travelers | www.sendwithbago.com', { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Helper function for status colors
+function getStatusColor(status) {
+  const colors = {
+    'pending': '#F59E0B',
+    'accepted': '#10B981',
+    'intransit': '#3B82F6',
+    'delivering': '#8B5CF6',
+    'completed': '#22C55E',
+    'rejected': '#EF4444',
+    'cancelled': '#6B7280'
+  };
+  return colors[status] || '#6B7280';
+}
+
 // Helper functions
 function drawLine(doc) {
   doc.moveTo(50, doc.y)

@@ -39,8 +39,8 @@ export const AdminSignup = async (req, res, next) => {
         // Set cookie
         res.cookie('adminToken', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: true,
+            sameSite: 'none',
             maxAge: 24 * 60 * 60 * 1000 // 1 day
         });
 
@@ -90,8 +90,8 @@ export const AdminLogin = async (req, res, next) => {
         // Set cookie
         res.cookie('adminToken', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: true,
+            sameSite: 'none',
             maxAge: 24 * 60 * 60 * 1000 // 1 day
         });
 

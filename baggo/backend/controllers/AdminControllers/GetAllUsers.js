@@ -1,4 +1,5 @@
 import User from '../../models/userScheme.js';
+import { sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 
 // Get All Users with Pagination and Filtering (Admin Only)
 export const GetAllUsers = async (req, res, next) => {
@@ -40,7 +41,7 @@ export const GetAllUsers = async (req, res, next) => {
 
 export const banUser = async (req, res, next) => {
   const { userId } = req.params;
-  const { banned } = req.body;
+  const { banned, reason } = req.body;
 
   try {
     const user = await User.findById(userId);
@@ -48,8 +49,21 @@ export const banUser = async (req, res, next) => {
       return res.status(404).json({ message: "User not found", error: true, success: false });
     }
 
+    const wasBanned = user.banned;
     user.banned = banned;
     await user.save();
+
+    // ✅ Send email notification
+    const userName = user.firstName || user.email;
+    if (banned && !wasBanned) {
+      // User was just banned
+      await sendAccountBannedEmail(user.email, userName, reason || 'Violation of terms of service');
+      console.log(`✅ Ban notification sent to ${user.email}`);
+    } else if (!banned && wasBanned) {
+      // User was just unbanned
+      await sendAccountUnblockedEmail(user.email, userName);
+      console.log(`✅ Unban notification sent to ${user.email}`);
+    }
 
     res.status(200).json({
       message: `User ${banned ? 'banned' : 'unbanned'} successfully`,

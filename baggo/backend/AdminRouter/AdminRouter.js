@@ -48,6 +48,12 @@ import {
 } from '../controllers/AdminControllers/TripManagement.js';
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
 import { upload } from '../utils/multer.js';
+import {
+  getAllUsersKYC,
+  getUserKYCDetails,
+  getKYCStatistics,
+  updateKYCStatus,
+} from '../controllers/AdminControllers/KYCViewController.js';
 
 const AdminRouter = express.Router();
 
@@ -107,5 +113,11 @@ AdminRouter.delete("/admin-trips/:id", adminAuthenticated, deleteTrip);
 
 // General Admin Asset Upload (for promo emails etc)
 AdminRouter.post("/upload", adminAuthenticated, upload.single('file'), adminUploadFile);
+
+// ✅ KYC Data Management (Admin view of user KYC information)
+AdminRouter.get("/kyc/users", adminAuthenticated, getAllUsersKYC);
+AdminRouter.get("/kyc/users/:userId", adminAuthenticated, getUserKYCDetails);
+AdminRouter.get("/kyc/statistics", adminAuthenticated, getKYCStatistics);
+AdminRouter.put("/kyc/users/:userId/status", adminAuthenticated, updateKYCStatus);
 
 export default AdminRouter

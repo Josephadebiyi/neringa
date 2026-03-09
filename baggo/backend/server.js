@@ -22,7 +22,8 @@ import { Expo } from 'expo-server-sdk';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
-import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF } from './services/pdfGenerator.js';
+import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
+import Request from './models/RequestScheme.js';
 
 
 
@@ -138,6 +139,42 @@ import {
   getCurrencyForCountry,
 } from './controllers/routeController.js';
 
+// ✅ Insurance Controller
+import {
+  calculateInsurance,
+  getInsuranceSettings,
+  updateInsuranceSettings,
+} from './controllers/InsuranceController.js';
+
+// ✅ Item Validation Controller
+import {
+  validateItemForShipping,
+  getCategoryRulesAPI,
+  getCategories,
+} from './controllers/ItemValidationController.js';
+
+// ✅ Currency Conversion Controller
+import {
+  convertAmount,
+  getRate,
+  getAllExchangeRates,
+} from './controllers/CurrencyController.js';
+
+// ✅ Paystack Controller
+import {
+  initializePaystackPayment,
+  verifyPaystackPayment,
+  addBankAccount,
+  withdrawFundsPaystack,
+  getPaystackBanks,
+  resolvePaystackAccount,
+  getPaystackCountries,
+  paystackWebhook,
+} from './controllers/PaystackController.js';
+
+// ✅ IP Geolocation Service
+import { getLocationFromIP, getClientIP } from './services/ipGeolocation.js';
+
 // Public route search and pricing endpoints
 app.get('/api/routes/search', searchRoutes);
 app.post('/api/routes/calculate-price', calculatePrice);
@@ -157,6 +194,48 @@ app.get('/api/payment/gateway/:countryCode', (req, res) => {
     isAfricanCountry: isAfrican,
     currency,
   });
+});
+
+// ✅ Insurance endpoints
+app.get('/api/insurance/calculate', calculateInsurance);
+app.get('/api/insurance/settings', getInsuranceSettings);
+app.put('/api/insurance/settings', updateInsuranceSettings); // Admin only - should add auth middleware
+
+// ✅ Item validation endpoints
+app.post('/api/items/validate', validateItemForShipping);
+app.get('/api/items/categories', getCategories);
+app.get('/api/items/category-rules/:category', getCategoryRulesAPI);
+
+// ✅ Currency conversion endpoints
+app.get('/api/currency/convert', convertAmount);
+app.get('/api/currency/rate', getRate);
+app.get('/api/currency/rates', getAllExchangeRates);
+
+// ✅ Paystack endpoints (for African users)
+app.post('/api/paystack/initialize', isAuthenticated, initializePaystackPayment);
+app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
+app.post('/api/paystack/add-bank', isAuthenticated, addBankAccount);
+app.post('/api/paystack/withdraw', isAuthenticated, withdrawFundsPaystack);
+app.get('/api/paystack/banks', getPaystackBanks);
+app.get('/api/paystack/resolve', resolvePaystackAccount);
+app.get('/api/paystack/countries', getPaystackCountries);
+app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
+
+// ✅ IP-based location and currency detection
+app.get('/api/location/detect', async (req, res) => {
+  try {
+    const ip = getClientIP(req);
+    const location = await getLocationFromIP(ip);
+
+    res.json({
+      success: true,
+      ip,
+      location,
+      recommendedGateway: location.countryCode && ['NG', 'GH', 'ZA', 'KE'].includes(location.countryCode) ? 'paystack' : 'stripe'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ✅ Simple KYC Test Route (for testing connection)
@@ -233,10 +312,12 @@ app.post('/api/stripe/connect/onboard', async (req, res) => {
     const stripeAccountId = await createStripeAccountForUser(user);
 
     // create account link for onboarding
+    // ✅ Use FRONTEND_URL to avoid exposing backend URLs
+    const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      return_url: `${process.env.BASE_URL}/api/stripe/onboarding/complete?userId=${userId}`,
-      refresh_url: `${process.env.BASE_URL}/api/stripe/onboarding/refresh?userId=${userId}`,
+      return_url: `${frontendUrl}/stripe/onboarding/complete?userId=${userId}`,
+      refresh_url: `${frontendUrl}/stripe/onboarding/refresh?userId=${userId}`,
       type: 'account_onboarding',
     });
 
@@ -265,8 +346,8 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
 
     const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
 
-    // ✅ Check onboarding completion
-    const verified = account.details_submitted && account.charges_enabled;
+    // ✅ Check onboarding completion - must have charges and payouts enabled
+    const verified = account.charges_enabled && account.payouts_enabled && account.details_submitted;
 
     user.stripeVerified = verified;
     await user.save();
@@ -2440,6 +2521,50 @@ app.get("/api/shipment/history", isAuthenticated, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to get assessment history",
+      error: err.message
+    });
+  }
+});
+
+/**
+ * Generate and download shipping label PDF
+ * GET /api/shipping/label/:requestId
+ */
+app.get("/api/shipping/label/:requestId", isAuthenticated, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+
+    const request = await Request.findById(requestId)
+      .populate('sender', 'name email phone')
+      .populate('traveler', 'name email')
+      .populate('package')
+      .populate('trip', 'travelMeans');
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+
+    // Verify user is sender or traveler
+    const userId = req.user._id.toString();
+    if (request.sender._id.toString() !== userId && request.traveler._id.toString() !== userId) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateShippingLabelPDF(request);
+
+    // Set headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="shipping-label-${request.trackingNumber || requestId}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+
+  } catch (err) {
+    console.error("❌ Shipping label generation error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate shipping label",
       error: err.message
     });
   }

@@ -94,6 +94,15 @@ const RequestSchema = new mongoose.Schema(
       type: Date,
     },
     updatedAt: Date,
+    // ✅ Terms and conditions acceptance
+    termsAccepted: {
+      type: Boolean,
+      default: false,
+      required: [true, 'Terms and conditions must be accepted'],
+    },
+    termsAcceptedAt: {
+      type: Date,
+    },
     // 🆕 dispute field
     dispute: {
       type: {

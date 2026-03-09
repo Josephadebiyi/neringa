@@ -11,6 +11,7 @@ import Request from '../models/RequestScheme.js';
 import { isAfricanCountry, getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
+import { sendWelcomeEmail, sendAccountBannedEmail, sendAccountUnblockedEmail } from '../services/emailNotifications.js';
 
 dotenv.config();
 // Initialize Resend (optional)
@@ -980,6 +981,10 @@ export const googleAuth = async (req, res) => {
       // Skip phone validation for google users
       user.phone = undefined;
       await user.save();
+
+      // ✅ Send welcome email for new Google signups
+      await sendWelcomeEmail(user.email, user.firstName || 'User', 'google');
+      console.log('✅ Welcome email sent to new Google user:', user.email);
     } else {
       console.log('Google Auth: Found existing user', email);
     }

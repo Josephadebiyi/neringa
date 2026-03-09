@@ -91,6 +91,9 @@ const userSchema = new mongoose.Schema({
   stripeAccountId: { type: String, default: null }, // for customers
   stripeConnectAccountId: { type: String, default: null }, // for payouts
   stripeVerified: { type: Boolean, default: false },
+  // Paystack for African users
+  paystackRecipientCode: { type: String, default: null }, // for payouts
+  paystackCustomerCode: { type: String, default: null }, // for payments
   bankDetails: {
     bankName: { type: String, default: null },
     accountNumber: { type: String, default: null },

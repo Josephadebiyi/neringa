@@ -39,11 +39,28 @@ const tripSchema = new mongoose.Schema(
       trim: true,
       minlength: [2, 'Departure city must be at least 2 characters'],
     },
+    fromCountry: {
+      type: String,
+      trim: true,
+    },
     toLocation: {
       type: String,
       required: [true, 'Arrival city is required'],
       trim: true,
       minlength: [2, 'Arrival city must be at least 2 characters'],
+    },
+    toCountry: {
+      type: String,
+      trim: true,
+    },
+    // ✅ Collection/Pickup area (where traveler picks up packages)
+    collectionCity: {
+      type: String,
+      trim: true,
+    },
+    collectionCountry: {
+      type: String,
+      trim: true,
     },
     departureDate: {
       type: Date,
@@ -75,6 +92,18 @@ const tripSchema = new mongoose.Schema(
       min: [0, 'Request count cannot be negative'],
     },
     reviews: [reviewSchema], // ✅ Added reviews field
+    // ✅ Ticket/boarding pass upload (proof of travel)
+    travelDocument: {
+      type: String, // URL or base64 of flight/bus ticket
+      default: null,
+    },
+    travelDocumentVerified: {
+      type: Boolean,
+      default: false,
+    },
+    travelDocumentUploadedAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
