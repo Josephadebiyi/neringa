@@ -122,12 +122,12 @@ export default function Dashboard() {
       }
 
       const data: DashboardResponse = await response.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch dashboard data');
+      if (!data.success || !data.data) {
+        throw new Error(data.message || 'Platform data is currently unavailable');
       }
 
-      setStats(data.data.stats);
-      setMonthlyTrends(data.data.monthlyTrends);
+      setStats(data.data.stats || null);
+      setMonthlyTrends(data.data.monthlyTrends || []);
     } catch (error: any) {
       console.error('Failed to fetch dashboard data:', error);
       setError(error.message || 'Failed to fetch dashboard data');

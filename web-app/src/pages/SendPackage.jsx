@@ -100,6 +100,13 @@ export default function SendPackage() {
     }, [isAuthenticated, navigate]);
 
     const fetchPricing = async () => {
+        // Use traveler's set price if available
+        if (selectedTrip?.pricePerKg) {
+            setPlatformRate(selectedTrip.pricePerKg);
+            setCurrency(selectedTrip.currency || 'USD');
+            return;
+        }
+
         setPriceLoading(true);
         try {
             const getCountryCode = (locationStr) => {
@@ -214,8 +221,9 @@ export default function SendPackage() {
                         tripId: selectedTrip._id,
                         amount: estimatedCost,
                         estimatedDeparture: selectedTrip.departureDate,
-                        insurance: false,
-                        insuranceCost: 0
+                        insurance: formData.fragile || false,
+                        insuranceCost: 0,
+                        termsAccepted: true
                     });
 
                     if (requestResponse.status === 201) {

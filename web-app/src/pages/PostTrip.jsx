@@ -114,8 +114,12 @@ export default function PostTrip() {
         arrivalDate: '',
         transportMode: 'airplane',
         availableWeight: '',
+        pricePerKg: '',
+        landmark: '',
         additionalNotes: ''
     });
+    const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+    const [selectedCurrency, setSelectedCurrency] = useState('');
 
     useEffect(() => {
         const saved = localStorage.getItem('pending_trip_post');
@@ -210,6 +214,10 @@ export default function PostTrip() {
             setError(t('weightRangeError') || 'Available weight must be between 1 and 50 kg.');
             return;
         }
+        if (!user?.preferredCurrency && !selectedCurrency) {
+            setShowCurrencyModal(true);
+            return;
+        }
         setStep(2);
         window.scrollTo(0, 0);
     };
@@ -225,9 +233,11 @@ export default function PostTrip() {
                 arrivalDate: formData.arrivalDate,
                 availableKg: formData.availableWeight,
                 travelMeans: formData.transportMode,
+                pricePerKg: formData.pricePerKg,
+                currency: user?.preferredCurrency || selectedCurrency || 'USD',
+                landmark: formData.landmark,
                 notes: formData.additionalNotes
             });
-            // Backend returns { message: "Trip created successfully", trip: {...} }
             if (res.status === 201 || res.data?.trip || res.data?.message?.toLowerCase().includes('created')) {
                 localStorage.removeItem('pending_trip_post');
                 setStep(4);
@@ -241,6 +251,55 @@ export default function PostTrip() {
             setLoading(false);
         }
     };
+
+    const handleSaveCurrency = async () => {
+        if (!selectedCurrency) return;
+        setLoading(true);
+        try {
+            await api.put('/api/bago/edit', { preferredCurrency: selectedCurrency });
+            setShowCurrencyModal(false);
+            setStep(2);
+        } catch (err) {
+            setError('Failed to save currency preference.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const CurrencyModal = () => (
+        <div className="fixed inset-0 bg-[#012126]/40 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-300 border border-gray-100">
+                <div className="w-16 h-16 bg-[#5845D8]/10 text-[#5845D8] rounded-3xl flex items-center justify-center mx-auto mb-8">
+                    <Wallet size={32} />
+                </div>
+                <h3 className="text-2xl font-black text-[#012126] text-center mb-3 uppercase tracking-tight">{t('setWalletCurrency') || 'Set Wallet Currency'}</h3>
+                <p className="text-gray-400 font-bold text-[10px] text-center mb-8 uppercase tracking-[2px] leading-relaxed">
+                    {t('setCurrencyDesc') || 'Please select your preferred currency for earnings and trip pricing. This cannot be easily changed later.'}
+                </p>
+
+                <div className="space-y-3 mb-10">
+                    {['USD', 'NGN', 'ZAR', 'KES', 'GHS', 'EUR', 'GBP'].map(curr => (
+                        <button
+                            key={curr}
+                            onClick={() => setSelectedCurrency(curr)}
+                            className={`w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-[3px] transition-all flex items-center justify-between px-6 border-2 ${selectedCurrency === curr ? 'bg-[#5845D8] border-[#5845D8] text-white shadow-xl shadow-[#5845D8]/20' : 'bg-gray-50 border-gray-50 text-gray-400 hover:bg-white hover:border-[#5845D8]/20 hover:text-[#5845D8]'}`}
+                        >
+                            {curr}
+                            {selectedCurrency === curr && <CheckCircle size={14} />}
+                        </button>
+                    ))}
+                </div>
+
+                <button
+                    onClick={handleSaveCurrency}
+                    disabled={!selectedCurrency || loading}
+                    className="w-full py-4 bg-[#012126] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] shadow-xl hover:bg-[#0a262c] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                >
+                    {loading ? <Loader2 className="animate-spin" size={14} /> : <>{t('confirmSelection') || 'Confirm Selection'} <ChevronRight size={14} /></>}
+                </button>
+            </div>
+        </div>
+    );
 
     if (step === 4) {
         return (
@@ -317,6 +376,45 @@ export default function PostTrip() {
                                                 </select>
                                             </div>
                                             <CityField countryLabel={formData.destinationCountry} value={formData.destinationCity} onChange={handleChange} name="destinationCity" label={t('destCity')} t={t} />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                        <div>
+                                            <label className="block text-[8px] font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">
+                                                {t('pricePerKg') || 'Price per KG'} ({user?.preferredCurrency || selectedCurrency || 'USD'})
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    name="pricePerKg"
+                                                    value={formData.pricePerKg}
+                                                    onChange={handleChange}
+                                                    placeholder="0.00"
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                                />
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400">
+                                                    {user?.preferredCurrency || selectedCurrency || 'USD'}
+                                                </div>
+                                            </div>
+                                            <p className="mt-2 text-[8px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 opacity-70">
+                                                <Shield size={10} className="text-[#5845D8]" />
+                                                Max: {user?.preferredCurrency === 'NGN' ? '6,000 NGN' : (user?.preferredCurrency || selectedCurrency)?.match(/NGN|GHS|KES|ZAR|UGX|TZS|RWF/) ? 'equiv. to 6,000 NGN' : '15 USD'} per KG
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[8px] font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('landmark') || 'Landmark Address'}</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    name="landmark"
+                                                    value={formData.landmark}
+                                                    onChange={handleChange}
+                                                    placeholder="Nearby popular place..."
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                                />
+                                                <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                            </div>
                                         </div>
                                     </div>
 
@@ -543,6 +641,7 @@ export default function PostTrip() {
                     </div>
                 )}
             </div>
+            {showCurrencyModal && <CurrencyModal />}
         </div>
     );
 }

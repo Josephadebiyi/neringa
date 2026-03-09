@@ -95,14 +95,21 @@ const TripCard = ({ trip }) => {
                     <div className="space-y-2.5 mb-5 px-1">
                         <div className="flex items-center gap-2">
                             <MapPin size={14} className="text-[#5845D8]" />
-                            <span className="font-bold text-[#012126] text-xs">{trip.origin || trip.originCity}</span>
-                            <ArrowRight size={12} className="text-gray-300" />
-                            <span className="font-bold text-[#012126] text-xs">{trip.destination || trip.destinationCity}</span>
+                            <span className="font-bold text-[#012126] text-xs leading-tight">{trip.origin || trip.originCity}</span>
+                            <ArrowRight size={12} className="text-gray-300 flex-shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="font-bold text-[#012126] text-xs leading-tight">{trip.destination || trip.destinationCity}</span>
+                                {trip.landmark && (
+                                    <span className="text-[9px] text-[#5845D8] font-black uppercase tracking-tight opacity-70 mt-0.5">
+                                        📍 {trip.landmark}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <div className="flex items-center gap-4 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
                             <div className="flex items-center gap-1.5">
                                 <Calendar size={12} className="text-gray-400" />
-                                <span>{trip.departureDate ? new Date(trip.departureDate).toLocaleDateString() : 'TBD'}</span>
+                                <span>{trip.departureDate ? new Date(trip.departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'TBD'}</span>
                             </div>
                             {trip.transportMode && (
                                 <div className="flex items-center gap-1.5">
@@ -113,14 +120,16 @@ const TripCard = ({ trip }) => {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-50 mb-4">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-50 mb-4 px-1">
                         <div>
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5">Space</p>
-                            <p className="font-bold text-[#012126] text-xs">{trip.availableWeight || '5'} kg {t('spaceAvailable')}</p>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5 opacity-60">{t('spaceAvailable') || 'Space'}</p>
+                            <p className="font-bold text-[#012126] text-xs">{trip.availableWeight || '5'} KG</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5">Rate</p>
-                            <p className="font-black text-[#5845D8] text-sm italic">{t('rateStandard')}</p>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5 opacity-60">{t('rate') || 'Rate'}</p>
+                            <p className="font-black text-[#5845D8] text-sm italic tracking-tight">
+                                {trip.pricePerKg ? `${trip.currency || '$'} ${trip.pricePerKg.toLocaleString()}/KG` : t('rateStandard')}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -265,6 +274,9 @@ export default function Search() {
                                 departureDate: trip.departureDate,
                                 availableWeight: trip.availableKg,
                                 transportMode: trip.travelMeans,
+                                pricePerKg: trip.pricePerKg,
+                                currency: trip.currency,
+                                landmark: trip.landmark,
                                 rating: traveler?.rating || (4.5 + Math.random() * 0.5).toFixed(1) // Fallback rating
                             };
                         });

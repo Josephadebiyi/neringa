@@ -22,6 +22,7 @@ import HelpCenter from './pages/HelpCenter';
 import TrackShipment from './pages/TrackShipment';
 import Banned from './pages/Banned';
 import Verify from './pages/Verify';
+import Support from './pages/Support';
 import Test from './Test';
 
 const GOOGLE_CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
@@ -52,6 +53,7 @@ function App() {
                         <Route path="/verify-otp" element={<VerifyOtp />} />
                         <Route path="/reset-password" element={<ResetPassword />} />
                         <Route path="/verify" element={<Verify />} />
+                        <Route path="/support" element={<Support />} />
                     </Routes>
                 </BrowserRouter>
             </LanguageProvider>

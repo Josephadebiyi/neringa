@@ -1,34 +1,72 @@
-import Trip from '../models/tripScheme.js'; // Corrected path (lowercase 'models')
+import Trip from '../models/tripScheme.js';
+import { getExchangeRate, convertCurrency } from '../services/currencyConverter.js';
+import Setting from '../models/settingSheme.js';
 
 // ✅ Add a new trip
 export const AddAtrip = async (req, res, next) => {
   if (!req.user) {
-   return res.status(401).json({ message: "User not authenticated" });
- }
+    return res.status(401).json({ message: "User not authenticated" });
+  }
   const userid = req.user.id;
-  const { fromLocation, toLocation, departureDate, arrivalDate, availableKg, travelMeans } = req.body;
+  const {
+    fromLocation, fromCountry, toLocation, toCountry,
+    departureDate, arrivalDate, availableKg, travelMeans,
+    pricePerKg, currency, landmark
+  } = req.body;
 
   try {
     // ✅ Validate required fields
-    if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg || !travelMeans) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg || !travelMeans || !pricePerKg || !currency) {
+      return res.status(400).json({ message: "All fields are required, including price and currency" });
+    }
+
+    const price = parseFloat(pricePerKg);
+    const weight = parseFloat(availableKg);
+
+    // ✅ Multi-layer Price Validation
+    // 1. Global Max: 15 USD
+    const priceInUSD = await convertCurrency(price, currency, 'USD');
+    if (priceInUSD.convertedAmount > 15) {
+      return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
+    }
+
+    // 2. African Pricing Rule (Max 6000 NGN equivalent for any African currency or Nigeria route)
+    const settings = await Setting.findOne();
+    const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
+    const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
+    const isNigeriaRoute = fromCountry?.toUpperCase() === 'NG' || toCountry?.toUpperCase() === 'NG';
+
+    if (isAfricanCurrency || isNigeriaRoute) {
+      const maxNaira = 6000;
+      const priceInNaira = await convertCurrency(price, currency, 'NGN');
+      if (priceInNaira.convertedAmount > maxNaira) {
+        const rateToLocal = await getExchangeRate('NGN', currency);
+        const localMax = Math.round(maxNaira * rateToLocal);
+        return res.status(400).json({
+          message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`
+        });
+      }
     }
 
     // ✅ Create the new trip
     const trip = new Trip({
       user: userid,
       fromLocation,
+      fromCountry,
       toLocation,
+      toCountry,
       departureDate: new Date(departureDate),
-      arrivalDate: new Date(arrivalDate), // <-- added here
-      availableKg: parseFloat(availableKg),
+      arrivalDate: new Date(arrivalDate),
+      availableKg: weight,
       travelMeans: travelMeans.trim().toLowerCase(),
+      pricePerKg: price,
+      currency,
+      landmark: landmark || '',
       status: "active",
     });
 
     await trip.save();
 
-    // ✅ Send back clean response
     res.status(201).json({
       message: "Trip created successfully",
       trip: {
@@ -36,8 +74,11 @@ export const AddAtrip = async (req, res, next) => {
         fromLocation: trip.fromLocation,
         toLocation: trip.toLocation,
         departureDate: trip.departureDate,
-        arrivalDate: trip.arrivalDate, // <-- added here
+        arrivalDate: trip.arrivalDate,
         availableKg: trip.availableKg,
+        pricePerKg: trip.pricePerKg,
+        currency: trip.currency,
+        landmark: trip.landmark,
         travelMeans: trip.travelMeans,
         status: trip.status,
         createdAt: trip.createdAt,
@@ -98,12 +139,41 @@ export const MyTrips = async (req, res) => {
 export const UpdateTrip = async (req, res, next) => {
   const userId = req.user.id;
   const tripId = req.params.id;
-  const { fromLocation, toLocation, departureDate, arrivalDate, availableKg, pricePerKg, travelMeans } = req.body;
+  const {
+    fromLocation, fromCountry, toLocation, toCountry,
+    departureDate, arrivalDate, availableKg, travelMeans,
+    pricePerKg, currency, landmark
+  } = req.body;
 
   try {
     // ✅ Validate required fields
-    if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg || !travelMeans) {
+    if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg || !travelMeans || !pricePerKg || !currency) {
       return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const price = parseFloat(pricePerKg);
+
+    // ✅ Multi-layer Price Validation
+    const priceInUSD = await convertCurrency(price, currency, 'USD');
+    if (priceInUSD.convertedAmount > 15) {
+      return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
+    }
+
+    const settings = await Setting.findOne();
+    const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
+    const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
+    const isNigeriaRoute = fromCountry?.toUpperCase() === 'NG' || toCountry?.toUpperCase() === 'NG' || trip.fromCountry === 'NG' || trip.toCountry === 'NG';
+
+    if (isAfricanCurrency || isNigeriaRoute) {
+      const maxNaira = 6000;
+      const priceInNaira = await convertCurrency(price, currency, 'NGN');
+      if (priceInNaira.convertedAmount > maxNaira) {
+        const rateToLocal = await getExchangeRate('NGN', currency);
+        const localMax = Math.round(maxNaira * rateToLocal);
+        return res.status(400).json({
+          message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`
+        });
+      }
     }
 
     // ✅ Find the trip and ensure it belongs to the user
@@ -114,11 +184,15 @@ export const UpdateTrip = async (req, res, next) => {
 
     // ✅ Update fields
     trip.fromLocation = fromLocation;
+    trip.fromCountry = fromCountry || trip.fromCountry;
     trip.toLocation = toLocation;
-    trip.departureDate = departureDate; // keep ISO string
-    trip.arrivalDate = arrivalDate;     // keep ISO string
+    trip.toCountry = toCountry || trip.toCountry;
+    trip.departureDate = departureDate;
+    trip.arrivalDate = arrivalDate;
     trip.availableKg = parseFloat(availableKg);
-    if (pricePerKg) trip.pricePerKg = parseFloat(pricePerKg); // optional
+    trip.pricePerKg = price;
+    trip.currency = currency;
+    trip.landmark = landmark || trip.landmark;
     trip.travelMeans = travelMeans.trim().toLowerCase();
 
     await trip.save();
@@ -134,6 +208,8 @@ export const UpdateTrip = async (req, res, next) => {
         arrivalDate: trip.arrivalDate,
         availableKg: trip.availableKg,
         pricePerKg: trip.pricePerKg,
+        currency: trip.currency,
+        landmark: trip.landmark,
         travelMeans: trip.travelMeans,
         status: trip.status,
         updatedAt: trip.updatedAt,
@@ -197,7 +273,7 @@ export const DeleteTrip = async (req, res, next) => {
 
     // Check if trip has active requests (import Request model if needed)
     // For now, we'll allow deletion but you can add request checks here
-    
+
     // Delete the trip
     await Trip.findByIdAndDelete(tripId);
 

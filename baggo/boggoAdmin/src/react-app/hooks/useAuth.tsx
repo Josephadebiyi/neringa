@@ -24,39 +24,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if user is already logged in
+  // Auto-check on mount
   useEffect(() => {
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
+    // Add an AbortController for a 15-second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const token = localStorage.getItem('adminToken');
+
+      // If no token exists at all, skip the request
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/CheckAdmin`, {
-        credentials: 'include',
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include',
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
-        const adminData = data.admin || data.data; // Handle both response shapes
+        const adminData = data.admin || data.data; // Flexible for different response shapes
+
         if (adminData) {
           setUser({
             id: adminData._id,
-            username: adminData.userName || adminData.email,
-            email: adminData.email,
-            firstName: adminData.firstName,
-            lastName: adminData.lastName,
+            username: adminData.userName || adminData.email || 'Admin',
+            email: adminData.email || '',
+            firstName: adminData.firstName || '',
+            lastName: adminData.lastName || '',
             role: 'admin',
           });
         }
       } else {
+        // If 401 Unauthorized, wipe local record
         localStorage.removeItem('adminToken');
+        setUser(null);
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('Auth verification timed out');
+      } else {
+        console.error('Auth verification failed:', error);
+      }
+      setUser(null);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
@@ -73,23 +98,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+      throw new Error(error.message || 'Terminal login access denied');
     }
 
     const data = await response.json();
+
+    // Crucial: Store the token for both Header and Local Persistence
     if (data.token) {
       localStorage.setItem('adminToken', data.token);
     }
 
     const adminData = data.admin || data.data;
-    setUser({
-      id: adminData._id,
-      username: adminData.userName || adminData.email,
-      email: adminData.email,
-      firstName: adminData.firstName,
-      lastName: adminData.lastName,
-      role: 'admin',
-    });
+    if (adminData) {
+      setUser({
+        id: adminData._id,
+        username: adminData.userName || adminData.email || 'Admin',
+        email: adminData.email || '',
+        firstName: adminData.firstName || '',
+        lastName: adminData.lastName || '',
+        role: 'admin',
+      });
+    }
   };
 
   const logout = async () => {
@@ -103,10 +132,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Terminal session termination error:', error);
     } finally {
       localStorage.removeItem('adminToken');
       setUser(null);
+      window.location.href = '/'; // Clean state reset
     }
   };
 

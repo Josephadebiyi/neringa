@@ -308,16 +308,15 @@ app.post('/api/stripe/connect/onboard', async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // create or reuse connected account
     const stripeAccountId = await createStripeAccountForUser(user);
 
     // create account link for onboarding
-    // ✅ Use FRONTEND_URL to avoid exposing backend URLs
-    const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+    const backendUrl = process.env.BACKEND_URL || 'https://api.sendwithbago.com/api/stripe';
+    // Actually, I'll use the frontend URL to redirect back for refresh, but return should go to backend to save status
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      return_url: `${frontendUrl}/stripe/onboarding/complete?userId=${userId}`,
-      refresh_url: `${frontendUrl}/stripe/onboarding/refresh?userId=${userId}`,
+      return_url: `${backendUrl.replace('/api/stripe', '')}/api/stripe/onboarding/complete?userId=${userId}`,
+      refresh_url: `${backendUrl.replace('/api/stripe', '')}/api/stripe/onboarding/refresh?userId=${userId}`,
       type: 'account_onboarding',
     });
 
@@ -353,6 +352,9 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
     await user.save();
 
     console.log(`✅ Stripe onboarding completed for user ${user.email}`);
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+    const redirectUrl = `${frontendUrl}/dashboard`;
 
     res.send(`
        <!DOCTYPE html>
@@ -432,12 +434,11 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
              <div class="icon-circle">✓</div>
              <h1>Payout Settings Enabled</h1>
              <p>Your Stripe account has been linked successfully. You can now receive payouts from your earnings.</p>
-             <button onclick="window.close()" class="btn">Return to App</button>
+             <button onclick="window.location.href='${redirectUrl}'" class="btn">Return to Bago</button>
            </div>
            <script>
               setTimeout(() => {
-                // If in webview, this might not work, but good to have
-                window.location.href = 'baggo://dashboard';
+                window.location.href = '${redirectUrl}';
               }, 3000);
            </script>
          </body>

@@ -89,11 +89,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Sidebar */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[#1e2749] transform transition-transform duration-300 ease-in-out
+        fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[#1e2749] transform transition-transform duration-300 ease-in-out flex flex-col h-full
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo */}
-        <div className="flex items-center h-20 px-6">
+        <div className="flex items-center h-20 px-6 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="bg-white rounded-lg p-2">
               <span className="text-[#1e2749] font-bold text-lg">BZ</span>
@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1">
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.path && location.pathname === item.path;

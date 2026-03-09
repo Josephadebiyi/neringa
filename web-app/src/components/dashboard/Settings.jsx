@@ -65,9 +65,10 @@ export default function Settings({ user, checkAuthStatus }) {
     const [showAddCard, setShowAddCard] = useState(false);
     const [newCard, setNewCard] = useState({ number: '', expiry: '', cvc: '', holderName: '' });
 
-    const isVerified = user?.kycStatus === 'approved';
-    const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS'];
-    const showBankOption = user?.country === 'Nigeria' || africanCurrencies.includes(currency);
+    const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS', 'UGX', 'TZS', 'RWF'];
+    const isAfricanCurrency = africanCurrencies.includes(currency?.toUpperCase());
+    const showBankOption = isAfricanCurrency || user?.country === 'Nigeria';
+    const showStripeOption = !isAfricanCurrency;
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -264,42 +265,44 @@ export default function Settings({ user, checkAuthStatus }) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                        <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col justify-between group hover:border-[#5845D8]/20 transition-all">
-                            <div>
-                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">
-                                    <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">1</span>
-                                    Stripe Connect
-                                </h4>
-                                <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-6 uppercase tracking-wide opacity-70">
-                                    {t('stripeConnectDesc')}
-                                </p>
-                            </div>
-
-                            {stripeVerified ? (
-                                <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all">
-                                    <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
-                                        <Check size={14} strokeWidth={4} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">{t('accountConnected')}</p>
-                                        <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{t('readyForPayouts')}</p>
-                                    </div>
-                                    <ShieldCheck className="text-green-500/50" size={18} />
+                    {showStripeOption && (
+                        <div className="space-y-6">
+                            <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col justify-between group hover:border-[#5845D8]/20 transition-all">
+                                <div>
+                                    <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">
+                                        <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">1</span>
+                                        Stripe Connect
+                                    </h4>
+                                    <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-6 uppercase tracking-wide opacity-70">
+                                        {t('stripeConnectDesc')}
+                                    </p>
                                 </div>
-                            ) : (
-                                <button
-                                    onClick={handleStripeConnect}
-                                    disabled={stripeLoading}
-                                    className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
-                                >
-                                    {stripeLoading ? <RefreshCw className="animate-spin" size={14} /> : (
-                                        <>{t('connectStripe')} <ShieldCheck size={16} /></>
-                                    )}
-                                </button>
-                            )}
+
+                                {stripeVerified ? (
+                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all">
+                                        <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
+                                            <Check size={14} strokeWidth={4} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">{t('accountConnected')}</p>
+                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{t('readyForPayouts')}</p>
+                                        </div>
+                                        <ShieldCheck className="text-green-500/50" size={18} />
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={handleStripeConnect}
+                                        disabled={stripeLoading}
+                                        className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
+                                    >
+                                        {stripeLoading ? <RefreshCw className="animate-spin" size={14} /> : (
+                                            <>{t('connectStripe')} <ShieldCheck size={16} /></>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {showBankOption && (
                         <div className="space-y-4">

@@ -62,6 +62,22 @@ const tripSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // ✅ User-defined Pricing
+    pricePerKg: {
+      type: Number,
+      default: 0,
+      min: [0, 'Price per kg cannot be negative'],
+    },
+    currency: {
+      type: String,
+      default: 'USD',
+    },
+    // ✅ Landmark/Meetup address
+    landmark: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     departureDate: {
       type: Date,
       required: [true, 'Departure date is required'],

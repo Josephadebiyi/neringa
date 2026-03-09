@@ -12,9 +12,14 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [status, setStatus] = useState({ type: '', message: '' });
 
-    const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS'];
-    const showBankOption = user?.country === 'Nigeria' || africanCurrencies.includes(currency);
-    const [method, setMethod] = useState(user?.country === 'Nigeria' ? 'bank' : 'stripe');
+    const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS', 'UGX', 'TZS', 'RWF'];
+    const isAfricanCurrency = africanCurrencies.includes(currency?.toUpperCase());
+
+    const showBankOption = isAfricanCurrency || user?.country === 'Nigeria';
+    const showStripeOption = !isAfricanCurrency;
+
+    // Default method based on logic
+    const [method, setMethod] = useState(showBankOption ? 'bank' : 'stripe');
 
     const handleWithdraw = async (e) => {
         e.preventDefault();
@@ -72,13 +77,15 @@ export default function Earnings({ user, checkAuthStatus }) {
                         </div>
 
                         <div className="flex flex-wrap gap-2 pt-6">
-                            <button
-                                onClick={() => setMethod('stripe')}
-                                className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${method === 'stripe' ? 'bg-white text-[#012126] border-white shadow-lg' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}
-                            >
-                                <CreditCard size={14} />
-                                <span className="text-[9px] font-black uppercase tracking-widest">Stripe</span>
-                            </button>
+                            {showStripeOption && (
+                                <button
+                                    onClick={() => setMethod('stripe')}
+                                    className={`px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${method === 'stripe' ? 'bg-white text-[#012126] border-white shadow-lg' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}
+                                >
+                                    <CreditCard size={14} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">Stripe</span>
+                                </button>
+                            )}
                             {showBankOption && (
                                 <button
                                     onClick={() => setMethod('bank')}

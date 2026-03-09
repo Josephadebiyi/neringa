@@ -414,9 +414,6 @@ const translations = {
         ratingsSubtitle2: 'service.',
         ratingsDesc: 'We are launching Automatic Ratings to make profiles fairer and more accurate. This keeps profiles accurate so you can send with more confidence!',
         getGoing: 'Get going',
-        testimonialTitle: 'Only on Bago...',
-        testimonialQuote: 'Perfect for me because I can send packages with courier partners! It is faster and more affordable than traditional couriers.',
-        testimonialAuthor: 'Anna, Bago member since 2024',
 
         // About Us
         aboutHero: 'Revolutionizing Logistics for Everyone.',
@@ -1136,9 +1133,6 @@ const translations = {
         ratingsSubtitle2: 'servicio.',
         ratingsDesc: 'Lanzamos Calificaciones Automáticas para que los perfiles sean más justos y precisos. ¡Envía con más confianza!',
         getGoing: 'Comenzar',
-        testimonialTitle: 'Solo en Bago...',
-        testimonialQuote: '¡Perfecto para mí porque puedo enviar paquetes con mensajeros socios! Es más rápido y económico.',
-        testimonialAuthor: 'Anna, miembro de Bago desde 2024',
 
         // About Us
         aboutHero: 'Revolucionando la Logística para Todos.',

@@ -74,6 +74,8 @@ export const getWalletBalance = async (req, res) => {
 
 
 
+import Setting from "../models/settingSheme.js";
+
 // Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -91,9 +93,13 @@ export const processPayment = async (req, res) => {
             });
         }
 
+        // Get dynamic commission from settings
+        const settings = await Setting.findOne();
+        const commissionPercentage = settings?.commissionPercentage || 15;
+        const commissionRate = commissionPercentage / 100;
+
         // Convert amount to cents (Stripe requires amounts in cents)
         const amountInCents = Math.round(amount * 100);
-        const commissionRate = 0.1; // 10% commission
         const commission = Math.round(amountInCents * commissionRate);
         const netAmount = amountInCents - commission;
 
