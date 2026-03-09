@@ -11,7 +11,7 @@ export const AddAtrip = async (req, res, next) => {
   const {
     fromLocation, fromCountry, toLocation, toCountry,
     departureDate, arrivalDate, availableKg, travelMeans,
-    pricePerKg, currency, landmark
+    pricePerKg, currency, landmark, travelDocument
   } = req.body;
 
   try {
@@ -62,6 +62,8 @@ export const AddAtrip = async (req, res, next) => {
       pricePerKg: price,
       currency,
       landmark: landmark || '',
+      travelDocument: travelDocument || null,
+      documentVerified: false, // Will be verified by admin
       status: "active",
     });
 

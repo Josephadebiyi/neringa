@@ -21,7 +21,8 @@ import {
     CreditCard,
     Shield,
     Loader2,
-    FileText
+    FileText,
+    Upload
 } from 'lucide-react';
 import api from '../api';
 import { countries, locations } from '../utils/countries';
@@ -116,10 +117,12 @@ export default function PostTrip() {
         availableWeight: '',
         pricePerKg: '',
         landmark: '',
-        additionalNotes: ''
+        additionalNotes: '',
+        travelDocument: null
     });
     const [showCurrencyModal, setShowCurrencyModal] = useState(false);
     const [selectedCurrency, setSelectedCurrency] = useState('');
+    const [documentPreview, setDocumentPreview] = useState(null);
 
     useEffect(() => {
         const saved = localStorage.getItem('pending_trip_post');
@@ -158,6 +161,30 @@ export default function PostTrip() {
             if (name === 'destinationCountry') updated.destinationCity = '';
             return updated;
         });
+    };
+
+    const handleDocumentUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Check file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                setError('Document size must be less than 5MB');
+                return;
+            }
+            // Check file type
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            if (!validTypes.includes(file.type)) {
+                setError('Please upload a valid document (JPG, PNG, or PDF)');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData(prev => ({ ...prev, travelDocument: reader.result }));
+                setDocumentPreview(file.name);
+                setError('');
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const handleFormNext = (e) => {
@@ -214,6 +241,18 @@ export default function PostTrip() {
             setError(t('weightRangeError') || 'Available weight must be between 1 and 50 kg.');
             return;
         }
+        if (!formData.pricePerKg || parseFloat(formData.pricePerKg) <= 0) {
+            setError('Please enter a price per kg.');
+            return;
+        }
+        if (!formData.landmark || formData.landmark.trim() === '') {
+            setError('Please enter a landmark address.');
+            return;
+        }
+        if (!formData.travelDocument) {
+            setError('Please upload your travel document (flight/bus ticket).');
+            return;
+        }
         if (!user?.preferredCurrency && !selectedCurrency) {
             setShowCurrencyModal(true);
             return;
@@ -236,7 +275,8 @@ export default function PostTrip() {
                 pricePerKg: formData.pricePerKg,
                 currency: user?.preferredCurrency || selectedCurrency || 'USD',
                 landmark: formData.landmark,
-                notes: formData.additionalNotes
+                notes: formData.additionalNotes,
+                travelDocument: formData.travelDocument
             });
             if (res.status === 201 || res.data?.trip || res.data?.message?.toLowerCase().includes('created')) {
                 localStorage.removeItem('pending_trip_post');
@@ -485,6 +525,53 @@ export default function PostTrip() {
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[11px] font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
                                             />
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">KG</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                    <div className="flex items-center gap-3 mb-8">
+                                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                                            <FileText size={20} />
+                                        </div>
+                                        <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">Travel Document *</h2>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 hover:border-[#5845D8]/30 transition-all">
+                                            <input
+                                                type="file"
+                                                id="travelDocument"
+                                                accept="image/jpeg,image/jpg,image/png,application/pdf"
+                                                onChange={handleDocumentUpload}
+                                                className="hidden"
+                                            />
+                                            <label
+                                                htmlFor="travelDocument"
+                                                className="cursor-pointer flex flex-col items-center gap-3"
+                                            >
+                                                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center">
+                                                    <Upload size={20} className="text-gray-400" />
+                                                </div>
+                                                <div className="text-center">
+                                                    <p className="text-[11px] font-black text-[#012126] uppercase tracking-tight mb-1">
+                                                        {documentPreview || 'Upload Flight/Bus Ticket'}
+                                                    </p>
+                                                    <p className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">
+                                                        JPG, PNG or PDF (Max 5MB)
+                                                    </p>
+                                                </div>
+                                            </label>
+                                        </div>
+                                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
+                                            <Shield size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-[9px] font-black text-blue-900 uppercase tracking-wider mb-1">
+                                                    Verification Required
+                                                </p>
+                                                <p className="text-[8px] text-blue-700 font-medium leading-relaxed">
+                                                    Your travel document will be reviewed by our team to verify your trip. This helps maintain trust and safety in our community.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
