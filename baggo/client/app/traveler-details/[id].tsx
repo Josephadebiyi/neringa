@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Star, MessageCircle, Shield, MapPin, Calendar, Plane, Weight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { backendomain } from '@/utils/backendDomain';
+import api from '@/utils/api';
 
 
 export default function TravelerDetailsScreen() {
@@ -28,7 +29,7 @@ export default function TravelerDetailsScreen() {
 
   const initialTraveler = useMemo(() => ({
     id: travelerId,
-      tripId: tripId,
+    tripId: tripId,
     name: params.name || 'Traveler',
     travelerEmail: params.travellerEmail || '',
     rating: params.rating ? parseFloat(params.rating) : 0,
@@ -60,33 +61,14 @@ export default function TravelerDetailsScreen() {
   const fetchTravelerReviews = async () => {
     setLoadingReviews(true);
     try {
-      const res = await fetch(`${backendomain.backendomain}/api/baggo/MyTrips`);
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.log('Error fetching trips:', data.message);
-        setReviews([]);
-        return;
-      }
+      const res = await api.get('/api/bago/MyTrips');
+      const data = res.data;
 
       const trips = data.trips || [];
-
-      const foundTrip = trips.find(t => t.id?.toString() === tripId); // use 'id', not '_id' since your API returns 'id'
-      console.log('Found trip:', foundTrip);
+      const foundTrip = trips.find((t: any) => t.id?.toString() === tripId);
 
       if (foundTrip) {
-        console.log('Raw reviews array:', foundTrip.reviews);
-
-        foundTrip.reviews.forEach((review, i) => {
-          console.log(`Review #${i + 1}:`);
-          console.log('  User:', review.user?.firstName || review.user?.name || 'Unknown');
-          console.log('  Comment:', review.comment);
-          console.log('  Rating:', review.rating);
-        });
-
         setReviews(foundTrip.reviews || []);
-
         setTravelerState({
           ...travelerState,
           rating: foundTrip.averageRating ?? travelerState.rating,
@@ -98,7 +80,6 @@ export default function TravelerDetailsScreen() {
           mode: foundTrip.travelMeans ?? travelerState.mode,
         });
       } else {
-        console.log('No trip found for this tripId');
         setReviews([]);
       }
     } catch (err) {
@@ -121,28 +102,20 @@ export default function TravelerDetailsScreen() {
     if (!tripId) return Alert.alert('Error', 'Trip ID not available');
 
     try {
-      const res = await fetch(
-       `${backendomain.backendomain}/api/baggo/${tripId}/reviews`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer <token>',
-          },
-          body: JSON.stringify({ rating: reviewRating, comment: reviewComment.trim() }),
-        }
-      );
+      const res = await api.post(`/api/bago/${tripId}/reviews`, {
+        rating: reviewRating,
+        comment: reviewComment.trim()
+      });
 
-      const data = await res.json();
-      if (!res.ok) return Alert.alert('Error', data.message || 'Failed to add review');
-
-      Alert.alert('Success', 'Review submitted successfully');
-      setReviewRating(0);
-      setReviewComment('');
-      fetchTravelerReviews();
-    } catch (err) {
+      if (res.data) {
+        Alert.alert('Success', 'Review submitted successfully');
+        setReviewRating(0);
+        setReviewComment('');
+        fetchTravelerReviews();
+      }
+    } catch (err: any) {
       console.log('submit review error:', err);
-      Alert.alert('Error', 'Network error');
+      Alert.alert('Error', err.response?.data?.message || 'Failed to add review');
     }
   };
 
@@ -151,7 +124,7 @@ export default function TravelerDetailsScreen() {
       pathname: '/shipping-request',
       params: {
         travelerId,
-         tripId,
+        tripId,
         travelerName: travelerState.name,
         from: travelerState.from,
         to: travelerState.to,
@@ -181,122 +154,122 @@ export default function TravelerDetailsScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-        <View style={[styles.profileCard, { backgroundColor: '#FFFFFF', borderBottomColor: '#E5E5E5' }]}>
-          <View style={[styles.avatar, { backgroundColor: '#5845D8' }]}>
-            <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{traveler.name?.charAt(0) || 'T'}</Text>
-          </View>
-          <View style={styles.profileInfo}>
-            <View style={styles.nameRow}>
-              <Text style={[styles.name, { color: '#1A1A1A' }]}>{traveler.name}</Text>
-              {traveler.verified && (
-                <View style={[styles.verifiedBadge, { backgroundColor: '#4CAF50' }]}>
-                  <Shield size={14} color={'#FFFFFF'} />
-                </View>
-              )}
+          <View style={[styles.profileCard, { backgroundColor: '#FFFFFF', borderBottomColor: '#E5E5E5' }]}>
+            <View style={[styles.avatar, { backgroundColor: '#5845D8' }]}>
+              <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{traveler.name?.charAt(0) || 'T'}</Text>
             </View>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Star size={16} color={'#F5C563'} fill={'#F5C563'} />
-                <Text style={[styles.statText, { color: '#6B6B6B' }]}>{averageRating.toFixed(1)}</Text>
-
-              </View>
-              <Text style={[styles.statDivider, { color: '#6B6B6B' }]}>•</Text>
-            <Text style={[styles.statText, { color: '#6B6B6B' }]}>{reviews.length} reviews</Text>
-            </View>
-          </View>
-        </View>
-
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: '#1A1A1A' }]}>Trip Details</Text>
-          <View style={[styles.routeCard, { backgroundColor: '#FFFFFF' }]}>
-            <View style={styles.routeRow}>
-              <MapPin size={20} color={'#5845D8'} />
-              <Text style={[styles.routeText, { color: '#1A1A1A' }]}>{traveler.from}</Text>
-            </View>
-            <View style={[styles.routeLine, { backgroundColor: '#E5E5E5' }]} />
-            <View style={styles.routeRow}>
-              <MapPin size={20} color={'#E8B86D'} />
-              <Text style={[styles.routeText, { color: '#1A1A1A' }]}>{traveler.to}</Text>
-            </View>
-          </View>
-          <View style={styles.infoGrid}>
-            <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
-              <Calendar size={20} color={'#5845D8'} />
-              <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Date</Text>
-              <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>
-                {new Date(traveler.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </Text>
-            </View>
-            <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
-              <Plane size={20} color={'#5845D8'} />
-              <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Mode</Text>
-              <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>{traveler.mode === 'flight' ? 'Flight' : 'Road'}</Text>
-            </View>
-            <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
-              <Weight size={20} color={'#5845D8'} />
-              <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Available</Text>
-              <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>{traveler.availableKg} kg</Text>
-            </View>
-          </View>
-        </View>
-
-
-
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: '#1A1A1A' }]}>Reviews</Text>
-          {reviews.length === 0 ? (
-            <Text style={{ color: '#1A1A1A' }}>No reviews yet</Text>
-          ) : (
-            reviews.map((review, index) => (
-              <View key={index} style={[styles.reviewCard, { backgroundColor: '#FDF9F1' }]}>
-                <View style={styles.reviewHeader}>
-                  <View style={[styles.reviewAvatar, { backgroundColor: '#5845D8' }]}>
-                    <Text style={[styles.reviewAvatarText, { color: '#FFFFFF' }]}>{review.user?.firstName?.charAt(0).toUpperCase() || 'U'}</Text>
+            <View style={styles.profileInfo}>
+              <View style={styles.nameRow}>
+                <Text style={[styles.name, { color: '#1A1A1A' }]}>{traveler.name}</Text>
+                {traveler.verified && (
+                  <View style={[styles.verifiedBadge, { backgroundColor: '#4CAF50' }]}>
+                    <Shield size={14} color={'#FFFFFF'} />
                   </View>
-                  <View style={styles.reviewInfo}>
-                    <View style={styles.reviewStars}>
-                      {[1,2,3,4,5].map((s) => (
-                        <Star key={s} size={12} color={s <= (review.rating ?? 0) ? '#F5C563' : '#E5E5E5'} fill={s <= (review.rating ?? 0) ? '#F5C563' : '#FFFFFF'} />
-                      ))}
+                )}
+              </View>
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Star size={16} color={'#F5C563'} fill={'#F5C563'} />
+                  <Text style={[styles.statText, { color: '#6B6B6B' }]}>{averageRating.toFixed(1)}</Text>
+
+                </View>
+                <Text style={[styles.statDivider, { color: '#6B6B6B' }]}>•</Text>
+                <Text style={[styles.statText, { color: '#6B6B6B' }]}>{reviews.length} reviews</Text>
+              </View>
+            </View>
+          </View>
+
+
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: '#1A1A1A' }]}>Trip Details</Text>
+            <View style={[styles.routeCard, { backgroundColor: '#FFFFFF' }]}>
+              <View style={styles.routeRow}>
+                <MapPin size={20} color={'#5845D8'} />
+                <Text style={[styles.routeText, { color: '#1A1A1A' }]}>{traveler.from}</Text>
+              </View>
+              <View style={[styles.routeLine, { backgroundColor: '#E5E5E5' }]} />
+              <View style={styles.routeRow}>
+                <MapPin size={20} color={'#E8B86D'} />
+                <Text style={[styles.routeText, { color: '#1A1A1A' }]}>{traveler.to}</Text>
+              </View>
+            </View>
+            <View style={styles.infoGrid}>
+              <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
+                <Calendar size={20} color={'#5845D8'} />
+                <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Date</Text>
+                <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>
+                  {new Date(traveler.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </Text>
+              </View>
+              <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
+                <Plane size={20} color={'#5845D8'} />
+                <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Mode</Text>
+                <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>{traveler.mode === 'flight' ? 'Flight' : 'Road'}</Text>
+              </View>
+              <View style={[styles.infoCard, { backgroundColor: '#FFFFFF' }]}>
+                <Weight size={20} color={'#5845D8'} />
+                <Text style={[styles.infoLabel, { color: '#6B6B6B' }]}>Available</Text>
+                <Text style={[styles.infoValue, { color: '#1A1A1A' }]}>{traveler.availableKg} kg</Text>
+              </View>
+            </View>
+          </View>
+
+
+
+
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: '#1A1A1A' }]}>Reviews</Text>
+            {reviews.length === 0 ? (
+              <Text style={{ color: '#1A1A1A' }}>No reviews yet</Text>
+            ) : (
+              reviews.map((review, index) => (
+                <View key={index} style={[styles.reviewCard, { backgroundColor: '#FDF9F1' }]}>
+                  <View style={styles.reviewHeader}>
+                    <View style={[styles.reviewAvatar, { backgroundColor: '#5845D8' }]}>
+                      <Text style={[styles.reviewAvatarText, { color: '#FFFFFF' }]}>{review.user?.firstName?.charAt(0).toUpperCase() || 'U'}</Text>
+                    </View>
+                    <View style={styles.reviewInfo}>
+                      <View style={styles.reviewStars}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star key={s} size={12} color={s <= (review.rating ?? 0) ? '#F5C563' : '#E5E5E5'} fill={s <= (review.rating ?? 0) ? '#F5C563' : '#FFFFFF'} />
+                        ))}
+                      </View>
                     </View>
                   </View>
+                  <Text style={[styles.reviewText, { color: '#1A1A1A' }]}>{review.comment}</Text>
                 </View>
-                <Text style={[styles.reviewText, { color: '#1A1A1A' }]}>{review.comment}</Text>
+              ))
+            )}
+
+
+            <View style={[styles.reviewCard, { marginTop: 20, backgroundColor: '#FDF9F1' }]}>
+              <Text style={[styles.sectionTitle, { marginBottom: 8, color: '#1A1A1A' }]}>Leave a Review</Text>
+              <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+                    <Star size={28} color={star <= reviewRating ? '#F5C563' : '#E5E5E5'} fill={star <= reviewRating ? '#F5C563' : '#FFFFFF'} style={{ marginHorizontal: 4 }} />
+                  </TouchableOpacity>
+                ))}
               </View>
-            ))
-          )}
-
-
-          <View style={[styles.reviewCard, { marginTop: 20, backgroundColor: '#FDF9F1' }]}>
-            <Text style={[styles.sectionTitle, { marginBottom: 8, color: '#1A1A1A' }]}>Leave a Review</Text>
-            <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-              {[1,2,3,4,5].map((star) => (
-                <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
-                  <Star size={28} color={star <= reviewRating ? '#F5C563' : '#E5E5E5'} fill={star <= reviewRating ? '#F5C563' : '#FFFFFF'} style={{ marginHorizontal: 4 }} />
-                </TouchableOpacity>
-              ))}
+              <TextInput
+                style={[styles.reviewInput, { borderColor: '#E5E5E5', backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
+                placeholder="Write your review..."
+                placeholderTextColor={'#9E9E9E'}
+                multiline
+                value={reviewComment}
+                onChangeText={setReviewComment}
+              />
+              <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#5845D8' }]} onPress={handleSubmitReview}>
+                <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>Submit Review</Text>
+              </TouchableOpacity>
             </View>
-            <TextInput
-              style={[styles.reviewInput, { borderColor: '#E5E5E5', backgroundColor: '#F3F4F6', color: '#1A1A1A' }]}
-              placeholder="Write your review..."
-              placeholderTextColor={'#9E9E9E'}
-              multiline
-              value={reviewComment}
-              onChangeText={setReviewComment}
-            />
-            <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#5845D8' }]} onPress={handleSubmitReview}>
-              <Text style={[styles.submitButtonText, { color: '#FFFFFF' }]}>Submit Review</Text>
-            </TouchableOpacity>
           </View>
-        </View>
 
-        <View style={{ height: 120 }} />
-      </ScrollView>
-</KeyboardAvoidingView>
+          <View style={{ height: 120 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
       <View style={[styles.footer, { backgroundColor: '#FFFFFF', borderColor: '#E5E5E5' }]}>
         <TouchableOpacity style={[styles.messageButton, { borderColor: '#5845D8' }]} onPress={handleMessage}>
           <MessageCircle size={20} color={'#5845D8'} />

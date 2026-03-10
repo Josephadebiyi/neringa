@@ -420,7 +420,7 @@ export default function SendPackageScreen() {
 
         // 🔥 REAL file upload here
         const response = await axios.post(
-          `${backendomain.backendomain}/api/baggo/createPackage`,
+          `${backendomain.backendomain}/api/bago/createPackage`,
           formData,
           {
             headers: { "Content-Type": "multipart/form-data" },

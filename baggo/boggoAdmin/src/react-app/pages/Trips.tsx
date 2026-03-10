@@ -40,9 +40,26 @@ export default function Trips() {
     const [trips, setTrips] = useState<Trip[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedTrips, setSelectedTrips] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const limit = 20;
+
+    const toggleSelection = (tripId: string) => {
+        setSelectedTrips(prev =>
+            prev.includes(tripId)
+                ? prev.filter(id => id !== tripId)
+                : [...prev, tripId]
+        );
+    };
+
+    const toggleAll = () => {
+        if (selectedTrips.length === trips.length) {
+            setSelectedTrips([]);
+        } else {
+            setSelectedTrips(trips.map(t => t._id));
+        }
+    };
 
     useEffect(() => {
         fetchTrips();
@@ -69,12 +86,39 @@ export default function Trips() {
             }
 
             const data = await response.json();
-            if (data.success) {
+            if (data.success && Array.isArray(data.data)) {
                 setTrips(data.data);
-                setTotalCount(data.totalCount);
+                setTotalCount(data.totalCount || data.data.length);
             }
         } catch (error) {
             console.error('Failed to fetch trips:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (!selectedTrips.length) return;
+        if (!confirm(`Are you sure you want to delete ${selectedTrips.length} selected trips?`)) return;
+
+        try {
+            const token = localStorage.getItem('adminToken');
+            setLoading(true);
+
+            // Sequential deletion as per current backend API
+            for (const id of selectedTrips) {
+                await fetch(`${API_BASE_URL}/admin-trips/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+
+            setSelectedTrips([]);
+            fetchTrips();
+        } catch (error) {
+            console.error('Failed to delete trips:', error);
         } finally {
             setLoading(false);
         }
@@ -112,9 +156,11 @@ export default function Trips() {
     };
 
     const filteredTrips = trips.filter(trip =>
-        trip.fromLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        trip.toLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        trip.user.email.toLowerCase().includes(searchTerm.toLowerCase())
+        (trip.fromLocation?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (trip.toLocation?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (trip.user?.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (trip.user?.firstName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (trip.user?.lastName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -132,6 +178,15 @@ export default function Trips() {
                         <span className="text-xs font-black text-[#1e2749]">{totalCount} Total Routes</span>
                     </div>
                 </div>
+                {selectedTrips.length > 0 && (
+                    <button
+                        onClick={handleBulkDelete}
+                        className="bg-red-50 text-red-600 px-6 py-2 rounded-2xl border border-red-100 shadow-sm flex items-center gap-2 hover:bg-red-100 transition-all animate-in slide-in-from-right duration-300"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="text-xs font-black uppercase tracking-widest">Delete Selected ({selectedTrips.length})</span>
+                    </button>
+                )}
             </div>
 
             {/* Filters */}
@@ -163,9 +218,16 @@ export default function Trips() {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50/50">
-                                    <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Traveler</th>
-                                    <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Route</th>
-                                    <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Details</th>
+                                    <th className="py-5 px-8 w-4">
+                                        <input
+                                            type="checkbox"
+                                            checked={trips.length > 0 && selectedTrips.length === trips.length}
+                                            onChange={toggleAll}
+                                            className="w-4 h-4 rounded border-gray-300 text-[#5240E8] focus:ring-[#5240E8]"
+                                        />
+                                    </th>
+                                    <th className="py-5 px-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Traveler</th>
+                                    <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Trip Details</th>
                                     <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
                                     <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Action</th>
                                 </tr>
@@ -177,38 +239,42 @@ export default function Trips() {
                                     </tr>
                                 ) : (
                                     filteredTrips.map((trip) => (
-                                        <tr key={trip._id} className="group hover:bg-gray-50/30 transition-colors">
+                                        <tr key={trip._id} className={`group hover:bg-gray-50/30 transition-colors ${selectedTrips.includes(trip._id) ? 'bg-blue-50/20' : ''}`}>
                                             <td className="py-5 px-8">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTrips.includes(trip._id)}
+                                                    onChange={() => toggleSelection(trip._id)}
+                                                    className="w-4 h-4 rounded border-gray-300 text-[#5240E8] focus:ring-[#5240E8]"
+                                                />
+                                            </td>
+                                            <td className="py-5 px-4">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-[#1e2749] font-black text-xs">
-                                                        {trip.user.firstName ? trip.user.firstName[0] : 'T'}
+                                                        {trip.user?.firstName ? trip.user.firstName[0] : 'T'}
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-[#1e2749] text-sm">{trip.user.firstName} {trip.user.lastName}</div>
-                                                        <div className="text-[10px] font-bold text-gray-400">{trip.user.email}</div>
+                                                        <div className="font-bold text-[#1e2749] text-sm">{trip.user?.firstName || 'Unknown'} {trip.user?.lastName || 'User'}</div>
+                                                        <div className="text-[10px] font-bold text-gray-400">{trip.user?.email || 'No email available'}</div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-8">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="text-sm font-black text-[#1e2749]">{trip.fromLocation}</div>
-                                                    <ArrowRight className="w-3 h-3 text-gray-300" />
-                                                    <div className="text-sm font-black text-[#1e2749]">{trip.toLocation}</div>
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {new Date(trip.departureDate).toLocaleDateString()}
-                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-8">
                                                 <div className="space-y-1.5">
                                                     <div className="flex items-center gap-2">
+                                                        <div className="text-sm font-black text-[#5240E8]">{trip.fromLocation}</div>
+                                                        <ArrowRight className="w-3 h-3 text-gray-300" />
+                                                        <div className="text-sm font-black text-[#5240E8]">{trip.toLocation}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
                                                         <div className="p-1.5 bg-gray-50 rounded-lg text-gray-500">
                                                             {getTravelIcon(trip.travelMeans)}
                                                         </div>
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-[#1e2749]">{trip.travelMeans}</span>
+                                                        <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3" />
+                                                            {new Date(trip.departureDate).toLocaleDateString()}
+                                                        </span>
                                                     </div>
                                                     <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black">
                                                         {trip.availableKg}kg Available
@@ -238,6 +304,29 @@ export default function Trips() {
                         </table>
                     </div>
                 )}
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between bg-white px-8 py-4 rounded-[24px] border border-gray-100 shadow-sm mt-6">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    Showing {filteredTrips.length} of {totalCount} trips
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1 || loading}
+                        className="px-4 py-2 bg-gray-50 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        Previous
+                    </button>
+                    <button
+                        onClick={() => setCurrentPage(prev => (prev * limit < totalCount ? prev + 1 : prev))}
+                        disabled={currentPage * limit >= totalCount || loading}
+                        className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        Next
+                    </button>
+                </div>
             </div>
         </div>
     );

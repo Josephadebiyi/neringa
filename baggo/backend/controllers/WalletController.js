@@ -136,7 +136,7 @@ export const processPayment = async (req, res) => {
             // Create Stripe payment intent
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: amountInCents,
-                currency: "usd",
+                currency: req.body.currency || "usd", // Respect requested currency
                 metadata: {
                     tripId,
                     senderId: senderId.toString(),

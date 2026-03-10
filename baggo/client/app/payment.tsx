@@ -27,8 +27,8 @@ import { StripeProvider, CardField, useStripe } from "@/utils/stripe";
 
 const PAYMENT_INTENT_URL = `${backendomain.backendomain}/api/payment/create-intent`;
 const PAYSTACK_INIT_URL = `${backendomain.backendomain}/api/payment/initialize`;
-const REQUEST_PACKAGE_URL = `${backendomain.backendomain}/api/baggo/RequestPackage`;
-const ESCROW_ADD_URL = `${backendomain.backendomain}/api/baggo/add-to-escrow`;
+const REQUEST_PACKAGE_URL = `${backendomain.backendomain}/api/bago/RequestPackage`;
+const ESCROW_ADD_URL = `${backendomain.backendomain}/api/bago/add-to-escrow`;
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -75,7 +75,7 @@ const finalAmount = baseAmount - discount;
   useEffect(() => {
     const fetchUserStatus = async () => {
       try {
-        const res = await axios.get(`${backendomain.backendomain}/api/baggo/Profile`, {
+        const res = await axios.get(`${backendomain.backendomain}/api/bago/Profile`, {
           withCredentials: true,
         });
 
@@ -107,7 +107,7 @@ const safeEmail = userData?.email || travellerEmail;
 
     try {
       const res = await axios.post(
-        `${backendomain.backendomain}/api/baggo/use-referral-discount`,
+        `${backendomain.backendomain}/api/bago/use-referral-discount`,
         { userId },
         { withCredentials: true }
       );
@@ -221,7 +221,7 @@ const safeEmail = userData?.email || travellerEmail;
 
     try {
       const res = await axios.put(
-        `${backendomain.backendomain}/api/baggo/request/${requestId}/payment`,
+        `${backendomain.backendomain}/api/bago/request/${requestId}/payment`,
         {
           paymentInfo: {
             requestId,

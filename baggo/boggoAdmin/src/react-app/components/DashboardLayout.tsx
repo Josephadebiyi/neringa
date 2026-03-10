@@ -12,17 +12,24 @@ import {
   Menu,
   X,
   IdCard,
-  Scale,
   Bell,
   Swords,
   ChevronDown,
   RefreshCcw,
   LogOut,
-  Route,
   Globe,
   Plane,
   Ticket,
-  Users
+  Users,
+  MapPin,
+  Send,
+  RotateCcw,
+  LayoutDashboard,
+  ClipboardList,
+  ShieldAlert,
+  ShieldCheck,
+  UserCheck,
+  AlertCircle
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -30,32 +37,30 @@ interface DashboardLayoutProps {
 }
 
 interface NavItem {
-  icon: typeof Home;
+  icon: any;
   label: string;
-  path?: string;  // Made optional for actions like logout
-  action?: () => void;  // For custom actions
+  path?: string;
+  action?: () => void;
   expandable?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { icon: Home, label: "Dashboard", path: "/dashboard" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: User, label: "Users", path: "/users" },
   { icon: Users, label: "Staff / Sub-Admins", path: "/staff" },
   { icon: Plane, label: "Listed Trips", path: "/trips" },
-  { icon: Ticket, label: "Promo Codes", path: "/promo-codes" },
+  { icon: IdCard, label: "KYC Management", path: "/kyc" },
+  { icon: ClipboardList, label: "Booking Requests", path: "/orders" },
+  { icon: MapPin, label: "Tracking", path: "/tracking" },
   { icon: Bell, label: "Promo Engine", path: "/promo-email" },
-  { icon: RefreshCcw, label: "Tracking", path: "/tracking" },
-  { icon: Route, label: "Route Pricing", path: "/routes" },
-  { icon: Globe, label: "Operating Locations", path: "/locations" },
-  { icon: Scale, label: "PricePerKg", path: "/priceperkg" },
-  { icon: Bell, label: "push Notification", path: "/push-notification" },
-  { icon: IdCard, label: "Kyc", path: "/kyc" },
-  { icon: MessageCircle, label: "Support", path: "/support" },
-  { icon: Swords, label: "disputes", path: "/disputes" },
-  { icon: RefreshCcw, label: "refund", path: "/refund" },
+  { icon: Ticket, label: "Promo Codes", path: "/promo-codes" },
+  { icon: MessageCircle, label: "Support Tickets", path: "/support" },
+  { icon: ShieldAlert, label: "Disputes", path: "/disputes" },
+  { icon: RotateCcw, label: "Refunds", path: "/refund" },
   { icon: CreditCard, label: "Withdrawals", path: "/withdrawals" },
+  { icon: Send, label: "Broadcast Center", path: "/push-notification" },
   { icon: BarChart, label: "Analytics", path: "/analytics" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: Settings, label: "System Settings", path: "/settings" },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {

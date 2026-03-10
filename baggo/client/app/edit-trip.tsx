@@ -72,7 +72,7 @@ export default function EditTripScreen() {
 
   const fetchTrip = async () => {
     try {
-      const res = await axios.get(`${backendomain.backendomain}/api/baggo/MyTrips`, {
+      const res = await axios.get(`${backendomain.backendomain}/api/bago/MyTrips`, {
         withCredentials: true,
       });
       const trips = res.data?.trips || [];
@@ -108,7 +108,7 @@ export default function EditTripScreen() {
 
   const checkActiveRequests = async () => {
     try {
-      const res = await axios.get(`${backendomain.backendomain}/api/baggo/traveler/requests`, {
+      const res = await axios.get(`${backendomain.backendomain}/api/bago/traveler/requests`, {
         withCredentials: true,
       });
       const requests = res.data?.requests || [];
@@ -211,7 +211,7 @@ export default function EditTripScreen() {
     setLoading(true);
     try {
       await axios.put(
-        `${backendomain.backendomain}/api/baggo/Trip/${tripId}`,
+        `${backendomain.backendomain}/api/bago/Trip/${tripId}`,
         {
           fromLocation: `${fromCity}, ${fromCountry}`,
           toLocation: `${toCity}, ${toCountry}`,
@@ -255,7 +255,7 @@ export default function EditTripScreen() {
           onPress: async () => {
             setDeleting(true);
             try {
-              await axios.delete(`${backendomain.backendomain}/api/baggo/Trip/${tripId}`, {
+              await axios.delete(`${backendomain.backendomain}/api/bago/Trip/${tripId}`, {
                 withCredentials: true,
               });
               Alert.alert("Success", "Trip deleted successfully", [

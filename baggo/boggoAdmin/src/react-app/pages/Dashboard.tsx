@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { TrendingUp, ArrowUpRight, RefreshCw, DollarSign, Users, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { API_BASE_URL } from '../config/api';
@@ -387,12 +388,12 @@ export default function Dashboard() {
               Upload images, define custom subjects, and engage your verified or unverified users directly.
             </p>
           </div>
-          <a
-            href="/promo-email"
+          <Link
+            to="/promo-email"
             className="px-8 py-4 bg-[#5240E8] hover:bg-[#4030C8] text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:scale-[1.05] active:scale-[0.95] shadow-xl shadow-[#5240E8]/20 whitespace-nowrap"
           >
             Launch Promo Tool
-          </a>
+          </Link>
         </div>
       </div>
     </div>

@@ -1069,6 +1069,8 @@ export const edit = async (req, res, next) => {
       'Address',
       'password',
       'status',
+      'bankDetails',
+      'preferredCurrency',
     ];
 
     const updateKeys = Object.keys(updates);
@@ -1081,6 +1083,42 @@ export const edit = async (req, res, next) => {
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Handle currency conversion if preferredCurrency is changing
+    if (updates.preferredCurrency && updates.preferredCurrency !== user.preferredCurrency) {
+      const { convertCurrency } = await import('../services/currencyConverter.js');
+      try {
+        const oldCurrency = user.preferredCurrency;
+        const newCurrency = updates.preferredCurrency;
+
+        // Convert main balance
+        if (user.balance > 0) {
+          const mainConv = await convertCurrency(user.balance, oldCurrency, newCurrency);
+          user.balance = mainConv.convertedAmount;
+        }
+
+        // Convert escrow balance
+        if (user.escrowBalance > 0) {
+          const escrowConv = await convertCurrency(user.escrowBalance, oldCurrency, newCurrency);
+          user.escrowBalance = escrowConv.convertedAmount;
+        }
+
+        // Also Update separate Wallet model if it exists
+        const Wallet = (await import('../models/walletScheme.js')).default;
+        const wallet = await Wallet.findOne({ userId: user._id });
+        if (wallet && wallet.balance > 0) {
+          const walletConv = await convertCurrency(wallet.balance, oldCurrency, newCurrency);
+          wallet.balance = walletConv.convertedAmount;
+          await wallet.save();
+          console.log(`💱 Converted separate Wallet balance for user ${userId}`);
+        }
+
+        console.log(`💱 Converted balances for user ${userId} from ${oldCurrency} to ${newCurrency}`);
+      } catch (err) {
+        console.error('❌ Balance conversion failed during currency change:', err);
+        // Continue with the update even if conversion fails (will use old numerical values)
+      }
     }
 
     // Apply updates

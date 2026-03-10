@@ -61,15 +61,22 @@ export const AdminSignup = async (req, res, next) => {
 // Admin Login
 export const AdminLogin = async (req, res, next) => {
     try {
-        const { username, userName, password } = req.body;
-        const actualUserName = username || userName;
+        const { username, userName, email, password } = req.body;
+        // The frontend might send username, userName, or email
+        const loginIdentifier = username || userName || email;
 
-        if (!actualUserName || !password) {
-            return res.status(400).json({ message: "Username and password required" });
+        if (!loginIdentifier || !password) {
+            return res.status(400).json({ message: "Username/Email and password required" });
         }
 
-        // Find admin
-        const admin = await Admin.findOne({ userName: actualUserName });
+        // Find admin by username OR email
+        const admin = await Admin.findOne({
+            $or: [
+                { userName: loginIdentifier },
+                { email: loginIdentifier }
+            ]
+        });
+
         if (!admin) {
             return res.status(401).json({ message: "Invalid credentials" });
         }

@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-import { MessageCircle, ArrowLeft, Send } from 'lucide-react-native';
+import { MessageCircle, ArrowLeft, Send } from 'lucide-native';
 import { backendomain } from '@/utils/backendDomain';
-import { SafeAreaView,useSafeAreaInsets  } from 'react-native-safe-area-context';
+import api from '@/utils/api';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 
@@ -30,7 +31,7 @@ export default function MessagesScreen() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState(null);
   const flatListRef = useRef(null);
-const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   // Initialize Socket.IO
   useEffect(() => {
     const newSocket = io(backendomain.backendomain, {
@@ -99,27 +100,18 @@ const insets = useSafeAreaInsets();
   useEffect(() => {
     const fetchUserId = async () => {
       try {
-        console.log('Fetching user ID from:', `${backendomain.backendomain}/api/baggo/getuser`);
-        const userResponse = await fetch(`${backendomain.backendomain}/api/baggo/getuser`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (!userResponse.ok) {
-          const errorText = await userResponse.text();
-          console.error('getuser error response:', errorText);
-          throw new Error(`HTTP error! Status: ${userResponse.status}, Message: ${errorText}`);
-        }
-        const userData = await userResponse.json();
-        console.log('fetchUserId response:', JSON.stringify(userData, null, 2));
+        console.log('Fetching user ID...');
+        const response = await api.get('/api/bago/getuser');
+        const userData = response.data;
+
         if (userData.user) {
           setUserId(userData.user._id);
         } else {
-          console.error('Failed to fetch user ID:', userData.message);
-          setError('Failed to fetch user ID: ' + userData.message);
+          setError('User not found');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error in fetchUserId:', error);
-        setError('Error: ' + error.message);
+        setError('Error: ' + (error.response?.data?.message || error.message));
       }
     };
     fetchUserId();
@@ -130,31 +122,18 @@ const insets = useSafeAreaInsets();
     if (userId) {
       const fetchConversations = async () => {
         try {
-          console.log('Fetching conversations from:', `${backendomain.backendomain}/api/baggo/conversations`);
-          const response = await fetch(`${backendomain.backendomain}/api/baggo/conversations`, {
-            method: 'GET',
-            credentials: 'include',
-          });
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('conversations error response:', errorText);
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
-          }
-          const data = await response.json();
-          console.log('fetchConversations response:', JSON.stringify(data, null, 2));
+          console.log('Fetching conversations...');
+          const response = await api.get('/api/bago/conversations');
+          const data = response.data;
+
           if (data.success) {
             setConversations(data.data.conversations);
-            if (data.data.conversations.length === 0) {
-              console.log('No conversations found');
-              setSelectedConversation(null);
-            }
           } else {
-            console.error('Failed to fetch conversations:', data.message);
-            setError('Failed to fetch conversations: ' + data.message);
+            setError('Failed to fetch conversations');
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error fetching conversations:', error);
-          setError('Error fetching conversations: ' + error.message);
+          setError('Error: ' + (error.response?.data?.message || error.message));
         }
       };
       fetchConversations();
@@ -167,37 +146,20 @@ const insets = useSafeAreaInsets();
       socket.emit('join_conversation', selectedConversation._id);
       const fetchMessages = async () => {
         try {
-          console.log('Fetching messages from:', `${backendomain.backendomain}/api/baggo/conversations/${selectedConversation._id}/messages`);
-          const response = await fetch(
-            `${backendomain.backendomain}/api/baggo/conversations/${selectedConversation._id}/messages`,
-            {
-              method: 'GET',
-              credentials: 'include',
-            }
-          );
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('messages error response:', errorText);
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
-          }
-          const data = await response.json();
-          console.log('fetchMessages response:', JSON.stringify(data, null, 2));
+          const response = await api.get(`/api/bago/conversations/${selectedConversation._id}/messages`);
+          const data = response.data;
+
           if (data.success) {
             const sortedMessages = data.data.messages.sort(
-              (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+              (a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             );
             setMessages(sortedMessages);
-            console.log('Sorted messages:', JSON.stringify(sortedMessages, null, 2));
             setTimeout(() => {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
-          } else {
-            console.error('Failed to fetch messages:', data.message);
-            setError('Failed to fetch messages: ' + data.message);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error fetching messages:', error);
-          setError('Error fetching messages: ' + error.message);
         }
       };
       fetchMessages();
@@ -361,17 +323,17 @@ const insets = useSafeAreaInsets();
         </>
       ) : (
         <>
-        <View style={styles.header}>
-  <TouchableOpacity
-    onPress={() => router.push('/')}
-    style={{ padding: 8, marginRight: 8 }}
-    accessibilityLabel="Go to Home"
-  >
-    <ArrowLeft size={24} color={'#1A1A1A'} />
-  </TouchableOpacity>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => router.push('/')}
+              style={{ padding: 8, marginRight: 8 }}
+              accessibilityLabel="Go to Home"
+            >
+              <ArrowLeft size={24} color={'#1A1A1A'} />
+            </TouchableOpacity>
 
-  <Text style={styles.title}>Messages</Text>
-</View>
+            <Text style={styles.title}>Messages</Text>
+          </View>
 
           <FlatList
             data={conversations}

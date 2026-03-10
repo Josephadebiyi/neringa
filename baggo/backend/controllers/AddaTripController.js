@@ -148,54 +148,51 @@ export const UpdateTrip = async (req, res, next) => {
   } = req.body;
 
   try {
-    // ✅ Validate required fields
-    if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg || !travelMeans || !pricePerKg || !currency) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    const price = parseFloat(pricePerKg);
-
-    // ✅ Multi-layer Price Validation
-    const priceInUSD = await convertCurrency(price, currency, 'USD');
-    if (priceInUSD.convertedAmount > 15) {
-      return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
-    }
-
-    const settings = await Setting.findOne();
-    const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
-    const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
-    const isNigeriaRoute = fromCountry?.toUpperCase() === 'NG' || toCountry?.toUpperCase() === 'NG' || trip.fromCountry === 'NG' || trip.toCountry === 'NG';
-
-    if (isAfricanCurrency || isNigeriaRoute) {
-      const maxNaira = 6000;
-      const priceInNaira = await convertCurrency(price, currency, 'NGN');
-      if (priceInNaira.convertedAmount > maxNaira) {
-        const rateToLocal = await getExchangeRate('NGN', currency);
-        const localMax = Math.round(maxNaira * rateToLocal);
-        return res.status(400).json({
-          message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`
-        });
-      }
-    }
-
     // ✅ Find the trip and ensure it belongs to the user
     const trip = await Trip.findOne({ _id: tripId, user: userId });
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
 
+    if (pricePerKg !== undefined && currency !== undefined) {
+      const price = parseFloat(pricePerKg);
+
+      // ✅ Multi-layer Price Validation
+      const priceInUSD = await convertCurrency(price, currency, 'USD');
+      if (priceInUSD.convertedAmount > 15) {
+        return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
+      }
+
+      const settings = await Setting.findOne();
+      const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
+      const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
+      const isNigeriaRoute = fromCountry?.toUpperCase() === 'NG' || toCountry?.toUpperCase() === 'NG' || trip.fromCountry === 'NG' || trip.toCountry === 'NG';
+
+      if (isAfricanCurrency || isNigeriaRoute) {
+        const maxNaira = 6000;
+        const priceInNaira = await convertCurrency(price, currency, 'NGN');
+        if (priceInNaira.convertedAmount > maxNaira) {
+          const rateToLocal = await getExchangeRate('NGN', currency);
+          const localMax = Math.round(maxNaira * rateToLocal);
+          return res.status(400).json({
+            message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`
+          });
+        }
+      }
+      trip.pricePerKg = price;
+      trip.currency = currency;
+    }
+
     // ✅ Update fields
-    trip.fromLocation = fromLocation;
-    trip.fromCountry = fromCountry || trip.fromCountry;
-    trip.toLocation = toLocation;
-    trip.toCountry = toCountry || trip.toCountry;
-    trip.departureDate = departureDate;
-    trip.arrivalDate = arrivalDate;
-    trip.availableKg = parseFloat(availableKg);
-    trip.pricePerKg = price;
-    trip.currency = currency;
-    trip.landmark = landmark || trip.landmark;
-    trip.travelMeans = travelMeans.trim().toLowerCase();
+    if (fromLocation) trip.fromLocation = fromLocation;
+    if (fromCountry) trip.fromCountry = fromCountry;
+    if (toLocation) trip.toLocation = toLocation;
+    if (toCountry) trip.toCountry = toCountry;
+    if (departureDate) trip.departureDate = departureDate;
+    if (arrivalDate) trip.arrivalDate = arrivalDate;
+    if (availableKg) trip.availableKg = parseFloat(availableKg);
+    if (landmark) trip.landmark = landmark;
+    if (travelMeans) trip.travelMeans = travelMeans.trim().toLowerCase();
 
     await trip.save();
 

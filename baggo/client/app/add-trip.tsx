@@ -62,7 +62,7 @@ export default function AddTripScreen() {
   // replace your current checkKycStatus function with this
   const checkKycStatus = async () => {
     try {
-      const res = await axios.get(`${backendomain.backendomain}/api/baggo/Profile`, {
+      const res = await axios.get(`${backendomain.backendomain}/api/bago/Profile`, {
         withCredentials: true,
       });
 
@@ -226,7 +226,7 @@ export default function AddTripScreen() {
 
     try {
       const response = await axios.post(
-        `${backendomain.backendomain}/api/baggo/AddAtrip`,
+        `${backendomain.backendomain}/api/bago/AddAtrip`,
         payload,
         {
           withCredentials: true,

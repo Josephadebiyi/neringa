@@ -48,6 +48,7 @@ export const RequestPackage = async (req, res, next) => {
       estimatedDeparture,
       estimatedArrival,
       amount,
+      currency, // user's preferred currency
       image, // base64 image (optional)
       termsAccepted, // terms and conditions acceptance
     } = req.body;
@@ -189,6 +190,7 @@ export const RequestPackage = async (req, res, next) => {
       traveler: travelerId,
       package: packageId,
       amount,
+      currency: currency || 'USD',
       image: uploadedImageUrl || null,
       status: "pending",
       trackingNumber: null, // Generated after payment success

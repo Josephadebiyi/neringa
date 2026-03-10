@@ -5,4 +5,4 @@ const isDevelopment = window.location.hostname === 'localhost' || window.locatio
 const apiRoot = import.meta.env.VITE_API_URL || (isDevelopment ? 'http://localhost:3000/api' : 'https://neringa.onrender.com/api');
 
 export const API_BASE_URL = `${apiRoot}/Adminbaggo`;
-export const MAIN_API_URL = `${apiRoot}/baggo`;
+export const MAIN_API_URL = `${apiRoot}/bago`;

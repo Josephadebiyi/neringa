@@ -103,9 +103,11 @@ export const createPackage = async (req, res) => {
       height: heightNum,
       receiverName,
       receiverPhone,
+      receiverEmail: req.body.receiverEmail || null,
       description,
       image: imageUrls[0] || null,
       value: value || null,
+      category: req.body.category || 'other',
     });
 
     await newPackage.save();

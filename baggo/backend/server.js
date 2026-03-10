@@ -311,7 +311,14 @@ app.post('/api/stripe/connect/onboard', async (req, res) => {
     const stripeAccountId = await createStripeAccountForUser(user);
 
     // create account link for onboarding
-    const backendUrl = process.env.BACKEND_URL || 'https://api.sendwithbago.com/api/stripe';
+    let backendUrl = process.env.BACKEND_URL;
+    if (!backendUrl) {
+      const host = req.get('host');
+      const protocol = req.protocol;
+      backendUrl = `${protocol}://${host}/api/stripe`;
+    } else {
+      backendUrl = backendUrl.endsWith('/api/stripe') ? backendUrl : `${backendUrl}/api/stripe`;
+    }
     // Actually, I'll use the frontend URL to redirect back for refresh, but return should go to backend to save status
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
@@ -345,16 +352,25 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
 
     const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
 
-    // ✅ Check onboarding completion - must have charges and payouts enabled
-    const verified = account.charges_enabled && account.payouts_enabled && account.details_submitted;
+    // ✅ Check onboarding completion - more lenient for initial linking
+    const verified = account.details_submitted || (account.charges_enabled && account.payouts_enabled);
 
     user.stripeVerified = verified;
     await user.save();
 
-    console.log(`✅ Stripe onboarding completed for user ${user.email}`);
+    console.log(`✅ Stripe onboarding completed for user ${user.email} (Verified: ${verified})`);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
-    const redirectUrl = `${frontendUrl}/dashboard`;
+    // Detect frontend URL dynamically if not in production
+    let frontendUrl = process.env.FRONTEND_URL;
+    if (!frontendUrl) {
+      const referer = req.headers.referer || '';
+      if (referer.includes('localhost') || referer.includes('127.0.0.1')) {
+        frontendUrl = 'http://localhost:5173';
+      } else {
+        frontendUrl = 'https://sendwithbago.com';
+      }
+    }
+    const redirectUrl = `${frontendUrl}/dashboard?stripe=success`;
 
     res.send(`
        <!DOCTYPE html>
@@ -680,101 +696,7 @@ app.post('/register-token', async (req, res) => {
   }
 });
 
-
-
-// ✅ Send Notification (Single User or All Users)
-app.post('/send-notification', async (req, res) => {
-  const { userId, title, body } = req.body;
-
-  if (!title || !body) {
-    return res.status(400).json({ error: 'title and body are required' });
-  }
-
-  try {
-    let users = [];
-
-    if (userId) {
-      // 🔹 Send to one specific user
-      const user = await User.findById(userId);
-      if (!user || !user.pushTokens?.length)
-        return res.status(404).json({ error: 'No tokens for this user' });
-      users = [user];
-    } else {
-      // 🔹 Get all users who have at least one valid Expo token
-      const allUsers = await User.find({ pushTokens: { $exists: true, $ne: [] } });
-      users = allUsers.filter(
-        (u) =>
-          Array.isArray(u.pushTokens) &&
-          u.pushTokens.some((t) => Expo.isExpoPushToken(t))
-      );
-      if (!users.length)
-        return res.status(404).json({ error: 'No users with valid push tokens' });
-    }
-
-    console.log(
-      '📱 Sending to users:',
-      users.map((u) => ({
-        id: u._id,
-        tokens: u.pushTokens,
-      }))
-    );
-
-    // ✅ Collect all unique valid tokens
-    const uniqueTokens = new Set();
-    for (const user of users) {
-      for (const token of user.pushTokens) {
-        if (Expo.isExpoPushToken(token)) {
-          uniqueTokens.add(token);
-        }
-      }
-    }
-
-    if (!uniqueTokens.size) {
-      return res.status(404).json({ error: 'No valid Expo tokens to send to' });
-    }
-
-    // ✅ Group tokens by project
-    const projectGroups = {};
-    for (const token of uniqueTokens) {
-      const projectMatch = token.match(/\[(.*?)\]/);
-      const projectId = projectMatch ? projectMatch[1].split(':')[0] : 'unknown';
-      if (!projectGroups[projectId]) projectGroups[projectId] = [];
-      projectGroups[projectId].push(token);
-    }
-
-    const tickets = [];
-    let sentCount = 0;
-
-    // ✅ Send per project group
-    for (const [projectId, tokens] of Object.entries(projectGroups)) {
-      console.log(`🚀 Sending ${tokens.length} notifications for project: ${projectId}`);
-
-      const messages = tokens.map((token) => ({
-        to: token,
-        sound: 'default',
-        title,
-        body,
-      }));
-
-      const chunks = expo.chunkPushNotifications(messages);
-      for (const chunk of chunks) {
-        try {
-          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-          console.log('📨 Ticket chunk:', ticketChunk);
-          tickets.push(...ticketChunk);
-          sentCount += messages.length;
-        } catch (error) {
-          console.error(`❌ Error sending chunk for project ${projectId}:`, error);
-        }
-      }
-    }
-
-    res.json({ success: true, count: sentCount, tickets });
-  } catch (err) {
-    console.error('Send notification error:', err);
-    res.status(500).json({ error: 'Failed to send notification' });
-  }
-});
+// Notifications are now handled in AdminRouter via NotificationController
 
 
 // Helper function to send push notification to individual user

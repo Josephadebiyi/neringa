@@ -30,18 +30,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const checkAuth = async () => {
-    // Add an AbortController for a 15-second timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
     try {
       const token = localStorage.getItem('adminToken');
 
       // If no token exists at all, skip the request
       if (!token) {
         setLoading(false);
+        setUser(null);
         return;
       }
+
+      // Add an AbortController for a 10-second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(`${API_BASE_URL}/CheckAdmin`, {
         method: 'GET',
@@ -67,9 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             lastName: adminData.lastName || '',
             role: 'admin',
           });
+        } else {
+          // Invalid admin data, clear token
+          localStorage.removeItem('adminToken');
+          setUser(null);
         }
       } else {
-        // If 401 Unauthorized, wipe local record
+        // If 401 Unauthorized or any error, wipe local record
         localStorage.removeItem('adminToken');
         setUser(null);
       }
@@ -79,9 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         console.error('Auth verification failed:', error);
       }
+      // Clear token on any error
+      localStorage.removeItem('adminToken');
       setUser(null);
     } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
     }
   };

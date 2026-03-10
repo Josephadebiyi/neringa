@@ -38,11 +38,13 @@ export default function PushNotificationPage() {
 
     try {
       setLoading(true);
-      // Construct main API URL from ADMIN API URL (removes /Adminbaggo)
-      const mainApiUrl = API_BASE_URL.replace('/Adminbaggo', '');
-      const res = await fetch(`${mainApiUrl}/send-notification`, {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/send-notification`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(form),
       });
 

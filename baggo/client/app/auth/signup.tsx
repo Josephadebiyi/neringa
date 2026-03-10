@@ -19,6 +19,8 @@ import { useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import api from '@/utils/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useGoogleAuth, processGoogleAuthResult } from '@/utils/googleAuth';
+import { useAuth } from '@/contexts/AuthContext';
 
 type CountryItem = {
   name: string;
@@ -38,8 +40,6 @@ function countryCodeToEmoji(cc: string) {
 }
 
 export default function SignUp() {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -51,9 +51,8 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [referralCode, setReferralCode] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
+  const { signUp, authenticateWithToken } = useAuth();
+  const { request, response, promptAsync } = useGoogleAuth();
 
   const [countries, setCountries] = useState<CountryItem[]>([]);
   const [countriesLoading, setCountriesLoading] = useState(true);
@@ -62,6 +61,36 @@ export default function SignUp() {
   const [selectedCountry, setSelectedCountry] = useState<CountryItem | null>(null);
 
   const router = useRouter();
+
+  useEffect(() => {
+    if (response) {
+      processGoogleAuthResult(
+        response,
+        async (token: string, userInfo: any) => {
+          try {
+            // Send Google token and user info to your backend for signup
+            const res = await api.post('/api/bago/google-auth', {
+              accessToken: token,
+              email: userInfo.email,
+              name: userInfo.name,
+              picture: userInfo.picture,
+              referralCode: referralCode.trim() || null,
+            });
+
+            if (res.data.success) {
+              await authenticateWithToken(res.data.token, res.data.user);
+              router.replace('/(tabs)');
+            } else {
+              setError(res.data.message || 'Google sign-up failed');
+            }
+          } catch (err: any) {
+            setError(err.message || 'Failed to sign up with Google');
+          }
+        },
+        (error: string) => setError(error)
+      );
+    }
+  }, [response]);
 
   useEffect(() => {
     let mounted = true;
@@ -127,8 +156,8 @@ export default function SignUp() {
     setSuccess('');
     setLoading(true);
 
-    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword || !dateOfBirth || !selectedCountry) {
-      setError('Please fill in all fields including date of birth and country');
+    if (!email || !phone || !password || !confirmPassword || !selectedCountry) {
+      setError('Please fill in all required fields');
       setLoading(false);
       return;
     }
@@ -157,18 +186,15 @@ export default function SignUp() {
       const fullPhone = calling ? `+${calling}${sanitizedLocal}` : phone;
 
       const payload = {
-        firstName,
-        lastName,
         email: email.trim().toLowerCase(),
         phone: fullPhone,
         country: selectedCountry.name,
-        dateOfBirth: dateOfBirth,
         password,
         confirmPassword,
         referralCode: referralCode.trim() || null,
       };
 
-      const response = await api.post('/api/baggo/signup', payload);
+      const response = await api.post('/api/bago/signup', payload);
       const data = response.data;
 
       setLoading(false);
@@ -203,36 +229,10 @@ export default function SignUp() {
             {success ? <Text style={[styles.success, { color: '#4CAF50' }]}>{success}</Text> : null}
 
             <TextInput
-              style={[styles.input, { 
-                backgroundColor: '#F3F4F6', 
-                borderColor: '#E5E5E5', 
-                color: '#1A1A1A' 
-              }]}
-              placeholder="First Name"
-              placeholderTextColor={'#9E9E9E'}
-              value={firstName}
-              onChangeText={setFirstName}
-              editable={!loading}
-            />
-
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: '#F3F4F6', 
-                borderColor: '#E5E5E5', 
-                color: '#1A1A1A' 
-              }]}
-              placeholder="Last Name"
-              placeholderTextColor={'#9E9E9E'}
-              value={lastName}
-              onChangeText={setLastName}
-              editable={!loading}
-            />
-
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: '#F3F4F6', 
-                borderColor: '#E5E5E5', 
-                color: '#1A1A1A' 
+              style={[styles.input, {
+                backgroundColor: '#F3F4F6',
+                borderColor: '#E5E5E5',
+                color: '#1A1A1A'
               }]}
               placeholder="Email"
               placeholderTextColor={'#9E9E9E'}
@@ -243,27 +243,14 @@ export default function SignUp() {
               editable={!loading}
             />
 
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: '#F3F4F6', 
-                borderColor: '#E5E5E5', 
-                color: '#1A1A1A' 
-              }]}
-              placeholder="Date of Birth (YYYY-MM-DD)"
-              placeholderTextColor={'#9E9E9E'}
-              value={dateOfBirth}
-              onChangeText={setDateOfBirth}
-              editable={!loading}
-            />
-
-            <View style={[styles.phoneContainer, { 
-              borderColor: '#E5E5E5', 
-              backgroundColor: '#F3F4F6' 
+            <View style={[styles.phoneContainer, {
+              borderColor: '#E5E5E5',
+              backgroundColor: '#F3F4F6'
             }]}>
               <TouchableOpacity
-                style={[styles.countryPickerButton, { 
-                  borderRightColor: '#E5E5E5', 
-                  backgroundColor: '#F3F4F6' 
+                style={[styles.countryPickerButton, {
+                  borderRightColor: '#E5E5E5',
+                  backgroundColor: '#F3F4F6'
                 }]}
                 onPress={() => setCountryModalVisible(true)}
                 disabled={loading}
@@ -284,9 +271,9 @@ export default function SignUp() {
               />
             </View>
 
-            <View style={[styles.passwordContainer, { 
-              borderColor: '#E5E5E5', 
-              backgroundColor: '#F3F4F6' 
+            <View style={[styles.passwordContainer, {
+              borderColor: '#E5E5E5',
+              backgroundColor: '#F3F4F6'
             }]}>
               <TextInput
                 style={[styles.passwordInput, { color: '#1A1A1A' }]}
@@ -306,9 +293,9 @@ export default function SignUp() {
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.passwordContainer, { 
-              borderColor: '#E5E5E5', 
-              backgroundColor: '#F3F4F6' 
+            <View style={[styles.passwordContainer, {
+              borderColor: '#E5E5E5',
+              backgroundColor: '#F3F4F6'
             }]}>
               <TextInput
                 style={[styles.passwordInput, { color: '#1A1A1A' }]}
@@ -329,10 +316,10 @@ export default function SignUp() {
             </View>
 
             <TextInput
-              style={[styles.input, { 
-                backgroundColor: '#F3F4F6', 
-                borderColor: '#E5E5E5', 
-                color: '#1A1A1A' 
+              style={[styles.input, {
+                backgroundColor: '#F3F4F6',
+                borderColor: '#E5E5E5',
+                color: '#1A1A1A'
               }]}
               placeholder="Referral Code (optional)"
               placeholderTextColor={'#9E9E9E'}
@@ -353,6 +340,24 @@ export default function SignUp() {
               )}
             </TouchableOpacity>
 
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.googleButton, { backgroundColor: '#FFFFFF', borderColor: '#E5E5E5' }]}
+              onPress={() => promptAsync()}
+              disabled={loading || !request}
+            >
+              <Image
+                source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                style={styles.googleLogo}
+              />
+              <Text style={[styles.googleButtonText, { color: '#1A1A1A' }]}>Continue with Google</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.linkButton} onPress={() => router.back()} disabled={loading}>
               <Text style={[styles.linkText, { color: '#6B6B6B' }]}>
                 Already have an account?{' '}
@@ -366,9 +371,9 @@ export default function SignUp() {
       {/* Country modal */}
       <Modal visible={countryModalVisible} animationType="slide" onRequestClose={() => setCountryModalVisible(false)}>
         <SafeAreaView style={[styles.modalContainer, { backgroundColor: '#F8F6F3' }]}>
-          <View style={[styles.modalHeader, { 
-            borderBottomColor: '#E5E5E5', 
-            backgroundColor: '#FFFFFF' 
+          <View style={[styles.modalHeader, {
+            borderBottomColor: '#E5E5E5',
+            backgroundColor: '#FFFFFF'
           }]}>
             <Text style={[styles.modalTitle, { color: '#1A1A1A' }]}>Select country</Text>
             <TouchableOpacity onPress={() => setCountryModalVisible(false)}>
@@ -378,10 +383,10 @@ export default function SignUp() {
 
           <View style={[styles.searchRow, { backgroundColor: '#FFFFFF' }]}>
             <TextInput
-              style={[styles.searchInput, { 
-                backgroundColor: '#F3F4F6', 
-                borderColor: '#E5E5E5', 
-                color: '#1A1A1A' 
+              style={[styles.searchInput, {
+                backgroundColor: '#F3F4F6',
+                borderColor: '#E5E5E5',
+                color: '#1A1A1A'
               }]}
               placeholder="Search by country or code (e.g. United, +1)"
               placeholderTextColor={'#9E9E9E'}
@@ -562,4 +567,38 @@ const styles = StyleSheet.create({
   countrySub: { fontSize: 12 },
   countryDial: { fontSize: 14 },
   sep: { height: 1 },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#9E9E9E',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  googleLogo: {
+    width: 20,
+    height: 20,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });

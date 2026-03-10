@@ -45,11 +45,20 @@ export const createStaff = async (req, res) => {
 export const updateStaff = async (req, res) => {
     try {
         const { id } = req.params;
-        const { fullName, role, isActive } = req.body;
+        const { fullName, email, userName, password, role, isActive } = req.body;
+
+        const updateData = { fullName, role, isActive };
+
+        if (email) updateData.email = email;
+        if (userName) updateData.userName = userName;
+
+        if (password && password.trim() !== '') {
+            updateData.passwordHash = await bcrypt.hash(password, 12);
+        }
 
         const staff = await Admin.findByIdAndUpdate(
             id,
-            { fullName, role, isActive },
+            updateData,
             { new: true }
         ).select('-passwordHash');
 

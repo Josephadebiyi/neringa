@@ -35,3 +35,28 @@ export const tracking = async (req, res, next) => {
     next(error); // Pass error to error-handling middleware
   }
 };
+
+export const updateRequest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, travelerId } = req.body;
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    // Process update
+    if (status) request.status = status;
+    if (travelerId) request.traveler = travelerId;
+
+    await request.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Request updated successfully',
+      data: request
+    });
+  } catch (error) {
+    next(error);
+  }
+};

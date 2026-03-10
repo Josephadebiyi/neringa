@@ -239,7 +239,7 @@ const [currency, setCurrency] = useState('EUR');
          console.log("Fetching wallet and profile data...");
 
          // 🟢 Fetch profile
-         const profileUrl = `${base}/api/baggo/Profile`;
+         const profileUrl = `${base}/api/bago/Profile`;
          const profileResponse = await fetch(profileUrl, {
            method: 'GET',
            credentials: 'include',
@@ -304,7 +304,7 @@ const [currency, setCurrency] = useState('EUR');
 
   useEffect(() => {
       const fetchBalance = async () => {
-        const profileUrl = `${backendomain.backendomain}/api/baggo/Profile`;
+        const profileUrl = `${backendomain.backendomain}/api/bago/Profile`;
 
         try {
           const response = await fetch(profileUrl, {
@@ -340,7 +340,7 @@ const [currency, setCurrency] = useState('EUR');
       }
 
       try {
-        const response = await fetch(`${backendomain.backendomain}/api/baggo/getRequests/${tripId}`, {
+        const response = await fetch(`${backendomain.backendomain}/api/bago/getRequests/${tripId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -447,7 +447,7 @@ useEffect(() => {
     try {
 
 
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/updateRequestStatus/${requestId}`, {
+      const response = await fetch(`${backendomain.backendomain}/api/bago/updateRequestStatus/${requestId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -567,7 +567,7 @@ useEffect(() => {
       const requestId = pkg?._id;
       if (!requestId) return;
 
-      const response = await fetch(`${base}/api/baggo/remove-cancelled-escrow`, {
+      const response = await fetch(`${base}/api/bago/remove-cancelled-escrow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId }),
@@ -598,7 +598,7 @@ useEffect(() => {
 
   const handleUpdateDate = async (requestId, field, date) => {
     try {
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/updateRequestDates/${requestId}`, {
+      const response = await fetch(`${backendomain.backendomain}/api/bago/updateRequestDates/${requestId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -843,7 +843,7 @@ useEffect(() => {
      });
 
      const response = await fetch(
-       `${backendomain.backendomain}/api/baggo/request/${requests[currentIndex]._id}/image`,
+       `${backendomain.backendomain}/api/bago/request/${requests[currentIndex]._id}/image`,
        {
          method: 'PUT',
          body: formData, // let fetch set Content-Type

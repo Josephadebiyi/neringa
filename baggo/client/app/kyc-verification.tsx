@@ -42,7 +42,7 @@ export default function KYCVerificationScreen() {
       }
 
       // Use the API interceptor - token is automatically attached
-      const response = await api.get('/api/baggo/kyc/status');
+      const response = await api.get('/api/bago/kyc/status');
 
       if (response.data.success) {
         const status = response.data.kycStatus;
@@ -66,7 +66,7 @@ export default function KYCVerificationScreen() {
         // If status is pending, check the actual DIDIT session status
         if (status === 'pending' && response.data.sessionId) {
           try {
-            const sessionResponse = await api.get(`/api/baggo/kyc/check-session/${response.data.sessionId}`);
+            const sessionResponse = await api.get(`/api/bago/kyc/check-session/${response.data.sessionId}`);
             const sessionData = sessionResponse.data.session;
             const diditStatus = sessionData.status?.toLowerCase();
 
@@ -139,7 +139,7 @@ export default function KYCVerificationScreen() {
     setCreatingSession(true);
     try {
       // Use the API interceptor - Bearer token is automatically attached
-      const response = await api.post('/api/baggo/kyc/create-session');
+      const response = await api.post('/api/bago/kyc/create-session');
 
       if (response.data.success) {
         if (response.data.status === 'approved') {

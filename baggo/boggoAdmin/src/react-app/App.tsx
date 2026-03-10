@@ -14,7 +14,7 @@ import EmailCampaignsPage from "./pages/EmailCampaigns";
 import DashboardLayout from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PricePerKgPage from "./pages/priceperkg";
-import KYCVerificationManager from "./pages/kyc.tsx"
+import KYCVerificationManager from "./pages/kyc"
 import PushNotificationPage from "./pages/push-notification"
 import DisputesPage from "./pages/disputes"
 import RefundsPage from "./pages/Refund"
@@ -97,6 +97,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <SupportPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <TrackingPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

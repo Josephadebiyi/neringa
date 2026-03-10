@@ -373,7 +373,7 @@ useEffect(() => {
         insuranceCost: insuranceFee.toFixed(2),
       };
 
-      const createResp = await axios.post(`${backendomain.backendomain}/api/baggo/createPackage`, payload, {
+      const createResp = await axios.post(`${backendomain.backendomain}/api/bago/createPackage`, payload, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });

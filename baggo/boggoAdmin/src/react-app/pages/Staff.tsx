@@ -8,10 +8,11 @@ import {
   ShieldAlert,
   Shield,
   Mail,
-  Check,
-  X,
+  XCircle,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  RefreshCcw
 } from "lucide-react";
 import { API_BASE_URL } from '../config/api';
 
@@ -58,7 +59,7 @@ export default function Staff() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -71,10 +72,20 @@ export default function Staff() {
     fetchStaff();
   }, []);
 
+  const resetForm = () => {
+    setFormData({ fullName: '', email: '', userName: '', password: '', role: 'SUPPORT_ADMIN' });
+    setEditingStaff(null);
+    setShowModal(false);
+    setError(null);
+  };
+
   const fetchStaff = async () => {
     try {
       setLoading(true);
-      const response = await fetch(API_BASE, { credentials: 'include' });
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(API_BASE, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await response.json();
       if (data.success) {
         setStaff(data.data);
@@ -86,25 +97,42 @@ export default function Staff() {
     }
   };
 
+  const handleEdit = (member: StaffMember) => {
+    setEditingStaff(member);
+    setFormData({
+      fullName: member.fullName,
+      email: member.email,
+      userName: member.userName,
+      password: '',
+      role: member.role
+    });
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      const response = await fetch(API_BASE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+      const token = localStorage.getItem('adminToken');
+      const url = editingStaff ? `${API_BASE}/${editingStaff._id}` : API_BASE;
+      const method = editingStaff ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(formData)
       });
 
       const data = await response.json();
       if (data.success) {
         fetchStaff();
-        setShowModal(false);
-        setFormData({ fullName: '', email: '', userName: '', password: '', role: 'SUPPORT_ADMIN' });
+        resetForm();
       } else {
-        setError(data.message || 'Failed to create staff member');
+        setError(data.message || `Failed to ${editingStaff ? 'update' : 'create'} staff member`);
       }
     } catch (error) {
       setError('Network error occurred');
@@ -116,9 +144,10 @@ export default function Staff() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this staff member?')) return;
     try {
+      const token = localStorage.getItem('adminToken');
       const response = await fetch(`${API_BASE}/${id}`, {
         method: 'DELETE',
-        credentials: 'include'
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) fetchStaff();
     } catch (error) {
@@ -134,7 +163,6 @@ export default function Staff() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-[#1e2749] to-[#5240E8]">
@@ -151,12 +179,11 @@ export default function Staff() {
         </button>
       </div>
 
-      {/* Role Cards Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {ROLES.map((role) => (
-          <div key={role.id} className="premium-card p-6 border-b-4" style={{ borderBottomColor: `var(--${role.color}-500)` }}>
+          <div key={role.id} className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
             <div className="flex items-center gap-4 mb-3">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${role.color}-50 text-${role.color}-600`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${role.color}-50 text-${role.color}-500`}>
                 <role.icon className="w-6 h-6" />
               </div>
               <div>
@@ -171,9 +198,8 @@ export default function Staff() {
         ))}
       </div>
 
-      {/* Main Table Area */}
-      <div className="premium-card overflow-hidden">
-        <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between">
+      <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100">
+        <div className="p-6 border-b border-gray-50 bg-gray-50/10 flex items-center justify-between">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -181,7 +207,7 @@ export default function Staff() {
               placeholder="Filter by name or username..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl focus:ring-4 focus:ring-[#5240E8]/10 outline-none text-sm font-medium"
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-[#5240E8]/10 outline-none text-sm font-medium transition-all"
             />
           </div>
         </div>
@@ -189,7 +215,7 @@ export default function Staff() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
             <Loader2 className="w-10 h-10 text-[#5240E8] animate-spin" />
-            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Synchronizing Permissions...</p>
+            <p className="text-gray-400 font-black text-[10px] uppercase tracking-widest">Synchronizing Permissions...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -250,14 +276,19 @@ export default function Staff() {
                       </td>
                       <td className="py-5 px-8 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-2 text-gray-400 hover:text-[#5240E8] transition-all">
-                            <Edit2 className="w-4 h-4" />
+                          <button
+                            onClick={() => handleEdit(member)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Staff"
+                          >
+                            <Edit2 size={18} />
                           </button>
                           <button
                             onClick={() => handleDelete(member._id)}
-                            className="p-2 text-gray-400 hover:text-red-500 transition-all"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete Staff"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </td>
@@ -270,120 +301,123 @@ export default function Staff() {
         )}
       </div>
 
-      {/* Provision Member Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <div>
-                <h2 className="text-2xl font-black text-[#1e2749]">Provision Team</h2>
-                <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mt-1">Assign secure administrative credentials</p>
-              </div>
-              <button onClick={() => setShowModal(false)} className="p-2 text-gray-400 hover:text-gray-900 bg-white rounded-2xl shadow-sm transition-all">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-8 space-y-5">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-[#5240E8]/10 outline-none font-bold text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Username</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.userName}
-                      onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
-                      className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-[#5240E8]/10 outline-none font-bold text-sm"
-                    />
-                  </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h3 className="text-xl font-black text-[#1e2749]">
+                    {editingStaff ? 'Edit Staff Member' : 'Provision Team'}
+                  </h3>
+                  <p className="text-gray-500 text-sm">Fill in the details below</p>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-[#5240E8]/10 outline-none font-bold text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Secure Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-[#5240E8]/10 outline-none font-bold text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Administrative Role</label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {ROLES.map(role => (
-                      <div
-                        key={role.id}
-                        onClick={() => setFormData({ ...formData, role: role.id as StaffMember['role'] })}
-                        className={`p-4 rounded-2xl cursor-pointer border-2 transition-all flex items-center justify-between ${formData.role === role.id
-                          ? 'border-[#5240E8] bg-[#5240E8]/5'
-                          : 'border-gray-50 bg-gray-50 hover:border-gray-100'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl bg-white shadow-sm text-${role.color}-600`}>
-                            <role.icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className={`font-black text-sm ${formData.role === role.id ? 'text-[#5240E8]' : 'text-[#1e2749]'}`}>{role.name}</p>
-                            <p className="text-[10px] font-medium text-gray-400">{role.desc}</p>
-                          </div>
-                        </div>
-                        {formData.role === role.id && <Check className="w-5 h-5 text-[#5240E8]" />}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <button
+                  onClick={resetForm}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle size={24} />
+                </button>
               </div>
 
               {error && (
-                <div className="p-4 bg-red-50 text-red-600 rounded-2xl flex items-center gap-2 text-sm font-bold">
-                  <AlertCircle className="w-4 h-4" />
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-center gap-2 text-xs font-bold">
+                  <AlertCircle size={14} />
                   {error}
                 </div>
               )}
 
-              <div className="flex gap-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-500 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-[2] bg-[#5240E8] text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#5240E8]/30 flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Finalize Provisioning
-                </button>
-              </div>
-            </form>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.fullName}
+                      onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                      className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 font-bold transition-all text-sm"
+                      placeholder="e.g. John Doe"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-2">Username</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.userName}
+                      onChange={e => setFormData({ ...formData, userName: e.target.value })}
+                      className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 font-bold transition-all text-sm"
+                      placeholder="johndoe"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 font-bold transition-all text-sm"
+                    placeholder="john@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-2">Password {editingStaff && '(Optional)'}</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required={!editingStaff}
+                      value={formData.password}
+                      onChange={e => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 font-bold transition-all text-sm"
+                      placeholder="••••••••"
+                    />
+                    <Lock className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-2">System Role</label>
+                  <select
+                    value={formData.role}
+                    onChange={e => setFormData({ ...formData, role: e.target.value as StaffMember['role'] })}
+                    className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 font-bold transition-all text-sm appearance-none"
+                  >
+                    <option value="SUPPORT_ADMIN">Support Admin</option>
+                    <option value="SAFETY_ADMIN">Safety Admin</option>
+                    <option value="SUPER_ADMIN">Super Admin</option>
+                  </select>
+                </div>
+
+                <div className="pt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="flex-1 px-8 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-[2] px-8 py-4 bg-[#5240E8] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5240E8]/20 disabled:opacity-50"
+                  >
+                    {submitting ? (
+                      <>
+                        <RefreshCcw className="animate-spin" size={16} />
+                        Processing...
+                      </>
+                    ) : (
+                      editingStaff ? 'Update Member' : 'Provision Member'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

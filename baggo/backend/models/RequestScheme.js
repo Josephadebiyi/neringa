@@ -20,6 +20,10 @@ const RequestSchema = new mongoose.Schema(
       type: Number,
       min: [0, 'Amount must be positive'],
     },
+    currency: {
+      type: String,
+      default: 'USD',
+    },
     traveler: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

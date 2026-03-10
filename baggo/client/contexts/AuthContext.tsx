@@ -33,6 +33,7 @@ type AuthContextType = {
   signUp: (email: string, password: string, firstName: string, lastName: string, phone: string, dateOfBirth?: string, country?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  authenticateWithToken: (token: string, userData: any) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -42,8 +43,9 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   signIn: async () => ({ error: null }),
   signUp: async () => ({ error: null }),
-  signOut: async () => {},
-  refreshUser: async () => {},
+  signOut: async () => { },
+  refreshUser: async () => { },
+  authenticateWithToken: async () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -64,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem('user'),
         getToken(),
       ]);
-      
+
       if (storedUser && storedToken) {
         const userData = JSON.parse(storedUser);
         setUser(userData);
@@ -79,18 +81,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const response = await api.post('/api/baggo/signin', {
+      const response = await api.post('/api/bago/signin', {
         email,
         password,
       });
 
       const data = response.data;
-      
+
       // Handle both old and new response formats for backward compatibility
       // Old format: { message: 'success', user: {...} }
       // New format: { success: true, token: '...', user: {...} }
       const isSuccess = data.success === true || (data.user && data.message?.toLowerCase() !== 'invalid credentials');
-      
+
       if (isSuccess && data.user) {
         const userData: User = {
           id: data.user.id || data.user._id,
@@ -108,20 +110,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           status: data.user.status,
           isVerified: data.user.isVerified,
         };
-        
+
         // Save token if provided (new format) or generate a session marker (old format)
         const token = data.token || `session_${Date.now()}`;
         await saveToken(token);
         await AsyncStorage.setItem('user', JSON.stringify(userData));
-        
+
         // Update context state - THIS IS THE KEY FIX
         setUser(userData);
         setSession({ user: userData, token });
-        
+
         console.log('AuthContext: User authenticated and state updated');
         return { error: null };
       }
-      
+
       return { error: { message: data.message || 'Sign in failed' } };
     } catch (error: any) {
       console.log('AuthContext signIn error:', error);
@@ -139,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     country?: string
   ) => {
     try {
-      const response = await api.post('/api/baggo/signup', {
+      const response = await api.post('/api/bago/signup', {
         firstName,
         lastName,
         email,
@@ -159,22 +161,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       // Call logout endpoint
-      await api.get('/api/baggo/logout');
+      await api.get('/api/bago/logout');
     } catch (error) {
       console.error('Logout error:', error);
     }
-    
+
     // Clear all stored data
     await removeToken();
     await AsyncStorage.removeItem('user');
-    
+
     setUser(null);
     setSession(null);
   };
 
   const refreshUser = async () => {
     try {
-      const response = await api.get('/api/baggo/Profile');
+      const response = await api.get('/api/bago/Profile');
       if (response.data?.data?.findUser) {
         const serverUser = response.data.data.findUser;
         const userData: User = {
@@ -207,15 +209,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = !!session?.token && !!user;
 
   return (
-    <AuthContext.Provider value={{ 
-      session, 
-      user, 
-      loading, 
+    <AuthContext.Provider value={{
+      session,
+      user,
+      loading,
       isAuthenticated,
-      signIn, 
-      signUp, 
+      signIn,
+      signUp,
       signOut,
       refreshUser,
+      authenticateWithToken: async (token: string, userData: any) => {
+        const userToSave: User = {
+          id: userData.id || userData._id,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          phone: userData.phone,
+          dateOfBirth: userData.dateOfBirth,
+          country: userData.country,
+          kycStatus: userData.kycStatus,
+          isKycCompleted: userData.kycStatus === 'approved' || userData.isKycCompleted,
+          paymentGateway: userData.paymentGateway,
+          preferredCurrency: userData.preferredCurrency,
+          emailVerified: userData.emailVerified,
+          status: userData.status,
+          isVerified: userData.isVerified,
+        };
+
+        await saveToken(token);
+        await AsyncStorage.setItem('user', JSON.stringify(userToSave));
+
+        setUser(userToSave);
+        setSession({ user: userToSave, token });
+        console.log('AuthContext: Authenticated with external token');
+      }
     }}>
       {children}
     </AuthContext.Provider>

@@ -50,7 +50,7 @@ export default function PersonalDetailsScreen() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await api.get('/api/baggo/Profile');
+        const response = await api.get('/api/bago/Profile');
         const data = response.data;
         
         if (data?.data?.findUser) {
@@ -123,7 +123,7 @@ export default function PersonalDetailsScreen() {
       });
 
       // Upload the image using api interceptor
-      const res = await api.post('/api/baggo/user/image', {
+      const res = await api.post('/api/bago/user/image', {
         image: `data:image/jpeg;base64,${base64}`,
         selectedAvatar: null, // Clear avatar selection
       });
@@ -149,7 +149,7 @@ export default function PersonalDetailsScreen() {
       setProfileImage(null); // Clear custom image when using preset avatar
 
       // Save avatar selection to backend
-      const res = await api.post('/api/baggo/user/avatar', {
+      const res = await api.post('/api/bago/user/avatar', {
         selectedAvatar: avatarId,
       });
 
@@ -200,7 +200,7 @@ export default function PersonalDetailsScreen() {
         updates.dateOfBirth = dateOfBirth;
       }
       
-      const response = await api.put('/api/baggo/edit', updates);
+      const response = await api.put('/api/bago/edit', updates);
       const data = response.data;
 
       if (data.status === 'success') {

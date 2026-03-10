@@ -87,6 +87,9 @@ export default function Tracking() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [updatingItem, setUpdatingItem] = useState<TableItem | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<string>('');
+  const [updateTravelerId, setUpdateTravelerId] = useState<string>('');
   const limit = 20;
 
   useEffect(() => {
@@ -132,7 +135,7 @@ export default function Tracking() {
         });
       });
 
-      const usersResponse = await fetch(`${API_BASE_URL}/GetAllUsers`, {
+      const usersResponse = await fetch(`${API_BASE_URL}/GetAllUsers?limit=1000`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -153,33 +156,39 @@ export default function Tracking() {
 
       // Transform tracking data into table items
       const tableItems: TableItem[] = [];
-      trackingData.data.forEach((item) => {
-        item.requests.forEach((req) => {
-          tableItems.push({
-            id: item.package._id,
-            title: item.package.description || `Package ${item.package._id}`,
-            tracking_number: item.package._id,
-            pickup_country: item.package.fromCountry,
-            delivery_country: item.package.toCountry,
-            sender_name: userMap[req.sender]
-              ? `${userMap[req.sender].firstName} ${userMap[req.sender].lastName}`
-              : 'Unknown',
-            sender_email: userMap[req.sender]?.email || 'Unknown',
-            traveler_name: req.traveler
-              ? userMap[req.traveler]
-                ? `${userMap[req.traveler].firstName} ${userMap[req.traveler].lastName}`
-                : 'Unknown'
-              : null,
-            traveler_email: req.traveler ? userMap[req.traveler]?.email || 'Unknown' : null,
-            traveler_id: req.traveler || null,
-            status: req.status,
-            price: req.insuranceCost || 0,
-            commission_amount: req.insuranceCost ? req.insuranceCost * 0.1 : 0, // 10% commission
-            created_at: item.package.createdAt,
-            request_id: req._id,
+      if (trackingData.data && Array.isArray(trackingData.data)) {
+        trackingData.data.forEach((item) => {
+          if (!item.package || !item.requests) return;
+
+          item.requests.forEach((req) => {
+            if (!req) return;
+
+            tableItems.push({
+              id: item.package._id,
+              title: item.package.description || `Package ${item.package._id}`,
+              tracking_number: item.package._id,
+              pickup_country: item.package.fromCountry || 'Unknown',
+              delivery_country: item.package.toCountry || 'Unknown',
+              sender_name: (req.sender && userMap[req.sender])
+                ? `${userMap[req.sender].firstName || ''} ${userMap[req.sender].lastName || ''}`.trim() || 'User'
+                : 'Unknown',
+              sender_email: (req.sender && userMap[req.sender]?.email) || 'Unknown',
+              traveler_name: req.traveler
+                ? userMap[req.traveler]
+                  ? `${userMap[req.traveler].firstName || ''} ${userMap[req.traveler].lastName || ''}`.trim() || 'Traveler'
+                  : 'Unknown'
+                : null,
+              traveler_email: req.traveler ? userMap[req.traveler]?.email || 'Unknown' : null,
+              traveler_id: req.traveler || null,
+              status: req.status || 'pending',
+              price: Number(req.insuranceCost) || 0,
+              commission_amount: Number(req.insuranceCost) ? Number(req.insuranceCost) * 0.1 : 0,
+              created_at: item.package.createdAt || new Date().toISOString(),
+              request_id: req._id,
+            });
           });
         });
-      });
+      }
 
       setItems(tableItems);
       setUsers(userMap);
@@ -227,6 +236,31 @@ export default function Tracking() {
   };
 
   const totalPages = Math.ceil(totalCount / limit);
+
+  const handleUpdateRequest = async () => {
+    if (!updatingItem) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/tracking/${updatingItem.request_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: updateStatus,
+          travelerId: updateTravelerId || null
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to update request');
+
+      setUpdatingItem(null);
+      fetchTrackingAndUsers();
+    } catch (error) {
+      alert('Failed to update: ' + error);
+    }
+  };
 
   if (loading) {
     return (
@@ -361,17 +395,17 @@ export default function Tracking() {
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(item.status)}`}
                     >
-                      {item.status.replace('_', ' ')}
+                      {(item.status || 'pending').replace('_', ' ')}
                     </span>
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-2">
                       <DollarSign className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-900 font-medium">${item.price.toFixed(2)}</span>
+                      <span className="text-gray-900 font-medium">${(Number(item.price) || 0).toFixed(2)}</span>
                     </div>
                     {item.commission_amount > 0 && (
                       <div className="text-xs text-gray-500">
-                        Commission: ${item.commission_amount.toFixed(2)}
+                        Commission: ${(Number(item.commission_amount) || 0).toFixed(2)}
                       </div>
                     )}
                   </td>
@@ -383,11 +417,24 @@ export default function Tracking() {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex space-x-2">
-                      {item.traveler_id ? null : (
+                      {item.traveler_id ? (
                         <button
                           onClick={() => {
-                            // Placeholder for assign traveler logic
-                            alert(`Assign traveler to package ${item.id}`);
+                            setUpdatingItem(item);
+                            setUpdateStatus(item.status);
+                            setUpdateTravelerId(item.traveler_id || '');
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          <span>Update</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setUpdatingItem(item);
+                            setUpdateStatus(item.status);
+                            setUpdateTravelerId('');
                           }}
                           className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center space-x-1"
                         >
@@ -427,6 +474,61 @@ export default function Tracking() {
           </div>
         </div>
       </div>
+
+      {/* Update Modal */}
+      {updatingItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="font-bold text-gray-900 text-lg">Update Booking Request</h3>
+              <button onClick={() => setUpdatingItem(null)} className="text-gray-400 hover:text-gray-600">
+                ✕
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={updateStatus}
+                  onChange={(e) => setUpdateStatus(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {REQUEST_STATUSES.map(s => (
+                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assign Traveler Account</label>
+                <select
+                  value={updateTravelerId}
+                  onChange={(e) => setUpdateTravelerId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- No Traveler Assigned --</option>
+                  {Object.values(users).map(u => (
+                    <option key={u._id} value={u._id}>{u.firstName} {u.lastName} ({u.email})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setUpdatingItem(null)}
+                className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors border border-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateRequest}
+                className="px-4 py-2 bg-blue-600 text-white font-medium hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import express from 'express';
 import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats } from '../controllers/userController.js';
+import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
@@ -47,6 +48,7 @@ userRouter.post('/:tripId/reviews', isAuthenticated, AddReviewToTrip);
 userRouter.get("/MyTrips", isAuthenticated, MyTrips)
 userRouter.get("/getuser", isAuthenticated, getUser)
 userRouter.get("/getTravelers", getTravelers)
+userRouter.get("/get-settings", getCurrentSetting)
 userRouter.get("/Profile", isAuthenticated, Profile)
 userRouter.get("/logout", logout)
 userRouter.put("/edit", isAuthenticated, edit)

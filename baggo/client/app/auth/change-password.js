@@ -54,7 +54,7 @@ export default function ResetPassword() {
     }
 
     try {
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/reset-password`, {
+      const response = await fetch(`${backendomain.backendomain}/api/bago/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

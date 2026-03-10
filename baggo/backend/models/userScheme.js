@@ -29,6 +29,10 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  currency: {
+    type: String,
+    default: 'USD',
+  },
 });
 
 const userSchema = new mongoose.Schema({

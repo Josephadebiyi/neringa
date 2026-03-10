@@ -1,11 +1,12 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { saveToken } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGoogleAuth, processGoogleAuthResult } from '@/utils/googleAuth';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -15,7 +16,37 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
+  const { signIn, authenticateWithToken } = useAuth();
+  const { request, response, promptAsync } = useGoogleAuth();
+
+  useEffect(() => {
+    if (response) {
+      processGoogleAuthResult(
+        response,
+        async (token: string, userInfo: any) => {
+          try {
+            // Send Google token and user info to your backend
+            const res = await api.post('/api/bago/google-auth', {
+              accessToken: token,
+              email: userInfo.email,
+              name: userInfo.name,
+              picture: userInfo.picture,
+            });
+
+            if (res.data.success) {
+              await authenticateWithToken(res.data.token, res.data.user);
+              router.replace('/(tabs)');
+            } else {
+              setError(res.data.message || 'Google sign-in failed');
+            }
+          } catch (err: any) {
+            setError(err.message || 'Failed to sign in with Google');
+          }
+        },
+        (error: string) => setError(error)
+      );
+    }
+  }, [response]);
 
   const handleSignIn = async () => {
     setError('');
@@ -119,6 +150,24 @@ export default function SignIn() {
               ) : (
                 <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Sign In</Text>
               )}
+            </TouchableOpacity>
+
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.googleButton, { backgroundColor: '#FFFFFF', borderColor: '#E5E5E5' }]}
+              onPress={() => promptAsync()}
+              disabled={loading || !request}
+            >
+              <Image
+                source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                style={styles.googleLogo}
+              />
+              <Text style={[styles.googleButtonText, { color: '#1A1A1A' }]}>Continue with Google</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -240,6 +289,40 @@ const styles = StyleSheet.create({
   },
   linkTextBold: {
     color: '#6366F1',
+    fontWeight: '600',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#9E9E9E',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  googleLogo: {
+    width: 20,
+    height: 20,
+  },
+  googleButtonText: {
+    fontSize: 16,
     fontWeight: '600',
   },
 });

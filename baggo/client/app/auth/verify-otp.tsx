@@ -35,7 +35,7 @@ export default function VerifyOTP() {
     }
 
     try {
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/verify-otp`, {
+      const response = await fetch(`${backendomain.backendomain}/api/bago/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
@@ -62,7 +62,7 @@ export default function VerifyOTP() {
     setResending(true);
 
     try {
-      const response = await fetch(`${backendomain.backendomain}/api/baggo/resend-otp`, {
+      const response = await fetch(`${backendomain.backendomain}/api/bago/resend-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
