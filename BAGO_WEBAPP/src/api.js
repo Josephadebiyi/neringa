@@ -30,10 +30,16 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         const originalRequest = error.config;
+        // Only log out on specific token-related 401 errors, not all 401s
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             const errorCode = error.response?.data?.code;
-            if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'INVALID_TOKEN') {
+            const errorMessage = error.response?.data?.message;
+
+            // Only logout if it's a token expiry or invalid token error
+            // Don't logout for other 401 errors (like "User not found" during operations)
+            if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'INVALID_TOKEN' ||
+                errorMessage?.toLowerCase().includes('token')) {
                 removeToken();
                 window.location.href = '/login';
             }
