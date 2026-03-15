@@ -35,12 +35,6 @@ api.interceptors.response.use(
         // CRITICAL: Do NOT auto-logout on any error, including 401
         // Only explicit user logout should clear auth state
         // This prevents session loss after successful mutations
-
-        // Log errors for debugging but don't interfere with auth state
-        if (error.response) {
-            console.warn(`API Error ${error.response.status}:`, error.response.data);
-        }
-
         return Promise.reject(error);
     }
 );
