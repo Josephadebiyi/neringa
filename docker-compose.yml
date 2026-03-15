@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: bago-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: bago_admin_password
+      MONGO_INITDB_DATABASE: baggo
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - bago-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./BAGO_BACKEND
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: bago-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    env_file:
+      - ./BAGO_BACKEND/.env
+    volumes:
+      - ./BAGO_BACKEND:/app
+      - /app/node_modules
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - bago-network
+    command: npm start
+
+  # Web Application (Frontend)
+  webapp:
+    build:
+      context: ./BAGO_WEBAPP
+      dockerfile: ../docker/Dockerfile.webapp
+    container_name: bago-webapp
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      - ./BAGO_WEBAPP:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - bago-network
+    command: npm run dev -- --host
+
+  # Admin Panel
+  admin:
+    build:
+      context: ./ADMIN_NEW
+      dockerfile: ../docker/Dockerfile.admin
+    container_name: bago-admin
+    restart: unless-stopped
+    ports:
+      - "5174:5174"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      - ./ADMIN_NEW:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - bago-network
+    command: npm run dev -- --host --port 5174
+
+networks:
+  bago-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local

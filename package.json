@@ -1,0 +1,72 @@
+{
+  "name": "bago-platform",
+  "version": "1.0.0",
+  "description": "Bago - Peer-to-peer international package delivery platform",
+  "private": true,
+  "workspaces": [
+    "BAGO_BACKEND",
+    "BAGO_WEBAPP",
+    "ADMIN_NEW",
+    "BAGO_MOBILE"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:backend && npm run install:webapp && npm run install:admin && npm run install:mobile",
+    "install:backend": "cd BAGO_BACKEND && npm install",
+    "install:webapp": "cd BAGO_WEBAPP && npm install",
+    "install:admin": "cd ADMIN_NEW && npm install",
+    "install:mobile": "cd BAGO_MOBILE && npm install",
+
+    "dev": "concurrently -n \"BACKEND,WEBAPP,ADMIN\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:backend\" \"npm run dev:webapp\" \"npm run dev:admin\"",
+    "dev:backend": "cd BAGO_BACKEND && npm start",
+    "dev:webapp": "cd BAGO_WEBAPP && npm run dev",
+    "dev:admin": "cd ADMIN_NEW && npm run dev",
+    "dev:mobile": "cd BAGO_MOBILE && npm run dev",
+    "dev:all": "concurrently -n \"BACKEND,WEBAPP,ADMIN,MOBILE\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold,bgYellow.bold\" \"npm run dev:backend\" \"npm run dev:webapp\" \"npm run dev:admin\" \"npm run dev:mobile\"",
+
+    "build": "npm run build:backend && npm run build:webapp && npm run build:admin",
+    "build:backend": "echo 'Backend does not require build step'",
+    "build:webapp": "cd BAGO_WEBAPP && npm run build",
+    "build:admin": "cd ADMIN_NEW && npm run build",
+    "build:mobile": "cd BAGO_MOBILE && npm run build:web",
+
+    "start": "npm run dev",
+    "start:prod": "cd BAGO_BACKEND && npm start",
+
+    "clean": "npm run clean:backend && npm run clean:webapp && npm run clean:admin && npm run clean:mobile",
+    "clean:backend": "cd BAGO_BACKEND && rm -rf node_modules package-lock.json",
+    "clean:webapp": "cd BAGO_WEBAPP && rm -rf node_modules package-lock.json dist",
+    "clean:admin": "cd ADMIN_NEW && rm -rf node_modules package-lock.json dist",
+    "clean:mobile": "cd BAGO_MOBILE && rm -rf node_modules package-lock.json .expo",
+
+    "test": "echo 'No tests configured yet'",
+    "lint": "npm run lint:webapp && npm run lint:admin",
+    "lint:webapp": "cd BAGO_WEBAPP && npm run lint || echo 'No lint script'",
+    "lint:admin": "cd ADMIN_NEW && npm run lint",
+
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:rebuild": "docker-compose up -d --build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/bago-platform.git"
+  },
+  "keywords": [
+    "peer-to-peer",
+    "delivery",
+    "shipping",
+    "international",
+    "travel",
+    "courier"
+  ],
+  "author": "Bago Team",
+  "license": "MIT"
+}
