@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.deracali.boltexponativewind",
-      "buildNumber": "30",
+      "buildNumber": "33",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
