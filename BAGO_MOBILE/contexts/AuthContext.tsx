@@ -62,15 +62,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkSession = async () => {
     try {
-      const [storedUser, storedToken] = await Promise.all([
-        AsyncStorage.getItem('user'),
-        getToken(),
-      ]);
+      let storedUser = null;
+      let storedToken = null;
+
+      try {
+        storedUser = await AsyncStorage.getItem('user');
+      } catch (err) {
+        console.log('Error getting stored user:', err);
+      }
+
+      try {
+        storedToken = await getToken();
+      } catch (err) {
+        console.log('Error getting stored token:', err);
+      }
 
       if (storedUser && storedToken) {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        setSession({ user: userData, token: storedToken });
+        try {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+          setSession({ user: userData, token: storedToken });
+        } catch (parseErr) {
+          console.error('Error parsing user data:', parseErr);
+        }
       }
     } catch (error) {
       console.error('Error checking session:', error);
@@ -202,6 +216,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
+      // CRITICAL: Do NOT reset auth state on error
+      // Just log the error and keep user logged in
       console.error('Error refreshing user:', error);
     }
   };

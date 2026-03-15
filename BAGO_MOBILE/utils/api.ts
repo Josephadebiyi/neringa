@@ -42,15 +42,16 @@ export const removeToken = async (): Promise<void> => {
   }
 };
 
-// Request interceptor - attach Bearer token to all requests
+// Request interceptor - attaches fresh token to EVERY request (GET, POST, PUT, DELETE, PATCH)
 api.interceptors.request.use(
   async (config) => {
+    // IMPORTANT: Read token fresh on each request, not cached
     const token = await getToken();
-    
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     return config;
   },
   (error) => {
@@ -58,31 +59,21 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor - handle 401 errors globally
+// Response interceptor - handle errors WITHOUT auto-logout
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   async (error) => {
-    const originalRequest = error.config;
-    
-    // If 401 error and not already retried
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      // Check if token expired
-      const errorCode = error.response?.data?.code;
-      
-      if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'INVALID_TOKEN') {
-        // Clear stored token
-        await removeToken();
-        await AsyncStorage.removeItem('user');
-        
-        // The app will need to handle this - typically by redirecting to login
-        // This is done through the AuthContext
-      }
+    // CRITICAL: Do NOT auto-logout on any error, including 401
+    // Only explicit user logout should clear auth state
+    // This prevents session loss after successful mutations (POST/PUT/DELETE)
+
+    // Log errors for debugging but don't interfere with auth state
+    if (error.response) {
+      console.warn(`Mobile API Error ${error.response.status}:`, error.response.data);
     }
-    
+
     return Promise.reject(error);
   }
 );
