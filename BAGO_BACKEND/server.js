@@ -651,35 +651,22 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
 });
 
 
-// ✅ SERVE STATIC FRONTEND FILES
-const adminDist = path.join(__dirname, '../BAGO_ADMIN/dist');
-const clientDist = path.join(__dirname, '../BAGO_WEBAPP/dist'); // Main web app outside the neringa folder
+// ✅ PRODUCTION NOTE: Frontend files should be served from separate hosting (Hostinger, Vercel, etc.)
+// Backend on Render.com is API-only. Admin and webapp dist folders don't exist in git.
+// Uncomment below only for local development if you want backend to serve frontend files.
 
-// Admin panel at /admin
-app.use('/admin', express.static(adminDist));
-
-// Main app web export at root
-app.use(express.static(clientDist));
-
-// Catch-all route to serve the Admin panel for /admin subpaths
-app.get(/^\/admin/, (req, res) => {
-  // If the URL is exactly /admin (no trailing slash), redirect to /admin/
-  // This is crucial for relative asset paths (assets/...) to resolve correctly
-  if (req.originalUrl === '/admin') {
-    return res.redirect(301, '/admin/');
-  }
-  res.sendFile(path.join(adminDist, 'index.html'));
-});
-
-// The "catchall" handler: for any request that doesn't
-// match one above, send back the Main app version
-app.get(/.*/, (req, res, next) => {
-  // If request contains /api, skip
-  if (req.url.startsWith('/api') || req.url.startsWith('/admin')) {
-    return next();
-  }
-  res.sendFile(path.join(clientDist, 'index.html'));
-});
+// const adminDist = path.join(__dirname, '../ADMIN_NEW/dist');
+// const clientDist = path.join(__dirname, '../BAGO_WEBAPP/dist');
+// app.use('/admin', express.static(adminDist));
+// app.use(express.static(clientDist));
+// app.get(/^\/admin/, (req, res) => {
+//   if (req.originalUrl === '/admin') return res.redirect(301, '/admin/');
+//   res.sendFile(path.join(adminDist, 'index.html'));
+// });
+// app.get(/.*/, (req, res, next) => {
+//   if (req.url.startsWith('/api') || req.url.startsWith('/admin')) return next();
+//   res.sendFile(path.join(clientDist, 'index.html'));
+// });
 
 // ✅ Error handling middleware
 app.use((err, req, res, next) => {

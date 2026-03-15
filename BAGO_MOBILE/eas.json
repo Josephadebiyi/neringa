@@ -39,28 +39,18 @@
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release",
-        "image": "latest"
+        "image": "latest",
+        "autoIncrement": false
       },
       "android": {
         "buildType": "app-bundle"
       },
-      "autoIncrement": true,
       "env": {
         "APP_ENV": "production"
       }
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "${EXPO_APPLE_ID}",
-        "ascAppId": "${EXPO_ASC_APP_ID}",
-        "appleTeamId": "${EXPO_APPLE_TEAM_ID}"
-      },
-      "android": {
-        "track": "internal",
-        "releaseStatus": "draft"
-      }
-    }
+    "production": {}
   }
 }
