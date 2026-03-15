@@ -24,6 +24,10 @@ export const AuthProvider = ({ children }) => {
             return;
         }
 
+        // CRITICAL: If token exists, user IS authenticated
+        // Set immediately to prevent redirect loops
+        setIsAuthenticated(true);
+
         try {
             const response = await api.get('/api/bago/getuser');
             if (response.data.success) {
@@ -32,16 +36,33 @@ export const AuthProvider = ({ children }) => {
                 setIsAuthenticated(true);
                 localStorage.setItem('user', JSON.stringify(userData));
             } else {
-                // Invalid response, clear auth
-                removeToken();
-                setUser(null);
-                setIsAuthenticated(false);
+                // Token exists but invalid response
+                // Try to get user from localStorage as fallback
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try {
+                        setUser(JSON.parse(storedUser));
+                        setIsAuthenticated(true);
+                    } catch (e) {
+                        console.warn('Could not parse stored user');
+                    }
+                }
             }
         } catch (error) {
-            // Clear all auth data on error
-            removeToken();
-            setUser(null);
-            setIsAuthenticated(false);
+            // Don't auto-logout on errors - user must explicitly logout
+            // Token still valid, keep user authenticated
+            console.error('Error checking auth status:', error);
+
+            // Try to load user from localStorage
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                try {
+                    setUser(JSON.parse(storedUser));
+                    setIsAuthenticated(true);
+                } catch (e) {
+                    console.warn('Could not parse stored user');
+                }
+            }
         } finally {
             setLoading(false);
         }
