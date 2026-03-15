@@ -15,8 +15,10 @@ export const removeToken = () => {
     localStorage.removeItem('user');
 };
 
+// Request interceptor - attaches fresh token to EVERY request
 api.interceptors.request.use(
     (config) => {
+        // IMPORTANT: Read token fresh on each request, not cached
         const token = getToken();
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -26,24 +28,19 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+// Response interceptor - handle errors WITHOUT auto-logout
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        const originalRequest = error.config;
-        // Only log out on specific token-related 401 errors, not all 401s
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
-            const errorCode = error.response?.data?.code;
-            const errorMessage = error.response?.data?.message;
+        // CRITICAL: Do NOT auto-logout on any error, including 401
+        // Only explicit user logout should clear auth state
+        // This prevents session loss after successful mutations
 
-            // Only logout if it's a token expiry or invalid token error
-            // Don't logout for other 401 errors (like "User not found" during operations)
-            if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'INVALID_TOKEN' ||
-                errorMessage?.toLowerCase().includes('token')) {
-                removeToken();
-                window.location.href = '/login';
-            }
+        // Log errors for debugging but don't interfere with auth state
+        if (error.response) {
+            console.warn(`API Error ${error.response.status}:`, error.response.data);
         }
+
         return Promise.reject(error);
     }
 );

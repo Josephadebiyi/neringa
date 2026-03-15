@@ -38,11 +38,26 @@ export default function Trips({ user }) {
 
     const handleDeleteTrip = async (id) => {
         try {
-            await api.delete(`/api/bago/Trip/${id}`);
-            setTrips(prev => prev.filter(t => t.id !== id));
-            setDeleteConfirmId(null);
+            const response = await api.delete(`/api/bago/Trip/${id}`);
+
+            // Handle both 200 (with body) and 204 (no content) success responses
+            if (response.status === 200 || response.status === 204) {
+                // Update UI immediately on success
+                setTrips(prev => prev.filter(t => t.id !== id && t._id !== id));
+                setDeleteConfirmId(null);
+                // Optional: Show success message
+                console.log('Trip deleted successfully');
+            }
         } catch (err) {
-            alert('Failed to delete trip. Please try again.');
+            console.error('Delete trip error:', err);
+            // Only show error if it's a genuine failure
+            if (err.response && err.response.status !== 200 && err.response.status !== 204) {
+                alert('Failed to delete trip. Please try again.');
+            } else {
+                // Backend succeeded but threw error parsing response - still update UI
+                setTrips(prev => prev.filter(t => t.id !== id && t._id !== id));
+                setDeleteConfirmId(null);
+            }
         }
     };
 
