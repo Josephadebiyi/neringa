@@ -69,9 +69,9 @@ export default function Login() {
     });
 
     return (
-        <div className="min-h-screen bg-white flex lg:flex-row flex-col overflow-hidden">
+        <div className="min-h-screen bg-white flex lg:flex-row flex-col">
             {/* Left side banner */}
-            <div className="lg:w-1/2 w-full lg:h-screen h-[35vh] relative flex flex-col justify-between p-8 md:p-16 overflow-hidden bg-[#012126] sticky top-0">
+            <div className="lg:w-1/2 w-full lg:h-screen h-[35vh] relative flex flex-col justify-between p-8 md:p-16 overflow-hidden bg-[#012126]">
                 {/* Background Graphics */}
                 <div className="absolute inset-0 z-0">
                     <img src="/assets/hero_bg.png" className="w-full h-full object-cover opacity-20 mix-blend-overlay" alt="" />
