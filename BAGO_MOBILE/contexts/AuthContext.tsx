@@ -77,11 +77,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Error getting stored token:', err);
       }
 
+      // CRITICAL FIX: If token exists, set session immediately
+      // This prevents false logouts when API is slow/fails
       if (storedUser && storedToken) {
         try {
           const userData = JSON.parse(storedUser);
+          // Set user and session IMMEDIATELY - don't wait for API
           setUser(userData);
           setSession({ user: userData, token: storedToken });
+          console.log('AuthContext: Session restored from storage');
         } catch (parseErr) {
           console.error('Error parsing user data:', parseErr);
         }

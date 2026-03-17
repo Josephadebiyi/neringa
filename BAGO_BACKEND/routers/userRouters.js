@@ -7,9 +7,9 @@ import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
 import { createPackage } from '../controllers/PackageController.js';
-import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus } from '../controllers/RequestController.js';
+import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber } from '../controllers/RequestController.js';
 import { recentOrder } from '../controllers/getRecentRequest.js';
-import { getConversations, getMessages, sendMessage } from '../controllers/MessageController.js';
+import { getConversations, getMessages, sendMessage, deleteConversation } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import {
   requestRefund,
@@ -84,6 +84,7 @@ userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, updateRequest
 userRouter.put('/request/:requestId/image', isAuthenticated, uploadRequestImage);
 userRouter.put('/request/:requestId/confirm-received', isAuthenticated, confirmReceivedBySender);
 userRouter.put('/request/:requestId/traveler-proof', isAuthenticated, uploadTravelerProof);
+userRouter.get('/request/:requestId/pdf', isAuthenticated, downloadRequestPDF);
 
 // 💰 Wallet & Payments
 userRouter.get('/getWallet', isAuthenticated, getWallet);
@@ -99,6 +100,7 @@ userRouter.post("/remove-cancelled-escrow", handleCancelledRequestEscrow);
 userRouter.get('/conversations', isAuthenticated, getConversations);
 userRouter.get('/conversations/:conversationId/messages', isAuthenticated, getMessages);
 userRouter.post('/conversations/:conversationId/send', isAuthenticated, sendMessage);
+userRouter.delete('/conversations/:conversationId', isAuthenticated, deleteConversation);
 userRouter.get("/getNotifications", isAuthenticated, getNotifications)
 userRouter.put("/markNotificationAsRead/:notificationId", isAuthenticated, markNotificationAsRead)
 userRouter.get("/GetDetails/:requestId", isAuthenticated, GetDetials)
@@ -107,4 +109,8 @@ userRouter.put("/markAllNotificationsAsRead", isAuthenticated, markAllNotificati
 userRouter.put("/updateRequestDates/:requestId", isAuthenticated, updateRequestDates)
 userRouter.get('/user-stats', getUserStats);
 userRouter.post('/push-token', isAuthenticated, savePushToken);
+
+// 🌍 Public Routes (No Auth)
+userRouter.get('/public/track/:trackingNumber', getPublicTrackingByNumber);
+
 export default userRouter;

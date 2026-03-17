@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Auth Debug</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #5845D8;
+        }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .info { border-left-color: #0dcaf0; background: #d1ecf1; }
+        button {
+            background: #5845D8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #4534c7; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        #log { margin-top: 20px; }
+        .log-entry {
+            padding: 8px;
+            margin: 5px 0;
+            background: #fff;
+            border-left: 3px solid #0dcaf0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Google Auth Complete Diagnostic</h1>
+
+    <div class="box info">
+        <strong>Current URL:</strong> <span id="currentUrl"></span><br>
+        <strong>Client ID:</strong> <code>207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0</code><br>
+        <strong>Backend:</strong> <code id="backendUrl"></code>
+    </div>
+
+    <div class="box">
+        <h3>Step 1: Check Google Library</h3>
+        <button onclick="checkGoogleLib()">Test Google Library</button>
+        <div id="test1"></div>
+    </div>
+
+    <div class="box">
+        <h3>Step 2: Test Google Sign-In (Simple)</h3>
+        <div id="googleButtonSimple"></div>
+        <div id="test2"></div>
+    </div>
+
+    <div class="box">
+        <h3>Step 3: Test Backend API</h3>
+        <button onclick="testBackend()">Test Backend Connection</button>
+        <div id="test3"></div>
+    </div>
+
+    <div class="box">
+        <h3>Step 4: Full Integration Test</h3>
+        <button onclick="fullTest()">Run Complete Test</button>
+        <div id="test4"></div>
+    </div>
+
+    <div id="log"></div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        const CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
+        const BACKEND_URL = "https://neringa.onrender.com/api";
+        const logs = [];
+
+        document.getElementById('currentUrl').textContent = window.location.origin;
+        document.getElementById('backendUrl').textContent = BACKEND_URL;
+
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const entry = `[${time}] ${message}`;
+            logs.push(entry);
+
+            const logDiv = document.getElementById('log');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.textContent = entry;
+            logDiv.appendChild(logEntry);
+
+            console.log(message);
+        }
+
+        function checkGoogleLib() {
+            const result = document.getElementById('test1');
+            if (typeof google !== 'undefined' && google.accounts) {
+                result.innerHTML = '<div class="success">✅ Google OAuth library loaded successfully</div>';
+                log('✅ Google library OK');
+            } else {
+                result.innerHTML = '<div class="error">❌ Google OAuth library NOT loaded</div>';
+                log('❌ Google library FAILED', 'error');
+            }
+        }
+
+        function handleCredentialResponse(response) {
+            const result = document.getElementById('test2');
+            try {
+                const payload = JSON.parse(atob(response.credential.split('.')[1]));
+                result.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Google Sign-In SUCCESS!</h4>
+                        <p>Email: ${payload.email}</p>
+                        <p>Name: ${payload.name}</p>
+                    </div>
+                `;
+                log(`✅ Google auth success: ${payload.email}`);
+
+                // Now test backend
+                testBackendWithToken(response.credential);
+            } catch (e) {
+                result.innerHTML = `<div class="error">❌ Token decode error: ${e.message}</div>`;
+                log(`❌ Token decode failed: ${e.message}`, 'error');
+            }
+        }
+
+        function handleGoogleError(error) {
+            const result = document.getElementById('test2');
+            let errorType = error.type || 'unknown';
+            let message = '';
+
+            log(`❌ Google error: ${errorType}`, 'error');
+
+            if (errorType === 'idpiframe_initialization_failed') {
+                message = `
+                    <div class="error">
+                        <h4>❌ Domain Not Authorized</h4>
+                        <p><strong>Problem:</strong> ${window.location.origin} is not in Google Cloud Console</p>
+                        <h5>Fix:</h5>
+                        <ol>
+                            <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
+                            <li>Find: <code>207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0</code></li>
+                            <li>Add to "Authorized JavaScript origins":<br><code>${window.location.origin}</code></li>
+                            <li>Add to "Authorized redirect URIs":<br>
+                                <code>${window.location.origin}</code><br>
+                                <code>${window.location.origin}/login</code><br>
+                                <code>${window.location.origin}/signup</code>
+                            </li>
+                            <li>Save and wait 10 minutes</li>
+                        </ol>
+                    </div>
+                `;
+            } else if (errorType === 'popup_failed_to_open' || errorType === 'popup_blocked_by_browser') {
+                message = `
+                    <div class="error">
+                        <h4>❌ Popup Blocked</h4>
+                        <p>Your browser blocked the Google popup. Allow popups and try again.</p>
+                    </div>
+                `;
+            } else {
+                message = `
+                    <div class="error">
+                        <h4>❌ Error: ${errorType}</h4>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                    </div>
+                `;
+            }
+
+            result.innerHTML = message;
+        }
+
+        async function testBackend() {
+            const result = document.getElementById('test3');
+            result.innerHTML = '<p>Testing backend...</p>';
+            log('Testing backend connection...');
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/bago/google-auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accessToken: 'test-invalid-token' })
+                });
+
+                const data = await response.json();
+                log(`Backend response: ${response.status} - ${JSON.stringify(data)}`);
+
+                if (response.status === 400 && data.message && data.message.includes('Invalid')) {
+                    result.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Backend is Reachable!</h4>
+                            <p>Status: ${response.status}</p>
+                            <p>Message: ${data.message}</p>
+                            <p><em>This is good! Backend rejected invalid token as expected.</em></p>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <div class="info">
+                            <h4>Backend Response:</h4>
+                            <p>Status: ${response.status}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Backend Connection Failed</h4>
+                        <p>Error: ${error.message}</p>
+                        <p><strong>Possible causes:</strong></p>
+                        <ul>
+                            <li>Backend is down</li>
+                            <li>CORS not allowing ${window.location.origin}</li>
+                            <li>Network issue</li>
+                        </ul>
+                    </div>
+                `;
+                log(`❌ Backend failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBackendWithToken(idToken) {
+            const result = document.getElementById('test4');
+            result.innerHTML = '<p>Testing backend with real token...</p>';
+            log('Testing backend with Google token...');
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/bago/google-auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken })
+                });
+
+                const data = await response.json();
+                log(`Backend auth response: ${response.status} - ${JSON.stringify(data)}`);
+
+                if (data.success) {
+                    result.innerHTML = `
+                        <div class="success">
+                            <h4>✅ COMPLETE SUCCESS!</h4>
+                            <p><strong>Google Auth is fully working!</strong></p>
+                            <p>User: ${data.user.email}</p>
+                            <p>Token received from backend</p>
+                            <hr>
+                            <p><em>Your Google Auth is 100% functional. If your app shows errors, it's a different issue.</em></p>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Backend Rejected Token</h4>
+                            <p>Message: ${data.message}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Backend Request Failed</h4>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+                log(`❌ Backend auth failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function fullTest() {
+            const result = document.getElementById('test4');
+            result.innerHTML = '<p>Running complete diagnostic...</p>';
+            log('=== STARTING FULL TEST ===');
+
+            // Test 1: Library
+            checkGoogleLib();
+            await new Promise(r => setTimeout(r, 500));
+
+            // Test 2: Backend
+            await testBackend();
+            await new Promise(r => setTimeout(r, 500));
+
+            result.innerHTML += '<p>Now click the Google button above to test sign-in...</p>';
+        }
+
+        // Initialize Google Sign-In
+        window.onload = function() {
+            setTimeout(() => {
+                try {
+                    if (typeof google === 'undefined' || !google.accounts) {
+                        document.getElementById('test2').innerHTML = '<div class="error">❌ Google library not loaded. Check internet connection.</div>';
+                        return;
+                    }
+
+                    google.accounts.id.initialize({
+                        client_id: CLIENT_ID,
+                        callback: handleCredentialResponse,
+                        error_callback: handleGoogleError
+                    });
+
+                    google.accounts.id.renderButton(
+                        document.getElementById('googleButtonSimple'),
+                        {
+                            theme: 'outline',
+                            size: 'large',
+                            text: 'signin_with',
+                            width: 300
+                        }
+                    );
+
+                    document.getElementById('test2').innerHTML = '<div class="info">✅ Button ready. Click to test.</div>';
+                    log('✅ Google button initialized');
+                } catch (err) {
+                    document.getElementById('test2').innerHTML = `<div class="error">❌ Initialization error: ${err.message}</div>`;
+                    log(`❌ Init error: ${err.message}`, 'error');
+                }
+            }, 1500);
+        };
+    </script>
+</body>
+</html>

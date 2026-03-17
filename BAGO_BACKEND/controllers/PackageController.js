@@ -18,28 +18,85 @@ export const createPackage = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // fields from body (strings)
+    // Extract fields — supporting both legacy flat structure and new structured payload
     const {
-      fromCountry,
-      fromCity,
-      toCountry,
-      toCity,
-      packageWeight,
-      receiverName,
-      receiverPhone,
-      description,
-      value, // optional value field (string or numeric)
-      length,
-      width,
-      height,
+      from_city,
+      from_country,
+      to_city,
+      to_country,
+      package_details,
+      recipient_details
     } = req.body;
+
+    // Normalization layer to bridge different payload formats
+    const fromCity = (from_city || req.body.fromCity)?.trim();
+    const fromCountry = (from_country || req.body.fromCountry)?.trim();
+    const toCity = (to_city || req.body.toCity)?.trim();
+    const toCountry = (to_country || req.body.toCountry)?.trim();
+
+    const packageWeight = package_details?.package_weight || req.body.packageWeight;
+    const category = (package_details?.category || req.body.category || 'other')?.trim();
+    const value = package_details?.package_value || req.body.value || 0;
+    
+    // Dimensions
+    const length = package_details?.length || req.body.length || 0;
+    const width = package_details?.width || req.body.width || 0;
+    const height = package_details?.height || req.body.height || 0;
+    
+    // Construct description from name/description if provided in new format
+    const description = package_details?.package_description || 
+                        (package_details?.package_name ? `${package_details.package_name}: ${package_details.package_description || ''}` : null) ||
+                        req.body.description;
+
+    const receiverName = (recipient_details?.receiver_name || req.body.receiverName)?.trim();
+    const receiverPhone = (recipient_details?.receiver_phone || req.body.receiverPhone)?.trim();
+    const receiverEmail = (recipient_details?.receiver_email || req.body.receiverEmail)?.trim();
+
+    // Log received data for debugging
+    console.log('📦 Structured Package creation request:', {
+      fromCountry, fromCity, toCountry, toCity,
+      packageWeight, receiverName, category,
+      hasImage: !!(req.body.image || package_details?.package_image),
+    });
 
     // Validate minimum required fields
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: 'user is not verified' });
     }
-    if (!fromCountry || !fromCity || !toCountry || !toCity || !packageWeight || !receiverName || !receiverPhone || !description) {
-      return res.status(400).json({ message: 'All fields are required' });
+
+    // Validate required fields (empty strings are not allowed)
+    // const category = req.body.category; // This line is now redundant due to normalization
+
+    // Log ALL received data for debugging - This is now replaced by the structured log above
+    // console.log('📦 Package creation request:', {
+    //   fromCountry, fromCity, toCountry, toCity,
+    //   packageWeight, receiverName, receiverPhone,
+    //   category, description,
+    //   hasImage: !!req.body.image,
+    //   allBodyKeys: Object.keys(req.body)
+    // });
+
+    const missingFields = [];
+    if (!fromCountry?.trim()) missingFields.push('fromCountry');
+    if (!fromCity?.trim()) missingFields.push('fromCity');
+    if (!toCountry?.trim()) missingFields.push('toCountry');
+    if (!toCity?.trim()) missingFields.push('toCity');
+    if (!packageWeight) missingFields.push('packageWeight');
+    if (!receiverName?.trim()) missingFields.push('receiverName');
+    if (!receiverPhone?.trim()) missingFields.push('receiverPhone');
+    if (!category?.trim()) missingFields.push('category');
+
+    if (missingFields.length > 0) {
+      console.error('❌ Missing required fields:', missingFields);
+      return res.status(400).json({
+        message: 'ALL FIELDS ARE REQUIRED',
+        missingFields: missingFields
+      });
+    }
+
+    // Description is optional
+    if (!description) {
+      console.warn('Package created without description - using default');
     }
 
     const weightNum = Number(packageWeight);
@@ -72,8 +129,8 @@ export const createPackage = async (req, res) => {
       }
     }
     // 2) base64 in JSON body?
-    else if (req.body.image || req.body.images) {
-      const bodyImgs = req.body.image ? req.body.image : req.body.images;
+    else if (req.body.image || req.body.images || package_details?.package_image) {
+      const bodyImgs = req.body.image || req.body.images || package_details?.package_image;
       const arr = Array.isArray(bodyImgs) ? bodyImgs : [bodyImgs];
       const first = arr[0];
       if (first) {
@@ -104,9 +161,9 @@ export const createPackage = async (req, res) => {
       receiverName,
       receiverPhone,
       receiverEmail: req.body.receiverEmail || null,
-      description,
+      description: description || 'Package shipment', // Default if not provided
       image: imageUrls[0] || null,
-      value: value || null,
+      value: value || null, // Optional - only required if insurance is requested
       category: req.body.category || 'other',
     });
 

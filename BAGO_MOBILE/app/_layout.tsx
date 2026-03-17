@@ -15,7 +15,9 @@ import {
 } from "@expo-google-fonts/plus-jakarta-sans";
 
 // Keep splash screen visible while fonts load
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  console.log('SplashScreen.preventAutoHideAsync failed');
+});
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -29,7 +31,11 @@ export default function RootLayout() {
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
-      await SplashScreen.hideAsync();
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        console.log('SplashScreen.hideAsync failed:', e);
+      }
     }
   }, [fontsLoaded, fontError]);
 

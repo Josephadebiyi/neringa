@@ -3,20 +3,45 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
-    MapPin,
     Package,
-    Weight,
-    DollarSign,
     ChevronLeft,
     AlertCircle,
     FileText,
     Info,
     User,
     Check,
-    ArrowRight
+    ArrowRight,
+    MapPin
 } from 'lucide-react';
 import api from '../api';
-import { countries } from '../utils/countries';
+import { locations } from '../utils/countries';
+import { calculateInsurance, fetchExchangeRates } from '../utils/insuranceCalculator';
+
+const getCountryFromCity = (cityName) => {
+    if (!cityName) return '';
+
+    const location = locations.find(loc =>
+        loc.city && loc.city.toLowerCase() === cityName.toLowerCase()
+    );
+
+    return location?.country || '';
+};
+
+// Robust parsing engine to extract city and country from traveler string
+const parseLocationData = (locationStr) => {
+    if (!locationStr) return { city: '', country: '' };
+
+    // Handle "City, Country" format
+    if (locationStr.includes(',')) {
+        const parts = locationStr.split(',');
+        const city = parts[0].trim();
+        const country = parts.slice(1).join(',').trim();
+        return { city, country };
+    }
+
+    // Fallback if no comma is present
+    return { city: locationStr.trim(), country: '' };
+};
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -44,37 +69,92 @@ export default function SendPackage() {
     const { user, isAuthenticated } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Get trip from navigation state
+    const selectedTrip = location.state?.trip;
+    const initialWeight = location.state?.weight || '1';
+
     const [loading, setLoading] = useState(false);
-    const [priceLoading, setPriceLoading] = useState(false);
     const [error, setError] = useState('');
     const [platformRate, setPlatformRate] = useState(0);
     const [currency, setCurrency] = useState('USD');
     const [kycStatus, setKycStatus] = useState('');
-    const [settings, setSettings] = useState(null);
     const [insuranceCost, setInsuranceCost] = useState(0);
-    const location = useLocation();
-    const selectedTrip = location.state?.trip;
+    const [exchangeRates, setExchangeRates] = useState(null);
+    const [quote, setQuote] = useState(null);
+    const [walletBalance, setWalletBalance] = useState(0);
+    const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
 
+    // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
         packageName: '',
         packageDescription: '',
         packageValue: '',
-        packageWeight: location.state?.weight || '1',
-        fromCity: selectedTrip?.origin || '',
-        fromCountry: selectedTrip?.originCountry || '',
-        toCity: selectedTrip?.destination || '',
-        toCountry: selectedTrip?.destinationCountry || '',
-        deliveryDeadline: selectedTrip?.departureDate || '',
+        packageWeight: initialWeight,
+        fromCity: '',
+        fromCountry: '',
+        toCity: '',
+        toCountry: '',
+        deliveryDeadline: '',
         specialInstructions: '',
         insuranceProtection: false,
+        category: 'other',
         receiverName: '',
         receiverPhone: '',
         receiverEmail: '',
-        packageImage: null,
-        imagePreview: null
+        imagePreview: null,
+        length: '',
+        width: '',
+        height: '',
+        termsAccepted: false
     });
 
-    const [quote, setQuote] = useState(null);
+    // Populate location fields from selectedTrip with intelligent extraction
+    useEffect(() => {
+        if (selectedTrip) {
+            console.log('🎯 RAW TRIP DATA:', selectedTrip);
+
+            // 1. Try to get structured city/country data first
+            let fromCity = selectedTrip.fromCity || '';
+            let fromCountry = selectedTrip.fromCountry || '';
+            let toCity = selectedTrip.toCity || '';
+            let toCountry = selectedTrip.toCountry || '';
+
+            // 2. If structured data is missing, parse the location strings
+            const fromLocation = selectedTrip.origin || selectedTrip.fromLocation || '';
+            const toLocation = selectedTrip.destination || selectedTrip.toLocation || '';
+
+            if (!fromCity || !fromCountry) {
+                const parsedFrom = parseLocationData(fromLocation);
+                if (!fromCity) fromCity = parsedFrom.city;
+                if (!fromCountry) fromCountry = parsedFrom.country;
+            }
+
+            if (!toCity || !toCountry) {
+                const parsedTo = parseLocationData(toLocation);
+                if (!toCity) toCity = parsedTo.city;
+                if (!toCountry) toCountry = parsedTo.country;
+            }
+
+            // 3. Last resort: derive country from city if still missing
+            if (!fromCountry && fromCity) fromCountry = getCountryFromCity(fromCity);
+            if (!toCountry && toCity) toCountry = getCountryFromCity(toCity);
+
+            const deadline = selectedTrip.departureDate || '';
+
+            console.log('✅ FINAL STRUCTURED DATA:', { fromCity, fromCountry, toCity, toCountry });
+
+            setFormData(prev => ({
+                ...prev,
+                fromCity,
+                fromCountry,
+                toCity,
+                toCountry,
+                deliveryDeadline: deadline
+            }));
+        }
+    }, [selectedTrip]);
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -96,9 +176,30 @@ export default function SendPackage() {
             navigate('/login');
         } else {
             checkKycStatus();
-            fetchGlobalSettings();
+            loadExchangeRates();
+            fetchWalletBalance();
         }
     }, [isAuthenticated, navigate]);
+
+    const fetchWalletBalance = async () => {
+        try {
+            const res = await api.get('/api/bago/getWallet');
+            if (res.data.success) {
+                setWalletBalance(res.data.balance || 0);
+            }
+        } catch (err) {
+            console.error('Failed to fetch wallet balance:', err);
+        }
+    };
+
+    const loadExchangeRates = async () => {
+        try {
+            const rates = await fetchExchangeRates('USD');
+            setExchangeRates(rates);
+        } catch (error) {
+            console.error('Failed to load exchange rates:', error);
+        }
+    };
 
     useEffect(() => {
         if (selectedTrip) {
@@ -106,22 +207,10 @@ export default function SendPackage() {
         }
     }, [selectedTrip, formData.packageWeight, user?.preferredCurrency]);
 
-    const fetchGlobalSettings = async () => {
-        try {
-            const response = await api.get('/api/bago/get-settings');
-            if (response.data.success) {
-                setSettings(response.data.data);
-            }
-        } catch (err) {
-            // Failed to fetch settings
-        }
-    };
-
     const fetchPricing = async () => {
-        setPriceLoading(true);
         try {
             const senderCurrency = user?.preferredCurrency || 'USD';
-            
+
             const quoteRes = await api.post('/api/currency/quote', {
                 weight: parseFloat(formData.packageWeight) || 1,
                 travelerPricePerKg: selectedTrip?.pricePerKg || 10,
@@ -138,11 +227,8 @@ export default function SendPackage() {
             // Fallback to simple calculation if quote fails
             setPlatformRate(selectedTrip?.pricePerKg || 15);
             setCurrency('USD');
-        } finally {
-            setPriceLoading(false);
         }
     };
-
 
     const checkKycStatus = async () => {
         try {
@@ -156,35 +242,39 @@ export default function SendPackage() {
     };
 
     useEffect(() => {
-        const fetchInsuranceCost = async () => {
+        const calculateInsuranceCost = () => {
             if (!formData.insuranceProtection) {
                 setInsuranceCost(0);
                 return;
             }
+
+            const itemValue = parseFloat(formData.packageValue);
+
+            if (!itemValue || itemValue <= 0) {
+                setInsuranceCost(0);
+                return;
+            }
+
+            if (!exchangeRates) {
+                setInsuranceCost(0);
+                return;
+            }
+
             try {
-                const response = await api.get('/api/insurance/calculate', {
-                    params: {
-                        itemValue: formData.packageValue || 1,
-                        weight: formData.packageWeight || 1,
-                        currency: currency
-                    }
-                });
-                if (response.data.success && response.data.insurance) {
-                    setInsuranceCost(response.data.insurance.cost);
-                } else {
-                    // Fallback
-                    const fallbackPercentage = settings?.insurancePercentage || 3;
-                    setInsuranceCost(parseFloat(formData.packageValue || 0) * (fallbackPercentage / 100));
+                const result = calculateInsurance(itemValue, currency, exchangeRates);
+                if (result.error) {
+                    setInsuranceCost(0);
+                    return;
                 }
+                setInsuranceCost(result.insurancePrice);
             } catch (error) {
-                const fallbackPercentage = settings?.insurancePercentage || 3;
-                setInsuranceCost(parseFloat(formData.packageValue || 0) * (fallbackPercentage / 100));
+                setInsuranceCost(0);
             }
         };
 
-        const timer = setTimeout(fetchInsuranceCost, 500);
+        const timer = setTimeout(calculateInsuranceCost, 500);
         return () => clearTimeout(timer);
-    }, [formData.packageValue, formData.insuranceProtection, currency, settings, formData.packageWeight]);
+    }, [formData.packageValue, formData.insuranceProtection, currency, exchangeRates]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -197,11 +287,32 @@ export default function SendPackage() {
     const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
     const totalCost = (shippingCost + insuranceCost).toFixed(2);
 
+    useEffect(() => {
+        if (parseFloat(totalCost) > walletBalance) {
+            setIsInsufficientBalance(true);
+        } else {
+            setIsInsufficientBalance(false);
+        }
+    }, [totalCost, walletBalance]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
 
+        console.log('🚀 FORM SUBMISSION STARTED');
+        console.log('📦 FORM DATA:', {
+            fromCity: formData.fromCity,
+            fromCountry: formData.fromCountry,
+            toCity: formData.toCity,
+            toCountry: formData.toCountry,
+            category: formData.category,
+            receiverName: formData.receiverName,
+            receiverPhone: formData.receiverPhone,
+            packageWeight: formData.packageWeight
+        });
+
+        // Check KYC status
         if (kycStatus !== 'approved') {
             setError('Please verify your identity to send a package.');
             setLoading(false);
@@ -214,43 +325,93 @@ export default function SendPackage() {
             return;
         }
 
+        // Check image upload
         if (!formData.packageImage) {
             setError('Please upload an image of the item.');
             setLoading(false);
             return;
         }
 
+        // Check insurance value
         if (formData.insuranceProtection && !formData.packageValue) {
             setError('Please enter the package value to enable insurance protection.');
             setLoading(false);
             return;
         }
 
+        // Check weight
         if (parseFloat(formData.packageWeight) <= 0 || parseFloat(formData.packageWeight) > 50) {
-            setError(t('packageWeightError'));
+            setError(t('packageWeightError') || 'Package weight must be between 0.1 and 50 kg.');
+            setLoading(false);
+            return;
+        }
+
+        // Check balance
+        if (parseFloat(totalCost) > walletBalance) {
+            setError(`Insufficient balance. Your current balance is ${currency} ${walletBalance.toFixed(2)}, but this request requires ${currency} ${totalCost}. Please top up your wallet first.`);
+            setLoading(false);
+            return;
+        }
+
+        // Check terms
+        if (!formData.termsAccepted) {
+            setError('You must agree to the Terms and Conditions.');
             setLoading(false);
             return;
         }
 
         try {
+            // Check if user came from trip selection or needs to search for travelers
             if (selectedTrip) {
-                const packageResponse = await api.post('/api/bago/createPackage', {
-                    fromCountry: formData.fromCountry,
-                    fromCity: formData.fromCity,
-                    toCountry: formData.toCountry,
-                    toCity: formData.toCity,
-                    packageWeight: parseFloat(formData.packageWeight) || 1,
-                    receiverName: formData.receiverName,
-                    receiverPhone: formData.receiverPhone,
-                    receiverEmail: formData.receiverEmail,
-                    description: `${formData.packageName}: ${formData.packageDescription}`,
-                    value: formData.packageValue,
-                    image: formData.packageImage,
-                    category: 'other' // default category
-                });
+                console.log('✅ TRIP SELECTED - VALIDATING FIELDS...');
+
+                // Validation Guard
+                if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) {
+                    const errorMsg = 'Validation Error: Missing or incomplete location data. Please ensure cities and countries are correctly filled.';
+                    console.error('❌ PRE-SUBMISSION FAILED:', errorMsg);
+                    setError(errorMsg);
+                    setLoading(false);
+                    return;
+                }
+
+                console.log('✅ ALL FIELDS VALIDATED - PREPARING PAYLOAD');
+
+                // Construct structured payload according to System Architecture
+                const payload = {
+                    from_city: formData.fromCity.trim(),
+                    from_country: formData.fromCountry.trim(),
+                    to_city: formData.toCity.trim(),
+                    to_country: formData.toCountry.trim(),
+                    package_details: {
+                        package_name: formData.packageName.trim(),
+                        package_description: formData.packageDescription.trim(),
+                        package_weight: parseFloat(formData.packageWeight) || 1,
+                        package_value: formData.packageValue || 0,
+                        package_image: formData.packageImage,
+                        category: formData.category.trim(),
+                        length: parseFloat(formData.length) || 0,
+                        width: parseFloat(formData.width) || 0,
+                        height: parseFloat(formData.height) || 0
+                    },
+                    recipient_details: {
+                        receiver_name: formData.receiverName.trim(),
+                        receiver_phone: formData.receiverPhone.trim(),
+                        receiver_email: formData.receiverEmail.trim()
+                    }
+                };
+
+                console.log('🚀 FINAL PAYLOAD:', JSON.stringify(payload, null, 2));
+
+                // Create package with structured data
+                const packageResponse = await api.post('/api/bago/createPackage', payload);
+
+                console.log('✅ PACKAGE CREATED:', packageResponse.data);
 
                 if (packageResponse.status === 201) {
                     const packageId = packageResponse.data.package._id;
+
+                    console.log('✅ CREATING SHIPPING REQUEST...');
+
                     const requestResponse = await api.post('/api/bago/RequestPackage', {
                         travelerId: selectedTrip.user,
                         packageId: packageId,
@@ -258,22 +419,28 @@ export default function SendPackage() {
                         amount: Number(totalCost),
                         currency: currency,
                         estimatedDeparture: selectedTrip.departureDate,
-                        insurance: formData.insuranceProtection || false,
-                        insuranceCost: insuranceCost,
+                        insurance: formData.insuranceProtection,
+                        insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
                         termsAccepted: true
                     });
+
+                    console.log('✅ SHIPPING REQUEST CREATED:', requestResponse.data);
 
                     if (requestResponse.status === 201) {
                         navigate('/dashboard', { state: { message: t('requestSentSuccess') } });
                     }
                 }
             } else {
+                // No trip selected, redirect to search
+                console.log('⚠️ NO TRIP SELECTED - REDIRECTING TO SEARCH...');
                 navigate(`/search?origin=${formData.fromCity}&destination=${formData.toCity}`, {
                     state: { packageDetails: formData }
                 });
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to process request.');
+            console.error('❌ SUBMISSION ERROR:', err);
+            console.error('❌ ERROR RESPONSE:', err.response?.data);
+            setError(err.response?.data?.message || 'Failed to process request. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -289,6 +456,17 @@ export default function SendPackage() {
                     <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
                 </div>
 
+                {/* Debug info showing extracted route */}
+                {selectedTrip && formData.fromCity && formData.toCity && (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+                        <p className="text-xs font-bold text-green-900 mb-2">✅ Route Extracted Successfully:</p>
+                        <p className="text-sm font-mono text-green-700">
+                            <strong>From:</strong> {formData.fromCity}, {formData.fromCountry || '(Country Missing)'} →
+                            <strong> To:</strong> {formData.toCity}, {formData.toCountry || '(Country Missing)'}
+                        </p>
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                     <div className="lg:col-span-2 space-y-8">
                         {/* Package Details Section */}
@@ -299,6 +477,34 @@ export default function SendPackage() {
                                 </div>
                                 <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('packageDetails')}</h2>
                             </div>
+
+                            {/* Section for Route Information (Read-Only) */}
+                            {selectedTrip && (
+                                <div className="mb-10 p-6 bg-gray-50/50 rounded-2xl border border-gray-100/50">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <MapPin size={16} className="text-[#5845D8]" />
+                                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Route Information (Pre-filled)</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">From City</p>
+                                            <input readOnly value={formData.fromCity} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">From Country</p>
+                                            <input readOnly value={formData.fromCountry} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">To City</p>
+                                            <input readOnly value={formData.toCity} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">To Country</p>
+                                            <input readOnly value={formData.toCountry} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-6">
                                 <div>
@@ -327,39 +533,94 @@ export default function SendPackage() {
                                     ></textarea>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('weightKg') || 'Package Weight (KG)'}</label>
-                                        <input
-                                            required
-                                            type="number"
-                                            name="packageWeight"
-                                            min="0.1"
-                                            max="50"
-                                            step="0.1"
-                                            placeholder="e.g. 2.5"
-                                            className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-                                            value={formData.packageWeight}
-                                            onChange={handleChange}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">
-                                            {t('declarationLabel')} {formData.insuranceProtection ? '' : '(Optional)'}
-                                        </label>
-                                        <div className="relative">
+                                <div>
+                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">Item Category</label>
+                                    <select
+                                        required
+                                        name="category"
+                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                        value={formData.category}
+                                        onChange={handleChange}
+                                    >
+                                        <option value="documents">Documents</option>
+                                        <option value="electronics">Electronics</option>
+                                        <option value="clothing">Clothing</option>
+                                        <option value="food_perishables">Food & Perishables</option>
+                                        <option value="fragile">Fragile Items</option>
+                                        <option value="other">Other Allowed Items</option>
+                                    </select>
+                                </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('weightKg') || 'Package Weight (KG)'}</label>
                                             <input
+                                                required
                                                 type="number"
-                                                name="packageValue"
-                                                placeholder="Estimated Value"
+                                                name="packageWeight"
+                                                min="0.1"
+                                                max="50"
+                                                step="0.1"
+                                                placeholder="e.g. 2.5"
                                                 className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-                                                value={formData.packageValue}
+                                                value={formData.packageWeight}
                                                 onChange={handleChange}
                                             />
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">USD</div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">
+                                                {t('declarationLabel')} {formData.insuranceProtection ? '(Required for Insurance)' : '(Optional)'}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    name="packageValue"
+                                                    placeholder="Estimated Value"
+                                                    required={formData.insuranceProtection}
+                                                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                                    value={formData.packageValue}
+                                                    onChange={handleChange}
+                                                />
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">USD</div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+
+                                    <div className="grid grid-cols-3 gap-6 pt-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-[0.1em] ml-1">Length (cm)</label>
+                                            <input
+                                                type="number"
+                                                name="length"
+                                                placeholder="0"
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[13px] font-bold bg-gray-50/30"
+                                                value={formData.length}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-[0.1em] ml-1">Width (cm)</label>
+                                            <input
+                                                type="number"
+                                                name="width"
+                                                placeholder="0"
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[13px] font-bold bg-gray-50/30"
+                                                value={formData.width}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-[0.1em] ml-1">Height (cm)</label>
+                                            <input
+                                                type="number"
+                                                name="height"
+                                                placeholder="0"
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[13px] font-bold bg-gray-50/30"
+                                                value={formData.height}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
 
                                 <div className="mt-8">
                                     <label className="block text-[8px] font-black text-gray-400 uppercase mb-3 tracking-[0.15em] ml-1">{t('itemImage') || 'Item Image'}</label>
@@ -499,15 +760,15 @@ export default function SendPackage() {
                             <h3 className="text-base font-black mb-8 border-b border-white/10 pb-4 uppercase tracking-[2px]">{t('summary')}</h3>
 
                             <div className="space-y-6 mb-10">
-                                {selectedTrip && (
+                                {selectedTrip && formData.fromCity && formData.toCity && (
                                     <>
                                         <div>
                                             <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1.5">{t('from')}</p>
-                                            <p className="text-xs font-black uppercase truncate">{selectedTrip.fromLocation}</p>
+                                            <p className="text-xs font-black uppercase truncate">{formData.fromCity}, {formData.fromCountry}</p>
                                         </div>
                                         <div>
                                             <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1.5">{t('to')}</p>
-                                            <p className="text-xs font-black uppercase truncate">{selectedTrip.toLocation}</p>
+                                            <p className="text-xs font-black uppercase truncate">{formData.toCity}, {formData.toCountry}</p>
                                         </div>
                                     </>
                                 )}
@@ -543,10 +804,37 @@ export default function SendPackage() {
                                 </div>
                             )}
 
+                            <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10 mb-6 cursor-pointer group" onClick={() => setFormData(prev => ({ ...prev, termsAccepted: !prev.termsAccepted }))}>
+                                <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${formData.termsAccepted ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/20' : 'bg-white/10 text-transparent border border-white/20 group-hover:bg-white/20'}`}>
+                                    <Check size={12} />
+                                </div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">
+                                    I AGREE TO THE <Link to="/terms" className="text-white underline" onClick={(e) => e.stopPropagation()}>TERMS & CONDITIONS</Link>
+                                </p>
+                            </div>
+
+                            {isInsufficientBalance && (
+                                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-200 p-4 rounded-2xl mb-6">
+                                    <div className="flex items-start gap-2 mb-3">
+                                        <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                                        <p className="text-[10px] font-bold leading-tight uppercase text-amber-500">Insufficient Wallet Balance</p>
+                                    </div>
+                                    <p className="text-[9px] text-amber-100/70 mb-4 uppercase tracking-wide leading-relaxed">
+                                        You need to have at least {currency} {totalCost} in your Bago wallet to proceed with this request. Your current balance is {currency} {walletBalance.toFixed(2)}.
+                                    </p>
+                                    <Link 
+                                        to="/dashboard" 
+                                        className="inline-block w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-[#012126] text-center rounded-xl font-black text-[9px] uppercase tracking-widest transition-all"
+                                    >
+                                        Go to Wallet to Top Up
+                                    </Link>
+                                </div>
+                            )}
+
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 group disabled:opacity-50"
+                                disabled={loading || isInsufficientBalance}
+                                className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Processing...' : t('requestShipping')} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                             </button>

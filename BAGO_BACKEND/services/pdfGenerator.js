@@ -338,7 +338,7 @@ export async function generateShippingLabelPDF(shippingData) {
 
       doc.fontSize(24)
          .fillColor('#5240E8')
-         .text(shippingData.trackingNumber, { align: 'center' });
+         .text(shippingData.trackingNumber || 'BGO-PENDING', { align: 'center' });
 
       doc.moveDown(1);
       drawLine(doc);
@@ -351,13 +351,13 @@ export async function generateShippingLabelPDF(shippingData) {
          .text('FROM (SENDER)');
       doc.moveDown(0.3);
 
-      doc.fontSize(11)
-         .font('Helvetica')
-         .text(shippingData.sender.name)
-         .text(shippingData.sender.phone || '')
-         .text(shippingData.package.fromCity + ', ' + shippingData.package.fromCountry);
-
-      doc.moveDown(1);
+       doc.fontSize(11)
+          .font('Helvetica')
+          .text(shippingData.sender?.name || 'Sender')
+          .text(shippingData.sender?.phone || '')
+          .text((shippingData.package?.fromCity || 'N/A') + ', ' + (shippingData.package?.fromCountry || 'N/A'));
+ 
+       doc.moveDown(1);
 
       // Recipient Information
       doc.fontSize(14)
@@ -365,13 +365,13 @@ export async function generateShippingLabelPDF(shippingData) {
          .text('TO (RECIPIENT)');
       doc.moveDown(0.3);
 
-      doc.fontSize(11)
-         .font('Helvetica')
-         .text(shippingData.package.receiverName)
-         .text(shippingData.package.receiverPhone)
-         .text(shippingData.package.toCity + ', ' + shippingData.package.toCountry);
-
-      doc.moveDown(1);
+       doc.fontSize(11)
+          .font('Helvetica')
+          .text(shippingData.package?.receiverName || 'Recipient')
+          .text(shippingData.package?.receiverPhone || '')
+          .text((shippingData.package?.toCity || 'N/A') + ', ' + (shippingData.package?.toCountry || 'N/A'));
+ 
+       doc.moveDown(1);
       drawLine(doc);
       doc.moveDown(1);
 
@@ -381,12 +381,12 @@ export async function generateShippingLabelPDF(shippingData) {
          .text('PACKAGE INFORMATION');
       doc.moveDown(0.5);
 
-      const packageInfo = [
-        ['Description:', shippingData.package.description],
-        ['Weight:', `${shippingData.package.packageWeight} kg`],
-        ['Category:', shippingData.package.category || 'General'],
-        ['Value:', `$${shippingData.package.value || 0}`],
-      ];
+       const packageInfo = [
+         ['Description:', shippingData.package?.description || 'N/A'],
+         ['Weight:', `${shippingData.package?.packageWeight || 0} kg`],
+         ['Category:', shippingData.package?.category || 'General'],
+         ['Value:', `$${shippingData.package?.value || 0}`],
+       ];
 
       if (shippingData.insurance) {
         packageInfo.push(['Insurance:', `Yes - $${shippingData.insuranceCost}`]);
@@ -401,12 +401,12 @@ export async function generateShippingLabelPDF(shippingData) {
          .text('TRAVEL INFORMATION');
       doc.moveDown(0.5);
 
-      const travelInfo = [
-        ['Traveler:', shippingData.traveler.name],
-        ['Travel Mode:', shippingData.trip.travelMeans || 'N/A'],
-        ['Estimated Departure:', formatDate(shippingData.estimatedDeparture)],
-        ['Estimated Arrival:', formatDate(shippingData.estimatedArrival)],
-      ];
+       const travelInfo = [
+         ['Traveler:', shippingData.traveler?.name || 'Traveler'],
+         ['Travel Mode:', shippingData.trip?.travelMeans || 'N/A'],
+         ['Estimated Departure:', formatDate(shippingData.estimatedDeparture)],
+         ['Estimated Arrival:', formatDate(shippingData.estimatedArrival)],
+       ];
 
       drawTable(doc, travelInfo);
       doc.moveDown(1);
@@ -420,10 +420,10 @@ export async function generateShippingLabelPDF(shippingData) {
          .text('CURRENT STATUS');
       doc.moveDown(0.3);
 
-      const statusColor = getStatusColor(shippingData.status);
+      const statusColor = getStatusColor(shippingData.status || 'pending');
       doc.fontSize(14)
          .fillColor(statusColor)
-         .text(shippingData.status.toUpperCase(), { align: 'center' });
+         .text((shippingData.status || 'PENDING').toUpperCase(), { align: 'center' });
 
       doc.fillColor('#000000');
       doc.moveDown(1);
@@ -438,11 +438,11 @@ export async function generateShippingLabelPDF(shippingData) {
          .text('IMPORTANT INFORMATION', { align: 'center' });
       doc.moveDown(0.3);
 
-      doc.fontSize(7)
-         .text('• This shipment is facilitated by a verified community traveler', { align: 'left' })
-         .text('• Sender and recipient must verify package contents at handover', { align: 'left' })
-         .text('• Report any issues within 48 hours of delivery', { align: 'left' })
-         .text('• Track your shipment: sendwithbago.com/tracking/' + shippingData.trackingNumber, { align: 'left' });
+       doc.fontSize(7)
+          .text('• This shipment is facilitated by a verified community traveler', { align: 'left' })
+          .text('• Sender and recipient must verify package contents at handover', { align: 'left' })
+          .text('• Report any issues within 48 hours of delivery', { align: 'left' })
+          .text('• Track your shipment: sendwithbago.com/tracking/' + (shippingData.trackingNumber || 'PENDING'), { align: 'left' });
 
       doc.moveDown(1);
 

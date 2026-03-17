@@ -49,7 +49,7 @@ export default function TrackShipment() {
         setShipment(null);
 
         try {
-            const response = await api.get(`/api/bago/track/${trackingNumber.trim().toUpperCase()}`);
+            const response = await api.get(`/api/bago/public/track/${trackingNumber.trim().toUpperCase()}`);
             if (response.data.success) {
                 setShipment(response.data.data);
             }

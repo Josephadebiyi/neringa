@@ -86,15 +86,11 @@ const packageSchema = new mongoose.Schema({
   category: {
     type: String,
     enum: [
-      'electronics',
       'documents',
+      'electronics',
       'clothing',
-      'food',
-      'cosmetics',
-      'books',
-      'toys',
-      'jewelry',
-      'medical',
+      'food_perishables',
+      'fragile',
       'other'
     ],
     required: [true, 'Item category is required'],

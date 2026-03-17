@@ -127,4 +127,15 @@ const RequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// ✅ Auto-generate unique tracking number before saving if not already present
+RequestSchema.pre('save', function (next) {
+  if (!this.trackingNumber) {
+    const prefix = 'BAGO';
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    this.trackingNumber = `${prefix}-${timestamp}${random}`;
+  }
+  next();
+});
+
 export default mongoose.model('Request', RequestSchema);

@@ -124,7 +124,8 @@ export default function PostTrip() {
         pricePerKg: '',
         landmark: '',
         additionalNotes: '',
-        travelDocument: null
+        travelDocument: null,
+        termsAccepted: false
     });
     const [showCurrencyModal, setShowCurrencyModal] = useState(false);
     const [selectedCurrency, setSelectedCurrency] = useState('');
@@ -208,6 +209,11 @@ export default function PostTrip() {
             return;
         }
 
+        if (!formData.termsAccepted) {
+            setError('You must agree to the Terms and Conditions.');
+            return;
+        }
+
         if (!formData.originCountry || !formData.destinationCountry || !formData.originCity || !formData.destinationCity) {
             setError('Please complete the route details.');
             return;
@@ -254,7 +260,9 @@ export default function PostTrip() {
         try {
             const res = await api.post('/api/bago/AddAtrip', {
                 fromLocation: `${formData.originCity}, ${formData.originCountry}`,
+                fromCountry: formData.originCountry,
                 toLocation: `${formData.destinationCity}, ${formData.destinationCountry}`,
+                toCountry: formData.destinationCountry,
                 departureDate: formData.departureDate,
                 arrivalDate: formData.arrivalDate,
                 availableKg: parseFloat(formData.availableWeight),
@@ -567,10 +575,28 @@ export default function PostTrip() {
                                     </div>
                                 )}
 
-                                <div className="flex justify-end gap-4">
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                name="termsAccepted"
+                                                checked={formData.termsAccepted}
+                                                onChange={handleChange}
+                                                className="hidden"
+                                            />
+                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${formData.termsAccepted ? 'bg-[#5845D8] border-[#5845D8] shadow-lg shadow-[#5845D8]/20' : 'border-gray-100 bg-gray-50 group-hover:border-[#5845D8]/20'}`}>
+                                                {formData.termsAccepted && <CheckCircle size={14} className="text-white" />}
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-black text-[#012126] uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
+                                            {t('agreeToTermsPrefix') || 'I agree to the'} <Link to="/terms" className="text-[#5845D8] underline">{t('termsAndConditions') || 'Terms & Conditions'}</Link>
+                                        </span>
+                                    </label>
+
                                     <button
                                         type="submit"
-                                        className="inline-flex items-center gap-2 px-10 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.02] active:scale-95 group"
+                                        className="w-full md:w-auto inline-flex items-center gap-2 px-10 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.02] active:scale-95 group"
                                     >
                                         {t('reviewTrip')} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                                     </button>

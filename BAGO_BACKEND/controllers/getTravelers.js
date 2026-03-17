@@ -5,8 +5,8 @@ export const getTravelers = async (req, res, next) => {
   try {
     const currentUserId = req.user?.id || req.user?._id;
 
-    // ✅ Filter: Exclude user's own trips if authenticated
-    const query = currentUserId ? { user: { $ne: currentUserId }, status: 'active' } : { status: 'active' };
+    // ✅ Filter: Exclude user's own trips if authenticated and must be verified
+    const query = currentUserId ? { user: { $ne: currentUserId }, status: 'verified' } : { status: 'verified' };
 
     const gettravelers = await Trip.find(query);
     if (gettravelers.length === 0) {

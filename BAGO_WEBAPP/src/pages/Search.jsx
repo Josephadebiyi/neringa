@@ -283,17 +283,64 @@ export default function Search() {
                         });
 
                     // Filter based on search params
+                    // Smart Filtering & Sorting Logic
                     let filtered = joinedTrips;
-                    if (filters.origin && filters.origin.city) {
-                        filtered = filtered.filter(t =>
-                            t.origin && t.origin.toLowerCase().includes(filters.origin.city.toLowerCase())
+                    
+                    if (filters.origin && filters.destination) {
+                        const searchOriginCity = (filters.origin.city || '').toLowerCase();
+                        const searchOriginCountry = (filters.origin.country || '').toLowerCase();
+                        const searchDestCity = (filters.destination.city || '').toLowerCase();
+                        const searchDestCountry = (filters.destination.country || '').toLowerCase();
+
+                        filtered = filtered.filter(t => {
+                            const tripOrigin = (t.origin || t.fromLocation || '').toLowerCase();
+                            const tripOriginCountry = (t.fromCountry || '').toLowerCase();
+                            const tripDest = (t.destination || t.toLocation || '').toLowerCase();
+                            const tripDestCountry = (t.toCountry || '').toLowerCase();
+
+                            // 1. Check for Country Match (Strict baseline for "Similar Routes")
+                            // Check explicit country field OR if the location string contains the country name
+                            const originCountryMatch = 
+                                (tripOriginCountry && tripOriginCountry === searchOriginCountry) || 
+                                (tripOrigin.includes(searchOriginCountry));
+
+                            const destCountryMatch = 
+                                (tripDestCountry && tripDestCountry === searchDestCountry) || 
+                                (tripDest.includes(searchDestCountry));
+
+                            return originCountryMatch && destCountryMatch;
+                        });
+
+                        // 2. Rank: Exact city-to-city matches first, then partials
+                        filtered.sort((a, b) => {
+                            const aOrigin = (a.origin || a.fromLocation || '').toLowerCase();
+                            const aDest = (a.destination || a.toLocation || '').toLowerCase();
+                            const bOrigin = (b.origin || b.fromLocation || '').toLowerCase();
+                            const bDest = (b.destination || b.toLocation || '').toLowerCase();
+
+                            const aCityMatch = (aOrigin.includes(searchOriginCity) ? 1 : 0) + (aDest.includes(searchDestCity) ? 1 : 0);
+                            const bCityMatch = (bOrigin.includes(searchOriginCity) ? 1 : 0) + (bDest.includes(searchDestCity) ? 1 : 0);
+
+                            return bCityMatch - aCityMatch; // Higher match score comes first
+                        });
+                    } else if (filters.origin) {
+                        // If only origin is selected
+                        const searchCity = (filters.origin.city || '').toLowerCase();
+                        const searchCountry = (filters.origin.country || '').toLowerCase();
+                        filtered = filtered.filter(t => 
+                            (t.fromCountry || '').toLowerCase() === searchCountry || 
+                            (t.origin || t.fromLocation || '').toLowerCase().includes(searchCountry)
+                        );
+                    } else if (filters.destination) {
+                        // If only destination is selected
+                        const searchCity = (filters.destination.city || '').toLowerCase();
+                        const searchCountry = (filters.destination.country || '').toLowerCase();
+                        filtered = filtered.filter(t => 
+                            (t.toCountry || '').toLowerCase() === searchCountry || 
+                            (t.destination || t.toLocation || '').toLowerCase().includes(searchCountry)
                         );
                     }
-                    if (filters.destination && filters.destination.city) {
-                        filtered = filtered.filter(t =>
-                            t.destination && t.destination.toLowerCase().includes(filters.destination.city.toLowerCase())
-                        );
-                    }
+
                     if (filters.weight) {
                         filtered = filtered.filter(t => t.availableWeight >= parseFloat(filters.weight));
                     }

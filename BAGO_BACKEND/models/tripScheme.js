@@ -99,8 +99,8 @@ const tripSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'active', 'completed', 'cancelled', 'declined'],
-      default: 'pending',
+      enum: ['pending_admin_review', 'verified', 'active', 'completed', 'cancelled', 'declined'],
+      default: 'pending_admin_review',
     },
     request: {
       type: Number,

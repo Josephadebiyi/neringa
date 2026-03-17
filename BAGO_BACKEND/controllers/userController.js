@@ -921,7 +921,7 @@ export const getUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.status(200).json({ user });
+    res.status(200).json({ success: true, user });
   }
   catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -1040,13 +1040,31 @@ export const googleAuth = async (req, res) => {
  */
 export const getUserStats = async (req, res) => {
   try {
+    const userId = req.user._id;
+
+    // Count completed bookings for this user as sender or traveler
+    const completedBookings = await Request.countDocuments({
+      $or: [{ sender: userId }, { traveler: userId }],
+      status: 'completed'
+    });
+
+    // Count active packages (in-transit or delivering)
+    const activePackages = await Request.countDocuments({
+      $or: [{ sender: userId }, { traveler: userId }],
+      status: { $in: ['accepted', 'intransit', 'delivering'] }
+    });
+
     const totalUsers = await User.countDocuments();
+
     res.json({
       success: true,
       totalUsers: totalUsers + 1240,
+      completedBookings,
+      activePackages
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('getUserStats error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -1190,30 +1208,14 @@ export const addFunds = async (req, res) => {
 
     await user.save();
 
-    // Create token so user can proceed to dashboard immediately
-    const token = jwt.sign(
-      { id: newUser._id, email: newUser.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
     res.status(200).json({
       success: true,
-      message: 'Account verified successfully',
-      token,
-      user: {
-        id: newUser._id,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        email: newUser.email,
-        phone: newUser.phone,
-        country: newUser.country,
-        image: newUser.image,
-        preferredCurrency: newUser.preferredCurrency,
-      }
+      message: "Funds added successfully",
+      balance: user.balance,
+      history: user.balanceHistory,
     });
   } catch (error) {
-    console.error('Verify Signup OTP Error:', error);
+    console.error('Add Funds Error:', error);
     res.status(500).json({ message: error.message });
   }
 };

@@ -38,6 +38,14 @@ const ConversationSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  deletedBySender: {
+    type: Boolean,
+    default: false,
+  },
+  deletedByTraveler: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 export default mongoose.model('Conversation', ConversationSchema);

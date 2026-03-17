@@ -1,11 +1,9 @@
-
-import http from 'http';
-const server = http.createServer((req, res) => {
-  res.end('Hello');
+import { createServer } from 'http';
+const server = createServer((req, res) => {
+  res.end('ok');
 });
-const port = 8888;
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Test server listening on 127.0.0.1:${port}`);
+server.listen(3000, '127.0.0.1', () => {
+  console.log('Test server listening on 3000');
   process.exit(0);
 });
 server.on('error', (err) => {

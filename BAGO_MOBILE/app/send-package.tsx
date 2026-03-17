@@ -80,6 +80,8 @@ export default function SendPackageScreen() {
 
   // add next to other states
   const [value, setValue] = useState(''); // package monetary value as string
+  const [category, setCategory] = useState('other'); // item category
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   // request gallery permission
   useEffect(() => {
@@ -417,12 +419,12 @@ export default function SendPackageScreen() {
       return;
     }
 
+    // Only validate truly required fields - description is OPTIONAL, value is OPTIONAL
     if (
       step === 2 &&
       packageWeight &&
       receiverName &&
-      receiverPhone &&
-      description
+      receiverPhone
     ) {
       setIsLoading(true);
 
@@ -486,8 +488,9 @@ export default function SendPackageScreen() {
         formData.append("packageWeight", weightNum.toString());
         formData.append("receiverName", receiverName);
         formData.append("receiverPhone", receiverPhone);
-        formData.append("description", description);
-        formData.append("value", (parseFloat(value) || 0).toString());
+        formData.append("description", description || "Package shipment"); // Default if empty
+        formData.append("value", value ? (parseFloat(value) || 0).toString() : "0"); // Optional
+        formData.append("category", category); // Required category
         formData.append("length", lengthNum.toString());
         formData.append("width", widthNum.toString());
         formData.append("height", heightNum.toString());
@@ -767,6 +770,23 @@ export default function SendPackageScreen() {
             </View>
 
             <View style={styles.section}>
+              <Text style={styles.label}>Item Category</Text>
+              <TouchableOpacity
+                style={styles.weightInput}
+                onPress={() => setShowCategoryModal(true)}
+              >
+                <Text style={[styles.input, { color: '#1A1A1A' }]}>
+                  {category === 'documents' ? 'Documents' :
+                   category === 'electronics' ? 'Electronics' :
+                   category === 'clothing' ? 'Clothing' :
+                   category === 'food_perishables' ? 'Food & Perishables' :
+                   category === 'fragile' ? 'Fragile Items' :
+                   'Other Allowed Items'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
               <Text style={styles.label}>Package Value (€)</Text>
               <View style={styles.weightInput}>
                 <TextInput
@@ -914,6 +934,54 @@ export default function SendPackageScreen() {
       </Modal>
 
 
+      {/* Category Modal */}
+      <Modal
+        visible={showCategoryModal}
+        animationType="slide"
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
+        <View style={modalStyles.modalContainer}>
+          <Text style={modalStyles.modalTitle}>Select Item Category</Text>
+
+          <View style={{ marginTop: 20 }}>
+            {[
+              { value: 'documents', label: 'Documents' },
+              { value: 'electronics', label: 'Electronics' },
+              { value: 'clothing', label: 'Clothing' },
+              { value: 'food_perishables', label: 'Food & Perishables' },
+              { value: 'fragile', label: 'Fragile Items' },
+              { value: 'other', label: 'Other Allowed Items' }
+            ].map((cat) => (
+              <TouchableOpacity
+                key={cat.value}
+                style={[
+                  modalStyles.modalItem,
+                  category === cat.value && { backgroundColor: '#5845D8', borderColor: '#5845D8' }
+                ]}
+                onPress={() => {
+                  setCategory(cat.value);
+                  setShowCategoryModal(false);
+                }}
+              >
+                <Text style={[
+                  modalStyles.modalItemText,
+                  category === cat.value && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            onPress={() => setShowCategoryModal(false)}
+            style={[modalStyles.closeButton, { marginTop: 20 }]}
+          >
+            <Text style={modalStyles.closeText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
       {/* City Modal */}
       <Modal
         visible={showCityModal}
@@ -1037,7 +1105,7 @@ export default function SendPackageScreen() {
           style={[
             styles.continueButton,
             (step === 1 && (!fromCountry || !fromCity || !toCountry || !toCity)) ||
-              (step === 2 && (!packageWeight || !receiverName || !receiverPhone || !description))
+              (step === 2 && (!packageWeight || !receiverName || !receiverPhone))
               ? styles.continueButtonDisabled
               : {},
           ]}
@@ -1045,7 +1113,7 @@ export default function SendPackageScreen() {
           disabled={
             isLoading ||
             (step === 1 && (!fromCountry || !fromCity || !toCountry || !toCity)) ||
-            (step === 2 && (!packageWeight || !receiverName || !receiverPhone || !description))
+            (step === 2 && (!packageWeight || !receiverName || !receiverPhone))
           }
         >
           <Text style={styles.continueButtonText}>

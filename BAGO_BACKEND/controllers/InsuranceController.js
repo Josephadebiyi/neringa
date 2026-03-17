@@ -9,7 +9,7 @@ import InsuranceSetting from '../models/insuranceSettingScheme.js';
  */
 export const calculateInsurance = async (req, res) => {
   try {
-    const { itemValue, weight, currency = 'USD', region = 'global' } = req.query;
+    const { itemValue, currency = 'USD', region = 'global' } = req.query;
 
     if (!itemValue || isNaN(itemValue) || itemValue < 0) {
       return res.status(400).json({
@@ -22,10 +22,12 @@ export const calculateInsurance = async (req, res) => {
     let settings = await InsuranceSetting.findOne();
 
     if (!settings) {
+      // Fixed insurance pricing by region
       settings = await InsuranceSetting.create({
-        global: { baseRate: 5, percentageOfValue: 2, minimumCharge: 3, maximumCharge: 100, maxCoverageAmount: 5000, currency: 'USD' },
-        africa: { baseRate: 15000, percentageOfValue: 0, minimumCharge: 0, maximumCharge: 0, maxCoverageAmount: 2000000, currency: 'NGN' },
-        europe: { baseRate: 7, percentageOfValue: 3, minimumCharge: 5, maximumCharge: 150, maxCoverageAmount: 10000, currency: 'USD' },
+        global: { fixedPrice: 6, maxCoverageAmount: 5000, commissionPercentage: 15, currency: 'USD', enabled: true },
+        africa: { fixedPrice: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
+        europe: { fixedPrice: 6, maxCoverageAmount: 10000, commissionPercentage: 15, currency: 'USD', enabled: true },
+        enabled: true
       });
     }
 
@@ -59,16 +61,9 @@ export const calculateInsurance = async (req, res) => {
       });
     }
 
-    // Calculate insurance cost: base rate + percentage of value
-    let insuranceCost = config.baseRate + (value * (config.percentageOfValue / 100));
-
-    // Apply minimum and maximum limits
-    if (config.minimumCharge > 0) {
-      insuranceCost = Math.max(insuranceCost, config.minimumCharge);
-    }
-    if (config.maximumCharge > 0) {
-      insuranceCost = Math.min(insuranceCost, config.maximumCharge);
-    }
+    // Calculate insurance cost - FIXED PRICE MODEL
+    // All regions use a simple fixed price that gets converted to user's currency
+    let insuranceCost = config.fixedPrice || 6;
 
     // Round to 2 decimal places
     insuranceCost = Math.round(insuranceCost * 100) / 100;
@@ -95,14 +90,13 @@ export const calculateInsurance = async (req, res) => {
       success: true,
       available: true,
       insurance: {
-        costUSD: insuranceCost,
         cost: convertedCost,
         currency: currency,
         exchangeRate: exchangeRate,
         coverageAmount: value,
         region: region,
-        baseRate: config.baseRate,
-        percentageOfValue: config.percentageOfValue,
+        fixedPrice: config.fixedPrice,
+        baseCurrency: config.currency || 'USD',
         commissionPercentage: config.commissionPercentage || 15,
         description: settings.description,
         terms: settings.terms,
@@ -127,10 +121,12 @@ export const getInsuranceSettings = async (req, res) => {
     let settings = await InsuranceSetting.findOne();
 
     if (!settings) {
+      // Fixed insurance pricing by region
       settings = await InsuranceSetting.create({
-        global: { baseRate: 5, percentageOfValue: 2, minimumCharge: 3, maximumCharge: 100, maxCoverageAmount: 5000, currency: 'USD' },
-        africa: { baseRate: 15000, percentageOfValue: 0, minimumCharge: 0, maximumCharge: 0, maxCoverageAmount: 2000000, currency: 'NGN' },
-        europe: { baseRate: 7, percentageOfValue: 3, minimumCharge: 5, maximumCharge: 150, maxCoverageAmount: 10000, currency: 'USD' },
+        global: { fixedPrice: 6, maxCoverageAmount: 5000, commissionPercentage: 15, currency: 'USD', enabled: true },
+        africa: { fixedPrice: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
+        europe: { fixedPrice: 6, maxCoverageAmount: 10000, commissionPercentage: 15, currency: 'USD', enabled: true },
+        enabled: true
       });
     }
 
@@ -169,22 +165,28 @@ export const updateInsuranceSettings = async (req, res) => {
       settings = await InsuranceSetting.create(req.body);
     } else {
       const parseConfig = (config) => {
-        if (!config) return undefined;
-        return {
-          baseRate: config.baseRate !== undefined ? Number(config.baseRate) : undefined,
-          percentageOfValue: config.percentageOfValue !== undefined ? Number(config.percentageOfValue) : undefined,
-          minimumCharge: config.minimumCharge !== undefined ? Number(config.minimumCharge) : undefined,
-          maximumCharge: config.maximumCharge !== undefined ? Number(config.maximumCharge) : undefined,
-          maxCoverageAmount: config.maxCoverageAmount !== undefined ? Number(config.maxCoverageAmount) : undefined,
-          commissionPercentage: config.commissionPercentage !== undefined ? Number(config.commissionPercentage) : undefined,
-          currency: config.currency !== undefined ? String(config.currency) : undefined,
-          enabled: config.enabled !== undefined ? Boolean(config.enabled) : undefined,
-        };
+        if (!config) return {};
+        const parsed = {};
+        if (config.fixedPrice !== undefined) parsed.fixedPrice = Number(config.fixedPrice);
+        if (config.maxCoverageAmount !== undefined) parsed.maxCoverageAmount = Number(config.maxCoverageAmount);
+        if (config.commissionPercentage !== undefined) parsed.commissionPercentage = Number(config.commissionPercentage);
+        if (config.currency !== undefined) parsed.currency = String(config.currency);
+        if (config.enabled !== undefined) parsed.enabled = Boolean(config.enabled);
+        return parsed;
       };
 
-      if (global) settings.global = { ...settings.global, ...parseConfig(global) };
-      if (africa) settings.africa = { ...settings.africa, ...parseConfig(africa) };
-      if (europe) settings.europe = { ...settings.europe, ...parseConfig(europe) };
+      if (global) {
+        const parsedGlobal = parseConfig(global);
+        settings.global = { ...settings.global.toObject(), ...parsedGlobal };
+      }
+      if (africa) {
+        const parsedAfrica = parseConfig(africa);
+        settings.africa = { ...settings.africa.toObject(), ...parsedAfrica };
+      }
+      if (europe) {
+        const parsedEurope = parseConfig(europe);
+        settings.europe = { ...settings.europe.toObject(), ...parsedEurope };
+      }
 
       if (enabled !== undefined) settings.enabled = Boolean(enabled);
       if (description !== undefined) settings.description = String(description);

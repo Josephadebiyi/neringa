@@ -161,6 +161,8 @@ const translations = {
         verifyOtpBtn: 'Verify My Account',
         didntReceiveCode: "Didn't receive the code?",
         resendCode: 'Resend Code',
+        agreeToTermsPrefix: 'I agree to the',
+        termsAndConditions: 'Terms & Conditions',
 
         // Privacy Page
         privacyPolicy: 'Privacy Policy',
@@ -330,8 +332,8 @@ const translations = {
         arrival: 'Arrival',
         tripNotes: 'Trip Notes',
         editDetails: 'Edit Details',
-        tripPostedSuccess: 'Trip Posted Successfully!',
-        tripPostedDesc: 'Your trip is now live. Senders can now find your route and request to send packages with you.',
+        tripPostedSuccess: 'Trip Submitted for Verification',
+        tripPostedDesc: 'Your trip is successfully submitted. The Bago Team will verify your tickets/details. You will be notified via email once approved.',
         goDashboard: 'Go to Dashboard',
 
         tripActive: 'Active',
@@ -451,24 +453,16 @@ const translations = {
         fromCity: 'From — City',
         toCountry: 'To — Country',
         toCity: 'To — City',
-        selectCountry: 'Select country...',
-        anyCity: 'Any city in',
         travelDates: 'Travel Dates',
         departureDate: 'Departure Date',
         arrivalDate: 'Arrival Date',
-        transportMode: 'Transport Mode',
+        transportModeLabel: 'Transport Mode',
         capacity: 'Capacity',
-        availableWeight: 'Available Weight (kg)',
         maxWeight: 'Maximum 50 kg per trip',
-        weightKg: 'Weight (kg)',
         valueUsd: 'Value (USD)',
         forInsurancePurposes: 'For insurance purposes',
         receiverInfo: 'Receiver Info',
         deliveryRoute: 'Delivery Route',
-        fromCity: 'From City',
-        fromCountry: 'From Country',
-        toCity: 'To City',
-        toCountry: 'To Country',
         deadlineDate: 'Deadline Date',
         attributes: 'Attributes',
         fragileSub: 'Fragile - Handle with care',
@@ -488,10 +482,8 @@ const translations = {
         tripPosted: 'Trip Posted! 🎉',
         tripSuccessDesc: 'Your trip is now live. Package senders can find and book your available space.',
         redirectDashboard: 'Redirecting to your dashboard...',
-        kycRequired: 'Please complete Identity Verification before posting your trip.',
 
-        // Send Package
-        sendPackageTitle: 'Send a Package',
+// Send Package section starts
         sendRequestTitle: 'Send Shipping Request',
         findTravelerSubtitle: 'Find a trusted traveler to deliver your package',
         requestSpaceSubtitle: 'Requesting space from',
@@ -506,7 +498,7 @@ const translations = {
         fragile: 'Fragile - Handle with care',
         perishable: 'Perishable goods',
         refrigeration: 'Requires refrigeration',
-        estimatedCost: 'Estimated Shipping Cost',
+        estimatedShippingCost: 'Estimated Shipping Cost',
 
         // How It Works
         howBagoWorks: 'How Bago Works.',
@@ -584,7 +576,6 @@ const translations = {
 
         // Overview Extra
         fullAccessEnabled: 'Full access enabled.',
-        underReview: 'Under Review',
         underReviewDesc: 'Hang tight! Reviewing docs.',
         docsRejected: 'Docs were rejected.',
         tryAgain: 'Try Again',
@@ -600,24 +591,18 @@ const translations = {
         sendPackage: 'Send Package',
         findTravelerDesc: 'Find a traveler heading to your destination.',
         findTraveler: 'Find Traveler',
-        completed: 'Completed',
-        inTransit: 'In Transit',
         totalEarned: 'Total Earned',
         rating: 'Rating',
         declined: 'Declined',
 
         // Trips Extra
         manageFlightBusRoutes: 'Manage your flight and bus routes.',
-        postNewTrip: 'Post New Trip',
         noActiveTrips: 'No active trips',
         noActiveTripsDesc: "You haven't posted any routes yet. Start earning by sharing luggage space.",
         availableSpace: 'Available Space',
         travelMode: 'Travel Mode',
         edit: 'Edit',
         delete: 'Delete',
-        originCity: 'Origin City',
-        arrivalCity: 'Arrival City',
-        departureDate: 'Departure Date',
         spaceKg: 'Space (KG)',
         updateRoute: 'Update Route',
         deleteTripConfirm: 'Are you sure you want to delete this trip? All related shipment requests will be affected.',
@@ -1234,6 +1219,8 @@ const translations = {
         contactSupport: 'Contactar Soporte',
         backToHome: 'Volver a Inicio',
         referenceId: 'ID de Referencia',
+        agreeToTermsPrefix: 'Acepto los',
+        termsAndConditions: 'Términos y Condiciones',
     },
     fr: {
         // Common
@@ -1281,6 +1268,8 @@ const translations = {
 
         // Signup
         createAccountHeader: 'Créer un compte',
+        agreeToTermsPrefix: "J'accepte les",
+        termsAndConditions: 'Termes et Conditions',
     },
     de: {
         // Common
@@ -1312,6 +1301,8 @@ const translations = {
         verification: 'Verifizierung',
         verifiedMember: 'Verifiziertes Mitglied',
         verifyNow: 'Jetzt verifizieren',
+        agreeToTermsPrefix: 'Ich stimme den',
+        termsAndConditions: 'Geschäftsbedingungen zu',
     },
     pt: {
         // Common
@@ -1343,6 +1334,8 @@ const translations = {
         verification: 'Verificação',
         verifiedMember: 'Membro Verificado',
         verifyNow: 'Verificar agora',
+        agreeToTermsPrefix: 'Eu aceito os',
+        termsAndConditions: 'Termos e Condições',
     }
 };
 

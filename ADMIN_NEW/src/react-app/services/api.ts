@@ -153,10 +153,10 @@ export async function getTrips(page = 1, limit = 20) {
   return apiCall(`${ADMIN_API}/admin-trips?page=${page}&limit=${limit}`);
 }
 
-export async function updateTripStatus(tripId: string, status: string) {
+export async function updateTripStatus(tripId: string, status: string, reason?: string) {
   return apiCall(`${ADMIN_API}/admin-trips/${tripId}/status`, {
     method: 'PUT',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, reason }),
   });
 }
 

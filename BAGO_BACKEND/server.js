@@ -2470,10 +2470,10 @@ app.get("/api/shipping/label/:requestId", isAuthenticated, async (req, res) => {
     const { requestId } = req.params;
 
     const request = await Request.findById(requestId)
-      .populate('sender', 'name email phone')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email phone')
+      .populate('traveler', 'firstName lastName email')
       .populate('package')
-      .populate('trip', 'travelMeans');
+      .populate('trip', 'travelMeans departureDate arrivalDate');
 
     if (!request) {
       return res.status(404).json({ success: false, message: "Request not found" });
@@ -2485,12 +2485,35 @@ app.get("/api/shipping/label/:requestId", isAuthenticated, async (req, res) => {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
+    // Map data for PDF generation with safe fallbacks
+    const shippingData = {
+      sender: {
+        name: request.sender?.firstName ? `${request.sender.firstName} ${request.sender.lastName || ''}`.trim() : 'Sender',
+        phone: request.sender?.phone || ''
+      },
+      traveler: {
+        name: request.traveler?.firstName ? `${request.traveler.firstName} ${request.traveler.lastName || ''}`.trim() : 'Traveler'
+      },
+      package: request.package || {},
+      trackingNumber: request.trackingNumber || 'BGO-PENDING',
+      status: request.status || 'pending',
+      estimatedDeparture: request.estimatedDeparture || request.trip?.departureDate,
+      estimatedArrival: request.estimatedArrival || request.trip?.arrivalDate,
+      insurance: request.insurance || false,
+      insuranceCost: request.insuranceCost || 0,
+      amount: request.amount || 0,
+      currency: request.currency || 'USD',
+      trip: {
+        travelMeans: request.trip?.travelMeans || 'N/A'
+      }
+    };
+
     // Generate PDF
-    const pdfBuffer = await generateShippingLabelPDF(request);
+    const pdfBuffer = await generateShippingLabelPDF(shippingData);
 
     // Set headers for PDF download
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="shipping-label-${request.trackingNumber || requestId}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="BAGO_Label_${shippingData.trackingNumber}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);
 
     res.send(pdfBuffer);

@@ -249,19 +249,27 @@ export default function Trips() {
                                             </td>
                                             <td className="py-5 px-8">
                                                 <div className="flex flex-col gap-2">
-                                                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border text-center ${trip.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' :
-                                                        trip.status === 'pending' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
-                                                            trip.status === 'declined' ? 'bg-red-50 text-red-600 border-red-100' :
-                                                                'bg-gray-50 text-gray-400 border-gray-100'
-                                                        }`}>
-                                                        {trip.status}
+                                                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border text-center ${
+                                                        trip.status === 'verified' || trip.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' :
+                                                        trip.status === 'pending_admin_review' || trip.status === 'pending' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
+                                                        trip.status === 'declined' ? 'bg-red-50 text-red-600 border-red-100' :
+                                                        'bg-gray-50 text-gray-400 border-gray-100'
+                                                    }`}>
+                                                        {trip.status === 'pending_admin_review' ? 'Review Required' : trip.status}
                                                     </span>
-                                                    {trip.travelDocument && (
+                                                    {trip.travelDocument && trip.travelDocument.trim() !== '' && (
                                                         <a
-                                                            href={trip.travelDocument}
+                                                            href={trip.travelDocument.startsWith('http') ? trip.travelDocument : `https://${trip.travelDocument}`}
                                                             target="_blank"
                                                             rel="noreferrer"
                                                             className="text-[10px] font-black uppercase text-blue-500 hover:underline text-center"
+                                                            onClick={(e) => {
+                                                                // Prevent opening if URL is invalid
+                                                                if (!trip.travelDocument || trip.travelDocument.trim() === '') {
+                                                                    e.preventDefault();
+                                                                    alert('No travel document available');
+                                                                }
+                                                            }}
                                                         >
                                                             View Ticket
                                                         </a>
@@ -270,12 +278,12 @@ export default function Trips() {
                                             </td>
                                             <td className="py-5 px-8 text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    {trip.status === 'pending' && (
+                                                    {(trip.status === 'pending_admin_review' || trip.status === 'pending') && (
                                                         <>
                                                             <button
                                                                 onClick={async () => {
-                                                                    if (!confirm('Approve this trip?')) return;
-                                                                    const res = await updateTripStatus(trip._id, 'active');
+                                                                    if (!confirm('Approve and verify this trip?')) return;
+                                                                    const res = await updateTripStatus(trip._id, 'verified');
                                                                     if (res.success) fetchTrips();
                                                                 }}
                                                                 className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-[10px] font-black uppercase hover:bg-green-100"
@@ -284,8 +292,9 @@ export default function Trips() {
                                                             </button>
                                                             <button
                                                                 onClick={async () => {
-                                                                    if (!confirm('Decline this trip?')) return;
-                                                                    const res = await updateTripStatus(trip._id, 'declined');
+                                                                    const reason = prompt('Enter reason for decline:');
+                                                                    if (reason === null) return;
+                                                                    const res = await updateTripStatus(trip._id, 'declined', reason);
                                                                     if (res.success) fetchTrips();
                                                                 }}
                                                                 className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black uppercase hover:bg-red-100"

@@ -501,6 +501,42 @@ export async function sendTripApprovedEmail(userEmail, userName, trip) {
 }
 
 /**
+ * Send notification to admin when a new trip is submitted
+ */
+export async function sendNewTripAdminNotification(adminEmail, travelerName, trip) {
+  if (!resend) return false;
+
+  try {
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        A new trip has been submitted and requires verification.
+      </p>
+      <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5240E8;">
+        <p style="margin:0 0 12px; font-size:14px; color:#111827; font-weight:600;">NEW TRIP DETAILS</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Traveler:</strong> ${travelerName}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Route:</strong> ${trip.fromLocation} → ${trip.toLocation}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Departure:</strong> ${new Date(trip.departureDate).toLocaleDateString()}</p>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Please log in to the Admin Dashboard to review the travel documents and verify this trip.
+      </p>
+    `;
+
+    await resend.emails.send({
+      from: 'Bago Admin <admin@sendwithbago.com>',
+      to: adminEmail,
+      subject: '🔔 New Trip Pending Verification',
+      html: generateEmailTemplate('New Trip Verification Required', content, 'Review Trip', `${process.env.ADMIN_URL || FRONTEND_URL + '/admin'}/trips`),
+    });
+
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send admin notification:', error);
+    return false;
+  }
+}
+
+/**
  * Send email when trip is declined by admin
  */
 export async function sendTripDeclinedEmail(userEmail, userName, trip, reason = 'verification requirements not met') {
@@ -604,8 +640,8 @@ export async function sendShippingStatusEmail(request, status, location = null) 
     }
 
     const senderEmail = request.sender.email;
-    const senderName = request.sender.name || request.sender.firstName || 'User';
-    const travelerName = request.traveler?.name || request.traveler?.firstName || 'Traveler';
+    const senderName = request.sender.firstName ? `${request.sender.firstName} ${request.sender.lastName || ''}`.trim() : 'User';
+    const travelerName = request.traveler.firstName ? `${request.traveler.firstName} ${request.traveler.lastName || ''}`.trim() : 'Traveler';
     const packageDetails = request.package?.description || 'Your package';
     const trackingNumber = request.trackingNumber || 'N/A';
 

@@ -1,10 +1,7 @@
 import mongoose from 'mongoose';
 
 const regionConfigSchema = new mongoose.Schema({
-  baseRate: { type: Number, default: 5 },
-  percentageOfValue: { type: Number, default: 2 },
-  minimumCharge: { type: Number, default: 3 },
-  maximumCharge: { type: Number, default: 100 },
+  fixedPrice: { type: Number, default: 6 },
   maxCoverageAmount: { type: Number, default: 5000 },
   commissionPercentage: { type: Number, default: 15 },
   currency: { type: String, default: 'USD' },

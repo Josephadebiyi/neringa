@@ -39,6 +39,7 @@ export default function Dashboard() {
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
     const [userStats, setUserStats] = useState({ totalUsers: 0 });
+    const [chatConv, setChatConv] = useState(null); // Persist chat across tab switches
     const location = useLocation();
     const [msg, setMsg] = useState(location.state?.message || '');
 
@@ -76,7 +77,11 @@ export default function Dashboard() {
         try {
             const resp = await api.get('/api/bago/user-stats');
             if (resp.data.success) {
-                setUserStats({ totalUsers: resp.data.totalUsers });
+                setUserStats({
+                    totalUsers: resp.data.totalUsers,
+                    completedBookings: resp.data.completedBookings || 0,
+                    activePackages: resp.data.activePackages || 0
+                });
             }
         } catch (err) {
             // Error fetching user stats
@@ -120,10 +125,10 @@ export default function Dashboard() {
                 case 'overview': return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
                 case 'trips': return <Trips user={user} />;
                 case 'shipments':
-                    return <Shipments user={user} />;
+                    return <Shipments user={user} onNavigateToChat={(convId) => { setChatConv({ _id: convId }); setActiveTab('chats'); }} />;
                 case 'deliveries':
-                    return <Deliveries user={user} />;
-                case 'chats': return <Chats user={user} />;
+                    return <Deliveries user={user} onNavigateToChat={(convId) => { setChatConv({ _id: convId }); setActiveTab('chats'); }} />;
+                case 'chats': return <Chats user={user} selectedConv={chatConv} setSelectedConv={setChatConv} onTabChange={setActiveTab} />;
                 case 'earnings': return <Earnings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'settings': return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
                 default: return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} />;

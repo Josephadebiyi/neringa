@@ -19,6 +19,12 @@ interface TicketMessage {
   timestamp: string;
 }
 
+interface TicketAttachment {
+  url: string;
+  filename: string;
+  uploadedAt: string;
+}
+
 interface Ticket {
   _id: string;
   user: {
@@ -35,6 +41,7 @@ interface Ticket {
   assignedTo?: {
     fullName: string;
   };
+  attachments?: TicketAttachment[];
   messages: TicketMessage[];
   createdAt: string;
 }
@@ -252,6 +259,25 @@ export default function Support() {
                 </div>
                 <div className="bg-white p-6 rounded-[2rem] rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-600 leading-relaxed font-medium">
                   {selectedTicket.description}
+
+                  {/* Display attachments if any */}
+                  {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Attachments:</p>
+                      {selectedTicket.attachments.map((attachment, idx) => (
+                        <a
+                          key={idx}
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-[#5240E8] hover:underline"
+                        >
+                          <Paperclip className="w-4 h-4" />
+                          <span className="text-xs font-bold">{attachment.filename || `Attachment ${idx + 1}`}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

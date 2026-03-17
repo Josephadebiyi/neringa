@@ -9,13 +9,13 @@ export default function SettingsPage() {
     const [globalEnabled, setGlobalEnabled] = useState(true);
 
     const [africaInsurance, setAfricaInsurance] = useState({
-        baseRate: 15000, percentageOfValue: 0, minimumCharge: 0, maximumCharge: 0, maxCoverageAmount: 2000000, commissionPercentage: 15, enabled: true, currency: 'NGN'
+        fixedPrice: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, enabled: true, currency: 'NGN'
     });
     const [europeInsurance, setEuropeInsurance] = useState({
-        baseRate: 7, percentageOfValue: 3, minimumCharge: 5, maximumCharge: 150, maxCoverageAmount: 10000, commissionPercentage: 15, enabled: true, currency: 'USD'
+        fixedPrice: 6, maxCoverageAmount: 10000, commissionPercentage: 15, enabled: true, currency: 'USD'
     });
     const [globalInsurance, setGlobalInsurance] = useState({
-        baseRate: 5, percentageOfValue: 2, minimumCharge: 3, maximumCharge: 100, maxCoverageAmount: 5000, commissionPercentage: 15, enabled: true, currency: 'USD'
+        fixedPrice: 6, maxCoverageAmount: 5000, commissionPercentage: 15, enabled: true, currency: 'USD'
     });
     const [description, setDescription] = useState('Protect your shipment against loss, damage, or theft during transit.');
     const [terms, setTerms] = useState('Insurance coverage applies from pickup to delivery. Claims must be filed within 48 hours of delivery.');
@@ -153,58 +153,22 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-2 gap-4 mt-8">
                         <div>
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">
-                                {selectedRegion === 'africa' ? 'Flat Price (NGN) / Base' : 'Base Rate (USD)'}
+                                Fixed Insurance Price ({selectedRegion === 'africa' ? 'NGN' : 'USD'})
                             </label>
                             <input
                                 type="text"
-                                value={(currentRegionData as any).baseRate}
+                                value={(currentRegionData as any).fixedPrice}
                                 onChange={(e) => {
                                     const val = e.target.value.replace(/[^0-9.]/g, '');
-                                    updateRegionField('baseRate', val === '' ? 0 : Number(val));
+                                    updateRegionField('fixedPrice', val === '' ? 0 : Number(val));
                                 }}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
+                                className="w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-2xl font-bold text-sm text-blue-700"
+                                placeholder={selectedRegion === 'africa' ? '3000' : '6'}
                             />
+                            <p className="text-[9px] text-gray-400 mt-1.5 px-1 font-medium">
+                                This amount will be automatically converted to user's preferred currency
+                            </p>
                         </div>
-                        {selectedRegion !== 'africa' && (
-                            <>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">Percentage (%)</label>
-                                    <input
-                                        type="text"
-                                        value={(currentRegionData as any).percentageOfValue}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/[^0-9.]/g, '');
-                                            updateRegionField('percentageOfValue', val === '' ? 0 : Number(val));
-                                        }}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">Min Charge (USD)</label>
-                                    <input
-                                        type="text"
-                                        value={(currentRegionData as any).minimumCharge}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/[^0-9.]/g, '');
-                                            updateRegionField('minimumCharge', val === '' ? 0 : Number(val));
-                                        }}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">Max Charge (USD)</label>
-                                    <input
-                                        type="text"
-                                        value={(currentRegionData as any).maximumCharge}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/[^0-9.]/g, '');
-                                            updateRegionField('maximumCharge', val === '' ? 0 : Number(val));
-                                        }}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
-                                    />
-                                </div>
-                            </>
-                        )}
                         <div>
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">Max Coverage ({selectedRegion === 'africa' ? 'NGN' : 'USD'})</label>
                             <input

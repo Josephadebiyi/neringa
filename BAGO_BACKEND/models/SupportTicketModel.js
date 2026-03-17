@@ -33,6 +33,14 @@ const supportTicketSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Admin',
     },
+    attachments: [{
+        url: String,
+        filename: String,
+        uploadedAt: {
+            type: Date,
+            default: Date.now,
+        }
+    }],
     messages: [{
         sender: {
             type: String,

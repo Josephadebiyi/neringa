@@ -52,7 +52,7 @@ export const updateTripStatus = async (req, res) => {
         const userName = trip.user.firstName || trip.user.name || 'Traveler';
 
         // 🚀 Send Push Notification + Email to User
-        if (status === 'active') {
+        if (status === 'verified' || status === 'active') {
             // Push notification
             await sendPushNotification(
                 trip.user._id,

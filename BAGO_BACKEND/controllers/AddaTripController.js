@@ -3,6 +3,8 @@ import User from '../models/userScheme.js';
 import { getExchangeRate, convertCurrency } from '../services/currencyConverter.js';
 import Setting from '../models/settingScheme.js';
 import Request from '../models/RequestScheme.js';
+import Admin from '../models/adminScheme.js';
+import { sendNewTripAdminNotification } from '../services/emailNotifications.js';
 
 // ✅ Add a new trip
 export const AddAtrip = async (req, res, next) => {
@@ -45,7 +47,11 @@ export const AddAtrip = async (req, res, next) => {
     const settings = await Setting.findOne();
     const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
     const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
-    const isNigeriaRoute = fromCountry?.toUpperCase() === 'NG' || toCountry?.toUpperCase() === 'NG';
+    const isNigeriaRoute = 
+      fromCountry?.toUpperCase() === 'NG' || 
+      fromCountry?.toUpperCase() === 'NIGERIA' || 
+      toCountry?.toUpperCase() === 'NG' || 
+      toCountry?.toUpperCase() === 'NIGERIA';
 
     if (isAfricanCurrency || isNigeriaRoute) {
       const maxNaira = 6000;
@@ -75,10 +81,21 @@ export const AddAtrip = async (req, res, next) => {
       landmark: landmark || '',
       travelDocument: travelDocument || null,
       documentVerified: false, // Will be verified by admin
-      status: "pending",
+      status: "pending_admin_review",
     });
 
     await trip.save();
+
+    // 🔔 Notify Admins
+    try {
+      const admins = await Admin.find({ isActive: true });
+      const travelerName = user.firstName || user.name || 'A user';
+      for (const admin of admins) {
+        await sendNewTripAdminNotification(admin.email, travelerName, trip);
+      }
+    } catch (adminErr) {
+      console.error('Failed to notify admins:', adminErr);
+    }
 
     res.status(201).json({
       message: "Trip created successfully",
@@ -110,7 +127,7 @@ export const MyTrips = async (req, res) => {
     // Include reviews in the query
     const trips = await Trip.find({ user: userId }).select(
       '_id fromLocation toLocation departureDate arrivalDate availableKg travelMeans status request reviews'
-    ).populate('reviews.user', 'name email'); // optional: populate reviewer info
+    ).populate('reviews.user', 'firstName lastName email'); // optional: populate reviewer info
 
     const formattedTrips = trips.map((trip) => {
       // Calculate average rating
@@ -177,7 +194,15 @@ export const UpdateTrip = async (req, res, next) => {
       const settings = await Setting.findOne();
       const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
       const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
-      const isNigeriaRoute = fromCountry?.toUpperCase() === 'NG' || toCountry?.toUpperCase() === 'NG' || trip.fromCountry === 'NG' || trip.toCountry === 'NG';
+      const isNigeriaRoute = 
+        fromCountry?.toUpperCase() === 'NG' || 
+        fromCountry?.toUpperCase() === 'NIGERIA' || 
+        toCountry?.toUpperCase() === 'NG' || 
+        toCountry?.toUpperCase() === 'NIGERIA' || 
+        trip.fromCountry?.toUpperCase() === 'NG' || 
+        trip.fromCountry?.toUpperCase() === 'NIGERIA' || 
+        trip.toCountry?.toUpperCase() === 'NG' || 
+        trip.toCountry?.toUpperCase() === 'NIGERIA';
 
       if (isAfricanCurrency || isNigeriaRoute) {
         const maxNaira = 6000;
