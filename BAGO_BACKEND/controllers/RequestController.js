@@ -1420,3 +1420,82 @@ export const getPublicTrackingByNumber = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error tracking shipment' });
   }
 };
+
+/**
+ * @desc Get request details for success/confirmation page
+ * @route GET /api/bago/request/:requestId/details
+ * @access Private (Authenticated)
+ */
+export const getRequestDetails = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+
+    console.log('📋 Fetching request details for:', requestId);
+
+    if (!mongoose.Types.ObjectId.isValid(requestId)) {
+      return res.status(400).json({ success: false, message: 'Invalid request ID format' });
+    }
+
+    const request = await Request.findById(requestId)
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
+      .populate('package')
+      .populate('trip');
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    // Verify user has access to this request
+    const userId = req.user._id.toString();
+    const senderId = request.sender?._id?.toString();
+    const travelerId = request.traveler?._id?.toString();
+
+    if (userId !== senderId && userId !== travelerId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Return CLEAN, sanitized response - NO RAW DATA
+    return res.status(200).json({
+      success: true,
+      data: {
+        _id: request._id,
+        trackingNumber: request.trackingNumber,
+        status: request.status,
+        amount: request.amount,
+        currency: request.currency,
+        package: {
+          description: request.package?.description,
+          packageWeight: request.package?.packageWeight,
+          fromCity: request.package?.fromCity,
+          fromCountry: request.package?.fromCountry,
+          toCity: request.package?.toCity,
+          toCountry: request.package?.toCountry,
+          category: request.package?.category,
+          value: request.package?.value,
+        },
+        payment: {
+          method: request.paymentInfo?.method,
+          status: request.paymentInfo?.status,
+          gateway: request.paymentInfo?.gateway,
+        },
+        dates: {
+          created: request.createdAt,
+          estimatedDeparture: request.estimatedDeparture,
+          estimatedArrival: request.estimatedArrival,
+        },
+        insurance: {
+          included: request.insurance,
+          cost: request.insuranceCost,
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get request details error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch request details'
+    });
+  }
+};
