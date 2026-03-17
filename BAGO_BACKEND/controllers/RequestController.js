@@ -8,6 +8,7 @@ import Conversation from '../models/conversationScheme.js'; // Import Conversati
 import User from '../models/userScheme.js';
 import { sendShippingStatusEmail, sendReceiverShippingStartedEmail, sendNewRequestToTravelerEmail } from '../services/emailNotifications.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
+import { generateShippingLabelPDF } from '../services/pdfGenerator.js';
 
 
 
@@ -281,8 +282,8 @@ export const updateRequestStatus = async (req, res) => {
     // Fetch request with package details for notification and conversation
     const request = await Request.findById(requestId)
       .populate('package')
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
       .populate('trip');
 
     if (!request) {
@@ -315,8 +316,8 @@ export const updateRequestStatus = async (req, res) => {
       updateObj,
       { new: true }
     )
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
       .populate('trip')
       .populate('package');
 
@@ -427,9 +428,9 @@ export const updateRequestDates = async (req, res) => {
 
     // Fetch request to verify traveler
     const request = await Request.findById(requestId)
-      .populate('traveler', 'name email')
+      .populate('traveler', 'firstName lastName email')
       .populate('package')
-      .populate('sender', 'name email')
+      .populate('sender', 'firstName lastName email')
       .populate('trip');
 
     if (!request) {
@@ -457,8 +458,8 @@ export const updateRequestDates = async (req, res) => {
       updateObj,
       { new: true }
     )
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
       .populate('trip')
       .populate('package');
 
@@ -598,8 +599,8 @@ export const getRequests = async (req, res) => {
     // 🧠 Find requests for this trip, populate sender/traveler/package, and sort newest first
     const findRequests = await Request.find({ trip: tripId })
       .populate('package')
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
       .sort({ createdAt: -1 }); // 🔥 Sort newest first
 
     if (!findRequests.length) {
@@ -643,8 +644,8 @@ export const getDisputes = async (req, res) => {
     // 🟢 Fetch only requests with a dispute
     const disputedRequests = await Request.find({ dispute: { $ne: null } })
       .populate('package')
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email');
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email');
 
     if (!disputedRequests.length) {
       return res.status(404).json({ message: "No disputes found" });
@@ -709,7 +710,7 @@ export const getNotifications = async (req, res) => {
   try {
     const userId = req.user._id;
     const notifications = await Notification.find({ user: userId })
-      .populate('user', 'name email')
+      .populate('user', 'firstName lastName email')
       .populate('request')
       .sort({ createdAt: -1 });
 
@@ -791,8 +792,8 @@ export const getCompletedRequests = async (req, res) => {
       status: 'completed',
     })
       .populate('package')
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
       .populate('trip');
 
     if (!completedRequests.length) {
@@ -875,8 +876,8 @@ export const uploadRequestImage = async (req, res) => {
     await request.save();
 
     const populated = await Request.findById(requestId)
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
       .populate('package');
 
     // Optional: create notification to traveler that sender uploaded proof
@@ -945,8 +946,8 @@ export const uploadTravelerProof = async (req, res) => {
     }
 
     const populated = await Request.findById(requestId)
-      .populate('sender', 'name email')
-      .populate('traveler', 'name email')
+      .populate('sender', 'firstName lastName email')
+      .populate('traveler', 'firstName lastName email')
       .populate('package');
 
     return res.status(200).json({ success: true, message: 'Traveler proof uploaded', data: populated });
@@ -973,8 +974,8 @@ export const confirmReceivedBySender = async (req, res) => {
     }
 
     const request = await Request.findById(requestId)
-      .populate("sender", "name email")
-      .populate("traveler", "name email balance escrowBalance")
+      .populate("sender", "firstName lastName email")
+      .populate("traveler", "firstName lastName email balance escrowBalance")
       .populate("package");
 
     if (!request) return res.status(404).json({ success: false, message: "Request not found" });
@@ -1132,8 +1133,8 @@ export const confirmReceivedBySender = async (req, res) => {
     }
 
     const populated = await Request.findById(requestId)
-      .populate("sender", "name email")
-      .populate("traveler", "name email balance escrowBalance")
+      .populate("sender", "firstName lastName email")
+      .populate("traveler", "firstName lastName email balance escrowBalance")
       .populate("package");
 
     const payload = { success: true, message: "Package confirmed. Escrow handled (if any).", data: populated };
@@ -1215,16 +1216,13 @@ export const updatePaymentStatus = async (req, res) => {
     // Save payment status inside request.paymentInfo
     request.paymentInfo.method = paymentInfo.method;
     request.paymentInfo.status = paymentInfo.status;
-    request.paymentInfo.requestId = requestId; // optional, if you want to store request reference
+    request.paymentInfo.requestId = requestId; 
     request.updatedAt = new Date();
 
-    // Generate unique tracking number only after successful payment
-    if (paymentInfo.status === 'paid' && !request.trackingNumber) {
-      const prefix = 'BAGO';
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      request.trackingNumber = `${prefix}-${timestamp}${random}`;
-      console.log(`📡 Tracking number generated: ${request.trackingNumber}`);
+    // Tracking number is now auto-generated via pre-save hook in RequestScheme.js
+    // if paymentStatus is paid, we can log it here
+    if (paymentInfo.status === 'paid') {
+      console.log(`💰 Payment completed for request ${requestId}. Tracking: ${request.trackingNumber}`);
     }
 
     await request.save();
@@ -1264,6 +1262,150 @@ export const getPublicTracking = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getPublicTracking:', error);
+    res.status(500).json({ success: false, message: 'Server error tracking shipment' });
+  }
+};
+
+/**
+ * @desc Generate and download Shipping Label PDF
+ * @route GET /api/bago/request/:requestId/pdf
+ */
+export const downloadRequestPDF = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+
+    if (!requestId) {
+      return res.status(400).json({ success: false, message: 'Request ID is required' });
+    }
+
+    // Validate requestId format
+    if (!mongoose.Types.ObjectId.isValid(requestId)) {
+      console.error('❌ Invalid request ID format:', requestId);
+      return res.status(400).json({ success: false, message: 'Invalid request ID format' });
+    }
+
+    const request = await Request.findById(requestId)
+      .populate('sender', 'firstName lastName email phone')
+      .populate('traveler', 'firstName lastName email')
+      .populate('package')
+      .populate('trip');
+
+    if (!request) {
+      console.error('❌ Request not found during PDF download:', requestId);
+      return res.status(404).json({ success: false, message: 'Shipping request not found' });
+    }
+
+    // Map data for PDF generation with safe fallbacks
+    const packageData = request.package ? {
+      description: request.package.description || 'Package',
+      packageWeight: request.package.packageWeight || request.package.weight || 0,
+      category: request.package.category || 'General',
+      value: request.package.value || 0,
+      receiverName: request.package.receiverName || 'Recipient',
+      receiverPhone: request.package.receiverPhone || '',
+      fromCity: request.package.fromCity || 'N/A',
+      fromCountry: request.package.fromCountry || 'N/A',
+      toCity: request.package.toCity || 'N/A',
+      toCountry: request.package.toCountry || 'N/A',
+      image: request.package.image || null
+    } : {
+      description: 'Package',
+      packageWeight: 0,
+      category: 'General',
+      value: 0,
+      receiverName: 'Recipient',
+      receiverPhone: '',
+      fromCity: 'N/A',
+      fromCountry: 'N/A',
+      toCity: 'N/A',
+      toCountry: 'N/A',
+      image: null
+    };
+
+    const shippingData = {
+      sender: {
+        name: request.sender?.firstName ? `${request.sender.firstName} ${request.sender.lastName || ''}`.trim() : (request.sender?.name || 'Sender'),
+        phone: request.sender?.phone || ''
+      },
+      traveler: {
+        name: request.traveler?.firstName ? `${request.traveler.firstName} ${request.traveler.lastName || ''}`.trim() : (request.traveler?.name || 'Traveler')
+      },
+      package: packageData,
+      trackingNumber: request.trackingNumber || 'BGO-PENDING',
+      status: request.status || 'pending',
+      estimatedDeparture: request.estimatedDeparture || request.trip?.departureDate,
+      estimatedArrival: request.estimatedArrival || request.trip?.arrivalDate,
+      insurance: request.insurance || false,
+      insuranceCost: request.insuranceCost || 0,
+      amount: request.amount || 0,
+      currency: request.currency || 'USD',
+      trip: request.trip ? {
+        travelMeans: request.trip.travelMeans || 'N/A'
+      } : { travelMeans: 'N/A' }
+    };
+
+    console.log(`🔨 Generating Shipping Label PDF for track# ${shippingData.trackingNumber}...`);
+
+    const pdfBuffer = await generateShippingLabelPDF(shippingData);
+
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      console.error('❌ PDF generation returned empty buffer for request:', requestId);
+      throw new Error('Failed to generate PDF content');
+    }
+
+    const fileName = `BAGO_Shipment_${shippingData.trackingNumber.replace(/[^\w-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    
+    console.log(`✅ PDF successfully sent (${pdfBuffer.length} bytes)`);
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('❌ PDF Download Execution Error:', error);
+    
+    if (res.headersSent) {
+      console.warn('⚠️ Headers already sent, cannot send JSON error');
+      return res.end();
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while generating your shipping label.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * @desc Public tracking by number (No Auth)
+ * @route GET /api/bago/public/track/:trackingNumber
+ */
+export const getPublicTrackingByNumber = async (req, res) => {
+  try {
+    const { trackingNumber } = req.params;
+
+    if (!trackingNumber) {
+      return res.status(400).json({ success: false, message: 'Tracking number is required' });
+    }
+
+    const request = await Request.findOne({ trackingNumber })
+      .populate('package', 'fromCity fromCountry toCity toCountry receiverName description')
+      .populate('traveler', 'firstName lastName')
+      .populate('trip', 'origin destination departureDate')
+      .select('status movementTracking createdAt estimatedDeparture estimatedArrival trackingNumber');
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Invalid tracking number' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: request
+    });
+  } catch (error) {
+    console.error('Error in getPublicTrackingByNumber:', error);
     res.status(500).json({ success: false, message: 'Server error tracking shipment' });
   }
 };
