@@ -187,6 +187,16 @@ export const RequestPackage = async (req, res, next) => {
     // SAVE REQUEST
     // ----------------------------------------------
 
+    // ✅ Generate tracking number immediately (not after payment)
+    const generateTrackingNumber = () => {
+      const prefix = 'BAGO';
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      return `${prefix}-${timestamp}${random}`;
+    };
+
+    const trackingNumber = generateTrackingNumber();
+
     const newRequest = new Request({
       sender: senderId,
       traveler: travelerId,
@@ -195,7 +205,7 @@ export const RequestPackage = async (req, res, next) => {
       currency: currency || 'USD',
       image: uploadedImageUrl || null,
       status: "pending",
-      trackingNumber: null, // Generated after payment success
+      trackingNumber: trackingNumber, // ✅ Generated immediately on request creation
       insurance: insurance === "yes" || insurance === true,
       insuranceCost: insurance ? parseFloat(insuranceCost) || 0 : 0,
       trip: tripId,
@@ -210,6 +220,7 @@ export const RequestPackage = async (req, res, next) => {
     await Trip.findByIdAndUpdate(tripId, { $inc: { request: 1 } });
 
     console.log("✅ New Request created successfully:", newRequest._id);
+    console.log(`📡 Tracking number generated: ${trackingNumber}`);
 
     // ✅ SEND NOTIFICATIONS TO TRAVELER
     try {
