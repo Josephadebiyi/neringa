@@ -23,6 +23,7 @@ import TrackShipment from './pages/TrackShipment';
 import Banned from './pages/Banned';
 import Verify from './pages/Verify';
 import Support from './pages/Support';
+import ShippingSuccess from './pages/ShippingSuccess';
 import Test from './Test';
 
 const GOOGLE_CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
@@ -54,6 +55,7 @@ function App() {
                         <Route path="/reset-password" element={<ResetPassword />} />
                         <Route path="/verify" element={<Verify />} />
                         <Route path="/support" element={<Support />} />
+                        <Route path="/shipping-success" element={<ShippingSuccess />} />
                     </Routes>
                 </BrowserRouter>
             </LanguageProvider>

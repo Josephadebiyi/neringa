@@ -84,7 +84,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Baggo to use your location to detect your country and currency."
+          "locationAlwaysAndWhenInUsePermission": "Allow Bago to use your location to detect your country and currency."
         }
       ]
     ],

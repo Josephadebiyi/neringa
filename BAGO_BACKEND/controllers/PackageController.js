@@ -38,11 +38,6 @@ export const createPackage = async (req, res) => {
     const category = (package_details?.category || req.body.category || 'other')?.trim();
     const value = package_details?.package_value || req.body.value || 0;
     
-    // Dimensions
-    const length = package_details?.length || req.body.length || 0;
-    const width = package_details?.width || req.body.width || 0;
-    const height = package_details?.height || req.body.height || 0;
-    
     // Construct description from name/description if provided in new format
     const description = package_details?.package_description || 
                         (package_details?.package_name ? `${package_details.package_name}: ${package_details.package_description || ''}` : null) ||
@@ -81,7 +76,7 @@ export const createPackage = async (req, res) => {
     if (!fromCity?.trim()) missingFields.push('fromCity');
     if (!toCountry?.trim()) missingFields.push('toCountry');
     if (!toCity?.trim()) missingFields.push('toCity');
-    if (!packageWeight) missingFields.push('packageWeight');
+    if (packageWeight === undefined || packageWeight === null || packageWeight === '') missingFields.push('packageWeight');
     if (!receiverName?.trim()) missingFields.push('receiverName');
     if (!receiverPhone?.trim()) missingFields.push('receiverPhone');
     if (!category?.trim()) missingFields.push('category');
@@ -89,7 +84,7 @@ export const createPackage = async (req, res) => {
     if (missingFields.length > 0) {
       console.error('❌ Missing required fields:', missingFields);
       return res.status(400).json({
-        message: 'ALL FIELDS ARE REQUIRED',
+        message: `Missing required fields: ${missingFields.join(', ')}`,
         missingFields: missingFields
       });
     }
@@ -100,15 +95,13 @@ export const createPackage = async (req, res) => {
     }
 
     const weightNum = Number(packageWeight);
-    const lengthNum = Number(length) || 0;
-    const widthNum = Number(width) || 0;
-    const heightNum = Number(height) || 0;
 
     if (Number.isNaN(weightNum) || weightNum <= 0) {
       return res.status(400).json({ message: 'Package weight must be a positive number' });
     }
-    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(receiverPhone)) {
+
+    const phoneRegex = /^\+?[0-9]\d{1,14}$/; // Relaxed regex to allow 0 at start
+    if (!phoneRegex.test(receiverPhone.trim())) {
       return res.status(400).json({ message: 'Please enter a valid phone number' });
     }
 
@@ -155,16 +148,13 @@ export const createPackage = async (req, res) => {
       toCountry,
       toCity,
       packageWeight: weightNum,
-      length: lengthNum,
-      width: widthNum,
-      height: heightNum,
       receiverName,
       receiverPhone,
-      receiverEmail: req.body.receiverEmail || null,
+      receiverEmail: receiverEmail || null,
       description: description || 'Package shipment', // Default if not provided
       image: imageUrls[0] || null,
       value: value || null, // Optional - only required if insurance is requested
-      category: req.body.category || 'other',
+      category: category,
     });
 
     await newPackage.save();

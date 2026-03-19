@@ -19,7 +19,7 @@ import ShipmentAssessment from '@/components/ShipmentAssessment';
 import ConfidenceScoreBadge, { CompatibilityBadge } from '@/components/ConfidenceScoreBadge';
 
 
-const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
+const API_BASE_URL = `${backendomain.backendomain}/api/bago`;
 
 export default function SearchTravelersScreen() {
   const router = useRouter();

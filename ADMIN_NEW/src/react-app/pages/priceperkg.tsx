@@ -89,9 +89,12 @@ export default function PricePerKgPage() {
       let token = localStorage.getItem('adminToken') || '';
       token = token.replace(/[^A-Za-z0-9-_.]/g, '').trim();
 
-      const res = await fetch(`${API_BASE}/delete/${id}`, {
+      const res = await fetch(`${API_BASE}/prices/delete/${id}`, {
         method: "DELETE",
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         credentials: 'include',
       });
       if (!res.ok) throw new Error("Failed to delete");

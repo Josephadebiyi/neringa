@@ -141,7 +141,7 @@ export default function Shipments({ user, onNavigateToChat }) {
                                     {req.status?.toLowerCase() === 'accepted' && (
                                         <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-lg border border-green-100 shadow-sm">
                                             <ShieldCheck size={10} />
-                                            <span className="text-[9px] font-black uppercase tracking-widest">Funds in Escrow</span>
+                                            <span className="text-[9px] font-black uppercase tracking-widest">{t('fundsInEscrow')}</span>
                                         </div>
                                     )}
                                 </div>
@@ -153,7 +153,7 @@ export default function Shipments({ user, onNavigateToChat }) {
                                 </span>
                                 {req.travelerProof && (
                                     <div className="flex flex-col items-center md:items-end gap-1.5 mt-1">
-                                        <p className="text-[7px] font-black text-[#5845D8] uppercase tracking-widest uppercase italic">{t('travelerUploadedProof') || 'Traveler Uploaded Proof'}</p>
+                                        <p className="text-[7px] font-black text-[#5845D8] uppercase tracking-widest uppercase italic">{t('travelerUploadedProof')}</p>
                                         <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:scale-105 transition-transform">
                                             <img src={req.travelerProof} className="w-full h-full object-cover" alt="Delivery Proof" onClick={() => window.open(req.travelerProof, '_blank')} />
                                         </div>
@@ -180,7 +180,7 @@ export default function Shipments({ user, onNavigateToChat }) {
                                         className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#5845D8] border border-[#5845D8] rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all shadow-sm"
                                     >
                                         {downloading === req._id ? <RefreshCw size={14} className="animate-spin" /> : null}
-                                        {downloading === req._id ? 'DOWNLOADING' : 'DOWNLOAD'}
+                                        {downloading === req._id ? t('downloading') || 'DOWNLOADING' : t('download') || 'DOWNLOAD'}
                                     </button>
                                     <button
                                         onClick={() => setSelectedRequest(req)}
@@ -258,8 +258,8 @@ export default function Shipments({ user, onNavigateToChat }) {
                         {/* Header */}
                         <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
                             <div>
-                                <h3 className="text-lg font-black text-[#012126] uppercase tracking-tight">Shipment Details</h3>
-                                <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest opacity-70">Order #{viewingDetails.trackingNumber || 'Pending'}</p>
+                                <h3 className="text-lg font-black text-[#012126] uppercase tracking-tight">{t('shipmentDetails')}</h3>
+                                <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest opacity-70">{t('order')} #{viewingDetails.trackingNumber || t('pending')}</p>
                             </div>
                             <button onClick={() => setViewingDetails(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                                 <X size={20} className="text-gray-400" />
@@ -283,23 +283,23 @@ export default function Shipments({ user, onNavigateToChat }) {
                             {/* Info Grid */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-5 bg-gray-50 rounded-[20px] border border-gray-100">
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Weight</p>
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{t('weight')}</p>
                                     <p className="text-sm font-black text-[#012126]">{viewingDetails.weight || viewingDetails.package?.packageWeight || 0} KG</p>
                                 </div>
                                 <div className="p-5 bg-gray-50 rounded-[20px] border border-gray-100">
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Category</p>
-                                    <p className="text-sm font-black text-[#012126] uppercase tracking-tight">{viewingDetails.category || viewingDetails.package?.category || 'General'}</p>
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{t('packageCategory')}</p>
+                                    <p className="text-sm font-black text-[#012126] uppercase tracking-tight">{t(viewingDetails.category?.toLowerCase()) || viewingDetails.category || t('general')}</p>
                                 </div>
                             </div>
 
 
                             {/* Receiver Info */}
                             <div className="space-y-3">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Receiver Information</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('receiverInformation')}</p>
                                 <div className="p-6 bg-indigo-50/30 rounded-[24px] border border-indigo-100 flex items-center justify-between">
                                     <div>
-                                        <p className="text-[10px] font-black text-[#012126] uppercase">{viewingDetails.package?.receiverName || 'N/A'}</p>
-                                        <p className="text-[9px] text-gray-500 font-bold mt-0.5">{viewingDetails.package?.receiverPhone || 'No Phone provided'}</p>
+                                        <p className="text-[10px] font-black text-[#012126] uppercase">{viewingDetails.package?.receiverName || t('notFound')}</p>
+                                        <p className="text-[9px] text-gray-500 font-bold mt-0.5">{viewingDetails.package?.receiverPhone || t('noPhoneProvided')}</p>
                                     </div>
                                     <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#5845D8] shadow-sm">
                                         <User size={18} />
@@ -308,9 +308,9 @@ export default function Shipments({ user, onNavigateToChat }) {
                             </div>
 
                             <div className="space-y-3">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Package description</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('packageDescription')}</p>
                                 <div className="p-6 bg-gray-50 rounded-[24px] border border-gray-100 text-xs font-bold leading-relaxed text-[#012126]">
-                                    {viewingDetails.package?.description || viewingDetails.description || 'No description provided.'}
+                                    {viewingDetails.package?.description || viewingDetails.description || t('noDescriptionProvided')}
                                 </div>
                             </div>
 
@@ -320,21 +320,21 @@ export default function Shipments({ user, onNavigateToChat }) {
                                 <div className="bg-[#5845D8]/5 p-6 rounded-[24px] border border-[#5845D8]/10 space-y-4">
                                     <div className="flex justify-between items-center">
                                         <div className="text-left">
-                                            <p className="text-[7px] font-black text-gray-400 uppercase mb-1">From</p>
+                                            <p className="text-[7px] font-black text-gray-400 uppercase mb-1">{t('from')}</p>
                                             <p className="text-xs font-black text-[#012126] uppercase">{viewingDetails.originCity}</p>
                                         </div>
                                         <div className="h-[1px] flex-1 bg-gray-200 mx-4 relative">
                                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#5845D8] shadow-sm shadow-[#5845D8]/20"></div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[7px] font-black text-gray-400 uppercase mb-1">To</p>
+                                            <p className="text-[7px] font-black text-gray-400 uppercase mb-1">{t('to')}</p>
                                             <p className="text-xs font-black text-[#012126] uppercase">{viewingDetails.destinationCity}</p>
                                         </div>
                                     </div>
                                     <div className="pt-4 border-t border-[#5845D8]/10 flex items-center justify-between gap-4">
                                        <div>
-                                            <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Traveler Name</p>
-                                            <p className="text-[10px] font-black text-[#5845D8] uppercase">{viewingDetails.travelerName || 'Reviewing Traveler...'}</p>
+                                            <p className="text-[7px] font-black text-gray-400 uppercase mb-1">{t('travelerName')}</p>
+                                            <p className="text-[10px] font-black text-[#5845D8] uppercase">{viewingDetails.travelerName || t('reviewingTraveler')}</p>
                                        </div>
                                        {viewingDetails.trackingNumber && (
                                            <div className="text-right">
@@ -343,7 +343,7 @@ export default function Shipments({ user, onNavigateToChat }) {
                                                     className="inline-flex items-center gap-2 bg-[#012126] text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest"
                                                 >
                                                     <ShieldCheck size={12} />
-                                                    Download Label
+                                                    {t('downloadLabel')}
                                                 </button>
                                            </div>
                                        )}
@@ -358,7 +358,7 @@ export default function Shipments({ user, onNavigateToChat }) {
                                 onClick={() => setViewingDetails(null)}
                                 className="w-full bg-[#012126] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
                             >
-                                Close Overview
+                                {t('closeOverview')}
                             </button>
                         </div>
                     </div>

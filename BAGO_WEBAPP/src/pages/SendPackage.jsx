@@ -104,8 +104,6 @@ export default function SendPackage() {
         receiverPhone: '',
         receiverEmail: '',
         imagePreview: null,
-        length: '',
-        width: '',
         height: '',
         termsAccepted: false
     });
@@ -287,12 +285,9 @@ export default function SendPackage() {
     const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
     const totalCost = (shippingCost + insuranceCost).toFixed(2);
 
+    // Removed wallet balance check to allow Stripe/Paystack payment
     useEffect(() => {
-        if (parseFloat(totalCost) > walletBalance) {
-            setIsInsufficientBalance(true);
-        } else {
-            setIsInsufficientBalance(false);
-        }
+        setIsInsufficientBalance(false);
     }, [totalCost, walletBalance]);
 
     const handleSubmit = async (e) => {
@@ -346,12 +341,14 @@ export default function SendPackage() {
             return;
         }
 
-        // Check balance
+        // Removed mandatory wallet balance check to allow Stripe/Paystack payment
+        /*
         if (parseFloat(totalCost) > walletBalance) {
             setError(`Insufficient balance. Your current balance is ${currency} ${walletBalance.toFixed(2)}, but this request requires ${currency} ${totalCost}. Please top up your wallet first.`);
             setLoading(false);
             return;
         }
+        */
 
         // Check terms
         if (!formData.termsAccepted) {
@@ -388,10 +385,7 @@ export default function SendPackage() {
                         package_weight: parseFloat(formData.packageWeight) || 1,
                         package_value: formData.packageValue || 0,
                         package_image: formData.packageImage,
-                        category: formData.category.trim(),
-                        length: parseFloat(formData.length) || 0,
-                        width: parseFloat(formData.width) || 0,
-                        height: parseFloat(formData.height) || 0
+                        category: formData.category.trim()
                     },
                     recipient_details: {
                         receiver_name: formData.receiverName.trim(),
@@ -586,41 +580,7 @@ export default function SendPackage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-3 gap-6 pt-4">
-                                        <div>
-                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-[0.1em] ml-1">Length (cm)</label>
-                                            <input
-                                                type="number"
-                                                name="length"
-                                                placeholder="0"
-                                                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[13px] font-bold bg-gray-50/30"
-                                                value={formData.length}
-                                                onChange={handleChange}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-[0.1em] ml-1">Width (cm)</label>
-                                            <input
-                                                type="number"
-                                                name="width"
-                                                placeholder="0"
-                                                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[13px] font-bold bg-gray-50/30"
-                                                value={formData.width}
-                                                onChange={handleChange}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-[0.1em] ml-1">Height (cm)</label>
-                                            <input
-                                                type="number"
-                                                name="height"
-                                                placeholder="0"
-                                                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[13px] font-bold bg-gray-50/30"
-                                                value={formData.height}
-                                                onChange={handleChange}
-                                            />
-                                        </div>
-                                    </div>
+
 
                                 <div className="mt-8">
                                     <label className="block text-[8px] font-black text-gray-400 uppercase mb-3 tracking-[0.15em] ml-1">{t('itemImage') || 'Item Image'}</label>
@@ -813,27 +773,9 @@ export default function SendPackage() {
                                 </p>
                             </div>
 
-                            {isInsufficientBalance && (
-                                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-200 p-4 rounded-2xl mb-6">
-                                    <div className="flex items-start gap-2 mb-3">
-                                        <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-amber-500" />
-                                        <p className="text-[10px] font-bold leading-tight uppercase text-amber-500">Insufficient Wallet Balance</p>
-                                    </div>
-                                    <p className="text-[9px] text-amber-100/70 mb-4 uppercase tracking-wide leading-relaxed">
-                                        You need to have at least {currency} {totalCost} in your Bago wallet to proceed with this request. Your current balance is {currency} {walletBalance.toFixed(2)}.
-                                    </p>
-                                    <Link 
-                                        to="/dashboard" 
-                                        className="inline-block w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-[#012126] text-center rounded-xl font-black text-[9px] uppercase tracking-widest transition-all"
-                                    >
-                                        Go to Wallet to Top Up
-                                    </Link>
-                                </div>
-                            )}
-
                             <button
                                 type="submit"
-                                disabled={loading || isInsufficientBalance}
+                                disabled={loading}
                                 className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Processing...' : t('requestShipping')} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />

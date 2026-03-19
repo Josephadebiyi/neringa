@@ -119,18 +119,18 @@ export async function toggleAutoVerification() {
 
 // Price per KG
 export async function getPrices() {
-  return apiCall(`${API_BASE}/prices`);
+  return apiCall(`${API_BASE}/prices/get`);
 }
 
 export async function updatePrice(id: string, price: number) {
-  return apiCall(`${API_BASE}/prices/${id}`, {
+  return apiCall(`${API_BASE}/prices/update/${id}`, {
     method: 'PUT',
     body: JSON.stringify({ price }),
   });
 }
 
 export async function createPrice(data: { route: string; price: number }) {
-  return apiCall(`${API_BASE}/prices`, {
+  return apiCall(`${API_BASE}/prices/create`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -332,11 +332,11 @@ export async function sendPromoEmail(data: any) {
 
 // Insurance Settings
 export async function getInsuranceSettings() {
-  return apiCall(`${API_BASE}/insurance/settings`);
+  return apiCall(`${ADMIN_API}/insurance/settings`);
 }
 
 export async function updateInsuranceSettings(data: any) {
-  return apiCall(`${API_BASE}/insurance/settings`, {
+  return apiCall(`${ADMIN_API}/insurance/settings`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });

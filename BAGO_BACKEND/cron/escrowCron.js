@@ -50,8 +50,9 @@ export const startEscrowAutoRelease = () => {
         if (sender.escrowBalance < amount) continue;
 
         // 4️⃣ Update balances
-        sender.escrowBalance -= amount;
+        sender.escrowBalance -= amount; // Amount taken from Sender's escrow (if BAGO holds it there)
         traveler.balance += amount;
+        traveler.escrowBalance = Math.max(0, (traveler.escrowBalance || 0) - amount);
 
         // 5️⃣ Record history
         sender.escrowHistory.push({

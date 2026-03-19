@@ -152,6 +152,14 @@ export default function MessagesScreen() {
     }
   }, [selectedConversation, socket, userId]);
 
+  const getUserFullName = (userObj) => {
+    if (!userObj) return 'User';
+    const first = userObj.firstName || '';
+    const last = userObj.lastName || '';
+    const full = `${first} ${last}`.trim();
+    return full || userObj.email || 'User';
+  };
+
   const handleSelectConversation = (conversation) => {
     setSelectedConversation(conversation);
     setMessages([]);
@@ -217,8 +225,8 @@ export default function MessagesScreen() {
           <View style={styles.conversationHeader}>
             <Text style={styles.userName}>
               {item.sender._id === item.traveler._id
-                ? item.sender.firstName || item.sender.email || 'User'
-                : otherUser.firstName || otherUser.email || 'User'}
+                ? getUserFullName(item.sender)
+                : getUserFullName(otherUser)}
             </Text>
             <Text style={styles.timestamp}>
               {new Date(item.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -261,9 +269,9 @@ export default function MessagesScreen() {
         ? selectedConversation.traveler
         : selectedConversation.sender;
     if (selectedConversation.sender._id === selectedConversation.traveler._id) {
-      return selectedConversation.sender.firstName || selectedConversation.sender.email || 'User';
+      return getUserFullName(selectedConversation.sender);
     }
-    return otherUser.firstName || otherUser.email || 'User';
+    return getUserFullName(otherUser);
   };
 
   return (

@@ -1030,21 +1030,21 @@ export const confirmReceivedBySender = async (req, res) => {
       if (!travelerDoc) {
         console.warn("Traveler not found:", request.traveler._id);
       } else {
-        const escrowAmount = Number(travelerDoc.escrowBalance || 0);
-        console.log("confirmReceivedBySender -> escrowAmount:", escrowAmount, "travelerId:", travelerDoc._id);
+        const amountToRelease = Number(request.amount || 0);
+        console.log("confirmReceivedBySender -> amountToRelease:", amountToRelease, "travelerId:", travelerDoc._id);
 
-        if (escrowAmount > 0) {
+        if (amountToRelease > 0) {
           const releaseTx = {
             type: "escrow_release",
-            amount: escrowAmount,
-            description: `Funds released from escrow for Request ${request._id}`,
+            amount: amountToRelease,
+            description: `Funds released from escrow for Request ${request.trackingNumber}`,
             status: "completed",
             date: new Date(),
           };
           const escrowTx = {
             type: "escrow_release",
-            amount: escrowAmount,
-            description: `Escrow cleared for Request ${request._id}`,
+            amount: amountToRelease,
+            description: `Escrow cleared for Request ${request.trackingNumber}`,
             status: "completed",
             date: new Date(),
           };
@@ -1059,9 +1059,8 @@ export const confirmReceivedBySender = async (req, res) => {
             const updatedTraveler = await User.findByIdAndUpdate(
               travelerDoc._id,
               {
-                $inc: { balance: escrowAmount },
+                $inc: { balance: amountToRelease, escrowBalance: -amountToRelease },
                 $push: { balanceHistory: releaseTx, escrowHistory: escrowTx },
-                $set: { escrowBalance: 0 },
               },
               { new: true, runValidators: true }
             ).exec();
@@ -1086,13 +1085,13 @@ export const confirmReceivedBySender = async (req, res) => {
               warning = "Traveler disappeared between operations";
             } else {
               // ensure arrays exist
-              traveler.balance = Number(traveler.balance || 0) + escrowAmount;
+              traveler.balance = Number(traveler.balance || 0) + amountToRelease;
+              traveler.escrowBalance = Math.max(0, Number(traveler.escrowBalance || 0) - amountToRelease);
               traveler.balanceHistory = traveler.balanceHistory || [];
               traveler.escrowHistory = traveler.escrowHistory || [];
 
               traveler.balanceHistory.push(releaseTx);
               traveler.escrowHistory.push(escrowTx);
-              traveler.escrowBalance = 0;
 
               try {
                 await traveler.save();

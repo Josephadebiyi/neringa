@@ -14,7 +14,7 @@ import { Package, MapPin, ChevronLeft, Truck } from 'lucide-react-native';
 import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
 
-const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
+const API_BASE_URL = `${backendomain.backendomain}/api/bago`;
 
 export default function MyDeliveriesScreen() {
     const router = useRouter();
@@ -117,7 +117,11 @@ export default function MyDeliveriesScreen() {
                                     ]}
                                 >
                                     <Text style={styles.statusText}>
-                                        {delivery.status ? delivery.status.charAt(0).toUpperCase() + delivery.status.slice(1) : ''}
+                                        {delivery.status === 'intransit' ? 'In Transit' :
+                                         delivery.status === 'pending' ? 'Pending' :
+                                         delivery.status === 'accepted' ? 'Accepted' :
+                                         delivery.status === 'completed' ? 'Completed' :
+                                         delivery.status ? delivery.status.charAt(0).toUpperCase() + delivery.status.slice(1) : 'Unknown'}
                                     </Text>
                                 </View>
                             </View>

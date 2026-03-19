@@ -406,8 +406,6 @@ const translations = {
         featureDesc2: 'Turn your extra luggage space into cash. A simple way to subsidize your travel costs.',
         featureTitle3: 'Trust built-in',
         featureDesc3: 'We verify every delivery partner and sender. Your package is in safe hands, every step of the way.',
-        tripTypeTitle: 'How are you shipping today?',
-        byBus: 'By bus',
         busDesc: 'Affordable way to send domestic packages',
         ratingsTitle: 'Automatic Ratings.',
         ratingsSubtitle: 'More reliable',
@@ -446,7 +444,6 @@ const translations = {
         verifyNow: 'Verify Now',
 
         // Post Trip
-        postTripTitle: 'Post Your Trip',
         postTripSubtitle: 'Share your journey and earn by delivering packages',
         route: 'Route',
         fromCountry: 'From — Country',
@@ -623,6 +620,14 @@ const translations = {
         disputeSuccessMsg: 'Dispute raised successfully. Support team will contact you.',
         failRaiseDispute: 'Failed to raise dispute',
         order: 'Order',
+        packageCategory: 'Category',
+        receiverInformation: 'Receiver Information',
+        downloadLabel: 'Download Label',
+        closeOverview: 'Close Overview',
+        shipmentDetails: 'Shipment Details',
+        travelerName: 'Traveler Name',
+        travelerUploadedProof: 'Traveler Uploaded Proof',
+        fundsInEscrow: 'Funds in Escrow',
 
         // Chats Extra
         activeChats: 'Active Chats',

@@ -164,7 +164,7 @@ export default function Trips({ user }) {
                                 <div>
                                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">{t('travelMode')}</p>
                                     <div className="font-black text-[#5845D8] uppercase text-[10px] tracking-widest">
-                                        {trip.travelMeans || 'Flight'}
+                                        {t(trip.travelMeans?.toLowerCase()) || trip.travelMeans || t('flight')}
                                     </div>
                                 </div>
                             </div>
@@ -252,7 +252,7 @@ export default function Trips({ user }) {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('arrivalDate') || 'Arrival Date'}</label>
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('arrivalDate')}</label>
                                     <input
                                         type="date"
                                         value={arrivalDate}
@@ -280,12 +280,12 @@ export default function Trips({ user }) {
                                         onChange={(e) => setTravelMeans(e.target.value)}
                                         className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all appearance-none"
                                     >
-                                        <option value="airplane">Airplane</option>
-                                        <option value="bus">Bus</option>
-                                        <option value="train">Train</option>
-                                        <option value="car">Car</option>
-                                        <option value="ship">Ship</option>
-                                        <option value="other">Other</option>
+                                        <option value="airplane">{t('airplane') || 'Airplane'}</option>
+                                        <option value="bus">{t('bus') || 'Bus'}</option>
+                                        <option value="train">{t('train') || 'Train'}</option>
+                                        <option value="car">{t('car') || 'Car'}</option>
+                                        <option value="ship">{t('ship') || 'Ship'}</option>
+                                        <option value="other">{t('other') || 'Other'}</option>
                                     </select>
                                 </div>
                             </div>

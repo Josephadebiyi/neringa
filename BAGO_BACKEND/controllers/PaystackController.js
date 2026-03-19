@@ -68,11 +68,30 @@ export const verifyPaystackPayment = async (req, res) => {
     if (result.success) {
       // Update request payment status
       if (result.data.metadata?.requestId) {
-        await Request.findByIdAndUpdate(result.data.metadata.requestId, {
+        const updateRequest = await Request.findByIdAndUpdate(result.data.metadata.requestId, {
           'paymentInfo.method': 'paystack',
           'paymentInfo.status': 'paid',
           'paymentInfo.requestId': reference,
         });
+
+        if (updateRequest) {
+          // Add to traveler's escrow balance
+          const amountInUsd = result.data.amount / 100; // Assuming Paystack amount is in kobo and base is USD for balance
+          // Note: If Paystack is in NGN, we should convert to USD before adding to escrowBalance if balance is USD-based
+          // For now, let's stick to the request's amount field which should be in the correct currency/base
+          const traveler = await User.findById(updateRequest.traveler);
+          if (traveler) {
+            traveler.escrowBalance += updateRequest.amount;
+            traveler.escrowHistory.push({
+              type: 'escrow_hold',
+              amount: updateRequest.amount,
+              description: `Escrow hold for Request ${updateRequest.trackingNumber}`,
+              date: new Date()
+            });
+            await traveler.save();
+            console.log(`🔒 Escrowed $${updateRequest.amount} for traveler ${traveler.email}`);
+          }
+        }
       }
     }
 
@@ -174,12 +193,16 @@ export const withdrawFundsPaystack = async (req, res) => {
       });
     }
 
-    // Convert amount to user's preferred currency
+    // 10% platform fee → keep 10%, send 90%
+    const userAmount = amount * 0.9;
+    const platformFee = amount - userAmount;
+    
+    // Convert traveler's share to local currency for transfer
     const userCurrency = user.preferredCurrency || 'NGN';
-    let amountInLocalCurrency = amount;
+    let amountInLocalCurrency = userAmount;
 
     if (userCurrency !== 'USD') {
-      const conversion = await convertCurrency(amount, 'USD', userCurrency);
+      const conversion = await convertCurrency(userAmount, 'USD', userCurrency);
       amountInLocalCurrency = conversion.convertedAmount;
     }
 
@@ -196,20 +219,20 @@ export const withdrawFundsPaystack = async (req, res) => {
     });
 
     if (result.success) {
-      // Deduct from balance
+      // Deduct full amount from balance (Traveler balance is in USD)
       user.balance -= amount;
       user.balanceHistory.push({
         type: 'withdrawal',
         amount,
         status: 'completed',
-        description: `Withdrawal to ${user.bankDetails.accountNumber}`,
+        description: `Withdrawal to ${user.bankDetails.accountNumber}. Platform fee: $${platformFee.toFixed(2)}`,
         date: new Date(),
       });
       await user.save();
 
       return res.status(200).json({
         success: true,
-        message: 'Withdrawal initiated successfully',
+        message: `Withdrawal initiated successfully. Platform fee: $${platformFee.toFixed(2)}`,
         ...result,
       });
     }
@@ -368,11 +391,27 @@ async function handleSuccessfulPayment(data) {
     const { reference, amount, metadata } = data;
 
     if (metadata?.requestId) {
-      await Request.findByIdAndUpdate(metadata.requestId, {
+      const updateRequest = await Request.findByIdAndUpdate(metadata.requestId, {
         'paymentInfo.method': 'paystack',
         'paymentInfo.status': 'paid',
         'paymentInfo.requestId': reference,
       });
+
+      if (updateRequest) {
+        // Add to traveler's escrow balance
+        const traveler = await User.findById(updateRequest.traveler);
+        if (traveler) {
+          traveler.escrowBalance += updateRequest.amount;
+          traveler.escrowHistory.push({
+            type: 'escrow_hold',
+            amount: updateRequest.amount,
+            description: `Escrow hold for Request ${updateRequest.trackingNumber} (Webhook)`,
+            date: new Date()
+          });
+          await traveler.save();
+          console.log(`🔒 Escrowed $${updateRequest.amount} for traveler ${traveler.email} via Webhook`);
+        }
+      }
 
       console.log(`✅ Payment confirmed for request ${metadata.requestId}`);
     }

@@ -626,6 +626,11 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
     if (!user?.stripeConnectAccountId)
       return res.status(400).json({ message: 'User not connected to Stripe' });
 
+    // Check if user has sufficient balance
+    if (user.balance < totalAmount) {
+      return res.status(400).json({ message: 'Insufficient balance for withdrawal' });
+    }
+
     // 10% platform fee → keep 10%, send 90%
     const amount = Math.round(Number(totalAmount) * 100);
     const userAmount = Math.round(amount * 0.9);
@@ -638,6 +643,17 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
       description: `Traveller payout for ${user.email}`,
       metadata: { platformFee: (platformFee / 100).toFixed(2) },
     });
+
+    // Deduct from user balance and record history
+    user.balance -= totalAmount;
+    user.balanceHistory.push({
+      type: 'withdrawal',
+      amount: totalAmount,
+      status: 'completed',
+      description: `Withdrawal via Stripe Connect to account ${user.stripeConnectAccountId}`,
+      date: new Date(),
+    });
+    await user.save();
 
     res.json({
       success: true,

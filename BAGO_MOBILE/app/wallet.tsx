@@ -15,7 +15,7 @@ import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
+const API_BASE_URL = `${backendomain.backendomain}/api/bago`;
 
 export default function WalletScreen() {
     const router = useRouter();

@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "android": "expo run:android",
     "build-android": "eas build -p android --profile production",
+    "build-ios": "./node_modules/.bin/eas build -p ios --profile production --non-interactive",
     "ios": "expo run:ios"
+
+
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",

@@ -15,9 +15,9 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { backendomain } from '@/utils/backendDomain';
 
-const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
+const API_BASE_URL = `${backendomain.backendomain}/api/bago`;
 
-export default function TrackingScreen(): JSX.Element {
+export default function TrackingScreen() {
   const router = useRouter();
   const [trackingInput, setTrackingInput] = useState('');
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
@@ -124,55 +124,42 @@ export default function TrackingScreen(): JSX.Element {
 
   // If user typed a short code (BG-123-456) return the mapped requestId, otherwise assume they typed requestId.
   const getRequestIdFromInput = (input: string) => {
-    const trimmed = input.trim();
-    if (/^[A-Z]{2}-\d{3}-\d{3}$/.test(trimmed)) {
-      return trackingMap[trimmed] || null;
-    }
-    return trimmed;
+    return input.trim();
   };
 
   const handleTrack = async () => {
     if (!trackingInput) {
-      alert('Please enter a tracking code (e.g., BG-482-242)');
+      alert('Please enter a tracking number');
       return;
     }
 
-    const requestId = getRequestIdFromInput(trackingInput);
+    const input = trackingInput.trim().toUpperCase();
+    
+    // Find matched order in recently fetched orders
+    const matchedOrder = recentOrders.find((o) => 
+      (o.trackingNumber && o.trackingNumber.toUpperCase() === input) || 
+      (o.requestId && o.requestId.toUpperCase() === input) ||
+      (o._id && o._id.toUpperCase() === input)
+    );
 
-    if (!requestId) {
-      alert('Invalid tracking code');
+    if (matchedOrder) {
+      router.push({
+        pathname: '/package-details',
+        params: { requestId: matchedOrder.requestId || matchedOrder._id },
+      });
       return;
     }
 
-    const matchedOrder = recentOrders.find((o) => o.requestId === requestId);
-    if (!matchedOrder) {
-      alert('Order not found in recent orders');
-      return;
-    }
-
-    // If user typed a raw requestId (not a short code) ensure a short code exists for it
-    const isShortCode = /^[A-Z]{2}-\d{3}-\d{3}$/.test(trackingInput);
-    if (!isShortCode) {
-      const alreadyAssigned = Object.values(trackingMap).includes(requestId);
-      if (!alreadyAssigned) {
-        const existingCodes = Object.keys(trackingMap);
-        const shortCode = generateUniqueTrackingCode(existingCodes);
-        const newMap = { ...trackingMap, [shortCode]: requestId };
-        await saveTrackingMap(newMap);
-      }
-    }
-
+    // If not found in local state, try to navigate anyway and let details fetch it
+    // This handles cases where the user has a tracking number but it's not in the "recent" list
     router.push({
       pathname: '/package-details',
-      params: { requestId },
+      params: { requestId: trackingInput.trim() },
     });
   };
 
   const getDisplayTracking = (order: any) => {
-    const shortCode = Object.keys(trackingMap).find(
-      (code) => trackingMap[code] === order.requestId
-    );
-    return shortCode || order.requestId;
+    return order.trackingNumber || order.requestId || 'N/A';
   };
 
   return (
@@ -202,7 +189,7 @@ export default function TrackingScreen(): JSX.Element {
 
           <Text style={styles.trackingTitle}>Track your package!</Text>
           <Text style={styles.trackingSubtitle}>
-            Enter your tracking code (e.g., BG-482-242)
+            Enter your tracking number (e.g., BAGO-XXXXX)
           </Text>
 
           {/* Input row */}
@@ -210,7 +197,7 @@ export default function TrackingScreen(): JSX.Element {
             <Search size={20} color={'#6B6B6B'} />
             <TextInput
               style={styles.trackingInput}
-              placeholder="BG-482-242"
+              placeholder="BAGO-..."
               placeholderTextColor={'#9E9E9E'}
               value={trackingInput}
               onChangeText={setTrackingInput}

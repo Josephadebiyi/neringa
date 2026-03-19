@@ -17,22 +17,25 @@ import axios from 'axios';
 import { backendomain } from '@/utils/backendDomain';
 import { Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { Download, Info, ShieldCheck } from 'lucide-react-native';
 
 
 
-const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
+const API_BASE_URL = `${backendomain.backendomain}/api/bago`;
 
 export default function PackageDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const requestId = String(params.requestId); // Ensure requestId is a string
-  const [request, setRequest] = useState(null);
+  const [request, setRequest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<any>(null);
   const [disputeModalVisible, setDisputeModalVisible] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [submittingDispute, setSubmittingDispute] = useState(false);
-  const [refundStatus, setRefundStatus] = useState(null);
+  const [refundStatus, setRefundStatus] = useState<any>(null);
   const [loadingRefund, setLoadingRefund] = useState(true);
 
 
@@ -58,7 +61,7 @@ export default function PackageDetailsScreen() {
       } else {
         setError('No request details found');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching request details:', err.message, err.response?.data);
       setError(err.response?.data?.message || err.message || 'Failed to load request details');
     } finally {
@@ -104,11 +107,43 @@ export default function PackageDetailsScreen() {
     fetchRefundStatus();
   }, [request?.paymentInfo?.requestId]);
 
+  const handleDownloadPDF = async () => {
+    if (!requestId || !request?.trackingNumber) return;
+    try {
+      setLoading(true);
+      const fileUri = `${(FileSystem as any).documentDirectory}BAGO_Label_${request.trackingNumber}.pdf`;
+      const downloadRes = await FileSystem.downloadAsync(
+        `${backendomain.backendomain}/api/bago/request/${requestId}/pdf`,
+        fileUri,
+        {
+          headers: {
+            'Accept': 'application/pdf',
+          }
+        }
+      );
+
+      if (downloadRes.status === 200) {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadRes.uri);
+        } else {
+          alert('Sharing is not available on this device');
+        }
+      } else {
+        alert('Failed to generate shipping label. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+      alert('Error downloading shipping label');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
 
-  const formatDate = (dateString, timeZone) => {
+
+  const formatDate = (dateString: any, timeZone?: any) => {
     if (!dateString) return 'Not set';
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
@@ -175,7 +210,8 @@ export default function PackageDetailsScreen() {
   });
 
   const packageName = pkg?.description || 'Unknown Package';
-  const orderId = request._id || 'Unknown Order ID';
+  // Use trackingNumber as the primary reference, remove raw MongoDB ID slice
+  const orderRef = request.trackingNumber || 'BAGO-PENDING';
 
   // Try multiple places where origin/destination might be provided
   const routeFrom =
@@ -222,13 +258,13 @@ export default function PackageDetailsScreen() {
       time:
         status === 'pending'
           ? 'Pending'
-          : formatDate(movementTracking?.find((t) => t.status === 'accepted')?.timestamp || createdAt),
+          : formatDate(movementTracking?.find((t: any) => t.status === 'accepted')?.timestamp || createdAt),
       active: status !== 'pending' && status !== 'rejected' && status !== 'cancelled',
     },
     {
       title: 'Parcel Picked',
-      time: movementTracking?.find((t) => t.status === 'intransit')?.timestamp
-        ? formatDate(movementTracking.find((t) => t.status === 'intransit').timestamp)
+      time: movementTracking?.find((t: any) => t.status === 'intransit')?.timestamp
+        ? formatDate(movementTracking.find((t: any) => t.status === 'intransit').timestamp)
         : ['intransit', 'delivering', 'completed'].includes(status)
         ? 'In Progress'
         : 'Pending',
@@ -236,8 +272,8 @@ export default function PackageDetailsScreen() {
     },
     {
       title: 'On The Way',
-      time: movementTracking?.find((t) => t.status === 'delivering')?.timestamp
-        ? formatDate(movementTracking.find((t) => t.status === 'delivering').timestamp)
+      time: movementTracking?.find((t: any) => t.status === 'delivering')?.timestamp
+        ? formatDate(movementTracking.find((t: any) => t.status === 'delivering').timestamp)
         : ['delivering', 'completed'].includes(status)
         ? 'In Progress'
         : 'Pending',
@@ -245,8 +281,8 @@ export default function PackageDetailsScreen() {
     },
     {
       title: 'Delivered',
-      time: movementTracking?.find((t) => t.status === 'completed')?.timestamp
-        ? formatDate(movementTracking.find((t) => t.status === 'completed').timestamp)
+      time: movementTracking?.find((t: any) => t.status === 'completed')?.timestamp
+        ? formatDate(movementTracking.find((t: any) => t.status === 'completed').timestamp)
         : status === 'completed'
         ? 'Completed'
         : 'Pending',
@@ -280,13 +316,13 @@ export default function PackageDetailsScreen() {
             <PackageIcon size={32} color={'#F5C563'} strokeWidth={1.5} />
           </View>
           <Text style={styles.packageName}>{packageName}</Text>
-          <Text style={styles.orderId}>Order ID: {orderId ? orderId.toUpperCase().slice(0, 6) : '------'}</Text>
+          <Text style={styles.orderId}>Ref: {orderRef}</Text>
         </View>
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.statusCard}>
-          <Text style={styles.cardTitle}>Status Order</Text>
+          <Text style={styles.cardTitle}>Order Status</Text>
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>
               {status === 'pending'
@@ -378,12 +414,21 @@ export default function PackageDetailsScreen() {
             <Text style={styles.detailLabel}>Est. Arrival</Text>
             <Text style={styles.detailValue}>{formatDate(arrivalDate)}</Text>
           </View>
+          
+          <TouchableOpacity 
+            style={styles.pdfButton} 
+            onPress={handleDownloadPDF}
+            disabled={!request?.trackingNumber}
+          >
+            <Download size={20} color="#FFFFFF" />
+            <Text style={styles.pdfButtonText}>Download Shipping Label</Text>
+          </TouchableOpacity>
         </View>
 
         {movementTracking?.length > 0 && (
           <View style={styles.trackingCard}>
             <Text style={styles.cardTitle}>Movement History</Text>
-            {movementTracking.map((track, index) => (
+            {movementTracking.map((track: any, index: any) => (
               <View key={index} style={styles.trackingItem}>
                 <MapPin size={16} color={'#6B6B6B'} />
                 <View style={styles.trackingContent}>
@@ -438,7 +483,7 @@ export default function PackageDetailsScreen() {
       } else {
         alert(response.data.message || JSON.stringify(response.data));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error marking received:', err);
       const serverData = err.response?.data;
       if (serverData) {
@@ -519,7 +564,7 @@ export default function PackageDetailsScreen() {
   {status === "cancelled" ? (
     <View style={styles.cancelledBox}>
       <Text style={styles.cancelledText}>
-        Traveller cancelled this order.
+        Traveler cancelled this order.
       </Text>
 
       {loadingRefund ? (
@@ -527,7 +572,7 @@ export default function PackageDetailsScreen() {
       ) : refundStatus ? (
         <Text
           style={[
-            styles.refundStatusText,
+            { color: '#6B6B6B', marginTop: 10, fontWeight: 'bold' },
             refundStatus === "refunded"
               ? { color: "green" }
               : refundStatus === "rejected"
@@ -574,7 +619,7 @@ export default function PackageDetailsScreen() {
               } else {
                 alert("❌ " + (response.data.message || "Refund failed"));
               }
-            } catch (err) {
+            } catch (err: any) {
               console.error(
                 "Refund request error:",
                 err.response?.data || err.message
@@ -612,7 +657,7 @@ export default function PackageDetailsScreen() {
     <View style={styles.modalOverlay}>
       <View style={styles.modalContainer}>
         <Text style={styles.modalTitle}>Raise a Dispute</Text>
-        <Text style={styles.modalInfo}>Request ID: {orderId ? orderId.toUpperCase().slice(0, 6) : '------'}</Text>
+        <Text style={styles.modalInfo}>Ref: {orderRef}</Text>
         <TextInput
           style={styles.textArea}
           placeholder="Describe your reason for dispute..."
@@ -653,7 +698,7 @@ export default function PackageDetailsScreen() {
                 } else {
                   alert(res.data.message || 'Failed to raise dispute.');
                 }
-              } catch (err) {
+              } catch (err: any) {
                 console.error(err);
                 alert('Error submitting dispute.');
               } finally {
@@ -1024,9 +1069,37 @@ disputeInfoContainer: {
    borderTopColor: '#E2E8F0',
    paddingTop: 10,
  },
- disputeDate: {
-   fontSize: 13,
-   color: '#64748B',
-   marginTop: 2,
- },
+  disputeDate: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  pdfButton: {
+    backgroundColor: '#5845D8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    gap: 10,
+  },
+  pdfButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  trackingBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  trackingLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
 });

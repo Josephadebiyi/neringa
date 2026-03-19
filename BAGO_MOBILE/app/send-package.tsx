@@ -27,7 +27,7 @@ import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
-const API_BASE_URL = `${backendomain.backendomain}/api/baggo`;
+const API_BASE_URL = `${backendomain.backendomain}/api/bago`;
 
 export default function SendPackageScreen() {
   const router = useRouter();
@@ -42,8 +42,6 @@ export default function SendPackageScreen() {
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
   const [description, setDescription] = useState('');
-  const [length, setLength] = useState('');
-  const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [packageReadyDate, setPackageReadyDate] = useState('');
@@ -387,16 +385,11 @@ export default function SendPackageScreen() {
         }
 
         const weightNum = parseFloat(packageWeight) || 0;
-        const lengthNum = parseFloat(length) || 0;
-        const widthNum = parseFloat(width) || 0;
-        const heightNum = parseFloat(height) || 0;
+
 
         const basePrice = Number(matchedPrice?.basePrice) || 15;
         const weightMultiplier = Number(matchedPrice?.weightMultiplier) || 5;
-        const dimensionMultiplier = Number(matchedPrice?.dimensionMultiplier) || 0.05;
-
-        const dimensionFactor = (lengthNum * widthNum * heightNum) * dimensionMultiplier;
-        const amount = basePrice + (weightNum * weightMultiplier) + dimensionFactor;
+        const amount = basePrice + (weightNum * weightMultiplier);
 
         setEstimatedPrice(amount.toFixed(2));
       } catch (err) {
@@ -409,7 +402,7 @@ export default function SendPackageScreen() {
     // Add a slight debounce to avoid too many requests
     const timeout = setTimeout(calculateEstimate, 500);
     return () => clearTimeout(timeout);
-  }, [step, packageWeight, length, width, height, fromCountry, fromCity, toCountry, toCity]);
+  }, [step, packageWeight, fromCountry, fromCity, toCountry, toCity]);
 
 
 
@@ -467,16 +460,11 @@ export default function SendPackageScreen() {
         }
 
         const weightNum = parseFloat(packageWeight) || 0;
-        const lengthNum = parseFloat(length) || 0;
-        const widthNum = parseFloat(width) || 0;
-        const heightNum = parseFloat(height) || 0;
 
         const basePrice = Number(matchedPrice?.basePrice) || 15;
         const weightMultiplier = Number(matchedPrice?.weightMultiplier) || 5;
-        const dimensionMultiplier = Number(matchedPrice?.dimensionMultiplier) || 0.05;
 
-        const dimensionFactor = (lengthNum * widthNum * heightNum) * dimensionMultiplier;
-        const amount = basePrice + (weightNum * weightMultiplier) + dimensionFactor;
+        const amount = basePrice + (weightNum * weightMultiplier);
 
         // ✅ FIX: Create FormData for image upload
         const formData = new FormData();
@@ -491,9 +479,6 @@ export default function SendPackageScreen() {
         formData.append("description", description || "Package shipment"); // Default if empty
         formData.append("value", value ? (parseFloat(value) || 0).toString() : "0"); // Optional
         formData.append("category", category); // Required category
-        formData.append("length", lengthNum.toString());
-        formData.append("width", widthNum.toString());
-        formData.append("height", heightNum.toString());
 
         if (image) {
           formData.append("image", {
@@ -537,9 +522,6 @@ export default function SendPackageScreen() {
             readyDate: packageReadyDate,
             image,
             packageId,
-            length: lengthNum,
-            width: widthNum,
-            height: heightNum,
             amount: amount.toFixed(2),
           } as any,
         });
@@ -733,41 +715,7 @@ export default function SendPackageScreen() {
 
 
 
-            <View style={styles.section}>
-              <Text style={styles.label}>Dimensions (Optional - cm)</Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={[styles.weightInput, { flex: 1 }]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="L"
-                    placeholderTextColor={'#9E9E9E'}
-                    keyboardType="decimal-pad"
-                    value={length}
-                    onChangeText={setLength}
-                  />
-                </View>
-                <View style={[styles.weightInput, { flex: 1 }]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="W"
-                    placeholderTextColor={'#9E9E9E'}
-                    keyboardType="decimal-pad"
-                    value={width}
-                    onChangeText={setWidth}
-                  />
-                </View>
-                <View style={[styles.weightInput, { flex: 1 }]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="H"
-                    placeholderTextColor={'#9E9E9E'}
-                    keyboardType="decimal-pad"
-                    value={height}
-                    onChangeText={setHeight}
-                  />
-                </View>
-              </View>
-            </View>
+
 
             <View style={styles.section}>
               <Text style={styles.label}>Item Category</Text>
