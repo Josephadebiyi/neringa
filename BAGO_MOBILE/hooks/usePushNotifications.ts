@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import api from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -58,9 +59,8 @@ export function usePushNotifications() {
             }
 
             try {
-                const projectId = '76da7de1-baf8-43d9-9529-d50c76df912a'; // Ensure realistic fallback or from app.json
-                // Wait! Let's get projectId dynamically from constants
-                const Constants = require('expo-constants').default;
+                const projectId = 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f'; // Match app.json
+                // Get projectId dynamically from constants
                 const project = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId || projectId;
 
                 token = (await Notifications.getExpoPushTokenAsync({ projectId: project })).data;

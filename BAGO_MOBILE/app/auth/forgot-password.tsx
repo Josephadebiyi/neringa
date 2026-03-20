@@ -7,10 +7,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Package } from 'lucide-react-native';
 import { backendomain } from '@/utils/backendDomain';
 
 export default function ForgotPassword() {
@@ -69,8 +69,11 @@ export default function ForgotPassword() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Package size={60} color={'#5845D8'} strokeWidth={2} />
-          <Text style={[styles.title, { color: '#5845D8' }]}>BAGGO</Text>
+          <Image
+            source={require('@/assets/images/bago-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={[styles.subtitle, { color: '#6B6B6B' }]}>Reset Your Password</Text>
         </View>
 
@@ -130,11 +133,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginTop: 16,
-    letterSpacing: 2,
+  logo: {
+    width: 200,
+    height: 80,
+    marginBottom: 16,
   },
   subtitle: {
     fontSize: 14,

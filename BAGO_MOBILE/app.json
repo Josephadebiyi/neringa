@@ -8,7 +8,7 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#5845D8"
     },
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
@@ -16,7 +16,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.deracali.boltexponativewind",
-      "buildNumber": "11",
+      "buildNumber": "14",
+      "splash": {
+        "image": "./assets/images/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#5845D8"
+      },
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -27,6 +32,11 @@
         ],
         "NSUserTrackingUsageDescription": "This identifier will be used to send you personalized notifications.",
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to detect your country and currency",
+        "NSCameraUsageDescription": "This app needs access to your camera to scan QR codes and take photos",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select images",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -46,8 +56,7 @@
         "color": "#6366F1",
         "priority": "max",
         "channelId": "default"
-      },
-      "googleServicesFile": "./google-services.json"
+      }
     },
     "notification": {
       "icon": "./assets/images/icon.png",

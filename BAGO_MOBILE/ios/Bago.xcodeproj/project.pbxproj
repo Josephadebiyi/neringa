@@ -9,24 +9,24 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		8A2A97BD91F9890AA19AF482 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4680566EEA166B1B093A3828 /* ExpoModulesProvider.swift */; };
+		50FAA08DCBCD519AB44C97A2 /* libPods-Bago.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C48B863B9B5ED7672AE07266 /* libPods-Bago.a */; };
+		6448D4B0658ABE4B6CC8EF26 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720474C9FF5206C57AA51234 /* ExpoModulesProvider.swift */; };
+		7D4C54BC60DDF8DBCA9AEED3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 043B5167C365913A3399D2AB /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		E0D66397218EF3280175D495 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 02C496F56A9E2B5B95182529 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		F91371981A720403606AA686 /* libPods-Bago.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27FA4F6B81C077072EAF599F /* libPods-Bago.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		02C496F56A9E2B5B95182529 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Bago/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		043B5167C365913A3399D2AB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Bago/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Bago.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bago.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Bago/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Bago/Info.plist; sourceTree = "<group>"; };
-		27FA4F6B81C077072EAF599F /* libPods-Bago.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Bago.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		4680566EEA166B1B093A3828 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Bago/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		68FC7DDAC64CBBC0EDF5C340 /* Pods-Bago.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Bago.release.xcconfig"; path = "Target Support Files/Pods-Bago/Pods-Bago.release.xcconfig"; sourceTree = "<group>"; };
-		7ECD4A68B3669D0E774FD327 /* Pods-Bago.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Bago.debug.xcconfig"; path = "Target Support Files/Pods-Bago/Pods-Bago.debug.xcconfig"; sourceTree = "<group>"; };
+		165952E980A9BCDA148F8175 /* Pods-Bago.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Bago.release.xcconfig"; path = "Target Support Files/Pods-Bago/Pods-Bago.release.xcconfig"; sourceTree = "<group>"; };
+		720474C9FF5206C57AA51234 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Bago/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Bago/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		C48B863B9B5ED7672AE07266 /* libPods-Bago.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Bago.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E618D93D56CDE2607718F73E /* Pods-Bago.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Bago.debug.xcconfig"; path = "Target Support Files/Pods-Bago/Pods-Bago.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Bago/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Bago-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Bago-Bridging-Header.h"; path = "Bago/Bago-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,23 +37,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F91371981A720403606AA686 /* libPods-Bago.a in Frameworks */,
+				50FAA08DCBCD519AB44C97A2 /* libPods-Bago.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		088FBB8DCACAB6C883054845 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				7ECD4A68B3669D0E774FD327 /* Pods-Bago.debug.xcconfig */,
-				68FC7DDAC64CBBC0EDF5C340 /* Pods-Bago.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		13B07FAE1A68108700A75B9A /* Bago */ = {
 			isa = PBXGroup;
 			children = (
@@ -63,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				02C496F56A9E2B5B95182529 /* PrivacyInfo.xcprivacy */,
+				043B5167C365913A3399D2AB /* PrivacyInfo.xcprivacy */,
 			);
 			name = Bago;
 			sourceTree = "<group>";
@@ -72,15 +62,23 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				27FA4F6B81C077072EAF599F /* libPods-Bago.a */,
+				C48B863B9B5ED7672AE07266 /* libPods-Bago.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		2D6D013E19FE9EBCC48240FE /* ExpoModulesProviders */ = {
+		326368F3CA1E98E68B99CA5E /* Bago */ = {
 			isa = PBXGroup;
 			children = (
-				8ABE0F6D5CDF786F9A218D8A /* Bago */,
+				720474C9FF5206C57AA51234 /* ExpoModulesProvider.swift */,
+			);
+			name = Bago;
+			sourceTree = "<group>";
+		};
+		829CAEFA6343BE7248DB4C0A /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				326368F3CA1E98E68B99CA5E /* Bago */,
 			);
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
@@ -99,8 +97,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				088FBB8DCACAB6C883054845 /* Pods */,
-				2D6D013E19FE9EBCC48240FE /* ExpoModulesProviders */,
+				A9F98255072036AE8CA80300 /* Pods */,
+				829CAEFA6343BE7248DB4C0A /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -115,12 +113,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		8ABE0F6D5CDF786F9A218D8A /* Bago */ = {
+		A9F98255072036AE8CA80300 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				4680566EEA166B1B093A3828 /* ExpoModulesProvider.swift */,
+				E618D93D56CDE2607718F73E /* Pods-Bago.debug.xcconfig */,
+				165952E980A9BCDA148F8175 /* Pods-Bago.release.xcconfig */,
 			);
-			name = Bago;
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Bago" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				12D22A6706BEA28B1EF6B2C9 /* [Expo] Configure project */,
+				157DDB27123238AD2F04CE76 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				6C2986D6D8A95D2A73369666 /* [CP] Embed Pods Frameworks */,
+				1628FC0CCD1B865B25DC7AEC /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				E0D66397218EF3280175D495 /* PrivacyInfo.xcprivacy in Resources */,
+				7D4C54BC60DDF8DBCA9AEED3 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,7 +242,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		12D22A6706BEA28B1EF6B2C9 /* [Expo] Configure project */ = {
+		157DDB27123238AD2F04CE76 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -266,7 +266,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Bago/expo-configure-project.sh\"\n";
 		};
-		6C2986D6D8A95D2A73369666 /* [CP] Embed Pods Frameworks */ = {
+		1628FC0CCD1B865B25DC7AEC /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -366,7 +366,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				8A2A97BD91F9890AA19AF482 /* ExpoModulesProvider.swift in Sources */,
+				6448D4B0658ABE4B6CC8EF26 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -375,12 +375,12 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7ECD4A68B3669D0E774FD327 /* Pods-Bago.debug.xcconfig */;
+			baseConfigurationReference = E618D93D56CDE2607718F73E /* Pods-Bago.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Bago/Bago.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 14;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -411,12 +411,12 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 68FC7DDAC64CBBC0EDF5C340 /* Pods-Bago.release.xcconfig */;
+			baseConfigurationReference = 165952E980A9BCDA148F8175 /* Pods-Bago.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Bago/Bago.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 14;
 				INFOPLIST_FILE = Bago/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
