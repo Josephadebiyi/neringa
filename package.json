@@ -15,41 +15,36 @@
     "install:webapp": "cd BAGO_WEBAPP && npm install",
     "install:admin": "cd ADMIN_NEW && npm install",
     "install:mobile": "cd BAGO_MOBILE && npm install",
-
     "dev": "concurrently -n \"BACKEND,WEBAPP,ADMIN\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:backend\" \"npm run dev:webapp\" \"npm run dev:admin\"",
     "dev:backend": "cd BAGO_BACKEND && npm start",
     "dev:webapp": "cd BAGO_WEBAPP && npm run dev",
     "dev:admin": "cd ADMIN_NEW && npm run dev",
     "dev:mobile": "cd BAGO_MOBILE && npm run dev",
     "dev:all": "concurrently -n \"BACKEND,WEBAPP,ADMIN,MOBILE\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold,bgYellow.bold\" \"npm run dev:backend\" \"npm run dev:webapp\" \"npm run dev:admin\" \"npm run dev:mobile\"",
-
     "build": "npm run build:backend && npm run build:webapp && npm run build:admin",
     "build:backend": "echo 'Backend does not require build step'",
     "build:webapp": "cd BAGO_WEBAPP && npm run build",
     "build:admin": "cd ADMIN_NEW && npm run build",
     "build:mobile": "cd BAGO_MOBILE && npm run build:web",
-
     "start": "npm run dev",
     "start:prod": "cd BAGO_BACKEND && npm start",
-
     "clean": "npm run clean:backend && npm run clean:webapp && npm run clean:admin && npm run clean:mobile",
     "clean:backend": "cd BAGO_BACKEND && rm -rf node_modules package-lock.json",
     "clean:webapp": "cd BAGO_WEBAPP && rm -rf node_modules package-lock.json dist",
     "clean:admin": "cd ADMIN_NEW && rm -rf node_modules package-lock.json dist",
     "clean:mobile": "cd BAGO_MOBILE && rm -rf node_modules package-lock.json .expo",
-
     "test": "echo 'No tests configured yet'",
     "lint": "npm run lint:webapp && npm run lint:admin",
     "lint:webapp": "cd BAGO_WEBAPP && npm run lint || echo 'No lint script'",
     "lint:admin": "cd ADMIN_NEW && npm run lint",
-
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "docker:rebuild": "docker-compose up -d --build"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "eas-cli": "18.4.0"
   },
   "engines": {
     "node": ">=18.0.0",
