@@ -9,6 +9,8 @@ A completely rebuilt mobile application for the Bago peer-to-peer international 
 - **Type-Safe Routing**: File-based routing with Expo Router and TypeScript
 - **Styled with NativeWind**: Tailwind CSS for React Native
 - **Authentication**: Ready-to-use auth screens (Sign In, Sign Up)
+- **🔐 Biometric Authentication**: Face ID / Touch ID / Fingerprint support
+- **🔔 Push Notifications**: Full notification system with local and remote support
 - **Tab Navigation**: Home, Packages, Tracking, and Profile screens
 - **No Dependency Conflicts**: All packages properly versioned and compatible
 
@@ -21,6 +23,9 @@ A completely rebuilt mobile application for the Bago peer-to-peer international 
 - **Styling**: NativeWind 4.2 + Tailwind CSS 3.4
 - **Icons**: Lucide React Native + Expo Vector Icons
 - **Backend Ready**: Supabase integration ready
+- **Biometrics**: Expo Local Authentication (Face ID/Touch ID/Fingerprint)
+- **Notifications**: Expo Notifications with full customization
+- **Secure Storage**: Expo Secure Store for sensitive data
 - **TypeScript**: Full type safety
 
 ## 📁 Project Structure

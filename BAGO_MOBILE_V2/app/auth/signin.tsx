@@ -1,14 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, Fingerprint } from 'lucide-react-native';
+import { canUseBiometrics, authenticateWithBiometrics, isBiometricLoginEnabled } from '../../lib/biometrics';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometric');
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+
+  useEffect(() => {
+    checkBiometrics();
+  }, []);
+
+  const checkBiometrics = async () => {
+    const { available, biometricType: type } = await canUseBiometrics();
+    setBiometricsAvailable(available);
+    setBiometricType(type);
+
+    if (available) {
+      const enabled = await isBiometricLoginEnabled();
+      setBiometricEnabled(enabled);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    const result = await authenticateWithBiometrics(
+      `Use ${biometricType} to sign in`
+    );
+
+    if (result.success) {
+      // TODO: Implement actual authentication with biometrics
+      router.replace('/(tabs)');
+    } else if (result.error) {
+      Alert.alert('Authentication Failed', result.error);
+    }
+  };
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -46,6 +78,27 @@ export default function SignInScreen() {
           <Text className="text-gray-600 mb-8">
             Sign in to continue your journey
           </Text>
+
+          {/* Biometric Login Button (if enabled) */}
+          {biometricsAvailable && biometricEnabled && (
+            <Pressable
+              onPress={handleBiometricLogin}
+              className="bg-primary-50 border-2 border-primary py-4 rounded-xl mb-6 flex-row items-center justify-center active:opacity-60"
+            >
+              <Fingerprint size={24} color="#5845D8" />
+              <Text className="text-primary font-semibold text-lg ml-2">
+                Sign in with {biometricType}
+              </Text>
+            </Pressable>
+          )}
+
+          {biometricsAvailable && biometricEnabled && (
+            <View className="flex-row items-center mb-6">
+              <View className="flex-1 h-px bg-gray-200" />
+              <Text className="text-gray-400 mx-4">or continue with email</Text>
+              <View className="flex-1 h-px bg-gray-200" />
+            </View>
+          )}
 
           {/* Email Input */}
           <View className="mb-4">
@@ -106,7 +159,7 @@ export default function SignInScreen() {
           </Pressable>
 
           {/* Sign Up Link */}
-          <View className="flex-row justify-center mt-6">
+          <View className="flex-row justify-center mt-6 mb-8">
             <Text className="text-gray-600">Don't have an account? </Text>
             <Pressable onPress={() => router.push('/auth/signup')}>
               <Text className="text-primary font-semibold">Sign Up</Text>
