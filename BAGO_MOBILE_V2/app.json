@@ -17,7 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.bago.mobile",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -54,6 +56,13 @@
           "icon": "./assets/images/icon.png",
           "color": "#5845D8",
           "sounds": []
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.bago.mobile",
+          "enableGooglePay": true
         }
       ]
     ],

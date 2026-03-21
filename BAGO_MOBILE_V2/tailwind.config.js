@@ -6,6 +6,7 @@ module.exports = {
     "./components/**/*.{js,jsx,ts,tsx}",
     "./screens/**/*.{js,jsx,ts,tsx}",
   ],
+  presets: [require("nativewind/preset")],
   theme: {
     extend: {
       colors: {
@@ -29,12 +30,12 @@ module.exports = {
         dark: '#1F2937',
         light: '#F9FAFB',
       },
-      fontFamily: {
-        regular: ['PlusJakartaSans-Regular'],
-        medium: ['PlusJakartaSans-Medium'],
-        semibold: ['PlusJakartaSans-SemiBold'],
-        bold: ['PlusJakartaSans-Bold'],
-      },
+      // fontFamily: {
+      //   regular: ['PlusJakartaSans-Regular'],
+      //   medium: ['PlusJakartaSans-Medium'],
+      //   semibold: ['PlusJakartaSans-SemiBold'],
+      //   bold: ['PlusJakartaSans-Bold'],
+      // },
     },
   },
   plugins: [],
