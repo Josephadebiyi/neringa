@@ -43,8 +43,7 @@
     "docker:rebuild": "docker-compose up -d --build"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "eas-cli": "0.52.0"
+    "concurrently": "^8.2.2"
   },
   "engines": {
     "node": ">=18.0.0",
