@@ -1,5 +1,3 @@
-import Constants from 'expo-constants';
-
 // Get environment variables
 const ENV = {
   dev: {
@@ -62,18 +60,21 @@ export const API_ENDPOINTS = {
 
   // Trips
   TRIPS: '/api/trips',
-  TRIP_CREATE: '/api/trips/create',
+  CREATE_TRIP: '/api/trips/create',
   TRIP_UPDATE: '/api/trips/update',
   TRIP_DELETE: '/api/trips/delete',
   TRIP_DETAIL: '/api/trips/:id',
   MY_TRIPS: '/api/trips/my-trips',
+  SEARCH_TRIPS: '/api/trips/search',
 
   // Requests
   PACKAGE_REQUESTS: '/api/requests',
+  SEND_PACKAGE_REQUEST: '/api/requests/create',
   CREATE_REQUEST: '/api/requests/create',
   ACCEPT_REQUEST: '/api/requests/accept',
   REJECT_REQUEST: '/api/requests/reject',
   MY_REQUESTS: '/api/requests/my-requests',
+  MY_PACKAGE_REQUESTS: '/api/requests/my-package-requests',
 
   // Payments
   CREATE_PAYMENT: '/api/payments/create',
@@ -83,9 +84,11 @@ export const API_ENDPOINTS = {
   WITHDRAW: '/api/wallet/withdraw',
 
   // Tracking
-  TRACK_PACKAGE: '/api/tracking/:trackingNumber',
+  TRACK_PACKAGE: '/api/tracking',
   UPDATE_LOCATION: '/api/tracking/update-location',
   TRACKING_HISTORY: '/api/tracking/history/:id',
+  MY_TRACKED_PACKAGES: '/api/tracking/my-packages',
+  MY_DELIVERIES: '/api/tracking/my-deliveries',
 
   // Notifications
   NOTIFICATIONS: '/api/notifications',
@@ -96,9 +99,11 @@ export const API_ENDPOINTS = {
 
   // Chat/Messages
   CONVERSATIONS: '/api/messages/conversations',
+  CREATE_CONVERSATION: '/api/messages/conversations',
   MESSAGES: '/api/messages/:conversationId',
   SEND_MESSAGE: '/api/messages/send',
   MARK_MESSAGE_READ: '/api/messages/mark-read',
+  UNREAD_MESSAGES: '/api/messages/unread',
 
   // Support
   CONTACT_SUPPORT: '/api/support/contact',

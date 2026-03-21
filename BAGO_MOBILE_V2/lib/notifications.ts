@@ -8,6 +8,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -157,9 +159,12 @@ export async function sendPackageNotification(
     payment_received: `Payment received for ${packageName}`,
   };
 
+  const title = titles[type as keyof typeof titles];
+  const body = bodies[type as keyof typeof bodies];
+
   await scheduleLocalNotification(
-    titles[type],
-    bodies[type],
+    title,
+    body,
     { type, packageName, status }
   );
 }

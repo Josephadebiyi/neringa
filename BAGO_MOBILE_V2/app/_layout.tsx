@@ -9,8 +9,8 @@ import { addNotificationReceivedListener, addNotificationResponseReceivedListene
 import config from '../lib/config';
 
 export default function RootLayout() {
-  const notificationListener = useRef<ReturnType<typeof addNotificationReceivedListener> | undefined>();
-  const responseListener = useRef<ReturnType<typeof addNotificationResponseReceivedListener> | undefined>();
+  const notificationListener = useRef<ReturnType<typeof addNotificationReceivedListener> | undefined>(undefined);
+  const responseListener = useRef<ReturnType<typeof addNotificationResponseReceivedListener> | undefined>(undefined);
 
   useEffect(() => {
     // Listen for notifications while app is open
