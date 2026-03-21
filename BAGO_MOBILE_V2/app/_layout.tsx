@@ -3,11 +3,14 @@ import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import { AuthProvider } from '../contexts/AuthContext';
 import { addNotificationReceivedListener, addNotificationResponseReceivedListener } from '../lib/notifications';
+import config from '../lib/config';
 
 export default function RootLayout() {
-  const notificationListener = useRef<ReturnType<typeof addNotificationReceivedListener>>();
-  const responseListener = useRef<ReturnType<typeof addNotificationResponseReceivedListener>>();
+  const notificationListener = useRef<ReturnType<typeof addNotificationReceivedListener> | undefined>();
+  const responseListener = useRef<ReturnType<typeof addNotificationResponseReceivedListener> | undefined>();
 
   useEffect(() => {
     // Listen for notifications while app is open
@@ -35,17 +38,21 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="auto" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: '#F9FAFB' },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="auth" />
-      </Stack>
+      <StripeProvider publishableKey={config.stripeKey}>
+        <AuthProvider>
+          <StatusBar style="auto" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#F9FAFB' },
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="auth" />
+          </Stack>
+        </AuthProvider>
+      </StripeProvider>
     </SafeAreaProvider>
   );
 }
