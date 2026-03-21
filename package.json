@@ -40,7 +40,9 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "docker:rebuild": "docker-compose up -d --build"
+    "docker:rebuild": "docker-compose up -d --build",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
@@ -62,5 +64,10 @@
     "courier"
   ],
   "author": "Bago Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  }
 }

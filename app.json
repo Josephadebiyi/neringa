@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "android": {
+      "package": "com.donnyace.bagoplatform"
+    },
+    "ios": {
+      "bundleIdentifier": "com.donnyace.bagoplatform"
+    }
+  }
+}
