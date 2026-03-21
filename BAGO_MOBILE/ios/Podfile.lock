@@ -11,7 +11,7 @@ PODS:
     - PromisesObjC (~> 2.4)
   - EXApplication (7.0.8):
     - ExpoModulesCore
-  - EXConstants (18.0.13):
+  - EXConstants (17.0.8):
     - ExpoModulesCore
   - EXImageLoader (6.0.0):
     - ExpoModulesCore
@@ -80,7 +80,7 @@ PODS:
     - ExpoModulesCore
   - ExpoLinearGradient (15.0.7):
     - ExpoModulesCore
-  - ExpoLinking (8.0.11):
+  - ExpoLinking (7.0.5):
     - ExpoModulesCore
   - ExpoLocation (19.0.7):
     - ExpoModulesCore
@@ -109,7 +109,7 @@ PODS:
     - Yoga
   - ExpoSharing (14.0.8):
     - ExpoModulesCore
-  - ExpoSplashScreen (31.0.10):
+  - ExpoSplashScreen (0.29.24):
     - ExpoModulesCore
   - ExpoSymbols (1.0.7):
     - ExpoModulesCore
@@ -1431,7 +1431,7 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - react-native-safe-area-context (5.6.2):
+  - react-native-safe-area-context (5.4.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1443,8 +1443,8 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - react-native-safe-area-context/common (= 5.6.2)
-    - react-native-safe-area-context/fabric (= 5.6.2)
+    - react-native-safe-area-context/common (= 5.4.1)
+    - react-native-safe-area-context/fabric (= 5.4.1)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -1455,7 +1455,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-safe-area-context/common (5.6.2):
+  - react-native-safe-area-context/common (5.4.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1477,7 +1477,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-safe-area-context/fabric (5.6.2):
+  - react-native-safe-area-context/fabric (5.4.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1985,7 +1985,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNReanimated (4.2.3):
+  - RNReanimated (4.1.7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2007,10 +2007,10 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNReanimated/reanimated (= 4.2.3)
+    - RNReanimated/reanimated (= 4.1.7)
     - RNWorklets
     - Yoga
-  - RNReanimated/reanimated (4.2.3):
+  - RNReanimated/reanimated (4.1.7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2032,10 +2032,10 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNReanimated/reanimated/apple (= 4.2.3)
+    - RNReanimated/reanimated/apple (= 4.1.7)
     - RNWorklets
     - Yoga
-  - RNReanimated/reanimated/apple (4.2.3):
+  - RNReanimated/reanimated/apple (4.1.7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2059,7 +2059,7 @@ PODS:
     - ReactNativeDependencies
     - RNWorklets
     - Yoga
-  - RNScreens (4.16.0):
+  - RNScreens (4.1.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2081,9 +2081,9 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNScreens/common (= 4.16.0)
+    - RNScreens/common (= 4.1.0)
     - Yoga
-  - RNScreens/common (4.16.0):
+  - RNScreens/common (4.1.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2151,7 +2151,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNWorklets (0.7.4):
+  - RNWorklets (0.6.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2173,9 +2173,9 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNWorklets/worklets (= 0.7.4)
+    - RNWorklets/worklets (= 0.6.1)
     - Yoga
-  - RNWorklets/worklets (0.7.4):
+  - RNWorklets/worklets (0.6.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2197,9 +2197,9 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNWorklets/worklets/apple (= 0.7.4)
+    - RNWorklets/worklets/apple (= 0.6.1)
     - Yoga
-  - RNWorklets/worklets/apple (0.7.4):
+  - RNWorklets/worklets/apple (0.6.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2422,10 +2422,10 @@ DEPENDENCIES:
   - RNDeviceInfo (from `../node_modules/react-native-device-info`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../node_modules/@react-native-google-signin/google-signin`)"
-  - RNReanimated (from `../../node_modules/react-native-reanimated`)
+  - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
-  - RNWorklets (from `../../node_modules/react-native-worklets`)
+  - RNWorklets (from `../node_modules/react-native-worklets`)
   - "stripe-react-native (from `../node_modules/@stripe/stripe-react-native`)"
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -2658,13 +2658,13 @@ EXTERNAL SOURCES:
   RNGoogleSignin:
     :path: "../node_modules/@react-native-google-signin/google-signin"
   RNReanimated:
-    :path: "../../node_modules/react-native-reanimated"
+    :path: "../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNSVG:
     :path: "../node_modules/react-native-svg"
   RNWorklets:
-    :path: "../../node_modules/react-native-worklets"
+    :path: "../node_modules/react-native-worklets"
   stripe-react-native:
     :path: "../node_modules/@stripe/stripe-react-native"
   Yoga:
@@ -2674,7 +2674,7 @@ SPEC CHECKSUMS:
   AppAuth: 1c1a8afa7e12f2ec3a294d9882dfa5ab7d3cb063
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
-  EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
+  EXConstants: fcfc75800824ac2d5c592b5bc74130bad17b146b
   EXImageLoader: 189e3476581efe3ad4d1d3fb4735b7179eb26f05
   EXNotifications: 9eec98712cc814ceff916d876cb53859003b0597
   Expo: 6580dbf21d94626792b38a95cddb2fb369ec6b0c
@@ -2693,11 +2693,11 @@ SPEC CHECKSUMS:
   ExpoImagePicker: d251aab45a1b1857e4156fed88511b278b4eee1c
   ExpoKeepAwake: 1a2e820692e933c94a565ec3fbbe38ac31658ffe
   ExpoLinearGradient: a464898cb95153125e3b81894fd479bcb1c7dd27
-  ExpoLinking: 8f0aaf69aa56f832913030503b6263dc6f647f37
+  ExpoLinking: 8d12bee174ba0cdf31239706578e29e74a417402
   ExpoLocation: 93d7faa0c2adbd5a04686af0c1a61bc6ed3ee2f7
   ExpoModulesCore: 3a6eb12a5f4d67b2f5fc7d0bc4777b18348f2d7a
   ExpoSharing: 0d983394ed4a80334bab5a0d5384f75710feb7e8
-  ExpoSplashScreen: cbb839de72110dea1851dd3e85080b7923af2540
+  ExpoSplashScreen: 8261985ce9778f904abc7e31bed3538dce67ed4d
   ExpoSymbols: 1ae04ce686de719b9720453b988d8bc5bf776c68
   ExpoSystemUI: 6cd74248a2282adf6dec488a75fa532d69dee314
   ExpoWebBrowser: d04a0d6247a0bea4519fbc2ea816610019ad83e0
@@ -2742,7 +2742,7 @@ SPEC CHECKSUMS:
   React-logger: 7b234de35acb469ce76d6bbb0457f664d6f32f62
   React-Mapbuffer: fbe1da882a187e5898bdf125e1cc6e603d27ecae
   React-microtasksnativemodule: 76905804171d8ccbe69329fc84c57eb7934add7f
-  react-native-safe-area-context: 37e680fc4cace3c0030ee46e8987d24f5d3bdab2
+  react-native-safe-area-context: 7b0a95c87ae89098d153139becc92ac32eacb406
   react-native-webview: b29007f4723bca10872028067b07abacfa1cb35a
   React-NativeModulesApple: a9464983ccc0f66f45e93558671f60fc7536e438
   React-oscompat: 73db7dbc80edef36a9d6ed3c6c4e1724ead4236d
@@ -2781,10 +2781,10 @@ SPEC CHECKSUMS:
   RNDeviceInfo: 36d7f232bfe7c9b5c494cb7793230424ed32c388
   RNGestureHandler: 2914750df066d89bf9d8f48a10ad5f0051108ac3
   RNGoogleSignin: 104dd7238c56fe354e4b0a8fd267f866039ffdf3
-  RNReanimated: 3bf31fe7811cfc8b409d217c8db3ddd812c2816f
-  RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
+  RNReanimated: 41f496c18437fd0aa841234917af84e98fd5b9a2
+  RNScreens: c040eda096bca8ce87f072e32eecee4f08e237c1
   RNSVG: 31d6639663c249b7d5abc9728dde2041eb2a3c34
-  RNWorklets: 6c9e34a071e2a8f0d4bba2e00d95cb42610759bd
+  RNWorklets: 54d8dffb7f645873a58484658ddfd4bd1a9a0bc1
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageWebPCoder: 0e06e365080397465cc73a7a9b472d8a3bd0f377
   Stripe: d1824162e4bcb6ead10401a0dc8e8a3d5ffee41f
