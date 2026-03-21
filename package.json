@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "eas-cli": "18.4.0"
+    "eas-cli": "0.52.0"
   },
   "engines": {
     "node": ">=18.0.0",
