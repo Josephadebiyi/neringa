@@ -44,6 +44,14 @@ export default function Dashboard() {
     const [msg, setMsg] = useState(location.state?.message || '');
 
     useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        if (tab && ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'earnings', 'settings', 'insurance'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [location.search]);
+
+    useEffect(() => {
         if (location.state?.message) {
             setMsg(location.state.message);
             // Clear message after 5 seconds

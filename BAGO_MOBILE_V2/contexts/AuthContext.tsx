@@ -15,6 +15,7 @@ interface AuthContextType {
   updateCurrency: (currency: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   acceptTerms: () => Promise<void>;
+  googleLogin: (idToken: string) => Promise<void>;
   currentRole: 'sender' | 'carrier';
   toggleRole: () => void;
 }
@@ -151,6 +152,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     acceptTerms: async () => {
       const response = await authService.acceptTerms();
       setUser(response.user);
+    },
+    googleLogin: async (idToken: string) => {
+      try {
+        const response = await authService.googleSignIn(idToken);
+        setUser(response.user);
+        setIsAuthenticated(true);
+      } catch (error) {
+        setUser(null);
+        setIsAuthenticated(false);
+        throw error;
+      }
     },
     currentRole,
     toggleRole,

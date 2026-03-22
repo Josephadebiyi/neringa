@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, StyleSheet, TextInput, Dimensions, TouchableOpacity, Alert, Platform, Modal, Animated } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, TextInput, Dimensions, TouchableOpacity, Alert, Platform, Modal, Animated, KeyboardAvoidingView } from 'react-native';
 import { AppText as Text } from '../../components/common/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -126,8 +126,8 @@ export default function PostTripScreen() {
   const renderStep = () => {
     switch (step) {
       case 0: return <ComplianceStep kycPassed={kycPassed} setKycPassed={setKycPassed} accepted={termsAccepted} setAccepted={setTermsAccepted} />;
-      case 1: return <CitySearchStep title="Departure City" value={formData.from} onSelect={(v: string) => setFormData({...formData, from: v})} />;
-      case 2: return <CitySearchStep title="Destination City" value={formData.to} onSelect={(v: string) => setFormData({...formData, to: v})} />;
+      case 1: return <LocationPicker title="Departure City" value={formData.from} onSelect={(v: string) => setFormData({...formData, from: v})} />;
+      case 2: return <LocationPicker title="Destination City" value={formData.to} onSelect={(v: string) => setFormData({...formData, to: v})} />;
       case 3: return <CalendarStep value={formData.date} onOpen={() => setShowCalendar(true)} />;
       case 4: return <TimePickerStep value={formData.time} onOpen={() => setShowTimePicker(true)} />;
       case 5: return <CapacityCounter capacity={formData.capacity} onChange={(v: number) => setFormData({...formData, capacity: v})} />;
@@ -141,18 +141,26 @@ export default function PostTripScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={prevStep} style={styles.backBtn}>
-          <ChevronLeft size={24} color={COLORS.black} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{editId ? 'Edit Your Trip' : 'Post a Trip'}</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={prevStep} style={styles.backBtn}>
+            <ChevronLeft size={24} color={COLORS.black} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{editId ? 'Edit Your Trip' : 'Post a Trip'}</Text>
+          <View style={styles.headerSpacer} />
+        </View>
         <View style={styles.progressRow}>
           <View style={[styles.progressBar, { width: `${(step / 8) * 100}%` }]} />
         </View>
       </View>
 
-      <View style={styles.flex}>
-        {renderStep()}
-      </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+      >
+        <View style={styles.flex}>
+          {renderStep()}
+        </View>
+      </KeyboardAvoidingView>
 
       {!showSuccess && (
         <View style={styles.footer}>
@@ -305,17 +313,83 @@ function ComplianceStep({ kycPassed, setKycPassed, accepted, setAccepted }: any)
   );
 }
 
-function CitySearchStep({ title, value, onSelect }: any) {
+import axios from 'axios';
+
+function LocationPicker({ title, value, onSelect }: any) {
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchLocations = async (text: string) => {
+    setQuery(text);
+    if (text.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${text}&format=json&addressdetails=1&limit=8`);
+      const results = response.data.map((item: any) => ({
+        name: `${item.address.city || item.address.town || item.address.village || item.display_name.split(',')[0]}, ${item.address.country}`,
+        country: item.address.country,
+        country_code: item.address.country_code,
+      }));
+      setSuggestions(results);
+    } catch (err) {
+      console.error('Location fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFlag = (code: string) => {
+    if (!code) return '🌍';
+    const codePoints = code.toUpperCase().split('').map(char => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  };
+
   return (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>{title}</Text>
       <View style={styles.searchBar}>
         <Search size={22} color={COLORS.gray400} />
-        <TextInput placeholder="Search city..." style={styles.searchInput} value={value} onChangeText={onSelect} />
+        <TextInput 
+          placeholder="Search city or country..." 
+          style={styles.searchInput} 
+          value={query || value} 
+          onChangeText={fetchLocations}
+          autoFocus
+        />
+        {loading && <ActivityIndicator size="small" color={COLORS.primary} />}
       </View>
+
+      <ScrollView style={styles.suggestionsList} keyboardShouldPersistTaps="handled">
+        {suggestions.map((item, idx) => (
+          <TouchableOpacity 
+            key={idx} 
+            style={styles.suggestionItem} 
+            onPress={() => {
+              onSelect(item.name);
+              setQuery(item.name);
+              setSuggestions([]);
+            }}
+          >
+            <View style={styles.suggestionIcon}>
+               <Text style={{ fontSize: 20 }}>{getFlag(item.country_code)}</Text>
+            </View>
+            <View style={styles.suggestionInfo}>
+               <Text style={styles.suggestionName}>{item.name}</Text>
+               <Text style={styles.suggestionCountry}>{item.country}</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.gray300} />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
 }
+
+import { ActivityIndicator } from 'react-native';
 
 function CalendarStep({ value, onOpen }: any) {
   return (
@@ -403,10 +477,37 @@ function ReviewStep({ data }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  header: { padding: 20, paddingTop: 10 },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.black, textAlign: 'center', marginTop: -36 },
-  progressRow: { height: 4, backgroundColor: COLORS.bgSoft, borderRadius: 2, marginTop: 20 },
+  header: { 
+    paddingHorizontal: 20, 
+    paddingTop: 10,
+    paddingBottom: 20,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray100
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    backgroundColor: COLORS.bgSoft, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    zIndex: 10
+  },
+  headerTitle: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.black,
+    flex: 1,
+    textAlign: 'center'
+  },
+  headerSpacer: { width: 44 },
+  progressRow: { height: 4, backgroundColor: COLORS.bgSoft, borderRadius: 2, marginTop: 24, marginHorizontal: 10 },
   progressBar: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 2 },
   
   stepContent: { padding: 24 },
@@ -436,6 +537,12 @@ const styles = StyleSheet.create({
 
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.bgSoft, borderRadius: 20, height: 60, paddingHorizontal: 20, marginTop: 8 },
   searchInput: { flex: 1, fontSize: 17, color: COLORS.black, fontWeight: '700' },
+  suggestionsList: { marginTop: 12, maxHeight: height * 0.4 },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.gray100, gap: 12 },
+  suggestionIcon: { width: 44, height: 44, backgroundColor: COLORS.bgSoft, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  suggestionInfo: { flex: 1 },
+  suggestionName: { fontSize: 16, fontWeight: '700', color: COLORS.black },
+  suggestionCountry: { fontSize: 13, color: COLORS.gray500, fontWeight: '500', marginTop: 2 },
 
   mockStaticInput: { height: 64, backgroundColor: COLORS.bgOff, borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, gap: 16, borderWidth: 1, borderColor: COLORS.gray100 },
   mockStaticText: { fontSize: 18, fontWeight: '800', color: COLORS.black },

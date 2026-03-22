@@ -32,13 +32,21 @@ export default function ShipmentRequestDetails() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <ChevronLeft size={24} color={COLORS.black} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Shipment Details</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <ChevronLeft size={24} color={COLORS.black} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Shipment Details</Text>
+          <View style={styles.headerSpacer} />
+        </View>
       </View>
 
-      <ScrollView style={styles.flex} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.flex} 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Item Image Gallery */}
         <View style={styles.imageBox}>
           <Image 
@@ -130,11 +138,38 @@ export default function ShipmentRequestDetails() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgOff },
   flex: { flex: 1 },
-  header: { padding: 20, paddingTop: 10, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.gray100 },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.black, textAlign: 'center', marginTop: -36 },
+  header: { 
+    paddingHorizontal: 20, 
+    paddingTop: 10, 
+    paddingBottom: 15,
+    backgroundColor: COLORS.white, 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.gray100 
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    backgroundColor: COLORS.bgSoft, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    zIndex: 10
+  },
+  headerTitle: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.black,
+    flex: 1,
+    textAlign: 'center'
+  },
+  headerSpacer: { width: 44 },
   
-  scrollContent: { paddingBottom: 120 },
+  scrollContent: { paddingBottom: 150 },
   imageBox: { height: 300, backgroundColor: COLORS.black },
   mainImg: { width: '100%', height: '100%', opacity: 0.9 },
   imgBadge: { position: 'absolute', bottom: 20, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },

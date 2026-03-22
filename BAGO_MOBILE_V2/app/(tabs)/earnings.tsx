@@ -14,15 +14,15 @@ import paymentService, { Transaction } from '../../lib/payment';
 
 const { width } = Dimensions.get('window');
 
+import { useCurrency } from '../../hooks/useCurrency';
+
 export default function EarningsScreen() {
   const { user } = useAuth();
+  const { formatCurrency, currencySymbol } = useCurrency();
   const [balance, setBalance] = useState({ balance: 0.00, pending: 0, currency: 'USD' });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const preferredCurrency = user?.preferredCurrency || 'USD';
-  const currencySymbol = preferredCurrency === 'NGN' ? '₦' : preferredCurrency === 'GBP' ? '£' : preferredCurrency === 'EUR' ? '€' : '$';
 
   const fetchData = async () => {
     setLoading(true);
@@ -74,7 +74,7 @@ export default function EarningsScreen() {
         </View>
         <View style={styles.txAmount}>
           <Text style={[styles.txValue, { color: isCredit ? COLORS.success : COLORS.gray900 }]}>
-            {isCredit ? '+' : '-'}{currencySymbol}{tx.amount.toFixed(2)}
+            {isCredit ? '+' : '-'}{formatCurrency(tx.amount)}
           </Text>
           <Text style={styles.txStatus}>{tx.status}</Text>
         </View>
@@ -87,7 +87,7 @@ export default function EarningsScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerSubtitle}>Total Earnings</Text>
-          <Text style={styles.headerTitle}>{currencySymbol}{balance.balance.toFixed(2)}</Text>
+          <Text style={styles.headerTitle}>{formatCurrency(balance.balance)}</Text>
         </View>
         <TouchableOpacity style={styles.withdrawBtn} onPress={handleWithdraw}>
            <Text style={styles.withdrawBtnText}>Withdraw</Text>
@@ -106,7 +106,7 @@ export default function EarningsScreen() {
                  <Clock size={20} color={COLORS.primary} />
               </View>
               <Text style={styles.statLabel}>Pending</Text>
-              <Text style={styles.statValue}>{currencySymbol}{balance.pending.toFixed(2)}</Text>
+              <Text style={styles.statValue}>{formatCurrency(balance.pending)}</Text>
            </View>
            <View style={styles.statBox}>
               <View style={[styles.statIcon, { backgroundColor: '#FFF7ED' }]}>

@@ -1,10 +1,10 @@
 import '../global.css';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Animated, View, Image, StyleSheet, Dimensions } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider } from '../contexts/AuthContext';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import config from '../lib/config';
 
 // Conditionally load native-only modules
@@ -152,21 +152,45 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AppContent>
         <AuthProvider>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#FFFFFF' },
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="auth" />
-          </Stack>
+          <AuthNavigationWrapper>
+            <StatusBar style="dark" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: '#FFFFFF' },
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="auth" />
+            </Stack>
+          </AuthNavigationWrapper>
         </AuthProvider>
       </AppContent>
     </SafeAreaProvider>
   );
+}
+
+function AuthNavigationWrapper({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === 'auth';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      // Redirect to onboarding if not authenticated and not already in auth flow
+      router.replace('/');
+    } else if (isAuthenticated && inAuthGroup) {
+      // Redirect to home if authenticated but in auth flow
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, isLoading, segments]);
+
+  return <>{children}</>;
 }
 
 const styles = StyleSheet.create({

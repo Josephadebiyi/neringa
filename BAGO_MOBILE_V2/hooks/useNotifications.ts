@@ -41,7 +41,7 @@ export function useNotifications() {
       const token = await registerForPushNotificationsAsync();
       if (token) {
         // Send to backend
-        await api.post('/push-token', { token });
+        await api.post('/api/bago/register-token', { token });
         console.log('✅ Push token stored in backend');
       }
     } catch (error) {

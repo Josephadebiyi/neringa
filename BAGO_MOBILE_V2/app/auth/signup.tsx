@@ -62,7 +62,11 @@ export default function SignUpScreen() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [signupToken, setSignupToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+
+  // Google Auth
+  const { request, response, promptAsync } = useGoogleAuth();
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -71,12 +75,60 @@ export default function SignUpScreen() {
   // OTP refs
   const otpRefs = useRef<(TextInput | null)[]>([]);
 
+  // Handle Google OAuth response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      handleGoogleResponse();
+    }
+  }, [response]);
+
   useEffect(() => {
     if (resendTimer > 0) {
       const t = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
       return () => clearTimeout(t);
     }
   }, [resendTimer]);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      console.log('[SignUp] Starting Google Sign In...');
+      await promptAsync();
+    } catch (error: any) {
+      console.error('[SignUp] Google Sign In error:', error);
+      Alert.alert('Error', 'Failed to start Google Sign In');
+    }
+  };
+
+  const handleGoogleResponse = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await processGoogleAuthResponse(response);
+      if (result.success && result.idToken) {
+        console.log('[SignUp] Google auth successful, sending to backend...');
+        try {
+          const authResponse = await authService.googleSignIn(result.idToken);
+          console.log('[SignUp] Backend authentication successful:', authResponse);
+          router.replace('/(tabs)');
+        } catch (backendError: any) {
+          console.error('[SignUp] Backend authentication error:', backendError);
+          Alert.alert(
+            'Authentication Error',
+            backendError.message || 'Failed to authenticate with backend. Please try again.'
+          );
+        }
+      } else if (result.error) {
+        console.error('[SignUp] Google auth failed:', result.error);
+        if (!result.error.includes('cancel')) {
+          Alert.alert('Sign In Failed', result.error);
+        }
+      }
+    } catch (error: any) {
+      console.error('[SignUp] Google sign in error:', error);
+      Alert.alert('Error', error.message || 'Google sign in failed');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const animateTransition = (callback: () => void) => {
     Animated.parallel([
@@ -191,6 +243,27 @@ export default function SignUpScreen() {
           <>
             <Text style={styles.stepTitle}>What's your email?</Text>
             <View style={styles.inputContainer}><TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoFocus /></View>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              onPress={handleGoogleSignIn}
+              disabled={googleLoading || !request}
+              style={styles.googleBtn}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color={COLORS.black} />
+              ) : (
+                <>
+                  <Chrome size={20} color={COLORS.black} />
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </>
         );
       case 'name':
@@ -353,5 +426,10 @@ const styles = StyleSheet.create({
   fab: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.black, alignItems: 'center', justifyContent: 'center' },
   fabDisabled: { opacity: 0.3 },
   finishBtn: { width: '100%', height: 60, backgroundColor: COLORS.black, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
-  finishBtnText: { color: COLORS.white, fontSize: 18, fontWeight: '800' }
+  finishBtnText: { color: COLORS.white, fontSize: 18, fontWeight: '800' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.gray300 },
+  dividerText: { marginHorizontal: 16, fontSize: 14, color: COLORS.gray500, fontWeight: '600' },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 60, backgroundColor: COLORS.white, borderRadius: 16, borderWidth: 2, borderColor: COLORS.bgSoft, gap: 12 },
+  googleBtnText: { fontSize: 17, fontWeight: '700', color: COLORS.black }
 });

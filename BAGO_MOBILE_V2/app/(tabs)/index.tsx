@@ -19,6 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, TYPOGRAPHY } from '../../constants/theme';
 import api from '../../lib/api';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useCurrency } from '../../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
 
@@ -69,6 +70,7 @@ export default function HomeScreen() {
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [wallet] = useState({ balance: 1240.50, pending: 0, currency: '$' });
   const [bannerConfig, setBannerConfig] = useState<any>(null);
+  const { formatCurrency } = useCurrency();
 
   useNotifications();
 
@@ -217,7 +219,7 @@ export default function HomeScreen() {
                   <View style={styles.walletIconBoxHero}><Wallet size={24} color={COLORS.white} /></View>
                   <View>
                      <Text style={styles.walletLabelHero}>EARNED BALANCE</Text>
-                     <Text style={styles.walletValueHero}>${wallet.balance.toFixed(2)}</Text>
+                      <Text style={styles.walletValueHero}>{formatCurrency(wallet.balance)}</Text>
                   </View>
                </View>
                <TouchableOpacity style={styles.postTripCta} onPress={() => handleActionWithTerms(() => router.push('/post-trip'))}>
@@ -382,16 +384,60 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.gray100 },
-  headerLeft: { flex: 1 },
-  headerRight: { flex: 1, alignItems: 'flex-end' },
-  headerCenter: { flexDirection: 'row', backgroundColor: COLORS.bgSoft, borderRadius: 14, padding: 4 },
-  headerModeBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
-  headerModeBtnActive: { backgroundColor: COLORS.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-  headerModeLabel: { fontSize: 13, fontWeight: '800', color: COLORS.gray500 },
-  headerModeLabelActive: { color: COLORS.primary },
-  logo: { width: 110, height: 40 },
-  profileBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  header: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    backgroundColor: COLORS.white, 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.gray100,
+    gap: 4
+  },
+  headerLeft: { 
+    flex: 1,
+    minWidth: 80,
+  },
+  headerCenter: { 
+    flex: 2,
+    flexDirection: 'row', 
+    backgroundColor: COLORS.bgSoft, 
+    borderRadius: 14, 
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRight: { 
+    flex: 1,
+    minWidth: 40,
+    alignItems: 'flex-end' 
+  },
+  headerModeBtn: { 
+    flex: 1,
+    paddingVertical: 6, 
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerModeBtnActive: { 
+    backgroundColor: COLORS.white, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 1 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 2, 
+    elevation: 2 
+  },
+  headerModeLabel: { 
+    fontSize: 12, 
+    fontWeight: '800', 
+    color: COLORS.gray500 
+  },
+  headerModeLabelActive: { 
+    color: COLORS.primary 
+  },
+  logo: { width: 90, height: 32 },
+  profileBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatar: { width: '100%', height: '100%' },
 
   heroSection: { padding: 20, paddingTop: 10 },

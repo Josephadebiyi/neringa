@@ -61,13 +61,21 @@ export default function HelpDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <ChevronLeft size={24} color={COLORS.black} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Help Center</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <ChevronLeft size={24} color={COLORS.black} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Help Center</Text>
+          <View style={styles.headerSpacer} />
+        </View>
       </View>
 
-      <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.flex} 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.heroBox}>
           <View style={styles.iconContainer}>{data.icon}</View>
           <Text style={styles.title}>{data.title}</Text>
@@ -95,9 +103,36 @@ export default function HelpDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  header: { padding: 20, paddingTop: 10 },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.black, textAlign: 'center', marginTop: -36, marginBottom: 20 },
+  header: { 
+    paddingHorizontal: 20, 
+    paddingTop: 10,
+    backgroundColor: COLORS.white,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray100
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    backgroundColor: COLORS.bgSoft, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    zIndex: 10
+  },
+  headerTitle: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.black,
+    flex: 1,
+    textAlign: 'center'
+  },
+  headerSpacer: { width: 44 },
   
   scrollContent: { paddingHorizontal: 24, paddingVertical: 12 },
   heroBox: { alignItems: 'center', marginBottom: 40 },

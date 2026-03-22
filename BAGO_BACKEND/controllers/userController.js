@@ -944,7 +944,11 @@ export const googleAuth = async (req, res) => {
       try {
         const ticket = await client.verifyIdToken({
           idToken,
-          audience: process.env.GOOGLE_CLIENT_ID,
+          audience: [
+            process.env.GOOGLE_CLIENT_ID, // Web
+            '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com', // iOS
+            '207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com', // Android
+          ],
         });
         const payload = ticket.getPayload();
         email = payload.email;

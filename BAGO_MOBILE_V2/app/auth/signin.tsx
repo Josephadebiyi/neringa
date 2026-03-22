@@ -15,6 +15,7 @@ import { COLORS } from '../../constants/theme';
 type SignInStep = 'method' | 'email';
 
 export default function SignInScreen() {
+  const { login, googleLogin } = useAuth();
   const [step, setStep] = useState<SignInStep>('method');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,16 +38,22 @@ export default function SignInScreen() {
     try {
       const result = await processGoogleAuthResponse(response);
       if (result.success && result.idToken) {
+        console.log('Google auth successful, sending to backend...');
         try {
-          await authService.googleSignIn(result.idToken);
-        } catch (e) {
-          // Backend may not be available yet, proceed for now
+          await googleLogin(result.idToken);
+          router.replace('/(tabs)');
+        } catch (backendError: any) {
+          console.error('Backend authentication error:', backendError);
+          Alert.alert(
+            'Authentication Error',
+            backendError.message || 'Failed to authenticate with backend. Please try again.'
+          );
         }
-        router.replace('/(tabs)');
       } else if (result.error && result.error !== 'User cancelled the authentication') {
         Alert.alert('Google Sign In', result.error);
       }
     } catch (error: any) {
+      console.error('Google sign in error:', error);
       const msg = error.message || 'Google sign in failed';
       if (msg.includes('blocked') || msg.includes('access')) {
         Alert.alert(
@@ -192,112 +199,133 @@ export default function SignInScreen() {
     );
   }
 
-  // Email sign in form
-  return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.flex}
-        >
-          <ScrollView
-            style={styles.flex}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Back button */}
-            <Pressable onPress={handleBack} style={styles.backButton}>
-              <ArrowLeft size={22} color={COLORS.gray900} />
-            </Pressable>
+    // Email sign in form
+    return (
+        <View style={styles.container}>
+            <StatusBar style="dark" />
+            <SafeAreaView style={styles.safeArea}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.flex}
+                >
+                    <ScrollView
+                        style={styles.flex}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {/* Back button */}
+                        <Pressable onPress={handleBack} style={styles.backButton}>
+                            <ArrowLeft size={22} color={COLORS.gray900} />
+                        </Pressable>
+        
+                        {/* Logo */}
+                        <View style={styles.formLogoRow}>
+                            <Image 
+                                source={require('../../assets/bago-logo.png')} 
+                                style={styles.formBrandLogo}
+                                resizeMode="contain"
+                            />
+                        </View>
+        
+                        {/* Title */}
+                        <Text style={styles.title}>Welcome back</Text>
+                        <Text style={styles.subtitle}>Sign in with your email and password</Text>
+        
+                        {/* Email Input */}
+                        <View style={styles.inputGroup}>
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Email"
+                                    placeholderTextColor={COLORS.gray400}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    autoComplete="email"
+                                />
+                            </View>
+                        </View>
+        
+                        {/* Password Input */}
+                        <View style={styles.inputGroup}>
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Password"
+                                    placeholderTextColor={COLORS.gray400}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                    autoCapitalize="none"
+                                />
+                                <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                                    {showPassword ? (
+                                        <EyeOff size={20} color={COLORS.gray400} />
+                                    ) : (
+                                        <Eye size={20} color={COLORS.gray400} />
+                                    )}
+                                </Pressable>
+                            </View>
+                        </View>
+        
+                        {/* Forgot Password */}
+                        <Pressable 
+                            style={styles.forgotPassword}
+                            onPress={() => router.push('/auth/forgot-password')}
+                        >
+                            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                        </Pressable>
+        
+                        {/* Main Login Button */}
+                        <View style={styles.formActions}>
+                            <Pressable
+                                onPress={handleSignIn}
+                                disabled={loading || !email || !password}
+                                style={({ pressed }) => [
+                                    styles.signInButton,
+                                    (!email || !password) && styles.signInButtonDisabled,
+                                    (loading || pressed) && styles.buttonPressed,
+                                ]}
+                            >
+                                <Text style={styles.signInButtonText}>
+                                    {loading ? 'Signing in...' : 'Sign in'}
+                                </Text>
+                            </Pressable>
 
-            {/* Logo */}
-            <View style={styles.formLogoRow}>
-              <Image 
-                source={require('../../assets/bago-logo.png')} 
-                style={styles.formBrandLogo}
-                resizeMode="contain"
-              />
-            </View>
+                            <View style={styles.divider}>
+                                <View style={styles.dividerLine} />
+                                <Text style={styles.dividerText}>OR</Text>
+                                <View style={styles.dividerLine} />
+                            </View>
 
-            {/* Title */}
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in with your email and password</Text>
-
-            {/* Email Input */}
-            <View style={styles.inputGroup}>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Email"
-                  placeholderTextColor={COLORS.gray400}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                />
-              </View>
-            </View>
-
-            {/* Password Input */}
-            <View style={styles.inputGroup}>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Password"
-                  placeholderTextColor={COLORS.gray400}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                />
-                <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                  {showPassword ? (
-                    <EyeOff size={20} color={COLORS.gray400} />
-                  ) : (
-                    <Eye size={20} color={COLORS.gray400} />
-                  )}
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Forgot Password */}
-            <Pressable 
-              style={styles.forgotPassword}
-              onPress={() => router.push('/auth/forgot-password')}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </Pressable>
-
-            {/* Sign In Button */}
-            <Pressable
-              onPress={handleSignIn}
-              disabled={loading || !email || !password}
-              style={({ pressed }) => [
-                styles.signInButton,
-                (!email || !password) && styles.signInButtonDisabled,
-                (loading || pressed) && styles.buttonPressed,
-              ]}
-            >
-              <Text style={styles.signInButtonText}>
-                {loading ? 'Signing in...' : 'Sign in'}
-              </Text>
-            </Pressable>
-          </ScrollView>
-        </KeyboardAvoidingView>
-
-        {/* Sign up link - Fixed at bottom safe area */}
-        <View style={styles.fixedSignUpSection}>
-          <Text style={styles.signUpQuestion}>Not a member yet?</Text>
-          <Pressable onPress={() => router.push('/auth/signup')}>
-            <Text style={styles.signUpLink}>Sign up</Text>
-          </Pressable>
+                            <Pressable
+                                onPress={handleGoogleSignIn}
+                                disabled={googleLoading || !request}
+                                style={({ pressed }) => [
+                                    styles.googleSignInButton,
+                                    (pressed || googleLoading) && styles.buttonPressed,
+                                ]}
+                            >
+                                <Text style={styles.googleSignInText}>
+                                    {googleLoading ? 'Connecting...' : 'Continue with Google'}
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+        
+                {/* Sign up link - Fixed at bottom safe area */}
+                <View style={styles.fixedSignUpSection}>
+                    <Text style={styles.signUpQuestion}>Not a member yet?</Text>
+                    <Pressable onPress={() => router.push('/auth/signup')}>
+                        <Text style={styles.signUpLink}>Sign up</Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
         </View>
-      </SafeAreaView>
-    </View>
-  );
+    );
 }
 
 const styles = StyleSheet.create({
@@ -479,6 +507,46 @@ const styles = StyleSheet.create({
   signInButtonText: {
     color: COLORS.white,
     fontSize: 17,
+    fontWeight: '700',
+  },
+  formActions: {
+    marginTop: 4,
+    gap: 16,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.gray100,
+  },
+  dividerText: {
+    paddingHorizontal: 16,
+    color: COLORS.gray400,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  googleSignInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.gray100,
+    paddingVertical: 16,
+    borderRadius: 50,
+    gap: 12,
+  },
+  googleIconImage: {
+    width: 22,
+    height: 22,
+  },
+  googleSignInText: {
+    color: COLORS.black,
+    fontSize: 16,
     fontWeight: '700',
   },
   buttonPressed: {

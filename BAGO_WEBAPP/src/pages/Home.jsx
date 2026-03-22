@@ -77,18 +77,18 @@ const Navbar = () => {
 
 
                 {/* Auth */}
-                <div className="hidden md:flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                     {isAuthenticated ? (
-                        <Link to="/dashboard" className="flex items-center gap-2 bg-[#5845D8]/5 border border-[#5845D8]/20 px-4 py-2 rounded-full hover:bg-[#5845D8]/10 transition-all group">
-                            <div className="w-7 h-7 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-xs uppercase">
+                        <Link to="/dashboard" className="flex items-center gap-2 bg-[#5845D8]/5 border border-[#5845D8]/20 px-3 md:px-4 py-1.5 md:py-2 rounded-full hover:bg-[#5845D8]/10 transition-all group">
+                            <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-[10px] md:text-xs uppercase">
                                 {user?.firstName?.charAt(0) || user?.email?.charAt(0)}
                             </div>
-                            <span className="text-sm font-bold text-[#012126]">Dashboard</span>
+                            <span className="text-xs md:text-sm font-bold text-[#012126]">Dashboard</span>
                         </Link>
                     ) : (
-                        <Link to="/login" className="flex items-center gap-2 px-5 py-2 bg-[#5845D8] text-white rounded-full font-bold text-sm hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/20">
-                            <UserCircle size={18} className="text-white/80" />
-                            Login / Signup
+                        <Link to="/login" className="flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-1.5 md:py-2 bg-[#5845D8] text-white rounded-full font-bold text-[11px] md:text-sm hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/20">
+                            <UserCircle size={16} className="text-white/80 hidden xs:block" />
+                            <span>Login</span>
                         </Link>
                     )}
                 </div>
@@ -318,42 +318,75 @@ const StickySearch = () => {
     };
 
     return (
-        <div className="w-full px-6 md:px-12 max-w-[1100px] mx-auto -mt-1 mb-4 relative z-40">
-            <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.10)] border border-gray-100">
-                <form onSubmit={handleSearch} className="flex flex-col md:flex-row items-stretch">
-                    <div className="flex w-full md:w-[32%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-                        <MapPin size={18} className="text-[#9CA3AF] mr-3 flex-shrink-0" />
+        <div className="w-full px-6 md:px-12 max-w-[1100px] mx-auto -mt-1 mb-10 relative z-40">
+            <div className="bg-white/80 backdrop-blur-xl rounded-[28px] shadow-[0_15px_60px_-15px_rgba(0,0,0,0.12)] border border-white/40 p-2 md:p-3">
+                <form onSubmit={handleSearch} className="flex flex-col md:flex-row md:items-center md:divide-x md:divide-gray-100">
+                    
+                    {/* Origin */}
+                    <div className="flex-1 flex items-center px-4 py-3 md:py-2 group transition-all rounded-2xl hover:bg-gray-50/80">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mr-3 shrink-0">
+                            <MapPin size={18} className="text-[#5845D8]" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-0.5">{t('leavingFromLabel') || 'Leaving From'}</p>
-                            <Select options={locationOptions} value={origin} onChange={setOrigin}
+                            <p className="text-[10px] uppercase tracking-[0.15em] font-black text-gray-400 mb-0.5">{t('leavingFromLabel') || 'Leaving From'}</p>
+                            <Select 
+                                options={locationOptions} 
+                                value={origin} 
+                                onChange={setOrigin}
                                 placeholder={t('pickCityPlaceHolder') || 'Pick a city'}
-                                styles={customStyles} isClearable menuPortalTarget={document.body} menuPosition="fixed" />
+                                styles={customStyles} 
+                                isClearable 
+                                menuPortalTarget={document.body} 
+                                menuPosition="fixed" 
+                            />
                         </div>
                     </div>
-                    <div className="flex w-full md:w-[32%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-                        <MapPin size={18} className="text-[#9CA3AF] mr-3 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-0.5">{t('goingToLabel') || 'Going To'}</p>
-                            <Select options={locationOptions} value={destination} onChange={setDestination}
-                                placeholder={t('pickCityPlaceHolder') || 'Pick a city'}
-                                styles={customStyles} isClearable menuPortalTarget={document.body} menuPosition="fixed" />
+
+                    {/* Date - In the Middle */}
+                    <div className="flex-1 flex items-center px-4 py-3 md:py-2 group transition-all rounded-2xl hover:bg-gray-50/80">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mr-3 shrink-0">
+                            <Calendar size={18} className="text-[#5845D8]" />
                         </div>
-                    </div>
-                    <div className="flex w-full md:w-[24%] items-center px-4 py-4 border-b md:border-b-0 md:border-r border-gray-100">
-                        <Calendar size={18} className="text-[#9CA3AF] mr-3 flex-shrink-0" />
-                        <div className="flex-1">
-                            <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-0.5">{t('departureDateLabel') || 'Departure Date'}</p>
-                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] uppercase tracking-[0.15em] font-black text-gray-400 mb-0.5">{t('departureDateLabel') || 'Departure Date'}</p>
+                            <input 
+                                type="date" 
+                                value={date} 
+                                onChange={(e) => setDate(e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
-                                className="outline-none text-sm font-semibold w-full bg-transparent text-[#012126] cursor-pointer" />
+                                className="outline-none text-[15px] font-bold w-full bg-transparent text-[#012126] cursor-pointer placeholder:text-gray-400" 
+                            />
                         </div>
                     </div>
-                    <button type="submit"
-                        className="w-full md:w-[12%] px-6 bg-[#5845D8] text-white py-4 font-bold hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 rounded-b-2xl md:rounded-b-none md:rounded-r-2xl text-sm">
-                        <Search size={18} />
-                        <span className="hidden md:inline">{t('search') || 'Search'}</span>
-                        <span className="md:hidden">Search</span>
-                    </button>
+                    
+                    {/* Destination */}
+                    <div className="flex-1 flex items-center px-4 py-3 md:py-2 group transition-all rounded-2xl hover:bg-gray-50/80">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mr-3 shrink-0">
+                            <MapPin size={18} className="text-[#5845D8]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] uppercase tracking-[0.15em] font-black text-gray-400 mb-0.5">{t('goingToLabel') || 'Going To'}</p>
+                            <Select 
+                                options={locationOptions} 
+                                value={destination} 
+                                onChange={setDestination}
+                                placeholder={t('pickCityPlaceHolder') || 'Pick a city'}
+                                styles={customStyles} 
+                                isClearable 
+                                menuPortalTarget={document.body} 
+                                menuPosition="fixed" 
+                            />
+                        </div>
+                    </div>
+
+                    {/* Search Button */}
+                    <div className="md:pl-3 w-full md:w-auto mt-2 md:mt-0">
+                        <button type="submit"
+                            className="w-full md:h-[68px] md:px-10 bg-[#5845D8] text-white py-4 md:py-0 font-black rounded-2xl hover:bg-[#4838B5] transition-all flex items-center justify-center gap-3 shadow-xl shadow-[#5845D8]/25 hover:scale-[1.02] active:scale-[0.98] text-sm uppercase tracking-widest">
+                            <Search size={20} strokeWidth={3} />
+                            <span>{t('search') || 'Search'}</span>
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

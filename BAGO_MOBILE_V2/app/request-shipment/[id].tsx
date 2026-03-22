@@ -167,20 +167,28 @@ export default function RequestShipmentScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={prevStep} style={styles.backButton}>
-          <ChevronLeft size={24} color={COLORS.black} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Shipment Request</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+            <ChevronLeft size={24} color={COLORS.black} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Shipment Request</Text>
+          <View style={styles.headerSpacer} />
+        </View>
         <View style={styles.progressRow}>
            <View style={[styles.progressBar, { width: `${(step / 5) * 100}%` }]} />
         </View>
       </View>
 
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
         style={styles.flex}
       >
-        <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.flex} 
+          contentContainerStyle={styles.scrollContent} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {renderStep()}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -382,10 +390,37 @@ function ConfirmPay({ data, fees, currencySymbol, update }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   flex: { flex: 1 },
-  header: { padding: 20, paddingTop: 10 },
-  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: COLORS.black, textAlign: 'center', marginTop: -32 },
-  progressRow: { height: 4, backgroundColor: COLORS.bgSoft, borderRadius: 2, marginTop: 24 },
+  header: { 
+    paddingHorizontal: 20, 
+    paddingTop: 10, 
+    paddingBottom: 20,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray100
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    backgroundColor: COLORS.bgSoft, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    zIndex: 10
+  },
+  headerTitle: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.black,
+    flex: 1,
+    textAlign: 'center'
+  },
+  headerSpacer: { width: 44 },
+  progressRow: { height: 4, backgroundColor: COLORS.bgSoft, borderRadius: 2, marginTop: 24, marginHorizontal: 10 },
   progressBar: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 2 },
   
   scrollContent: { padding: 24, paddingBottom: 120 },

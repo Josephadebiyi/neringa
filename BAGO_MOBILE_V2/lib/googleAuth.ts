@@ -37,10 +37,16 @@ export interface GoogleAuthResponse {
  * Returns request, response, and promptAsync function
  */
 export const useGoogleAuth = () => {
-  const redirectUri = makeRedirectUri({
-    scheme: 'com.bago.mobile',
-    path: 'redirect',
-  });
+  // For web, use default (localhost)
+  // For native, use custom scheme
+  const redirectUri = Platform.OS === 'web'
+    ? makeRedirectUri()  // Uses localhost for web
+    : makeRedirectUri({
+        scheme: 'com.bago.mobile',
+        path: 'redirect',
+      });
+
+  console.log('[GoogleAuth] Platform:', Platform.OS, '| Redirect URI:', redirectUri);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: Platform.select({

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import api from '../api';
 import { countries, locations } from '../utils/countries';
+import Select from 'react-select';
 
 const COUNTRY_OPTIONS = countries;
 
@@ -60,45 +61,62 @@ const Navbar = ({ step }) => {
     );
 };
 
-const CityField = ({ countryLabel, value, onChange, name, label, t }) => {
-    const cities = getCitiesForCountry(countryLabel);
-    if (!countryLabel) return null;
-
-    if (cities.length > 0) {
-        return (
-            <div>
-                <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{label}</label>
-                <div className="relative">
-                    <select
-                        name={name}
-                        value={value}
-                        onChange={onChange}
-                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#012126] focus:bg-white focus:shadow-sm"
-                    >
-                        <option value="">{t('anyCity')} {countryLabel}</option>
-                        {cities.map(loc => (
-                            <option key={loc.city} value={loc.city}>{loc.city}</option>
-                        ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                        <ChevronRight size={14} className="rotate-90" />
-                    </div>
-                </div>
+const LocationSelect = ({ value, onChange, placeholder, label, icon: Icon, t }) => {
+    const locationOptions = locations.map(loc => ({
+        value: loc.city,
+        label: (
+            <div className="flex items-center gap-2">
+                <span>{loc.flag}</span>
+                <span>{loc.label}</span>
             </div>
-        );
-    }
+        ),
+        city: loc.city,
+        country: loc.country,
+        flag: loc.flag
+    }));
+
+    const customStyles = {
+        control: (b) => ({ 
+            ...b, 
+            border: 'none', 
+            boxShadow: 'none', 
+            background: 'transparent', 
+            minHeight: 'auto',
+            padding: 0
+        }),
+        valueContainer: (b) => ({ ...b, padding: '0 4px' }),
+        input: (b) => ({ ...b, margin: 0, padding: 0 }),
+        placeholder: (b) => ({ ...b, color: '#9CA3AF', fontSize: '13px', fontWeight: '500' }),
+        singleValue: (b) => ({ ...b, color: '#012126', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase' }),
+        indicatorsContainer: (b) => ({ ...b, display: 'none' }),
+        menu: (b) => ({ ...b, zIndex: 9999 }),
+        menuPortal: (b) => ({ ...b, zIndex: 9999 }),
+    };
+
+    const selectedOption = locationOptions.find(o => o.city === value) || (value ? {
+        value: value,
+        label: value,
+        city: value
+    } : null);
 
     return (
-        <div>
-            <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{label}</label>
-            <input
-                type="text"
-                name={name}
-                value={value}
-                onChange={onChange}
-                placeholder={`${t('enterCity')} ${countryLabel}...`}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-            />
+        <div className="space-y-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-[0.15em] ml-1">{label}</label>
+            <div className="flex items-center px-4 py-3 bg-gray-50/50 rounded-2xl border border-gray-100 focus-within:border-[#5845D8]/30 focus-within:bg-white transition-all">
+                <Icon size={18} className="text-gray-400 mr-3 shrink-0" />
+                <div className="flex-1">
+                    <Select
+                        options={locationOptions}
+                        value={selectedOption}
+                        onChange={(opt) => onChange(opt)}
+                        placeholder={placeholder || t('pickCityPlaceHolder') || 'Select Location'}
+                        styles={customStyles}
+                        isClearable
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                    />
+                </div>
+            </div>
         </div>
     );
 };
@@ -372,54 +390,32 @@ export default function PostTrip() {
                                             <MapPin size={20} />
                                         </div>
                                         <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('routeDetails')}</h2>
-                                    </div>
+                                    </div>                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                        <LocationSelect 
+                                            label={t('leavingFromLabel') || 'Origin City'}
+                                            placeholder={t('pickCityPlaceHolder') || 'Leaving From'}
+                                            value={formData.originCity}
+                                            icon={MapPin}
+                                            t={t}
+                                            onChange={(opt) => setFormData(prev => ({ 
+                                                ...prev, 
+                                                originCity: opt?.city || '', 
+                                                originCountry: opt?.country || '' 
+                                            }))}
+                                        />
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                        <div className="space-y-6">
-                                            <div>
-                                                <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('originCountry')}</label>
-                                                <div className="relative">
-                                                    <select
-                                                        name="originCountry"
-                                                        value={formData.originCountry}
-                                                        onChange={handleChange}
-                                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#012126] focus:bg-white focus:shadow-sm"
-                                                    >
-                                                        <option value="">{t('selectCountry')}</option>
-                                                        {COUNTRY_OPTIONS.map(c => (
-                                                            <option key={c.value} value={c.label}>{c.flag} {c.label}</option>
-                                                        ))}
-                                                    </select>
-                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                        <ChevronRight size={14} className="rotate-90" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <CityField countryLabel={formData.originCountry} value={formData.originCity} onChange={handleChange} name="originCity" label={t('originCity')} t={t} />
-                                        </div>
-
-                                        <div className="space-y-6">
-                                            <div>
-                                                <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('destCountry')}</label>
-                                                <div className="relative">
-                                                    <select
-                                                        name="destinationCountry"
-                                                        value={formData.destinationCountry}
-                                                        onChange={handleChange}
-                                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all appearance-none text-[#012126] focus:bg-white focus:shadow-sm"
-                                                    >
-                                                        <option value="">{t('selectCountry')}</option>
-                                                        {COUNTRY_OPTIONS.map(c => (
-                                                            <option key={c.value} value={c.label}>{c.flag} {c.label}</option>
-                                                        ))}
-                                                    </select>
-                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                        <ChevronRight size={14} className="rotate-90" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <CityField countryLabel={formData.destinationCountry} value={formData.destinationCity} onChange={handleChange} name="destinationCity" label={t('destCity')} t={t} />
-                                        </div>
+                                        <LocationSelect 
+                                            label={t('goingToLabel') || 'Destination City'}
+                                            placeholder={t('pickCityPlaceHolder') || 'Going To'}
+                                            value={formData.destinationCity}
+                                            icon={MapPin}
+                                            t={t}
+                                            onChange={(opt) => setFormData(prev => ({ 
+                                                ...prev, 
+                                                destinationCity: opt?.city || '', 
+                                                destinationCountry: opt?.country || '' 
+                                            }))}
+                                        />
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

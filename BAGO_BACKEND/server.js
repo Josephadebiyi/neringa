@@ -607,11 +607,10 @@ app.get('/api/stripe/connect/status/:userId', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-/*
+
 app.get('/', async (req, res) => {
-  res.send("hello")
-})
-*/
+  res.json({ success: true, message: "Bago API is running", version: "1.0.0" });
+});
 
 // ✅ STRIPE CONNECT - Platform Fee (10%) + Transfer to Traveller
 app.post('/api/stripe/connect/transfer', async (req, res) => {
