@@ -1,5 +1,5 @@
 import express from 'express';
-import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, savePushToken } from '../controllers/userController.js';
+import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, editCurrency, getUserStats, savePushToken, deleteAccount } from '../controllers/userController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
@@ -109,7 +109,9 @@ userRouter.put("/markAllNotificationsAsRead", isAuthenticated, markAllNotificati
 // userRouter.get("/processPayment", isAuthenticated,  processPayment)
 userRouter.put("/updateRequestDates/:requestId", isAuthenticated, updateRequestDates)
 userRouter.get('/user-stats', getUserStats);
+userRouter.put('/edit-currency', isAuthenticated, editCurrency);
 userRouter.post('/push-token', isAuthenticated, savePushToken);
+userRouter.delete('/user/delete', isAuthenticated, deleteAccount);
 
 // 🌍 Public Routes (No Auth)
 userRouter.get('/public/track/:trackingNumber', getPublicTrackingByNumber);

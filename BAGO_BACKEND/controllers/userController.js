@@ -1605,3 +1605,83 @@ export const savePushToken = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to save push token' });
   }
 };
+
+// ✅ Update preferred currency
+export const editCurrency = async (req, res, next) => {
+  const { currency } = req.body;
+  if (!currency) return res.status(400).json({ message: "Currency is required" });
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.preferredCurrency = currency.toUpperCase();
+    
+    // Auto-set payment gateway preference if not already set
+    if (['NGN', 'GHS', 'KES'].includes(user.preferredCurrency)) {
+      user.paymentGateway = 'paystack';
+    } else {
+      user.paymentGateway = 'stripe';
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Currency updated successfully",
+      success: true,
+      user: {
+        id: user._id,
+        preferredCurrency: user.preferredCurrency,
+        paymentGateway: user.paymentGateway
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc Delete user account and all associated data
+ * @route DELETE /api/user/delete
+ * @access Private
+ */
+export const deleteAccount = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    // Delete associated Trips
+    const Trip = mongoose.model('Trip');
+    if (Trip) {
+      await Trip.deleteMany({ coachId: userId }); // Assuming coachId/userId is the owner
+    }
+
+    // Delete associated Requests
+    const Request = mongoose.model('Request');
+    if (Request) {
+      await Request.deleteMany({ $or: [{ sender: userId }, { traveler: userId }] });
+    }
+
+    // Delete associated Wallets
+    const Wallet = mongoose.model('Wallet');
+    if (Wallet) {
+      await Wallet.deleteMany({ userId: userId });
+    }
+
+    // Finally delete the user
+    const deletedUser = await User.findByIdAndDelete(userId);
+    
+    if (!deletedUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    console.log(`🗑️ Account deleted: ${deletedUser.email} (${userId})`);
+
+    res.status(200).json({ 
+      success: true, 
+      message: "We are sad to let you go. Your account and all associated data have been permanently deleted." 
+    });
+  } catch (error) {
+    console.error("❌ Delete account error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

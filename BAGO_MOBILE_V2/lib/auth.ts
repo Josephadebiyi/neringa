@@ -33,13 +33,17 @@ export interface User {
   avatar?: string;
   country?: string;
   isVerified: boolean;
-  kycStatus?: 'pending' | 'approved' | 'rejected';
+  kycStatus?: 'not_started' | 'pending' | 'approved' | 'declined' | 'failed_verification' | 'blocked_duplicate';
+  preferredCurrency?: string;
+  paymentGateway?: 'stripe' | 'paystack';
   wallet?: {
     balance: number;
     currency: string;
   };
   role?: 'sender' | 'carrier';
   acceptedTerms?: boolean;
+  diditSessionId?: string;
+  diditSessionUrl?: string;
   createdAt: string;
 }
 
@@ -224,6 +228,11 @@ class AuthService {
       }
       throw error;
     }
+  }
+
+  async updateCurrency(currency: string): Promise<User> {
+    const response = await api.put<{ user: User }>(API_ENDPOINTS.UPDATE_CURRENCY, { currency });
+    return response.data.user;
   }
 }
 

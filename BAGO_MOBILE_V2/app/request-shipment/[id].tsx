@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { COLORS } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import paymentService from '../../lib/payment';
+import api from '../../lib/api';
 
 const { width } = Dimensions.get('window');
 
@@ -29,13 +30,14 @@ export default function RequestShipmentScreen() {
   const [loading, setLoading] = useState(false);
 
   // Financial States
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(user?.preferredCurrency || 'USD');
+  const [trip, setTrip] = useState<any>(null);
   const [fees, setFees] = useState({
     shipping: 0,
     insurance: 0,
     escrow: 5.00,
     total: 0,
-    ratePerKg: 25.00
+    ratePerKg: 25.00 // Default, will be updated from trip
   });
 
   const [formData, setFormData] = useState({
@@ -54,18 +56,47 @@ export default function RequestShipmentScreen() {
 
   // Dynamic Pricing Calculation
   useEffect(() => {
+    const fetchTrip = async () => {
+      try {
+        const response = await api.get(`/api/bago/trips/${id}`);
+        const tripData = response.data.trip;
+        setTrip(tripData);
+        if (tripData?.pricePerKg) {
+          setFees(f => ({ ...f, ratePerKg: tripData.pricePerKg }));
+        }
+      } catch (e) {
+        console.error('Error fetching trip:', e);
+      }
+    };
+    if (id) fetchTrip();
+  }, [id]);
+
+  useEffect(() => {
     updateQuotes();
-  }, [formData.weight, formData.declaredValue, formData.protected, currency]);
+  }, [formData.weight, formData.declaredValue, formData.protected, currency, trip]);
 
   const updateQuotes = async () => {
     // If we're on the summary step or need live quotes
     const value = parseFloat(formData.declaredValue || '0');
     
-    // 1. Calculate Shipping Fee (Static for now based on weight, or fetch from backend)
-    // In a real app we'd call paymentService.calculatePrice with trip details
-    const shipFee = formData.weight * fees.ratePerKg;
+    // 1. Get base shipping fee from trip (usually in USD or Trip Currency)
+    const tripCurrency = trip?.currency || 'USD';
+    let baseShipFee = formData.weight * (trip?.pricePerKg || fees.ratePerKg);
     
-    // 2. Calculate Insurance (5% or via Service)
+    // Convert base shipping fee to user's preferred currency if they differ
+    let shipFee = baseShipFee;
+    if (tripCurrency !== currency) {
+      try {
+        const conv = await paymentService.convertCurrency({ amount: baseShipFee, from: tripCurrency, to: currency });
+        shipFee = conv.conversion.convertedAmount;
+      } catch (e) {
+        // Simple approximation fallback if converter fails
+        if (currency === 'NGN' && tripCurrency === 'USD') shipFee = baseShipFee * 1600;
+        else if (currency === 'USD' && tripCurrency === 'NGN') shipFee = baseShipFee / 1600;
+      }
+    }
+    
+    // 2. Calculate Insurance
     let insFee = 0;
     if (formData.protected && value > 0) {
       try {
@@ -76,11 +107,11 @@ export default function RequestShipmentScreen() {
         });
         insFee = ins.insurance.cost;
       } catch {
-        insFee = value * 0.05; // Fallback
+        insFee = 0; 
       }
     }
 
-    // 3. Convert Escrow (fixed $5)
+    // 3. Escrow Fee (fixed $5 base)
     let escrowFee = 5.0;
     if (currency !== 'USD') {
       try {
@@ -124,11 +155,11 @@ export default function RequestShipmentScreen() {
 
   const renderStep = () => {
     switch (step) {
-      case 1: return <ItemStep data={formData} currency={currency} setCurrency={setCurrency} update={(v: any) => setFormData({...formData, ...v})} />;
+      case 1: return <ItemStep data={formData} currency={currency} update={(v: any) => setFormData({...formData, ...v})} />;
       case 2: return <SizeStep data={formData} update={(v: any) => setFormData({...formData, ...v})} />;
       case 3: return <PhotoStep data={formData} update={(v: string) => setFormData({...formData, photo: v})} />;
       case 4: return <ReceiverStep data={formData} update={(v: any) => setFormData({...formData, ...v})} />;
-      case 5: return <ConfirmPay data={formData} fees={fees} currencySymbol={currency === 'NGN' ? '₦' : currency === 'GBP' ? '£' : '$'} update={(v: any) => setFormData({...formData, ...v})} />;
+      case 5: return <ConfirmPay data={formData} fees={fees} currencySymbol={currency === 'NGN' ? '₦' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '$'} update={(v: any) => setFormData({...formData, ...v})} />;
       default: return null;
     }
   };
@@ -164,23 +195,17 @@ export default function RequestShipmentScreen() {
   );
 }
 
-function ItemStep({ data, currency, setCurrency, update }: any) {
+function ItemStep({ data, currency, update }: any) {
+  const currencySymbol = currency === 'NGN' ? '₦' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '$';
+  
   return (
     <View style={styles.stepBox}>
       <Text style={styles.stepTitle}>What are you{'\n'}sending?</Text>
       <Text style={styles.stepSubtitle}>Provide details about your item. We support local & international shipping.</Text>
       
-      {/* Currency Selection */}
-      <View style={styles.currencyRow}>
-         {['USD', 'NGN', 'GBP'].map(c => (
-           <TouchableOpacity 
-             key={c} 
-             style={[styles.currencyBtn, currency === c && styles.currencyBtnActive]}
-             onPress={() => setCurrency(c)}
-           >
-             <Text style={[styles.currencyLabel, currency === c && styles.currencyLabelActive]}>{c}</Text>
-           </TouchableOpacity>
-         ))}
+      {/* Show active currency preference */}
+      <View style={styles.activeCurrencyBadge}>
+         <Text style={styles.activeCurrencyText}>Pricing in {currency}</Text>
       </View>
 
       <View style={styles.categoryGrid}>
@@ -419,6 +444,8 @@ const styles = StyleSheet.create({
   methodLabel: { fontSize: 16, fontWeight: '800', color: COLORS.black },
   methodChange: { fontSize: 14, fontWeight: '800', color: COLORS.primary },
 
+  activeCurrencyBadge: { backgroundColor: COLORS.primarySoft, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginBottom: 24, alignSelf: 'flex-start' },
+  activeCurrencyText: { fontSize: 13, fontWeight: '800', color: COLORS.primary, letterSpacing: 0.5 },
   escrowAdvice: { flexDirection: 'row', gap: 12, backgroundColor: COLORS.primarySoft, padding: 16, borderRadius: 20, alignItems: 'center' },
   escrowAdviceText: { flex: 1, fontSize: 13, color: COLORS.black, fontWeight: '700', lineHeight: 18 },
 

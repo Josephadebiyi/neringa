@@ -184,6 +184,7 @@ import { getLocationFromIP, getClientIP } from './services/ipGeolocation.js';
 // Public route search and pricing endpoints
 app.get('/api/routes/search', searchRoutes);
 app.post('/api/routes/calculate-price', calculatePrice);
+app.post('/api/packages/calculate-price', getPricingForTrip); // Compatibility for mobile app
 app.post('/api/routes/trip-pricing', getPricingForTrip);
 
 // Get payment gateway for user's country

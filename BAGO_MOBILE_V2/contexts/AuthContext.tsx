@@ -12,6 +12,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
+  updateCurrency: (currency: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   acceptTerms: () => Promise<void>;
   currentRole: 'sender' | 'carrier';
@@ -138,6 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     refreshUser,
     updateUser,
+    updateCurrency: async (currency: string) => {
+      const updatedUser = await authService.updateCurrency(currency);
+      setUser(updatedUser);
+    },
     deleteAccount: async () => {
       await authService.deleteAccount();
       setUser(null);

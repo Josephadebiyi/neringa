@@ -10,11 +10,13 @@ import {
 } from 'lucide-react-native';
 import { useState, useEffect, useRef } from 'react';
 import tripService from '../../lib/trips';
+import { useAuth } from '../../contexts/AuthContext';
 import { COLORS } from '../../constants/theme';
 
 const { width, height } = Dimensions.get('window');
 
 export default function PostTripScreen() {
+  const { user } = useAuth();
   const { editId } = useLocalSearchParams();
   const [step, setStep] = useState(0); 
   const [kycPassed, setKycPassed] = useState(false);
@@ -35,6 +37,9 @@ export default function PostTripScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
 
   useEffect(() => {
+    if (user?.isVerified) setKycPassed(true);
+    if (user?.acceptedTerms) setTermsAccepted(true);
+
     if (editId) {
       setFormData({
         ...formData,
@@ -42,14 +47,29 @@ export default function PostTripScreen() {
         to: 'Lagos, NG',
         pricePerKg: '25',
       });
-      setKycPassed(true);
-      setTermsAccepted(true);
       setStep(1); 
+    } else if (user?.isVerified && user?.acceptedTerms) {
+      // If already verified and terms accepted, skip compliance step
+      setStep(1);
     }
   }, [editId]);
 
-  const nextStep = () => {
-    if (step === 0 && (!kycPassed || !termsAccepted)) return Alert.alert('Error', 'Please complete KYC and accept terms');
+  const { acceptTerms } = useAuth();
+
+  const nextStep = async () => {
+    if (step === 0) {
+      if (!kycPassed || !termsAccepted) return Alert.alert('Error', 'Please complete KYC and accept terms');
+      if (!user?.acceptedTerms) {
+        try {
+          setLoading(true);
+          await acceptTerms();
+        } catch (e) {
+          console.error('Failed to accept terms:', e);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
     if (step === 1 && !formData.from) return Alert.alert('Error', 'Select departure city');
     if (step === 2 && !formData.to) return Alert.alert('Error', 'Select destination city');
     if (step === 6 && !formData.pricePerKg) return Alert.alert('Error', 'Enter price per kg');

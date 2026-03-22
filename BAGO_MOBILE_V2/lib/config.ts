@@ -2,22 +2,22 @@
 const ENV = {
   dev: {
     apiUrl: 'https://neringa.onrender.com',
-    stripeKey: 'pk_test_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
-    paystackKey: 'pk_test_your_key_here',
+    stripeKey: 'pk_live_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
+    paystackKey: 'pk_live_3af5f18465563858916af1617183777c1c034edd',
     googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
     expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
   },
   staging: {
     apiUrl: 'https://neringa.onrender.com',
-    stripeKey: 'pk_test_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
-    paystackKey: 'pk_test_your_key_here',
+    stripeKey: 'pk_live_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
+    paystackKey: 'pk_live_3af5f18465563858916af1617183777c1c034edd',
     googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
     expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
   },
   prod: {
     apiUrl: 'https://neringa.onrender.com',
-    stripeKey: 'pk_test_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
-    paystackKey: 'pk_test_your_key_here',
+    stripeKey: 'pk_live_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
+    paystackKey: 'pk_live_3af5f18465563858916af1617183777c1c034edd',
     googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
     expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
   },
@@ -49,7 +49,8 @@ export const API_ENDPOINTS = {
   UPLOAD_AVATAR: '/api/bago/user/avatar',
   KYC_SUBMIT: '/api/bago/KycVerifications',
   DELETE_ACCOUNT: '/api/bago/user/delete',
-  ACCEPT_TERMS: '/api/bago/user/accept-terms', // Keep for now, handled in auth.ts fallback
+  ACCEPT_TERMS: '/api/bago/user/accept-terms',
+  UPDATE_CURRENCY: '/api/bago/edit-currency',
 
   // Packages
   PACKAGES: '/api/bago/packages',

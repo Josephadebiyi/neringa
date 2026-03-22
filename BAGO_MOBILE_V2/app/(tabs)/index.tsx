@@ -13,10 +13,12 @@ import {
   Shield, CreditCard, Camera, Heart, Gift,
   Clock, Minus, CheckCircle, Check, Info
 } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
-import { COLORS } from '../../constants/theme';
+import { COLORS, TYPOGRAPHY } from '../../constants/theme';
+import api from '../../lib/api';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const { width } = Dimensions.get('window');
 
@@ -66,6 +68,9 @@ export default function HomeScreen() {
   const [locations, setLocations] = useState<any[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [wallet] = useState({ balance: 1240.50, pending: 0, currency: '$' });
+  const [bannerConfig, setBannerConfig] = useState<any>(null);
+
+  useNotifications();
 
   // Calendar State
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -104,6 +109,21 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await api.get('/api/get-settings');
+      if (response.data.success && response.data.data.banner) {
+        setBannerConfig(response.data.data.banner);
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err);
+    }
+  };
+
   const renderCalendar = () => {
     const days = [];
     const dateClone = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -135,10 +155,10 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <LinearGradient 
-        colors={['rgba(88, 69, 216, 0.05)', 'transparent']} 
+        colors={['rgba(88, 69, 216, 0.08)', 'rgba(88, 69, 216, 0.03)', 'transparent']} 
         style={StyleSheet.absoluteFill} 
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 0.2 }}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 0.25 }}
       />
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -163,8 +183,10 @@ export default function HomeScreen() {
 
       <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>
-          <Text style={styles.welcomeMsg}>Hello, {user?.firstName || 'Bago User'} 👋</Text>
-          <Text style={styles.heroTitle}>{isCarrier ? 'Make more on\nyour next trip' : 'Need to send\na package?'}</Text>
+          <Text style={styles.welcomeMsg}>Welcome to Bago</Text>
+          <Text style={styles.heroTitle}>
+            {isCarrier ? 'Make more on\nyour next trip' : `Hello ${user?.firstName || 'User'}, what are you sending today?`}
+          </Text>
           
           {!isCarrier ? (
             <View style={styles.searchCard}>
@@ -182,7 +204,7 @@ export default function HomeScreen() {
               
               <TouchableOpacity style={styles.calendarTrigger} onPress={() => setShowCalendar(true)}>
                  <CalendarIcon size={20} color={COLORS.gray400} />
-                 <Text style={[styles.calendarText, !date && { color: COLORS.gray400 }]}>{date || "Select Date (Optional)"}</Text>
+                 <Text style={[styles.calendarText, !date && { color: COLORS.gray400 }]}>{date || "Select Date"}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.primarySearchBtn} onPress={() => router.push({ pathname: '/trips-list', params: { from, to, date } })}>
@@ -206,21 +228,26 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Lagos to London Promo Banner */}
-        <View style={styles.promoBannerContainer}>
-           <Image 
-              source={{ uri: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=400&auto=format&fit=crop' }} 
-              style={styles.promoBannerImg} 
-           />
-           <View style={styles.promoBannerInfo}>
-              <Text style={styles.promoBannerTag}>DESTINATION SPECIAL</Text>
-              <Text style={styles.promoBannerTitle}>Lagos to London</Text>
-              <Text style={styles.promoBannerDesc}>Ship your packages starting from <Text style={{fontWeight:'900', color:COLORS.accentLemon}}>$4.99/kg</Text></Text>
-              <TouchableOpacity style={styles.promoBannerBtn}>
-                 <Text style={styles.promoBannerBtnText}>Check Flights</Text>
-              </TouchableOpacity>
-           </View>
-        </View>
+        {/* Dynamic Promo Banner */}
+        {bannerConfig?.isActive !== false && (
+          <View style={styles.promoBannerContainer}>
+             <Image 
+                source={{ uri: bannerConfig?.imageUrl || 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=400&auto=format&fit=crop' }} 
+                style={styles.promoBannerImg} 
+             />
+             <View style={styles.promoBannerInfo}>
+                <Text style={styles.promoBannerTag}>{bannerConfig?.tag || 'DESTINATION SPECIAL'}</Text>
+                <Text style={styles.promoBannerTitle}>{bannerConfig?.title || 'Lagos to London'}</Text>
+                <Text style={styles.promoBannerDesc}>{bannerConfig?.description || 'Ship your packages starting from ...'}</Text>
+                <TouchableOpacity 
+                   style={styles.promoBannerBtn}
+                   onPress={() => bannerConfig?.redirectLink && router.push(bannerConfig.redirectLink as any)}
+                >
+                   <Text style={styles.promoBannerBtnText}>{bannerConfig?.buttonText || 'Check Flights'}</Text>
+                </TouchableOpacity>
+             </View>
+          </View>
+        )}
 
         <View style={styles.section}>
            <Text style={styles.sectionTitle}>More with Bago</Text>
@@ -363,16 +390,16 @@ const styles = StyleSheet.create({
   headerModeBtnActive: { backgroundColor: COLORS.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
   headerModeLabel: { fontSize: 13, fontWeight: '800', color: COLORS.gray500 },
   headerModeLabelActive: { color: COLORS.primary },
-  logo: { width: 90, height: 32 },
+  logo: { width: 110, height: 40 },
   profileBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatar: { width: '100%', height: '100%' },
 
-  heroSection: { padding: 24, paddingBottom: 16 },
-  welcomeMsg: { fontSize: 16, fontWeight: '700', color: COLORS.primary, marginBottom: 8 },
-  heroTitle: { fontSize: 32, fontWeight: '900', color: COLORS.black, lineHeight: 38, marginBottom: 24, letterSpacing: -1 },
+  heroSection: { padding: 20, paddingTop: 10 },
+  welcomeMsg: { fontSize: 12, color: COLORS.gray500, fontWeight: '500', marginBottom: 4, letterSpacing: 0.5 },
+  heroTitle: { fontSize: 20, fontWeight: '600', color: COLORS.black, lineHeight: 28, letterSpacing: -0.4 },
   
-  searchCard: { backgroundColor: COLORS.white, borderRadius: 32, padding: 24, shadowColor: COLORS.black, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 24, elevation: 15 },
-  inputStack: { gap: 4 },
+  searchCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 4, marginTop: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 15, elevation: 10, borderWidth: 1, borderColor: COLORS.gray100 },
+  inputStack: { paddingHorizontal: 16, paddingVertical: 8 },
   inputItem: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 50 },
   input: { flex: 1, fontSize: 17, fontWeight: '700', color: COLORS.black },
   inputDivider: { height: 1, backgroundColor: COLORS.gray100, marginVertical: 4, marginLeft: 34 },

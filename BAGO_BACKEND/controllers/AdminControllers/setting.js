@@ -46,7 +46,8 @@ export const updateSettings = async (req, res, next) => {
     commissionPercentage,
     insuranceType,
     insurancePercentage,
-    insuranceFixedAmount
+    insuranceFixedAmount,
+    banner
   } = req.body;
 
   try {
@@ -76,6 +77,10 @@ export const updateSettings = async (req, res, next) => {
 
     if (typeof insuranceFixedAmount === 'number') {
       setting.insuranceFixedAmount = insuranceFixedAmount;
+    }
+
+    if (banner && typeof banner === 'object') {
+       setting.banner = { ...setting.banner, ...banner };
     }
 
     await setting.save();

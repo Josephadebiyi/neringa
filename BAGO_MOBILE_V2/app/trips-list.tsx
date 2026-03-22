@@ -52,7 +52,7 @@ export default function TripsListScreen() {
   const [futureTrips, setFutureTrips] = useState<Trip[]>([]);
   const [rates, setRates] = useState<Record<string, number>>({});
 
-  const targetCurrency = user?.wallet?.currency || 'USD';
+  const targetCurrency = user?.preferredCurrency || 'USD';
 
   useEffect(() => {
     const fetchRates = async () => {
@@ -72,16 +72,15 @@ export default function TripsListScreen() {
       const searchDate = date ? new Date().getFullYear() + '-' + date.toString().replace(' ', '-') : undefined;
 
       const result = await tripService.searchTrips({
-        fromCity: fromParts[0],
-        toCity: toParts[0],
+        fromLocation: fromParts[0],
+        toLocation: toParts[0],
         departureDate: searchDate
       });
       setTrips(result.trips || []);
 
       const futureResult = await tripService.searchTrips({
-        fromCity: fromParts[0],
-        toCity: toParts[0],
-        limit: 10
+        fromLocation: fromParts[0],
+        toLocation: toParts[0],
       });
       
       const exactIds = new Set((result.trips || []).map(t => t.id || (t as any)._id));

@@ -17,7 +17,7 @@ export function AppText(props: TextProps) {
   // SF Pro Guidelines: Tight letter spacing for display
   const globalStyles = {
     fontFamily: fontFamily,
-    letterSpacing: -0.4, 
+    letterSpacing: -0.2, 
     fontWeight: fontWeight,
   };
 

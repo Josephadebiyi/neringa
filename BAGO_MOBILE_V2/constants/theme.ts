@@ -22,6 +22,8 @@ export const COLORS = {
   accentTeal: '#14B8A6',
   accentCoral: '#FF6B6B',
   error: '#EF4444',
+  success: '#10B981',
+  warning: '#F59E0B',
 
   black: '#0D0E12', 
   gray900: '#111827',
