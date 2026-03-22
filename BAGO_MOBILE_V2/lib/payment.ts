@@ -162,21 +162,66 @@ class PaymentService {
   }
 
   /**
+   * Calculate insurance for a package
+   */
+  async calculateInsurance(params: {
+    itemValue: number;
+    currency?: string;
+    region?: 'global' | 'africa' | 'europe';
+  }): Promise<{
+    available: boolean;
+    insurance: {
+      cost: number;
+      currency: string;
+      coverageAmount: number;
+    };
+  }> {
+    const response = await api.get('/api/insurance/calculate', { params });
+    return response.data;
+  }
+
+  /**
+   * Convert currency amount
+   */
+  async convertCurrency(params: {
+    amount: number;
+    from: string;
+    to: string;
+  }): Promise<{
+    conversion: {
+      convertedAmount: number;
+      targetCurrency: string;
+    };
+  }> {
+    const response = await api.get('/api/currency/convert', { params });
+    return response.data;
+  }
+
+  /**
    * Calculate delivery price
    */
   async calculatePrice(data: {
     weight: number;
-    fromCountry: string;
-    toCountry: string;
+    fromCity: string;
+    fromCountryCode: string;
+    toCity: string;
+    toCountryCode: string;
     packageType?: string;
   }): Promise<{
-    basePrice: number;
-    insuranceFee: number;
-    serviceFee: number;
-    totalPrice: number;
-    currency: string;
+    success: boolean;
+    route: any;
+    pricing: {
+      basePrice: number;
+      insuranceFee: number;
+      serviceFee: number;
+      totalPrice: number;
+      currency: string;
+    };
   }> {
-    const response = await api.post('/api/packages/calculate-price', data);
+    const response = await api.post('/api/packages/calculate-price', {
+      ...data,
+      weightKg: data.weight
+    });
     return response.data;
   }
 }

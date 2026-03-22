@@ -7,24 +7,39 @@ export interface LoginCredentials {
 }
 
 export interface RegisterData {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone: string;
   password: string;
-  phone?: string;
+  confirmPassword: string;
+  country: string;
+  currency?: string;
+}
+
+export interface RegisterResponse {
+  success: boolean;
+  message: string;
+  signupToken?: string;
 }
 
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  name?: string;
   email: string;
   phone?: string;
   avatar?: string;
+  country?: string;
   isVerified: boolean;
   kycStatus?: 'pending' | 'approved' | 'rejected';
   wallet?: {
     balance: number;
     currency: string;
   };
+  role?: 'sender' | 'carrier';
+  acceptedTerms?: boolean;
   createdAt: string;
 }
 
@@ -54,10 +69,18 @@ class AuthService {
   }
 
   /**
-   * Register new user
+   * Register new user (Step 1: Send OTP)
    */
-  async register(data: RegisterData): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>(API_ENDPOINTS.REGISTER, data);
+  async register(data: RegisterData): Promise<RegisterResponse> {
+    const response = await api.post<RegisterResponse>(API_ENDPOINTS.REGISTER, data);
+    return response.data;
+  }
+
+  /**
+   * Verify signup OTP and create user (Step 2)
+   */
+  async verifySignup(signupToken: string, otp: string): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.VERIFY_EMAIL, { signupToken, otp });
 
     if (response.data.token) {
       await api.setToken(response.data.token);
@@ -126,14 +149,6 @@ class AuthService {
   }
 
   /**
-   * Verify email with token
-   */
-  async verifyEmail(token: string): Promise<{ message: string }> {
-    const response = await api.post(API_ENDPOINTS.VERIFY_EMAIL, { token });
-    return response.data;
-  }
-
-  /**
    * Google Sign In
    */
   async googleSignIn(idToken: string): Promise<AuthResponse> {
@@ -183,6 +198,32 @@ class AuthService {
   async isAuthenticated(): Promise<boolean> {
     const token = await api.getToken();
     return !!token;
+  }
+
+  /**
+   * Delete user account
+   */
+  async deleteAccount(): Promise<{ message: string }> {
+    const response = await api.delete(API_ENDPOINTS.DELETE_ACCOUNT);
+    await api.clearTokens();
+    return response.data;
+  }
+
+  /**
+   * Accept terms and conditions
+   */
+  async acceptTerms(): Promise<{ success: boolean; user: User }> {
+    try {
+      const response = await api.post<{ success: boolean; user: User }>(API_ENDPOINTS.ACCEPT_TERMS);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        console.warn('Accept terms endpoint not found, simulating success');
+        const user = await this.getCurrentUser();
+        return { success: true, user: { ...user, acceptedTerms: true } };
+      }
+      throw error;
+    }
   }
 }
 

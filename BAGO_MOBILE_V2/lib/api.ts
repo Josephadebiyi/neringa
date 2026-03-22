@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { secureStorage } from './storage';
 import config from './config';
 
 const TOKEN_KEY = 'auth_token';
@@ -72,46 +72,24 @@ class ApiService {
 
   // Token management
   async getToken(): Promise<string | null> {
-    try {
-      return await SecureStore.getItemAsync(TOKEN_KEY);
-    } catch (error) {
-      console.error('Error getting token:', error);
-      return null;
-    }
+    return await secureStorage.getItem(TOKEN_KEY);
   }
 
   async setToken(token: string): Promise<void> {
-    try {
-      await SecureStore.setItemAsync(TOKEN_KEY, token);
-    } catch (error) {
-      console.error('Error setting token:', error);
-    }
+    await secureStorage.setItem(TOKEN_KEY, token);
   }
 
   async getRefreshToken(): Promise<string | null> {
-    try {
-      return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    } catch (error) {
-      console.error('Error getting refresh token:', error);
-      return null;
-    }
+    return await secureStorage.getItem(REFRESH_TOKEN_KEY);
   }
 
   async setRefreshToken(token: string): Promise<void> {
-    try {
-      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
-    } catch (error) {
-      console.error('Error setting refresh token:', error);
-    }
+    await secureStorage.setItem(REFRESH_TOKEN_KEY, token);
   }
 
   async clearTokens(): Promise<void> {
-    try {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
-      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-    } catch (error) {
-      console.error('Error clearing tokens:', error);
-    }
+    await secureStorage.removeItem(TOKEN_KEY);
+    await secureStorage.removeItem(REFRESH_TOKEN_KEY);
   }
 
   // Generic request methods

@@ -43,7 +43,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
     }
 
     try {
-      const projectId = ''; // Add your Expo project ID here
+      const projectId = 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f';
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
       console.log('Push token:', token);
     } catch (error) {

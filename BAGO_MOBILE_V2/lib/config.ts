@@ -1,25 +1,25 @@
 // Get environment variables
 const ENV = {
   dev: {
-    apiUrl: 'http://localhost:3000',
-    stripeKey: 'pk_test_your_key_here',
+    apiUrl: 'https://neringa.onrender.com',
+    stripeKey: 'pk_test_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
     paystackKey: 'pk_test_your_key_here',
-    googleWebClientId: 'your_google_client_id.apps.googleusercontent.com',
-    expoProjectId: '',
+    googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
+    expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
   },
   staging: {
-    apiUrl: 'https://staging-api.bago.com',
-    stripeKey: 'pk_test_your_key_here',
+    apiUrl: 'https://neringa.onrender.com',
+    stripeKey: 'pk_test_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
     paystackKey: 'pk_test_your_key_here',
-    googleWebClientId: 'your_google_client_id.apps.googleusercontent.com',
-    expoProjectId: '',
+    googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
+    expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
   },
   prod: {
-    apiUrl: 'https://api.bago.com',
-    stripeKey: 'pk_live_your_key_here',
-    paystackKey: 'pk_live_your_key_here',
-    googleWebClientId: 'your_google_client_id.apps.googleusercontent.com',
-    expoProjectId: '',
+    apiUrl: 'https://neringa.onrender.com',
+    stripeKey: 'pk_test_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
+    paystackKey: 'pk_test_your_key_here',
+    googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
+    expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
   },
 };
 
@@ -34,47 +34,43 @@ export default getEnvVars();
 // API Endpoints
 export const API_ENDPOINTS = {
   // Auth
-  LOGIN: '/api/auth/login',
-  REGISTER: '/api/auth/register',
-  LOGOUT: '/api/auth/logout',
-  REFRESH_TOKEN: '/api/auth/refresh',
-  FORGOT_PASSWORD: '/api/auth/forgot-password',
-  RESET_PASSWORD: '/api/auth/reset-password',
-  VERIFY_EMAIL: '/api/auth/verify-email',
-  GOOGLE_AUTH: '/api/auth/google',
+  LOGIN: '/api/bago/signin',
+  REGISTER: '/api/bago/signup',
+  LOGOUT: '/api/bago/logout',
+  REFRESH_TOKEN: '/api/bago/refresh-token',
+  FORGOT_PASSWORD: '/api/bago/forgot-password',
+  RESET_PASSWORD: '/api/bago/reset-password',
+  VERIFY_EMAIL: '/api/bago/verify-signup-otp',
+  GOOGLE_AUTH: '/api/bago/google-auth',
 
   // User
-  USER_PROFILE: '/api/user/profile',
-  UPDATE_PROFILE: '/api/user/update',
-  UPLOAD_AVATAR: '/api/user/upload-avatar',
-  KYC_SUBMIT: '/api/user/kyc',
+  USER_PROFILE: '/api/bago/getuser',
+  UPDATE_PROFILE: '/api/bago/edit',
+  UPLOAD_AVATAR: '/api/bago/user/avatar',
+  KYC_SUBMIT: '/api/bago/KycVerifications',
+  DELETE_ACCOUNT: '/api/bago/user/delete',
+  ACCEPT_TERMS: '/api/bago/user/accept-terms', // Keep for now, handled in auth.ts fallback
 
   // Packages
-  PACKAGES: '/api/packages',
-  PACKAGE_CREATE: '/api/packages/create',
-  PACKAGE_UPDATE: '/api/packages/update',
-  PACKAGE_DELETE: '/api/packages/delete',
-  PACKAGE_DETAIL: '/api/packages/:id',
-  MY_PACKAGES: '/api/packages/my-packages',
-  SEARCH_TRAVELERS: '/api/packages/search-travelers',
+  PACKAGES: '/api/bago/packages',
+  PACKAGE_CREATE: '/api/bago/createPackage',
+  PACKAGE_UPDATE: '/api/bago/updatePackage',
+  MY_PACKAGES: '/api/bago/recentOrder',
 
   // Trips
-  TRIPS: '/api/trips',
-  CREATE_TRIP: '/api/trips/create',
-  TRIP_UPDATE: '/api/trips/update',
-  TRIP_DELETE: '/api/trips/delete',
-  TRIP_DETAIL: '/api/trips/:id',
-  MY_TRIPS: '/api/trips/my-trips',
-  SEARCH_TRIPS: '/api/trips/search',
+  TRIPS: '/api/bago/Trip',
+  CREATE_TRIP: '/api/bago/AddAtrip',
+  MY_TRIPS: '/api/bago/MyTrips',
+  SEARCH_TRIPS: '/api/bago/getTravelers',
 
   // Requests
-  PACKAGE_REQUESTS: '/api/requests',
-  SEND_PACKAGE_REQUEST: '/api/requests/create',
-  CREATE_REQUEST: '/api/requests/create',
-  ACCEPT_REQUEST: '/api/requests/accept',
-  REJECT_REQUEST: '/api/requests/reject',
-  MY_REQUESTS: '/api/requests/my-requests',
-  MY_PACKAGE_REQUESTS: '/api/requests/my-package-requests',
+  PACKAGE_REQUESTS: '/api/bago/requests',
+  SEND_PACKAGE_REQUEST: '/api/bago/RequestPackage',
+  CREATE_REQUEST: '/api/bago/RequestPackage',
+  ACCEPT_REQUEST: '/api/bago/updateRequestStatus',
+  REJECT_REQUEST: '/api/bago/reject-request',
+  MY_REQUESTS: '/api/bago/getRequests',
+  MY_PACKAGE_REQUESTS: '/api/bago/recentOrder',
 
   // Payments
   CREATE_PAYMENT: '/api/payments/create',

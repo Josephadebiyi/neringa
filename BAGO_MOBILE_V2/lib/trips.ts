@@ -5,15 +5,19 @@ export interface Trip {
   id: string;
   userId: string;
   fromCountry: string;
-  fromCity: string;
+  fromLocation: string;
   toCountry: string;
-  toCity: string;
+  toLocation: string;
   departureDate: string;
   arrivalDate: string;
-  availableWeight: number;
+  availableKg: number;
   pricePerKg: number;
-  status: 'active' | 'completed' | 'cancelled';
+  status: string;
+  travelMeans: string;
+  currency: string;
   packageRequests?: PackageRequest[];
+  reviews?: any[];
+  averageRating?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,26 +42,27 @@ export interface PackageRequest {
 
 export interface CreateTripData {
   fromCountry: string;
-  fromCity: string;
+  fromLocation: string;
   toCountry: string;
-  toCity: string;
+  toLocation: string;
   departureDate: string;
   arrivalDate: string;
-  availableWeight: number;
+  availableKg: number;
   pricePerKg: number;
-  description?: string;
+  currency: string;
+  travelMeans: string;
+  landmark?: string;
+  travelDocument?: string | null;
 }
 
 export interface SearchTripsParams {
   fromCountry?: string;
-  fromCity?: string;
+  fromLocation?: string;
   toCountry?: string;
-  toCity?: string;
+  toLocation?: string;
   departureDate?: string;
-  minAvailableWeight?: number;
+  minAvailableKg?: number;
   maxPricePerKg?: number;
-  page?: number;
-  limit?: number;
 }
 
 class TripService {
@@ -76,10 +81,9 @@ class TripService {
   /**
    * Get all trips for the current user
    */
-  async getMyTrips(status?: 'active' | 'completed' | 'cancelled'): Promise<Trip[]> {
+  async getMyTrips(): Promise<Trip[]> {
     try {
-      const params = status ? { status } : {};
-      const response = await api.get(API_ENDPOINTS.MY_TRIPS, { params });
+      const response = await api.get(API_ENDPOINTS.MY_TRIPS);
       return response.data.trips;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to fetch trips');
@@ -99,12 +103,15 @@ class TripService {
   }
 
   /**
-   * Search for available trips
+   * Search for available travelers
    */
-  async searchTrips(params: SearchTripsParams): Promise<{ trips: Trip[]; total: number; page: number }> {
+  async searchTrips(params?: SearchTripsParams): Promise<{ trips: any[]; users: any[] }> {
     try {
       const response = await api.get(API_ENDPOINTS.SEARCH_TRIPS, { params });
-      return response.data;
+      return {
+        trips: response.data.data.gettravelers,
+        users: response.data.data.findUsers
+      };
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to search trips');
     }
@@ -123,35 +130,23 @@ class TripService {
   }
 
   /**
-   * Cancel a trip
+   * Cancel/Delete a trip
    */
-  async cancelTrip(tripId: string, reason?: string): Promise<{ success: boolean; message: string }> {
+  async cancelTrip(tripId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await api.patch(`${API_ENDPOINTS.TRIPS}/${tripId}/cancel`, { reason });
+      const response = await api.delete(`${API_ENDPOINTS.TRIPS}/${tripId}`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to cancel trip');
+      throw new Error(error.response?.data?.message || 'Failed to delete trip');
     }
   }
 
   /**
-   * Complete a trip
-   */
-  async completeTrip(tripId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const response = await api.patch(`${API_ENDPOINTS.TRIPS}/${tripId}/complete`);
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to complete trip');
-    }
-  }
-
-  /**
-   * Get package requests for a trip
+   * Get requests for a trip
    */
   async getTripRequests(tripId: string): Promise<PackageRequest[]> {
     try {
-      const response = await api.get(`${API_ENDPOINTS.TRIPS}/${tripId}/requests`);
+      const response = await api.get(`${API_ENDPOINTS.MY_REQUESTS}/${tripId}`);
       return response.data.requests;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to fetch trip requests');
@@ -159,62 +154,31 @@ class TripService {
   }
 
   /**
-   * Accept a package request
+   * Update request status (Accept/Reject)
    */
-  async acceptPackageRequest(
-    requestId: string,
-    data?: { message?: string }
-  ): Promise<{ success: boolean; message: string }> {
+  async updateRequestStatus(requestId: string, status: string): Promise<any> {
     try {
-      const response = await api.post(`${API_ENDPOINTS.PACKAGE_REQUESTS}/${requestId}/accept`, data);
+      const response = await api.put(`${API_ENDPOINTS.ACCEPT_REQUEST}/${requestId}`, { status });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to accept package request');
+      throw new Error(error.response?.data?.message || 'Failed to update request');
     }
   }
 
   /**
-   * Reject a package request
+   * Create/Request a package
    */
-  async rejectPackageRequest(
-    requestId: string,
-    data?: { reason?: string }
-  ): Promise<{ success: boolean; message: string }> {
-    try {
-      const response = await api.post(`${API_ENDPOINTS.PACKAGE_REQUESTS}/${requestId}/reject`, data);
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to reject package request');
-    }
-  }
-
-  /**
-   * Send a package request to a traveler
-   */
-  async sendPackageRequest(data: {
-    packageId: string;
+  async requestPackage(data: {
     tripId: string;
+    packageId: string;
     offeredPrice: number;
     message?: string;
-  }): Promise<{ success: boolean; requestId: string; message: string }> {
+  }): Promise<any> {
     try {
-      const response = await api.post(API_ENDPOINTS.SEND_PACKAGE_REQUEST, data);
+      const response = await api.post(API_ENDPOINTS.CREATE_REQUEST, data);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to send package request');
-    }
-  }
-
-  /**
-   * Get all package requests sent by the user
-   */
-  async getMyPackageRequests(status?: 'pending' | 'accepted' | 'rejected' | 'delivered'): Promise<PackageRequest[]> {
-    try {
-      const params = status ? { status } : {};
-      const response = await api.get(API_ENDPOINTS.MY_PACKAGE_REQUESTS, { params });
-      return response.data.requests;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch package requests');
     }
   }
 }

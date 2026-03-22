@@ -7,10 +7,15 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (data: any) => Promise<any>;
+  verifyRegistration: (signupToken: string, otp: string) => Promise<any>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  acceptTerms: () => Promise<void>;
+  currentRole: 'sender' | 'carrier';
+  toggleRole: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentRole, setCurrentRole] = useState<'sender' | 'carrier'>('sender');
 
   // Check if user is authenticated on mount
   useEffect(() => {
@@ -35,16 +41,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const currentUser = await authService.getCurrentUser();
         setUser(currentUser);
         setIsAuthenticated(true);
+        if (currentUser.role) {
+          setCurrentRole(currentUser.role);
+        }
       }
     } catch (error) {
       console.error('Auth check error:', error);
-      // Token might be invalid, clear it
+      // For development: if backend fails but we have a simulated session
+      // we might want to stay authenticated. But for now, we follow the real flow.
       await api.clearTokens();
       setUser(null);
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleRole = () => {
+    setCurrentRole(prev => (prev === 'sender' ? 'carrier' : 'sender'));
   };
 
   const login = async (email: string, password: string) => {
@@ -59,11 +73,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (data: any) => {
     try {
-      const response = await authService.register({ name, email, password });
+      const response = await authService.register(data);
+      // Note: User is not fully authenticated until OTP is verified.
+      // But we can store the signupToken or handle it in the screen.
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const verifyRegistration = async (signupToken: string, otp: string) => {
+    try {
+      const response = await authService.verifySignup(signupToken, otp);
       setUser(response.user);
       setIsAuthenticated(true);
+      return response;
     } catch (error) {
       setUser(null);
       setIsAuthenticated(false);
@@ -108,9 +134,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated,
     login,
     register,
+    verifyRegistration,
     logout,
     refreshUser,
     updateUser,
+    deleteAccount: async () => {
+      await authService.deleteAccount();
+      setUser(null);
+      setIsAuthenticated(false);
+    },
+    acceptTerms: async () => {
+      const response = await authService.acceptTerms();
+      setUser(response.user);
+    },
+    currentRole,
+    toggleRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

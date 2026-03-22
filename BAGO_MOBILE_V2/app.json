@@ -1,73 +1,84 @@
 {
   "expo": {
     "name": "Bago",
-    "slug": "bago-mobile-v2",
+    "slug": "bolt-expo-nativewind",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "bago",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "com.bago.mobile",
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#5845D8"
+      "backgroundColor": "#5C4BFD"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bago.mobile",
+      "bundleIdentifier": "com.deracali.boltexponativewind",
+      "buildNumber": "15",
       "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd"
+            ]
+          }
+        ],
+        "NSUserTrackingUsageDescription": "This identifier will be used to send you personalized notifications.",
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to detect your country and currency",
+        "NSCameraUsageDescription": "This app needs access to your camera to scan QR codes and take photos",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select images",
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
+      "package": "com.deracali.boltexponativewind",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#5C4BFD",
+        "foregroundImage": "./assets/icon.png"
       },
-      "package": "com.bago.mobile",
+      "predictiveBackGestureEnabled": false,
       "permissions": [
-        "NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ]
-    },
-    "notification": {
-      "icon": "./assets/images/icon.png",
-      "color": "#5845D8",
-      "iosDisplayInForeground": true,
-      "androidMode": "default",
-      "androidCollapsedTitle": "New notification from Bago"
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-font",
-      "expo-secure-store",
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
-          "color": "#5845D8",
-          "sounds": []
+          "icon": "./assets/icon.png",
+          "color": "#5C4BFD"
         }
       ],
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.bago.mobile",
-          "enableGooglePay": true
+          "merchantIdentifier": "",
+          "enableGooglePay": false
         }
       ]
     ],
-    "experiments": {
-      "typedRoutes": true
-    }
+    "extra": {
+      "eas": {
+        "projectId": "f59f4175-ebfc-441c-a1f0-da6e6456dd1f"
+      },
+      "googleClientId": "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com",
+      "iosGoogleClientId": "207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com",
+      "androidGoogleClientId": "207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com"
+    },
+    "owner": "donnyace"
   }
 }
