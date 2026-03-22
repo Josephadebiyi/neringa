@@ -156,9 +156,30 @@ export default function ProfileScreen() {
 function AboutTab({ user }: any) {
   const kycStatus = user?.kycStatus || 'not_started';
   const isVerified = kycStatus === 'approved';
-  
+  const { currentRole, toggleRole } = useAuth();
+  const isCarrier = currentRole === 'carrier';
+
   return (
     <View style={styles.tabContent}>
+      {/* Role Switcher */}
+      <View style={styles.roleSwitcher}>
+        <Text style={styles.roleSwitcherLabel}>I want to</Text>
+        <View style={styles.roleSwitcherButtons}>
+          <TouchableOpacity
+            style={[styles.roleBtn, !isCarrier && styles.roleBtnActive]}
+            onPress={() => isCarrier && toggleRole()}
+          >
+            <Text style={[styles.roleBtnText, !isCarrier && styles.roleBtnTextActive]}>Send Packages</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleBtn, isCarrier && styles.roleBtnActive]}
+            onPress={() => !isCarrier && toggleRole()}
+          >
+            <Text style={[styles.roleBtnText, isCarrier && styles.roleBtnTextActive]}>Earn as Traveler</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <View style={styles.profileHeader}>
         <View style={styles.avatarWrap}>
           <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile/edit-image')}>
@@ -316,6 +337,16 @@ const styles = StyleSheet.create({
   tabTextActive: { color: COLORS.primary },
   scrollContent: { paddingBottom: 24 },
   tabContent: { padding: 24 },
+
+  // Role Switcher Styles
+  roleSwitcher: { backgroundColor: COLORS.bgSoft, borderRadius: 20, padding: 20, marginBottom: 24 },
+  roleSwitcherLabel: { fontSize: 14, fontWeight: '600', color: COLORS.gray500, marginBottom: 12 },
+  roleSwitcherButtons: { flexDirection: 'row', gap: 12 },
+  roleBtn: { flex: 1, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 14, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.gray200, alignItems: 'center' },
+  roleBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  roleBtnText: { fontSize: 15, fontWeight: '700', color: COLORS.gray600 },
+  roleBtnTextActive: { color: COLORS.white },
+
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 20 },
   avatarWrap: { position: 'relative' },
   avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.primarySoft, overflow: 'hidden' },

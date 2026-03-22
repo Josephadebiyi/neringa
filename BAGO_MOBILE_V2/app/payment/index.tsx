@@ -21,9 +21,12 @@ const COLORS = {
   green: '#10B981',
 };
 
+import { useCurrency } from '../../hooks/useCurrency';
+
 export default function PaymentScreen() {
   const [selectedMethod, setSelectedMethod] = useState('card-1');
   const [loading, setLoading] = useState(false);
+  const { formatCurrency } = useCurrency();
 
   const handlePayment = () => {
     setLoading(true);
@@ -47,17 +50,17 @@ export default function PaymentScreen() {
         {/* Order Summary */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Total Amount</Text>
-          <Text style={styles.summaryValue}>$25.00</Text>
+          <Text style={styles.summaryValue}>{formatCurrency(25.00)}</Text>
           
           <View style={styles.divider} />
           
           <View style={styles.summaryRow}>
             <Text style={styles.itemText}>Shipping Fee</Text>
-            <Text style={styles.priceText}>$20.00</Text>
+            <Text style={styles.priceText}>{formatCurrency(20.00)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.itemText}>Insurance & Service Fee</Text>
-            <Text style={styles.priceText}>$5.00</Text>
+            <Text style={styles.priceText}>{formatCurrency(5.00)}</Text>
           </View>
         </View>
 

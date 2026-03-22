@@ -67,8 +67,14 @@ export default function RootLayout() {
   ];
 
   useEffect(() => {
-    // Sequence the stack fade in
-    const animations = stackAnims.map((anim, i) => 
+    // Skip animations on web - render immediately
+    if (Platform.OS === 'web') {
+      setIsReady(true);
+      return;
+    }
+
+    // Sequence the stack fade in for native
+    const animations = stackAnims.map((anim, i) =>
       Animated.timing(anim, {
         toValue: (i === 2) ? 1 : 0.3 - (Math.abs(2-i)*0.1),
         duration: 800,
@@ -81,7 +87,7 @@ export default function RootLayout() {
       Animated.stagger(100, animations),
       Animated.delay(1000),
       Animated.parallel([
-        ...stackAnims.map((anim, i) => 
+        ...stackAnims.map((anim, i) =>
           Animated.timing(anim, {
             toValue: 0,
             duration: 500,
@@ -97,11 +103,6 @@ export default function RootLayout() {
     ]).start(() => {
       setIsReady(true);
     });
-
-    if (Platform.OS === 'web') {
-      setIsReady(true);
-      return;
-    };
 
     let notifSub: any;
     let responseSub: any;

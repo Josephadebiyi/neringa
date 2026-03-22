@@ -61,7 +61,9 @@ export default function OnboardingScreen() {
     router.replace('/auth/signin');
   };
 
-  if (isLoading || checkingPersistence || isAuthenticated || hasSeenOnboarding === true) return null;
+  // On web, show onboarding immediately. On native, wait for checks.
+  if (Platform.OS !== 'web' && (isLoading || checkingPersistence)) return null;
+  if (isAuthenticated || hasSeenOnboarding === true) return null;
 
   return (
     <View style={styles.container}>
@@ -135,69 +137,19 @@ function PermissionsScreen({ onFinish }: any) {
       </View>
 
       <View style={styles.slideContainer}>
-        <SliderButton onComplete={onFinish} />
+        <TouchableOpacity 
+          style={styles.ctaButton} 
+          onPress={onFinish}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.ctaButtonText}>Continue</Text>
+          <ArrowRight size={20} color={COLORS.white} />
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-function SliderButton({ onComplete }: { onComplete: () => void }) {
-  const pan = useRef(new Animated.ValueXY()).current;
-  const SLIDE_WIDTH = width - 48; // Total width minus padding
-  const THUMB_SIZE = 56;
-  const MAX_TRANSLATE = SLIDE_WIDTH - THUMB_SIZE - 8; // 8 for margins
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: Animated.event([null, { dx: pan.x }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: (e, gestureState) => {
-        if (gestureState.dx > MAX_TRANSLATE * 0.8) {
-          // Success! Slide to end and complete
-          Animated.timing(pan, {
-            toValue: { x: MAX_TRANSLATE, y: 0 },
-            duration: 100,
-            useNativeDriver: false,
-          }).start(() => {
-            onComplete();
-          });
-        } else {
-          // Reset
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  // Constrain X position
-  const translateX = pan.x.interpolate({
-    inputRange: [0, MAX_TRANSLATE],
-    outputRange: [0, MAX_TRANSLATE],
-    extrapolate: 'clamp',
-  });
-
-  return (
-    <View style={styles.slideBtn}>
-      <Text style={styles.slideText}>Slide to get started</Text>
-      <Animated.View
-        {...panResponder.panHandlers}
-        style={[
-          styles.slideThumb,
-          {
-            transform: [{ translateX: translateX }],
-          },
-        ]}
-      >
-        <ArrowRight size={24} color={COLORS.primary} />
-      </Animated.View>
-    </View>
-  );
-}
 
 function PermissionItem({ icon, bg, title, desc, value, onToggle }: any) {
   return (

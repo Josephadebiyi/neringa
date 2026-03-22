@@ -168,12 +168,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.headerCenter}>
-          <TouchableOpacity style={[styles.headerModeBtn, !isCarrier && styles.headerModeBtnActive]} onPress={() => isCarrier && toggleRole()}>
-             <Text style={[styles.headerModeLabel, !isCarrier && styles.headerModeLabelActive]}>Sender</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.headerModeBtn, isCarrier && styles.headerModeBtnActive]} onPress={() => !isCarrier && toggleRole()}>
-             <Text style={[styles.headerModeLabel, isCarrier && styles.headerModeLabelActive]}>Traveler</Text>
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{isCarrier ? 'Earn' : 'Send'}</Text>
         </View>
 
         <View style={styles.headerRight}>
@@ -399,14 +394,15 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 80,
   },
-  headerCenter: { 
+  headerCenter: {
     flex: 2,
-    flexDirection: 'row', 
-    backgroundColor: COLORS.bgSoft, 
-    borderRadius: 14, 
-    padding: 3,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.black,
   },
   headerRight: { 
     flex: 1,
