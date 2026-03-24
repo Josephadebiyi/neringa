@@ -4,10 +4,7 @@ import { router } from 'expo-router';
 import { MessageCircle, Search, ChevronRight, ShieldCheck } from 'lucide-react-native';
 import { COLORS } from '../../constants/theme';
 
-const MOCK_CHATS = [
-  { id: '1', name: 'James Wilson', lastMsg: 'Heading to Lagos tomorrow morning.', time: '10:15 AM', unread: 1, avatar: 'https://i.pravatar.cc/150?u=james' },
-  { id: '2', name: 'Sophia Chen', lastMsg: 'Ok, see you at the airport.', time: 'Yesterday', unread: 0, avatar: 'https://i.pravatar.cc/150?u=sophia' },
-];
+const MOCK_CHATS: any[] = [];
 
 export default function MessagesScreen() {
   return (

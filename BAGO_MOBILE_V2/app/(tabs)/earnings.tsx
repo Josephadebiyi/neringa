@@ -1,40 +1,33 @@
-import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, Alert, Image } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { AppText as Text } from '../../components/common/AppText';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  Wallet, ArrowUpRight, ArrowDownLeft, Clock, 
-  ChevronRight, CreditCard, Banknote, ShieldCheck,
-  TrendingUp, Download, Plus, Star, DollarSign,
-  PieChart, Activity, Briefcase
-} from 'lucide-react-native';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ShieldCheck, Plus, Activity } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS } from '../../constants/theme';
-import paymentService, { Transaction } from '../../lib/payment';
-
-const { width } = Dimensions.get('window');
-
+import api from '../../lib/api';
 import { useCurrency } from '../../hooks/useCurrency';
 
 export default function EarningsScreen() {
   const { user } = useAuth();
-  const { formatCurrency, currencySymbol } = useCurrency();
+  const { formatCurrency } = useCurrency();
   const [balance, setBalance] = useState({ balance: 0.00, pending: 0, currency: 'USD' });
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const bal = await paymentService.getWalletBalance();
+      const res = await api.get('/api/bago/getWallet');
+      const data = res.data;
       setBalance({
-        balance: bal.balance || 0,
-        pending: bal.pendingBalance || 0,
-        currency: bal.currency || 'USD'
+        balance: data.balance || 0,
+        pending: 0,
+        currency: user?.preferredCurrency || 'USD',
       });
-      
-      const history = await paymentService.getPaymentHistory({ limit: 10 });
+      const history: any[] = (data.history || []).slice(0, 10);
       setTransactions(history);
     } catch (e) {
       console.error('Failed to fetch wallet data:', e);
@@ -54,14 +47,10 @@ export default function EarningsScreen() {
   };
 
   const handleWithdraw = () => {
-    if (balance.balance < 10) {
-      Alert.alert('Withdrawal', 'Minimum withdrawal amount is $10.00 equivalent.');
-      return;
-    }
-    Alert.alert('Coming Soon', 'Withdrawal requests are being processed by admin for early access users.');
+    router.push('/profile/withdraw');
   };
 
-  const renderTransaction = (tx: Transaction) => {
+  const renderTransaction = (tx: any) => {
     const isCredit = tx.type === 'payment' || tx.type === 'refund';
     return (
       <TouchableOpacity key={tx.id} style={styles.txItem}>

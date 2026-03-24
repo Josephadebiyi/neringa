@@ -312,7 +312,7 @@ export const AddReviewToTrip = async (req, res, next) => {
 
 // ✅ Delete a trip
 export const DeleteTrip = async (req, res, next) => {
-  const userId = req.user.id;
+  const userId = req.user.id || req.user._id;
   const tripId = req.params.id;
 
   try {

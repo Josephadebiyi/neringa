@@ -7,6 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "com.bago.mobile",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
@@ -15,11 +18,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.deracali.boltexponativewind",
-      "buildNumber": "20",
+      "buildNumber": "28",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
+              "com.bago.mobile",
               "com.googleusercontent.apps.207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd"
             ]
           }
@@ -65,12 +69,13 @@
       ]
     ],
     "extra": {
-      "eas": {
-        "projectId": "f59f4175-ebfc-441c-a1f0-da6e6456dd1f"
-      },
       "googleClientId": "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com",
       "iosGoogleClientId": "207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com",
-      "androidGoogleClientId": "207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com"
+      "androidGoogleClientId": "207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com",
+      "router": {},
+      "eas": {
+        "projectId": "f59f4175-ebfc-441c-a1f0-da6e6456dd1f"
+      }
     },
     "owner": "donnyace"
   }

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, ArrowLeft, Send, CheckCircle, ShieldCheck } from 'lucide-react-native';
 import { COLORS } from '../../constants/theme';
+import authService from '../../lib/auth';
 
 export default function ChangeEmailScreen() {
   const [email, setEmail] = useState('');
@@ -11,27 +12,37 @@ export default function ChangeEmailScreen() {
   const [step, setStep] = useState(1); // 1: Input Email, 2: OTP
   const [loading, setLoading] = useState(false);
 
-  const handleSendCode = () => {
+  const handleSendCode = async () => {
     if (!email.includes('@')) return Alert.alert('Invalid Email', 'Please enter a valid email address');
     setLoading(true);
-    // Mock API
-    setTimeout(() => {
+    try {
+      const res = await authService.requestEmailChange(email);
+      if (res.success) {
+        setStep(2);
+        Alert.alert('Code Sent', 'Check your new email for a 6-digit verification code.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not send verification code');
+    } finally {
       setLoading(false);
-      setStep(2);
-      Alert.alert('Code Sent', 'Check your new email for a 6-digit verification code.');
-    }, 1200);
+    }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (otp.length < 4) return Alert.alert('Error', 'Please enter the verification code');
     setLoading(true);
-    // Mock API
-    setTimeout(() => {
+    try {
+      const res = await authService.verifyEmailChange(otp);
+      if (res.success) {
+        Alert.alert('Email Updated', 'Your primary email has been successfully updated.', [
+          { text: 'Great', onPress: () => router.push('/profile') }
+        ]);
+      }
+    } catch (e: any) {
+      Alert.alert('Verification Failed', e.message || 'Incorrect or expired code');
+    } finally {
       setLoading(false);
-      Alert.alert('Email Updated', 'Your primary email has been successfully updated.', [
-        { text: 'Great', onPress: () => router.back() }
-      ]);
-    }, 1200);
+    }
   };
 
   return (

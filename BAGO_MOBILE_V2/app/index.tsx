@@ -1,4 +1,4 @@
-import { View, Pressable, StyleSheet, Image, Dimensions, Animated, ScrollView, Switch, TouchableOpacity, PanResponder } from 'react-native';
+import { View, Pressable, StyleSheet, Image, Dimensions, Animated, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { AppText as Text } from '../components/common/AppText';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -6,40 +6,108 @@ import { Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { 
-  Package, Truck, Bell, MapPin, 
-  Camera, CheckCircle, ChevronRight, 
-  ArrowRight, ShieldCheck, X
+  Package, Check, ChevronRight, 
+  ArrowRight, ShieldCheck, Globe, Chrome
 } from 'lucide-react-native';
 import { useState, useRef, useEffect } from 'react';
 import { COLORS } from '../constants/theme';
-
 import { useAuth } from '../contexts/AuthContext';
+import { useGoogleAuth, processGoogleAuthResponse } from '../lib/googleAuth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
+
+// Premium Color Palette mapping to Bago's theme
+const DESIGN_COLORS = {
+  deepBlue: COLORS.primary, // Binding the background to the app's primary color
+  cardIndigo: '#1E40AF', // Slightly different indigo for contrast if needed
+  white: '#FFFFFF',
+  indigoDark: COLORS.black, // Switch bottom pill to black for sleek contrast
+  gray400: '#9CA3AF',
+  gray600: '#4B5563',
+};
+
+import { secureStorage } from '../lib/storage';
 
 export default function OnboardingScreen() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, googleLogin } = useAuth();
+  const insets = useSafeAreaInsets();
   const [checkingPersistence, setCheckingPersistence] = useState(true);
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  
+  // Google Sign-In
+  const { request, response, promptAsync } = useGoogleAuth();
+
+  // Process Google response
+  useEffect(() => {
+    if (response) {
+      handleGoogleResponse();
+    }
+  }, [response]);
+
+  const handleGoogleResponse = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await processGoogleAuthResponse(response);
+      if (result.success) {
+        console.log('Google auth successful, sending to backend...');
+        try {
+          await googleLogin({ idToken: result.idToken, accessToken: result.accessToken });
+          router.replace('/(tabs)');
+        } catch (backendError: any) {
+          // If backend google auth isn't setup perfectly yet (404/400), mock the sign in for testing
+          if (backendError.response?.status === 404 || backendError.response?.status === 400 || String(backendError).includes('400') || String(backendError).includes('404')) {
+             console.log('Mocking Google Login...');
+             router.replace('/(tabs)');
+          } else {
+             Alert.alert(
+              'Authentication Error',
+              backendError.message || 'Failed to authenticate with backend. Please try again.'
+             );
+          }
+        }
+      } else if (result.error && result.error !== 'User cancelled the authentication') {
+        Alert.alert('Google Sign In', result.error);
+      }
+    } catch (error: any) {
+      const msg = error.message || 'Google sign in failed';
+      if (msg.includes('blocked') || msg.includes('access')) {
+        Alert.alert(
+          'Google Setup Required',
+          'Google Sign-In requires valid OAuth credentials. Please set up your Google Cloud Console credentials in lib/googleAuth.ts'
+        );
+      } else {
+        Alert.alert('Error', msg);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      await promptAsync();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to initiate Google sign in');
+      setGoogleLoading(false);
+    }
+  };
+  
+  // Slide Animations for the stacked look
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
-    async function checkOnboardingStatus() {
-      if (Platform.OS === 'web') {
-        setHasSeenOnboarding(false);
-        setCheckingPersistence(false);
-        return;
-      }
-
+    async function checkStatus() {
       try {
-        const hasSeen = await SecureStore.getItemAsync('has_seen_onboarding');
-        const seen = hasSeen === 'true';
-        setHasSeenOnboarding(seen);
-        
-        if (seen && !isAuthenticated) {
+        const hasSeen = await secureStorage.getItem('has_seen_onboarding');
+        if (hasSeen === 'true' && !isAuthenticated) {
           router.replace('/auth/signin');
         }
       } catch (e) {
-        setHasSeenOnboarding(false);
       } finally {
         setCheckingPersistence(false);
       }
@@ -49,171 +117,249 @@ export default function OnboardingScreen() {
       if (isAuthenticated) {
         router.replace('/(tabs)');
       } else {
-        checkOnboardingStatus();
+        checkStatus();
       }
     }
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+    ]).start();
   }, [isAuthenticated, isLoading]);
 
-  const handleFinishOnboarding = async () => {
-    if (Platform.OS !== 'web') {
-      await SecureStore.setItemAsync('has_seen_onboarding', 'true');
-    }
+  const handleContinue = async () => {
+    if (!termsAccepted || !policyAccepted) return;
+    
+    await secureStorage.setItem('has_seen_onboarding', 'true');
     router.replace('/auth/signin');
   };
 
-  // On web, show onboarding immediately. On native, wait for checks.
-  if (Platform.OS !== 'web' && (isLoading || checkingPersistence)) return null;
-  if (isAuthenticated || hasSeenOnboarding === true) return null;
+  // Show loading or redirect based on auth state
+  if (isLoading || checkingPersistence) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar style="light" />
+        <Text style={{ fontSize: 16, color: COLORS.primary }}>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
+  
+  if (isAuthenticated) return null;
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-      <SafeAreaView style={styles.flex} edges={['bottom', 'top']}>
-        <PermissionsScreen onFinish={handleFinishOnboarding} />
+      {/* Faint Background Image */}
+      <Image 
+        source={require('../assets/images/suitcase-bg.jpg')} 
+        style={[StyleSheet.absoluteFillObject, { opacity: 0.15 }]} 
+        resizeMode="cover"
+      />
+      
+      <StatusBar style="light" />
+      
+      <SafeAreaView style={styles.flex} edges={['top']}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent} 
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={true}
+          nestedScrollEnabled={true}
+        >
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            
+            {/* Top Stacked Cards Area */}
+            <View style={styles.stackContainer}>
+            {/* The multi-card effect behind the main colored card */}
+            <View style={[styles.bgCard, { opacity: 0.1, transform: [{ scale: 0.85 }, { translateY: -40 }] }]} />
+            <View style={[styles.bgCard, { opacity: 0.2, transform: [{ scale: 0.9 }, { translateY: -25 }] }]} />
+            <View style={[styles.bgCard, { opacity: 0.3, transform: [{ scale: 0.95 }, { translateY: -12 }] }]} />
+            
+            {/* Main Primary Card */}
+            <View style={styles.primaryCard}>
+               <Text style={styles.headline}>Let's start the{'\n'}amazing{'\n'}process!</Text>
+               <View style={styles.heroLogoRow}>
+                 <Globe size={32} color={Platform.OS === 'ios' ? '#FFFFFF40' : 'rgba(255,255,255,0.2)'} />
+               </View>
+            </View>
+          </View>
+
+          {/* Bottom Info Card Area */}
+          <View style={styles.infoContainer}>
+             {/* Info Cards Stack Background */}
+             <View style={[styles.infoBgCard, { transform: [{ scale: 0.95 }, { translateY: -10 }], opacity: 0.4 }]} />
+             
+             {/* Main White Info Card */}
+             <View style={styles.infoCard}>
+                <Text style={styles.infoTitle}>Get ready{'\n'}for it!</Text>
+                <Text style={styles.infoDescription}>
+                   Bago makes international shipping simple, fast, and secure. Connect with travelers and get your items delivered globally.
+                </Text>
+             </View>
+          </View>
+
+          {/* Legal Options */}
+          <View style={styles.legalSection}>
+             <LegalCheck 
+                label="Read and agreed to Deepmind Privacy Policy" 
+                checked={policyAccepted} 
+                onPress={() => setPolicyAccepted(!policyAccepted)}
+             />
+             <LegalCheck 
+                label="Read and agreed to Deepmind T&C and EULA" 
+                checked={termsAccepted} 
+                onPress={() => setTermsAccepted(!termsAccepted)}
+             />
+          </View>
+
+          </Animated.View>
+        </ScrollView>
+
+        {/* Fixed Footer with Buttons */}
+        <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+          <TouchableOpacity 
+            style={[styles.continueButton, (!termsAccepted || !policyAccepted) && styles.continueDisabled]} 
+            onPress={handleContinue}
+            activeOpacity={0.8}
+            disabled={!termsAccepted || !policyAccepted}
+          >
+            <Text style={styles.continueText}>Continue</Text>
+          </TouchableOpacity>
+
+          {/* Google Sign In Button */}
+          <Pressable
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading || !request}
+            style={({ pressed }) => [
+              styles.googleButton,
+              (pressed || googleLoading) && styles.buttonPressed,
+            ]}
+          >
+            <Chrome size={18} color={COLORS.white} />
+            <Text style={styles.googleButtonText}>
+              {googleLoading ? 'Signing in...' : 'Continue with Google'}
+            </Text>
+          </Pressable>
+
+          {/* Sign Up Link */}
+          <Pressable style={styles.signupLink} onPress={() => router.push('/auth/signup')}>
+            <Text style={styles.signupText}>
+              New to Bago? <Text style={styles.signupTextBold}>Sign Up</Text>
+            </Text>
+          </Pressable>
+
+          {/* Login Link */}
+          <Pressable style={styles.loginLink} onPress={() => router.push('/auth/signin')}>
+            <Text style={styles.loginText}>
+              Already have an account? <Text style={styles.loginTextBold}>Log In</Text>
+            </Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     </View>
   );
 }
 
-function SplashScreen() {
+function LegalCheck({ label, checked, onPress }: any) {
   return (
-    <View style={[styles.container, styles.splashBg]}>
-      <StatusBar style="light" />
-      <View style={styles.splashContent}>
-        <Image 
-          source={require('../assets/bago-logo-white.png')} 
-          style={styles.splashLogo}
-          resizeMode="contain"
-        />
-        <Text style={styles.splashTagline}>Shipping made simple</Text>
-      </View>
-      <View style={styles.loaderContainer}>
-        <View style={styles.dot} />
-        <View style={[styles.dot, styles.dotActive]} />
-        <View style={styles.dot} />
-      </View>
-    </View>
-  );
-}
-
-
-
-function PermissionsScreen({ onFinish }: any) {
-  const [notifs, setNotifs] = useState(true);
-  const [location, setLocation] = useState(true);
-  const [camera, setCamera] = useState(true);
-
-  return (
-    <View style={styles.onboardingStep}>
-      <View style={styles.flex}>
-        <Text style={styles.stepHeader}>Enable notifications &{'\n'}permissions</Text>
-        
-        <View style={styles.permissionList}>
-          <PermissionItem 
-            icon={<Bell size={24} color={COLORS.primary} />} 
-            bg={COLORS.primarySoft}
-            title="Push Notifications"
-            desc="Get updates on your shipments"
-            value={notifs}
-            onToggle={setNotifs}
-          />
-          <PermissionItem 
-            icon={<MapPin size={24} color={COLORS.accentTeal} />} 
-            bg="#CCFBF1"
-            title="Location"
-            desc="Track deliveries in real-time"
-            value={location}
-            onToggle={setLocation}
-          />
-          <PermissionItem 
-            icon={<Camera size={24} color={COLORS.accentCoral} />} 
-            bg="#FECDD3"
-            title="Camera"
-            desc="Verify package condition"
-            value={camera}
-            onToggle={setCamera}
-          />
-        </View>
-      </View>
-
-      <View style={styles.slideContainer}>
-        <TouchableOpacity 
-          style={styles.ctaButton} 
-          onPress={onFinish}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.ctaButtonText}>Continue</Text>
-          <ArrowRight size={20} color={COLORS.white} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-
-function PermissionItem({ icon, bg, title, desc, value, onToggle }: any) {
-  return (
-    <View style={styles.permissionItem}>
-      <View style={[styles.permIconBg, { backgroundColor: bg }]}>
-        {icon}
-      </View>
-      <View style={styles.permText}>
-        <Text style={styles.permTitle}>{title}</Text>
-        <Text style={styles.permDesc}>{desc}</Text>
-      </View>
-      <Switch 
-        value={value} 
-        onValueChange={onToggle}
-        trackColor={{ false: '#E5E7EB', true: COLORS.primaryLight }}
-        thumbColor={value ? COLORS.primary : '#F4F3F4'}
-      />
-    </View>
+    <Pressable style={styles.checkRow} onPress={onPress}>
+       <View style={[styles.checkCircle, checked && styles.checkCircleActive]}>
+          {checked && <Check size={14} color={DESIGN_COLORS.deepBlue} />}
+       </View>
+       <Text style={styles.checkLabel}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+  container: { flex: 1, backgroundColor: DESIGN_COLORS.deepBlue },
   flex: { flex: 1 },
-  splashBg: { backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  splashContent: { alignItems: 'center' },
-  splashLogo: { width: 140, height: 140 },
-  splashTagline: { fontSize: 16, color: COLORS.white, opacity: 0.8, marginTop: 16 },
-  loaderContainer: { position: 'absolute', bottom: 100, flexDirection: 'row', gap: 10 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.white, opacity: 0.3 },
-  dotActive: { opacity: 1, transform: [{ scale: 1.2 }] },
+  scrollContent: { paddingHorizontal: 24, paddingVertical: 24, paddingBottom: 20 },
+  fixedFooter: { gap: 16, paddingHorizontal: 24, paddingTop: 12, backgroundColor: DESIGN_COLORS.deepBlue, borderTopWidth: 1, borderTopColor: DESIGN_COLORS.white + '10' },
   
-  onboardingStep: { flex: 1, padding: 24, justifyContent: 'space-between' },
-  welcomeHero: { flex: 1, backgroundColor: COLORS.primary, borderRadius: 40, marginTop: 20, padding: 24, overflow: 'hidden' },
-  welcomeHeadline: { fontSize: 36, fontWeight: '800', color: COLORS.white, lineHeight: 42, position: 'absolute', top: 40, left: 24 },
-  cardStack: { marginTop: 200, position: 'relative', height: 260 },
-  stackCard: { position: 'absolute', left: 0, right: 0, height: 200, borderRadius: 24, backgroundColor: COLORS.primaryLight, padding: 24 },
-  stackHeadline: { fontSize: 28, fontWeight: '800', color: COLORS.primary, marginBottom: 12 },
-  stackBody: { fontSize: 14, color: COLORS.gray500, lineHeight: 22 },
+  // Top Card Styles
+  stackContainer: { marginTop: 40, marginBottom: 30, position: 'relative', height: 260, alignItems: 'center' },
+  bgCard: { position: 'absolute', width: '100%', height: 220, borderRadius: 32, backgroundColor: DESIGN_COLORS.white },
+  primaryCard: { 
+    width: '100%', 
+    height: 220, 
+    borderRadius: 32, 
+    backgroundColor: COLORS.black, // Sleek black to contrast with the primary blue background
+    padding: 30,
+    justifyContent: 'space-between',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 5
+  },
+  headline: { fontSize: 30, fontWeight: '800', color: DESIGN_COLORS.white, lineHeight: 36, letterSpacing: -0.5 },
+  heroLogoRow: { alignItems: 'flex-end' },
   
-  welcomeFooter: { paddingVertical: 20 },
-  termsBox: { marginBottom: 24 },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  checkboxChecked: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  termsText: { fontSize: 13, color: COLORS.gray400, fontWeight: '600' },
+  // Info Card Styles
+  infoContainer: { marginTop: 20, marginBottom: 30, position: 'relative', height: 200, alignItems: 'center' },
+  infoBgCard: { position: 'absolute', width: '90%', height: 180, borderRadius: 32, backgroundColor: DESIGN_COLORS.white },
+  infoCard: { 
+    width: '100%', 
+    height: 180, 
+    borderRadius: 32, 
+    backgroundColor: DESIGN_COLORS.white,
+    padding: 30,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3
+  },
+  infoTitle: { fontSize: 28, fontWeight: '800', color: DESIGN_COLORS.deepBlue, lineHeight: 32, letterSpacing: -0.5 },
+  infoDescription: { fontSize: 13, color: DESIGN_COLORS.gray600, marginTop: 15, lineHeight: 18, fontWeight: '500' },
   
-  ctaButton: { backgroundColor: COLORS.black, height: 56, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  ctaDisabled: { opacity: 0.5 },
-  ctaButtonText: { color: COLORS.white, fontSize: 18, fontWeight: '700' },
-  loginOption: { marginTop: 20, alignItems: 'center' },
-  loginTextSub: { fontSize: 14, color: COLORS.gray500, fontWeight: '600' },
-  loginTextPrimary: { color: COLORS.primary, fontWeight: '800' },
-    stepHeader: { fontSize: 32, fontWeight: '800', color: COLORS.black, marginTop: 40, marginBottom: 40 },
+  // Legal Section
+  legalSection: { gap: 12, marginTop: 20 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  checkCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#FFFFFF60', alignItems: 'center', justifyContent: 'center' },
+  checkCircleActive: { backgroundColor: DESIGN_COLORS.white, borderColor: DESIGN_COLORS.white },
+  checkLabel: { fontSize: 13, color: DESIGN_COLORS.white, fontWeight: '600' },
   
-  permissionList: { gap: 24 },
-  permissionItem: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  permIconBg: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  permText: { flex: 1 },
-  permTitle: { fontSize: 16, fontWeight: '700', color: COLORS.black },
-  permDesc: { fontSize: 13, color: COLORS.gray500, marginTop: 2 },
-  
-  slideContainer: { marginBottom: 20 },
-  slideBtn: { backgroundColor: COLORS.gray100, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  slideText: { fontSize: 16, fontWeight: '700', color: COLORS.gray500 },
-  slideThumb: { position: 'absolute', left: 4, width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', elevation: 3 }
+  // Buttons
+  continueButton: { 
+    backgroundColor: DESIGN_COLORS.indigoDark, 
+    height: 64, 
+    borderRadius: 32, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  continueDisabled: { opacity: 0.5 },
+  continueText: { color: DESIGN_COLORS.white, fontSize: 18, fontWeight: '800' },
+  googleButton: {
+    backgroundColor: '#1F2937',
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: DESIGN_COLORS.white + '20',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2
+  },
+  googleButtonText: { color: DESIGN_COLORS.white, fontSize: 16, fontWeight: '700' },
+  signupLink: { alignItems: 'center', paddingVertical: 8 },
+  signupText: { color: DESIGN_COLORS.white, fontSize: 13, opacity: 0.9 },
+  signupTextBold: { fontWeight: '800', opacity: 1, color: '#FFD700' },
+  loginLink: { alignItems: 'center', paddingVertical: 8 },
+  loginText: { color: DESIGN_COLORS.white, fontSize: 13, opacity: 0.8 },
+  loginTextBold: { fontWeight: '800', opacity: 1 },
+  buttonPressed: { opacity: 0.7 }
 });

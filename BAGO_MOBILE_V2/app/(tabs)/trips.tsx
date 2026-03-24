@@ -1,41 +1,65 @@
-import { View, ScrollView, StyleSheet, TouchableOpacity, Image, Alert, Modal, TextInput } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Image, Alert, Modal, TextInput, Platform, Pressable } from 'react-native';
 import { AppText as Text } from '../../components/common/AppText';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   Plus, Wallet, Briefcase, Clock, ArrowRight, TrendingUp, 
   Trash2, Edit2, ArrowLeft, ShieldCheck, Mail, CheckCircle, 
   ChevronRight, Camera, Image as ImageIcon, User,
-  ArrowUpRight, MessageSquare, Package, X, Send, Check
+  ArrowUpRight, MessageSquare, Package, X, Send, Check, AlertCircle
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/theme';
 import { useState, useEffect } from 'react';
 import tripService from '../../lib/trips';
+import { useCurrency } from '../../hooks/useCurrency';
+import { useAuth } from '../../contexts/AuthContext';
+// import paymentService from '../../lib/payment'; // Reverted to dynamic to prevent crash
 
 export default function TravelerDashboard() {
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { formatCurrency, currencySymbol } = useCurrency();
   const [trips, setTrips] = useState<any[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0.00); 
   const [loading, setLoading] = useState(true);
+
+  const activeTrips = trips.filter(t => t.status !== 'completed' && t.status !== 'Completed');
+  const completedTrips = trips.filter(t => t.status === 'completed' || t.status === 'Completed');
+
+  const AFRICAN_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR', 'TZS', 'UGX', 'RWF', 'EGP', 'MAD'];
+  const isAfrican = user?.preferredCurrency && AFRICAN_CURRENCIES.includes(user.preferredCurrency);
 
   useEffect(() => {
     loadTrips();
+    fetchWallet();
   }, []);
+
+  const fetchWallet = async () => {
+    try {
+      const paymentService = (await import('../../lib/payment')).default;
+      const res = await paymentService.getWalletBalance();
+      setWalletBalance(res.balance || 0);
+      setWithdrawAmount(String(res.balance || 0));
+    } catch (e) {
+       console.log('Failed hub wallet update');
+    }
+  };
 
   const loadTrips = async () => {
     try {
       setLoading(true);
       const data = await tripService.getMyTrips();
       setTrips(data);
-    } catch (err) {
-      console.error('Failed to load trips:', err);
+    } catch (err: any) {
+      if (!String(err).includes('token')) {
+        console.warn('Failed to load trips:', err);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const [incomingRequests, setIncomingRequests] = useState([
-    { id: 'R1', sender: 'John Doe', item: 'iPhone 15 Case', weight: '0.2kg', price: '$15', date: 'Oct 24', image: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=200' },
-    { id: 'R2', sender: 'Jane Smith', item: 'Nike Shoes', weight: '1.2kg', price: '$45', date: 'Oct 25', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=200' },
-  ]);
+  const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
 
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   
@@ -52,6 +76,31 @@ export default function TravelerDashboard() {
     setOtp('');
   };
 
+  const handleWithdrawalBack = () => {
+    if (withdrawalStep === 1) {
+      resetWithdrawal();
+      return;
+    }
+    if (withdrawalStep === 2) {
+      setWithdrawalStep(1);
+      setOtp('');
+      return;
+    }
+    resetWithdrawal();
+  };
+
+  const onWithdrawAmountChange = (text: string) => {
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) return;
+    if (parts[1] != null && parts[1].length > 2) return;
+    setWithdrawAmount(cleaned);
+  };
+
+  const onOtpChange = (text: string) => {
+    setOtp(text.replace(/\D/g, '').slice(0, 6));
+  };
+
   const handleActionRequest = (id: string, action: 'accept' | 'decline') => {
     if (action === 'accept') {
        Alert.alert('Request Accepted', 'Coordinate with the sender via chat.', [
@@ -63,33 +112,50 @@ export default function TravelerDashboard() {
   };
 
   const handleWithdrawalInitiate = () => {
-    if (parseFloat(withdrawAmount) <= 0) return Alert.alert('Error', 'Enter a valid amount');
+    if (parseFloat(withdrawAmount) <= 0) {
+      if (Platform.OS === 'web') return window.alert('Enter a valid amount');
+      return Alert.alert('Error', 'Enter a valid amount');
+    }
     setIsSendingOtp(true);
     // Mock API
     setTimeout(() => {
       setIsSendingOtp(false);
       setWithdrawalStep(2);
-      Alert.alert('Verification Code Sent', 'Check your email for your 6-digit withdrawal confirmation code.');
+      if (Platform.OS === 'web') window.alert('Check your email for your 6-digit withdrawal confirmation code.');
+      else Alert.alert('Verification Code Sent', 'Check your email for your 6-digit withdrawal confirmation code.');
     }, 1500);
   };
 
   const handleVerifyWithdrawal = () => {
-    if (otp.length < 4) return Alert.alert('Error', 'Enter a valid verification code');
+    if (otp.length < 4) {
+      if (Platform.OS === 'web') return window.alert('Enter a valid verification code');
+      return Alert.alert('Error', 'Enter a valid verification code');
+    }
     setWithdrawalStep(3);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const executeDelete = async () => {
+      try {
+        await tripService.cancelTrip(id);
+        setTrips(trips.filter(t => t.id !== id));
+        if (Platform.OS === 'web') window.alert('Trip has been removed successfully.');
+        else Alert.alert('Deleted', 'Tournament trip has been removed successfully.');
+      } catch (err: any) {
+        if (Platform.OS === 'web') window.alert(err.message || 'Failed to delete trip');
+        else Alert.alert('Error', err.message || 'Failed to delete trip');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirm = window.confirm('Are you sure you want to delete this trip?');
+      if (confirm) await executeDelete();
+      return;
+    }
+
     Alert.alert('Delete Trip', 'Are you sure you want to delete this trip?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-          try {
-            await tripService.cancelTrip(id);
-            setTrips(trips.filter(t => t.id !== id));
-            Alert.alert('Deleted', 'Tournament trip has been removed successfully.');
-          } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to delete trip');
-          }
-      }}
+      { text: 'Delete', style: 'destructive', onPress: executeDelete }
     ]);
   };
 
@@ -120,8 +186,16 @@ export default function TravelerDashboard() {
            <View style={styles.walletHeader}>
              <Wallet size={24} color={COLORS.white} />
              <Text style={styles.walletLabel}>Carrier Wallet</Text>
+             {isAfrican && (
+               <View style={styles.paystackBadge}>
+                  <Text style={styles.paystackBadgeText}>via Paystack</Text>
+               </View>
+             )}
            </View>
-           <Text style={styles.walletBalance}>$1,240.50</Text>
+           <View style={{ marginBottom: 20 }}>
+              <Text style={styles.walletBalanceLabel}>Available for Withdrawal</Text>
+              <Text style={styles.walletBalance}>{formatCurrency(walletBalance)}</Text>
+           </View>
            <TouchableOpacity style={styles.withdrawBtn} onPress={() => setShowWithdrawalModal(true)}>
              <Text style={styles.withdrawLabel}>Withdraw Funds</Text>
              <ArrowUpRight size={16} color={COLORS.primary} />
@@ -165,16 +239,24 @@ export default function TravelerDashboard() {
            <Text style={styles.sectionTitle}>My active trips</Text>
         </View>
 
-        {trips.map(trip => (
+        {activeTrips.length === 0 && !loading && (
+          <View style={styles.emptyState}>
+            <Briefcase size={40} color={COLORS.gray300} style={{ marginBottom: 12 }} />
+            <Text style={styles.emptyStateTitle}>No active trips</Text>
+            <Text style={styles.emptyStateSub}>You haven't posted any trips yet.</Text>
+          </View>
+        )}
+
+        {activeTrips.map(trip => (
           <View key={trip.id} style={styles.tripCard}>
             <View style={styles.tripMain}>
               <View style={styles.tripInfo}>
-                <Text style={styles.tripRoute}>{trip.from} → {trip.to}</Text>
-                <View style={[styles.badge, trip.status === 'Active' ? styles.bgSuccess : styles.bgWarning]}>
-                     <Text style={[styles.badgeText, trip.status === 'Active' ? styles.textSuccess : styles.textWarning]}>{trip.status}</Text>
+                <Text style={styles.tripRoute}>{trip.fromLocation?.split(',')[0]} → {trip.toLocation?.split(',')[0]}</Text>
+                <View style={[styles.badge, (trip.status === 'active' || trip.status === 'Active') ? styles.bgSuccess : styles.bgWarning]}>
+                     <Text style={[styles.badgeText, (trip.status === 'active' || trip.status === 'Active') ? styles.textSuccess : styles.textWarning]}>{trip.status || 'Active'}</Text>
                 </View>
               </View>
-              <Text style={styles.tripPrice}>${trip.price}<Text style={styles.perKg}>/kg</Text></Text>
+              <Text style={styles.tripPrice}>{trip.currency || '$'}{trip.pricePerKg}<Text style={styles.perKg}>/kg</Text></Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.tripActions}>
@@ -189,6 +271,28 @@ export default function TravelerDashboard() {
             </View>
           </View>
         ))}
+
+        {/* Completed Trips */}
+        {completedTrips.length > 0 && (
+          <>
+            <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+              <Text style={styles.sectionTitle}>Completed trips</Text>
+            </View>
+            {completedTrips.map(trip => (
+              <View key={trip.id} style={[styles.tripCard, { opacity: 0.6 }]}>
+                <View style={styles.tripMain}>
+                  <View style={styles.tripInfo}>
+                    <Text style={styles.tripRoute}>{trip.fromLocation?.split(',')[0]} → {trip.toLocation?.split(',')[0]}</Text>
+                    <View style={[styles.badge, styles.bgSuccess]}>
+                         <Text style={[styles.badgeText, styles.textSuccess]}>Completed</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.tripPrice}>{trip.currency || '$'}{trip.pricePerKg}<Text style={styles.perKg}>/kg</Text></Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
 
       {/* Proposal Details Modal */}
@@ -266,7 +370,7 @@ export default function TravelerDashboard() {
 
                     <View style={styles.itemSpecs}>
                        <View style={styles.specRow}><Text style={styles.specLabel}>Category</Text><Text style={styles.specVal}>{selectedRequest.category || 'Electronics'}</Text></View>
-                       <View style={styles.specRow}><Text style={styles.specLabel}>Dimensions</Text><Text style={styles.specVal}>Standard Box</Text></View>
+                       <View style={styles.specRow}><Text style={styles.specLabel}>Package size</Text><Text style={styles.specVal}>Standard Box</Text></View>
                        <View style={styles.specRow}><Text style={styles.specLabel}>Insurance</Text><Text style={styles.specVal}>Bago Care Protected</Text></View>
                     </View>
 
@@ -293,26 +397,46 @@ export default function TravelerDashboard() {
 
       {/* MULTI-STEP WITHDRAWAL MODAL */}
       <Modal visible={showWithdrawalModal} animationType="slide">
-        <SafeAreaView style={styles.flex}>
-           <View style={styles.modalBackHeader}>
-              <TouchableOpacity onPress={resetWithdrawal}><ArrowLeft size={24} color={COLORS.black} /></TouchableOpacity>
+        <SafeAreaView style={styles.flex} edges={['left', 'right', 'bottom']}>
+           <View style={[styles.modalBackHeader, { paddingTop: Math.max(insets.top, 12) }]}>
+              <Pressable
+                onPress={handleWithdrawalBack}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={styles.modalBackBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <ArrowLeft size={24} color={COLORS.black} />
+              </Pressable>
               <Text style={styles.modalBackTitle}>Withdraw Earnings</Text>
-              <View style={{ width: 24 }} />
+              <View style={{ width: 40 }} />
            </View>
 
            {withdrawalStep === 1 && (
              <View style={styles.modalBodyFix}>
                 <View style={styles.payoutIconCircle}><Wallet size={48} color={COLORS.primary} /></View>
                 <Text style={styles.payoutTitle}>How much to withdraw?</Text>
-                <Text style={styles.payoutSub}>Maximum available: $1,240.50</Text>
+                <Text style={styles.payoutSub}>Maximum available: {formatCurrency(walletBalance)}</Text>
+                
+                {!user?.paystackRecipientCode && (
+                  <View style={styles.warningBox}>
+                     <AlertCircle size={20} color="#B45309" />
+                     <View style={{ flex: 1 }}>
+                        <Text style={styles.warningText}>No payout account linked.</Text>
+                        <TouchableOpacity onPress={() => { resetWithdrawal(); router.push('/profile/payout-methods'); }}>
+                           <Text style={styles.warningLink}>Add a bank account →</Text>
+                        </TouchableOpacity>
+                     </View>
+                  </View>
+                )}
                 
                 <View style={styles.amountInputRow}>
-                   <Text style={styles.amountPrefix}>$</Text>
+                   <Text style={styles.amountPrefix}>{currencySymbol}</Text>
                    <TextInput 
                     style={styles.amountInput}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                     value={withdrawAmount}
-                    onChangeText={setWithdrawAmount}
+                    onChangeText={onWithdrawAmountChange}
                     autoFocus
                    />
                 </View>
@@ -331,17 +455,17 @@ export default function TravelerDashboard() {
              <View style={styles.modalBodyFix}>
                 <View style={[styles.payoutIconCircle, { backgroundColor: COLORS.bgSoft }]}><Mail size={48} color={COLORS.primary} /></View>
                 <Text style={styles.payoutTitle}>Check your email</Text>
-                <Text style={styles.payoutSub}>We've sent a 6-digit confirmation code to confirm your withdrawal of <Text style={styles.bold}>${withdrawAmount}</Text>.</Text>
+                <Text style={styles.payoutSub}>We've sent a 6-digit confirmation code to confirm your withdrawal of <Text style={styles.bold}>{formatCurrency(parseFloat(withdrawAmount))}</Text>.</Text>
                 
                 <View style={styles.otpWidth}>
                    <TextInput 
                     style={styles.otpInputLayout}
-                    keyboardType="numeric"
+                    keyboardType="number-pad"
                     maxLength={6}
-                    placeholder="— — — — — —"
+                    placeholder="000000"
                     placeholderTextColor={COLORS.gray300}
                     value={otp}
-                    onChangeText={setOtp}
+                    onChangeText={onOtpChange}
                     autoFocus
                    />
                 </View>
@@ -359,7 +483,7 @@ export default function TravelerDashboard() {
              <View style={styles.modalBodyFix}>
                 <View style={[styles.payoutIconCircle, { backgroundColor: '#D1FAE5' }]}><ShieldCheck size={48} color="#059669" /></View>
                 <Text style={styles.payoutTitle}>Withdrawal Confirmed!</Text>
-                <Text style={styles.payoutSub}>Your request of <Text style={styles.bold}>${withdrawAmount}</Text> has been accepted and will hit your account in 24-48 hours.</Text>
+                <Text style={styles.payoutSub}>Your request of <Text style={styles.bold}>{formatCurrency(parseFloat(withdrawAmount))}</Text> has been accepted and will hit your account in 24-48 hours.</Text>
                 
                 <TouchableOpacity style={styles.payoutCta} onPress={resetWithdrawal}>
                    <Text style={styles.payoutCtaText}>Great, thanks!</Text>
@@ -387,10 +511,17 @@ const styles = StyleSheet.create({
   postBtnText: { color: COLORS.white, fontSize: 13, fontWeight: '800' },
 
   scrollContent: { paddingHorizontal: 24, paddingVertical: 24 },
+  
+  // Empty State Styles
+  emptyState: { paddingVertical: 40, alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 24, borderWidth: 1, borderColor: COLORS.gray100 },
+  emptyStateTitle: { fontSize: 18, fontWeight: '800', color: COLORS.black, marginBottom: 8 },
+  emptyStateSub: { fontSize: 14, color: COLORS.gray500, textAlign: 'center' },
+
   walletCard: { backgroundColor: COLORS.primary, borderRadius: 28, padding: 28, marginBottom: 32 },
   walletHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   walletLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '700' },
-  walletBalance: { fontSize: 32, fontWeight: '800', color: COLORS.white, marginBottom: 24 },
+  walletBalanceLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 4 },
+  walletBalance: { fontSize: 32, fontWeight: '800', color: COLORS.white, marginBottom: 8 },
   withdrawBtn: { 
     backgroundColor: COLORS.white, paddingHorizontal: 16, height: 44, borderRadius: 14, 
     flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' 
@@ -440,7 +571,24 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: 14, fontWeight: '800', color: COLORS.black },
   actionLabelDanger: { fontSize: 14, fontWeight: '800', color: '#FF3B30' },
   
-  modalBackHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 },
+  modalBackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray100,
+    backgroundColor: COLORS.white,
+  },
+  modalBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bgSoft,
+  },
   modalBackTitle: { fontSize: 18, fontWeight: '800', color: COLORS.black },
   modalBodyFix: { flex: 1, padding: 32, alignItems: 'center', justifyContent: 'center' },
   payoutIconCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 32 },
@@ -491,4 +639,9 @@ const styles = StyleSheet.create({
   specRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   specLabel: { fontSize: 13, color: COLORS.gray500, fontWeight: '600' },
   specVal: { fontSize: 13, color: COLORS.black, fontWeight: '800' },
+  paystackBadge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginLeft: 'auto' },
+  paystackBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: '800' },
+  warningBox: { flexDirection: 'row', backgroundColor: '#FFFBEB', padding: 16, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#F59E0B', gap: 12, marginBottom: 24, width: '100%' },
+  warningText: { fontSize: 13, color: '#92400E', fontWeight: '700' },
+  warningLink: { fontSize: 13, color: COLORS.primary, fontWeight: '800', marginTop: 4 },
 });

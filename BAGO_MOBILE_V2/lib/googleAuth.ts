@@ -1,7 +1,5 @@
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
-import { Platform } from 'react-native';
 
 // Complete the auth session for web
 WebBrowser.maybeCompleteAuthSession();
@@ -37,25 +35,10 @@ export interface GoogleAuthResponse {
  * Returns request, response, and promptAsync function
  */
 export const useGoogleAuth = () => {
-  // For web, use default (localhost)
-  // For native, use custom scheme
-  const redirectUri = Platform.OS === 'web'
-    ? makeRedirectUri()  // Uses localhost for web
-    : makeRedirectUri({
-        scheme: 'com.bago.mobile',
-        path: 'redirect',
-      });
-
-  console.log('[GoogleAuth] Platform:', Platform.OS, '| Redirect URI:', redirectUri);
-
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: Platform.select({
-      ios: GOOGLE_CLIENT_IDS.ios,
-      android: GOOGLE_CLIENT_IDS.android,
-      web: GOOGLE_CLIENT_IDS.web,
-      default: GOOGLE_CLIENT_IDS.web,
-    }),
-    redirectUri,
+    iosClientId: GOOGLE_CLIENT_IDS.ios,
+    androidClientId: GOOGLE_CLIENT_IDS.android,
+    webClientId: GOOGLE_CLIENT_IDS.web,
     scopes: ['profile', 'email'],
   });
 

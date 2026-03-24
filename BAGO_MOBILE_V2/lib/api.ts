@@ -114,9 +114,9 @@ class ApiService {
   }
 
   // File upload
-  async uploadFile(url: string, file: any, onProgress?: (progress: number) => void): Promise<AxiosResponse> {
+  async uploadFile(url: string, file: any, fieldName: string = 'file', onProgress?: (progress: number) => void): Promise<AxiosResponse> {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append(fieldName, file);
 
     return this.api.post(url, formData, {
       headers: {

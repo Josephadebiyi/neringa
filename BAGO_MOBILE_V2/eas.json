@@ -18,7 +18,8 @@
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "image": "latest"
       },
       "android": {
         "buildType": "apk"
@@ -31,7 +32,8 @@
       "ios": {
         "buildConfiguration": "Release",
         "enterpriseProvisioning": "adhoc",
-        "autoIncrement": true
+        "autoIncrement": true,
+        "image": "latest"
       },
       "android": {
         "buildType": "apk"
@@ -43,7 +45,8 @@
     "appstore": {
       "ios": {
         "buildConfiguration": "Release",
-        "autoIncrement": "buildNumber"
+        "autoIncrement": "buildNumber",
+        "image": "latest"
       },
       "env": {
         "EXPO_NO_DOCTOR": "1"

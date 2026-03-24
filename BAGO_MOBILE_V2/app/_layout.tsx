@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import config from '../lib/config';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // Conditionally load native-only modules
 let StripeProvider: any = null;
@@ -36,7 +37,7 @@ try {
 
 function AppContent({ children }: { children: React.ReactNode }) {
   // Wrap with StripeProvider only on native
-  if (StripeProvider && Platform.OS !== 'web') {
+  if (StripeProvider && Platform.OS !== 'web' && config.stripeKey) {
     return (
       <StripeProvider publishableKey={config.stripeKey}>
         {children}
@@ -150,46 +151,60 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AppContent>
-        <AuthProvider>
-          <AuthNavigationWrapper>
-            <StatusBar style="dark" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: '#FFFFFF' },
-              }}
-            >
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="auth" />
-            </Stack>
-          </AuthNavigationWrapper>
-        </AuthProvider>
-      </AppContent>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AppContent>
+          <AuthProvider>
+            <AuthNavigationWrapper>
+              <StatusBar style="dark" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: '#FFFFFF' },
+                  animationEnabled: true,
+                }}
+              >
+                <Stack.Screen name="index" options={{ animationEnabled: false }} />
+                <Stack.Screen name="(tabs)" options={{ animationEnabled: false }} />
+                <Stack.Screen name="auth" options={{ animationEnabled: true }} />
+              </Stack>
+            </AuthNavigationWrapper>
+          </AuthProvider>
+        </AppContent>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 
 function AuthNavigationWrapper({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const auth = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Safely destructure with fallback values
+  const isAuthenticated = auth?.isAuthenticated ?? false;
+  const isLoading = auth?.isLoading ?? true;
 
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === 'auth';
+    try {
+      const inAuthGroup = segments[0] === 'auth';
+      const atRoot = !segments[0] || segments[0] === '(index)' || segments[0] === 'index';
 
-    if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to onboarding if not authenticated and not already in auth flow
-      router.replace('/');
-    } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to home if authenticated but in auth flow
-      router.replace('/(tabs)');
+      if (!isAuthenticated && !inAuthGroup && !atRoot) {
+        // Redirect to signin with hero image instead of root onboarding
+        console.log('Redirecting to Sign In...');
+        router.replace('/auth/signin');
+      } else if (isAuthenticated && (inAuthGroup || atRoot)) {
+        // Only redirect to tabs if we aren't already there 
+        console.log('Redirecting to Home Dashboard...');
+        router.replace('/(tabs)');
+      }
+    } catch (error) {
+      console.error('Core Navigation loop caught:', error);
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, segments.join('/')]);
 
   return <>{children}</>;
 }

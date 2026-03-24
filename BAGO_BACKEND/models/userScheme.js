@@ -107,6 +107,12 @@ const userSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  communicationPrefs: {
+    push: { type: Boolean, default: true },
+    email: { type: Boolean, default: true },
+    marketing: { type: Boolean, default: false },
+    sms: { type: Boolean, default: true },
+  },
 
   // 💰 Main Wallet
   balance: {
@@ -218,6 +224,15 @@ const userSchema = new mongoose.Schema({
   // 📧 Email Change Logic
   pendingEmail: { type: String, default: null },
   emailChangeOtp: { code: String, expiresAt: Date },
+  // 🏦 Pending bank account (awaiting OTP confirmation)
+  pendingBankOtp: { code: String, expiresAt: Date },
+  pendingBankDetails: {
+    accountNumber: String,
+    bankCode: String,
+    accountName: String,
+    bankName: String,
+  },
+  bio: { type: String, maxlength: 250, default: '' },
 });
 
 // 🔒 Hash password before saving

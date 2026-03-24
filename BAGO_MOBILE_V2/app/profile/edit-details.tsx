@@ -29,7 +29,7 @@ export default function EditDetailsScreen() {
         // dob: formData.dob, // Assuming dob is supported or handled
       } as any);
       Alert.alert('Success', 'Profile details updated successfully');
-      router.back();
+      handleBack();
     } catch (error: any) {
       Alert.alert('Update Failed', error.message || 'There was an error updating your profile.');
     } finally {

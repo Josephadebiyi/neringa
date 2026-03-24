@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { COLORS } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import paymentService from '../../lib/payment';
+import tripService from '../../lib/trips';
 import api from '../../lib/api';
 
 const { width } = Dimensions.get('window');
@@ -58,8 +59,7 @@ export default function RequestShipmentScreen() {
   useEffect(() => {
     const fetchTrip = async () => {
       try {
-        const response = await api.get(`/api/bago/trips/${id}`);
-        const tripData = response.data.trip;
+        const tripData = await tripService.getTripById(id as string);
         setTrip(tripData);
         if (tripData?.pricePerKg) {
           setFees(f => ({ ...f, ratePerKg: tripData.pricePerKg }));

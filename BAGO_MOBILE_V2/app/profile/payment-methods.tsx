@@ -1,4 +1,4 @@
-import { View, Text, FlatList, Pressable, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ChevronLeft, CreditCard, Plus, CheckCircle, Trash2, ShieldCheck, Lock, X } from 'lucide-react-native';
@@ -34,6 +34,12 @@ export default function PaymentMethodsScreen() {
   };
 
   const deleteCard = (id: string) => {
+    if (Platform.OS === 'web') {
+      const confirm = window.confirm('Are you sure you want to remove this payment method?');
+      if (confirm) setCards(cards.filter(c => c.id !== id));
+      return;
+    }
+
     Alert.alert('Remove Card', 'Are you sure you want to remove this payment method?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => setCards(cards.filter(c => c.id !== id)) }

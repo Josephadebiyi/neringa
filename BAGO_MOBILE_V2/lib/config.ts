@@ -51,11 +51,15 @@ export const API_ENDPOINTS = {
   DELETE_ACCOUNT: '/api/bago/user/delete',
   ACCEPT_TERMS: '/api/bago/user/accept-terms',
   UPDATE_CURRENCY: '/api/bago/edit-currency',
+  REQUEST_EMAIL_CHANGE: '/api/bago/user/request-email-change',
+  VERIFY_EMAIL_CHANGE: '/api/bago/user/verify-email-change',
 
   // Packages
-  PACKAGES: '/api/bago/packages',
+  PACKAGES: '/api/bago/recentOrder',
   PACKAGE_CREATE: '/api/bago/createPackage',
   PACKAGE_UPDATE: '/api/bago/updatePackage',
+  PACKAGE_DELETE: '/api/bago/package',
+  PACKAGE_DETAIL: '/api/bago/request/:requestId/details',
   MY_PACKAGES: '/api/bago/recentOrder',
 
   // Trips
@@ -63,6 +67,7 @@ export const API_ENDPOINTS = {
   CREATE_TRIP: '/api/bago/AddAtrip',
   MY_TRIPS: '/api/bago/MyTrips',
   SEARCH_TRIPS: '/api/bago/getTravelers',
+  SEARCH_TRAVELERS: '/api/bago/getTravelers',
 
   // Requests
   PACKAGE_REQUESTS: '/api/bago/requests',

@@ -14,16 +14,21 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarShowLabel: false,
+          tabBarShowLabel: true,
           tabBarActiveTintColor: COLORS.black,
           tabBarInactiveTintColor: COLORS.gray400,
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+            marginTop: 2,
+          },
           tabBarStyle: {
-            height: Platform.OS === 'ios' ? 50 + insets.bottom : 64,
+            height: Platform.OS === 'ios' ? 70 + insets.bottom : 70,
             backgroundColor: COLORS.white,
             borderTopWidth: 1,
             borderTopColor: COLORS.gray100,
-            paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
-            paddingTop: 10,
+            paddingBottom: Platform.OS === 'ios' ? insets.bottom : 8,
+            paddingTop: 8,
           },
         }}
       >
@@ -31,6 +36,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
+            tabBarLabel: "Home",
             tabBarIcon: ({ color }) => <Home size={24} color={color} strokeWidth={2.5} />,
           }}
         />
@@ -39,6 +45,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="shipments"
           options={{
+            tabBarLabel: "Shipments",
             href: currentRole === 'sender' ? '/shipments' : null,
             tabBarIcon: ({ color }) => <Package size={24} color={color} strokeWidth={2.5} />,
           }}
@@ -48,6 +55,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="trips"
           options={{
+            tabBarLabel: "Trips",
             href: currentRole === 'carrier' ? '/trips' : null,
             tabBarIcon: ({ color }) => <Briefcase size={24} color={color} strokeWidth={2.5} />,
           }}
@@ -56,6 +64,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="messages"
           options={{
+            tabBarLabel: "Chat",
             tabBarIcon: ({ color }) => <MessageCircle size={24} color={color} strokeWidth={2.5} />,
           }}
         />
@@ -63,6 +72,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="profile"
           options={{
+            tabBarLabel: "Profile",
             tabBarIcon: ({ color }) => <User size={24} color={color} strokeWidth={2.5} />,
           }}
         />

@@ -7,7 +7,8 @@
     "BAGO_BACKEND",
     "BAGO_WEBAPP",
     "ADMIN_NEW",
-    "BAGO_MOBILE"
+    "BAGO_MOBILE",
+    "BAGO_MOBILE_V2"
   ],
   "scripts": {
     "install:all": "npm install && npm run install:backend && npm run install:webapp && npm run install:admin && npm run install:mobile",
@@ -66,15 +67,16 @@
   "author": "Bago Team",
   "license": "MIT",
   "dependencies": {
-    "@expo/metro-runtime": "~6.1.2",
-    "expo": "~54.0.33",
-    "expo-auth-session": "~7.0.10",
-    "expo-crypto": "~15.0.8",
-    "expo-web-browser": "~15.0.10",
-    "lucide-react": "0.577.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-native": "0.81.5",
-    "react-native-web": "0.21.2"
+    "@expo/metro-runtime": "~55.0.0",
+    "expo": "55.0.8",
+    "expo-auth-session": "~55.0.9",
+    "expo-crypto": "~55.0.10",
+    "expo-web-browser": "~55.0.10",
+    "lucide-react": "^1.0.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.2",
+    "react-native-reanimated": "4.2.1",
+    "react-native-web": "^0.21.0"
   }
 }

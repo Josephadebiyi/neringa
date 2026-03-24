@@ -12,6 +12,10 @@ import {
 import User from '../models/userScheme.js';
 import Request from '../models/RequestScheme.js';
 import { convertCurrency } from '../services/currencyConverter.js';
+import { Resend } from 'resend';
+
+let resend = null;
+try { resend = new Resend(process.env.RESEND_API_KEY); } catch (e) {}
 
 /**
  * Initialize Paystack payment
@@ -109,10 +113,11 @@ export const verifyPaystackPayment = async (req, res) => {
 /**
  * Add bank account for payouts
  * POST /api/paystack/add-bank
+ * Step 1: Verify account, store details, send OTP to user email
  */
 export const addBankAccount = async (req, res) => {
   try {
-    const { accountNumber, bankCode, accountName } = req.body;
+    const { accountNumber, bankCode, bankName } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -125,41 +130,122 @@ export const addBankAccount = async (req, res) => {
     if (!accountInfo.success) {
       return res.status(400).json({
         success: false,
-        message: 'Could not verify bank account',
+        message: 'Could not verify bank account. Please check the account number and bank.',
       });
     }
 
-    // Create transfer recipient
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store pending bank details + OTP on user
+    user.pendingBankOtp = { code: otp, expiresAt };
+    user.pendingBankDetails = {
+      accountNumber,
+      bankCode,
+      accountName: accountInfo.accountName,
+      bankName: bankName || 'Bank',
+    };
+    await user.save();
+
+    // Send OTP via email
+    if (resend) {
+      await resend.emails.send({
+        from: 'Bago <noreply@bagoapp.com>',
+        to: user.email,
+        subject: 'Confirm Your Bank Account',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
+            <h2 style="color:#5C4BFD">Confirm Bank Account</h2>
+            <p>You are linking a new payout account to your Bago profile:</p>
+            <p><strong>Bank:</strong> ${bankName || 'Bank'}</p>
+            <p><strong>Account:</strong> ${accountInfo.accountName} — ****${accountNumber.slice(-4)}</p>
+            <p>Use the code below to confirm. It expires in 10 minutes.</p>
+            <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#5C4BFD;margin:24px 0">${otp}</div>
+            <p style="color:#9CA3AF;font-size:12px">If you did not request this, please contact support immediately.</p>
+          </div>
+        `,
+      });
+    } else {
+      console.log('Bank OTP (no email):', otp);
+    }
+
+    return res.status(200).json({
+      success: true,
+      requiresOtp: true,
+      accountName: accountInfo.accountName,
+      message: `A 6-digit confirmation code has been sent to ${user.email}`,
+    });
+  } catch (error) {
+    console.error('Add bank account error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to initiate bank account setup',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/paystack/verify-bank-otp
+ * Step 2: Verify OTP and finalize bank account
+ */
+export const verifyBankOTP = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!user.pendingBankOtp || !user.pendingBankDetails) {
+      return res.status(400).json({ success: false, message: 'No pending bank account. Please start over.' });
+    }
+
+    if (new Date() > user.pendingBankOtp.expiresAt) {
+      return res.status(400).json({ success: false, message: 'OTP has expired. Please start over.' });
+    }
+
+    if (user.pendingBankOtp.code !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP. Please try again.' });
+    }
+
+    const { accountNumber, bankCode, accountName, bankName } = user.pendingBankDetails;
+
+    // Create transfer recipient on Paystack
     const result = await createTransferRecipient({
-      name: accountInfo.accountName,
+      name: accountName,
       accountNumber,
       bankCode,
       currency: user.preferredCurrency || 'NGN',
     });
 
-    if (result.success) {
-      // Save recipient code to user
-      user.paystackRecipientCode = result.recipientCode;
-      user.bankDetails = {
-        bankName: accountName || 'Bank',
-        accountNumber,
-        accountHolderName: accountInfo.accountName,
-      };
-      await user.save();
-
-      return res.status(200).json({
-        success: true,
-        message: 'Bank account added successfully',
-        accountName: accountInfo.accountName,
-      });
+    if (!result.success) {
+      throw new Error('Failed to create Paystack recipient');
     }
 
-    throw new Error('Failed to create recipient');
+    // Finalize — save to user, clear pending fields
+    user.paystackRecipientCode = result.recipientCode;
+    user.bankDetails = {
+      bankName,
+      accountNumber,
+      accountHolderName: accountName,
+    };
+    user.pendingBankOtp = undefined;
+    user.pendingBankDetails = undefined;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Bank account linked successfully!',
+      accountName,
+    });
   } catch (error) {
-    console.error('Add bank account error:', error);
+    console.error('Verify bank OTP error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to add bank account',
+      message: 'Failed to verify OTP',
       error: error.message,
     });
   }
@@ -255,6 +341,8 @@ export const withdrawFundsPaystack = async (req, res) => {
 export const getPaystackBanks = async (req, res) => {
   try {
     let { country = 'NG', currency = 'NGN' } = req.query;
+    country = Array.isArray(country) ? country[0] : country;
+    currency = Array.isArray(currency) ? currency[0] : currency;
 
     // Normalize country to uppercase 2-letter code
     const countryMap = {
@@ -268,7 +356,9 @@ export const getPaystackBanks = async (req, res) => {
       'za': 'ZA',
     };
 
-    const normalizedCountry = countryMap[country.toLowerCase()] || country.toUpperCase();
+    const countryStr = String(country);
+    const normalizedCountry =
+      countryMap[countryStr.toLowerCase()] || countryStr.toUpperCase();
 
     console.log(`📊 Fetching banks for country: ${normalizedCountry}, currency: ${currency}`);
 
@@ -276,11 +366,10 @@ export const getPaystackBanks = async (req, res) => {
 
     return res.status(200).json(result);
   } catch (error) {
-    console.error('Get Paystack banks error:', error);
+    console.error('Get Paystack banks error:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch banks',
-      error: error.message,
+      message: error.message || 'Failed to fetch banks',
     });
   }
 };

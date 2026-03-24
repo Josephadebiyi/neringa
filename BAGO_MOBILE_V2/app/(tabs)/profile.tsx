@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, Alert, StyleSheet, Switch, TouchableOpacity, Image, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, StyleSheet, Switch, TouchableOpacity, Image, Modal, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { 
@@ -12,12 +12,52 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
 import { COLORS } from '../../constants/theme';
 
+import * as ImagePicker from 'expo-image-picker';
+import ErrorBoundary from '../../components/ErrorBoundary';
+
 export default function ProfileScreen() {
-  const { user, logout, deleteAccount, updateCurrency } = useAuth();
+  return (
+    <ErrorBoundary>
+      <ProfileScreenContent />
+    </ErrorBoundary>
+  );
+}
+
+function ProfileScreenContent() {
+  const { user, logout, deleteAccount, updateCurrency, uploadAvatar, currentRole, toggleRole } = useAuth();
   const [activeTab, setActiveTab] = useState<'about' | 'account'>('about');
   const [darkMode, setDarkMode] = useState(false);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleAvatarUpdate = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setIsUploading(true);
+        const asset = result.assets[0];
+        
+        // Prepare the image data. Using base64 for simplicity as discussed in backend logic.
+        const imageData = `data:image/jpeg;base64,${asset.base64}`;
+        
+        await uploadAvatar(imageData);
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      }
+    } catch (e: any) {
+      console.error('Avatar update failed:', e);
+      Alert.alert('Upload Failed', 'Failed to update profile picture. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const CURRENCIES = [
     { code: 'USD', name: 'US Dollar', symbol: '$' },
@@ -41,14 +81,41 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      const confirm = window.confirm('Are you sure you want to sign out?');
+      if (confirm) {
+        await logout();
+        window.location.href = '/'; 
+      }
+      return;
+    }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: async () => await logout() },
+      { text: 'Sign Out', style: 'destructive', onPress: async () => {
+        await logout();
+        router.replace('/');
+      } },
     ]);
   };
 
   const handleCloseAccount = () => {
+    if (Platform.OS === 'web') {
+      const confirmPhase1 = window.confirm('⚠️ Close Account Permanently\n\nThis action cannot be undone. You will lose all your trips, shipment history, and wallet data forever. Are you absolutely sure?');
+      if (confirmPhase1) {
+        const confirmPhase2 = window.confirm('Final Confirmation\n\nBy clicking "OK", your data will be immediately removed from our servers. You will be logged out and cannot recover this account.');
+        if (confirmPhase2) {
+          deleteAccount().then(() => {
+            window.alert('Your account has been deleted. We hope to see you again soon!');
+            router.replace('/auth/signin');
+          }).catch(() => {
+            window.alert('Failed to close account. Please contact support.');
+          });
+        }
+      }
+      return;
+    }
+
     Alert.alert(
       '⚠️ Close Account Permanently',
       'This action cannot be undone. You will lose all your trips, shipment history, and wallet data forever. Are you absolutely sure?',
@@ -105,13 +172,19 @@ export default function ProfileScreen() {
 
       <ScrollView style={styles.flex} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {activeTab === 'about' ? (
-          <AboutTab user={user} />
+          <AboutTab
+            user={user}
+            onAvatarUpdate={handleAvatarUpdate}
+            isUploading={isUploading}
+            currentRole={currentRole}
+            toggleRole={toggleRole}
+          />
         ) : (
-          <AccountTab 
-            darkMode={darkMode} 
-            setDarkMode={setDarkMode} 
-            onLogout={handleLogout} 
-            onCloseAccount={handleCloseAccount} 
+          <AccountTab
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            onLogout={handleLogout}
+            onCloseAccount={handleCloseAccount}
             onOpenCurrency={() => setShowCurrencyModal(true)}
             currentCurrency={user?.preferredCurrency || 'USD'}
           />
@@ -153,10 +226,17 @@ export default function ProfileScreen() {
   );
 }
 
-function AboutTab({ user }: any) {
+interface AboutTabProps {
+  user: any;
+  onAvatarUpdate: () => void;
+  isUploading: boolean;
+  currentRole: string;
+  toggleRole: () => void;
+}
+
+function AboutTab({ user, onAvatarUpdate, isUploading, currentRole, toggleRole }: AboutTabProps) {
   const kycStatus = user?.kycStatus || 'not_started';
   const isVerified = kycStatus === 'approved';
-  const { currentRole, toggleRole } = useAuth();
   const isCarrier = currentRole === 'carrier';
 
   return (
@@ -182,15 +262,17 @@ function AboutTab({ user }: any) {
 
       <View style={styles.profileHeader}>
         <View style={styles.avatarWrap}>
-          <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile/edit-image')}>
-            {user?.avatar ? (
-              <Image source={{ uri: user.avatar }} style={styles.avatarFull} />
+          <TouchableOpacity style={styles.avatar} onPress={onAvatarUpdate} disabled={isUploading}>
+            {isUploading ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatarFull} key={user.avatar} />
             ) : (
-              <Text style={styles.avatarInitial}>{user?.firstName?.charAt(0) || 'U'}</Text>
+              <Text style={styles.avatarInitial}>{user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}</Text>
             )}
           </TouchableOpacity>
-          <Pressable style={styles.cameraBtn} onPress={() => router.push('/profile/edit-image')}>
-            <Camera size={14} color={COLORS.white} />
+          <Pressable style={styles.cameraBtn} onPress={onAvatarUpdate} disabled={isUploading}>
+            {isUploading ? <ActivityIndicator size="small" color={COLORS.white} /> : <Camera size={14} color={COLORS.white} />}
           </Pressable>
         </View>
         <View style={styles.profileInfo}>
@@ -239,7 +321,16 @@ function AboutTab({ user }: any) {
   );
 }
 
-function AccountTab({ darkMode, setDarkMode, onLogout, onCloseAccount, onOpenCurrency, currentCurrency }: any) {
+interface AccountTabProps {
+  darkMode: boolean;
+  setDarkMode: (val: boolean) => void;
+  onLogout: () => void;
+  onCloseAccount: () => void;
+  onOpenCurrency: () => void;
+  currentCurrency: string;
+}
+
+function AccountTab({ darkMode, setDarkMode, onLogout, onCloseAccount, onOpenCurrency, currentCurrency }: AccountTabProps) {
   return (
     <View style={styles.tabContent}>
       <Text style={styles.sectionHeader}>RATINGS & ACTIVITY</Text>
@@ -293,7 +384,7 @@ function AccountTab({ darkMode, setDarkMode, onLogout, onCloseAccount, onOpenCur
   );
 }
 
-function VerificationItem({ label, checked }: any) {
+function VerificationItem({ label, checked }: { label: string; checked: boolean }) {
   return (
     <View style={styles.verificationItem}>
       <BadgeCheck size={20} color={checked ? COLORS.primary : COLORS.gray300} />
@@ -302,7 +393,7 @@ function VerificationItem({ label, checked }: any) {
   );
 }
 
-function ListItem({ icon, text }: any) {
+function ListItem({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <View style={styles.listItem}>
       {icon}
@@ -311,7 +402,15 @@ function ListItem({ icon, text }: any) {
   );
 }
 
-function MenuItem({ label, icon, isLast, onPress, rightText }: any) {
+interface MenuItemProps {
+  label: string;
+  icon: React.ReactNode;
+  isLast?: boolean;
+  onPress: () => void;
+  rightText?: string;
+}
+
+function MenuItem({ label, icon, isLast, onPress, rightText }: MenuItemProps) {
   return (
     <Pressable style={[styles.menuItem, isLast && styles.menuItemLast]} onPress={onPress}>
       <View style={styles.menuItemLeft}>

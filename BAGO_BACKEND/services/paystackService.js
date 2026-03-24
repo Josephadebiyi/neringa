@@ -237,44 +237,116 @@ export async function verifyTransfer(reference) {
   }
 }
 
+/** Paystack bank list expects country slugs in practice (see Paystack API docs). */
+const PAYSTACK_BANK_COUNTRY_SLUG = {
+  NG: 'nigeria',
+  GH: 'ghana',
+  KE: 'kenya',
+  ZA: 'south africa',
+};
+
+const PAYSTACK_BANK_COUNTRY_CURRENCY = {
+  NG: 'NGN',
+  GH: 'GHS',
+  KE: 'KES',
+  ZA: 'ZAR',
+};
+
 /**
  * Get list of supported banks
- * @param {String} country - Country code (NG, GH, ZA, KE)
+ * @param {String} country - Country code (NG, GH, ZA, KE) or Paystack slug
  * @param {String} currency - Currency code
  * @returns {Promise<Array>} - List of banks
  */
 export async function getBankList(country = 'NG', currency = 'NGN') {
   try {
     if (!PAYSTACK_SECRET_KEY) {
-      throw new Error('Paystack secret key not configured');
+      throw new Error('Paystack secret key not configured. Set PAYSTACK_SECRET in environment variables.');
     }
 
-    const response = await axios.get(
-      `${PAYSTACK_BASE_URL}/bank?country=${country}&currency=${currency}`,
-      {
+    const upper = String(country || 'NG').toUpperCase();
+    const countrySlug =
+      PAYSTACK_BANK_COUNTRY_SLUG[upper] || String(country).toLowerCase().replace(/_/g, ' ');
+
+    const curr = String(currency || '').toUpperCase();
+    const supported = ['NGN', 'GHS', 'ZAR', 'KES'];
+    const currencyParam =
+      PAYSTACK_BANK_COUNTRY_CURRENCY[upper] ||
+      (supported.includes(curr) ? curr : 'NGN');
+
+    const perPage = 100;
+    let page = 1;
+    const allBanks = [];
+
+    for (;;) {
+      const params = new URLSearchParams({
+        country: countrySlug,
+        perPage: String(perPage),
+        page: String(page),
+        currency: currencyParam,
+      });
+
+      console.log(
+        `🏦 Paystack bank list request: countrySlug=${countrySlug}, currency=${currencyParam}, page=${page}`
+      );
+
+      const response = await axios.get(`${PAYSTACK_BASE_URL}/bank?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
         },
-      }
-    );
+        timeout: 20000,
+      });
 
-    if (response.data.status) {
-      return {
-        success: true,
-        banks: response.data.data.map(bank => ({
-          id: bank.id,
-          name: bank.name,
-          code: bank.code,
-          slug: bank.slug,
-          type: bank.type,
-        })),
-      };
+      if (!response.data.status) {
+        throw new Error(response.data.message || 'Failed to fetch bank list');
+      }
+
+      const batch = response.data.data || [];
+      allBanks.push(...batch);
+
+      const meta = response.data.meta;
+      const pageCount = meta?.pageCount;
+      const hasAnotherPage =
+        typeof pageCount === 'number'
+          ? page < pageCount
+          : batch.length === perPage;
+
+      console.log(
+        `✅ Paystack bank list page ${page}: +${batch.length} banks (total so far ${allBanks.length})`
+      );
+
+      if (!hasAnotherPage || batch.length === 0) {
+        break;
+      }
+      page += 1;
+      if (page > 50) {
+        console.warn('⚠️ Paystack bank list: stopping after 50 pages');
+        break;
+      }
     }
 
-    throw new Error('Failed to fetch bank list');
+    const seen = new Set();
+    const unique = allBanks.filter((bank) => {
+      const c = String(bank.code ?? '');
+      if (!c || seen.has(c)) return false;
+      seen.add(c);
+      return true;
+    });
+
+    return {
+      success: true,
+      banks: unique.map((bank) => ({
+        id: bank.id,
+        name: bank.name,
+        code: String(bank.code),
+        slug: bank.slug,
+        type: bank.type,
+      })),
+    };
   } catch (error) {
-    console.error('❌ Paystack get banks error:', error.response?.data || error.message);
-    throw error;
+    const detail = error.response?.data?.message || error.message;
+    console.error('❌ Paystack get banks error:', detail, error.response?.data);
+    throw new Error(detail);
   }
 }
 

@@ -11,11 +11,12 @@ import {
   Truck, ArrowLeft, X, Wallet, Download, Bell,
   ArrowUpRight, ChevronLeft, ChevronRight,
   Shield, CreditCard, Camera, Heart, Gift,
-  Clock, Minus, CheckCircle, Check, Info
+  Clock, Minus, CheckCircle, Check, Info, Circle
 } from 'lucide-react-native';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+// import paymentService from '../../lib/payment'; // Reverted to dynamic to prevent crash
 import { COLORS, TYPOGRAPHY } from '../../constants/theme';
 import api from '../../lib/api';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -46,7 +47,6 @@ const HIGH_DEMAND_ROUTES = [
   }
 ];
 
-// Helper for flag emoji from ISO code
 const getFlagEmoji = (countryCode: string) => {
   if (!countryCode) return '🌍';
   const codePoints = countryCode
@@ -68,7 +68,21 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [locations, setLocations] = useState<any[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
-  const [wallet] = useState({ balance: 1240.50, pending: 0, currency: '$' });
+  const [wallet, setWallet] = useState({ balance: 0.00, pending: 0, currency: '$' });
+
+  useEffect(() => {
+    fetchWallet();
+  }, []);
+
+  const fetchWallet = async () => {
+    try {
+      const paymentService = (await import('../../lib/payment')).default;
+      const res = await paymentService.getWalletBalance();
+      setWallet({ ...wallet, balance: res.balance || 0 });
+    } catch (e) {
+      console.log('Home wallet update failed');
+    }
+  };
   const [bannerConfig, setBannerConfig] = useState<any>(null);
   const { formatCurrency } = useCurrency();
 
@@ -81,8 +95,7 @@ export default function HomeScreen() {
   const isCarrier = currentRole === 'carrier';
 
   const handleActionWithTerms = (action: () => void) => {
-    if (!user?.acceptedTerms) setShowAgreement(true);
-    else action();
+    action();
   };
 
   const fetchGlobalLocations = async (query: string) => {
@@ -118,11 +131,14 @@ export default function HomeScreen() {
   const fetchSettings = async () => {
     try {
       const response = await api.get('/api/get-settings');
-      if (response.data.success && response.data.data.banner) {
+      if (response.data?.success && response.data?.data?.banner) {
         setBannerConfig(response.data.data.banner);
       }
-    } catch (err) {
-      console.error('Failed to fetch settings:', err);
+    } catch (err: any) {
+      // Quietly ignore if the route isn't set up yet
+      if (err.response?.status !== 404) {
+        console.log('Banner settings not available yet');
+      }
     }
   };
 
@@ -167,10 +183,6 @@ export default function HomeScreen() {
           <Image source={require('../../assets/bago-logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
 
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{isCarrier ? 'Earn' : 'Send'}</Text>
-        </View>
-
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.profileBox} onPress={() => router.push('/(tabs)/profile')}>
              {user?.avatar ? <Image source={{ uri: user.avatar }} style={styles.avatar} /> : <User size={20} color={COLORS.black} />}
@@ -180,32 +192,39 @@ export default function HomeScreen() {
 
       <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>
-          <Text style={styles.welcomeMsg}>Welcome to Bago</Text>
-          <Text style={styles.heroTitle}>
-            {isCarrier ? 'Make more on\nyour next trip' : `Hello ${user?.firstName || 'User'}, what are you sending today?`}
+          <Text style={styles.welcomeMsg}>Welcome back,</Text>
+          <Text style={styles.heroTitle} numberOfLines={1} adjustsFontSizeToFit>
+            {isCarrier ? 'Make more on your next trip' : `${user?.firstName || 'User'}, where to today?`}
           </Text>
           
           {!isCarrier ? (
             <View style={styles.searchCard}>
               <View style={styles.inputStack}>
                 <Pressable style={styles.inputItem} onPress={() => { setPickingField('from'); setSearchQuery(''); setLocations([]); setShowCountryPicker(true); }}>
-                  <MapPin size={22} color={COLORS.primary} style={{marginRight: 4}} />
-                  <Text style={[styles.input, !from && { color: COLORS.gray400 }]} numberOfLines={1}>{from || "Leaving from..."}</Text>
+                  <Circle size={20} color={COLORS.gray400} strokeWidth={2.5} style={{marginRight: 16}} />
+                  <Text style={[styles.input, !from && { color: COLORS.gray400 }]} numberOfLines={1}>{from || "Leaving from"}</Text>
                 </Pressable>
+                
                 <View style={styles.inputDivider} />
-                <Pressable style={styles.inputItem} onPress={() => { setPickingField('to'); setSearchQuery(''); setLocations([]); setShowCountryPicker(true); }}>
-                  <Navigation size={22} color={COLORS.accentLemonDark} style={{marginRight: 4}} />
-                  <Text style={[styles.input, !to && { color: COLORS.gray400 }]} numberOfLines={1}>{to || "Heading to..."}</Text>
-                </Pressable>
-              </View>
-              
-              <TouchableOpacity style={styles.calendarTrigger} onPress={() => setShowCalendar(true)}>
-                 <CalendarIcon size={20} color={COLORS.gray400} />
-                 <Text style={[styles.calendarText, !date && { color: COLORS.gray400 }]}>{date || "Select Date"}</Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity style={styles.primarySearchBtn} onPress={() => router.push({ pathname: '/trips-list', params: { from, to, date } })}>
-                <Text style={styles.primarySearchBtnText}>Search Available Travelers</Text>
+                <Pressable style={styles.inputItem} onPress={() => { setPickingField('to'); setSearchQuery(''); setLocations([]); setShowCountryPicker(true); }}>
+                  <Circle size={20} color={COLORS.gray400} strokeWidth={2.5} style={{marginRight: 16}} />
+                  <Text style={[styles.input, !to && { color: COLORS.gray400 }]} numberOfLines={1}>{to || "Going to"}</Text>
+                </Pressable>
+
+                <View style={styles.inputDivider} />
+                
+                <TouchableOpacity style={styles.inputItem} onPress={() => setShowCalendar(true)}>
+                   <CalendarIcon size={20} color={COLORS.gray400} style={{marginRight: 16}} />
+                   <Text style={[styles.input, !date && { color: COLORS.gray400 }]}>{date || "Today"}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity 
+                style={styles.searchButtonCard} 
+                onPress={() => router.push({ pathname: '/trips-list', params: { from, to, date } })}
+              >
+                <Text style={styles.searchButtonCardText}>Search</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -252,7 +271,7 @@ export default function HomeScreen() {
               {MORE_SERVICES.map(service => (
                  <Pressable key={service.id} style={[styles.serviceCard, { backgroundColor: service.color }]} onPress={() => router.push(service.route as any)}>
                     <View style={styles.serviceIconCircle}>{service.icon}</View>
-                    <Text style={styles.serviceTitleText}>{service.title}</Text>
+                    <Text style={service.title === 'Group Shipping' ? [styles.serviceTitleText, {fontSize: 13}] : styles.serviceTitleText}>{service.title}</Text>
                     <Text style={styles.serviceDescText}>{service.desc}</Text>
                  </Pressable>
               ))}
@@ -268,8 +287,6 @@ export default function HomeScreen() {
                   source={{ uri: route.image }} 
                   style={styles.routeImg} 
                   resizeMode="cover"
-                  onLoad={() => console.log(`Image loaded: ${route.from}`)}
-                  onError={(e) => console.log(`Image error: ${route.from}`, e.nativeEvent.error)}
                 />
                 <View style={styles.routeOverlay}>
                    <Text style={styles.routeLabelText}>{route.from} → {route.to}</Text>
@@ -314,8 +331,11 @@ export default function HomeScreen() {
                  {renderCalendar()}
               </View>
 
-              <TouchableOpacity style={[styles.primarySearchBtn, { marginTop: 20 }]} onPress={() => setShowCalendar(false)}>
-                 <Text style={styles.primarySearchBtnText}>Confirm Date</Text>
+              <TouchableOpacity 
+                style={styles.searchButtonCard} 
+                onPress={() => setShowCalendar(false)}
+              >
+                 <Text style={styles.searchButtonCardText}>Confirm Date</Text>
               </TouchableOpacity>
            </View>
         </View>
@@ -362,16 +382,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      <Modal visible={showAgreement} animationType="fade" transparent>
-        <View style={styles.modalOverlayWide}>
-          <View style={styles.agreementCard}>
-            <ShieldCheck size={48} color={COLORS.primary} style={{ alignSelf: 'center' }} />
-            <Text style={styles.agreementTitle}>Escrow Security</Text>
-            <Text style={styles.agreementText}>Payments are held securely in Bago Escrow until the item is delivered.</Text>
-            <TouchableOpacity style={styles.agreementBtn} onPress={() => { acceptTerms(); setShowAgreement(false); }}><Text style={styles.agreementBtnText}>Accept & Continue</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -388,69 +399,47 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white, 
     borderBottomWidth: 1, 
     borderBottomColor: COLORS.gray100,
-    gap: 4
   },
-  headerLeft: { 
-    flex: 1,
-    minWidth: 80,
-  },
-  headerCenter: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.black,
-  },
-  headerRight: { 
-    flex: 1,
-    minWidth: 40,
-    alignItems: 'flex-end' 
-  },
-  headerModeBtn: { 
-    flex: 1,
-    paddingVertical: 6, 
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerModeBtnActive: { 
-    backgroundColor: COLORS.white, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 1 }, 
-    shadowOpacity: 0.1, 
-    shadowRadius: 2, 
-    elevation: 2 
-  },
-  headerModeLabel: { 
-    fontSize: 12, 
-    fontWeight: '800', 
-    color: COLORS.gray500 
-  },
-  headerModeLabelActive: { 
-    color: COLORS.primary 
-  },
+  headerLeft: { flex: 1 },
+  headerRight: { flex: 1, alignItems: 'flex-end' },
   logo: { width: 90, height: 32 },
   profileBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.bgSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatar: { width: '100%', height: '100%' },
 
   heroSection: { padding: 20, paddingTop: 10 },
-  welcomeMsg: { fontSize: 12, color: COLORS.gray500, fontWeight: '500', marginBottom: 4, letterSpacing: 0.5 },
-  heroTitle: { fontSize: 20, fontWeight: '600', color: COLORS.black, lineHeight: 28, letterSpacing: -0.4 },
+  welcomeMsg: { fontSize: 13, color: COLORS.gray500, fontWeight: '600', marginBottom: 4 },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: COLORS.black, lineHeight: 30, letterSpacing: -0.5 },
   
-  searchCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 4, marginTop: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 15, elevation: 10, borderWidth: 1, borderColor: COLORS.gray100 },
-  inputStack: { paddingHorizontal: 16, paddingVertical: 8 },
-  inputItem: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 50 },
-  input: { flex: 1, fontSize: 17, fontWeight: '700', color: COLORS.black },
-  inputDivider: { height: 1, backgroundColor: COLORS.gray100, marginVertical: 4, marginLeft: 34 },
+  // BlaBlaCar Style Search Card (Light Version)
+  searchCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 24, 
+    marginTop: 24, 
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.gray100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  inputStack: { 
+    paddingHorizontal: 20, 
+    paddingTop: 10,
+    paddingBottom: 10 
+  },
+  inputItem: { flexDirection: 'row', alignItems: 'center', height: 60 },
+  input: { flex: 1, fontSize: 16, fontWeight: '700', color: COLORS.black },
+  inputDivider: { height: 1, backgroundColor: COLORS.gray100, marginHorizontal: -20 },
   
-  calendarTrigger: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, marginTop: 12, borderTopWidth: 1, borderTopColor: COLORS.bgSoft },
-  calendarText: { fontSize: 15, fontWeight: '700', color: COLORS.black },
-
-  primarySearchBtn: { backgroundColor: COLORS.primary, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
-  primarySearchBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
+  searchButtonCard: { 
+    backgroundColor: COLORS.primary, 
+    height: 60, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  searchButtonCardText: { color: COLORS.white, fontSize: 18, fontWeight: '800' },
 
   walletCardHero: { backgroundColor: COLORS.black, borderRadius: 28, padding: 24 },
   walletHeaderHero: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },

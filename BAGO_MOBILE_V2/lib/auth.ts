@@ -32,6 +32,12 @@ export interface User {
   phone?: string;
   avatar?: string;
   country?: string;
+  paystackRecipientCode?: string;
+  bankDetails?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolderName: string;
+  };
   isVerified: boolean;
   kycStatus?: 'not_started' | 'pending' | 'approved' | 'declined' | 'failed_verification' | 'blocked_duplicate';
   preferredCurrency?: string;
@@ -102,8 +108,10 @@ class AuthService {
   async logout(): Promise<void> {
     try {
       await api.post(API_ENDPOINTS.LOGOUT);
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.warn('Logout warning:', error.message);
+      }
     } finally {
       await api.clearTokens();
     }
@@ -129,8 +137,8 @@ class AuthService {
    * Upload user avatar
    */
   async uploadAvatar(file: any, onProgress?: (progress: number) => void): Promise<string> {
-    const response = await api.uploadFile(API_ENDPOINTS.UPLOAD_AVATAR, file, onProgress);
-    return response.data.avatarUrl;
+    const response = await api.uploadFile(API_ENDPOINTS.UPLOAD_AVATAR, file, 'image', onProgress);
+    return response.data.avatarUrl || response.data.image;
   }
 
   /**
@@ -155,8 +163,8 @@ class AuthService {
   /**
    * Google Sign In
    */
-  async googleSignIn(idToken: string): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>(API_ENDPOINTS.GOOGLE_AUTH, { idToken });
+  async googleSignIn(data: { idToken?: string; accessToken?: string }): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.GOOGLE_AUTH, data);
 
     if (response.data.token) {
       await api.setToken(response.data.token);
@@ -233,6 +241,16 @@ class AuthService {
   async updateCurrency(currency: string): Promise<User> {
     const response = await api.put<{ user: User }>(API_ENDPOINTS.UPDATE_CURRENCY, { currency });
     return response.data.user;
+  }
+
+  async requestEmailChange(newEmail: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(API_ENDPOINTS.REQUEST_EMAIL_CHANGE, { newEmail });
+    return response.data;
+  }
+
+  async verifyEmailChange(otp: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(API_ENDPOINTS.VERIFY_EMAIL_CHANGE, { otp });
+    return response.data;
   }
 }
 

@@ -171,6 +171,7 @@ import {
   initializePaystackPayment,
   verifyPaystackPayment,
   addBankAccount,
+  verifyBankOTP,
   withdrawFundsPaystack,
   getPaystackBanks,
   resolvePaystackAccount,
@@ -222,6 +223,7 @@ app.post('/api/currency/quote', getPaymentQuote);
 app.post('/api/paystack/initialize', isAuthenticated, initializePaystackPayment);
 app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
 app.post('/api/paystack/add-bank', isAuthenticated, addBankAccount);
+app.post('/api/paystack/verify-bank-otp', isAuthenticated, verifyBankOTP);
 app.post('/api/paystack/withdraw', isAuthenticated, withdrawFundsPaystack);
 app.get('/api/paystack/banks', getPaystackBanks);
 app.get('/api/paystack/resolve', resolvePaystackAccount);
@@ -788,20 +790,8 @@ app.get("/banks", async (req, res) => {
   }
 });
 
-// alias route matching frontend if your frontend uses /api/paystack/banks
-app.get("/api/paystack/banks", async (req, res) => {
-  // console.log('[api/paystack/banks] incoming request');
-  try {
-    const resp = await fetch("https://api.paystack.co/bank?currency=NGN", { method: "GET", headers });
-    const text = await resp.text();
-    // console.log('[api/paystack/banks] paystack raw response status:', resp.status, 'body:', text);
-    const data = JSON.parse(text);
-    return res.json(data);
-  } catch (err) {
-    console.error('[api/paystack/banks] error:', err);
-    res.status(500).json({ status: false, message: err.message });
-  }
-});
+// NOTE: /api/paystack/banks is registered earlier with getPaystackBanks (correct { success, banks } shape).
+// Do not register a duplicate here — it returned raw Paystack JSON and broke clients expecting res.data.banks.
 
 // -----------------------------
 // 2️⃣  CREATE RECIPIENT

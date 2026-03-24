@@ -14,6 +14,11 @@ export default function PayoutMethodsScreen() {
   const { formatCurrency, currencySymbol } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [payouts, setPayouts] = useState<any[]>([]);
+  useEffect(() => {
+    // We could still fetch data if needed for other parts, but balance is no longer shown here
+  }, []);
+
+
 
   const handleBack = () => {
     if (router.canGoBack()) router.back();
@@ -25,7 +30,7 @@ export default function PayoutMethodsScreen() {
     setLoading(true);
     try {
       const response = await api.post('/api/stripe/connect/onboard', {
-        userId: user.id,
+        userId: user.id || (user as any)._id,
         email: user.email
       });
       if (response.data.success && response.data.url) {
@@ -42,12 +47,16 @@ export default function PayoutMethodsScreen() {
     }
   };
 
+  const AFRICAN_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR', 'TZS', 'UGX', 'RWF', 'EGP', 'MAD'];
+
+  const isAfricanCurrency = user?.preferredCurrency && AFRICAN_CURRENCIES.includes(user.preferredCurrency);
+
   const handlePaystackPayout = () => {
-    if (user?.preferredCurrency !== 'NGN' && user?.preferredCurrency !== 'GHS') {
-      Alert.alert('Currency mismatch', 'Paystack payouts are only available if your wallet currency is Naira (NGN) or Cedis (GHS).');
+    if (!isAfricanCurrency) {
+      Alert.alert('Currency mismatch', 'Paystack payouts are only available for African currencies.');
       return;
     }
-    Alert.alert('Paystack Payout', 'Please provide your bank details to set up Naira payouts.', [
+    Alert.alert('Paystack Payout', 'Link your local bank account to receive payouts via Paystack.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Add Bank', onPress: () => router.push('/profile/add-bank') }
     ]);
@@ -64,18 +73,7 @@ export default function PayoutMethodsScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={styles.heroCard}>
-          <View style={styles.heroContent}>
-            <Text style={styles.balanceLabel}>Available for Payout</Text>
-            <Text style={styles.balanceAmount}>{formatCurrency(244.00)}</Text>
-            <TouchableOpacity style={styles.withdrawBtn} activeOpacity={0.8}>
-              <Text style={styles.withdrawText}>Withdraw Now</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.heroIconBox}>
-             <Wallet size={40} color={COLORS.white} opacity={0.2} />
-          </View>
-        </View>
+
 
         <Text style={styles.sectionTitle}>YOUR CONNECTED ACCOUNTS</Text>
         
@@ -110,43 +108,44 @@ export default function PayoutMethodsScreen() {
         <View style={styles.gatewaySection}>
           <Text style={styles.sectionTitle}>PAYOUT GATEWAYS</Text>
           <View style={styles.gatewayGrid}>
-            <TouchableOpacity 
-              style={styles.gatewayItem} 
-              activeOpacity={0.8}
-              onPress={handleStripeConnect}
-              disabled={loading}
-            >
-              <View style={[styles.gatewayIconBg, { backgroundColor: '#F0F9FF' }]}>
-                <Image source={{ uri: 'https://cdn.brandfolder.io/5H442S3W/at/pge7x75p3jch3hxt62kqmj/Stripe_Logomark_-_Blue.png' }} style={styles.gatewayIcon} />
-              </View>
-              <View style={styles.gatewayText}>
-                <Text style={styles.gatewayLabel}>Stripe Connect</Text>
-                <Text style={styles.gatewayDesc}>For international payouts in USD, EUR, GBP</Text>
-              </View>
-              {loading ? <ActivityIndicator size="small" color={COLORS.primary} /> : <ChevronRight size={18} color={COLORS.gray300} />}
-            </TouchableOpacity>
+            {!isAfricanCurrency && (
+              <TouchableOpacity 
+                style={styles.gatewayItem} 
+                activeOpacity={0.8}
+                onPress={handleStripeConnect}
+                disabled={loading}
+              >
+                <View style={[styles.gatewayIconBg, { backgroundColor: '#F0F9FF' }]}>
+                  <Image source={{ uri: 'https://cdn.brandfolder.io/5H442S3W/at/pge7x75p3jch3hxt62kqmj/Stripe_Logomark_-_Blue.png' }} style={styles.gatewayIcon} />
+                </View>
+                <View style={styles.gatewayText}>
+                  <Text style={styles.gatewayLabel}>Stripe Connect</Text>
+                  <Text style={styles.gatewayDesc}>International payouts in USD, EUR, etc.</Text>
+                </View>
+                {loading ? <ActivityIndicator size="small" color={COLORS.primary} /> : <ChevronRight size={18} color={COLORS.gray300} />}
+              </TouchableOpacity>
+            )}
             
-            <TouchableOpacity 
-              style={styles.gatewayItem} 
-              activeOpacity={0.8}
-              onPress={handlePaystackPayout}
-            >
-              <View style={[styles.gatewayIconBg, { backgroundColor: '#F0FDF4' }]}>
-                <CreditCard size={20} color={COLORS.success} />
-              </View>
-              <View style={styles.gatewayText}>
-                <Text style={styles.gatewayLabel}>Paystack Payouts</Text>
-                <Text style={styles.gatewayDesc}>Best for payouts in NGN and local Africa currencies</Text>
-              </View>
-              <ChevronRight size={18} color={COLORS.gray300} />
-            </TouchableOpacity>
+            {isAfricanCurrency && (
+              <TouchableOpacity 
+                style={styles.gatewayItem} 
+                activeOpacity={0.8}
+                onPress={handlePaystackPayout}
+              >
+                <View style={[styles.gatewayIconBg, { backgroundColor: '#F0FDF4' }]}>
+                  <CreditCard size={20} color={COLORS.success} />
+                </View>
+                <View style={styles.gatewayText}>
+                  <Text style={styles.gatewayLabel}>Paystack Payouts</Text>
+                  <Text style={styles.gatewayDesc}>Payouts for NGN and African currencies</Text>
+                </View>
+                <ChevronRight size={18} color={COLORS.gray300} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        <View style={styles.infoBox}>
-          <ShieldCheck size={20} color={COLORS.primary} />
-          <Text style={styles.infoText}>Payouts are secured by Bago Escrow. Funds are typically released within 48 hours of shipment delivery.</Text>
-        </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -173,22 +172,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '800', color: COLORS.black },
   content: { padding: 24 },
-  heroCard: { 
-    backgroundColor: COLORS.black, 
-    borderRadius: 32, 
-    padding: 24, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    marginBottom: 40,
-    overflow: 'hidden'
-  },
-  heroContent: { flex: 1, zIndex: 1 },
-  heroIconBox: { position: 'absolute', right: -10, bottom: -10, opacity: 0.5 },
-  balanceLabel: { fontSize: 13, color: COLORS.gray400, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  balanceAmount: { fontSize: 34, fontWeight: '900', color: COLORS.white, marginVertical: 8 },
-  withdrawBtn: { backgroundColor: COLORS.white, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 14, alignSelf: 'flex-start', marginTop: 8 },
-  withdrawText: { fontSize: 14, fontWeight: '800', color: COLORS.black },
   sectionTitle: { fontSize: 11, fontWeight: '800', color: COLORS.gray400, letterSpacing: 1, marginBottom: 16, marginTop: 10, textTransform: 'uppercase' },
   payoutCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgSoft, borderRadius: 24, padding: 20, marginBottom: 16, gap: 16, borderWidth: 1, borderColor: COLORS.gray100 },
   payoutIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },

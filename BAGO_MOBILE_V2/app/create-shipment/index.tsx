@@ -4,10 +4,13 @@ import { router } from 'expo-router';
 import { 
   ChevronLeft, Package, Sparkles, FileText, Shirt, Smartphone, Book, 
   Pill, Dumbbell, Home, Boxes, Plus, X, Camera, MapPin, Calendar, 
-  ShieldCheck, ArrowRight, Info, AlertTriangle, Gem, Thermometer 
+  ShieldCheck, ArrowRight, Info, AlertTriangle 
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import packageService from '../../lib/packages';
+import * as ImagePicker from 'expo-image-picker';
+import { ActivityIndicator } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -46,6 +49,28 @@ const SIZES = [
 ];
 
 export default function CreateShipmentScreen() {
+  const [error, setError] = useState<string | null>(null);
+
+  if (error) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#FFFFFF' }}>
+        <AlertTriangle size={48} color="#EF4444" style={{ marginBottom: 20 }} />
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 12 }}>Something went wrong</Text>
+        <Text style={{ textAlign: 'center', color: '#4B5563', lineHeight: 22, marginBottom: 32 }}>{error}</Text>
+        <TouchableOpacity 
+          style={{ backgroundColor: '#5845D8', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16 }} 
+          onPress={() => setError(null)}
+        >
+           <Text style={{ color: 'white', fontWeight: '700' }}>Try Again</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  return <CreateShipmentContent onError={(msg: string) => setError(msg)} />;
+}
+
+function CreateShipmentContent({ onError }: { onError: (msg: string) => void }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     category: '',
@@ -56,15 +81,22 @@ export default function CreateShipmentScreen() {
     from: '',
     to: '',
     date: 'Today',
-    photos: [],
+    photos: [] as string[],
+    receiverName: '',
+    receiverPhone: '',
+    receiverEmail: '',
   });
 
   const [showAgreement, setShowAgreement] = useState(false);
-  const { user, acceptTerms } = useAuth();
+  const auth = useAuth();
+  const { user, acceptTerms } = auth || { user: null, acceptTerms: async () => {} };
 
   const nextStep = () => {
     if (step === 1 && !formData.category) return Alert.alert('Error', 'Please select a category');
     if (step === 2 && !formData.size) return Alert.alert('Error', 'Please select a size');
+    if (step === 3 && formData.photos.length < 3) return Alert.alert('Error', 'Please provide at least 3 photos (Overview, Label, and Sealed Package)');
+    if (step === 4 && (!formData.from || !formData.to)) return Alert.alert('Error', 'Please provide both pick-up and delivery addresses');
+    if (step === 4 && (!formData.receiverName || !formData.receiverPhone)) return Alert.alert('Error', 'Please provide receiver name and phone number');
     if (step < 5) setStep(step + 1);
   };
 
@@ -81,8 +113,49 @@ export default function CreateShipmentScreen() {
     }
   };
 
-  const handleFinish = () => {
-    router.replace('/(tabs)/packages');
+  const [loading, setLoading] = useState(false);
+
+  const handleFinish = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      if (!formData.from || !formData.to) {
+        throw new Error('Pick-up and delivery addresses are required.');
+      }
+
+      const fromParts = formData.from.split(', ');
+      const fromCity = fromParts[0] || formData.from;
+      const fromCountry = fromParts[1] || 'Nigeria';
+
+      const toParts = formData.to.split(', ');
+      const toCity = toParts[0] || formData.to;
+      const toCountry = toParts[1] || 'United Kingdom';
+
+      await packageService.createPackage({
+        title: `${formData.category || 'Package'} Shipping`,
+        description: formData.description || `Sending ${formData.category || 'package'} from ${fromCity} up to ${formData.weight}kg`,
+        weight: formData.weight,
+        packageWeight: formData.weight,
+        category: formData.category || 'other',
+        value: parseFloat(formData.declaredValue) || 10,
+        fromCity,
+        fromCountry,
+        toCity,
+        toCountry,
+        receiverName: formData.receiverName,
+        receiverPhone: formData.receiverPhone,
+        receiverEmail: formData.receiverEmail,
+        images: formData.photos
+      } as any);
+
+      Alert.alert('Success', 'Your shipment request has been posted!');
+      router.replace('/(tabs)/shipments');
+    } catch (e: any) {
+      console.error('Shipment creation failed:', e);
+      Alert.alert('Post Failed', e.message || 'There was an error creating your shipment');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderStep = () => {
@@ -120,9 +193,9 @@ export default function CreateShipmentScreen() {
           onPress={step === 5 ? handleFinishAttempt : nextStep}
         >
           <Text style={styles.nextButtonText}>
-            {step === 5 ? 'Confirm & Post' : 'Continue'}
+            {loading ? 'Posting...' : step === 5 ? 'Confirm & Post' : 'Continue'}
           </Text>
-          <ArrowRight size={20} color={COLORS.white} />
+          {loading ? <ActivityIndicator color={COLORS.white} /> : <ArrowRight size={20} color={COLORS.white} />}
         </TouchableOpacity>
       </View>
 
@@ -141,7 +214,7 @@ export default function CreateShipmentScreen() {
             <View style={styles.agreementContent}>
               <Text style={styles.legalSectionTitle}>1. Bago Escrow Security</Text>
               <Text style={styles.legalText}>
-                Payments are held securely in Bago Escrow until the item is delivered. Bago protects your payments. Funds are only released to the traveler once you confirm delivery of the item. This ensures that you get what you paid for and the traveler is compensated for their service fairly.
+                Bago protects your payments. Funds are only released to the traveler once you confirm delivery of the item. This ensures that you get what you paid for and the traveler is compensated for their service fairly.
               </Text>
               
               <Text style={styles.legalSectionTitle}>2. Insurance & Protection</Text>
@@ -273,16 +346,22 @@ function Step2({ formData, setFormData }: any) {
 }
 
 function Step3({ formData, setFormData }: any) {
+  const handlePhotoUpdate = (index: number, uri: string) => {
+    const newPhotos = [...formData.photos];
+    newPhotos[index] = uri;
+    setFormData({ ...formData, photos: newPhotos });
+  };
+
   return (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Package Photos</Text>
       <Text style={styles.stepSubtitle}>Take clear photos for shipment protection</Text>
       
       <View style={styles.photoGrid}>
-        <PhotoSlot label="Overview" required />
-        <PhotoSlot label="Label/Address" required />
-        <PhotoSlot label="Contents" optional />
-        <PhotoSlot label="Sealed Package" required />
+        <PhotoSlot label="Overview" required photo={formData.photos[0]} onPhoto={(uri: string) => handlePhotoUpdate(0, uri)} />
+        <PhotoSlot label="Label/Address" required photo={formData.photos[1]} onPhoto={(uri: string) => handlePhotoUpdate(1, uri)} />
+        <PhotoSlot label="Contents" optional photo={formData.photos[2]} onPhoto={(uri: string) => handlePhotoUpdate(2, uri)} />
+        <PhotoSlot label="Sealed Package" required photo={formData.photos[3]} onPhoto={(uri: string) => handlePhotoUpdate(3, uri)} />
       </View>
 
       <View style={styles.instructionCard}>
@@ -334,6 +413,29 @@ function Step4({ formData, setFormData }: any) {
           <Text style={styles.input}>{formData.date}</Text>
         </View>
       </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Receiver Full Name *</Text>
+        <TextInput 
+          style={styles.inputClean} 
+          placeholder="Who is receiving this?" 
+          value={formData.receiverName}
+          onChangeText={(v) => setFormData({...formData, receiverName: v})}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Receiver Phone Number *</Text>
+        <TextInput 
+          style={styles.inputClean} 
+          placeholder="+234..." 
+          keyboardType="phone-pad"
+          value={formData.receiverPhone}
+          onChangeText={(v) => setFormData({...formData, receiverPhone: v})}
+        />
+      </View>
     </View>
   );
 }
@@ -364,15 +466,42 @@ function Step5({ formData }: any) {
   );
 }
 
-function PhotoSlot({ label, required, optional }: any) {
+function PhotoSlot({ label, required, optional, photo, onPhoto }: any) {
+  const [isPicking, setIsPicking] = useState(false);
+
+  const handlePick = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+        base64: true
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        onPhoto(uri);
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Could not open image picker');
+    }
+  };
+
   return (
-    <Pressable style={styles.photoSlot}>
-      <View style={styles.cameraIconBg}>
-        <Camera size={24} color={COLORS.gray400} />
-      </View>
-      <Text style={styles.photoLabel}>{label}</Text>
-      {required && <Text style={styles.requiredBadge}>Required</Text>}
-      {optional && <Text style={styles.optionalBadge}>Optional</Text>}
+    <Pressable style={[styles.photoSlot, photo && { borderStyle: 'solid', borderColor: COLORS.primary }]} onPress={handlePick}>
+      {photo ? (
+        <Image source={{ uri: photo }} style={styles.slotImage} />
+      ) : (
+        <>
+          <View style={styles.cameraIconBg}>
+            <Camera size={24} color={COLORS.gray400} />
+          </View>
+          <Text style={styles.photoLabel}>{label}</Text>
+          {required && <Text style={styles.requiredBadge}>Required</Text>}
+          {optional && <Text style={styles.optionalBadge}>Optional</Text>}
+        </>
+      )}
     </Pressable>
   );
 }
@@ -603,6 +732,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
+    overflow: 'hidden',
+  },
+  slotImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
   },
   cameraIconBg: {
     width: 50,
@@ -661,6 +796,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    fontSize: 16,
+    color: COLORS.gray900,
+  },
+  inputClean: {
+    backgroundColor: COLORS.bg,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 60,
     fontSize: 16,
     color: COLORS.gray900,
   },

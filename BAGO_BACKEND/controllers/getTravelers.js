@@ -35,7 +35,12 @@ export const getTravelers = async (req, res, next) => {
     }
 
     if (gettravelers.length === 0) {
-      return res.status(404).json({ message: "There is no traveler available yet" });
+      return res.status(200).json({
+        message: "No travelers found",
+        data: { findUsers: [], gettravelers: [] },
+        success: true,
+        error: false,
+      });
     }
 
     // ✅ Collect all unique user IDs from trips

@@ -1,12 +1,13 @@
 import express from 'express';
-import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, editCurrency, getUserStats, savePushToken, deleteAccount } from '../controllers/userController.js';
+import { edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, editCurrency, getUserStats, savePushToken, deleteAccount, requestEmailChange, verifyEmailChange } from '../controllers/userController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
+import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
-import { createPackage } from '../controllers/PackageController.js';
+import { createPackage, deletePackage } from '../controllers/PackageController.js';
 import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails } from '../controllers/RequestController.js';
 import { recentOrder } from '../controllers/getRecentRequest.js';
 import { getConversations, getMessages, sendMessage, deleteConversation } from '../controllers/MessageController.js';
@@ -74,6 +75,7 @@ userRouter.put("/request/:requestId/payment", updatePaymentStatus);
 
 // userRouter.get("/getWalletBalance", isAuthenticated,  getWalletBalance)
 userRouter.post("/createPackage", isAuthenticated, createPackage)
+userRouter.delete("/package/:id", isAuthenticated, deletePackage)
 userRouter.post("/RequestPackage", isAuthenticated, RequestPackage)
 userRouter.get("/recentOrder", isAuthenticated, recentOrder)
 userRouter.get("/getRequests/:tripId", isAuthenticated, getRequests)
@@ -112,6 +114,16 @@ userRouter.get('/user-stats', getUserStats);
 userRouter.put('/edit-currency', isAuthenticated, editCurrency);
 userRouter.post('/push-token', isAuthenticated, savePushToken);
 userRouter.delete('/user/delete', isAuthenticated, deleteAccount);
+userRouter.post('/user/request-email-change', isAuthenticated, requestEmailChange);
+userRouter.post('/user/verify-email-change', isAuthenticated, verifyEmailChange);
+
+// 💳 Paystack Routes
+userRouter.get('/paystack/banks', isAuthenticated, getPaystackBanks);
+userRouter.get('/paystack/resolve', isAuthenticated, resolvePaystackAccount);
+userRouter.post('/paystack/initialize', isAuthenticated, initializePaystackPayment);
+userRouter.get('/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
+userRouter.post('/paystack/add-bank', isAuthenticated, addBankAccount);
+userRouter.post('/paystack/verify-bank-otp', isAuthenticated, verifyBankOTP);
 
 // 🌍 Public Routes (No Auth)
 userRouter.get('/public/track/:trackingNumber', getPublicTrackingByNumber);

@@ -1656,7 +1656,7 @@ export const deleteAccount = async (req, res, next) => {
     // Delete associated Trips
     const Trip = mongoose.model('Trip');
     if (Trip) {
-      await Trip.deleteMany({ coachId: userId }); // Assuming coachId/userId is the owner
+      await Trip.deleteMany({ user: userId });
     }
 
     // Delete associated Requests

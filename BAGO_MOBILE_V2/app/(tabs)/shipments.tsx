@@ -19,13 +19,8 @@ interface BagoActivity {
   bookings?: number;
 }
 
-const MOCK_SHIPMENTS: BagoActivity[] = [
-  { id: '1', type: 'Package', from: 'Madrid', to: 'Lisbon', status: 'In Transit', date: 'Oct 24, 2023', tracking: '#TKP01-EUFD24C' },
-];
-
-const MOCK_TRIPS: BagoActivity[] = [
-  { id: 'T1', type: 'Trip', from: 'Paris', to: 'London', status: 'Scheduled', date: 'Oct 28, 2023', bookings: 2 },
-];
+const MOCK_SHIPMENTS: BagoActivity[] = [];
+const MOCK_TRIPS: BagoActivity[] = [];
 
 export default function ShipmentsScreen() {
   const { currentRole } = useAuth();
@@ -114,7 +109,14 @@ export default function ShipmentsScreen() {
             </Text>
             <Pressable 
               style={styles.emptyCta} 
-              onPress={() => router.push(currentRole === 'sender' ? '/create-shipment' : '/post-trip')}
+              onPress={() => {
+                try {
+                  router.push(currentRole === 'sender' ? '/create-shipment' : '/post-trip');
+                } catch (err) {
+                  console.error('Navigation error:', err);
+                  Alert.alert('Navigation Error', 'Could not open the shipment form. Please try again.');
+                }
+              }}
             >
               <Text style={styles.emptyCtaText}>Start {currentRole === 'sender' ? 'Shipping' : 'Traveling'}</Text>
             </Pressable>

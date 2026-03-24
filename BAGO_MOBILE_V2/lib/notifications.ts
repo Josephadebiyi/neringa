@@ -33,8 +33,13 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
     let finalStatus = existingStatus;
 
     if (finalStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
       console.log('Permission for push notifications was denied');
-      return;
+      return undefined;
     }
 
     try {
@@ -45,7 +50,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
       console.error('Error getting push token:', error);
     }
   } else {
-    alert('Must use physical device for Push Notifications');
+    console.log('Must use physical device for Push Notifications');
   }
 
   return token;

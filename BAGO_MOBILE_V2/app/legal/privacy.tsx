@@ -74,7 +74,7 @@ export default function PrivacyScreen() {
         </Section>
 
         <Section title="10. Contact Us">
-          For any data protection inquiries, please contact our Data Protection Officer (DPO) at support@bago.app.
+          For any data protection inquiries, please contact our Data Protection Officer (DPO) at help@sendwithbago.com.
         </Section>
 
         <View style={{ height: 60 }} />

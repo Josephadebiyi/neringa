@@ -36,21 +36,21 @@ export interface CreatePackageData {
   title: string;
   description: string;
   weight: number;
-  dimensions?: {
-    length: number;
-    width: number;
-    height: number;
-  };
+  packageWeight?: number; // Backend uses this
   category: string;
   value: number;
   fromCountry: string;
   fromCity: string;
   toCountry: string;
   toCity: string;
-  pickupAddress: string;
-  deliveryAddress: string;
+  receiverName: string;
+  receiverPhone: string;
+  receiverEmail?: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
   pickupDate?: string;
   images?: any[];
+  image?: any;
   insurance?: boolean;
 }
 

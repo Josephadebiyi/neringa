@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, StyleSheet, TextInput, Dimensions, TouchableOpacity, Alert, Platform, Modal, Animated, KeyboardAvoidingView } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, TextInput, Dimensions, TouchableOpacity, Alert, Platform, Modal, Animated, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
 import { AppText as Text } from '../../components/common/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -12,6 +12,7 @@ import { useState, useEffect, useRef } from 'react';
 import tripService from '../../lib/trips';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS } from '../../constants/theme';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,39 +27,118 @@ export default function PostTripScreen() {
   const [formData, setFormData] = useState({
     from: '',
     to: '',
-    date: 'Oct 24, 2023',
-    time: '08:00 AM',
-    capacity: 3, 
+    date: '',
+    time: '',
+    capacity: 1, 
     pricePerKg: '',
     ticketPhoto: null as string | null,
   });
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  
+  const [timeHour, setTimeHour] = useState('08');
+  const [timeMinute, setTimeMinute] = useState('00');
+  const [timePeriod, setTimePeriod] = useState('AM');
+
+  const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
+
+  const handlePrevMonth = () => setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const handleNextMonth = () => setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+
+  const renderCalendarGrid = () => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    const firstDay = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1);
+    const startingDayOfWeek = firstDay.getDay(); 
+    const daysInMonth = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1, 0).getDate();
+
+    const days = [];
+    for (let i = 0; i < startingDayOfWeek; i++) {
+       days.push(<View key={`empty-${i}`} style={{ width: '13%', aspectRatio: 1 }} />);
+    }
+
+    for (let i = 1; i <= daysInMonth; i++) {
+       const cellDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), i);
+       const isPastDay = cellDate < today;
+       const cellDateStr = cellDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+       const isSelected = formData.date === cellDateStr;
+       
+       days.push(
+         <TouchableOpacity 
+           key={`day-${i}`} 
+           disabled={isPastDay}
+           style={[styles.calDayBtn, isSelected && styles.calDayBtnActive, isPastDay && { opacity: 0.3 }]}
+           onPress={() => { setFormData({...formData, date: cellDateStr}); setShowCalendar(false); }}
+         >
+            <Text style={[styles.calDayText, isSelected && styles.calDayTextActive, isPastDay && { color: COLORS.gray300 }]}>{i}</Text>
+         </TouchableOpacity>
+       );
+    }
+    return days;
+  };
 
   useEffect(() => {
-    if (user?.isVerified) setKycPassed(true);
+    const isKycVerified = user?.isVerified || user?.kycStatus === 'approved';
+    setKycPassed(!!isKycVerified);
     if (user?.acceptedTerms) setTermsAccepted(true);
 
-    if (editId) {
-      setFormData({
-        ...formData,
-        from: 'London, UK',
-        to: 'Lagos, NG',
-        pricePerKg: '25',
-      });
-      setStep(1); 
-    } else if (user?.isVerified && user?.acceptedTerms) {
-      // If already verified and terms accepted, skip compliance step
+    // Skip compliance step entirely if both KYC verified and terms already accepted
+    if (isKycVerified && user?.acceptedTerms) {
       setStep(1);
+      return;
     }
-  }, [editId]);
+
+    if (editId) {
+       (async () => {
+         try {
+            setLoading(true);
+            const tripinfo = await tripService.getTripById(editId as string);
+            const d = new Date(tripinfo.departureDate);
+            
+            // Extract time components properly
+            let hours = d.getHours();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+            const mins = d.getMinutes();
+            
+            const hourStr = hours.toString().padStart(2, '0');
+            const minStr = mins.toString().padStart(2, '0');
+            
+            setTimeHour(hourStr);
+            setTimeMinute(minStr);
+            setTimePeriod(ampm);
+            
+            setFormData({
+              ...formData,
+              from: `${tripinfo.fromLocation}${tripinfo.fromCountry ? ', ' + tripinfo.fromCountry : ''}`,
+              to: `${tripinfo.toLocation}${tripinfo.toCountry ? ', ' + tripinfo.toCountry : ''}`,
+              date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              time: `${hourStr}:${minStr} ${ampm}`,
+              capacity: tripinfo.availableKg,
+              pricePerKg: String(tripinfo.pricePerKg),
+            });
+            setStep(1); 
+         } catch (e: any) {
+            if (!String(e).includes('token')) {
+              console.warn('Failed to load existing trip data', e);
+              Alert.alert('Error', 'Failed to load trip data. Please try again.');
+            }
+         } finally {
+            setLoading(false);
+         }
+       })();
+    }
+  }, [editId, user?.isVerified, user?.kycStatus, user?.acceptedTerms]);
 
   const { acceptTerms } = useAuth();
 
   const nextStep = async () => {
     if (step === 0) {
-      if (!kycPassed || !termsAccepted) return Alert.alert('Error', 'Please complete KYC and accept terms');
+      if (!termsAccepted) return Alert.alert('Required', 'Please accept the community guidelines and terms to continue.');
+      if (!kycPassed) return Alert.alert('Verification Required', 'Please complete identity verification (KYC) before posting a trip.');
       if (!user?.acceptedTerms) {
         try {
           setLoading(true);
@@ -72,6 +152,8 @@ export default function PostTripScreen() {
     }
     if (step === 1 && !formData.from) return Alert.alert('Error', 'Select departure city');
     if (step === 2 && !formData.to) return Alert.alert('Error', 'Select destination city');
+    if (step === 3 && !formData.date) return Alert.alert('Error', 'Select travel date');
+    if (step === 4 && !formData.time) return Alert.alert('Error', 'Select departure time');
     if (step === 6 && !formData.pricePerKg) return Alert.alert('Error', 'Enter price per kg');
     
     if (step < 8) setStep(step + 1);
@@ -79,12 +161,14 @@ export default function PostTripScreen() {
   };
 
   const prevStep = () => {
-    if (editId && step === 1) {
-      router.back();
+    const termsAlreadyAccepted = user?.acceptedTerms;
+    if (step <= 1 && termsAlreadyAccepted) {
+      // Terms already accepted — back goes to dashboard, not compliance screen
+      router.replace('/(tabs)');
     } else if (step > 0) {
       setStep(step - 1);
     } else {
-      router.back();
+      router.replace('/(tabs)');
     }
   };
 
@@ -107,7 +191,8 @@ export default function PostTripScreen() {
         pricePerKg: parseFloat(formData.pricePerKg) || 0,
         currency: 'USD', 
         travelMeans: 'Flight',
-        landmark: 'Bago Pick-up Point'
+        landmark: 'Bago Pick-up Point',
+        travelDocument: formData.ticketPhoto
       };
 
       if (editId) {
@@ -165,7 +250,7 @@ export default function PostTripScreen() {
       {!showSuccess && (
         <View style={styles.footer}>
           <TouchableOpacity 
-            style={[styles.primaryBtn, (loading || (step === 0 && (!kycPassed || !termsAccepted))) && styles.disabledBtn]} 
+            style={[styles.primaryBtn, (loading || (step === 0 && (!termsAccepted || !kycPassed))) && styles.disabledBtn]}
             onPress={nextStep}
             disabled={loading}
           >
@@ -198,15 +283,31 @@ export default function PostTripScreen() {
                  <View style={[styles.clockHand, { transform: [{ rotate: '45deg' }] }]} />
               </View>
               <View style={styles.clockInputRow}>
-                 <TextInput style={styles.clockTimeInput} value="08" keyboardType="numeric" />
+                 <TextInput 
+                   style={styles.clockTimeInput} 
+                   value={timeHour} 
+                   onChangeText={setTimeHour} 
+                   keyboardType="numeric" 
+                   maxLength={2} 
+                 />
                  <Text style={styles.clockColon}>:</Text>
-                 <TextInput style={styles.clockTimeInput} value="00" keyboardType="numeric" />
+                 <TextInput 
+                   style={styles.clockTimeInput} 
+                   value={timeMinute} 
+                   onChangeText={setTimeMinute} 
+                   keyboardType="numeric" 
+                   maxLength={2} 
+                 />
                  <View style={styles.amPmBox}>
-                    <TouchableOpacity style={styles.amPmBtnActive}><Text style={styles.amPmTextActive}>AM</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.amPmBtn}><Text style={styles.amPmText}>PM</Text></TouchableOpacity>
+                    <TouchableOpacity style={timePeriod === 'AM' ? styles.amPmBtnActive : styles.amPmBtn} onPress={() => setTimePeriod('AM')}>
+                       <Text style={timePeriod === 'AM' ? styles.amPmTextActive : styles.amPmText}>AM</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={timePeriod === 'PM' ? styles.amPmBtnActive : styles.amPmBtn} onPress={() => setTimePeriod('PM')}>
+                       <Text style={timePeriod === 'PM' ? styles.amPmTextActive : styles.amPmText}>PM</Text>
+                    </TouchableOpacity>
                  </View>
               </View>
-              <TouchableOpacity style={styles.clockSubmit} onPress={() => { setFormData({...formData, time: '08:00 AM'}); setShowTimePicker(false); }}>
+              <TouchableOpacity style={styles.clockSubmit} onPress={() => { setFormData({...formData, time: `${timeHour}:${timeMinute} ${timePeriod}`}); setShowTimePicker(false); }}>
                  <Text style={styles.clockSubmitText}>Apply Time</Text>
               </TouchableOpacity>
            </View>
@@ -222,16 +323,19 @@ export default function PostTripScreen() {
                  <Text style={styles.calTitle}>Select Date</Text>
                  <View style={{ width: 24 }} />
               </View>
+
+              <View style={styles.calMonthSelector}>
+                <TouchableOpacity onPress={handlePrevMonth}><ChevronLeft size={24} color={COLORS.black} /></TouchableOpacity>
+                <Text style={styles.calMonthText}>{currentMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</Text>
+                <TouchableOpacity onPress={handleNextMonth}><ChevronRight size={24} color={COLORS.black} /></TouchableOpacity>
+              </View>
+
+              <View style={styles.calWeekRow}>
+                 {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <Text key={d} style={styles.calWeekDay}>{d}</Text>)}
+              </View>
+
               <View style={styles.calendarGrid}>
-                 {Array.from({ length: 31 }).map((_, i) => (
-                    <TouchableOpacity 
-                      key={i} 
-                      style={[styles.calDayBtn, formData.date.includes(String(i+1)) && styles.calDayBtnActive]}
-                      onPress={() => { setFormData({...formData, date: `Oct ${i+1}, 2023`}); setShowCalendar(false); }}
-                    >
-                       <Text style={[styles.calDayText, formData.date.includes(String(i+1)) && styles.calDayTextActive]}>{i + 1}</Text>
-                    </TouchableOpacity>
-                 ))}
+                 {renderCalendarGrid()}
               </View>
            </View>
         </View>
@@ -276,19 +380,37 @@ export default function PostTripScreen() {
 }
 
 function ComplianceStep({ kycPassed, setKycPassed, accepted, setAccepted }: any) {
+  const handleStartKyc = () => {
+    router.push('/kyc');
+  };
+
   return (
     <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.stepTitle}>Let's start your journey.</Text>
-      <Text style={styles.stepSubtitle}>Before posting, we need to verify your identity and ensure you agree to our safety and legal terms.</Text>
-      <TouchableOpacity style={[styles.checkCard, kycPassed && styles.checkCardActive]} onPress={() => setKycPassed(true)}>
-        <View style={styles.checkInfo}>
-          <View style={styles.checkIconBox}><ShieldCheck size={24} color={kycPassed ? COLORS.primary : COLORS.gray400} /></View>
-          <View>
-            <Text style={styles.checkLabel}>Identity Verification (KYC)</Text>
-            <Text style={styles.checkSub}>{kycPassed ? 'Verified' : 'Required to Continue'}</Text>
+      <Text style={styles.stepTitle}>Almost there!</Text>
+      <Text style={styles.stepSubtitle}>
+        {kycPassed
+          ? 'Please review and accept our community guidelines before posting your trip.'
+          : 'Before posting, we need to verify your identity and ensure you agree to our safety and legal terms.'}
+      </Text>
+
+      {/* KYC card — only shown if NOT yet verified */}
+      {!kycPassed && (
+        <View style={styles.checkCard}>
+          <View style={styles.checkInfo}>
+            <View style={styles.checkIconBox}>
+              <ShieldCheck size={24} color={COLORS.gray400} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.checkLabel}>Identity Verification (KYC)</Text>
+              <Text style={styles.checkSub}>Required to post a trip</Text>
+            </View>
           </View>
+          <TouchableOpacity style={styles.kycButton} onPress={handleStartKyc}>
+            <Text style={styles.kycButtonText}>Start Verification</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      )}
+
       <View style={styles.termsBox}>
         <Text style={styles.termsTitle}>Community Guidelines & Terms</Text>
         <ScrollView style={styles.termsScroll} nestedScrollEnabled={true}>
@@ -389,8 +511,6 @@ function LocationPicker({ title, value, onSelect }: any) {
   );
 }
 
-import { ActivityIndicator } from 'react-native';
-
 function CalendarStep({ value, onOpen }: any) {
   return (
     <View style={styles.stepContent}>
@@ -448,12 +568,43 @@ function PriceStep({ price, onChange }: any) {
 }
 
 function TicketUploadStep({ photo, onUpload }: any) {
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setIsUploading(true);
+        const asset = result.assets[0];
+        const imageData = `data:image/jpeg;base64,${asset.base64}`;
+        onUpload(imageData);
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to pick image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Proof of Travel</Text>
-      <TouchableOpacity style={styles.uploadBox} onPress={() => onUpload('mock-uri')}>
-        <FileText size={48} color={photo ? COLORS.primary : COLORS.gray300} />
-        <Text style={styles.uploadText}>{photo ? 'Ticket Attached' : 'Tap to Upload'}</Text>
+      <Text style={styles.stepSubtitle}>Please upload your ticket or boarding pass</Text>
+      <TouchableOpacity style={styles.uploadBox} onPress={handlePickImage} disabled={isUploading}>
+        {isUploading ? (
+          <ActivityIndicator color={COLORS.primary} />
+        ) : (
+          <>
+            <FileText size={48} color={photo ? COLORS.primary : COLORS.gray300} />
+            <Text style={styles.uploadText}>{photo ? 'Ticket Attached ✨' : 'Tap to Upload'}</Text>
+          </>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -519,12 +670,14 @@ const styles = StyleSheet.create({
   counterBtn: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: COLORS.gray200, alignItems: 'center', justifyContent: 'center' },
   counterValue: { fontSize: 64, fontWeight: '800', color: COLORS.black, minWidth: 80, textAlign: 'center' },
 
-  checkCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgSoft, padding: 20, borderRadius: 24, marginBottom: 12 },
+  checkCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.bgSoft, padding: 20, borderRadius: 24, marginBottom: 12 },
   checkCardActive: { backgroundColor: COLORS.primarySoft, borderWidth: 1.5, borderColor: COLORS.primary },
-  checkInfo: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  checkInfo: { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 },
   checkIconBox: { width: 48, height: 48, borderRadius: 14, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
   checkLabel: { fontSize: 16, fontWeight: '800', color: COLORS.black },
   checkSub: { fontSize: 13, color: COLORS.gray500, fontWeight: '600' },
+  kycButton: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: COLORS.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  kycButtonText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
 
   termsBox: { marginTop: 24 },
   termsTitle: { fontSize: 17, fontWeight: '800', color: COLORS.black, marginBottom: 16 },
@@ -588,8 +741,15 @@ const styles = StyleSheet.create({
   calModalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, marginTop: height * 0.4 },
   calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
   calTitle: { fontSize: 20, fontWeight: '800', color: COLORS.black },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  calDayBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bgSoft },
+  
+  calMonthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  calMonthText: { fontSize: 16, fontWeight: '800', color: COLORS.black },
+  calWeekRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  calWeekDay: { fontSize: 12, fontWeight: '800', color: COLORS.gray400, width: '13%', textAlign: 'center' },
+  
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4 },
+  calDayBtn: { width: '13%', aspectRatio: 1, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bgSoft },
+  calDayBtnEmpty: { width: '13%', aspectRatio: 1 },
   calDayBtnActive: { backgroundColor: COLORS.primary },
   calDayText: { fontSize: 14, fontWeight: '700' },
   calDayTextActive: { color: COLORS.white },

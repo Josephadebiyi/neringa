@@ -1,16 +1,32 @@
-import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ChevronLeft, Info, MessageSquare } from 'lucide-react-native';
 import { useState } from 'react';
 import { COLORS } from '../../constants/theme';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function EditBioScreen() {
-  const [bio, setBio] = useState("");
+  const { user, updateUser } = useAuth();
+  const [bio, setBio] = useState((user as any)?.bio || "");
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
-    Alert.alert('Success', 'Bio updated successfully');
-    router.back();
+  const handleSave = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      await updateUser({ bio } as any);
+      if (Platform.OS === 'web') {
+         window.alert('Bio updated successfully');
+      } else {
+         Alert.alert('Success', 'Bio updated successfully');
+      }
+      handleBack();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not update bio');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -25,8 +41,8 @@ export default function EditBioScreen() {
           <ChevronLeft size={24} color={COLORS.black} />
         </Pressable>
         <Text style={styles.headerTitle}>Add a mini bio</Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={styles.saveText}>Save</Text>
+        <TouchableOpacity onPress={handleSave} disabled={loading}>
+          {loading ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={styles.saveText}>Save</Text>}
         </TouchableOpacity>
       </View>
 
@@ -83,3 +99,5 @@ const styles = StyleSheet.create({
   tipTitle: { fontSize: 16, fontWeight: '800', color: COLORS.primary, marginBottom: 4 },
   tipText: { fontSize: 13, color: COLORS.primary, fontWeight: '600', lineHeight: 20 },
 });
+
+import { ActivityIndicator } from 'react-native';
