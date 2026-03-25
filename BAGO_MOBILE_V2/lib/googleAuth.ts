@@ -4,17 +4,11 @@ import * as WebBrowser from 'expo-web-browser';
 // Complete the auth session for web
 WebBrowser.maybeCompleteAuthSession();
 
-// Google OAuth Configuration
-// Credentials from Google Cloud Console
+// Google OAuth client IDs — read from EXPO_PUBLIC_* env vars
 const GOOGLE_CLIENT_IDS = {
-  // iOS client ID (from Google Cloud Console)
-  ios: '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com',
-
-  // Android client ID (from Google Cloud Console)
-  android: '207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com',
-
-  // Web client ID (from Google Cloud Console)
-  web: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
+  ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+  android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
+  web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
 };
 
 export interface GoogleAuthResponse {

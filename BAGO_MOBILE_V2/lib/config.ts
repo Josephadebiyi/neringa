@@ -1,35 +1,15 @@
-// Get environment variables
-const ENV = {
-  dev: {
-    apiUrl: 'https://neringa.onrender.com',
-    stripeKey: 'pk_live_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
-    paystackKey: 'pk_live_3af5f18465563858916af1617183777c1c034edd',
-    googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
-    expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
-  },
-  staging: {
-    apiUrl: 'https://neringa.onrender.com',
-    stripeKey: 'pk_live_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
-    paystackKey: 'pk_live_3af5f18465563858916af1617183777c1c034edd',
-    googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
-    expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
-  },
-  prod: {
-    apiUrl: 'https://neringa.onrender.com',
-    stripeKey: 'pk_live_51SIm5dLIu6dEtqiBkoXpgTb0PtWIKaDs7E5rRowKkQWAK6YsDXAq2pq9UFLhR2DdWfyxSA5jfEzO80gLraJYi6ec002FAQHMe8',
-    paystackKey: 'pk_live_3af5f18465563858916af1617183777c1c034edd',
-    googleWebClientId: '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
-    expoProjectId: 'f59f4175-ebfc-441c-a1f0-da6e6456dd1f',
-  },
+// All values read from EXPO_PUBLIC_* environment variables.
+// Set these in .env locally and in EAS dashboard for cloud builds.
+// EXPO_PUBLIC_ prefix is required for values bundled into the app.
+const config = {
+  apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://neringa.onrender.com',
+  stripeKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
+  paystackKey: process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
+  googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+  expoProjectId: process.env.EXPO_PUBLIC_EXPO_PROJECT_ID || '',
 };
 
-const getEnvVars = () => {
-  // You can change this to read from process.env or Constants.expoConfig
-  const environment = __DEV__ ? 'dev' : 'prod';
-  return ENV[environment];
-};
-
-export default getEnvVars();
+export default config;
 
 // API Endpoints
 export const API_ENDPOINTS = {
