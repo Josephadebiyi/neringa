@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -118,6 +119,40 @@ const upload = multer({ storage });
 app.use(express.json({ limit: '10000mb' }));
 app.use(express.urlencoded({ limit: '1000mb', extended: true }));
 app.use(cookieParser());
+
+// ✅ Rate limiting
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests. Please try again in 15 minutes.' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many attempts. Please try again in 15 minutes.' },
+  skipSuccessfulRequests: true, // only count failed attempts
+});
+
+// Apply global limiter to all routes
+app.use(globalLimiter);
+
+// Apply strict limiter to all auth routes
+const authRoutes = [
+  '/api/bago/signin',
+  '/api/bago/signup',
+  '/api/bago/google-auth',
+  '/api/bago/forgot-password',
+  '/api/bago/verify-otp',
+  '/api/bago/reset-password',
+  '/api/bago/verify-signup-otp',
+  '/api/bago/resend-otp',
+];
+authRoutes.forEach(route => app.use(route, authLimiter));
 
 // ✅ Make io accessible to routers
 app.set('io', io);
