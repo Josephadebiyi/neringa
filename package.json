@@ -8,7 +8,6 @@
       "BAGO_BACKEND",
       "BAGO_WEBAPP",
       "ADMIN_NEW",
-      "BAGO_MOBILE",
       "BAGO_MOBILE_V2"
     ],
     "nohoist": [
