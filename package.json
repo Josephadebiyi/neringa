@@ -45,9 +45,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios"
   },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  },
+  "devDependencies": {},
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
@@ -67,16 +65,6 @@
   "author": "Bago Team",
   "license": "MIT",
   "dependencies": {
-    "@expo/metro-runtime": "~55.0.0",
-    "expo": "55.0.8",
-    "expo-auth-session": "~55.0.9",
-    "expo-crypto": "~55.0.10",
-    "expo-web-browser": "~55.0.10",
-    "lucide-react": "^1.0.1",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "react-native": "0.83.2",
-    "react-native-reanimated": "4.2.1",
-    "react-native-web": "^0.21.0"
+    "concurrently": "^8.2.2"
   }
 }
