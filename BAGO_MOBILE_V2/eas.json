@@ -32,7 +32,6 @@
       "ios": {
         "buildConfiguration": "Release",
         "enterpriseProvisioning": "adhoc",
-        "autoIncrement": true,
         "image": "latest"
       },
       "android": {
@@ -45,7 +44,6 @@
     "appstore": {
       "ios": {
         "buildConfiguration": "Release",
-        "autoIncrement": "buildNumber",
         "image": "latest"
       },
       "env": {
