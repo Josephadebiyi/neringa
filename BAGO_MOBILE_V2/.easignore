@@ -4,3 +4,7 @@
 ../ADMIN_NEW
 ../BAGO_MOBILE
 ../.git
+ios/
+android/
+ios/Pods/
+ios/build/

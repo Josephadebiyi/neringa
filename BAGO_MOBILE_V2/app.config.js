@@ -28,7 +28,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.deracali.boltexponativewind',
-      buildNumber: '32',
+      buildNumber: '33',
       infoPlist: {
         CFBundleURLTypes: [
           {
