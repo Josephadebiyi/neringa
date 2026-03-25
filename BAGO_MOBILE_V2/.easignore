@@ -1,10 +1,10 @@
-../node_modules
-../BAGO_BACKEND
-../BAGO_WEBAPP
-../ADMIN_NEW
-../BAGO_MOBILE
-../.git
-ios/
-android/
-ios/Pods/
-ios/build/
+# Paths are relative to the git repository root (not this project directory).
+# EAS archives from the repo root; "../" patterns go above the root and match nothing.
+BAGO_BACKEND/
+BAGO_WEBAPP/
+ADMIN_NEW/
+BAGO_MOBILE/
+node_modules/
+.git/
+BAGO_MOBILE_V2/ios/
+BAGO_MOBILE_V2/android/
