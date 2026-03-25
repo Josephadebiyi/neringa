@@ -3,13 +3,33 @@
   "version": "1.0.0",
   "description": "Bago - Peer-to-peer international package delivery platform",
   "private": true,
-  "workspaces": [
-    "BAGO_BACKEND",
-    "BAGO_WEBAPP",
-    "ADMIN_NEW",
-    "BAGO_MOBILE",
-    "BAGO_MOBILE_V2"
-  ],
+  "workspaces": {
+    "packages": [
+      "BAGO_BACKEND",
+      "BAGO_WEBAPP",
+      "ADMIN_NEW",
+      "BAGO_MOBILE",
+      "BAGO_MOBILE_V2"
+    ],
+    "nohoist": [
+      "**/react-native",
+      "**/react-native/**",
+      "**/react-native-*",
+      "**/react-native-*/**",
+      "**/@react-native",
+      "**/@react-native/**",
+      "**/@react-native-community",
+      "**/@react-native-community/**",
+      "**/expo",
+      "**/expo/**",
+      "**/expo-*",
+      "**/expo-*/**",
+      "**/@expo",
+      "**/@expo/**",
+      "**/@stripe/stripe-react-native",
+      "**/@stripe/stripe-react-native/**"
+    ]
+  },
   "scripts": {
     "install:all": "npm install && npm run install:backend && npm run install:webapp && npm run install:admin && npm run install:mobile",
     "install:backend": "cd BAGO_BACKEND && npm install",
