@@ -79,6 +79,7 @@ export default {
           color: '#5C4BFD',
         },
       ],
+      './plugins/withFollyCoroutinesFix',
     ],
     extra: {
       // All values from env — nothing hardcoded
