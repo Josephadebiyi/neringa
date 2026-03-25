@@ -1,21 +1,27 @@
 /**
- * Config plugin: disable Folly coroutines to fix
- * 'folly/coro/Coroutine.h' file not found on EAS iOS builds (RN 0.83.x).
+ * Config plugin: patch Folly preprocessor definitions to fix EAS iOS builds (RN 0.83.x).
+ *
+ * Fixes:
+ *  1. 'folly/coro/Coroutine.h' file not found — prebuilt ReactNativeDependencies
+ *     pod does not ship folly/coro/ headers.
+ *  2. Undefined symbol folly::f14::detail::F14LinkCheck<kAuto>::check() — the
+ *     prebuilt Folly pod does not export this SIMD intrinsics link-check symbol.
+ *     Setting FOLLY_F14_VECTOR_INTRINSICS_ENABLE=0 prevents the link-time check
+ *     from being emitted during reanimated compilation.
  */
 const { withDangerousMod } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
 const follyFix = `
-    # Fix: 'folly/coro/Coroutine.h' file not found on EAS builds (RN 0.83.x)
-    # folly/Expected.h unconditionally includes folly/coro/Coroutine.h but the
-    # prebuilt ReactNativeDependencies pod does not ship that header.
+    # Fix Folly incompatibilities with prebuilt ReactNativeDependencies pod (RN 0.83.x)
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FOLLY_NO_CONFIG=1'
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FOLLY_CFG_NO_COROUTINES=1'
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FOLLY_HAS_COROUTINES=0'
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FOLLY_F14_VECTOR_INTRINSICS_ENABLE=0'
       end
     end`;
 
