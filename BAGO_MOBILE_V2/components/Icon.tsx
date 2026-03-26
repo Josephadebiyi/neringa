@@ -1,11 +1,13 @@
 import { Platform } from 'react-native';
 import type { LucideProps } from 'lucide-react-native';
 
-// Platform-specific icon imports
+// On native, always use lucide-react-native. On web, use lucide-react via require
+// to avoid bundling the entire web SVG library into the native binary.
 import * as LucideNative from 'lucide-react-native';
-import * as LucideWeb from 'lucide-react';
 
-const IconPackage = (Platform.OS === 'web' ? LucideWeb : LucideNative) as any;
+const IconPackage: any = Platform.OS === 'web'
+  ? require('lucide-react')
+  : LucideNative;
 
 // Export all commonly used icons with platform detection
 export const Package = (props: LucideProps) => { const Icon = IconPackage.Package; return <Icon {...props} />; };
