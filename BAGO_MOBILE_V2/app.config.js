@@ -79,7 +79,7 @@ export default {
           color: '#5C4BFD',
         },
       ],
-      '@stripe/stripe-react-native',
+      ['@stripe/stripe-react-native', {}],
       './plugins/withFollyCoroutinesFix',
     ],
     extra: {
