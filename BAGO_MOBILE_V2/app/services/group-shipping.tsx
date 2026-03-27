@@ -54,7 +54,7 @@ export default function GroupShippingScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/trips-list')}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/(tabs)')}>
           <Text style={styles.primaryBtnText}>Find a Shipping Group</Text>
           <ArrowRight size={20} color={COLORS.white} />
         </TouchableOpacity>

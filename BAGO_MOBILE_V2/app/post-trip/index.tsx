@@ -43,7 +43,14 @@ export default function PostTripScreen() {
 
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
 
-  const handlePrevMonth = () => setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const handlePrevMonth = () => {
+    const today = new Date();
+    const prevMonth = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - 1, 1);
+    // Only allow navigating to previous months if they are not before current month
+    if (prevMonth >= new Date(today.getFullYear(), today.getMonth(), 1)) {
+      setCurrentMonthDate(prevMonth);
+    }
+  };
   const handleNextMonth = () => setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
 
   const renderCalendarGrid = () => {
@@ -325,7 +332,13 @@ export default function PostTripScreen() {
               </View>
 
               <View style={styles.calMonthSelector}>
-                <TouchableOpacity onPress={handlePrevMonth}><ChevronLeft size={24} color={COLORS.black} /></TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={handlePrevMonth}
+                  disabled={new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth()) <= new Date(new Date().getFullYear(), new Date().getMonth())}
+                  style={{ opacity: new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth()) <= new Date(new Date().getFullYear(), new Date().getMonth()) ? 0.3 : 1 }}
+                >
+                  <ChevronLeft size={24} color={COLORS.black} />
+                </TouchableOpacity>
                 <Text style={styles.calMonthText}>{currentMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</Text>
                 <TouchableOpacity onPress={handleNextMonth}><ChevronRight size={24} color={COLORS.black} /></TouchableOpacity>
               </View>

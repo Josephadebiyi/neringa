@@ -24,7 +24,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error in Profile Screen:', error, errorInfo);
+    console.error('[GLOBAL_RENDER_ERROR] Error caught by ErrorBoundary:', error, errorInfo);
   }
 
   private handleReset = () => {

@@ -147,6 +147,10 @@ export default function HomeScreen() {
     const dateClone = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
     const startDay = dateClone.getDay();
     const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+    
+    // Get today's date at midnight for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     for (let i = 0; i < startDay; i++) {
       days.push(<View key={`empty-${i}`} style={styles.calendarDayEmpty} />);
@@ -156,14 +160,16 @@ export default function HomeScreen() {
         const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
         const isSelected = selectedDate.toDateString() === d.toDateString();
         const isToday = new Date().toDateString() === d.toDateString();
+        const isPastDay = d < today;
         
         days.push(
           <TouchableOpacity 
             key={i} 
-            style={[styles.calendarDay, isSelected && styles.calendarDaySelected]} 
+            disabled={isPastDay}
+            style={[styles.calendarDay, isSelected && styles.calendarDaySelected, isPastDay && { opacity: 0.3 }]} 
             onPress={() => { setSelectedDate(d); setDate(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })); setShowCalendar(false); }}
           >
-             <Text style={[styles.calendarDayText, isSelected && styles.calendarDayTextSelected, isToday && { color: COLORS.primary, fontWeight: '900' }]}>{i}</Text>
+             <Text style={[styles.calendarDayText, isSelected && styles.calendarDayTextSelected, isToday && { color: COLORS.primary, fontWeight: '900' }, isPastDay && { color: COLORS.gray300 }]}>{i}</Text>
           </TouchableOpacity>
         );
     }
@@ -310,7 +316,16 @@ export default function HomeScreen() {
                </View>
               
               <View style={styles.calendarHeader}>
-                  <TouchableOpacity onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      const today = new Date();
+                      const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1);
+                      if (prevMonth >= new Date(today.getFullYear(), today.getMonth())) {
+                        setCurrentMonth(prevMonth);
+                      }
+                    }}
+                    style={{ opacity: new Date(currentMonth.getFullYear(), currentMonth.getMonth()) <= new Date(new Date().getFullYear(), new Date().getMonth()) ? 0.3 : 1 }}
+                  >
                      <ChevronLeft size={24} color={COLORS.primary} />
                   </TouchableOpacity>
                   <Text style={styles.calendarMonthText}>

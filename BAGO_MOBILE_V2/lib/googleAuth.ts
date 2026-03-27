@@ -50,11 +50,30 @@ export const parseGoogleIdToken = (idToken: string) => {
       throw new Error('Invalid token format');
     }
 
-    // Use atob for base64 decoding (works on both web and native with polyfill)
+    // Use a safe base64 decode (works on both web and native)
     const base64Url = parts[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    
+    // Internal polyfill for atob to avoid global dependency issues
+    const decodeBase64 = (str: string) => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+      let output = '';
+      str = String(str).replace(/=+$/, '');
+      let bc = 0, bs = 0, buffer, idx = 0;
+      while ((buffer = str.charAt(idx++))) {
+        buffer = chars.indexOf(buffer);
+        if (~buffer) {
+          bs = bc % 4 ? (bs * 64 + buffer) : buffer;
+          if (bc++ % 4) {
+             output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)));
+          }
+        }
+      }
+      return output;
+    };
+
     const jsonPayload = decodeURIComponent(
-      atob(base64)
+      decodeBase64(base64)
         .split('')
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')

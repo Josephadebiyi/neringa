@@ -39,14 +39,22 @@ export default {
           },
         ],
         NSUserTrackingUsageDescription:
-          'This identifier will be used to send you personalized notifications.',
+          'This identifier will be used to send you personalized notifications and track package updates.',
         NSLocationWhenInUseUsageDescription:
-          'This app needs access to your location to detect your country and currency',
+          'This app needs access to your location to detect your country and suggest relevant shipping routes and currency.',
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          'This app needs access to your location to track your shipments in the background.',
         NSCameraUsageDescription:
-          'This app needs access to your camera to scan QR codes and take photos',
+          'This app needs access to your camera to scan QR codes for package verification and take photos of items.',
         NSPhotoLibraryUsageDescription:
-          'This app needs access to your photo library to select images',
-        UIBackgroundModes: ['remote-notification'],
+          'This app needs access to your photo library to select images for package documentation and profile updates.',
+        NSPhotoLibraryAddUsageDescription:
+          'This app needs permission to save package labels and receipts to your photo library.',
+        NSMicrophoneUsageDescription:
+          'This app needs access to your microphone when recording video documentation of packages.',
+        NSFaceIDUsageDescription:
+          'This app uses Face ID to securely log you into your account and authorize payments.',
+        UIBackgroundModes: ['remote-notification', 'location'],
         ITSAppUsesNonExemptEncryption: false,
       },
     },
@@ -80,6 +88,14 @@ export default {
         },
       ],
       ['@stripe/stripe-react-native', {}],
+      ['expo-image-picker', {
+        photosPermission: 'Allow $(PRODUCT_NAME) to access your photos',
+        cameraPermission: 'Allow $(PRODUCT_NAME) to access your camera'
+      }],
+      'expo-location',
+      'expo-secure-store',
+      'expo-local-authentication',
+      'expo-font',
       './plugins/withFollyCoroutinesFix',
     ],
     extra: {

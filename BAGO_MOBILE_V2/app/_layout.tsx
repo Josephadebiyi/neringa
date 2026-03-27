@@ -4,9 +4,20 @@ import { Platform, Animated, View, Image, StyleSheet, Dimensions } from 'react-n
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import config from '../lib/config';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { initializeCrashReporting } from '../utils/crashReporter';
+
+// Initialize crash reporting FIRST (before anything else can crash)
+if (Platform.OS !== 'web') {
+  try {
+    initializeCrashReporting();
+  } catch (e) {
+    console.error('Failed to init crash reporting:', e);
+  }
+}
 
 // Conditionally load native-only modules
 let StripeProvider: any = null;
@@ -151,28 +162,30 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <AppContent>
-          <AuthProvider>
-            <AuthNavigationWrapper>
-              <StatusBar style="dark" />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: '#FFFFFF' },
-                  animationEnabled: true,
-                }}
-              >
-                <Stack.Screen name="index" options={{ animationEnabled: false }} />
-                <Stack.Screen name="(tabs)" options={{ animationEnabled: false }} />
-                <Stack.Screen name="auth" options={{ animationEnabled: true }} />
-              </Stack>
-            </AuthNavigationWrapper>
-          </AuthProvider>
-        </AppContent>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <AppContent>
+            <AuthProvider>
+              <AuthNavigationWrapper>
+                <StatusBar style="dark" />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: '#FFFFFF' },
+                    animation: 'slide_from_right',
+                  }}
+                >
+                  <Stack.Screen name="index" options={{ animation: 'none' }} />
+                  <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+                  <Stack.Screen name="auth" options={{ animation: 'slide_from_bottom' }} />
+                </Stack>
+              </AuthNavigationWrapper>
+            </AuthProvider>
+          </AppContent>
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 
