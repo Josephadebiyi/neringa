@@ -1,4 +1,4 @@
-package com.bago.bago_app
+package com.donnyace.bagoplatform
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -14,9 +14,34 @@ export const Profile = async (req, res, next) => {
       throw new Error("User not found");
     }
 
+    // ✅ CHECK: User must be KYC verified to access profile
+    // If KYC is not approved, return verification required response
+    if (findUser.kycStatus !== 'approved') {
+      return res.status(100).json({
+        message: `Account verification required. Current status: ${findUser.kycStatus || 'not_started'}`,
+        success: false,
+        error: true,
+        code: 'VERIFICATION_REQUIRED',
+        kycStatus: findUser.kycStatus,
+        data: {
+          findUser: {
+            _id: findUser._id,
+            email: findUser.email,
+            firstName: findUser.firstName,
+            lastName: findUser.lastName,
+            kycStatus: findUser.kycStatus,
+            kycVerifiedAt: findUser.kycVerifiedAt,
+            kycFailureReason: findUser.kycFailureReason,
+          },
+          findTrips: [],
+        },
+      });
+    }
+
+    // ✅ If KYC is approved, proceed with full profile
     const findTrips = await Trip.find({ user: userId });
 
-    // ✅ Always return both user and trips (even if no trips)
+    // ✅ Return both user and trips (with verification status)
     const data = {
       findUser,
       findTrips,
