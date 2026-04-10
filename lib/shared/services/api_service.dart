@@ -104,7 +104,11 @@ class ApiService {
     if (statusCode == 401) {
       return 'Session expired. Please sign in again.';
     }
-    if (statusCode == 403) {
+    if (statusCode == 100 || statusCode == 403) {
+      // HTTP 100 is KYC verification required or HTTP 403 is permission denied
+      if (statusCode == 100) {
+        return 'You are not allowed to perform this action.';
+      }
       return 'You are not allowed to perform this action.';
     }
     if (e.response?.data != null) {

@@ -28,6 +28,26 @@ abstract final class ResponseParser {
     return data;
   }
 
+  // Check if response indicates KYC verification is required
+  static bool isKycVerificationRequired(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data['code'] == 'VERIFICATION_REQUIRED' ||
+          data['code'] == 'verification_required' ||
+          (data['message']?.toString().contains('verification') ?? false);
+    }
+    return false;
+  }
+
+  // Extract KYC status from response
+  static String? extractKycStatus(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data['kycStatus']?.toString() ??
+          data['kyc_status']?.toString() ??
+          data['status']?.toString();
+    }
+    return null;
+  }
+
   static List<Map<String, dynamic>> _normalizeList(List data) {
     return data
         .whereType<Map>()
