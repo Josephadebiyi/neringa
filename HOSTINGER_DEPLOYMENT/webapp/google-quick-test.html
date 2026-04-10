@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Auth Quick Test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .domain {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        #googleButton {
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 2px solid #0c5460;
+            color: #0c5460;
+        }
+        .fix {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .fix h3 { margin-bottom: 10px; color: #856404; }
+        .fix ol { margin-left: 20px; }
+        .fix li { margin: 5px 0; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 Google Auth Test</h1>
+        <div class="domain">
+            <strong>Testing on:</strong><br>
+            <span id="domain"></span>
+        </div>
+
+        <div id="status" class="loading">Loading Google Sign-In...</div>
+
+        <div id="googleButton"></div>
+
+        <div id="result"></div>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        const CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
+        const domain = window.location.origin;
+
+        document.getElementById('domain').textContent = domain;
+
+        function showSuccess(email, name) {
+            document.getElementById('result').innerHTML = `
+                <div class="status success">
+                    <h3>✅ SUCCESS!</h3>
+                    <p><strong>Google Sign-In works perfectly!</strong></p>
+                    <p>Email: ${email}</p>
+                    <p>Name: ${name}</p>
+                </div>
+                <div class="status info">
+                    <h4>What this means:</h4>
+                    <p>✅ Your domain IS authorized in Google Cloud Console</p>
+                    <p>✅ Google OAuth library loaded correctly</p>
+                    <p>✅ Sign-in flow completed successfully</p>
+                    <br>
+                    <p><strong>If your app still shows "googleAuthFailed":</strong></p>
+                    <p>The issue is with your backend API, not Google Auth.</p>
+                    <p>Check backend logs and CORS settings.</p>
+                </div>
+            `;
+        }
+
+        function showError(errorType, errorDetails) {
+            let fix = '';
+
+            if (errorType === 'idpiframe_initialization_failed' || errorType === 'origin_mismatch') {
+                fix = `
+                    <div class="fix">
+                        <h3>🔧 How to Fix:</h3>
+                        <ol>
+                            <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
+                            <li>Find OAuth Client ID: <code>207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0</code></li>
+                            <li>Click the pencil icon (Edit)</li>
+                            <li>Under "Authorized JavaScript origins", add:<br><code>${domain}</code></li>
+                            <li>Under "Authorized redirect URIs", add:<br>
+                                <code>${domain}</code><br>
+                                <code>${domain}/login</code><br>
+                                <code>${domain}/signup</code>
+                            </li>
+                            <li>Click SAVE</li>
+                            <li>Wait 10 minutes for changes to apply</li>
+                            <li>Clear browser cache and test again</li>
+                        </ol>
+                    </div>
+                `;
+            } else if (errorType === 'popup_failed_to_open' || errorType === 'popup_blocked_by_browser') {
+                fix = `
+                    <div class="fix">
+                        <h3>🔧 How to Fix:</h3>
+                        <ol>
+                            <li>Look for the popup blocker icon in your browser's address bar</li>
+                            <li>Click it and select "Always allow popups from this site"</li>
+                            <li>Refresh the page and try again</li>
+                        </ol>
+                    </div>
+                `;
+            }
+
+            document.getElementById('result').innerHTML = `
+                <div class="status error">
+                    <h3>❌ ${errorType || 'Error'}</h3>
+                    <p>${errorDetails || 'Google Sign-In failed'}</p>
+                </div>
+                ${fix}
+            `;
+        }
+
+        function handleCredentialResponse(response) {
+            try {
+                const payload = JSON.parse(atob(response.credential.split('.')[1]));
+                showSuccess(payload.email, payload.name);
+            } catch (e) {
+                showError('decode_error', 'Received token but could not decode it');
+            }
+        }
+
+        function handleError(error) {
+            console.error('Google Auth Error:', error);
+            showError(
+                error.type || 'unknown_error',
+                error.message || JSON.stringify(error)
+            );
+        }
+
+        window.onload = function() {
+            setTimeout(() => {
+                try {
+                    if (typeof google === 'undefined' || !google.accounts) {
+                        throw new Error('Google library failed to load');
+                    }
+
+                    google.accounts.id.initialize({
+                        client_id: CLIENT_ID,
+                        callback: handleCredentialResponse,
+                        error_callback: handleError,
+                        auto_select: false
+                    });
+
+                    google.accounts.id.renderButton(
+                        document.getElementById('googleButton'),
+                        {
+                            theme: 'outline',
+                            size: 'large',
+                            text: 'signin_with',
+                            width: 300,
+                            logo_alignment: 'left'
+                        }
+                    );
+
+                    document.getElementById('status').innerHTML = `
+                        <div class="status info">
+                            <p>✅ Google OAuth library loaded</p>
+                            <p><strong>Click the button below to test sign-in</strong></p>
+                        </div>
+                    `;
+                } catch (err) {
+                    document.getElementById('status').innerHTML = `
+                        <div class="status error">
+                            <h3>❌ Google Library Error</h3>
+                            <p>${err.message}</p>
+                            <p>The Google OAuth library failed to load. Check your internet connection.</p>
+                        </div>
+                    `;
+                }
+            }, 1500);
+        };
+    </script>
+</body>
+</html>

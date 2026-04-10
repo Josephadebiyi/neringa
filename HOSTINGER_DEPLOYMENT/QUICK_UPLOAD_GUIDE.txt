@@ -1,0 +1,104 @@
+═══════════════════════════════════════════════════════════
+   BAGO PLATFORM - QUICK UPLOAD GUIDE FOR HOSTINGER
+═══════════════════════════════════════════════════════════
+
+📁 WHAT TO UPLOAD:
+
+1. WEB APP (Main Site)
+   Location: HOSTINGER_DEPLOYMENT/webapp/
+   Upload to: public_html/
+
+   Files to upload:
+   ✓ index.html
+   ✓ assets/ (entire folder)
+   ✓ .htaccess
+
+2. ADMIN PANEL
+   Location: HOSTINGER_DEPLOYMENT/admin/
+   Upload to: public_html/admin/
+
+   Files to upload:
+   ✓ index.html
+   ✓ assets/ (entire folder)
+   ✓ .htaccess
+
+═══════════════════════════════════════════════════════════
+
+🚀 UPLOAD STEPS:
+
+STEP 1: Log into Hostinger
+→ Go to File Manager
+→ Navigate to public_html/
+
+STEP 2: Upload Web App
+→ Delete existing files in public_html (if any)
+→ Upload ALL files from webapp/ folder
+→ Verify .htaccess is uploaded
+
+STEP 3: Create admin folder
+→ In public_html, create folder named "admin"
+→ Open the admin folder
+→ Upload ALL files from admin/ folder
+→ Verify .htaccess is uploaded
+
+STEP 4: Test
+→ Visit: https://yourdomain.com
+→ Visit: https://yourdomain.com/admin
+→ Login: admin / 123456789
+
+═══════════════════════════════════════════════════════════
+
+✅ CHECKLIST:
+
+Web App:
+□ public_html/index.html exists
+□ public_html/assets/ folder exists
+□ public_html/.htaccess exists
+□ https://yourdomain.com loads
+
+Admin Panel:
+□ public_html/admin/index.html exists
+□ public_html/admin/assets/ folder exists
+□ public_html/admin/.htaccess exists
+□ https://yourdomain.com/admin loads
+□ Admin login works
+
+═══════════════════════════════════════════════════════════
+
+🔧 IF SOMETHING DOESN'T WORK:
+
+Problem: 404 error when refreshing pages
+Solution: Make sure .htaccess files are uploaded
+
+Problem: Blank white page
+Solution: Check browser console (F12), upload all files again
+
+Problem: Admin login fails
+Solution: Check browser console, verify API is running
+
+═══════════════════════════════════════════════════════════
+
+📱 ADMIN CREDENTIALS:
+
+Username: admin
+Password: 123456789
+
+(Change these after first login!)
+
+═══════════════════════════════════════════════════════════
+
+🌐 YOUR URLS AFTER DEPLOYMENT:
+
+Main Site: https://yourdomain.com
+Admin Panel: https://yourdomain.com/admin
+API Backend: https://neringa.onrender.com/api
+
+═══════════════════════════════════════════════════════════
+
+💡 TIP: Use FileZilla or FTP for faster uploads of large files!
+
+═══════════════════════════════════════════════════════════
+
+For detailed instructions, see DEPLOYMENT_GUIDE.md
+
+═══════════════════════════════════════════════════════════

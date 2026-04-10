@@ -1,0 +1,203 @@
+export const countries = [
+    { label: 'Algeria', value: 'DZ', flag: '🇩🇿' },
+    { label: 'Argentina', value: 'AR', flag: '🇦🇷' },
+    { label: 'Australia', value: 'AU', flag: '🇦🇺' },
+    { label: 'Austria', value: 'AT', flag: '🇦🇹' },
+    { label: 'Belgium', value: 'BE', flag: '🇧🇪' },
+    { label: 'Brazil', value: 'BR', flag: '🇧🇷' },
+    { label: 'Cameroon', value: 'CM', flag: '🇨🇲' },
+    { label: 'Canada', value: 'CA', flag: '🇨🇦' },
+    { label: 'China', value: 'CN', flag: '🇨🇳' },
+    { label: 'Colombia', value: 'CO', flag: '🇨🇴' },
+    { label: 'Côte d\'Ivoire', value: 'CI', flag: '🇨🇮' },
+    { label: 'Democratic Republic of Congo', value: 'CD', flag: '🇨🇩' },
+    { label: 'Egypt', value: 'EG', flag: '🇪🇬' },
+    { label: 'Ethiopia', value: 'ET', flag: '🇪🇹' },
+    { label: 'France', value: 'FR', flag: '🇫🇷' },
+    { label: 'Germany', value: 'DE', flag: '🇩🇪' },
+    { label: 'Ghana', value: 'GH', flag: '🇬🇭' },
+    { label: 'India', value: 'IN', flag: '🇮🇳' },
+    { label: 'Indonesia', value: 'ID', flag: '🇮🇩' },
+    { label: 'Italy', value: 'IT', flag: '🇮🇹' },
+    { label: 'Japan', value: 'JP', flag: '🇯🇵' },
+    { label: 'Kenya', value: 'KE', flag: '🇰🇪' },
+    { label: 'Malaysia', value: 'MY', flag: '🇲🇾' },
+    { label: 'Mexico', value: 'MX', flag: '🇲🇽' },
+    { label: 'Morocco', value: 'MA', flag: '🇲🇦' },
+    { label: 'Netherlands', value: 'NL', flag: '🇳🇱' },
+    { label: 'Nigeria', value: 'NG', flag: '🇳🇬' },
+    { label: 'Pakistan', value: 'PK', flag: '🇵🇰' },
+    { label: 'Philippines', value: 'PH', flag: '🇵🇭' },
+    { label: 'Poland', value: 'PL', flag: '🇵🇱' },
+    { label: 'Portugal', value: 'PT', flag: '🇵🇹' },
+    { label: 'Romania', value: 'RO', flag: '🇷🇴' },
+    { label: 'Saudi Arabia', value: 'SA', flag: '🇸🇦' },
+    { label: 'Senegal', value: 'SN', flag: '🇸🇳' },
+    { label: 'Singapore', value: 'SG', flag: '🇸🇬' },
+    { label: 'South Africa', value: 'ZA', flag: '🇿🇦' },
+    { label: 'South Korea', value: 'KR', flag: '🇰🇷' },
+    { label: 'Spain', value: 'ES', flag: '🇪🇸' },
+    { label: 'Sweden', value: 'SE', flag: '🇸🇪' },
+    { label: 'Switzerland', value: 'CH', flag: '🇨🇭' },
+    { label: 'Tanzania', value: 'TZ', flag: '🇹🇿' },
+    { label: 'Thailand', value: 'TH', flag: '🇹🇭' },
+    { label: 'Turkey', value: 'TR', flag: '🇹🇷' },
+    { label: 'Uganda', value: 'UG', flag: '🇺🇬' },
+    { label: 'Ukraine', value: 'UA', flag: '🇺🇦' },
+    { label: 'United Arab Emirates', value: 'AE', flag: '🇦🇪' },
+    { label: 'United Kingdom', value: 'GB', flag: '🇬🇧' },
+    { label: 'United States', value: 'US', flag: '🇺🇸' },
+    { label: 'Vietnam', value: 'VN', flag: '🇻🇳' },
+    { label: 'Zimbabwe', value: 'ZW', flag: '🇿🇼' },
+].sort((a, b) => a.label.localeCompare(b.label));
+
+// All cities grouped by country — used for trip routing & search
+export const locations = [
+    // United Kingdom
+    { label: 'London, UK', city: 'London', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'Manchester, UK', city: 'Manchester', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'Birmingham, UK', city: 'Birmingham', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'Glasgow, UK', city: 'Glasgow', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'Edinburgh, UK', city: 'Edinburgh', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'Leeds, UK', city: 'Leeds', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'Liverpool, UK', city: 'Liverpool', country: 'United Kingdom', flag: '🇬🇧' },
+    { label: 'Bristol, UK', city: 'Bristol', country: 'United Kingdom', flag: '🇬🇧' },
+    // United States
+    { label: 'New York, USA', city: 'New York', country: 'United States', flag: '🇺🇸' },
+    { label: 'Los Angeles, USA', city: 'Los Angeles', country: 'United States', flag: '🇺🇸' },
+    { label: 'Chicago, USA', city: 'Chicago', country: 'United States', flag: '🇺🇸' },
+    { label: 'Houston, USA', city: 'Houston', country: 'United States', flag: '🇺🇸' },
+    { label: 'Miami, USA', city: 'Miami', country: 'United States', flag: '🇺🇸' },
+    { label: 'Atlanta, USA', city: 'Atlanta', country: 'United States', flag: '🇺🇸' },
+    { label: 'Dallas, USA', city: 'Dallas', country: 'United States', flag: '🇺🇸' },
+    { label: 'Washington DC, USA', city: 'Washington DC', country: 'United States', flag: '🇺🇸' },
+    { label: 'San Francisco, USA', city: 'San Francisco', country: 'United States', flag: '🇺🇸' },
+    { label: 'Boston, USA', city: 'Boston', country: 'United States', flag: '🇺🇸' },
+    // Nigeria
+    { label: 'Lagos, Nigeria', city: 'Lagos', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Abuja, Nigeria', city: 'Abuja', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Port Harcourt, Nigeria', city: 'Port Harcourt', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Kano, Nigeria', city: 'Kano', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Ibadan, Nigeria', city: 'Ibadan', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Benin City, Nigeria', city: 'Benin City', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Enugu, Nigeria', city: 'Enugu', country: 'Nigeria', flag: '🇳🇬' },
+    { label: 'Warri, Nigeria', city: 'Warri', country: 'Nigeria', flag: '🇳🇬' },
+    // Ghana
+    { label: 'Accra, Ghana', city: 'Accra', country: 'Ghana', flag: '🇬🇭' },
+    { label: 'Kumasi, Ghana', city: 'Kumasi', country: 'Ghana', flag: '🇬🇭' },
+    { label: 'Tamale, Ghana', city: 'Tamale', country: 'Ghana', flag: '🇬🇭' },
+    // Kenya
+    { label: 'Nairobi, Kenya', city: 'Nairobi', country: 'Kenya', flag: '🇰🇪' },
+    { label: 'Mombasa, Kenya', city: 'Mombasa', country: 'Kenya', flag: '🇰🇪' },
+    { label: 'Kisumu, Kenya', city: 'Kisumu', country: 'Kenya', flag: '🇰🇪' },
+    // South Africa
+    { label: 'Johannesburg, South Africa', city: 'Johannesburg', country: 'South Africa', flag: '🇿🇦' },
+    { label: 'Cape Town, South Africa', city: 'Cape Town', country: 'South Africa', flag: '🇿🇦' },
+    { label: 'Durban, South Africa', city: 'Durban', country: 'South Africa', flag: '🇿🇦' },
+    { label: 'Pretoria, South Africa', city: 'Pretoria', country: 'South Africa', flag: '🇿🇦' },
+    // France
+    { label: 'Paris, France', city: 'Paris', country: 'France', flag: '🇫🇷' },
+    { label: 'Lyon, France', city: 'Lyon', country: 'France', flag: '🇫🇷' },
+    { label: 'Marseille, France', city: 'Marseille', country: 'France', flag: '🇫🇷' },
+    { label: 'Bordeaux, France', city: 'Bordeaux', country: 'France', flag: '🇫🇷' },
+    { label: 'Nice, France', city: 'Nice', country: 'France', flag: '🇫🇷' },
+    // Germany
+    { label: 'Berlin, Germany', city: 'Berlin', country: 'Germany', flag: '🇩🇪' },
+    { label: 'Munich, Germany', city: 'Munich', country: 'Germany', flag: '🇩🇪' },
+    { label: 'Hamburg, Germany', city: 'Hamburg', country: 'Germany', flag: '🇩🇪' },
+    { label: 'Frankfurt, Germany', city: 'Frankfurt', country: 'Germany', flag: '🇩🇪' },
+    { label: 'Cologne, Germany', city: 'Cologne', country: 'Germany', flag: '🇩🇪' },
+    // Canada
+    { label: 'Toronto, Canada', city: 'Toronto', country: 'Canada', flag: '🇨🇦' },
+    { label: 'Montreal, Canada', city: 'Montreal', country: 'Canada', flag: '🇨🇦' },
+    { label: 'Vancouver, Canada', city: 'Vancouver', country: 'Canada', flag: '🇨🇦' },
+    { label: 'Calgary, Canada', city: 'Calgary', country: 'Canada', flag: '🇨🇦' },
+    { label: 'Ottawa, Canada', city: 'Ottawa', country: 'Canada', flag: '🇨🇦' },
+    // Australia
+    { label: 'Sydney, Australia', city: 'Sydney', country: 'Australia', flag: '🇦🇺' },
+    { label: 'Melbourne, Australia', city: 'Melbourne', country: 'Australia', flag: '🇦🇺' },
+    { label: 'Brisbane, Australia', city: 'Brisbane', country: 'Australia', flag: '🇦🇺' },
+    { label: 'Perth, Australia', city: 'Perth', country: 'Australia', flag: '🇦🇺' },
+    // United Arab Emirates
+    { label: 'Dubai, UAE', city: 'Dubai', country: 'United Arab Emirates', flag: '🇦🇪' },
+    { label: 'Abu Dhabi, UAE', city: 'Abu Dhabi', country: 'United Arab Emirates', flag: '🇦🇪' },
+    { label: 'Sharjah, UAE', city: 'Sharjah', country: 'United Arab Emirates', flag: '🇦🇪' },
+    // India
+    { label: 'Mumbai, India', city: 'Mumbai', country: 'India', flag: '🇮🇳' },
+    { label: 'Delhi, India', city: 'Delhi', country: 'India', flag: '🇮🇳' },
+    { label: 'Bengaluru, India', city: 'Bengaluru', country: 'India', flag: '🇮🇳' },
+    { label: 'Chennai, India', city: 'Chennai', country: 'India', flag: '🇮🇳' },
+    { label: 'Hyderabad, India', city: 'Hyderabad', country: 'India', flag: '🇮🇳' },
+    { label: 'Kolkata, India', city: 'Kolkata', country: 'India', flag: '🇮🇳' },
+    // China
+    { label: 'Beijing, China', city: 'Beijing', country: 'China', flag: '🇨🇳' },
+    { label: 'Shanghai, China', city: 'Shanghai', country: 'China', flag: '🇨🇳' },
+    { label: 'Guangzhou, China', city: 'Guangzhou', country: 'China', flag: '🇨🇳' },
+    { label: 'Shenzhen, China', city: 'Shenzhen', country: 'China', flag: '🇨🇳' },
+    // Japan
+    { label: 'Tokyo, Japan', city: 'Tokyo', country: 'Japan', flag: '🇯🇵' },
+    { label: 'Osaka, Japan', city: 'Osaka', country: 'Japan', flag: '🇯🇵' },
+    { label: 'Kyoto, Japan', city: 'Kyoto', country: 'Japan', flag: '🇯🇵' },
+    // Spain
+    { label: 'Madrid, Spain', city: 'Madrid', country: 'Spain', flag: '🇪🇸' },
+    { label: 'Barcelona, Spain', city: 'Barcelona', country: 'Spain', flag: '🇪🇸' },
+    { label: 'Seville, Spain', city: 'Seville', country: 'Spain', flag: '🇪🇸' },
+    { label: 'Valencia, Spain', city: 'Valencia', country: 'Spain', flag: '🇪🇸' },
+    // Italy
+    { label: 'Rome, Italy', city: 'Rome', country: 'Italy', flag: '🇮🇹' },
+    { label: 'Milan, Italy', city: 'Milan', country: 'Italy', flag: '🇮🇹' },
+    { label: 'Naples, Italy', city: 'Naples', country: 'Italy', flag: '🇮🇹' },
+    { label: 'Turin, Italy', city: 'Turin', country: 'Italy', flag: '🇮🇹' },
+    // Brazil
+    { label: 'São Paulo, Brazil', city: 'São Paulo', country: 'Brazil', flag: '🇧🇷' },
+    { label: 'Rio de Janeiro, Brazil', city: 'Rio de Janeiro', country: 'Brazil', flag: '🇧🇷' },
+    { label: 'Brasília, Brazil', city: 'Brasília', country: 'Brazil', flag: '🇧🇷' },
+    { label: 'Salvador, Brazil', city: 'Salvador', country: 'Brazil', flag: '🇧🇷' },
+    // Mexico
+    { label: 'Mexico City, Mexico', city: 'Mexico City', country: 'Mexico', flag: '🇲🇽' },
+    { label: 'Guadalajara, Mexico', city: 'Guadalajara', country: 'Mexico', flag: '🇲🇽' },
+    { label: 'Monterrey, Mexico', city: 'Monterrey', country: 'Mexico', flag: '🇲🇽' },
+    // Egypt
+    { label: 'Cairo, Egypt', city: 'Cairo', country: 'Egypt', flag: '🇪🇬' },
+    { label: 'Alexandria, Egypt', city: 'Alexandria', country: 'Egypt', flag: '🇪🇬' },
+    // Saudi Arabia
+    { label: 'Riyadh, Saudi Arabia', city: 'Riyadh', country: 'Saudi Arabia', flag: '🇸🇦' },
+    { label: 'Jeddah, Saudi Arabia', city: 'Jeddah', country: 'Saudi Arabia', flag: '🇸🇦' },
+    { label: 'Mecca, Saudi Arabia', city: 'Mecca', country: 'Saudi Arabia', flag: '🇸🇦' },
+    // Morocco
+    { label: 'Casablanca, Morocco', city: 'Casablanca', country: 'Morocco', flag: '🇲🇦' },
+    { label: 'Rabat, Morocco', city: 'Rabat', country: 'Morocco', flag: '🇲🇦' },
+    { label: 'Marrakech, Morocco', city: 'Marrakech', country: 'Morocco', flag: '🇲🇦' },
+    // Senegal
+    { label: 'Dakar, Senegal', city: 'Dakar', country: 'Senegal', flag: '🇸🇳' },
+    // Tanzania
+    { label: 'Dar es Salaam, Tanzania', city: 'Dar es Salaam', country: 'Tanzania', flag: '🇹🇿' },
+    { label: 'Dodoma, Tanzania', city: 'Dodoma', country: 'Tanzania', flag: '🇹🇿' },
+    // Singapore
+    { label: 'Singapore', city: 'Singapore', country: 'Singapore', flag: '🇸🇬' },
+    // Netherlands
+    { label: 'Amsterdam, Netherlands', city: 'Amsterdam', country: 'Netherlands', flag: '🇳🇱' },
+    { label: 'Rotterdam, Netherlands', city: 'Rotterdam', country: 'Netherlands', flag: '🇳🇱' },
+    // Portugal
+    { label: 'Lisbon, Portugal', city: 'Lisbon', country: 'Portugal', flag: '🇵🇹' },
+    { label: 'Porto, Portugal', city: 'Porto', country: 'Portugal', flag: '🇵🇹' },
+    // Pakistan
+    { label: 'Karachi, Pakistan', city: 'Karachi', country: 'Pakistan', flag: '🇵🇰' },
+    { label: 'Lahore, Pakistan', city: 'Lahore', country: 'Pakistan', flag: '🇵🇰' },
+    { label: 'Islamabad, Pakistan', city: 'Islamabad', country: 'Pakistan', flag: '🇵🇰' },
+    // Turkey
+    { label: 'Istanbul, Turkey', city: 'Istanbul', country: 'Turkey', flag: '🇹🇷' },
+    { label: 'Ankara, Turkey', city: 'Ankara', country: 'Turkey', flag: '🇹🇷' },
+    // South Korea
+    { label: 'Seoul, South Korea', city: 'Seoul', country: 'South Korea', flag: '🇰🇷' },
+    { label: 'Busan, South Korea', city: 'Busan', country: 'South Korea', flag: '🇰🇷' },
+    // Ethiopia
+    { label: 'Addis Ababa, Ethiopia', city: 'Addis Ababa', country: 'Ethiopia', flag: '🇪🇹' },
+    // Uganda
+    { label: 'Kampala, Uganda', city: 'Kampala', country: 'Uganda', flag: '🇺🇬' },
+    // Cameroon
+    { label: 'Yaoundé, Cameroon', city: 'Yaoundé', country: 'Cameroon', flag: '🇨🇲' },
+    { label: 'Douala, Cameroon', city: 'Douala', country: 'Cameroon', flag: '🇨🇲' },
+    // Côte d'Ivoire
+    { label: 'Abidjan, Côte d\'Ivoire', city: 'Abidjan', country: 'Côte d\'Ivoire', flag: '🇨🇮' },
+].sort((a, b) => a.label.localeCompare(b.label));

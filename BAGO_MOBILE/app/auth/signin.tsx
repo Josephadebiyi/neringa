@@ -1,0 +1,328 @@
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, ScrollView } from 'react-native';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api, { saveToken } from '@/utils/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useGoogleAuth, processGoogleAuthResult } from '@/utils/googleAuth';
+
+export default function SignIn() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { signIn, authenticateWithToken } = useAuth();
+  const { request, response, promptAsync } = useGoogleAuth();
+
+  useEffect(() => {
+    if (response) {
+      processGoogleAuthResult(
+        response,
+        async (token: string, userInfo: any) => {
+          try {
+            // Send Google token and user info to your backend
+            const res = await api.post('/api/bago/google-auth', {
+              accessToken: token,
+              email: userInfo.email,
+              name: userInfo.name,
+              picture: userInfo.picture,
+            });
+
+            if (res.data.success) {
+              await authenticateWithToken(res.data.token, res.data.user);
+              router.replace('/(tabs)');
+            } else {
+              setError(res.data.message || 'Google sign-in failed');
+            }
+          } catch (err: any) {
+            setError(err.message || 'Failed to sign in with Google');
+          }
+        },
+        (error: string) => setError(error)
+      );
+    }
+  }, [response]);
+
+  const handleSignIn = async () => {
+    setError('');
+    setLoading(true);
+
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Use the AuthContext signIn method which handles token storage AND updates global state
+      const { error: signInError } = await signIn(email.toLowerCase(), password);
+
+      if (signInError) {
+        throw new Error(signInError.message || 'Sign in failed');
+      }
+
+      console.log('Sign in successful - context updated');
+
+      // Reset loading state
+      setLoading(false);
+
+      // Navigate to main app
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      console.log('Sign in error:', err);
+      const errorMessage = err.message || 'An error occurred during sign-in';
+      setError(errorMessage);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top, backgroundColor: '#F8F6F3' }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Image
+              source={require('@/assets/images/bago-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={[styles.subtitle, { color: '#6B6B6B' }]}>Connect Travelers & Senders</Text>
+          </View>
+
+          <View style={styles.form}>
+            <Text style={[styles.label, { color: '#1A1A1A' }]}>Email</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: '#FFFFFF', color: '#1A1A1A', borderColor: '#E5E5E5' }]}
+              placeholder="Enter your email"
+              placeholderTextColor={'#9E9E9E'}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              editable={!loading}
+            />
+
+            <Text style={[styles.label, { color: '#1A1A1A' }]}>Password</Text>
+            <View style={[styles.passwordContainer, { backgroundColor: '#FFFFFF', borderColor: '#E5E5E5' }]}>
+              <TextInput
+                style={[styles.passwordInput, { color: '#1A1A1A' }]}
+                placeholder="Enter your password"
+                placeholderTextColor={'#9E9E9E'}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                editable={!loading}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeOff color={'#9E9E9E'} size={20} />
+                ) : (
+                  <Eye color={'#9E9E9E'} size={20} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => router.push('/auth/forgot-password')}
+              disabled={loading}
+              style={styles.forgotPasswordButton}
+            >
+              <Text style={[styles.forgotPasswordText, { color: '#5845D8' }]}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: '#5845D8' }, loading && styles.buttonDisabled]}
+              onPress={handleSignIn}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={'#FFFFFF'} />
+              ) : (
+                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.googleButton, { backgroundColor: '#FFFFFF', borderColor: '#E5E5E5' }]}
+              onPress={() => promptAsync()}
+              disabled={loading || !request}
+            >
+              <Image
+                source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                style={styles.googleLogo}
+              />
+              <Text style={[styles.googleButtonText, { color: '#1A1A1A' }]}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => router.push('/auth/signup')}
+              disabled={loading}
+            >
+              <Text style={[styles.linkText, { color: '#6B6B6B' }]}>
+                Don't have an account? <Text style={[styles.linkTextBold, { color: '#5845D8' }]}>Sign Up</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  logo: {
+    width: 160,
+    height: 60,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 8,
+  },
+  form: {
+    width: '100%',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F8F8F8',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 16,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    backgroundColor: '#F8F8F8',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#333',
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 12,
+  },
+  forgotPasswordText: {
+    color: '#6366F1',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  button: {
+    backgroundColor: '#6366F1',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  error: {
+    color: '#EF4444',
+    fontSize: 14,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  linkButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#888',
+    fontSize: 14,
+  },
+  linkTextBold: {
+    color: '#6366F1',
+    fontWeight: '600',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#9E9E9E',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  googleLogo: {
+    width: 20,
+    height: 20,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

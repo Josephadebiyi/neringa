@@ -1,0 +1,77 @@
+import '../../../core/utils/json_parser.dart';
+import '../../../core/utils/model_enums.dart';
+
+class MessageModel {
+  final String id;
+  final String conversationId;
+  final String senderId;
+  final String? receiverId;
+  final String content;
+  final MessageType type;
+  final String? fileUrl;
+  final String? fileName;
+  final bool isRead;
+  final String createdAt;
+  final String _timeLabel;
+
+  MessageModel({
+    required this.id,
+    required this.conversationId,
+    required this.senderId,
+    this.receiverId,
+    required this.content,
+    required this.type,
+    this.fileUrl,
+    this.fileName,
+    required this.isRead,
+    required this.createdAt,
+  }) : _timeLabel = _buildTimeLabel(createdAt);
+
+  factory MessageModel.fromJson(Map<String, dynamic> json) => MessageModel(
+        id: JsonParser.parseId(json),
+        conversationId: json['conversationId']?.toString() ??
+            json['conversation_id']?.toString() ??
+            json['chatId']?.toString() ??
+            '',
+        senderId: _participantId(json['senderId'] ?? json['sender'] ?? json['from']),
+        receiverId: _participantId(json['receiverId'] ?? json['receiver'] ?? json['to']),
+        content: json['content']?.toString() ??
+            json['text']?.toString() ??
+            json['message']?.toString() ??
+            '',
+        type: MessageType.fromString(json['type']?.toString()),
+        fileUrl: json['fileUrl']?.toString(),
+        fileName: json['fileName']?.toString(),
+        isRead: json['isRead'] == true || json['read'] == true,
+        createdAt: json['createdAt']?.toString() ??
+            json['created_at']?.toString() ??
+            json['timestamp']?.toString() ??
+            '',
+      );
+
+  String get timeLabel => _timeLabel;
+
+  static String _buildTimeLabel(String createdAt) {
+    try {
+      final dt = DateTime.parse(createdAt).toLocal();
+      final now = DateTime.now();
+      if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+      return '${dt.day}/${dt.month}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static String _participantId(dynamic value) {
+    if (value == null) return '';
+    if (value is Map<String, dynamic>) {
+      return value['id']?.toString() ??
+          value['_id']?.toString() ??
+          value['userId']?.toString() ??
+          '';
+    }
+    return value.toString();
+  }
+}

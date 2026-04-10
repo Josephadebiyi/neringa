@@ -1,0 +1,57 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="700" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10162D"/>
+      <stop offset="55%" stop-color="#26407A"/>
+      <stop offset="100%" stop-color="#0D1120"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="240" y1="110" x2="960" y2="590" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7CFFB2" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#66D7FF" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#FFD166" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="700" rx="48" fill="url(#sky)"/>
+
+  <circle cx="230" cy="145" r="90" fill="#6A5CFF" fill-opacity="0.24"/>
+  <circle cx="930" cy="560" r="130" fill="#14B8A6" fill-opacity="0.18"/>
+  <circle cx="1010" cy="130" r="70" fill="#FFD166" fill-opacity="0.16"/>
+
+  <path d="M100 515C180 475 250 475 330 515C410 555 490 555 570 515C650 475 720 475 800 515C880 555 960 555 1040 515"
+        stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="5" stroke-linecap="round"/>
+
+  <path d="M150 560H420L405 525H315L300 490H255L240 525H180L150 560Z" fill="#08101F" fill-opacity="0.86"/>
+  <path d="M420 560H545L535 505H505L495 470H465L455 505H430L420 560Z" fill="#08101F" fill-opacity="0.86"/>
+  <path d="M620 560H865L855 495H812L800 450H770L758 495H685L670 530H635L620 560Z" fill="#08101F" fill-opacity="0.86"/>
+  <path d="M870 560H1035L1020 520H980L968 485H935L922 520H892L870 560Z" fill="#08101F" fill-opacity="0.86"/>
+
+  <circle cx="260" cy="198" r="22" fill="#FFFFFF" fill-opacity="0.92"/>
+  <circle cx="260" cy="198" r="12" fill="#FFB703"/>
+  <circle cx="940" cy="470" r="22" fill="#FFFFFF" fill-opacity="0.92"/>
+  <circle cx="940" cy="470" r="12" fill="#FFB703"/>
+
+  <path d="M283 208C392 247 497 274 602 350C697 418 804 455 917 468"
+        stroke="url(#glow)" stroke-width="10" stroke-linecap="round" stroke-dasharray="2 18"/>
+  <path d="M283 208C392 247 497 274 602 350C697 418 804 455 917 468"
+        stroke="#FFFFFF" stroke-opacity="0.85" stroke-width="4" stroke-linecap="round"/>
+
+  <g transform="translate(585 310) rotate(18)">
+    <path d="M0 18L80 0L62 22L84 46L74 52L48 32L28 57L21 54L29 24L0 18Z" fill="#FFFFFF" fill-opacity="0.94"/>
+    <path d="M29 24L84 46" stroke="#0F172A" stroke-opacity="0.22" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <g opacity="0.95">
+    <text x="84" y="118" fill="#FFFFFF" font-size="42" font-family="Arial, Helvetica, sans-serif" font-weight="700" letter-spacing="2">POPULAR ROUTE</text>
+    <text x="84" y="176" fill="#FFFFFF" font-size="72" font-family="Arial, Helvetica, sans-serif" font-weight="800">London → Lagos</text>
+    <text x="84" y="226" fill="#FFFFFF" font-size="30" font-family="Arial, Helvetica, sans-serif" opacity="0.82">A premium international shipping corridor</text>
+  </g>
+
+  <g>
+    <rect x="84" y="278" width="214" height="58" rx="18" fill="#FFFFFF" fill-opacity="0.16"/>
+    <text x="116" y="316" fill="#FFFFFF" font-size="28" font-family="Arial, Helvetica, sans-serif" font-weight="700">High demand</text>
+
+    <rect x="84" y="350" width="154" height="58" rx="18" fill="#FFFFFF" fill-opacity="0.16"/>
+    <text x="116" y="388" fill="#FFFFFF" font-size="28" font-family="Arial, Helvetica, sans-serif" font-weight="700">Fast moves</text>
+  </g>
+</svg>

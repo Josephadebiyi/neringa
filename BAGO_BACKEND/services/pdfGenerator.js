@@ -1,0 +1,619 @@
+/**
+ * PDF Generator Service
+ * Generates customs declaration PDFs for shipments
+ */
+
+import fs from 'fs';
+import path from 'path';
+import PDFDocument from 'pdfkit';
+import { fileURLToPath } from 'url';
+
+import { RESTRICTED_ITEMS } from './restrictedItems.js';
+
+/**
+ * Generate Customs Declaration PDF
+ * @param {Object} declarationData - Declaration data from assessment
+ * @returns {Promise<Buffer>} PDF as buffer
+ */
+export async function generateCustomsDeclarationPDF(declarationData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Header
+      doc.fontSize(20)
+         .font('Helvetica-Bold')
+         .text('CUSTOMS DECLARATION', { align: 'center' });
+      
+      doc.moveDown(0.5);
+      doc.fontSize(12)
+         .font('Helvetica')
+         .text('Human-Carried Goods Declaration Form', { align: 'center' });
+      
+      doc.moveDown(0.3);
+      doc.fontSize(10)
+         .fillColor('#666666')
+         .text(`Reference: ${declarationData.shipmentId}`, { align: 'center' });
+      
+      doc.fillColor('#000000');
+      doc.moveDown(1);
+
+      // Horizontal line
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Section 1: Route Information
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('1. ROUTE INFORMATION');
+      doc.moveDown(0.5);
+
+      const routeData = [
+        ['Origin City:', declarationData.origin.city],
+        ['Origin Country:', declarationData.origin.country],
+        ['Destination City:', declarationData.destination.city],
+        ['Destination Country:', declarationData.destination.country],
+        ['Transport Mode:', formatTransportMode(declarationData.transportMode)],
+        ['Departure Date:', formatDate(declarationData.departureDate)]
+      ];
+      
+      drawTable(doc, routeData);
+      doc.moveDown(1);
+
+      // Section 2: Item Details
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('2. GOODS DESCRIPTION');
+      doc.moveDown(0.5);
+
+      const itemData = [
+        ['Description:', declarationData.item.description],
+        ['Category:', declarationData.item.category],
+        ['Quantity:', String(declarationData.item.quantity)],
+        ['Weight:', `${declarationData.item.weight} kg`],
+        ['Declared Value:', `${declarationData.item.currency} ${declarationData.item.declaredValue}`]
+      ];
+
+      if (declarationData.item.dimensions) {
+        const dims = declarationData.item.dimensions;
+        itemData.push(['Dimensions:', `${dims.length} x ${dims.width} x ${dims.height} cm`]);
+      }
+
+      drawTable(doc, itemData);
+      doc.moveDown(1);
+
+      // Section 3: Customs Classification
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('3. CUSTOMS CLASSIFICATION');
+      doc.moveDown(0.5);
+
+      const customsData = [
+        ['HS Code:', declarationData.customs.hsCode],
+        ['HS Description:', declarationData.customs.hsDescription],
+        ['Estimated Duty:', `${declarationData.item.currency} ${declarationData.customs.estimatedDuty}`],
+        ['Estimated VAT:', `${declarationData.item.currency} ${declarationData.customs.estimatedVAT}`],
+        ['Total Estimated Taxes:', `${declarationData.item.currency} ${declarationData.customs.totalTaxes}`]
+      ];
+
+      drawTable(doc, customsData);
+      doc.moveDown(1);
+
+      // Section 4: Carrier Information
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('4. CARRIER INFORMATION');
+      doc.moveDown(0.5);
+
+      const carrierData = [
+        ['Carrier Name:', declarationData.traveler.name],
+        ['Reliability Rating:', `${declarationData.traveler.rating}/5`],
+        ['Completed Deliveries:', String(declarationData.traveler.completedTrips)]
+      ];
+
+      drawTable(doc, carrierData);
+      doc.moveDown(1);
+
+      // Add new page for declaration
+      doc.addPage();
+
+      // Section 5: Declaration Statement
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('5. DECLARATION STATEMENT');
+      doc.moveDown(0.5);
+
+      doc.fontSize(10)
+         .font('Helvetica')
+         .text(declarationData.declarationText, {
+           align: 'left',
+           lineGap: 4
+         });
+
+      doc.moveDown(2);
+
+      // Signature boxes
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .text('SIGNATURES');
+      doc.moveDown(1);
+
+      // Sender signature
+      doc.fontSize(10)
+         .font('Helvetica')
+         .text('Sender Signature:');
+      doc.moveDown(0.3);
+      drawSignatureBox(doc);
+      doc.moveDown(0.3);
+      doc.text('Date: _____________________');
+      doc.moveDown(1);
+
+      // Carrier signature
+      doc.text('Carrier Signature:');
+      doc.moveDown(0.3);
+      drawSignatureBox(doc);
+      doc.moveDown(0.3);
+      doc.text('Date: _____________________');
+
+      doc.moveDown(2);
+
+      // Footer
+      drawLine(doc);
+      doc.moveDown(0.5);
+      doc.fontSize(8)
+         .fillColor('#666666')
+         .text(`Generated by Baggo - ${new Date().toISOString()}`, { align: 'center' });
+      doc.text('This document is for customs compliance purposes only.', { align: 'center' });
+      doc.text(`Document ID: ${declarationData.shipmentId}`, { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
+ * Generate Shipment Summary PDF
+ */
+export async function generateShipmentSummaryPDF(assessment) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Header
+      doc.fontSize(20)
+         .font('Helvetica-Bold')
+         .text('SHIPMENT ASSESSMENT REPORT', { align: 'center' });
+      
+      doc.moveDown(1);
+
+      // Confidence Score - Big display
+      const scoreColor = getScoreColor(assessment.confidenceScore);
+      doc.fontSize(48)
+         .fillColor(scoreColor)
+         .text(String(assessment.confidenceScore), { align: 'center' });
+      
+      doc.fontSize(14)
+         .fillColor('#666666')
+         .text('Delivery Confidence Score', { align: 'center' });
+
+      doc.fillColor('#000000');
+      doc.moveDown(1);
+
+      // Compatibility status
+      const compatColor = assessment.compatibility.status === 'Yes' ? '#22C55E' : 
+                         assessment.compatibility.status === 'Conditional' ? '#F59E0B' : '#EF4444';
+      
+      doc.fontSize(16)
+         .fillColor(compatColor)
+         .text(`Compatibility: ${assessment.compatibility.status}`, { align: 'center' });
+
+      doc.fillColor('#000000');
+      doc.moveDown(1);
+
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Risk Classification
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('RISK ASSESSMENT');
+      doc.moveDown(0.5);
+
+      const risks = [
+        ['Border/Customs Risk:', getRiskLevel(assessment.riskClassification.borderCustomsRisk)],
+        ['Delay Risk:', getRiskLevel(assessment.riskClassification.delayRisk)],
+        ['Damage Risk:', getRiskLevel(assessment.riskClassification.damageRisk)],
+        ['Confiscation Risk:', getRiskLevel(assessment.riskClassification.confiscationRisk)],
+        ['Overall Risk:', assessment.riskClassification.overall]
+      ];
+
+      drawTable(doc, risks);
+      doc.moveDown(1);
+
+      // Price Estimate
+      if (assessment.priceEstimate) {
+        doc.fontSize(14)
+           .font('Helvetica-Bold')
+           .text('PRICE ESTIMATE');
+        doc.moveDown(0.5);
+
+        const priceData = [
+          ['Base Price:', `€${assessment.priceEstimate.basePrice}`],
+          ['Risk Premium:', `€${assessment.priceEstimate.riskPremium}`],
+          ['Urgency Premium:', `€${assessment.priceEstimate.urgencyPremium}`],
+          ['Total Suggested Price:', `€${assessment.priceEstimate.totalPrice}`]
+        ];
+
+        drawTable(doc, priceData);
+      }
+
+      doc.moveDown(2);
+
+      // Requirements
+      if (assessment.requirements) {
+        doc.fontSize(14)
+           .font('Helvetica-Bold')
+           .text('REQUIREMENTS');
+        doc.moveDown(0.5);
+
+        doc.fontSize(10)
+           .font('Helvetica');
+
+        if (assessment.requirements.packaging.length > 0) {
+          doc.font('Helvetica-Bold').text('Packaging:');
+          doc.font('Helvetica');
+          assessment.requirements.packaging.forEach(req => {
+            doc.text(`  • ${req}`);
+          });
+          doc.moveDown(0.5);
+        }
+
+        if (assessment.requirements.declaration.length > 0) {
+          doc.font('Helvetica-Bold').text('Declaration:');
+          doc.font('Helvetica');
+          assessment.requirements.declaration.forEach(req => {
+            doc.text(`  • ${req}`);
+          });
+        }
+      }
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
+ * Generate Shipping Label PDF with tracking number and Bago branding
+ * @param {Object} shippingData - Shipping request data
+ * @returns {Promise<Buffer>} PDF as buffer
+ */
+export async function generateShippingLabelPDF(shippingData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const logoPath = path.resolve(__dirname, '../controllers/image/Bago_New_2.png');
+
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 30, bottom: 30, left: 30, right: 30 }
+      });
+
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      drawBrandHeader(doc, logoPath);
+
+      doc.moveDown(1);
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Tracking number - large and prominent
+      doc.fontSize(14)
+         .fillColor('#000000')
+         .font('Helvetica-Bold')
+         .text('TRACKING NUMBER', { align: 'center' });
+
+      doc.fontSize(24)
+         .fillColor('#5240E8')
+         .text(shippingData.trackingNumber || 'BGO-PENDING', { align: 'center' });
+
+      doc.moveDown(1);
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Sender Information
+      doc.fontSize(14)
+         .fillColor('#000000')
+         .font('Helvetica-Bold')
+         .text('FROM (SENDER)');
+      doc.moveDown(0.3);
+
+       doc.fontSize(11)
+          .font('Helvetica')
+          .text(shippingData.sender?.name || 'Sender')
+          .text(shippingData.sender?.phone || '')
+          .text((shippingData.package?.fromCity || 'N/A') + ', ' + (shippingData.package?.fromCountry || 'N/A'));
+ 
+       doc.moveDown(1);
+
+      // Recipient Information
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('TO (RECIPIENT)');
+      doc.moveDown(0.3);
+
+       doc.fontSize(11)
+          .font('Helvetica')
+          .text(shippingData.package?.receiverName || 'Recipient')
+          .text(shippingData.package?.receiverPhone || '')
+          .text((shippingData.package?.toCity || 'N/A') + ', ' + (shippingData.package?.toCountry || 'N/A'));
+ 
+       doc.moveDown(1);
+      drawLine(doc);
+      doc.moveDown(1);
+
+      // Package Details
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('PACKAGE INFORMATION');
+      doc.moveDown(0.5);
+
+       const packageInfo = [
+         ['Description:', shippingData.package?.description || 'N/A'],
+         ['Weight:', `${shippingData.package?.packageWeight || 0} kg`],
+         ['Category:', shippingData.package?.category || 'General'],
+         ['Value:', `$${shippingData.package?.value || 0}`],
+       ];
+
+      if (shippingData.insurance) {
+        packageInfo.push(['Insurance:', `Yes - $${shippingData.insuranceCost}`]);
+      }
+
+      drawTable(doc, packageInfo);
+      doc.moveDown(1);
+
+      // Travel Details
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('TRAVEL INFORMATION');
+      doc.moveDown(0.5);
+
+       const travelInfo = [
+         ['Traveler:', shippingData.traveler?.name || 'Traveler'],
+         ['Travel Mode:', shippingData.trip?.travelMeans || 'N/A'],
+         ['Estimated Departure:', formatDate(shippingData.estimatedDeparture)],
+         ['Estimated Arrival:', formatDate(shippingData.estimatedArrival)],
+       ];
+
+      drawTable(doc, travelInfo);
+      doc.moveDown(1);
+
+      // Status section
+      drawLine(doc);
+      doc.moveDown(0.5);
+
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .text('CURRENT STATUS');
+      doc.moveDown(0.3);
+
+      const statusColor = getStatusColor(shippingData.status || 'pending');
+      doc.fontSize(14)
+         .fillColor(statusColor)
+         .text((shippingData.status || 'PENDING').toUpperCase(), { align: 'center' });
+
+      doc.fillColor('#000000');
+      doc.moveDown(1);
+
+      // Terms and Important Info
+      drawLine(doc);
+      doc.moveDown(0.5);
+
+      doc.fontSize(10)
+         .font('Helvetica-Bold')
+         .text('TERMS & CONDITIONS', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(7.5)
+         .font('Helvetica')
+         .fillColor('#555555')
+         .text('• This shipment must comply with the laws of the origin, transit, and destination countries.', { align: 'left', lineGap: 3 })
+         .text('• Sender and recipient are responsible for accurate item descriptions, declared value, and contents.', { align: 'left', lineGap: 3 })
+         .text('• Any prohibited or undeclared item may be refused, delayed, seized, or reported.', { align: 'left', lineGap: 3 })
+         .text('• Keep this PDF with the shipment and present it when requested by support or customs.', { align: 'left', lineGap: 3 })
+         .text('• Track your shipment: sendwithbago.com/tracking/' + (shippingData.trackingNumber || 'PENDING'), { align: 'left', lineGap: 3 });
+
+      doc.moveDown(0.8);
+      doc.fillColor('#000000');
+      doc.fontSize(10)
+         .font('Helvetica-Bold')
+         .text('ALLOWED ITEMS', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(7.5)
+         .font('Helvetica')
+         .fillColor('#555555')
+         .text('• Documents, books, and printed materials', { align: 'left', lineGap: 3 })
+         .text('• Clothing, footwear, and personal accessories', { align: 'left', lineGap: 3 })
+         .text('• Electronics with built-in batteries or standard consumer accessories', { align: 'left', lineGap: 3 })
+         .text('• Cosmetics, household goods, toys, and sports items allowed by destination rules', { align: 'left', lineGap: 3 })
+         .text('• Food and medicine only when destination rules and documentation permit it', { align: 'left', lineGap: 3 });
+
+      doc.moveDown(0.8);
+      doc.fillColor('#000000');
+      doc.fontSize(10)
+         .font('Helvetica-Bold')
+         .text('PROHIBITED ITEMS', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(7.5)
+         .font('Helvetica')
+         .fillColor('#555555')
+         .text(formatItemList(RESTRICTED_ITEMS.prohibited.slice(0, 10)), { align: 'left', lineGap: 3 });
+
+      doc.moveDown(0.8);
+      doc.fillColor('#000000');
+      doc.fontSize(10)
+         .font('Helvetica-Bold')
+         .text('SENDER ACKNOWLEDGEMENT', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(7.5)
+         .font('Helvetica')
+         .fillColor('#555555')
+         .text('By using this label, I confirm the package contents are truthful and acceptable for human-carried delivery.', { align: 'left', lineGap: 3 })
+         .text('I accept responsibility for customs declarations, destination restrictions, and any legal consequences of inaccurate declarations.', { align: 'left', lineGap: 3 });
+
+      doc.moveDown(1);
+
+      // Footer
+      doc.fontSize(7)
+         .fillColor('#999999')
+         .text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' })
+         .text('Bago - Connecting Senders with Travelers | www.sendwithbago.com', { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Helper function for status colors
+function getStatusColor(status) {
+  const colors = {
+    'pending': '#F59E0B',
+    'accepted': '#10B981',
+    'intransit': '#3B82F6',
+    'delivering': '#8B5CF6',
+    'completed': '#22C55E',
+    'rejected': '#EF4444',
+    'cancelled': '#6B7280'
+  };
+  return colors[status] || '#6B7280';
+}
+
+// Helper functions
+function drawLine(doc) {
+  doc.moveTo(50, doc.y)
+     .lineTo(545, doc.y)
+     .stroke('#CCCCCC');
+}
+
+function drawBrandHeader(doc, logoPath) {
+  if (fs.existsSync(logoPath)) {
+    try {
+      doc.image(logoPath, 235, doc.y, { width: 75 });
+      doc.moveDown(3);
+    } catch {
+      doc.fontSize(28)
+        .font('Helvetica-Bold')
+        .fillColor('#5240E8')
+        .text('BAGO', { align: 'center' });
+    }
+  } else {
+    doc.fontSize(28)
+      .font('Helvetica-Bold')
+      .fillColor('#5240E8')
+      .text('BAGO', { align: 'center' });
+  }
+
+  doc.moveDown(0.2);
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('#666666')
+    .text('Community-Powered Shipping', { align: 'center' })
+    .fillColor('#000000');
+}
+
+function formatItemList(items) {
+  return items.map((item) => `• ${item}`).join('\n');
+}
+
+function drawTable(doc, data) {
+  doc.font('Helvetica')
+     .fontSize(10);
+
+  const labelWidth = 150;
+  const startX = 50;
+  
+  data.forEach(([label, value]) => {
+    const y = doc.y;
+    doc.font('Helvetica-Bold')
+       .text(label, startX, y, { width: labelWidth, continued: false });
+    doc.font('Helvetica')
+       .text(value || 'N/A', startX + labelWidth, y);
+    doc.moveDown(0.3);
+  });
+}
+
+function drawSignatureBox(doc) {
+  const startX = 50;
+  const width = 250;
+  const height = 40;
+  
+  doc.rect(startX, doc.y, width, height)
+     .stroke('#CCCCCC');
+  
+  doc.y += height;
+}
+
+function formatTransportMode(mode) {
+  const modes = {
+    air: 'Air (Flight)',
+    bus: 'Road (Bus)',
+    ship: 'Sea (Ship)',
+    train: 'Rail (Train)',
+    car: 'Road (Car)'
+  };
+  return modes[mode] || mode;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return 'Not specified';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
+function getScoreColor(score) {
+  if (score >= 80) return '#22C55E'; // Green
+  if (score >= 60) return '#84CC16'; // Lime
+  if (score >= 40) return '#F59E0B'; // Amber
+  if (score >= 20) return '#F97316'; // Orange
+  return '#EF4444'; // Red
+}
+
+function getRiskLevel(score) {
+  if (score < 25) return `${score}% (Low)`;
+  if (score < 50) return `${score}% (Medium)`;
+  if (score < 75) return `${score}% (High)`;
+  return `${score}% (Very High)`;
+}
+
+export default {
+  generateCustomsDeclarationPDF,
+  generateShipmentSummaryPDF
+};

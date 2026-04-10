@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "apis": [
+    {
+      "identifier": "didit-tdmi",
+      "source": "@didit-tdmi/v2.0#cskv2kt7mh6nqydf",
+      "integrity": "sha512-tJnRCQOKIO9sLRzkNYDhjtSb0nno0TSZLr/wwxQcHBDfYiRvcdHPEdoPOJWAE90ODyYjI4lnJrpduSVCAsBNNg==",
+      "installerVersion": "6.1.3"
+    }
+  ]
+}

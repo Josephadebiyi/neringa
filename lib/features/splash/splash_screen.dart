@@ -1,0 +1,204 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../auth/providers/auth_provider.dart';
+import '../onboarding/screens/onboarding_screen.dart';
+
+class SplashScreen extends ConsumerStatefulWidget {
+  const SplashScreen({
+    super.key,
+    this.forceReplay = false,
+    this.nextRoute,
+    this.autoNavigate = true,
+    this.replayDurationMs = 1600,
+  });
+
+  final bool forceReplay;
+  final String? nextRoute;
+  final bool autoNavigate;
+  final int replayDurationMs;
+
+  @override
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fadeIn;
+  late final Animation<double> _logoScale;
+  late final Animation<double> _logoGlow;
+  late final Animation<double> _streakTravel;
+  ProviderSubscription<AuthState>? _authSubscription;
+  bool _hasScheduledNavigation = false;
+  late final bool _isReplaySplash;
+
+  void _handleAuthState(AuthState authState) {
+    if (_hasScheduledNavigation || authState.isInitialising) return;
+    _hasScheduledNavigation = true;
+
+    Future<void>(() async {
+      if (_isReplaySplash) {
+        return;
+      }
+
+      final target = await _resolveInitialRoute(authState);
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          FlutterNativeSplash.remove();
+          context.go(target);
+        }
+      });
+    });
+  }
+
+  Future<String> _resolveInitialRoute(AuthState authState) async {
+    if (widget.nextRoute != null || authState.isLoggedIn) {
+      return widget.nextRoute ?? '/home';
+    }
+
+    final seen = await hasSeenOnboarding();
+    return seen ? '/auth/signin' : '/onboarding';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _isReplaySplash = widget.forceReplay || widget.nextRoute != null;
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1450),
+    );
+    _fadeIn = Tween<double>(begin: 0.82, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _logoScale = Tween<double>(begin: 0.94, end: 1.03).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+    _logoGlow = Tween<double>(begin: 16, end: 34).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _streakTravel = Tween<double>(begin: -40, end: 40).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+
+    if (_isReplaySplash) {
+      _controller.repeat(reverse: true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        FlutterNativeSplash.remove();
+      });
+      Future.delayed(Duration(milliseconds: widget.replayDurationMs), () {
+        if (mounted && widget.autoNavigate) {
+          context.go(widget.nextRoute ?? '/home');
+        }
+      });
+    } else {
+      _authSubscription = ref.listenManual<AuthState>(
+        authProvider,
+        (_, next) => _handleAuthState(next),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleAuthState(ref.read(authProvider));
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _authSubscription?.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isReplaySplash) {
+      return Scaffold(
+        backgroundColor: AppColors.primary,
+        body: Center(
+          child: Image.asset(
+            'assets/images/bago-logo-white.png',
+            height: 62,
+            fit: BoxFit.contain,
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.primary,
+      body: Center(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            return Opacity(
+              opacity: _fadeIn.value,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 164,
+                    height: 164,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.20),
+                          Colors.white.withValues(alpha: 0.02),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: Offset(_streakTravel.value, 0),
+                    child: Container(
+                      width: 144,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Colors.white.withValues(alpha: 0.0),
+                            Colors.white.withValues(alpha: 0.85),
+                            Colors.white.withValues(alpha: 0.0),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Transform.scale(
+                    scale: _logoScale.value,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withValues(alpha: 0.30),
+                            blurRadius: _logoGlow.value,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/images/bago-logo-white.png',
+                        height: 62,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

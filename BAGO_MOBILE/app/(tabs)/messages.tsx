@@ -1,0 +1,535 @@
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import io from 'socket.io-client';
+import { MessageCircle, ArrowLeft, Send } from 'lucide-react-native';
+import { backendomain } from '@/utils/backendDomain';
+import api from '@/utils/api';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+
+
+
+
+export default function MessagesScreen() {
+  const router = useRouter();
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [socket, setSocket] = useState<any>(null);
+  const { isAuthenticated, user } = useAuth();
+  const userId = user?.id || null;
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const flatListRef = useRef<any>(null);
+  const insets = useSafeAreaInsets();
+  // Initialize Socket.IO
+  useEffect(() => {
+    const newSocket = io(backendomain.backendomain, {
+      transports: ['websocket'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      console.log('Socket connected:', newSocket.id);
+    });
+
+    newSocket.on('new_conversation', (conversation) => {
+      console.log('New conversation received:', JSON.stringify(conversation, null, 2));
+      setConversations((prev) => [conversation, ...prev]);
+    });
+
+    newSocket.on('new_message', (message) => {
+      console.log('New message received:', JSON.stringify(message, null, 2));
+      if (selectedConversation && message.conversationId === selectedConversation._id) {
+        setMessages((prev) => {
+          const updatedMessages = [...prev, { ...message, id: message._id }];
+          console.log('Updated messages (socket):', JSON.stringify(updatedMessages, null, 2));
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+          return updatedMessages;
+        });
+      }
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === message.conversationId
+            ? { ...conv, last_message: message.text, updated_at: message.timestamp }
+            : conv
+        )
+      );
+    });
+
+    newSocket.on('update_conversation', (conversation) => {
+      console.log('Conversation updated:', JSON.stringify(conversation, null, 2));
+      setConversations((prev) =>
+        prev.map((conv) => (conv._id === conversation._id ? conversation : conv))
+      );
+    });
+
+    newSocket.on('error', (error) => {
+      console.error('Socket error:', error.message);
+      setError('Socket error: ' + error.message);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setError('Socket connection error: ' + error.message);
+    });
+
+    return () => {
+      newSocket.disconnect();
+      console.log('Socket disconnected');
+    };
+  }, []);
+
+  // Start connection only if authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+  }, []);
+
+  // Fetch Conversations after User ID is set
+  useEffect(() => {
+    if (userId) {
+      const fetchConversations = async () => {
+        try {
+          console.log('Fetching conversations...');
+          const response = await api.get('/api/bago/conversations');
+          const data = response.data;
+
+          if (data.success) {
+            setConversations(data.data.conversations);
+          } else {
+            setError('Failed to fetch conversations');
+          }
+        } catch (error: any) {
+          console.error('Error fetching conversations:', error);
+          setError('Error: ' + (error.response?.data?.message || error.message));
+        }
+      };
+      fetchConversations();
+    }
+  }, [userId]);
+
+  // Fetch Messages for Selected Conversation
+  useEffect(() => {
+    if (selectedConversation && socket && userId) {
+      socket.emit('join_conversation', selectedConversation._id);
+      const fetchMessages = async () => {
+        try {
+          const response = await api.get(`/api/bago/conversations/${selectedConversation._id}/messages`);
+          const data = response.data;
+
+          if (data.success) {
+            const sortedMessages = data.data.messages.sort(
+              (a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+            setMessages(sortedMessages);
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+        } catch (error: any) {
+          console.error('Error fetching messages:', error);
+        }
+      };
+      fetchMessages();
+    }
+  }, [selectedConversation, socket, userId]);
+
+  const getUserFullName = (userObj) => {
+    if (!userObj) return 'User';
+    const first = userObj.firstName || '';
+    const last = userObj.lastName || '';
+    const full = `${first} ${last}`.trim();
+    return full || userObj.email || 'User';
+  };
+
+  const handleSelectConversation = (conversation) => {
+    setSelectedConversation(conversation);
+    setMessages([]);
+    setError(null);
+  };
+
+  const handleSend = async () => {
+    if (newMessage.trim() && selectedConversation && socket && userId) {
+      setIsSending(true);
+      const tempId = `temp-${Date.now()}`;
+      const optimisticMessage = {
+        _id: tempId,
+        conversation: selectedConversation._id,
+        sender: { _id: userId, firstName: 'You' },
+        text: newMessage,
+        timestamp: new Date().toISOString(),
+        id: tempId,
+      };
+      setMessages((prev) => {
+        const updatedMessages = [...prev, optimisticMessage];
+        console.log('Updated messages (send):', JSON.stringify(updatedMessages, null, 2));
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+        return updatedMessages;
+      });
+      const message = {
+        conversationId: selectedConversation._id,
+        senderId: userId,
+        text: newMessage,
+      };
+      socket.emit('send_message', message);
+      setNewMessage('');
+      setIsSending(false);
+    }
+  };
+
+  const renderEmpty = () => (
+    <View style={styles.emptyState}>
+      <MessageCircle size={64} color={'#6B6B6B'} strokeWidth={1.5} />
+      <Text style={styles.emptyTitle}>No Messages</Text>
+      <Text style={styles.emptySubtitle}>
+        Messages will appear here when travelers accept your booking requests
+      </Text>
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+
+  const renderConversation = ({ item }) => {
+    const otherUser = item.sender._id === userId ? item.traveler : item.sender;
+    const unreadCount = item.sender._id === userId ? item.unread_count_traveler : item.unread_count_sender;
+    return (
+      <TouchableOpacity
+        style={styles.conversationCard}
+        onPress={() => handleSelectConversation(item)}
+      >
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {(otherUser.firstName || otherUser.email || 'U').charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.conversationContent}>
+          <View style={styles.conversationHeader}>
+            <Text style={styles.userName}>
+              {item.sender._id === item.traveler._id
+                ? getUserFullName(item.sender)
+                : getUserFullName(otherUser)}
+            </Text>
+            <Text style={styles.timestamp}>
+              {new Date(item.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </Text>
+          </View>
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {item.last_message}
+          </Text>
+        </View>
+        {unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>{unreadCount}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderMessage = ({ item }) => (
+    <View
+      style={[
+        styles.messageContainer,
+        item.sender._id === userId ? styles.myMessage : styles.otherMessage,
+      ]}
+    >
+      <Text style={styles.messageText}>{item.text}</Text>
+      <Text style={styles.messageTimestamp}>
+        {new Date(item.timestamp).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: 'numeric',
+        })}
+      </Text>
+    </View>
+  );
+
+  const getDisplayName = () => {
+    if (!selectedConversation) return 'Conversation';
+    const otherUser =
+      selectedConversation.sender._id === userId
+        ? selectedConversation.traveler
+        : selectedConversation.sender;
+    if (selectedConversation.sender._id === selectedConversation.traveler._id) {
+      return getUserFullName(selectedConversation.sender);
+    }
+    return getUserFullName(otherUser);
+  };
+
+  return (
+
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom || 0 : 0}
+    >
+
+      {selectedConversation ? (
+        <>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => setSelectedConversation(null)}>
+              <ArrowLeft size={24} color={'#1A1A1A'} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{getDisplayName()}</Text>
+          </View>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item, index) => (item && item._id ? String(item._id) : `msg-${index}`)}
+            contentContainerStyle={styles.messageList}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          />
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder="Type a message..."
+              placeholderTextColor={'#6B6B6B'}
+            />
+            {isSending ? (
+              <ActivityIndicator size="small" color={'#5845D8'} style={styles.sendButton} />
+            ) : (
+              <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+                <Send size={24} color={'#FFFFFF'} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => router.push('/')}
+              style={{ padding: 8, marginRight: 8 }}
+              accessibilityLabel="Go to Home"
+            >
+              <ArrowLeft size={24} color={'#1A1A1A'} />
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Messages</Text>
+          </View>
+
+          {!isAuthenticated || error ? (
+            <View style={styles.emptyState}>
+              <MessageCircle size={64} color={'#6B6B6B'} strokeWidth={1.5} />
+              <Text style={styles.emptyTitle}>
+                {!isAuthenticated ? 'Sign In Required' : 'No Messages'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {!isAuthenticated ? 'Please sign in to view your messages and connect with other users.' : 'Messages will appear here when travelers accept your booking requests'}
+              </Text>
+              {!isAuthenticated && (
+                <TouchableOpacity
+                  style={[styles.sendButton, { marginTop: 20, paddingHorizontal: 30 }]}
+                  onPress={() => router.push('/auth/signin')}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>Sign In</Text>
+                </TouchableOpacity>
+              )}
+              {error && isAuthenticated && <Text style={styles.errorText}>{error}</Text>}
+            </View>
+          ) : (
+            <FlatList
+              data={conversations}
+              renderItem={renderConversation}
+              keyExtractor={(item) => item._id}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={renderEmpty}
+            />
+          )}
+        </>
+      )}
+
+    </KeyboardAvoidingView>
+
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F6F3',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 10,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginLeft: 16,
+  },
+  listContent: {
+    flexGrow: 1,
+  },
+  conversationCard: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#5845D8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  conversationContent: {
+    flex: 1,
+  },
+  conversationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  timestamp: {
+    fontSize: 12,
+    color: '#6B6B6B',
+  },
+  lastMessage: {
+    fontSize: 14,
+    color: '#6B6B6B',
+  },
+  unreadBadge: {
+    backgroundColor: '#5845D8',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  unreadText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6B6B6B',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 14,
+    color: 'red',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  messageList: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  messageContainer: {
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 12,
+    marginVertical: 4,
+  },
+  myMessage: {
+    backgroundColor: '#5845D8',
+    alignSelf: 'flex-end',
+  },
+  otherMessage: {
+    backgroundColor: '#FFFFFF',
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  messageText: {
+    fontSize: 16,
+    color: "#fff",
+  },
+  messageTimestamp: {
+    fontSize: 12,
+    color: '#fff',
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#F8F6F3',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1A1A1A',
+  },
+  sendButton: {
+    borderRadius: 20,
+    padding: 12,
+    marginLeft: 12,
+    backgroundColor: '#5845D8',
+  },
+});

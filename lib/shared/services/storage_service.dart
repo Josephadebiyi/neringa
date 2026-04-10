@@ -1,0 +1,107 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
+
+class StorageService {
+  StorageService._();
+  static final StorageService instance = StorageService._();
+
+  final _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
+
+  static const _accessTokenKey = 'access_token';
+  static const _refreshTokenKey = 'refresh_token';
+  static const _userKey = 'user_data';
+  static const _biometricEnabledKey = 'biometric_enabled';
+  static const _selectedRoleKey = 'selected_role';
+  static const _pushTokenKey = 'push_token';
+  static const _backendUrlKey = 'backend_url';
+  static const _languageCodeKey = 'language_code';
+
+  Future<String?> _safeRead(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } on PlatformException {
+      return null;
+    }
+  }
+
+  // ---------- Tokens --------------------------------------------------
+  Future<void> saveTokens({
+    required String accessToken,
+    String? refreshToken,
+  }) async {
+    await Future.wait([
+      _storage.write(key: _accessTokenKey, value: accessToken),
+      if (refreshToken != null)
+        _storage.write(key: _refreshTokenKey, value: refreshToken)
+      else
+        _storage.delete(key: _refreshTokenKey),
+    ]);
+  }
+
+  Future<String?> getAccessToken() => _safeRead(_accessTokenKey);
+  Future<String?> getRefreshToken() => _safeRead(_refreshTokenKey);
+
+  Future<void> clearTokens() async {
+    await Future.wait([
+      _storage.delete(key: _accessTokenKey),
+      _storage.delete(key: _refreshTokenKey),
+    ]);
+  }
+
+  // ---------- User data -----------------------------------------------
+  Future<void> saveUser(String json) =>
+      _storage.write(key: _userKey, value: json);
+
+  Future<String?> getUser() => _safeRead(_userKey);
+
+  Future<void> clearUser() => _storage.delete(key: _userKey);
+
+  // ---------- Biometrics ----------------------------------------------
+  Future<void> setBiometricEnabled(bool enabled) =>
+      _storage.write(key: _biometricEnabledKey, value: enabled.toString());
+
+  Future<bool> isBiometricEnabled() async {
+    final val = await _safeRead(_biometricEnabledKey);
+    return val == 'true';
+  }
+
+  // ---------- Role ----------------------------------------------------
+  Future<void> saveRole(String role) =>
+      _storage.write(key: _selectedRoleKey, value: role);
+
+  Future<String?> getRole() => _safeRead(_selectedRoleKey);
+
+  // ---------- Push token ----------------------------------------------
+  Future<void> savePushToken(String token) =>
+      _storage.write(key: _pushTokenKey, value: token);
+
+  Future<String?> getPushToken() => _safeRead(_pushTokenKey);
+
+  // ---------- Backend context ---------------------------------------
+  Future<void> saveBackendUrl(String url) =>
+      _storage.write(key: _backendUrlKey, value: url);
+
+  Future<String?> getBackendUrl() => _safeRead(_backendUrlKey);
+
+  // ---------- Language ---------------------------------------------
+  Future<void> saveLanguageCode(String code) =>
+      _storage.write(key: _languageCodeKey, value: code);
+
+  Future<String?> getLanguageCode() => _safeRead(_languageCodeKey);
+
+  Future<void> deleteLanguageCode() => _storage.delete(key: _languageCodeKey);
+
+  // ---------- Clear all -----------------------------------------------
+  Future<void> clearAll() => _storage.deleteAll();
+
+  // ---------- Generic -------------------------------------------------
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  Future<String?> read(String key) => _safeRead(key);
+
+  Future<void> delete(String key) => _storage.delete(key: key);
+}
