@@ -22,7 +22,7 @@ export const requireKycVerification = (req, res, next) => {
         code: 'VERIFICATION_REQUIRED',
         kycStatus: user.kycStatus,
         data: {
-          userId: user._id,
+          userId: user.id || user._id,
           email: user.email,
           kycStatus: user.kycStatus,
           kycVerifiedAt: user.kycVerifiedAt,
