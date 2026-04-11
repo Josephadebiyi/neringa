@@ -17,11 +17,12 @@ const initFirebase = async () => {
     // Look for service account in env or disk
     let serviceAccount = null;
     
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const saEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (saEnv) {
       try {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        serviceAccount = JSON.parse(saEnv);
       } catch (e) {
-        console.error('❌ FIREBASE_SERVICE_ACCOUNT is not valid JSON');
+        console.error('❌ FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON');
       }
     } else {
       const saPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
@@ -37,7 +38,7 @@ const initFirebase = async () => {
       console.log('✅ Firebase Admin initialized successfully');
       return firebaseApp;
     } else {
-      console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT or firebase-service-account.json not found - FCM features disabled');
+      console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT_JSON not found - FCM features disabled');
     }
   } catch (err) {
     console.warn('⚠️ Firebase Admin could not be initialized (might not be installed yet or config missing):', err.message);
