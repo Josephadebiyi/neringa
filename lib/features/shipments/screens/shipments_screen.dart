@@ -256,7 +256,27 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
   final _checkoutService = ShipmentCheckoutService.instance;
 
   Future<void> _deleteDraft() async {
-    await _checkoutService.clearDraft();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard draft?'),
+        content: const Text('This will remove your saved shipment draft. You\'ll need to start over if you want to send this package.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.accentCoral),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _checkoutService.clearDraft();
+    }
   }
 
   @override

@@ -60,6 +60,25 @@ class PaymentFailedScreen extends StatelessWidget {
                 label: l10n.deleteDraft,
                 variant: AppButtonVariant.outline,
                 onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Discard draft?'),
+                      content: const Text('This will remove your saved shipment draft. You\'ll need to start over.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Keep'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: TextButton.styleFrom(foregroundColor: Colors.red),
+                          child: const Text('Discard'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true) return;
                   await ShipmentCheckoutService.instance.clearDraft();
                   if (!context.mounted) return;
                   context.go('/shipments');
