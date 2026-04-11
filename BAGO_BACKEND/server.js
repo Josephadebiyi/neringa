@@ -25,8 +25,6 @@ import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from '
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import Request from './models/RequestScheme.js';
 import { sendPushNotificationToToken } from './services/pushNotificationService.js';
-import { migrateKycStatus } from './migrations/migrateKycStatus.js';
-
 
 
 dotenv.config();
