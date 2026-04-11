@@ -1,5 +1,6 @@
 import express from 'express';
-import { checkEmailAvailability, edit, getUser, logout, useReferralDiscount, signIn, googleAuth, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, editCurrency, getUserStats, savePushToken, deleteAccount, requestEmailChange, verifyEmailChange } from '../controllers/userController.js';
+import { checkEmailAvailability, edit, getUser, logout, useReferralDiscount, signIn, verifySignupOtp, createDelivery, forgotPassword, resendOtp, verifyOtp, resetPassword, signUp, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, getWallet, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, editCurrency, getUserStats, savePushToken, deleteAccount, requestEmailChange, verifyEmailChange } from '../controllers/userController.js';
+import { googleAuth } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
