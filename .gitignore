@@ -10,7 +10,7 @@ package-lock.json
 .pnp.js
 
 # ================================
-# ENVIRONMENT VARIABLES
+# ENVIRONMENT VARIABLES & SECRETS
 # ================================
 .env
 .env.local
@@ -19,6 +19,14 @@ package-lock.json
 .env.production.local
 *.env
 !.env.example
+.env.json
+!.env.example.json
+**/firebase-service-account.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/*service-account*.json
+**/*credentials*.json
+android/key.properties
 
 # ================================
 # BUILD OUTPUT
@@ -85,7 +93,18 @@ desktop.ini
 .history/
 
 # ================================
-# MOBILE (EXPO/REACT NATIVE)
+# FLUTTER / DART
+# ================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+doc/api/
+
+# ================================
+# MOBILE (FLUTTER / REACT NATIVE)
 # ================================
 .expo/
 .expo-shared/
@@ -97,9 +116,14 @@ desktop.ini
 *.orig.*
 web-build/
 android/app/build/
+android/build/
 ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.podspec
+ios/Flutter/flutter_export_environment.sh
 *.ipa
 *.apk
+*.aab
 
 # ================================
 # DOCKER
