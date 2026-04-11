@@ -9,7 +9,6 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import fetch from 'node-fetch';
 import crypto from 'crypto';
-import { connection } from './db/database.js';
 import userRouter from './routers/userRouters.js';
 import cloudinary from 'cloudinary';
 import multer from 'multer';
@@ -861,8 +860,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-// ✅ Database connection and server start
-connection();
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
