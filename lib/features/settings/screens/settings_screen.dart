@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,11 +23,39 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _notifications = true;
   bool _biometric = false;
+  Timer? _kycPollTimer;
 
   @override
   void initState() {
     super.initState();
     _loadBiometricPreference();
+    _startKycPollIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _kycPollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startKycPollIfNeeded() {
+    final status = ref.read(authProvider).user?.kycStatus?.toLowerCase();
+    if (status == 'pending') {
+      _kycPollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+        await ref.read(authProvider.notifier).refreshProfile();
+        final updated = ref.read(authProvider).user?.kycStatus?.toLowerCase();
+        if (updated == 'approved' || updated == 'verified') {
+          _kycPollTimer?.cancel();
+          if (mounted) {
+            AppSnackBar.show(
+              context,
+              message: 'Identity verification approved!',
+              type: SnackBarType.success,
+            );
+          }
+        }
+      });
+    }
   }
 
   Future<void> _loadBiometricPreference() async {

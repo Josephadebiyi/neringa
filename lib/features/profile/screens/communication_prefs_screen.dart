@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../shared/services/api_service.dart';
+import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 
 class CommunicationPrefsScreen extends ConsumerStatefulWidget {
@@ -15,24 +18,69 @@ class CommunicationPrefsScreen extends ConsumerStatefulWidget {
 
 class _CommunicationPrefsScreenState
     extends ConsumerState<CommunicationPrefsScreen> {
+  bool _loading = true;
+  bool _saving = false;
   Map<String, bool> _prefs = {
     'push': true,
     'email': true,
     'sms': false,
   };
 
-  void _togglePref(String key) async {
-    setState(() => _prefs[key] = !_prefs[key]!);
-    // Mock API call
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
+      final response = await ApiService.instance.get(ApiConstants.communicationPrefs);
+      final data = response.data;
+      final prefs = (data is Map && data['data'] is Map)
+          ? Map<String, dynamic>.from(data['data'] as Map)
+          : <String, dynamic>{};
+      setState(() {
+        _prefs = {
+          'push': prefs['push'] as bool? ?? true,
+          'email': prefs['email'] as bool? ?? true,
+          'sms': prefs['sms'] as bool? ?? false,
+        };
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _togglePref(String key) async {
+    if (_saving) return;
+    final prev = _prefs[key]!;
+    setState(() {
+      _prefs[key] = !prev;
+      _saving = true;
+    });
+
+    try {
+      await ApiService.instance.put(
+        ApiConstants.communicationPrefs,
+        data: _prefs,
+      );
+      if (!mounted) return;
       AppSnackBar.show(
         context,
         message: 'Preferences updated',
         type: SnackBarType.success,
       );
-    } catch (e) {
-      setState(() => _prefs[key] = !_prefs[key]!);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _prefs[key] = prev);
+      AppSnackBar.show(
+        context,
+        message: 'Failed to update preferences',
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -47,41 +95,43 @@ class _CommunicationPrefsScreenState
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'NOTIFICATION SETTINGS',
-              style: AppTextStyles.labelMd.copyWith(
-                color: AppColors.gray500,
-                fontWeight: FontWeight.w700,
+      body: _loading
+          ? const Center(child: AppLoading())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'NOTIFICATION SETTINGS',
+                    style: AppTextStyles.labelMd.copyWith(
+                      color: AppColors.gray500,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPrefItem(
+                    icon: Icons.notifications_active_rounded,
+                    title: 'Push Notifications',
+                    desc: 'Shipment updates, trip requests & chat alerts',
+                    prefKey: 'push',
+                  ),
+                  _buildPrefItem(
+                    icon: Icons.mail_outline_rounded,
+                    title: 'Email Notifications',
+                    desc: 'Booking confirmations and account security',
+                    prefKey: 'email',
+                  ),
+                  _buildPrefItem(
+                    icon: Icons.shield_outlined,
+                    title: 'System Alerts',
+                    desc: 'Critical updates about the Bago service',
+                    prefKey: 'system',
+                    locked: true,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            _buildPrefItem(
-              icon: Icons.notifications_active_rounded,
-              title: 'Push Notifications',
-              desc: 'Shipment updates, trip requests & chat alerts',
-              key: 'push',
-            ),
-            _buildPrefItem(
-              icon: Icons.mail_outline_rounded,
-              title: 'Email Notifications',
-              desc: 'Booking confirmations and account security',
-              key: 'email',
-            ),
-            _buildPrefItem(
-              icon: Icons.shield_outlined,
-              title: 'System Alerts',
-              desc: 'Critical updates about the Bago service',
-              key: 'system',
-              enabled: false,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -89,9 +139,10 @@ class _CommunicationPrefsScreenState
     required IconData icon,
     required String title,
     required String desc,
-    required String key,
-    bool enabled = true,
+    required String prefKey,
+    bool locked = false,
   }) {
+    final value = locked ? true : (_prefs[prefKey] ?? false);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -117,24 +168,20 @@ class _CommunicationPrefsScreenState
               children: [
                 Text(
                   title,
-                  style: AppTextStyles.labelMd
-                      .copyWith(fontWeight: FontWeight.w600),
+                  style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   desc,
-                  style: AppTextStyles.bodySm
-                      .copyWith(color: AppColors.gray400),
+                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
           Switch(
-            value: enabled ? _prefs[key] ?? false : true,
-            onChanged: enabled
-                ? (_) => _togglePref(key)
-                : null,
+            value: value,
+            onChanged: locked ? null : (_) => _togglePref(prefKey),
           ),
         ],
       ),

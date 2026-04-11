@@ -135,11 +135,8 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
         );
         await Future<void>.delayed(const Duration(milliseconds: 300));
         if (!mounted) return;
-        if (widget.fromOnboarding) {
-          context.go('/setup-withdrawal');
-        } else {
-          context.pop(true);
-        }
+        // Always go to profile so user sees their verified status immediately
+        context.go('/profile');
       } else if (status == 'rejected' || status == 'failed' || status == 'expired') {
         _pollTimer?.cancel();
         AppSnackBar.show(

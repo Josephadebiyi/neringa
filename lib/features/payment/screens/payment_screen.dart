@@ -292,8 +292,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (paymentCompleted && draft['requestSent'] != true) {
         _updateProcessingMessage('Finalizing your shipment...');
         await ShipmentService.instance.sendPackageRequest(
+          travelerId: draft['travelerId'].toString(),
           packageId: draft['packageId'].toString(),
           tripId: draft['tripId'].toString(),
+          amount: _asDouble(draft['totalAmount']),
+          currency: draft['currency']?.toString() ?? 'USD',
+          insurance: draft['insurance'] == true,
+          insuranceCost: _asDouble(draft['insuranceAmount']),
+          estimatedDeparture: draft['estimatedDeparture']?.toString(),
+          estimatedArrival: draft['estimatedArrival']?.toString(),
+          paymentReference: paymentReference,
+          paymentProvider: provider,
           message: draft['message']?.toString(),
         );
 

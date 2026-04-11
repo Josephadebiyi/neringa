@@ -106,6 +106,8 @@ class PaymentService {
     final normalizedProvider = provider.toLowerCase().trim();
     if (normalizedProvider == 'stripe') {
       return _initializeStripePayment(
+        packageId: packageId,
+        tripId: tripId,
         currency: currency,
         amount: amount,
         customerEmail: customerEmail,
@@ -123,6 +125,8 @@ class PaymentService {
   }
 
   Future<PaymentResult> _initializeStripePayment({
+    required String packageId,
+    required String tripId,
     required String currency,
     required double amount,
     required String customerEmail,
@@ -131,6 +135,8 @@ class PaymentService {
       final response = await _api.post(
         '${ApiConstants.paymentMethods}/payment-intent',
         data: {
+          'packageId': packageId,
+          'tripId': tripId,
           'amount': amount,
           'currency': currency,
           'travellerName': customerEmail,
@@ -291,9 +297,12 @@ class PaymentService {
   Future<PaymentResult> verifyPaystackPayment(String reference) async {
     try {
       final response = await _api.get('${ApiConstants.paystackVerify}/$reference');
-      final data = _extractMap(response.data);
-      final successValue = data['success'];
-      final status = data['status']?.toString().toLowerCase();
+      final raw = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      final data = _extractMap(raw);
+      final successValue = raw['success'] ?? data['success'];
+      final status = (data['status'] ?? raw['status'])?.toString().toLowerCase();
       final success = successValue == true ||
           status == 'success' ||
           status == 'paid' ||
@@ -307,7 +316,7 @@ class PaymentService {
           data,
           const ['reference', 'paymentReference', 'data.reference'],
         ),
-        raw: data,
+        raw: raw,
       );
     } on DioException catch (e) {
       throw ApiService.parseError(e);

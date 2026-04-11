@@ -194,6 +194,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
       final draft = <String, dynamic>{
         'tripId': trip.id,
+        'travelerId': trip.userId,
         'packageId': package.id,
         'currency': currency,
         'provider': provider,
@@ -202,6 +203,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         'shippingAmount': shippingAmount,
         'insuranceAmount': insuranceAmount,
         'totalAmount': totalAmount,
+        'insurance': _insurance,
         'weight': weight,
         'receiverName': _receiverNameCtrl.text.trim(),
         'receiverEmail': _receiverEmailCtrl.text.trim(),
@@ -211,6 +213,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         'category': _category,
         'message': _messageCtrl.text.trim(),
         'customerEmail': user?.email ?? _receiverEmailCtrl.text.trim(),
+        'estimatedDeparture': trip.departureDate,
+        'estimatedArrival': trip.arrivalDate,
         'expiresAt': expiresAt.toIso8601String(),
         'requestSent': false,
       };

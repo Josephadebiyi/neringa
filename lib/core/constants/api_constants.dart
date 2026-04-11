@@ -143,6 +143,7 @@ class ApiConstants {
   // Notifications
   // ---------------------------------------------------------------------------
   static const String registerPushToken          = '/api/bago/push-token';
+  static const String communicationPrefs         = '/api/bago/communication-prefs';
   static const String getNotifications           = '/api/bago/getNotifications';
   static const String markNotificationRead       = '/api/bago/markNotificationAsRead';
   static const String markAllNotificationsRead   = '/api/bago/markAllNotificationsAsRead';

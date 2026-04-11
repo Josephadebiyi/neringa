@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
@@ -37,8 +38,22 @@ void main() async {
       await Firebase.initializeApp();
       debugPrint('Firebase initialized for push notifications.');
     }
+    // Request notification permission as early as possible so the OS prompt
+    // appears on first launch rather than waiting for the user to sign in.
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+    debugPrint('Notification permission: ${settings.authorizationStatus}');
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   } catch (error) {
-    debugPrint('Firebase init skipped: $error');
+    debugPrint('Firebase init/permission skipped: $error');
   }
 
   PushNotificationService.instance.startListening();

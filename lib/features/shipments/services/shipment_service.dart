@@ -210,14 +210,34 @@ class ShipmentService {
   }
 
   Future<void> sendPackageRequest({
+    required String travelerId,
     required String packageId,
     required String tripId,
+    required double amount,
+    required String currency,
+    bool insurance = false,
+    double insuranceCost = 0,
+    String? estimatedDeparture,
+    String? estimatedArrival,
+    String? paymentReference,
+    String? paymentProvider,
     String? message,
   }) async {
     try {
       await _api.post(ApiConstants.sendPackageRequest, data: {
+        'travelerId': travelerId,
         'packageId': packageId,
         'tripId': tripId,
+        'amount': amount,
+        'currency': currency,
+        'insurance': insurance,
+        'insuranceCost': insuranceCost,
+        'termsAccepted': true,
+        if (estimatedDeparture != null) 'estimatedDeparture': estimatedDeparture,
+        if (estimatedArrival != null) 'estimatedArrival': estimatedArrival,
+        if (paymentReference != null) 'paymentReference': paymentReference,
+        if (paymentProvider != null) 'paymentProvider': paymentProvider,
+        if (paymentReference != null) 'paymentStatus': 'paid',
         if (message != null) 'message': message,
       });
     } on DioException catch (e) {

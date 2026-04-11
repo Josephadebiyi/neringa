@@ -33,11 +33,14 @@ class PushNotificationService {
   Future<void> prepareForSignedInUser() async {
     startListening();
     await _ensureFirebaseIfPossible();
+
     if (_firebaseAvailable) {
       await _requestFirebasePermission();
       await _syncFirebaseToken();
       return;
     }
+
+    // Native fallback (non-Firebase builds)
     try {
       await _channel.invokeMethod<bool>('requestPermission');
     } catch (_) {}
@@ -49,7 +52,7 @@ class PushNotificationService {
       case 'onDeviceToken':
         final token = call.arguments?.toString().trim() ?? '';
         if (token.isNotEmpty) {
-          debugPrint('Bago push token received: ${token.length} chars');
+          debugPrint('Bago push token received via channel: ${token.length} chars');
           _pendingToken = token;
           await _registerIfPossible(token);
         }
@@ -68,7 +71,7 @@ class PushNotificationService {
       final token = await _channel.invokeMethod<String>('getDeviceToken');
       final normalized = token?.trim() ?? '';
       if (normalized.isNotEmpty) {
-        debugPrint('Bago push token sync: ${normalized.length} chars');
+        debugPrint('Bago device token: ${normalized.length} chars');
         _pendingToken = normalized;
         await _registerIfPossible(normalized);
       }
@@ -81,22 +84,23 @@ class PushNotificationService {
     final currentUser = await _storage.getUser();
     final accessToken = await _storage.getAccessToken();
     if (currentUser == null || accessToken == null) {
-      debugPrint('Bago push token deferred: user=${currentUser != null} accessToken=${accessToken != null}');
+      debugPrint('Bago push token deferred — not signed in yet');
       _pendingToken = token;
       return;
     }
 
-    debugPrint('Bago push token registering with backend');
     _registering = true;
     try {
+      debugPrint('Bago push token registering with backend (len=${token.length})');
       await AuthService.instance.registerPushToken(
         token,
-        platform: _firebaseAvailable
-            ? 'fcm'
+        platform: _firebaseAvailable ? 'fcm'
             : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android'),
       );
+      debugPrint('Bago push token registered OK');
       _pendingToken = null;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Bago push token registration failed: $e');
       _pendingToken = token;
     } finally {
       _registering = false;
@@ -125,18 +129,20 @@ class PushNotificationService {
         await Firebase.initializeApp();
       }
       _firebaseAvailable = Firebase.apps.isNotEmpty;
+      debugPrint('Bago Firebase available: $_firebaseAvailable');
+
       if (_firebaseAvailable) {
-        _tokenRefreshSub ??=
-            FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+        _tokenRefreshSub ??= FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
           final normalized = token.trim();
           if (normalized.isNotEmpty) {
+            debugPrint('Bago FCM token refreshed: ${normalized.length} chars');
             _pendingToken = normalized;
             await _registerIfPossible(normalized);
           }
         });
       }
     } catch (error) {
-      debugPrint('Firebase push unavailable, using native fallback: $error');
+      debugPrint('Firebase init failed, using native fallback: $error');
       _firebaseAvailable = false;
     }
   }
@@ -144,34 +150,43 @@ class PushNotificationService {
   Future<void> _requestFirebasePermission() async {
     if (!_firebaseAvailable) return;
     try {
-      await FirebaseMessaging.instance.requestPermission(
+      final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
         sound: true,
         provisional: false,
       );
+      debugPrint('Bago notification permission: ${settings.authorizationStatus}');
       await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
       );
     } catch (error) {
-      debugPrint('Firebase push permission request failed: $error');
+      debugPrint('Firebase permission request failed: $error');
     }
   }
 
   Future<void> _syncFirebaseToken() async {
     if (!_firebaseAvailable) return;
-    try {
-      final token = await FirebaseMessaging.instance.getToken();
-      final normalized = token?.trim() ?? '';
-      if (normalized.isNotEmpty) {
-        debugPrint('Bago FCM token sync: ${normalized.length} chars');
-        _pendingToken = normalized;
-        await _registerIfPossible(normalized);
+    // Retry a few times — on iOS, APNs may not have issued a token yet
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final token = await FirebaseMessaging.instance.getToken();
+        final normalized = token?.trim() ?? '';
+        debugPrint('Bago FCM getToken attempt $attempt: ${normalized.isEmpty ? "EMPTY" : "${normalized.length} chars"}');
+        if (normalized.isNotEmpty) {
+          _pendingToken = normalized;
+          await _registerIfPossible(normalized);
+          return;
+        }
+        // Wait before retrying
+        await Future<void>.delayed(const Duration(seconds: 2));
+      } catch (error) {
+        debugPrint('Firebase getToken attempt $attempt failed: $error');
+        await Future<void>.delayed(const Duration(seconds: 2));
       }
-    } catch (error) {
-      debugPrint('Firebase token sync failed: $error');
     }
+    debugPrint('Bago FCM getToken gave up after 3 attempts — onTokenRefresh will catch it');
   }
 }
