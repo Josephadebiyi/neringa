@@ -10,8 +10,7 @@ import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
 import { createPackage, deletePackage } from '../controllers/PackageController.js';
-import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails } from '../controllers/RequestController.js';
-import { recentOrder } from '../controllers/getRecentRequest.js';
+import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import {
@@ -20,7 +19,7 @@ import {
   createSetupIntent,
   deletePaymentMethod,
   listPaymentMethods,
-} from '../controllers/PaymentMethodController.js';
+} from '../controllers/postgresPaymentMethodController.js';
 import {
   requestRefund,
   approveRefund,
