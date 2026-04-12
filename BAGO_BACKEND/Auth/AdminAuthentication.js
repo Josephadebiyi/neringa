@@ -1,70 +1,74 @@
 import jwt from "jsonwebtoken";
-import Admin from "../models/adminScheme.js";
-
-
+import { queryOne } from "../lib/postgres/db.js";
 
 export const adminAuthenticated = async (req, res, next) => {
-    let token = req.cookies.adminToken;
+  let token = req.cookies.adminToken;
 
-    // Also check Authorization header
-    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-        token = req.headers.authorization.split(' ')[1];
+  if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return res.status(401).json({ message: "User is not authenticated.", success: false });
+  }
+
+  try {
+    const secret = process.env.ADMIN_SECRET_KEY;
+    if (!secret) {
+      return res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
     }
 
-    console.log("adminToken for verification:", token ? "Token Found" : "Not Found");
+    const decoded = jwt.verify(token, secret);
+    const admin = await queryOne(
+      `SELECT id, username, email, role, is_active FROM public.admin_users WHERE id = $1`,
+      [decoded.id]
+    );
 
-    if (!token) {
-        return res.status(401).json({ message: "User is not authenticated.", success: false });
+    if (!admin || !admin.is_active) {
+      return res.status(401).json({ message: "Admin not found.", success: false });
     }
 
-    try {
-        const secret = process.env.ADMIN_SECRET_KEY;
-        if (!secret) {
-            return res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
-        }
-        const decoded = jwt.verify(token, secret);
-        req.admin = await Admin.findById(decoded.id);
-
-        if (!req.admin) {
-            return res.status(401).json({ message: "Admin not found.", success: false });
-        }
-        next();
-    } catch (error) {
-        return res.status(401).json({ message: "Invalid or expired token.", success: false });
-    }
-}
-
+    req.admin = admin;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid or expired token.", success: false });
+  }
+};
 
 export const CheckAdmin = async (req, res, next) => {
-    try {
-        let token = req.cookies.adminToken;
-        if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-            token = req.headers.authorization.split(' ')[1];
-        }
-
-        if (!token) {
-            return res.status(401).json({ message: "No token provided, authorization denied." });
-        }
-
-        const secret = process.env.ADMIN_SECRET_KEY;
-        if (!secret) {
-            return res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
-        }
-        const decoded = jwt.verify(token, secret);
-        const admin = await Admin.findById(decoded.id).select('-passwordHash');
-
-        if (!admin) {
-            return res.status(401).json({ message: "Admin not found, authorization denied." });
-        }
-
-        res.status(200).json({
-            message: "Admin is authenticated",
-            success: true,
-            error: false,
-            data: admin,
-            admin: admin // For frontend compatibility
-        })
-    } catch (error) {
-        res.status(401).json({ message: "Invalid session" });
+  try {
+    let token = req.cookies.adminToken;
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
     }
+
+    if (!token) {
+      return res.status(401).json({ message: "No token provided, authorization denied." });
+    }
+
+    const secret = process.env.ADMIN_SECRET_KEY;
+    if (!secret) {
+      return res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
+    }
+
+    const decoded = jwt.verify(token, secret);
+    const admin = await queryOne(
+      `SELECT id, username, email, full_name, role, is_active FROM public.admin_users WHERE id = $1`,
+      [decoded.id]
+    );
+
+    if (!admin || !admin.is_active) {
+      return res.status(401).json({ message: "Admin not found, authorization denied." });
+    }
+
+    res.status(200).json({
+      message: "Admin is authenticated",
+      success: true,
+      error: false,
+      data: admin,
+      admin,
+    });
+  } catch (error) {
+    res.status(401).json({ message: "Invalid session" });
+  }
 };

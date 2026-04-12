@@ -11,7 +11,6 @@ import { sendNotification } from '../controllers/AdminControllers/NotificationCo
 import { Adminlogout } from '../controllers/AdminControllers/AdminLogin.js';
 import { sendPromoEmail } from '../controllers/AdminControllers/PromoEmailController.js';
 import { getInsuranceSettings, updateInsuranceSettings } from '../controllers/InsuranceController.js';
-import Admin from '../models/adminScheme.js';
 import {
   createRoute,
   getAllRoutes,

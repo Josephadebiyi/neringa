@@ -1,33 +1,55 @@
-import User from '../../models/userScheme.js';
+import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 
-// Get All Users with Pagination and Filtering (Admin Only)
 export const GetAllUsers = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const banned = req.query.banned; // optional filter
-    const kycStatus = req.query.kycStatus; // optional filter
-    const signupMethod = req.query.signupMethod; // optional filter
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    const query = {};
-    if (banned !== undefined) query.banned = banned === 'true';
-    if (kycStatus) query.kycStatus = kycStatus;
-    if (signupMethod) query.signupMethod = signupMethod;
+    const conditions = [];
+    const values = [];
+    let idx = 1;
 
-    const users = await User.find(query)
-      .select('-password -__v')
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+    if (req.query.banned !== undefined) {
+      conditions.push(`banned = $${idx++}`);
+      values.push(req.query.banned === 'true');
+    }
+    if (req.query.kycStatus) {
+      conditions.push(`kyc_status = $${idx++}`);
+      values.push(req.query.kycStatus);
+    }
+    if (req.query.signupMethod) {
+      conditions.push(`signup_method = $${idx++}`);
+      values.push(req.query.signupMethod);
+    }
 
-    const totalCount = await User.countDocuments(query);
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const users = await query(
+      `SELECT id, email, first_name as "firstName", last_name as "lastName",
+              phone, image_url as image, role, signup_method as "signupMethod",
+              status, country, date_of_birth as "dateOfBirth", banned,
+              email_verified as "emailVerified", kyc_status as "kycStatus",
+              preferred_currency as "preferredCurrency", payment_gateway as "paymentGateway",
+              rating, completed_trips as "completedTrips", bio,
+              created_at as "createdAt", updated_at as "updatedAt"
+       FROM public.profiles
+       ${where}
+       ORDER BY created_at DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...values, limit, offset]
+    );
+
+    const countResult = await queryOne(
+      `SELECT COUNT(*) FROM public.profiles ${where}`,
+      values
+    );
 
     res.status(200).json({
       message: "Operation successful",
-      data: users,
-      totalCount,
+      data: users.rows,
+      totalCount: parseInt(countResult.count),
       page,
       limit,
       error: false,
@@ -44,25 +66,25 @@ export const banUser = async (req, res, next) => {
   const { banned, reason } = req.body;
 
   try {
-    const user = await User.findById(userId);
+    const user = await queryOne(
+      `UPDATE public.profiles SET banned = $1 WHERE id = $2
+       RETURNING id, email, first_name as "firstName", banned`,
+      [banned, userId]
+    );
+
     if (!user) {
       return res.status(404).json({ message: "User not found", error: true, success: false });
     }
 
-    const wasBanned = user.banned;
-    user.banned = banned;
-    await user.save();
-
-    // ✅ Send email notification
     const userName = user.firstName || user.email;
-    if (banned && !wasBanned) {
-      // User was just banned
-      await sendAccountBannedEmail(user.email, userName, reason || 'Violation of terms of service');
-      console.log(`✅ Ban notification sent to ${user.email}`);
-    } else if (!banned && wasBanned) {
-      // User was just unbanned
-      await sendAccountUnblockedEmail(user.email, userName);
-      console.log(`✅ Unban notification sent to ${user.email}`);
+    try {
+      if (banned) {
+        await sendAccountBannedEmail(user.email, userName, reason || 'Violation of terms of service');
+      } else {
+        await sendAccountUnblockedEmail(user.email, userName);
+      }
+    } catch (emailErr) {
+      console.error('Failed to send ban email:', emailErr.message);
     }
 
     res.status(200).json({
@@ -77,8 +99,11 @@ export const banUser = async (req, res, next) => {
 export const deleteUser = async (req, res, next) => {
   const { userId } = req.params;
   try {
-    const user = await User.findByIdAndDelete(userId);
-    if (!user) {
+    const deleted = await queryOne(
+      `DELETE FROM public.profiles WHERE id = $1 RETURNING id`,
+      [userId]
+    );
+    if (!deleted) {
       return res.status(404).json({ message: "User not found", error: true, success: false });
     }
     res.status(200).json({ message: "User deleted successfully", success: true });
@@ -89,12 +114,36 @@ export const deleteUser = async (req, res, next) => {
 
 export const updateUser = async (req, res, next) => {
   const { userId } = req.params;
-  const updates = req.body;
+  const { firstName, lastName, phone, country, kycStatus, banned, role } = req.body;
+
   try {
-    const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (firstName !== undefined) { fields.push(`first_name = $${idx++}`); values.push(firstName); }
+    if (lastName !== undefined) { fields.push(`last_name = $${idx++}`); values.push(lastName); }
+    if (phone !== undefined) { fields.push(`phone = $${idx++}`); values.push(phone); }
+    if (country !== undefined) { fields.push(`country = $${idx++}`); values.push(country); }
+    if (kycStatus !== undefined) { fields.push(`kyc_status = $${idx++}`); values.push(kycStatus); }
+    if (banned !== undefined) { fields.push(`banned = $${idx++}`); values.push(banned); }
+    if (role !== undefined) { fields.push(`role = $${idx++}`); values.push(role); }
+
+    if (!fields.length) {
+      return res.status(400).json({ message: "No fields to update" });
+    }
+
+    values.push(userId);
+    const user = await queryOne(
+      `UPDATE public.profiles SET ${fields.join(', ')}, updated_at = NOW()
+       WHERE id = $${idx} RETURNING id, email, first_name as "firstName", kyc_status as "kycStatus"`,
+      values
+    );
+
     if (!user) {
       return res.status(404).json({ message: "User not found", error: true, success: false });
     }
+
     res.status(200).json({ message: "User updated successfully", data: user, success: true });
   } catch (error) {
     next(error);
