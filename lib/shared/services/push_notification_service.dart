@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../features/auth/services/auth_service.dart';
+import '../../firebase_options.dart';
 import 'storage_service.dart';
 
 class PushNotificationService {
@@ -19,7 +20,6 @@ class PushNotificationService {
   bool _listening = false;
   bool _registering = false;
   bool _firebaseAvailable = false;
-  bool _firebaseChecked = false;
   String? _pendingToken;
   StreamSubscription<String>? _tokenRefreshSub;
 
@@ -121,30 +121,39 @@ class PushNotificationService {
   }
 
   Future<void> _ensureFirebaseIfPossible() async {
-    if (_firebaseChecked) return;
-    _firebaseChecked = true;
+    // If Firebase is already confirmed available, just ensure listener is set
+    if (_firebaseAvailable) {
+      _attachTokenRefreshListener();
+      return;
+    }
 
     try {
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
       }
       _firebaseAvailable = Firebase.apps.isNotEmpty;
       debugPrint('Bago Firebase available: $_firebaseAvailable');
 
       if (_firebaseAvailable) {
-        _tokenRefreshSub ??= FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
-          final normalized = token.trim();
-          if (normalized.isNotEmpty) {
-            debugPrint('Bago FCM token refreshed: ${normalized.length} chars');
-            _pendingToken = normalized;
-            await _registerIfPossible(normalized);
-          }
-        });
+        _attachTokenRefreshListener();
       }
     } catch (error) {
       debugPrint('Firebase init failed, using native fallback: $error');
       _firebaseAvailable = false;
     }
+  }
+
+  void _attachTokenRefreshListener() {
+    _tokenRefreshSub ??= FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+      final normalized = token.trim();
+      if (normalized.isNotEmpty) {
+        debugPrint('Bago FCM token refreshed: ${normalized.length} chars');
+        _pendingToken = normalized;
+        await _registerIfPossible(normalized);
+      }
+    });
   }
 
   Future<void> _requestFirebasePermission() async {
@@ -169,8 +178,8 @@ class PushNotificationService {
 
   Future<void> _syncFirebaseToken() async {
     if (!_firebaseAvailable) return;
-    // Retry a few times — on iOS, APNs may not have issued a token yet
-    for (var attempt = 1; attempt <= 3; attempt++) {
+    // Retry up to 5 times — on iOS, APNs may not have issued a token yet
+    for (var attempt = 1; attempt <= 5; attempt++) {
       try {
         final token = await FirebaseMessaging.instance.getToken();
         final normalized = token?.trim() ?? '';
@@ -181,12 +190,12 @@ class PushNotificationService {
           return;
         }
         // Wait before retrying
-        await Future<void>.delayed(const Duration(seconds: 2));
+        await Future<void>.delayed(const Duration(seconds: 3));
       } catch (error) {
         debugPrint('Firebase getToken attempt $attempt failed: $error');
-        await Future<void>.delayed(const Duration(seconds: 2));
+        await Future<void>.delayed(const Duration(seconds: 3));
       }
     }
-    debugPrint('Bago FCM getToken gave up after 3 attempts — onTokenRefresh will catch it');
+    debugPrint('Bago FCM getToken gave up after 5 attempts — onTokenRefresh will catch it');
   }
 }

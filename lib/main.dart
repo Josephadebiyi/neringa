@@ -9,6 +9,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'app.dart';
 import 'core/constants/api_constants.dart';
+import 'firebase_options.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/supabase_service.dart';
 import 'shared/services/app_settings_service.dart';
@@ -31,22 +32,25 @@ void main() async {
     await Stripe.instance.applySettings();
   }
 
-  await SupabaseService.init();
-
+  // Firebase init — must pass options so FCM token is available
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
       debugPrint('Firebase initialized for push notifications.');
     }
-    // Request notification permission as early as possible so the OS prompt
-    // appears on first launch rather than waiting for the user to sign in.
-    final settings = await FirebaseMessaging.instance.requestPermission(
+    // Request notification permission — fire-and-forget so startup isn't blocked
+    FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
       provisional: false,
-    );
-    debugPrint('Notification permission: ${settings.authorizationStatus}');
+    ).then((settings) {
+      debugPrint('Notification permission: ${settings.authorizationStatus}');
+    }).catchError((e) {
+      debugPrint('Notification permission error: $e');
+    });
     await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
@@ -56,9 +60,6 @@ void main() async {
     debugPrint('Firebase init/permission skipped: $error');
   }
 
-  PushNotificationService.instance.startListening();
-  await AppSettingsService.instance.fetchPublicSettings();
-
   // Transparent status bar
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -67,11 +68,21 @@ void main() async {
     ),
   );
 
+  PushNotificationService.instance.startListening();
+
   runApp(
     const ProviderScope(
       child: BagoApp(),
     ),
   );
+
+  // Run non-critical init after the first frame is rendered
+  SupabaseService.init().catchError((e) {
+    debugPrint('Supabase init error: $e');
+  });
+  AppSettingsService.instance.fetchPublicSettings().catchError((e) {
+    debugPrint('AppSettings fetch error: $e');
+  });
 }
 
 void _logRuntimeConfig() {

@@ -31,6 +31,7 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 const allowedOrigins = new Set([
   process.env.FRONTEND_URL,

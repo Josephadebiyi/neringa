@@ -154,13 +154,33 @@ export const updateSettings = async (req, res, next) => {
   }
 };
 
-// Get current settings
+// Get current settings — returns a stable default since MongoDB is not used
+// Admin panel mutations still work but app-side reads always get these defaults.
 export const getCurrentSetting = async (req, res, next) => {
   try {
-    const currentSetting = await Setting.findOne({});
     res.status(200).json({
       message: "success",
-      data: currentSetting,
+      data: {
+        insuranceStatus: true,
+        insuranceType: 'percentage',
+        insurancePercentage: 3,
+        insuranceFixedAmount: 6,
+        commissionPercentage: 10,
+        autoVerification: false,
+        baseCurrency: 'USD',
+        supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD', 'NGN', 'GHS', 'KES', 'ZAR'],
+        exchangeRates: {
+          USD: 1,
+          EUR: 0.92,
+          GBP: 0.79,
+          CAD: 1.36,
+          NGN: 1550,
+          GHS: 15.2,
+          KES: 129,
+          ZAR: 18.5,
+        },
+        banner: null,
+      },
       error: false,
       success: true
     });
