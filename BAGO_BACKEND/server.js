@@ -205,7 +205,12 @@ const sanitizeInput = (value, depth = 0) => {
 // ✅ Security: Sanitize and validate user input globally
 app.use((req, res, next) => {
   try {
-    if (req.headers['content-type']?.includes('application/json') && typeof req.body !== 'object') {
+    const methodAllowsBody = !['GET', 'HEAD'].includes(req.method);
+    if (
+      methodAllowsBody &&
+      req.headers['content-type']?.includes('application/json') &&
+      typeof req.body !== 'object'
+    ) {
       return res.status(400).json({ success: false, message: 'Malformed JSON payload.' });
     }
 
