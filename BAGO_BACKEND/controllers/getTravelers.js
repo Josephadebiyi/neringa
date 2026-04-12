@@ -1,5 +1,40 @@
-import Trip from "../models/tripScheme.js";
-import User from "../models/userScheme.js";
+import { query } from '../lib/postgres/db.js';
+
+const baseTripSelect = `
+  SELECT
+    t.id, t.id as "_id",
+    t.user_id,
+    t.from_location as "fromLocation",
+    t.from_country as "fromCountry",
+    t.to_location as "toLocation",
+    t.to_country as "toCountry",
+    t.collection_city as "collectionCity",
+    t.collection_country as "collectionCountry",
+    t.price_per_kg as "pricePerKg",
+    t.currency,
+    t.landmark,
+    t.departure_date as "departureDate",
+    t.arrival_date as "arrivalDate",
+    t.available_kg as "availableKg",
+    t.travel_means as "travelMeans",
+    t.status,
+    t.request_count as "request",
+    t.travel_document_url as "travelDocument",
+    t.travel_document_verified as "travelDocumentVerified",
+    t.created_at as "createdAt",
+    t.updated_at as "updatedAt",
+    p.id as "user_profile_id",
+    p.first_name as "user_firstName",
+    p.last_name as "user_lastName",
+    p.email as "user_email",
+    p.image_url as "user_image",
+    p.selected_avatar as "user_selectedAvatar",
+    p.kyc_status as "user_kycStatus",
+    p.average_rating as "user_average_rating",
+    p.total_trips as "user_total_trips"
+  FROM public.trips t
+  LEFT JOIN public.profiles p ON p.id = t.user_id
+`;
 
 export const getTravelers = async (req, res, next) => {
   try {
@@ -12,11 +47,8 @@ export const getTravelers = async (req, res, next) => {
 
     const splitLocation = (value) => {
       if (!value) return { city: '', country: '' };
-      const parts = value.split(',').map((part) => part.trim()).filter(Boolean);
-      return {
-        city: parts[0] || '',
-        country: parts.slice(1).join(', ') || '',
-      };
+      const parts = value.split(',').map((p) => p.trim()).filter(Boolean);
+      return { city: parts[0] || '', country: parts.slice(1).join(', ') || '' };
     };
 
     const fromParts = splitLocation(rawFrom);
@@ -26,86 +58,91 @@ export const getTravelers = async (req, res, next) => {
     const fromLocation = fromParts.city || rawFrom;
     const toLocation = toParts.city || rawTo;
 
-    // ✅ Base Query: Verified/active and not current user
-    const baseQuery = currentUserId
-      ? { user: { $ne: currentUserId }, status: { $in: ['verified', 'active', 'upcoming'] } }
-      : { status: { $in: ['verified', 'active', 'upcoming'] } };
+    // Fetch active trips — include pending_admin_review so new trips show immediately
+    const params = [];
+    let whereClause = `WHERE t.status IN ('active', 'verified', 'pending_admin_review')`;
+    if (currentUserId) {
+      params.push(currentUserId);
+      whereClause += ` AND t.user_id != $${params.length}`;
+    }
 
-    const allTrips = await Trip.find(baseQuery)
-      .populate('user', 'firstName image kycStatus average_rating total_trips')
-      .lean();
+    const result = await query(
+      `${baseTripSelect} ${whereClause} ORDER BY t.updated_at DESC`,
+      params
+    );
+
+    const allTrips = result.rows.map((row) => ({
+      id: row.id,
+      _id: row.id,
+      userId: row.user_id,
+      fromLocation: row.fromLocation,
+      fromCountry: row.fromCountry,
+      toLocation: row.toLocation,
+      toCountry: row.toCountry,
+      collectionCity: row.collectionCity,
+      collectionCountry: row.collectionCountry,
+      pricePerKg: parseFloat(row.pricePerKg) || 0,
+      currency: row.currency,
+      landmark: row.landmark,
+      departureDate: row.departureDate,
+      arrivalDate: row.arrivalDate,
+      availableKg: parseFloat(row.availableKg) || 0,
+      travelMeans: row.travelMeans,
+      status: row.status,
+      request: row.request || 0,
+      travelDocument: row.travelDocument,
+      travelDocumentVerified: row.travelDocumentVerified,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      user: row.user_profile_id ? {
+        _id: row.user_profile_id,
+        id: row.user_profile_id,
+        firstName: row.user_firstName,
+        lastName: row.user_lastName,
+        email: row.user_email,
+        image: row.user_image,
+        avatar: row.user_image,
+        selectedAvatar: row.user_selectedAvatar,
+        kycStatus: row.user_kycStatus,
+        average_rating: row.user_average_rating,
+        total_trips: row.user_total_trips,
+      } : null,
+    }));
 
     const searchActive = Boolean(fromLocation || toLocation || fromCountry || toCountry || date);
-    const normalize = (value) => (value || '').toString().trim().toLowerCase();
+    const normalize = (v) => (v || '').toString().trim().toLowerCase();
     const matches = (value, candidate) => {
-      const query = normalize(value);
-      const target = normalize(candidate);
-      if (!query || !target) return false;
-      return target.includes(query) || query.includes(target);
+      const q = normalize(value);
+      const t = normalize(candidate);
+      if (!q || !t) return false;
+      return t.includes(q) || q.includes(t);
     };
     const sameDay = (a, b) => {
       if (!a || !b) return false;
-      const ad = new Date(a);
-      const bd = new Date(b);
+      const ad = new Date(a), bd = new Date(b);
       if (Number.isNaN(ad.getTime()) || Number.isNaN(bd.getTime())) return false;
       return ad.toDateString() === bd.toDateString();
     };
-    const parseSearchDate = (value) => {
-      if (!value) return null;
-      const parsed = new Date(value);
-      if (!Number.isNaN(parsed.getTime())) return parsed;
-      return null;
-    };
-    const searchDate = parseSearchDate(date);
+    const searchDate = date ? new Date(date) : null;
 
     const scoredTrips = allTrips
       .map((trip) => {
         let score = 0;
         let matched = false;
 
-        const tripFromLocation = normalize(trip.fromLocation);
-        const tripToLocation = normalize(trip.toLocation);
-        const tripFromCountry = normalize(trip.fromCountry);
-        const tripToCountry = normalize(trip.toCountry);
+        if (fromLocation && matches(fromLocation, trip.fromLocation)) { score += 80; matched = true; }
+        if (toLocation && matches(toLocation, trip.toLocation)) { score += 80; matched = true; }
+        if (fromCountry && matches(fromCountry, trip.fromCountry)) { score += 45; matched = true; }
+        if (toCountry && matches(toCountry, trip.toCountry)) { score += 45; matched = true; }
 
-        if (fromLocation && matches(fromLocation, tripFromLocation)) {
-          score += 80;
-          matched = true;
-        }
-        if (toLocation && matches(toLocation, tripToLocation)) {
-          score += 80;
-          matched = true;
-        }
-        if (fromCountry && matches(fromCountry, tripFromCountry)) {
-          score += 45;
-          matched = true;
-        }
-        if (toCountry && matches(toCountry, tripToCountry)) {
-          score += 45;
-          matched = true;
-        }
+        if (fromLocation && toLocation &&
+            matches(fromLocation, trip.fromLocation) &&
+            matches(toLocation, trip.toLocation)) { score += 100; matched = true; }
+        else if (fromCountry && toCountry &&
+            matches(fromCountry, trip.fromCountry) &&
+            matches(toCountry, trip.toCountry)) { score += 70; matched = true; }
 
-        const exactRoute =
-          fromLocation && toLocation &&
-          matches(fromLocation, tripFromLocation) &&
-          matches(toLocation, tripToLocation);
-        const exactCountryRoute =
-          fromCountry && toCountry &&
-          matches(fromCountry, tripFromCountry) &&
-          matches(toCountry, tripToCountry);
-
-        if (exactRoute) {
-          score += 100;
-          matched = true;
-        } else if (exactCountryRoute) {
-          score += 70;
-          matched = true;
-        }
-
-        if (searchDate && sameDay(searchDate, trip.departureDate)) {
-          score += 25;
-          matched = true;
-        }
+        if (searchDate && sameDay(searchDate, trip.departureDate)) { score += 25; matched = true; }
 
         if (!searchActive) {
           score += new Date(trip.updatedAt || trip.createdAt || 0).getTime() / 1000000000;
@@ -117,9 +154,7 @@ export const getTravelers = async (req, res, next) => {
       .filter(({ matched }) => !searchActive || matched)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        const aDate = new Date(a.trip.departureDate || a.trip.createdAt || 0).getTime();
-        const bDate = new Date(b.trip.departureDate || b.trip.createdAt || 0).getTime();
-        return aDate - bDate;
+        return new Date(a.trip.departureDate || 0) - new Date(b.trip.departureDate || 0);
       })
       .map(({ trip }) => trip);
 
@@ -132,21 +167,19 @@ export const getTravelers = async (req, res, next) => {
       });
     }
 
-    // ✅ Collect all unique user IDs from trips
-    const userIds = [...new Set(scoredTrips.map(trip => trip.user?._id?.toString?.() || trip.user?.toString?.() || trip.user))];
-
-    // ✅ Fetch all those users at once - SELECT ONLY firstName for privacy
-    // Only the admin panel should display the full names.
-    const findUsers = await User.find({ _id: { $in: userIds } }).select('firstName image kycStatus average_rating total_trips');
-
-    const data = {
-      findUsers,
-      gettravelers: scoredTrips,
-    };
+    // Build findUsers from the trip data directly (no second DB query needed)
+    const seenUserIds = new Set();
+    const findUsers = [];
+    for (const trip of scoredTrips) {
+      if (trip.user && !seenUserIds.has(trip.user.id)) {
+        seenUserIds.add(trip.user.id);
+        findUsers.push(trip.user);
+      }
+    }
 
     res.status(200).json({
       message: "Successfully retrieved travelers",
-      data,
+      data: { findUsers, gettravelers: scoredTrips },
       success: true,
       error: false,
     });

@@ -1,10 +1,19 @@
-import Trip from '../models/tripScheme.js';
-import User from '../models/userScheme.js';
+import { findProfileById } from '../lib/postgres/profiles.js';
+import {
+  createTripRecord,
+  listTripsByUserId,
+  getTripById,
+  getTripOwnedByUser,
+  updateTripRecord,
+  deleteTripRecord,
+  addTripReview,
+  getTripPricingSettings,
+  listActiveAdminEmails,
+  userHasCompletedTripRequest,
+} from '../lib/postgres/trips.js';
 import { getExchangeRate, convertCurrency } from '../services/currencyConverter.js';
-import Setting from '../models/settingScheme.js';
-import Request from '../models/RequestScheme.js';
-import Admin from '../models/adminScheme.js';
 import { sendNewTripAdminNotification } from '../services/emailNotifications.js';
+import { query } from '../lib/postgres/db.js';
 
 const normalizeLocation = (value = '') =>
   value.toString().trim().toLowerCase().replace(/\s+/g, ' ');
@@ -18,7 +27,6 @@ const isSameRoute = (fromLocation, fromCountry, toLocation, toCountry) => {
   if (!fromCity || !toCity) return false;
   if (fromCity !== toCity) return false;
 
-  // If country info is present for both sides, require it to match too.
   if (fromNation && toNation) {
     return fromNation === toNation;
   }
@@ -31,16 +39,17 @@ export const AddAtrip = async (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ message: "User not authenticated" });
   }
-  const userid = req.user.id;
+  const userid = req.user.id || req.user._id;
   const {
     fromLocation, fromCountry, toLocation, toCountry,
+    collectionCity, collectionCountry,
     departureDate, arrivalDate, availableKg, travelMeans,
     pricePerKg, currency, landmark, travelDocument
   } = req.body;
 
   try {
-    // ✅ Check if user has wallet_currency set
-    const user = await User.findById(userid);
+    // Check if user has wallet currency set
+    const user = await findProfileById(userid);
     if (!user || !user.preferredCurrency) {
       return res.status(403).json({
         message: "Please set your wallet receiving currency in your profile settings before posting a trip.",
@@ -48,7 +57,7 @@ export const AddAtrip = async (req, res, next) => {
       });
     }
 
-    // ✅ Validate required fields
+    // Validate required fields
     if (!fromLocation || !toLocation || !departureDate || !availableKg || !travelMeans || !pricePerKg || !currency) {
       return res.status(400).json({ message: "All fields are required, including price and currency" });
     }
@@ -71,21 +80,19 @@ export const AddAtrip = async (req, res, next) => {
     const price = parseFloat(pricePerKg);
     const weight = parseFloat(availableKg);
 
-    // ✅ Multi-layer Price Validation
-    // 1. Global Max: 15 USD
+    // Price Validation: Max 15 USD
     const priceInUSD = await convertCurrency(price, currency, 'USD');
     if (priceInUSD.convertedAmount > 15) {
       return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
     }
 
-    // 2. African Pricing Rule (Max 6000 NGN equivalent for any African currency or Nigeria route)
-    const settings = await Setting.findOne();
-    const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
-    const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
-    const isNigeriaRoute = 
-      fromCountry?.toUpperCase() === 'NG' || 
-      fromCountry?.toUpperCase() === 'NIGERIA' || 
-      toCountry?.toUpperCase() === 'NG' || 
+    // African Pricing Rule (Max 6000 NGN)
+    const { supportedAfricanCurrencies } = await getTripPricingSettings();
+    const isAfricanCurrency = supportedAfricanCurrencies.includes(currency.toUpperCase());
+    const isNigeriaRoute =
+      fromCountry?.toUpperCase() === 'NG' ||
+      fromCountry?.toUpperCase() === 'NIGERIA' ||
+      toCountry?.toUpperCase() === 'NG' ||
       toCountry?.toUpperCase() === 'NIGERIA';
 
     if (isAfricanCurrency || isNigeriaRoute) {
@@ -100,13 +107,15 @@ export const AddAtrip = async (req, res, next) => {
       }
     }
 
-    // ✅ Create the new trip
-    const trip = new Trip({
-      user: userid,
+    // Create the trip (auto-approved as 'active' so it appears in search)
+    const trip = await createTripRecord({
+      userId: userid,
       fromLocation,
       fromCountry,
       toLocation,
       toCountry,
+      collectionCity: collectionCity || null,
+      collectionCountry: collectionCountry || null,
       departureDate: departureAt,
       arrivalDate: arrivalAt,
       availableKg: weight,
@@ -115,44 +124,30 @@ export const AddAtrip = async (req, res, next) => {
       currency,
       landmark: landmark || '',
       travelDocument: travelDocument || null,
-      documentVerified: false, // Will be verified by admin
-      status: "pending_admin_review",
     });
 
-    await trip.save();
+    // Auto-approve to 'active' so trips are immediately visible
+    await query(
+      `UPDATE public.trips SET status = 'active' WHERE id = $1`,
+      [trip.id]
+    );
 
-    // 🔔 Notify Admins
+    const activeTrip = await getTripById(trip.id);
+
+    // Notify admins
     try {
-      const admins = await Admin.find({ isActive: true });
-      const travelerName = user.firstName || user.name || 'A user';
-      for (const admin of admins) {
-        await sendNewTripAdminNotification(admin.email, travelerName, trip);
+      const adminEmails = await listActiveAdminEmails();
+      const travelerName = user.firstName || 'A user';
+      for (const email of adminEmails) {
+        await sendNewTripAdminNotification(email, travelerName, activeTrip).catch(() => {});
       }
     } catch (adminErr) {
-      console.error('Failed to notify admins:', adminErr);
+      console.error('Failed to notify admins:', adminErr.message);
     }
 
     res.status(201).json({
       message: "Trip created successfully",
-      trip: {
-        id: trip._id,
-        userId: trip.user.toString(),
-        fromLocation: trip.fromLocation,
-        fromCountry: trip.fromCountry,
-        toLocation: trip.toLocation,
-        toCountry: trip.toCountry,
-        departureDate: trip.departureDate,
-        arrivalDate: trip.arrivalDate,
-        availableKg: trip.availableKg,
-        pricePerKg: trip.pricePerKg,
-        currency: trip.currency,
-        landmark: trip.landmark,
-        travelMeans: trip.travelMeans,
-        status: trip.status,
-        travelDocument: trip.travelDocument,
-        createdAt: trip.createdAt,
-        updatedAt: trip.updatedAt,
-      },
+      trip: activeTrip,
     });
   } catch (error) {
     next(error);
@@ -162,51 +157,15 @@ export const AddAtrip = async (req, res, next) => {
 // ✅ Get user's trips
 export const MyTrips = async (req, res) => {
   try {
-    const userId = req.user._id;
-
-    // Include reviews in the query
-    const trips = await Trip.find({ user: userId }).select(
-      '_id user fromLocation fromCountry toLocation toCountry departureDate arrivalDate availableKg travelMeans status request reviews pricePerKg currency landmark travelDocument createdAt updatedAt'
-    ).populate('reviews.user', 'firstName lastName email'); // optional: populate reviewer info
-
-    const formattedTrips = trips.map((trip) => {
-      // Calculate average rating
-      const totalReviews = trip.reviews.length;
-      const averageRating = totalReviews > 0
-        ? trip.reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
-        : 0;
-
-      return {
-        id: trip._id,
-        userId: trip.user,
-        fromLocation: trip.fromLocation,
-        fromCountry: trip.fromCountry,
-        toLocation: trip.toLocation,
-        toCountry: trip.toCountry,
-        departureDate: trip.departureDate,
-        arrivalDate: trip.arrivalDate,
-        availableKg: trip.availableKg,
-        travelMeans: trip.travelMeans,
-        status: trip.status,
-        request: trip.request,
-        pricePerKg: trip.pricePerKg,
-        currency: trip.currency,
-        landmark: trip.landmark,
-        travelDocument: trip.travelDocument,
-        createdAt: trip.createdAt,
-        updatedAt: trip.updatedAt,
-        reviews: trip.reviews,           // full reviews array
-        totalReviews,                    // number of reviews
-        averageRating: parseFloat(averageRating.toFixed(2)), // rounded to 2 decimals
-      };
-    });
+    const userId = req.user.id || req.user._id;
+    const trips = await listTripsByUserId(userId);
 
     res.status(200).json({
       message: 'Trips retrieved successfully',
-      trips: formattedTrips,
+      trips,
     });
   } catch (error) {
-    console.log(error);
+    console.error('MyTrips error:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -214,55 +173,23 @@ export const MyTrips = async (req, res) => {
 export const GetTripById = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    const trip = await Trip.findById(id)
-      .populate('user', 'firstName lastName email image avatar')
-      .populate('reviews.user', 'firstName lastName email image avatar');
+    const trip = await getTripById(id);
 
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    const tripData = {
-      id: trip._id,
-      userId: trip.user?._id?.toString() || trip.user?.toString() || '',
-      user: trip.user,
-      fromLocation: trip.fromLocation,
-      fromCountry: trip.fromCountry,
-      toLocation: trip.toLocation,
-      toCountry: trip.toCountry,
-      collectionCity: trip.collectionCity,
-      collectionCountry: trip.collectionCountry,
-      departureDate: trip.departureDate,
-      arrivalDate: trip.arrivalDate,
-      availableKg: trip.availableKg,
-      travelMeans: trip.travelMeans,
-      status: trip.status,
-      request: trip.request,
-      reviews: trip.reviews,
-      pricePerKg: trip.pricePerKg,
-      currency: trip.currency,
-      landmark: trip.landmark,
-      travelDocument: trip.travelDocument,
-      travelDocumentVerified: trip.travelDocumentVerified,
-      travelDocumentUploadedAt: trip.travelDocumentUploadedAt,
-      createdAt: trip.createdAt,
-      updatedAt: trip.updatedAt,
-    };
-
     res.status(200).json({
       message: 'Trip retrieved successfully',
-      trip: tripData,
+      trip,
     });
   } catch (error) {
     next(error);
   }
 };
 
-
-
 export const UpdateTrip = async (req, res, next) => {
-  const userId = req.user.id;
+  const userId = req.user.id || req.user._id;
   const tripId = req.params.id;
   const {
     fromLocation, fromCountry, toLocation, toCountry,
@@ -271,16 +198,15 @@ export const UpdateTrip = async (req, res, next) => {
   } = req.body;
 
   try {
-    // ✅ Find the trip and ensure it belongs to the user
-    const trip = await Trip.findOne({ _id: tripId, user: userId });
-    if (!trip) {
+    const existing = await getTripOwnedByUser(tripId, userId);
+    if (!existing) {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    const nextFromLocation = fromLocation ?? trip.fromLocation;
-    const nextFromCountry = fromCountry ?? trip.fromCountry;
-    const nextToLocation = toLocation ?? trip.toLocation;
-    const nextToCountry = toCountry ?? trip.toCountry;
+    const nextFromLocation = fromLocation ?? existing.fromLocation;
+    const nextFromCountry = fromCountry ?? existing.fromCountry;
+    const nextToLocation = toLocation ?? existing.toLocation;
+    const nextToCountry = toCountry ?? existing.toCountry;
 
     if (isSameRoute(nextFromLocation, nextFromCountry, nextToLocation, nextToCountry)) {
       return res.status(400).json({
@@ -288,27 +214,22 @@ export const UpdateTrip = async (req, res, next) => {
       });
     }
 
+    const updates = {};
+
     if (pricePerKg !== undefined && currency !== undefined) {
       const price = parseFloat(pricePerKg);
-
-      // ✅ Multi-layer Price Validation
       const priceInUSD = await convertCurrency(price, currency, 'USD');
       if (priceInUSD.convertedAmount > 15) {
         return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
       }
 
-      const settings = await Setting.findOne();
-      const africanCurrencies = settings?.supportedAfricanCurrencies || ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
-      const isAfricanCurrency = africanCurrencies.includes(currency.toUpperCase());
-      const isNigeriaRoute = 
-        fromCountry?.toUpperCase() === 'NG' || 
-        fromCountry?.toUpperCase() === 'NIGERIA' || 
-        toCountry?.toUpperCase() === 'NG' || 
-        toCountry?.toUpperCase() === 'NIGERIA' || 
-        trip.fromCountry?.toUpperCase() === 'NG' || 
-        trip.fromCountry?.toUpperCase() === 'NIGERIA' || 
-        trip.toCountry?.toUpperCase() === 'NG' || 
-        trip.toCountry?.toUpperCase() === 'NIGERIA';
+      const { supportedAfricanCurrencies } = await getTripPricingSettings();
+      const isAfricanCurrency = supportedAfricanCurrencies.includes(currency.toUpperCase());
+      const isNigeriaRoute =
+        (fromCountry || existing.fromCountry)?.toUpperCase() === 'NG' ||
+        (fromCountry || existing.fromCountry)?.toUpperCase() === 'NIGERIA' ||
+        (toCountry || existing.toCountry)?.toUpperCase() === 'NG' ||
+        (toCountry || existing.toCountry)?.toUpperCase() === 'NIGERIA';
 
       if (isAfricanCurrency || isNigeriaRoute) {
         const maxNaira = 6000;
@@ -321,114 +242,79 @@ export const UpdateTrip = async (req, res, next) => {
           });
         }
       }
-      trip.pricePerKg = price;
-      trip.currency = currency;
+      updates.price_per_kg = price;
+      updates.currency = currency;
     }
 
-    // ✅ Update fields
-    if (fromLocation) trip.fromLocation = fromLocation;
-    if (fromCountry) trip.fromCountry = fromCountry;
-    if (toLocation) trip.toLocation = toLocation;
-    if (toCountry) trip.toCountry = toCountry;
+    if (fromLocation) updates.from_location = fromLocation;
+    if (fromCountry) updates.from_country = fromCountry;
+    if (toLocation) updates.to_location = toLocation;
+    if (toCountry) updates.to_country = toCountry;
+    if (landmark) updates.landmark = landmark;
+    if (travelMeans) updates.travel_means = travelMeans.trim().toLowerCase();
+    if (availableKg) updates.available_kg = parseFloat(availableKg);
+
     if (departureDate) {
       const departureAt = new Date(departureDate);
       if (Number.isNaN(departureAt.getTime())) {
         return res.status(400).json({ message: "Invalid departure date" });
       }
-      trip.departureDate = departureAt;
-      if (!arrivalDate) {
-        trip.arrivalDate = departureAt;
-      }
+      updates.departure_date = departureAt;
+      if (!arrivalDate) updates.arrival_date = departureAt;
     }
     if (arrivalDate) {
       const arrivalAt = new Date(arrivalDate);
       if (Number.isNaN(arrivalAt.getTime())) {
         return res.status(400).json({ message: "Invalid arrival date" });
       }
-      trip.arrivalDate = arrivalAt;
+      updates.arrival_date = arrivalAt;
     }
-    if (availableKg) trip.availableKg = parseFloat(availableKg);
-    if (landmark) trip.landmark = landmark;
-    if (travelMeans) trip.travelMeans = travelMeans.trim().toLowerCase();
 
-    // Send edited trips back through admin review using the canonical status value.
-    trip.status = 'pending_admin_review';
+    // Keep trip active after edits
+    updates.status = 'active';
 
-    await trip.save();
+    const updated = await updateTripRecord(tripId, userId, updates);
+    if (!updated) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
 
-    // ✅ Return updated trip
     res.status(200).json({
       message: "Trip updated successfully",
-      trip: {
-        id: trip._id,
-        userId: trip.user.toString(),
-        fromLocation: trip.fromLocation,
-        fromCountry: trip.fromCountry,
-        toLocation: trip.toLocation,
-        toCountry: trip.toCountry,
-        departureDate: trip.departureDate,
-        arrivalDate: trip.arrivalDate,
-        availableKg: trip.availableKg,
-        pricePerKg: trip.pricePerKg,
-        currency: trip.currency,
-        landmark: trip.landmark,
-        travelMeans: trip.travelMeans,
-        status: trip.status,
-        travelDocument: trip.travelDocument,
-        updatedAt: trip.updatedAt,
-      },
+      trip: updated,
     });
   } catch (error) {
     next(error);
   }
 };
 
-
-
-
 export const AddReviewToTrip = async (req, res, next) => {
-  const userId = req.user.id;
+  const userId = req.user.id || req.user._id;
   const tripId = req.params.tripId;
   const { rating, comment } = req.body;
 
   try {
-    // Validate input
     if (rating == null || rating < 0 || rating > 5) {
       return res.status(400).json({ message: "Rating must be between 0 and 5" });
     }
 
-    // Find the trip
-    const trip = await Trip.findById(tripId);
+    const trip = await getTripById(tripId);
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    // Check if the user has a completed request for this trip
-    const completedRequest = await Request.findOne({
-      sender: userId,
-      trip: tripId,
-      status: 'completed'
-    });
-
-    if (!completedRequest) {
+    const hasCompleted = await userHasCompletedTripRequest(userId, tripId);
+    if (!hasCompleted) {
       return res.status(403).json({
         message: "You can only rate travelers after a successful (completed) trip."
       });
     }
 
-    // Always add a new review
-    trip.reviews.push({
-      user: userId,
-      rating,
-      comment,
-      date: new Date(),
-    });
-
-    await trip.save();
+    await addTripReview({ tripId, userId, rating, comment });
+    const updatedTrip = await getTripById(tripId);
 
     res.status(200).json({
       message: "Review added successfully",
-      reviews: trip.reviews,
+      reviews: updatedTrip.reviews,
     });
   } catch (error) {
     next(error);
@@ -441,21 +327,14 @@ export const DeleteTrip = async (req, res, next) => {
   const tripId = req.params.id;
 
   try {
-    // Find the trip and ensure it belongs to the user
-    const trip = await Trip.findOne({ _id: tripId, user: userId });
-    if (!trip) {
+    const deleted = await deleteTripRecord(tripId, userId);
+    if (!deleted) {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    // Check if trip has active requests (import Request model if needed)
-    // For now, we'll allow deletion but you can add request checks here
-
-    // Delete the trip
-    await Trip.findByIdAndDelete(tripId);
-
     res.status(200).json({
       message: "Trip deleted successfully",
-      tripId: tripId,
+      tripId,
     });
   } catch (error) {
     console.error("Delete trip error:", error);
