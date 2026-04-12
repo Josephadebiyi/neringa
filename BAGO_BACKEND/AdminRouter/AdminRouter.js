@@ -44,6 +44,7 @@ import {
 } from '../controllers/AdminControllers/PromoCodeController.js';
 import {
   getAllTrips,
+  getTripById,
   updateTripStatus,
   deleteTrip
 } from '../controllers/AdminControllers/TripManagement.js';
@@ -119,6 +120,7 @@ AdminRouter.put("/promo-codes/:id/toggle", adminAuthenticated, togglePromoCodeSt
 
 // Trip Management (Real trips from DB)
 AdminRouter.get("/admin-trips", adminAuthenticated, getAllTrips);
+AdminRouter.get("/admin-trips/:id", adminAuthenticated, getTripById);
 AdminRouter.put("/admin-trips/:id/status", adminAuthenticated, updateTripStatus);
 AdminRouter.delete("/admin-trips/:id", adminAuthenticated, deleteTrip);
 

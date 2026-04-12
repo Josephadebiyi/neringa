@@ -50,6 +50,18 @@ const adminTripSelect = `
   left join public.profiles p on p.id = t.user_id
 `;
 
+export const getTripById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const row = await queryOne(`${adminTripSelect} where t.id = $1`, [id]);
+    if (!row) return res.status(404).json({ success: false, message: 'Trip not found' });
+    res.status(200).json({ success: true, data: normalizeTrip(row) });
+  } catch (error) {
+    console.error('Get Trip By ID Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getAllTrips = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;

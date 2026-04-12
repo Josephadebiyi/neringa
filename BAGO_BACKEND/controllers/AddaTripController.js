@@ -1,3 +1,4 @@
+import cloudinary from 'cloudinary';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import {
   createTripRecord,
@@ -14,6 +15,23 @@ import {
 import { getExchangeRate, convertCurrency } from '../services/currencyConverter.js';
 import { sendNewTripAdminNotification } from '../services/emailNotifications.js';
 import { query } from '../lib/postgres/db.js';
+
+// Upload base64 travel document to Cloudinary and return the secure URL
+async function uploadTravelDocument(base64DataUri, userId) {
+  if (!base64DataUri || !base64DataUri.startsWith('data:')) return base64DataUri;
+  try {
+    const result = await cloudinary.v2.uploader.upload(base64DataUri, {
+      folder: 'bago/travel_documents',
+      public_id: `trip_proof_${userId}_${Date.now()}`,
+      resource_type: 'auto',
+    });
+    return result.secure_url;
+  } catch (err) {
+    console.error('Cloudinary travel document upload failed:', err.message);
+    // Fall back to storing the base64 if Cloudinary fails
+    return base64DataUri;
+  }
+}
 
 const normalizeLocation = (value = '') =>
   value.toString().trim().toLowerCase().replace(/\s+/g, ' ');
@@ -107,6 +125,11 @@ export const AddAtrip = async (req, res, next) => {
       }
     }
 
+    // Upload travel document to Cloudinary to get a permanent URL
+    const travelDocumentUrl = travelDocument
+      ? await uploadTravelDocument(travelDocument, userid)
+      : null;
+
     // Create the trip (auto-approved as 'active' so it appears in search)
     const trip = await createTripRecord({
       userId: userid,
@@ -123,7 +146,7 @@ export const AddAtrip = async (req, res, next) => {
       pricePerKg: price,
       currency,
       landmark: landmark || '',
-      travelDocument: travelDocument || null,
+      travelDocument: travelDocumentUrl,
     });
 
     // Auto-approve to 'active' so trips are immediately visible
@@ -244,6 +267,13 @@ export const UpdateTrip = async (req, res, next) => {
       }
       updates.price_per_kg = price;
       updates.currency = currency;
+    }
+
+    // Handle travel document update
+    const { travelDocument: travelDocRaw } = req.body;
+    if (travelDocRaw) {
+      updates.travel_document_url = await uploadTravelDocument(travelDocRaw, userId);
+      updates.travel_document_uploaded_at = new Date();
     }
 
     if (fromLocation) updates.from_location = fromLocation;
