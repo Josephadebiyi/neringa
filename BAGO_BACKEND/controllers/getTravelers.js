@@ -30,8 +30,8 @@ const baseTripSelect = `
     p.image_url as "user_image",
     p.selected_avatar as "user_selectedAvatar",
     p.kyc_status as "user_kycStatus",
-    p.average_rating as "user_average_rating",
-    p.total_trips as "user_total_trips"
+    p.rating as "user_average_rating",
+    p.completed_trips as "user_total_trips"
   FROM public.trips t
   LEFT JOIN public.profiles p ON p.id = t.user_id
 `;
