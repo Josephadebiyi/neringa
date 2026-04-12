@@ -1,53 +1,101 @@
-import User from '../../models/userScheme.js';
+import { query, queryOne } from '../../lib/postgres/db.js';
 
-/**
- * Get all users with KYC data
- * Admin only - view full KYC information
- */
+function normalizeKycUser(row) {
+  return {
+    _id: row.id,
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email,
+    phone: row.phone,
+    country: row.country,
+    dateOfBirth: row.date_of_birth,
+    profileImage: row.image_url,
+    kycStatus: row.kyc_status,
+    kycVerifiedAt: row.kyc_verified_at,
+    kycVerifiedData: row.kyc_verified_data,
+    identityFingerprint: row.identity_fingerprint,
+    kycFailureReason: row.kyc_failure_reason,
+    diditSessionId: row.didit_session_id,
+    status: row.status,
+    isVerified: row.email_verified,
+    stripeVerified: row.stripe_verified,
+    stripeConnectAccountId: row.stripe_connect_account_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export const getAllUsersKYC = async (req, res) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
+    const numericPage = Math.max(1, parseInt(page, 10) || 1);
+    const numericLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (numericPage - 1) * numericLimit;
 
-    const query = {};
+    const conditions = [];
+    const params = [];
+    let index = 1;
 
-    // Filter by KYC status
     if (status && status !== 'all') {
-      query.kycStatus = status;
+      conditions.push(`p.kyc_status = $${index++}`);
+      params.push(status);
     }
 
-    // Search by name or email
     if (search) {
-      query.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ];
+      conditions.push(`(
+        lower(coalesce(p.first_name, '')) like lower($${index})
+        or lower(coalesce(p.last_name, '')) like lower($${index})
+        or lower(p.email) like lower($${index})
+      )`);
+      params.push(`%${search}%`);
+      index += 1;
     }
 
-    const skip = (page - 1) * limit;
+    const whereClause = conditions.length ? `where ${conditions.join(' and ')}` : '';
 
-    const users = await User.find(query)
-      .select(
-        'firstName lastName email kycStatus kycVerifiedAt kycVerifiedData identityFingerprint kycFailureReason dateOfBirth country phone profileImage createdAt'
-      )
-      .sort({ kycVerifiedAt: -1, createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(skip);
+    const usersResult = await query(
+      `
+        select
+          p.id,
+          p.first_name,
+          p.last_name,
+          p.email,
+          p.phone,
+          p.country,
+          p.date_of_birth,
+          p.image_url,
+          p.kyc_status,
+          p.kyc_verified_at,
+          p.kyc_verified_data,
+          p.identity_fingerprint,
+          p.kyc_failure_reason,
+          p.created_at
+        from public.profiles p
+        ${whereClause}
+        order by p.kyc_verified_at desc nulls last, p.created_at desc
+        limit $${index} offset $${index + 1}
+      `,
+      [...params, numericLimit, offset],
+    );
 
-    const total = await User.countDocuments(query);
+    const totalRow = await queryOne(
+      `select count(*)::int as total from public.profiles p ${whereClause}`,
+      params,
+    );
 
     return res.status(200).json({
       success: true,
-      data: users,
+      data: usersResult.rows.map(normalizeKycUser),
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
+        page: numericPage,
+        limit: numericLimit,
+        total: totalRow?.total || 0,
+        pages: Math.ceil((totalRow?.total || 0) / numericLimit),
       },
     });
   } catch (error) {
-    console.error('❌ Error fetching KYC data:', error);
+    console.error('Error fetching KYC data:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch KYC data',
@@ -56,31 +104,22 @@ export const getAllUsersKYC = async (req, res) => {
   }
 };
 
-/**
- * Get detailed KYC information for a specific user
- * Admin only
- */
 export const getUserKYCDetails = async (req, res) => {
   try {
     const { userId } = req.params;
+    const row = await queryOne(`select * from public.profiles where id = $1`, [userId]);
 
-    const user = await User.findById(userId).select(
-      'firstName lastName email phone country dateOfBirth ' +
-      'kycStatus kycVerifiedAt kycVerifiedData kycFailureReason ' +
-      'identityFingerprint diditSessionId status isVerified ' +
-      'stripeVerified stripeConnectAccountId createdAt updatedAt'
-    );
-
-    if (!user) {
+    if (!row) {
       return res.status(404).json({
         success: false,
         message: 'User not found',
       });
     }
 
-    // Format response with sensitive data (admin only)
+    const user = normalizeKycUser(row);
+
     const kycDetails = {
-      userId: user._id,
+      userId: user.id,
       personalInfo: {
         firstName: user.firstName,
         lastName: user.lastName,
@@ -101,7 +140,7 @@ export const getUserKYCDetails = async (req, res) => {
             firstName: user.kycVerifiedData.firstName,
             lastName: user.kycVerifiedData.lastName,
             dateOfBirth: user.kycVerifiedData.dateOfBirth,
-            documentNumber: user.kycVerifiedData.documentNumber, // Show to admin
+            documentNumber: user.kycVerifiedData.documentNumber,
             documentType: user.kycVerifiedData.documentType,
             issuingCountry: user.kycVerifiedData.issuingCountry,
             verificationStatus: user.kycVerifiedData.verificationStatus,
@@ -115,7 +154,7 @@ export const getUserKYCDetails = async (req, res) => {
       },
       security: {
         identityFingerprint: user.identityFingerprint
-          ? user.identityFingerprint.substring(0, 16) + '...'
+          ? `${String(user.identityFingerprint).substring(0, 16)}...`
           : null,
       },
       timestamps: {
@@ -129,7 +168,7 @@ export const getUserKYCDetails = async (req, res) => {
       data: kycDetails,
     });
   } catch (error) {
-    console.error('❌ Error fetching user KYC details:', error);
+    console.error('Error fetching user KYC details:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch user KYC details',
@@ -138,53 +177,47 @@ export const getUserKYCDetails = async (req, res) => {
   }
 };
 
-/**
- * Get KYC statistics for admin dashboard
- */
 export const getKYCStatistics = async (req, res) => {
   try {
-    const stats = await User.aggregate([
-      {
-        $group: {
-          _id: '$kycStatus',
-          count: { $sum: 1 },
-        },
-      },
+    const [statusRows, totals] = await Promise.all([
+      query(`
+        select coalesce(kyc_status, 'unknown') as status, count(*)::int as count
+        from public.profiles
+        group by coalesce(kyc_status, 'unknown')
+      `),
+      queryOne(`
+        select
+          count(*)::int as total,
+          count(*) filter (where kyc_status = 'approved')::int as verified,
+          count(*) filter (where kyc_status = 'pending')::int as pending,
+          count(*) filter (
+            where kyc_status in ('declined', 'failed_verification', 'blocked_duplicate')
+          )::int as declined,
+          count(*) filter (
+            where kyc_status = 'approved'
+              and kyc_verified_at >= timezone('utc', now()) - interval '30 days'
+          )::int as recent_verifications
+        from public.profiles
+      `),
     ]);
-
-    const totalUsers = await User.countDocuments();
-    const verifiedUsers = await User.countDocuments({ kycStatus: 'approved' });
-    const pendingUsers = await User.countDocuments({ kycStatus: 'pending' });
-    const declinedUsers = await User.countDocuments({
-      kycStatus: { $in: ['declined', 'failed_verification', 'blocked_duplicate'] },
-    });
-
-    // Recent verifications (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const recentVerifications = await User.countDocuments({
-      kycStatus: 'approved',
-      kycVerifiedAt: { $gte: thirtyDaysAgo },
-    });
 
     return res.status(200).json({
       success: true,
       statistics: {
-        total: totalUsers,
-        verified: verifiedUsers,
-        pending: pendingUsers,
-        declined: declinedUsers,
-        verificationRate: totalUsers > 0 ? ((verifiedUsers / totalUsers) * 100).toFixed(2) : 0,
-        recentVerifications30Days: recentVerifications,
-        byStatus: stats.reduce((acc, item) => {
-          acc[item._id || 'unknown'] = item.count;
+        total: totals?.total || 0,
+        verified: totals?.verified || 0,
+        pending: totals?.pending || 0,
+        declined: totals?.declined || 0,
+        verificationRate: (totals?.total || 0) > 0 ? (((totals?.verified || 0) / totals.total) * 100).toFixed(2) : 0,
+        recentVerifications30Days: totals?.recent_verifications || 0,
+        byStatus: statusRows.rows.reduce((acc, item) => {
+          acc[item.status] = item.count;
           return acc;
         }, {}),
       },
     });
   } catch (error) {
-    console.error('❌ Error fetching KYC statistics:', error);
+    console.error('Error fetching KYC statistics:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch KYC statistics',
@@ -193,9 +226,6 @@ export const getKYCStatistics = async (req, res) => {
   }
 };
 
-/**
- * Manually approve/reject KYC (admin override)
- */
 export const updateKYCStatus = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -209,50 +239,56 @@ export const updateKYCStatus = async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId);
-    if (!user) {
+    const previous = await queryOne(`select id, email, kyc_status from public.profiles where id = $1`, [userId]);
+    if (!previous) {
       return res.status(404).json({
         success: false,
         message: 'User not found',
       });
     }
 
-    const previousStatus = user.kycStatus;
-
-    user.kycStatus = status;
-
-    if (status === 'approved') {
-      user.kycVerifiedAt = new Date();
-      user.status = 'verified';
-      user.isVerified = true;
-      user.kycFailureReason = null;
-    } else if (status === 'declined') {
-      user.kycFailureReason = reason || 'Admin manual rejection';
-      user.status = 'rejected';
-      user.isVerified = false;
-    } else if (status === 'pending') {
-      user.kycFailureReason = null;
-    }
-
-    await user.save();
-
-    console.log(
-      `✅ Admin manually updated KYC status for user ${user.email}: ${previousStatus} → ${status}`
+    const nextStatus = status === 'approved' ? 'verified' : status === 'declined' ? 'rejected' : previous.status;
+    await query(
+      `
+        update public.profiles
+        set
+          kyc_status = $2,
+          kyc_verified_at = case when $2 = 'approved' then timezone('utc', now()) else kyc_verified_at end,
+          kyc_failure_reason = case
+            when $2 = 'declined' then $3
+            when $2 = 'pending' then null
+            when $2 = 'approved' then null
+            else kyc_failure_reason
+          end,
+          status = case
+            when $2 = 'approved' then 'verified'
+            when $2 = 'declined' then 'rejected'
+            else status
+          end,
+          email_verified = case
+            when $2 = 'approved' then true
+            when $2 = 'declined' then false
+            else email_verified
+          end,
+          updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [userId, status, reason || 'Admin manual rejection', nextStatus],
     );
 
     return res.status(200).json({
       success: true,
       message: `KYC status updated to ${status}`,
       data: {
-        userId: user._id,
-        email: user.email,
-        previousStatus,
+        userId,
+        email: previous.email,
+        previousStatus: previous.kyc_status,
         newStatus: status,
         reason: reason || null,
       },
     });
   } catch (error) {
-    console.error('❌ Error updating KYC status:', error);
+    console.error('Error updating KYC status:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to update KYC status',

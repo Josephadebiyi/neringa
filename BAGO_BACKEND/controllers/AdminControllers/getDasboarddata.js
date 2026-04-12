@@ -1,97 +1,145 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
+import { getShipmentRequestById } from '../../lib/postgres/shipping.js';
 
 export const dashboard = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
 
     const [
-      userCount,
-      packageCount,
-      requestCount,
-      activeTripsCount,
-      googleCount,
-      unverifiedCount,
-      verifiedCount,
-      incomeResult,
-      statusDist,
-      monthlyTrends,
-      packages,
+      userCountRow,
+      packageCountRow,
+      requestCountRow,
+      incomeRow,
+      statusDistributionResult,
+      monthlyTrendsResult,
+      activeTripsCountRow,
+      googleSignupCountRow,
+      unverifiedUserCountRow,
+      verifiedUserCountRow,
+      packagesResult,
     ] = await Promise.all([
-      queryOne(`SELECT COUNT(*) FROM public.profiles`),
-      queryOne(`SELECT COUNT(*) FROM public.packages`),
-      queryOne(`SELECT COUNT(*) FROM public.shipment_requests`),
-      queryOne(`SELECT COUNT(*) FROM public.trips WHERE status IN ('active','verified')`),
-      queryOne(`SELECT COUNT(*) FROM public.profiles WHERE signup_method = 'google'`),
-      queryOne(`SELECT COUNT(*) FROM public.profiles WHERE kyc_status != 'approved'`),
-      queryOne(`SELECT COUNT(*) FROM public.profiles WHERE kyc_status = 'approved'`),
-      queryOne(`SELECT COALESCE(SUM((payment_info->>'amount')::numeric), 0) as total FROM public.shipment_requests WHERE status = 'completed'`),
-      query(`SELECT status as name, COUNT(*) as count FROM public.shipment_requests GROUP BY status`),
-      query(`
-        SELECT EXTRACT(YEAR FROM created_at)::int as year,
-               EXTRACT(MONTH FROM created_at)::int as month,
-               COUNT(*) as count
-        FROM public.packages
-        WHERE created_at >= date_trunc('year', NOW() - INTERVAL '1 year')
-        GROUP BY year, month ORDER BY year, month
+      queryOne(`select count(*)::int as total from public.profiles`),
+      queryOne(`select count(*)::int as total from public.packages`),
+      queryOne(`select count(*)::int as total from public.shipment_requests`),
+      queryOne(`
+        select coalesce(sum(insurance_cost), 0) as total_income
+        from public.shipment_requests
+        where status in ('accepted', 'picked_up', 'in_transit', 'delivered', 'intransit', 'completed')
       `),
-      query(`SELECT * FROM public.packages ORDER BY created_at DESC LIMIT $1 OFFSET $2`, [Number(limit), offset]),
+      query(`
+        select status as name, count(*)::int as count
+        from public.shipment_requests
+        group by status
+      `),
+      query(`
+        select
+          extract(year from created_at)::int as year,
+          extract(month from created_at)::int as month,
+          count(*)::int as count
+        from public.packages
+        where created_at >= $1
+        group by 1, 2
+        order by 1, 2
+      `, [new Date(new Date().getFullYear() - 1, 0, 1)]),
+      queryOne(`select count(*)::int as total from public.trips where status = 'active'`),
+      queryOne(`select count(*)::int as total from public.profiles where signup_method = 'google'`),
+      queryOne(`select count(*)::int as total from public.profiles where coalesce(kyc_status, 'pending') <> 'approved'`),
+      queryOne(`select count(*)::int as total from public.profiles where kyc_status = 'approved'`),
+      query(`select * from public.packages order by created_at desc limit $1 offset $2`, [limit, skip]),
     ]);
 
-    // Build tracking data with requests per package
-    const trackingData = await Promise.all(
-      packages.rows.map(async (pkg) => {
-        const requests = await query(
-          `SELECT id, sender_id, traveler_id, status, created_at FROM public.shipment_requests WHERE package_id = $1`,
-          [pkg.id]
-        );
-        return { package: pkg, requests: requests.rows };
-      })
-    );
+    const packageIds = packagesResult.rows.map((row) => row.id);
+    let requestIds = [];
+    if (packageIds.length) {
+      const packageRequests = await query(
+        `select id from public.shipment_requests where package_id = any($1::uuid[]) order by created_at desc`,
+        [packageIds],
+      );
+      requestIds = packageRequests.rows.map((row) => row.id);
+    }
 
-    // Monthly trends
+    const requests = await Promise.all(requestIds.map((id) => getShipmentRequestById(id)));
+    const requestsByPackage = new Map();
+    for (const request of requests.filter(Boolean)) {
+      const bucket = requestsByPackage.get(request.packageId) || [];
+      bucket.push(request);
+      requestsByPackage.set(request.packageId, bucket);
+    }
+
+    const trackingData = packagesResult.rows.map((pkg) => ({
+      package: {
+        _id: pkg.id,
+        id: pkg.id,
+        userId: pkg.user_id,
+        fromCountry: pkg.from_country,
+        fromCity: pkg.from_city,
+        toCountry: pkg.to_country,
+        toCity: pkg.to_city,
+        packageWeight: Number(pkg.package_weight || 0),
+        value: Number(pkg.declared_value || 0),
+        receiverName: pkg.receiver_name,
+        receiverEmail: pkg.receiver_email,
+        receiverPhone: pkg.receiver_phone,
+        description: pkg.description,
+        image: pkg.image_url,
+        category: pkg.category,
+        createdAt: pkg.created_at,
+      },
+      requests: requestsByPackage.get(pkg.id) || [],
+    }));
+
     const thisYear = new Date().getFullYear();
     const lastYear = thisYear - 1;
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const monthlyData = months.map((name) => ({ name, thisYear: 0, lastYear: 0 }));
-    monthlyTrends.rows.forEach(({ year, month, count }) => {
-      const idx = month - 1;
-      if (year === thisYear) monthlyData[idx].thisYear = parseInt(count);
-      else if (year === lastYear) monthlyData[idx].lastYear = parseInt(count);
-    });
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyData = months.map((month) => ({ name: month, thisYear: 0, lastYear: 0 }));
 
-    const totalIncome = parseFloat(incomeResult?.total || 0);
-    const totalRequests = statusDist.rows.reduce((s, r) => s + parseInt(r.count), 0);
-    const statusData = statusDist.rows.map((r) => ({
-      name: r.name,
-      value: totalRequests > 0 ? (parseInt(r.count) / totalRequests) * 100 : 0,
+    for (const trend of monthlyTrendsResult.rows) {
+      const monthIndex = Number(trend.month) - 1;
+      if (monthIndex < 0 || monthIndex > 11) continue;
+      if (Number(trend.year) === thisYear) monthlyData[monthIndex].thisYear = Number(trend.count || 0);
+      if (Number(trend.year) === lastYear) monthlyData[monthIndex].lastYear = Number(trend.count || 0);
+    }
+
+    const totalRequests = statusDistributionResult.rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+    const statusData = statusDistributionResult.rows.map((row) => ({
+      name: row.name,
+      value: totalRequests > 0 ? (Number(row.count || 0) / totalRequests) * 100 : 0,
     }));
+
+    const totalIncome = Number(incomeRow?.total_income || 0);
 
     res.status(200).json({
       success: true,
       data: {
         stats: {
-          totalUsers: parseInt(userCount.count),
-          totalPackages: parseInt(packageCount.count),
-          totalRequests: parseInt(requestCount.count),
+          totalUsers: userCountRow?.total || 0,
+          totalPackages: packageCountRow?.total || 0,
+          totalRequests: requestCountRow?.total || 0,
           totalIncome,
           totalCommission: totalIncome * 0.1,
-          activeTrips: parseInt(activeTripsCount.count),
-          googleUsers: parseInt(googleCount.count),
-          unverifiedUsers: parseInt(unverifiedCount.count),
-          verifiedUsers: parseInt(verifiedCount.count),
+          activeTrips: activeTripsCountRow?.total || 0,
+          googleUsers: googleSignupCountRow?.total || 0,
+          unverifiedUsers: unverifiedUserCountRow?.total || 0,
+          verifiedUsers: verifiedUserCountRow?.total || 0,
         },
         trackingData,
         statusDistribution: statusData,
         monthlyTrends: monthlyData,
         pagination: {
-          totalCount: parseInt(packageCount.count),
-          page: Number(page),
-          limit: Number(limit),
+          totalCount: packageCountRow?.total || 0,
+          page,
+          limit,
         },
       },
     });
   } catch (error) {
-    next(error);
+    console.error('Admin dashboard error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load dashboard data',
+      error: error.message,
+    });
   }
 };

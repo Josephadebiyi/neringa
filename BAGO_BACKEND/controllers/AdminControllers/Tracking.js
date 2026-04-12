@@ -1,38 +1,82 @@
-import Package from '../../models/PackageScheme.js';
-import Request from '../../models/RequestScheme.js';
+import { query, queryOne } from '../../lib/postgres/db.js';
+import { getShipmentRequestById } from '../../lib/postgres/shipping.js';
 
 export const tracking = async (req, res, next) => {
   try {
-    // Get pagination parameters
-    const { page = 1, limit = 20 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
 
-    // Fetch packages with pagination
-    const packages = await Package.find().skip(skip).limit(Number(limit));
-    const totalPackages = await Package.countDocuments();
-
-    // Fetch requests for each package
-    const trackingData = await Promise.all(
-      packages.map(async (pkg) => {
-        const requests = await Request.find({ package: pkg._id });
-        return {
-          package: pkg,
-          requests,
-        };
-      })
+    const packagesResult = await query(
+      `
+        select *
+        from public.packages
+        order by created_at desc
+        limit $1 offset $2
+      `,
+      [limit, offset],
     );
+    const totalRow = await queryOne(`select count(*)::int as total from public.packages`);
 
-    res.status(200).json({
+    const packageIds = packagesResult.rows.map((row) => row.id);
+    let requestRows = [];
+    if (packageIds.length) {
+      const requestsResult = await query(
+        `
+          select id
+          from public.shipment_requests
+          where package_id = any($1::uuid[])
+          order by created_at desc
+        `,
+        [packageIds],
+      );
+      requestRows = requestsResult.rows;
+    }
+
+    const requestDetails = await Promise.all(requestRows.map((row) => getShipmentRequestById(row.id)));
+    const requestMap = new Map();
+    for (const request of requestDetails.filter(Boolean)) {
+      const bucket = requestMap.get(request.packageId) || [];
+      bucket.push(request);
+      requestMap.set(request.packageId, bucket);
+    }
+
+    const trackingData = packagesResult.rows.map((pkg) => ({
+      package: {
+        _id: pkg.id,
+        id: pkg.id,
+        userId: pkg.user_id,
+        fromCountry: pkg.from_country,
+        fromCity: pkg.from_city,
+        toCountry: pkg.to_country,
+        toCity: pkg.to_city,
+        packageWeight: Number(pkg.package_weight || 0),
+        value: Number(pkg.declared_value || 0),
+        receiverName: pkg.receiver_name,
+        receiverEmail: pkg.receiver_email,
+        receiverPhone: pkg.receiver_phone,
+        description: pkg.description,
+        image: pkg.image_url,
+        category: pkg.category,
+        pickupAddress: pkg.pickup_address,
+        deliveryAddress: pkg.delivery_address,
+        createdAt: pkg.created_at,
+        updatedAt: pkg.updated_at,
+      },
+      requests: requestMap.get(pkg.id) || [],
+    }));
+
+    return res.status(200).json({
       success: true,
       error: false,
       message: 'Successful operation',
       data: trackingData,
-      totalCount: totalPackages,
-      page: Number(page),
-      limit: Number(limit),
+      totalCount: totalRow?.total || 0,
+      page,
+      limit,
     });
   } catch (error) {
-    next(error); // Pass error to error-handling middleware
+    next(error);
   }
 };
 
@@ -40,21 +84,50 @@ export const updateRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status, travelerId } = req.body;
-    const request = await Request.findById(id);
-    if (!request) {
-      return res.status(404).json({ success: false, message: 'Request not found' });
+    const updates = [];
+    const values = [];
+    let index = 1;
+
+    if (status) {
+      updates.push(`status = $${index++}`);
+      values.push(status);
+    }
+    if (travelerId) {
+      updates.push(`traveler_id = $${index++}`);
+      values.push(travelerId);
     }
 
-    // Process update
-    if (status) request.status = status;
-    if (travelerId) request.traveler = travelerId;
+    if (!updates.length) {
+      const existing = await getShipmentRequestById(id);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Request not found' });
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'No changes submitted',
+        data: existing,
+      });
+    }
 
-    await request.save();
+    values.push(id);
+    const updated = await queryOne(
+      `
+        update public.shipment_requests
+        set ${updates.join(', ')}, updated_at = timezone('utc', now())
+        where id = $${index}
+        returning id
+      `,
+      values,
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
 
     return res.status(200).json({
       success: true,
       message: 'Request updated successfully',
-      data: request
+      data: await getShipmentRequestById(id),
     });
   } catch (error) {
     next(error);
