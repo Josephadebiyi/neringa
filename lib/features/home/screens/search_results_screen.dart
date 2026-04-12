@@ -314,8 +314,6 @@ class _TripCard extends ConsumerWidget {
     );
     final rating = trip.averageRating;
     Future<void> startShipment() async {
-      final notifier = ref.read(authProvider.notifier);
-      await notifier.refreshProfile();
       final user = ref.read(authProvider).user;
       final kycApproved = user?.hasPassedKyc == true;
 
