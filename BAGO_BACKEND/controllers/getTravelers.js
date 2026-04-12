@@ -58,9 +58,9 @@ export const getTravelers = async (req, res, next) => {
     const fromLocation = fromParts.city || rawFrom;
     const toLocation = toParts.city || rawTo;
 
-    // Fetch active trips — include pending_admin_review so new trips show immediately
+    // Only show trips that are live/approved for public traveler search.
     const params = [];
-    let whereClause = `WHERE t.status IN ('active', 'verified', 'pending_admin_review')`;
+    let whereClause = `WHERE t.status IN ('active', 'verified')`;
     if (currentUserId) {
       params.push(currentUserId);
       whereClause += ` AND t.user_id != $${params.length}`;
