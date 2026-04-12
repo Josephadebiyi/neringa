@@ -1,33 +1,47 @@
 import fetch from "node-fetch";
 import FormData from "form-data";
 import axios from 'axios';
-import Kyc from "../models/kycScheme.js";
-import Setting from "../models/settingScheme.js";
-import User from "../models/userScheme.js";
+import { query, queryOne } from "../lib/postgres/db.js";
 import cloudinary from "cloudinary";
 import fs from "fs";
 import path from "path";
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ✅ Verify KYC status manually or auto
+// ✅ Verify KYC status manually (admin)
 export const Verifykyc = async (req, res, next) => {
   const { userId, status } = req.body;
 
   try {
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const fields = [];
+    const values = [];
+    let idx = 1;
 
     if (status === "verify") {
-      user.isVerified = true;
-      user.status = "verified";
-    } else if (status === "auto") {
-      user.isVerified = false;
-      user.status = "pending";
+      fields.push(`kyc_status = $${idx++}`); values.push('approved');
+      fields.push(`kyc_verified_at = NOW()`);
+      fields.push(`kyc_failure_reason = NULL`);
+    } else if (status === "approved") {
+      fields.push(`kyc_status = $${idx++}`); values.push('approved');
+      fields.push(`kyc_verified_at = NOW()`);
+      fields.push(`kyc_failure_reason = NULL`);
+    } else if (status === "declined") {
+      fields.push(`kyc_status = $${idx++}`); values.push('declined');
+    } else if (status === "auto" || status === "pending") {
+      fields.push(`kyc_status = $${idx++}`); values.push('pending');
+    } else {
+      fields.push(`kyc_status = $${idx++}`); values.push(status);
     }
 
-    await user.save();
-    res.status(200).json({ message: "User verification status updated" });
+    values.push(userId);
+    const user = await queryOne(
+      `UPDATE public.profiles SET ${fields.join(', ')}, updated_at = NOW()
+       WHERE id = $${idx} RETURNING id, email, kyc_status as "kycStatus"`,
+      values
+    );
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.status(200).json({ message: "User verification status updated", data: user });
   } catch (error) {
     next(error);
   }
@@ -54,7 +68,8 @@ export const createDiditSession = async (req, res, next) => {
 
     // Build the request URL and payload. 
     // FIXED: Use correct endpoint and ensure headers match DIDIT requirements
-    const vendorData = JSON.stringify({ userId: user._id.toString(), email: user.email });
+    const userId = user.id || user._id;
+    const vendorData = JSON.stringify({ userId: userId.toString(), email: user.email });
 
     const config = {
       headers: {
@@ -70,15 +85,14 @@ export const createDiditSession = async (req, res, next) => {
       callback: `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`,
     };
 
-    console.log("📝 Sending request to DIDIT for user:", user._id);
+    console.log("📝 Sending request to DIDIT for user:", userId);
     const response = await axios.post('https://verification.didit.me/v3/session/', payload, config);
 
     if (response.data && response.data.session_id) {
-      await User.findByIdAndUpdate(user._id, {
-        diditSessionId: response.data.session_id,
-        diditSessionToken: response.data.session_token,
-        kycStatus: 'pending'
-      });
+      await queryOne(
+        `UPDATE public.profiles SET didit_session_id = $1, kyc_status = 'pending', updated_at = NOW() WHERE id = $2`,
+        [response.data.session_id, userId]
+      );
 
       return res.json({
         success: true,
@@ -136,19 +150,35 @@ export const fetchDiditResult = async (req, res, next) => {
         }
       };
 
-      // Also overwrite main profile fields as requested
+      const userId = user.id || user._id;
+      const setParts = [
+        `kyc_status = 'approved'`,
+        `kyc_verified_at = NOW()`,
+        `kyc_failure_reason = NULL`,
+        `kyc_verified_data = $1`,
+        `updated_at = NOW()`,
+      ];
+      const pgValues = [JSON.stringify({
+        fullName,
+        dateOfBirth: dob || null,
+        documentNumber: extracted.document_number,
+        issuingCountry: extracted.issuing_country,
+        verificationStatus: 'approved'
+      })];
+      let pidx = 2;
+
       if (fullName) {
         const parts = fullName.split(' ');
-        if (parts.length >= 2) {
-          updateData.firstName = parts[0];
-          updateData.lastName = parts.slice(1).join(' ');
-        } else {
-          updateData.firstName = fullName;
-        }
+        setParts.push(`first_name = $${pidx++}`); pgValues.push(parts[0]);
+        if (parts.length >= 2) { setParts.push(`last_name = $${pidx++}`); pgValues.push(parts.slice(1).join(' ')); }
       }
-      if (dob) updateData.dateOfBirth = new Date(dob);
+      if (dob) { setParts.push(`date_of_birth = $${pidx++}`); pgValues.push(new Date(dob)); }
 
-      await User.findByIdAndUpdate(user._id, updateData);
+      pgValues.push(userId);
+      await queryOne(
+        `UPDATE public.profiles SET ${setParts.join(', ')} WHERE id = $${pidx}`,
+        pgValues
+      );
 
       return res.json({
         success: true,
@@ -176,41 +206,59 @@ export const KycVerifications = createDiditSession;
 
 
 
-// ✅ Get user KYC
+// ✅ Get user KYC (for logged-in user)
 export const getKyc = async (req, res, next) => {
   try {
-    const userid = req.user._id;
-    const kyc = await Kyc.findOne({ userid });
-    if (!kyc) return res.status(404).json({ message: "KYC not found" });
+    const userId = req.user?.id || req.user?._id;
+    const user = await queryOne(
+      `SELECT id, email, first_name as "firstName", last_name as "lastName",
+              kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt",
+              kyc_failure_reason as "kycFailureReason", didit_session_id as "diditSessionId",
+              identity_fingerprint as "identityFingerprint", kyc_verified_data as "kycVerifiedData"
+       FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const finduser = await User.findById(userid).select("-password -__v -createdAt -updatedAt");
     return res.status(200).json({
       status: "success",
       error: false,
-      data: { finduser, kyc },
+      data: { finduser: user, kyc: user },
     });
   } catch (error) {
     next(error);
   }
 };
 
-// ✅ Get all KYC records
+// ✅ Get all KYC records (admin)
 export const getAllkyc = async (req, res, next) => {
   try {
-    const kycs = await Kyc.find();
-    if (!kycs || kycs.length === 0)
-      return res.status(404).json({ message: "No KYC records found" });
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
 
-    const userIds = kycs.map(k => k.userid);
-    const users = await User.find({ _id: { $in: userIds } }).select(
-      "-password -__v -createdAt -updatedAt"
+    const result = await query(
+      `SELECT id, email, first_name as "firstName", last_name as "lastName",
+              phone, image_url as "profileImage", country,
+              kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt",
+              kyc_failure_reason as "kycFailureReason",
+              didit_session_id as "diditSessionId",
+              identity_fingerprint as "identityFingerprint",
+              kyc_verified_data as "kycVerifiedData",
+              created_at as "createdAt"
+       FROM public.profiles
+       ORDER BY kyc_verified_at DESC NULLS LAST, created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [Number(limit), offset]
     );
+
+    const countRow = await queryOne(`SELECT COUNT(*) FROM public.profiles`);
 
     res.status(200).json({
       message: "Successful",
-      data: { users, kycs },
+      data: { users: result.rows, kycs: result.rows },
       success: true,
       error: false,
+      totalCount: parseInt(countRow.count),
     });
   } catch (error) {
     next(error);

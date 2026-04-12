@@ -31,6 +31,9 @@ function normalizeTrip(row) {
     currency: row.currency,
     landmark: row.landmark,
     travelDocument: row.travel_document_url,
+    travelDocumentVerified: row.travel_document_verified,
+    collectionCity: row.collection_city,
+    collectionCountry: row.collection_country,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

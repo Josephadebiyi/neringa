@@ -46,8 +46,10 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   File? _itemImage;
   bool _insurance = false;
   bool _isSubmitting = false;
-  bool _isCheckingKyc = true;
-  bool _kycApproved = false;
+  TripModel? _currentTrip;
+  String? _loadError;
+  bool _isCheckingKyc = false;
+  bool _kycApproved = true;
   String _category = 'Documents';
   CountryCurrencyData _receiverPhoneCountry =
       CurrencyConversionHelper.countryByCode('US')!;
@@ -64,15 +66,31 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   @override
   void initState() {
     super.initState();
-    _tripFuture = widget.initialTrip != null
-        ? Future.value(widget.initialTrip!)
-        : TripService.instance.getTripById(widget.tripId);
+    _currentTrip = widget.initialTrip;
+    _kycApproved = ref.read(authProvider).user?.hasPassedKyc == true;
+
+    if (_currentTrip == null) {
+      _loadTrip();
+    }
     _settings = AppSettingsService.instance.cachedOrFallback;
-    final currentUser = ref.read(authProvider).user;
-    _kycApproved = currentUser?.hasPassedKyc == true;
-    _isCheckingKyc = false;
     _refreshSettingsInBackground();
     _refreshKycStatusInBackground();
+  }
+
+  Future<void> _loadTrip() async {
+    try {
+      final trip = await TripService.instance.getTripById(widget.tripId);
+      if (mounted) {
+        setState(() {
+          _currentTrip = trip;
+          _loadError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadError = e.toString());
+      }
+    }
   }
 
   @override
@@ -311,43 +329,62 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_currentTrip == null && _loadError == null) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundOff,
+        appBar: AppBar(
+          backgroundColor: AppColors.white,
+          elevation: 0,
+          title: Text('Create Shipment',
+              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+          centerTitle: true,
+        ),
+        body: const Center(child: AppLoading()),
+      );
+    }
+
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundOff,
+        appBar: AppBar(
+          backgroundColor: AppColors.white,
+          elevation: 0,
+          title: Text('Create Shipment',
+              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              _loadError!,
+              style: AppTextStyles.muted(AppTextStyles.bodyMd),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final trip = _currentTrip!;
+    final settings = _settings;
+    final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        title: Text('Create Shipment', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        title: Text('Create Shipment',
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
-      body: FutureBuilder<TripModel>(
-        future: _tripFuture,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: AppLoading());
-          }
-          if (snap.hasError || !snap.hasData) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  snap.error?.toString() ?? 'Could not load this trip.',
-                  style: AppTextStyles.muted(AppTextStyles.bodyMd),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
-          final trip = snap.data!;
-          final settings = _settings;
-          final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
-          if (_isCheckingKyc) {
-            return const Center(child: AppLoading());
-          }
-          if (!_kycApproved) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
+      body: _isCheckingKyc
+          ? const Center(child: AppLoading())
+          : !_kycApproved
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
