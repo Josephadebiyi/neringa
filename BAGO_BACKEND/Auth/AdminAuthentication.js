@@ -13,9 +13,9 @@ export const adminAuthenticated = async (req, res, next) => {
   }
 
   try {
-    const secret = process.env.ADMIN_SECRET_KEY;
+    const secret = process.env.ADMIN_SECRET_KEY || process.env.JWT_SECRET;
     if (!secret) {
-      return res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
+      return res.status(500).json({ message: "JWT secret is not configured.", success: false });
     }
 
     const decoded = jwt.verify(token, secret);
@@ -46,9 +46,9 @@ export const CheckAdmin = async (req, res, next) => {
       return res.status(401).json({ message: "No token provided, authorization denied." });
     }
 
-    const secret = process.env.ADMIN_SECRET_KEY;
+    const secret = process.env.ADMIN_SECRET_KEY || process.env.JWT_SECRET;
     if (!secret) {
-      return res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
+      return res.status(500).json({ message: "JWT secret is not configured.", success: false });
     }
 
     const decoded = jwt.verify(token, secret);
