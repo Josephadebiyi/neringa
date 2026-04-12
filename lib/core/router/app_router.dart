@@ -233,7 +233,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/request-shipment/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          return RequestShipmentScreen(tripId: id);
+          final trip = state.extra is TripModel ? state.extra as TripModel : null;
+          return RequestShipmentScreen(tripId: id, initialTrip: trip);
         },
       ),
       GoRoute(

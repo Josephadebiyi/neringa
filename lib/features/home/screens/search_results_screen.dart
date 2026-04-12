@@ -328,7 +328,7 @@ class _TripCard extends ConsumerWidget {
         return;
       }
 
-      context.push('/request-shipment/${trip.id}');
+      context.push('/request-shipment/${trip.id}', extra: trip);
     }
 
     return GestureDetector(

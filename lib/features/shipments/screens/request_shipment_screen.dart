@@ -23,8 +23,9 @@ import '../../trips/services/trip_service.dart';
 import '../services/shipment_service.dart';
 
 class RequestShipmentScreen extends ConsumerStatefulWidget {
-  const RequestShipmentScreen({super.key, required this.tripId});
+  const RequestShipmentScreen({super.key, required this.tripId, this.initialTrip});
   final String tripId;
+  final TripModel? initialTrip;
 
   @override
   ConsumerState<RequestShipmentScreen> createState() => _RequestShipmentScreenState();
@@ -63,9 +64,14 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   @override
   void initState() {
     super.initState();
-    _tripFuture = TripService.instance.getTripById(widget.tripId);
+    _tripFuture = widget.initialTrip != null
+        ? Future.value(widget.initialTrip!)
+        : TripService.instance.getTripById(widget.tripId);
     _settingsFuture = AppSettingsService.instance.fetchPublicSettings();
-    _refreshKycStatus();
+    final currentUser = ref.read(authProvider).user;
+    _kycApproved = currentUser?.hasPassedKyc == true;
+    _isCheckingKyc = false;
+    _refreshKycStatusInBackground();
   }
 
   @override
@@ -230,6 +236,22 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
+    }
+  }
+
+  Future<void> _refreshKycStatusInBackground() async {
+    try {
+      await ref.read(authProvider.notifier).refreshProfile();
+      final user = ref.read(authProvider).user;
+      if (!mounted) return;
+      setState(() {
+        _kycApproved = user?.hasPassedKyc == true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isCheckingKyc = false;
+      });
     }
   }
 
