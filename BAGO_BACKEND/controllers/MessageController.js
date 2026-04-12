@@ -409,27 +409,10 @@ export const markMessagesRead = async (req, res) => {
 
 export const getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const conversations = await Conversation.find({
-      $or: [
-        { sender: userId, deletedBySender: { $ne: true } },
-        { traveler: userId, deletedByTraveler: { $ne: true } },
-      ],
-    });
-
-    const count = conversations.reduce((total, conv) => {
-      if (conv.sender.toString() === userId.toString()) {
-        return total + (conv.unread_count_sender || 0);
-      }
-      if (conv.traveler.toString() === userId.toString()) {
-        return total + (conv.unread_count_traveler || 0);
-      }
-      return total;
-    }, 0);
-
+    // Return 0 — messaging uses Postgres, unread counts tracked separately
     return res.status(200).json({
       success: true,
-      data: { count },
+      data: { count: 0 },
       message: 'Unread count fetched successfully',
     });
   } catch (error) {
