@@ -9,7 +9,7 @@ import { requireKycVerification } from '../middleware/kycMiddleware.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
-import { createPackage, deletePackage } from '../controllers/PackageController.js';
+import { createPackage, updatePackage, deletePackage } from '../controllers/PackageController.js';
 import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
@@ -90,6 +90,7 @@ userRouter.put("/request/:requestId/payment", isAuthenticated, requireKycVerific
 
 // userRouter.get("/getWalletBalance", isAuthenticated,  getWalletBalance)
 userRouter.post("/createPackage", isAuthenticated, requireKycVerification, createPackage)
+userRouter.put("/updatePackage/:id", isAuthenticated, requireKycVerification, updatePackage)
 userRouter.delete("/package/:id", isAuthenticated, requireKycVerification, deletePackage)
 userRouter.post("/RequestPackage", isAuthenticated, requireKycVerification, RequestPackage)
 userRouter.get("/recentOrder", isAuthenticated, recentOrder)
