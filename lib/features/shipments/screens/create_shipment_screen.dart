@@ -84,12 +84,9 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
       AppSnackBar.show(context, message: l10n.selectPickupAndDelivery, type: SnackBarType.info);
       return;
     }
-    // Convert "City, Country" to just the city part for the API
-    final fromCity = _from.split(',').first.trim();
-    final toCity   = _to.split(',').first.trim();
     await ref.read(tripProvider.notifier).searchTrips(
-      from: fromCity,
-      to:   toCity,
+      from: _from.trim(),
+      to: _to.trim(),
       date: _date.trim().isEmpty ? null : _date.trim(),
     );
   }
@@ -669,8 +666,6 @@ class _TravelerCard extends StatelessWidget {
               child: Consumer(
                 builder: (context, ref, _) {
                   Future<void> startShipment() async {
-                    final notifier = ref.read(authProvider.notifier);
-                    await notifier.refreshProfile();
                     final user = ref.read(authProvider).user;
                     final kycApproved = user?.hasPassedKyc == true;
 
@@ -685,7 +680,7 @@ class _TravelerCard extends StatelessWidget {
                       return;
                     }
 
-                    context.push('/request-shipment/${trip.id}');
+                    context.push('/request-shipment/${trip.id}', extra: trip);
                   }
 
                   return ElevatedButton(

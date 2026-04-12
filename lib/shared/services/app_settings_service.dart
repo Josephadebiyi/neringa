@@ -134,7 +134,28 @@ class AppSettingsService {
   AppSettingsService._();
   static final AppSettingsService instance = AppSettingsService._();
 
+  static const AppSettingsSnapshot fallbackSnapshot = AppSettingsSnapshot(
+    insuranceType: 'percentage',
+    insurancePercentage: 3,
+    insuranceFixedAmount: 6,
+    banner: null,
+    baseCurrency: 'USD',
+    supportedCurrencies: ['CAD', 'EUR', 'GBP', 'GHS', 'KES', 'NGN', 'USD', 'ZAR'],
+    exchangeRates: {
+      'USD': 1.0,
+      'EUR': 0.92,
+      'GBP': 0.79,
+      'CAD': 1.36,
+      'NGN': 1550.0,
+      'GHS': 15.2,
+      'KES': 129.0,
+      'ZAR': 18.5,
+    },
+  );
+
   AppSettingsSnapshot? _cached;
+
+  AppSettingsSnapshot get cachedOrFallback => _cached ?? fallbackSnapshot;
 
   Future<AppSettingsSnapshot> fetchPublicSettings({bool refresh = false}) async {
     if (!refresh && _cached != null) {
@@ -146,24 +167,7 @@ class AppSettingsService {
       final data = response.data;
       final snapshot = data is Map<String, dynamic>
           ? AppSettingsSnapshot.fromJson(data)
-          : const AppSettingsSnapshot(
-              insuranceType: 'percentage',
-              insurancePercentage: 3,
-              insuranceFixedAmount: 6,
-              banner: null,
-              baseCurrency: 'USD',
-              supportedCurrencies: ['CAD', 'EUR', 'GBP', 'GHS', 'KES', 'NGN', 'USD', 'ZAR'],
-              exchangeRates: {
-                'USD': 1.0,
-                'EUR': 0.92,
-                'GBP': 0.79,
-                'CAD': 1.36,
-                'NGN': 1550.0,
-                'GHS': 15.2,
-                'KES': 129.0,
-                'ZAR': 18.5,
-              },
-            );
+          : fallbackSnapshot;
       CurrencyConversionHelper.applyRemoteConfig(
         baseCurrency: snapshot.baseCurrency,
         supportedCurrencies: snapshot.supportedCurrencies,
@@ -172,31 +176,13 @@ class AppSettingsService {
       _cached = snapshot;
       return snapshot;
     } catch (_) {
-      const fallback = AppSettingsSnapshot(
-        insuranceType: 'percentage',
-        insurancePercentage: 3,
-        insuranceFixedAmount: 6,
-        banner: null,
-        baseCurrency: 'USD',
-        supportedCurrencies: ['CAD', 'EUR', 'GBP', 'GHS', 'KES', 'NGN', 'USD', 'ZAR'],
-        exchangeRates: {
-          'USD': 1.0,
-          'EUR': 0.92,
-          'GBP': 0.79,
-          'CAD': 1.36,
-          'NGN': 1550.0,
-          'GHS': 15.2,
-          'KES': 129.0,
-          'ZAR': 18.5,
-        },
-      );
       CurrencyConversionHelper.applyRemoteConfig(
-        baseCurrency: fallback.baseCurrency,
-        supportedCurrencies: fallback.supportedCurrencies,
-        usdRates: fallback.exchangeRates,
+        baseCurrency: fallbackSnapshot.baseCurrency,
+        supportedCurrencies: fallbackSnapshot.supportedCurrencies,
+        usdRates: fallbackSnapshot.exchangeRates,
       );
-      _cached = fallback;
-      return fallback;
+      _cached = fallbackSnapshot;
+      return fallbackSnapshot;
     }
   }
 

@@ -33,7 +33,7 @@ class RequestShipmentScreen extends ConsumerStatefulWidget {
 
 class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   late Future<TripModel> _tripFuture;
-  late Future<AppSettingsSnapshot> _settingsFuture;
+  late AppSettingsSnapshot _settings;
   final _formScrollController = ScrollController();
   final _weightCtrl = TextEditingController();
   final _receiverNameCtrl = TextEditingController();
@@ -67,10 +67,11 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     _tripFuture = widget.initialTrip != null
         ? Future.value(widget.initialTrip!)
         : TripService.instance.getTripById(widget.tripId);
-    _settingsFuture = AppSettingsService.instance.fetchPublicSettings();
+    _settings = AppSettingsService.instance.cachedOrFallback;
     final currentUser = ref.read(authProvider).user;
     _kycApproved = currentUser?.hasPassedKyc == true;
     _isCheckingKyc = false;
+    _refreshSettingsInBackground();
     _refreshKycStatusInBackground();
   }
 
@@ -255,6 +256,18 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     }
   }
 
+  Future<void> _refreshSettingsInBackground() async {
+    try {
+      final latest = await AppSettingsService.instance.fetchPublicSettings();
+      if (!mounted) return;
+      setState(() {
+        _settings = latest;
+      });
+    } catch (_) {
+      // Keep rendering with cached or fallback settings.
+    }
+  }
+
   Future<bool> _refreshKycStatus({bool showError = false}) async {
     if (mounted) {
       setState(() => _isCheckingKyc = true);
@@ -306,8 +319,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         title: Text('Create Shipment', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
-      body: FutureBuilder<List<dynamic>>(
-        future: Future.wait<dynamic>([_tripFuture, _settingsFuture]),
+      body: FutureBuilder<TripModel>(
+        future: _tripFuture,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: AppLoading());
@@ -325,8 +338,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             );
           }
 
-          final trip = snap.data![0] as TripModel;
-          final settings = snap.data![1] as AppSettingsSnapshot;
+          final trip = snap.data!;
+          final settings = _settings;
           final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
           if (_isCheckingKyc) {
             return const Center(child: AppLoading());
