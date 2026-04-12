@@ -161,7 +161,7 @@ export const getTravelers = async (req, res, next) => {
     if (scoredTrips.length === 0) {
       return res.status(200).json({
         message: "No travelers found",
-        data: { findUsers: [], gettravelers: [] },
+        data: { findUsers: [], gettravelers: [], travelers: [], trips: [] },
         success: true,
         error: false,
       });
@@ -179,7 +179,7 @@ export const getTravelers = async (req, res, next) => {
 
     res.status(200).json({
       message: "Successfully retrieved travelers",
-      data: { findUsers, gettravelers: scoredTrips },
+      data: { findUsers, gettravelers: scoredTrips, travelers: scoredTrips, trips: scoredTrips },
       success: true,
       error: false,
     });
