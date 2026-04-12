@@ -1,53 +1,23 @@
-import User from '../../models/userScheme.js';
+import { query, queryOne } from '../../lib/postgres/db.js';
 
-/**
- * @desc Get all withdrawal requests from all users
- * @route GET /api/Adminbaggo/withdrawals
- * @access Private (Admin)
- */
 export const getAllWithdrawals = async (req, res, next) => {
   try {
-    const users = await User.find({
-      'balanceHistory.type': 'withdrawal'
-    }).select('firstName lastName email balanceHistory _id');
+    const result = await query(
+      `SELECT t.id, t.user_id, t.amount, t.status, t.description, t.currency,
+              t.created_at, t.updated_at,
+              p.first_name as "firstName", p.last_name as "lastName", p.email
+       FROM public.transactions t
+       LEFT JOIN public.profiles p ON p.id = t.user_id
+       WHERE t.type = 'withdrawal'
+       ORDER BY t.created_at DESC`
+    );
 
-    const withdrawals = [];
-    users.forEach(user => {
-      user.balanceHistory.forEach(transaction => {
-        if (transaction.type === 'withdrawal') {
-          withdrawals.push({
-            id: transaction._id,
-            user_id: user._id,
-            first_name: user.firstName,
-            last_name: user.lastName,
-            email: user.email,
-            amount: transaction.amount,
-            status: transaction.status, // pending, completed, failed
-            created_at: transaction.date,
-            description: transaction.description,
-            currency: transaction.currency
-          });
-        }
-      });
-    });
-
-    // Sort by newest first
-    withdrawals.sort((a, b) => b.created_at - a.created_at);
-
-    res.status(200).json({
-      success: true,
-      data: withdrawals
-    });
+    res.status(200).json({ success: true, data: result.rows });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * @desc Update withdrawal status (Approve/Reject)
- * @route PUT /api/Adminbaggo/withdrawals/:transactionId/status
- * @access Private (Admin)
- */
 export const updateWithdrawalStatus = async (req, res, next) => {
   const { transactionId } = req.params;
   const { status, failureReason } = req.body;
@@ -57,42 +27,32 @@ export const updateWithdrawalStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
-    // Find the user who has this transaction
-    const user = await User.findOne({ 'balanceHistory._id': transactionId });
-    if (!user) {
+    const transaction = await queryOne(
+      `SELECT * FROM public.transactions WHERE id = $1 AND type = 'withdrawal'`,
+      [transactionId]
+    );
+    if (!transaction) {
       return res.status(404).json({ success: false, message: 'Transaction not found' });
     }
 
-    // Find the specific transaction in the array
-    const transaction = user.balanceHistory.id(transactionId);
-    if (!transaction || transaction.type !== 'withdrawal') {
-      return res.status(400).json({ success: false, message: 'Invalid transaction type' });
-    }
+    const description = failureReason
+      ? `${transaction.description || ''} (Failed: ${failureReason})`.trim()
+      : transaction.description;
 
-    // If changing from pending to failed, we might need to refund the user?
-    // Based on userController.js, the funds are DEDUCTED when request is created.
-    // So if it fails, we should REFUND them.
+    await queryOne(
+      `UPDATE public.transactions SET status = $1, description = $2, updated_at = NOW() WHERE id = $3`,
+      [status, description, transactionId]
+    );
+
+    // Refund balance if withdrawal failed
     if (transaction.status === 'pending' && status === 'failed') {
-      user.balance += transaction.amount;
-      user.balanceHistory.push({
-        type: 'deposit',
-        amount: transaction.amount,
-        description: `Refund for failed withdrawal: ${transactionId}`,
-        status: 'completed'
-      });
+      await queryOne(
+        `UPDATE public.profiles SET balance = COALESCE(balance, 0) + $1 WHERE id = $2`,
+        [transaction.amount, transaction.user_id]
+      );
     }
 
-    transaction.status = status;
-    if (failureReason) {
-      transaction.description = `${transaction.description || ''} (Failed: ${failureReason})`.trim();
-    }
-
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: `Withdrawal status updated to ${status}`,
-    });
+    res.status(200).json({ success: true, message: `Withdrawal status updated to ${status}` });
   } catch (error) {
     next(error);
   }
