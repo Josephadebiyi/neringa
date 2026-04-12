@@ -104,9 +104,6 @@ export default function Tracking() {
         `${API_BASE_URL}/tracking?page=${currentPage}&limit=${limit}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           credentials: 'include',
         }
       );
@@ -134,9 +131,6 @@ export default function Tracking() {
 
       const usersResponse = await fetch(`${API_BASE_URL}/GetAllUsers?limit=1000`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         credentials: 'include',
       });
 
