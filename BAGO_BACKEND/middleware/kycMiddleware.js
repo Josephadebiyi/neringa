@@ -16,7 +16,7 @@ export const requireKycVerification = (req, res, next) => {
 
     // Check if user is KYC verified
     if (user.kycStatus !== 'approved') {
-      return res.status(100).json({
+      return res.status(403).json({
         success: false,
         message: `KYC verification required. Current status: ${user.kycStatus || 'not_started'}`,
         code: 'VERIFICATION_REQUIRED',
