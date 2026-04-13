@@ -876,25 +876,18 @@ httpServer.listen(PORT, () => {
 
 
 
-// ✅ Register Token
+// ✅ Register Token (legacy endpoint — also accepts userId in body for unauthenticated calls)
 app.post('/api/bago/register-token', async (req, res) => {
-  const { userId, token } = req.body;
+  const { userId, token, deviceToken, pushToken } = req.body;
+  const resolvedToken = token || deviceToken || pushToken;
 
-  if (!userId || !token) {
+  if (!userId || !resolvedToken) {
     return res.status(400).json({ error: 'userId and token required' });
   }
 
   try {
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    if (!user.pushTokens) user.pushTokens = [];
-
-    if (!user.pushTokens.includes(token)) {
-      user.pushTokens.push(token);
-      await user.save();
-    }
-
+    const { addPushToken } = await import('./lib/postgres/profiles.js');
+    await addPushToken(userId, resolvedToken);
     res.json({ success: true, message: 'Token registered successfully' });
   } catch (err) {
     console.error('Register token error:', err);

@@ -561,9 +561,10 @@ export async function getWallet(req, res) {
 
 export async function savePushToken(req, res) {
   try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
-    await addPushToken(req.user.id || req.user._id, token);
+    const { token, deviceToken, pushToken } = req.body;
+    const resolvedToken = (token || deviceToken || pushToken || '').trim();
+    if (!resolvedToken) return res.status(400).json({ success: false, message: 'Token is required' });
+    await addPushToken(req.user.id || req.user._id, resolvedToken);
     res.json({ success: true, message: 'Push token registered successfully' });
   } catch (error) {
     console.error('savePushToken error:', error);
