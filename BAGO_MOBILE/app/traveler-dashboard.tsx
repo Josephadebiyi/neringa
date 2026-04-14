@@ -27,6 +27,7 @@ export default function TravelerDashboardScreen() {
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [trips, setTrips] = useState<any[]>([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [escrowBalance, setEscrowBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [apiUser, setApiUser] = useState<any | null>(null);
   const [completedTrips, setCompletedTrips] = useState<any[]>([]);
@@ -253,11 +254,17 @@ export default function TravelerDashboardScreen() {
     const fetchData = async () => {
       try {
         // Wallet balance
-        const walletResponse = await api.get('/api/bago/getWalletBalance');
+        const walletResponse = await api.get('/api/bago/getWallet');
         const walletData = walletResponse.data;
-        if (walletData.success && walletData.data?.balance !== undefined)
-          setWalletBalance(walletData.data.balance);
-        else setWalletBalance(0);
+        if (walletData.success) {
+          const available = Number(walletData.data?.balance ?? walletData.balance ?? 0);
+          const escrow = Number(walletData.data?.escrowBalance ?? walletData.escrowBalance ?? 0);
+          setWalletBalance(!Number.isNaN(available) ? available : 0);
+          setEscrowBalance(!Number.isNaN(escrow) ? escrow : 0);
+        } else {
+          setWalletBalance(0);
+          setEscrowBalance(0);
+        }
 
         // Trips
         const tripsResponse = await api.get('/api/bago/MyTrips');
@@ -283,6 +290,7 @@ export default function TravelerDashboardScreen() {
         console.error('Error fetching trips/wallet:', err);
         setTrips([]);
         setWalletBalance(0);
+        setEscrowBalance(0);
       } finally {
         setLoading(false);
       }
@@ -375,6 +383,12 @@ export default function TravelerDashboardScreen() {
           </Text>
 
           <Text style={styles.statLabel}>Wallet Balance</Text>
+          <Text style={styles.escrowText}>
+            Held in Escrow: {symbol}
+            {escrowBalance
+              ? escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : "0.00"}
+          </Text>
         </LinearGradient>
 
         <View style={styles.statsGrid}>
@@ -565,6 +579,7 @@ const styles = StyleSheet.create({
   statGradient: { padding: 24, alignItems: 'center' },
   statValue: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF', marginTop: 8, marginBottom: 4 },
   statLabel: { fontSize: 14, color: '#FFFFFF', opacity: 0.95 },
+  escrowText: { fontSize: 13, color: '#FFFFFF', opacity: 0.9, marginTop: 6 },
   statsGrid: { flexDirection: 'row', backgroundColor: '#FFFFFF' },
   miniStat: { flex: 1, padding: 16, alignItems: 'center' },
   miniStatValue: { fontSize: 24, fontWeight: 'bold', color: '#1A1A1A', marginBottom: 4 },

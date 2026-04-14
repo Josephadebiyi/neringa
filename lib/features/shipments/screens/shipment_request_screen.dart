@@ -9,6 +9,7 @@ import '../../../core/utils/model_enums.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
+import '../../messages/providers/message_provider.dart';
 import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
 import '../services/shipment_service.dart';
@@ -73,6 +74,39 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _isRejecting = false);
+    }
+  }
+
+  Future<void> _openChat(RequestModel req) async {
+    final receiverId =
+        (req.role == 'traveler' ? req.senderId : req.carrierId).trim();
+    if (receiverId.isEmpty) {
+      AppSnackBar.show(
+        context,
+        message: 'Chat is not available for this shipment yet.',
+        type: SnackBarType.error,
+      );
+      return;
+    }
+
+    try {
+      final convId = (req.conversationId ?? '').trim().isNotEmpty
+          ? req.conversationId!.trim()
+          : await ref.read(messageProvider.notifier).getOrCreateConversation(
+                receiverId,
+                requestId: req.id,
+                tripId: req.tripId,
+              );
+
+      if (!mounted) return;
+      context.go('/messages/$convId');
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: e.toString(),
+        type: SnackBarType.error,
+      );
     }
   }
 
@@ -375,6 +409,13 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
               variant: AppButtonVariant.outline,
               isLoading: _isRejecting,
               onPressed: _isAccepting || _isRejecting ? null : () => _reject(req),
+            ),
+          ] else ...[
+            const SizedBox(height: 24),
+            AppButton(
+              label: 'Open Chat',
+              variant: AppButtonVariant.outline,
+              onPressed: () => _openChat(req),
             ),
           ],
           const SizedBox(height: 24),

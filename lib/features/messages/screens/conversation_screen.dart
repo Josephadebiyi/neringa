@@ -65,6 +65,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final initials = conv?.initials ?? '?';
     final requestStatus = conv?.requestStatus?.toLowerCase() ?? '';
     final isClosed = conv?.isClosed == true;
+    final shipmentSummary = [
+      if ((conv?.packageTitle ?? '').trim().isNotEmpty) conv!.packageTitle!.trim(),
+      if ((conv?.routeLabel ?? '').trim().isNotEmpty) conv!.routeLabel!.trim(),
+    ].join(' • ');
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -118,6 +122,47 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ? const Center(child: AppLoading())
           : Column(
               children: [
+                if (shipmentSummary.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.gray100),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.local_shipping_outlined, color: AppColors.primary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                shipmentSummary,
+                                style: AppTextStyles.labelSm.copyWith(
+                                  color: AppColors.black,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if ((conv?.trackingNumber ?? '').trim().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Tracking: ${conv!.trackingNumber}',
+                                    style: AppTextStyles.captionBold.copyWith(
+                                      color: AppColors.gray500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (isClosed)
                   _ClosedChatBanner(
                     status: requestStatus.isEmpty ? 'completed' : requestStatus,
@@ -164,7 +209,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       return;
                     }
                     _msgCtrl.clear();
-                    await ref.read(messageProvider.notifier).sendMessage(content);
+                    try {
+                      await ref.read(messageProvider.notifier).sendMessage(content);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      AppSnackBar.show(
+                        context,
+                        message: e.toString(),
+                        type: SnackBarType.error,
+                      );
+                    }
                   },
                 ),
               ],

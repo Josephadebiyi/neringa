@@ -121,10 +121,18 @@ class MessageNotifier extends Notifier<MessageState> {
     }
   }
 
-  Future<String> getOrCreateConversation(String receiverId,
-      {String? context}) async {
-    final convId = await _service.getOrCreateConversation(receiverId,
-        context: context);
+  Future<String> getOrCreateConversation(
+    String receiverId, {
+    String? context,
+    String? requestId,
+    String? tripId,
+  }) async {
+    final convId = await _service.getOrCreateConversation(
+      receiverId,
+      context: context,
+      requestId: requestId,
+      tripId: tripId,
+    );
     return convId;
   }
 

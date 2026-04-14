@@ -552,12 +552,14 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       throw error;
     }
 
+    const normalizedStatus = status === 'completed' ? 'delivered' : status;
+
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
-    if (['intransit', 'delivering', 'completed'].includes(status)) {
+    if (['intransit', 'delivering', 'delivered'].includes(normalizedStatus)) {
       movementTracking = [
         ...movementTracking,
         {
-          status,
+          status: normalizedStatus,
           location: location || '',
           notes: notes || '',
           timestamp: new Date().toISOString(),
@@ -579,10 +581,10 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
             updated_at = timezone('utc', now())
         where id = $1
       `,
-      [requestId, status, trackingNumber, JSON.stringify(movementTracking)],
+      [requestId, normalizedStatus, trackingNumber, JSON.stringify(movementTracking)],
     );
 
-    if (status === 'accepted') {
+    if (normalizedStatus === 'accepted') {
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
     }
 

@@ -138,7 +138,7 @@ export async function updateRequestStatus(req, res) {
   try {
     const { requestId } = req.params;
     const { status, location, notes } = req.body;
-    const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
+    const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'delivered', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
@@ -150,15 +150,16 @@ export async function updateRequestStatus(req, res) {
     }
 
     try {
+      const statusLabel = status === 'completed' ? 'delivered' : status;
       await createNotification({
         userId: updatedRequest.senderId,
         title: 'Shipping update',
-        body: `Your shipment is now ${status}${location ? ` at ${location}` : ''}`,
+        body: `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`,
         type: 'shipment_status',
-        payload: { requestId, status, location },
+        payload: { requestId, status: statusLabel, location },
       });
-      await sendShippingStatusEmail(updatedRequest, status, location);
-      if (status === 'intransit' && updatedRequest.package?.receiverEmail) {
+      await sendShippingStatusEmail(updatedRequest, statusLabel, location);
+      if (statusLabel === 'intransit' && updatedRequest.package?.receiverEmail) {
         await sendReceiverShippingStartedEmail(
           updatedRequest.package.receiverEmail,
           updatedRequest.package.receiverName,

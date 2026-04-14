@@ -50,6 +50,8 @@ function buildUserResponse(user) {
     pushTokens: user.pushTokens,
     walletBalance: Number(user.balance || 0),
     wallet_balance: Number(user.balance || 0),
+    escrowBalance: Number(user.escrowBalance || 0),
+    escrow_balance: Number(user.escrowBalance || 0),
     bankAccountLinked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
     bank_account_linked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
   };
@@ -551,7 +553,15 @@ export async function getWallet(req, res) {
     res.status(200).json({
       success: true,
       balance: wallet.balance,
+      escrowBalance: wallet.escrowBalance,
+      currency: wallet.currency,
       history: wallet.history,
+      data: {
+        balance: wallet.balance,
+        escrowBalance: wallet.escrowBalance,
+        currency: wallet.currency,
+        history: wallet.history,
+      },
     });
   } catch (error) {
     console.error('getWallet error:', error);

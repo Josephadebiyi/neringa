@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search, Filter, Package, MapPin, User, Calendar, DollarSign, Truck, UserPlus } from 'lucide-react';
+import { getAdminAuthHeaders } from '../services/api';
 
 // Request status options (based on API data)
 const REQUEST_STATUSES = ['pending', 'accepted', 'picked_up', 'in_transit', 'customs', 'delivered', 'cancelled'];
@@ -22,20 +23,27 @@ interface Package {
 // Interface for request data from API
 interface Request {
   _id: string;
-  sender: string;
-  traveler: string;
-  package: string;
-  trip: string;
+  sender?: string;
+  sender_id?: string;
+  traveler?: string;
+  traveler_id?: string;
+  package?: string;
+  package_id?: string;
+  trip?: string;
+  trip_id?: string;
   status: string;
   insurance: boolean;
   insuranceCost: number;
   createdAt: string;
   updatedAt: string;
+  id?: string;
+  created_at?: string;
 }
 
 // Interface for user data (fetched separately for sender/traveler)
 interface User {
   _id: string;
+  id?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -105,13 +113,11 @@ export default function Tracking() {
         {
           method: 'GET',
           credentials: 'include',
+          headers: getAdminAuthHeaders(),
         }
       );
 
       if (!trackingResponse.ok) {
-        if (trackingResponse.status === 401) {
-          window.location.href = '/login';
-        }
         throw new Error('Failed to fetch tracking data');
       }
 
@@ -132,6 +138,7 @@ export default function Tracking() {
       const usersResponse = await fetch(`${API_BASE_URL}/GetAllUsers?limit=1000`, {
         method: 'GET',
         credentials: 'include',
+        headers: getAdminAuthHeaders(),
       });
 
       if (!usersResponse.ok) {
@@ -141,7 +148,10 @@ export default function Tracking() {
       const usersData = await usersResponse.json();
       const userMap: { [key: string]: User } = {};
       usersData.data.forEach((user: User) => {
-        userMap[user._id] = user;
+        const userId = user._id || user.id;
+        if (userId) {
+          userMap[userId] = user;
+        }
       });
 
       // Transform tracking data into table items
@@ -152,29 +162,37 @@ export default function Tracking() {
 
           item.requests.forEach((req) => {
             if (!req) return;
+            const senderId = req.sender || req.sender_id || '';
+            const travelerId = req.traveler || req.traveler_id || null;
+            const packageId = item.package._id || (item.package as any).id;
+            const packageDescription = item.package.description || `Package ${packageId}`;
+            const fromCountry = item.package.fromCountry || (item.package as any).from_country || 'Unknown';
+            const toCountry = item.package.toCountry || (item.package as any).to_country || 'Unknown';
+            const packageCreatedAt = item.package.createdAt || (item.package as any).created_at || new Date().toISOString();
+            const requestId = req._id || req.id || '';
 
             tableItems.push({
-              id: item.package._id,
-              title: item.package.description || `Package ${item.package._id}`,
-              tracking_number: item.package._id,
-              pickup_country: item.package.fromCountry || 'Unknown',
-              delivery_country: item.package.toCountry || 'Unknown',
-              sender_name: (req.sender && userMap[req.sender])
-                ? `${userMap[req.sender].firstName || ''} ${userMap[req.sender].lastName || ''}`.trim() || 'User'
+              id: packageId,
+              title: packageDescription,
+              tracking_number: packageId,
+              pickup_country: fromCountry,
+              delivery_country: toCountry,
+              sender_name: (senderId && userMap[senderId])
+                ? `${userMap[senderId].firstName || ''} ${userMap[senderId].lastName || ''}`.trim() || 'User'
                 : 'Unknown',
-              sender_email: (req.sender && userMap[req.sender]?.email) || 'Unknown',
-              traveler_name: req.traveler
-                ? userMap[req.traveler]
-                  ? `${userMap[req.traveler].firstName || ''} ${userMap[req.traveler].lastName || ''}`.trim() || 'Traveler'
+              sender_email: (senderId && userMap[senderId]?.email) || 'Unknown',
+              traveler_name: travelerId
+                ? userMap[travelerId]
+                  ? `${userMap[travelerId].firstName || ''} ${userMap[travelerId].lastName || ''}`.trim() || 'Traveler'
                   : 'Unknown'
                 : null,
-              traveler_email: req.traveler ? userMap[req.traveler]?.email || 'Unknown' : null,
-              traveler_id: req.traveler || null,
+              traveler_email: travelerId ? userMap[travelerId]?.email || 'Unknown' : null,
+              traveler_id: travelerId,
               status: req.status || 'pending',
               price: Number(req.insuranceCost) || 0,
               commission_amount: Number(req.insuranceCost) ? Number(req.insuranceCost) * 0.1 : 0,
-              created_at: item.package.createdAt || new Date().toISOString(),
-              request_id: req._id,
+              created_at: packageCreatedAt,
+              request_id: requestId,
             });
           });
         });
@@ -233,8 +251,9 @@ export default function Tracking() {
       const res = await fetch(`${API_BASE_URL}/tracking/${updatingItem.request_id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
+          ...getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         },
+        credentials: 'include',
         body: JSON.stringify({
           status: updateStatus,
           travelerId: updateTravelerId || null

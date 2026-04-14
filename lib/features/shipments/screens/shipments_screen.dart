@@ -17,6 +17,7 @@ import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../../payment/services/shipment_checkout_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../messages/providers/message_provider.dart';
 import '../models/package_model.dart';
 import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
@@ -732,6 +733,13 @@ class _RequestCard extends StatelessWidget {
               ),
             ],
           ),
+          if (request.senderId.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _OpenShipmentChatButton(
+              request: request,
+              receiverId: request.senderId,
+            ),
+          ],
         ],
       ),
     );
@@ -817,7 +825,60 @@ class _SenderRequestCard extends StatelessWidget {
               ),
             ],
           ),
+          if (request.carrierId.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _OpenShipmentChatButton(
+              request: request,
+              receiverId: request.carrierId,
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _OpenShipmentChatButton extends ConsumerWidget {
+  const _OpenShipmentChatButton({
+    required this.request,
+    required this.receiverId,
+  });
+
+  final RequestModel request;
+  final String receiverId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () async {
+          try {
+            final convId = (request.conversationId ?? '').trim().isNotEmpty
+                ? request.conversationId!.trim()
+                : await ref.read(messageProvider.notifier).getOrCreateConversation(
+                      receiverId,
+                      requestId: request.id,
+                      tripId: request.tripId,
+                    );
+            if (!context.mounted) return;
+            context.go('/messages/$convId');
+          } catch (e) {
+            if (!context.mounted) return;
+            AppSnackBar.show(
+              context,
+              message: e.toString(),
+              type: SnackBarType.error,
+            );
+          }
+        },
+        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+        label: const Text('Open Chat'),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
       ),
     );
   }

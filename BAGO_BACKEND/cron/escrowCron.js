@@ -7,14 +7,14 @@ export const startEscrowAutoRelease = () => {
     console.log("⏰ Running escrow auto-release job...");
 
     try {
-      // Find completed requests with proof, sender hasn't confirmed, not yet auto-released
+      // Find delivered requests with proof, sender hasn't confirmed, not yet auto-released
       const eligible = await pgQuery(
         `SELECT id, traveler_id, sender_id, amount, updated_at
          FROM public.shipment_requests
          WHERE sender_proof_url IS NOT NULL
            AND (sender_received IS NULL OR sender_received = false)
            AND (auto_released IS NULL OR auto_released = false)
-           AND status = 'completed'
+           AND status = 'delivered'
            AND (
              dispute IS NULL
              OR (dispute->>'status') = 'resolved'
@@ -47,7 +47,7 @@ export const startEscrowAutoRelease = () => {
         // Mark request as auto-released
         await pgQuery(
           `UPDATE public.shipment_requests
-           SET auto_released = true, updated_at = NOW()
+           SET auto_released = true, status = 'completed', updated_at = NOW()
            WHERE id = $1`,
           [req.id]
         );

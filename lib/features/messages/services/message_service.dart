@@ -30,7 +30,7 @@ class MessageService {
       {int page = 1, int limit = 50}) async {
     try {
       final res = await _api.get(
-        '${ApiConstants.conversationMessages}/$conversationId',
+        '${ApiConstants.conversationMessages}/$conversationId/messages',
         queryParameters: {'page': page, 'limit': limit},
       );
       return ResponseParser.parseList(res.data, ['messages'])
@@ -47,14 +47,17 @@ class MessageService {
     MessageType type = MessageType.text,
   }) async {
     try {
-      final res = await _api.post(ApiConstants.sendMessage, data: {
+      final res = await _api.post(
+        '${ApiConstants.sendMessage}/$conversationId/send',
+        data: {
         'conversationId': conversationId,
         'text': content,
         'type': type.name,
-      });
+      },
+      );
       final data = res.data as Map<String, dynamic>;
       return MessageModel.fromJson(
-          ResponseParser.parseModel(data, ['message']));
+          ResponseParser.parseModel(data, ['message', 'data']));
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -88,12 +91,20 @@ class MessageService {
     }
   }
 
-  Future<String> getOrCreateConversation(String receiverId,
-      {String? context}) async {
+  Future<String> getOrCreateConversation(
+    String receiverId, {
+    String? context,
+    String? requestId,
+    String? tripId,
+  }) async {
     try {
       final res = await _api.post(ApiConstants.createConversation, data: {
         'receiverId': receiverId,
         if (context != null) 'context': context,
+        if (requestId != null && requestId.trim().isNotEmpty)
+          'requestId': requestId.trim(),
+        if (tripId != null && tripId.trim().isNotEmpty)
+          'tripId': tripId.trim(),
       });
       final data = res.data as Map<String, dynamic>;
       final conv = ResponseParser.parseModel(data, ['conversation']);
