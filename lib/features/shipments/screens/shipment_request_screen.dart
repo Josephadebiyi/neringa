@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -169,14 +170,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     borderRadius: BorderRadius.circular(18),
                     child: AspectRatio(
                       aspectRatio: 1.5,
-                      child: Image.network(
-                        itemImage,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.gray100,
-                          child: const Icon(Icons.inventory_2_outlined, color: AppColors.gray300, size: 40),
-                        ),
-                      ),
+                      child: _PackageImage(url: itemImage),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -585,4 +579,35 @@ class _InfoLabel extends StatelessWidget {
         text.toUpperCase(),
         style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w800, letterSpacing: 1),
       );
+}
+
+class _PackageImage extends StatelessWidget {
+  const _PackageImage({required this.url});
+  final String url;
+
+  static final _placeholder = Container(
+    color: AppColors.gray100,
+    child: const Icon(Icons.inventory_2_outlined, color: AppColors.gray300, size: 40),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.startsWith('data:')) {
+      // Base64 data URI — decode and render in memory
+      try {
+        final commaIndex = url.indexOf(',');
+        if (commaIndex == -1) return _placeholder;
+        final base64Str = url.substring(commaIndex + 1);
+        final bytes = base64Decode(base64Str);
+        return Image.memory(bytes, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
+      } catch (_) {
+        return _placeholder;
+      }
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _placeholder,
+    );
+  }
 }
