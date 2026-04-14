@@ -93,7 +93,7 @@ export const createPackage = async (req, res) => {
       receiverPhoneCountryCode,
       description,
       imageUrl,
-      images: imageUrl ? [imageUrl] : null,
+      images: imageUrl ? [imageUrl] : [],
       category,
       pickupAddress,
       deliveryAddress,

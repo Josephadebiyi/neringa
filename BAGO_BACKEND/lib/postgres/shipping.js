@@ -386,7 +386,7 @@ export async function createPackageRecord(data) {
       data.receiverPhoneCountryCode || '+1',
       data.description,
       data.imageUrl,
-      data.images,
+      data.images ?? [],
       data.category,
       data.pickupAddress,
       data.deliveryAddress,
