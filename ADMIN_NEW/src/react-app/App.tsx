@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Navigate, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
@@ -242,6 +242,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

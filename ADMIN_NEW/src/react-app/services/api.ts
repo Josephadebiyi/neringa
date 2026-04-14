@@ -1,7 +1,7 @@
+import { API_BASE_URL as ADMIN_API, API_ROOT, MAIN_API_URL as MAIN_API } from '../config/api';
+
 // Centralized API service for admin panel
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').trim();
-const ADMIN_API = `${API_BASE}/Adminbaggo`;
-const MAIN_API = `${API_BASE}/bago`;
+const API_BASE = API_ROOT;
 
 // Helper function for API calls
 async function apiCall(url: string, options: RequestInit = {}) {

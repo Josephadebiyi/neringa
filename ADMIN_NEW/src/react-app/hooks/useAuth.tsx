@@ -19,7 +19,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Terminal session termination error:', error);
     } finally {
       setUser(null);
-      window.location.href = '/'; // Clean state reset
+      window.location.href = window.location.pathname; // Clean state reset
     }
   };
 
