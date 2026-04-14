@@ -432,8 +432,8 @@ export async function createNotification({ userId, title, body, type = 'general'
   );
 }
 
-export async function createConversationForRequest(requestId, senderId, travelerId) {
-  return withTransaction(async (client) => {
+export async function createConversationForRequest(requestId, senderId, travelerId, existingClient = null) {
+  const run = async (client) => {
     const existing = await client.query(
       `select id from public.conversations where request_id = $1 limit 1`,
       [requestId],
@@ -467,7 +467,11 @@ export async function createConversationForRequest(requestId, senderId, traveler
     );
 
     return conversationId;
-  });
+  };
+
+  // If called within an existing transaction, reuse that client to avoid deadlock
+  if (existingClient) return run(existingClient);
+  return withTransaction(run);
 }
 
 export async function createShipmentRequestRecord({
@@ -579,7 +583,7 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
     );
 
     if (status === 'accepted') {
-      await createConversationForRequest(requestId, request.sender_id, request.traveler_id);
+      await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
     }
 
     return getShipmentRequestById(requestId);
