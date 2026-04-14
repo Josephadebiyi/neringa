@@ -73,6 +73,7 @@ function normalizeConversation(row, currentUserId = null) {
 
 function normalizeMessage(row) {
   if (!row) return null;
+  const metadata = row.metadata || {};
   return {
     _id: row.id,
     id: row.id,
@@ -89,7 +90,11 @@ function normalizeMessage(row) {
     },
     text: row.content,
     content: row.content,
-    metadata: row.metadata || {},
+    type: metadata.type || 'text',
+    fileUrl: metadata.fileUrl || metadata.imageUrl || null,
+    fileName: metadata.fileName || null,
+    mimeType: metadata.mimeType || null,
+    metadata,
     timestamp: row.created_at,
     createdAt: row.created_at,
     readAt: row.read_at,
@@ -214,7 +219,15 @@ export async function listConversationMessages(conversationId) {
   return result.rows.map(normalizeMessage);
 }
 
-export async function createConversationMessage({ conversationId, senderId, text }) {
+export async function createConversationMessage({
+  conversationId,
+  senderId,
+  text = '',
+  type = 'text',
+  fileUrl = null,
+  fileName = null,
+  mimeType = null,
+}) {
   return withTransaction(async (client) => {
     const conversationResult = await client.query(
       `
@@ -246,13 +259,23 @@ export async function createConversationMessage({ conversationId, senderId, text
       throw error;
     }
 
+    const trimmedText = typeof text === 'string' ? text.trim() : '';
+    const normalizedType = type === 'image' ? 'image' : type === 'file' ? 'file' : 'text';
+    const messageContent = trimmedText || (normalizedType === 'image' ? 'Image' : fileName || 'File');
+    const metadata = {
+      type: normalizedType,
+      ...(fileUrl ? { fileUrl } : {}),
+      ...(fileName ? { fileName } : {}),
+      ...(mimeType ? { mimeType } : {}),
+    };
+
     const messageResult = await client.query(
       `
         insert into public.messages (conversation_id, sender_id, content, metadata)
         values ($1, $2, $3, $4)
         returning id
       `,
-      [conversationId, senderId, text, {}],
+      [conversationId, senderId, messageContent, metadata],
     );
 
     const senderIsSender = conversation.sender_id === senderId;
@@ -268,7 +291,7 @@ export async function createConversationMessage({ conversationId, senderId, text
             deleted_by_traveler = false
         where id = $1
       `,
-      [conversationId, text, senderIsSender],
+      [conversationId, messageContent, senderIsSender],
     );
 
     return {

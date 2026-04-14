@@ -22,6 +22,7 @@ class TripModel {
   final String updatedAt;
   final String? carrierName;
   final String? carrierAvatar;
+  final double? escrowBalance;
 
   const TripModel({
     required this.id,
@@ -44,6 +45,7 @@ class TripModel {
     required this.updatedAt,
     this.carrierName,
     this.carrierAvatar,
+    this.escrowBalance,
   });
 
   bool get isActive => [
@@ -91,6 +93,9 @@ class TripModel {
           ? JsonParser.parseFullName(user)
           : json['carrierName']?.toString(),
       carrierAvatar: user?['avatar']?.toString() ?? json['carrierAvatar']?.toString(),
+      escrowBalance: JsonParser.parseDouble(json, 'escrowBalance') == 0.0
+          ? null
+          : JsonParser.parseDouble(json, 'escrowBalance'),
     );
   }
 
@@ -113,5 +118,6 @@ class TripModel {
         'averageRating': averageRating,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
+        'escrowBalance': escrowBalance,
       };
 }

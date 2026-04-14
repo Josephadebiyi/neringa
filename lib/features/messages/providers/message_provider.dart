@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
@@ -101,7 +103,7 @@ class MessageNotifier extends Notifier<MessageState> {
     }
   }
 
-  Future<void> sendMessage(String content) async {
+  Future<void> sendMessage(String content, {File? imageFile}) async {
     final convId = state.activeConversationId;
     if (convId == null) return;
 
@@ -110,9 +112,17 @@ class MessageNotifier extends Notifier<MessageState> {
       final msg = await _service.sendMessage(
         conversationId: convId,
         content: content,
+        imageFile: imageFile,
       );
+      
+      // Deduplicate: Only add if message ID doesn't already exist
+      final messageExists = state.messages.any((m) => m.id == msg.id);
+      final updatedMessages = messageExists 
+        ? state.messages 
+        : [...state.messages, msg];
+      
       state = state.copyWith(
-        messages: [...state.messages, msg],
+        messages: updatedMessages,
         isSending: false,
       );
     } catch (e) {

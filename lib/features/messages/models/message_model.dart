@@ -40,8 +40,14 @@ class MessageModel {
             json['message']?.toString() ??
             '',
         type: MessageType.fromString(json['type']?.toString()),
-        fileUrl: json['fileUrl']?.toString(),
-        fileName: json['fileName']?.toString(),
+        fileUrl: json['fileUrl']?.toString() ??
+            (json['metadata'] is Map<String, dynamic>
+                ? (json['metadata']['fileUrl'] ?? json['metadata']['imageUrl'])?.toString()
+                : null),
+        fileName: json['fileName']?.toString() ??
+            (json['metadata'] is Map<String, dynamic>
+                ? json['metadata']['fileName']?.toString()
+                : null),
         isRead: json['isRead'] == true || json['read'] == true,
         createdAt: json['createdAt']?.toString() ??
             json['created_at']?.toString() ??

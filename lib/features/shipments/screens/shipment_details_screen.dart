@@ -433,6 +433,43 @@ class _ShipmentBody extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
+          // Package Images
+          if (package.images.isNotEmpty) ...[            
+            _Card(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _Label(l10n.itemImagesLabel),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 140,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: package.images.length,
+                    itemBuilder: (context, index) => Padding(
+                      padding: EdgeInsets.only(right: index < package.images.length - 1 ? 12 : 0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          package.images[index],
+                          fit: BoxFit.cover,
+                          width: 120,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            width: 120,
+                            decoration: BoxDecoration(
+                              color: AppColors.backgroundOff,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.image_not_supported_rounded, color: AppColors.gray500),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 14),
+          ],
+
           // Addresses
           _Card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -444,15 +481,24 @@ class _ShipmentBody extends StatelessWidget {
           ),
 
           // Receiver
-          if (package.receiverName != null || package.receiverPhone != null) ...[
+          if (package.receiverName != null || package.receiverPhone != null || package.receiverEmail != null) ...[  
             const SizedBox(height: 14),
             _Card(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _Label(l10n.receiver),
+                _Label(l10n.receiverInfo),
                 const SizedBox(height: 14),
-                if (package.receiverName != null) _Row(l10n.nameLabel, package.receiverName!),
-                if (package.receiverPhone != null) _Row(l10n.phoneLabel, package.receiverPhone!),
-                if (package.receiverEmail != null) _Row(l10n.emailLabel, package.receiverEmail!),
+                if (package.receiverName?.isNotEmpty == true) 
+                  _Row(l10n.nameLabel, package.receiverName!)
+                else
+                  _Row(l10n.nameLabel, l10n.notProvidedLabel),
+                if (package.receiverPhone?.isNotEmpty == true) 
+                  _Row(l10n.phoneLabel, package.receiverPhone!)
+                else
+                  _Row(l10n.phoneLabel, l10n.notProvidedLabel),
+                if (package.receiverEmail?.isNotEmpty == true) 
+                  _Row(l10n.emailLabel, package.receiverEmail!)
+                else
+                  _Row(l10n.emailLabel, l10n.notProvidedLabel),
               ]),
             ),
           ],

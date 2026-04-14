@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_constants.dart';
@@ -43,17 +45,30 @@ class MessageService {
 
   Future<MessageModel> sendMessage({
     required String conversationId,
-    required String content,
+    String content = '',
     MessageType type = MessageType.text,
+    File? imageFile,
   }) async {
     try {
+      final trimmedContent = content.trim();
+      final payload = imageFile != null
+          ? FormData.fromMap({
+              'conversationId': conversationId,
+              'text': trimmedContent,
+              'type': MessageType.image.name,
+              'image': await MultipartFile.fromFile(
+                imageFile.path,
+                filename: imageFile.path.split('/').last,
+              ),
+            })
+          : {
+              'conversationId': conversationId,
+              'text': trimmedContent,
+              'type': type.name,
+            };
       final res = await _api.post(
         '${ApiConstants.sendMessage}/$conversationId/send',
-        data: {
-        'conversationId': conversationId,
-        'text': content,
-        'type': type.name,
-      },
+        data: payload,
       );
       final data = res.data as Map<String, dynamic>;
       return MessageModel.fromJson(

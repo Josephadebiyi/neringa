@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/utils/model_enums.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -25,6 +29,11 @@ class ConversationScreen extends ConsumerStatefulWidget {
 class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   late final TextEditingController _msgCtrl;
   late final ScrollController _scrollCtrl;
+  final ImagePicker _imagePicker = ImagePicker();
+  
+  // Throttle send button to prevent double messages
+  DateTime _lastSendTime = DateTime(1970);
+  static const _sendCooldown = Duration(milliseconds: 500);
 
   static final RegExp _contactPattern = RegExp(
     r'(\+?\d[\d\s().-]{7,}\d)|([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(whatsapp|telegram|t\.me|wa\.me|instagram|ig\.com|call me|dm me)',
@@ -185,11 +194,18 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     ),
                   ),
                 ),
-                _MessageInput(
+_MessageInput(
                   controller: _msgCtrl,
                   isLoading: state.isSending,
                   enabled: !isClosed,
+                  onAttach: _pickAndSendImage,
                   onSend: () async {
+                    // Throttle to prevent rapid sends
+                    if (DateTime.now().difference(_lastSendTime) < _sendCooldown) {
+                      return;
+                    }
+                    _lastSendTime = DateTime.now();
+                    
                     if (isClosed) {
                       AppSnackBar.show(
                         context,
@@ -231,7 +247,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     required String currentUserName,
   }) async {
     try {
-      final reason = 'Shipment issue reported from the in-app closed chat.';
+      const reason = 'Shipment issue reported from the in-app closed chat.';
       final chatSummary = _buildChatSummary(
         conversation: conversation,
         currentUserName: currentUserName,
@@ -260,6 +276,45 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           type: SnackBarType.error,
         );
       }
+    }
+  }
+
+Future<void> _pickAndSendImage() async {
+    final xFile = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (xFile == null || !mounted) return;
+
+    // Throttle to prevent rapid sends
+    if (DateTime.now().difference(_lastSendTime) < _sendCooldown) {
+      return;
+    }
+    _lastSendTime = DateTime.now();
+
+    try {
+      final caption = _msgCtrl.text.trim();
+      if (caption.isNotEmpty && _contactPattern.hasMatch(caption)) {
+        AppSnackBar.show(
+          context,
+          message: 'Please keep conversations in the app and avoid sharing contact details.',
+          type: SnackBarType.error,
+        );
+        return;
+      }
+      _msgCtrl.clear();
+      // Allow image-only messages (caption can be empty)
+      await ref.read(messageProvider.notifier).sendMessage(
+            caption,
+            imageFile: File(xFile.path),
+          );
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: e.toString(),
+        type: SnackBarType.error,
+      );
     }
   }
 
@@ -354,6 +409,9 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isImageMessage = msg.type == MessageType.image &&
+        (msg.fileUrl?.trim().isNotEmpty ?? false);
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -372,7 +430,7 @@ class _MessageBubble extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.black.withOpacity(0.04),
+              color: AppColors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -381,18 +439,65 @@ class _MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              msg.content,
-              style: AppTextStyles.bodyMd.copyWith(
-                color: isMe ? AppColors.white : AppColors.gray900,
+            if (isImageMessage)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: CachedNetworkImage(
+                  imageUrl: msg.fileUrl!,
+                  width: 220,
+                  height: 220,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    width: 220,
+                    height: 220,
+                    color: isMe
+                        ? AppColors.white.withValues(alpha: 0.18)
+                        : AppColors.gray100,
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    width: 220,
+                    height: 140,
+                    color: isMe
+                        ? AppColors.white.withValues(alpha: 0.12)
+                        : AppColors.gray100,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Image unavailable',
+                      style: AppTextStyles.bodySm.copyWith(
+                        color: isMe ? AppColors.white : AppColors.gray500,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            if (isImageMessage &&
+                msg.content.trim().isNotEmpty &&
+                msg.content.trim().toLowerCase() != 'image')
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  msg.content,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: isMe ? AppColors.white : AppColors.gray900,
+                  ),
+                ),
+              ),
+            if (!isImageMessage)
+              Text(
+                msg.content,
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: isMe ? AppColors.white : AppColors.gray900,
+                ),
+              ),
             const SizedBox(height: 4),
             Text(
               msg.timeLabel,
               style: AppTextStyles.caption.copyWith(
                 color: isMe
-                    ? AppColors.white.withOpacity(0.7)
+                    ? AppColors.white.withValues(alpha: 0.7)
                     : AppColors.gray400,
                 fontSize: 10,
               ),
@@ -408,11 +513,13 @@ class _MessageInput extends StatelessWidget {
   const _MessageInput({
     required this.controller,
     required this.onSend,
+    required this.onAttach,
     this.enabled = true,
     this.isLoading = false,
   });
   final TextEditingController controller;
   final Future<void> Function() onSend;
+  final Future<void> Function() onAttach;
   final bool isLoading;
   final bool enabled;
 
@@ -430,7 +537,7 @@ class _MessageInput extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.attach_file_rounded, color: AppColors.gray500),
-            onPressed: isLoading ? null : () {},
+            onPressed: (isLoading || !enabled) ? null : onAttach,
           ),
           Expanded(
             child: TextField(
