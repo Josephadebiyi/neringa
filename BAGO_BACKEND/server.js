@@ -894,9 +894,7 @@ app.post('/api/bago/register-token', async (req, res) => {
 // Notifications are now handled in AdminRouter via NotificationController
 
 
-// Reuse the shared push transport so native APNs tokens and Expo tokens
-// are handled consistently throughout the backend.
-const sendPushNotification = sendPushNotificationToToken;
+// sendPushNotification is imported from pushNotificationService at the top of this file
 
 
 
