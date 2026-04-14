@@ -1,5 +1,32 @@
+import cloudinary from 'cloudinary';
 import { createPackageRecord, deletePackageRecord, getPackageById } from '../lib/postgres/shipping.js';
 import { queryOne } from '../lib/postgres/db.js';
+
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+async function uploadPackageImage(dataUriOrBuffer, userId) {
+  if (!dataUriOrBuffer) return null;
+  const dataUri = typeof dataUriOrBuffer === 'string'
+    ? dataUriOrBuffer
+    : `data:image/jpeg;base64,${dataUriOrBuffer.toString('base64')}`;
+  // Already a real URL — no upload needed
+  if (!dataUri.startsWith('data:')) return dataUri;
+  try {
+    const result = await cloudinary.v2.uploader.upload(dataUri, {
+      folder: 'bago/package_images',
+      public_id: `pkg_${userId}_${Date.now()}`,
+      resource_type: 'auto',
+    });
+    return result.secure_url;
+  } catch (err) {
+    console.error('Cloudinary package image upload failed:', err.message);
+    return dataUri; // fallback to base64 if Cloudinary fails
+  }
+}
 
 export const createPackage = async (req, res) => {
   try {
@@ -62,22 +89,18 @@ export const createPackage = async (req, res) => {
       return res.status(400).json({ message: 'Please enter a valid phone number' });
     }
 
-    // Handle image — support base64, URL, or multipart
-    let imageUrl = null;
+    // Handle image — support base64, URL, or multipart; upload to Cloudinary for real URL
+    let rawImageData = null;
     const rawImage = req.body.image || req.body.images || package_details?.package_image;
     if (rawImage) {
       const first = Array.isArray(rawImage) ? rawImage[0] : rawImage;
-      if (first && typeof first === 'string') {
-        imageUrl = first; // store as-is (base64 data URI or URL)
-      }
+      if (first && typeof first === 'string') rawImageData = first;
     } else if (req.files) {
       const fileField = req.files.image || req.files.images;
       const fileObj = Array.isArray(fileField) ? fileField[0] : fileField;
-      if (fileObj?.data) {
-        const mime = fileObj.mimetype || 'image/jpeg';
-        imageUrl = `data:${mime};base64,${fileObj.data.toString('base64')}`;
-      }
+      if (fileObj?.data) rawImageData = fileObj.data; // Buffer
     }
+    const imageUrl = rawImageData ? await uploadPackageImage(rawImageData, userId) : null;
 
     const pkg = await createPackageRecord({
       userId,
