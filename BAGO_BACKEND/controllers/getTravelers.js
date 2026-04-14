@@ -58,7 +58,7 @@ export const getTravelers = async (req, res, next) => {
     const fromLocation = fromParts.city || rawFrom;
     const toLocation = toParts.city || rawTo;
 
-    // Only show admin-approved trips
+    // Only show trips explicitly approved by admin (status: active or verified)
     const params = [];
     let whereClause = `WHERE t.status IN ('active', 'verified')`;
     if (currentUserId) {
