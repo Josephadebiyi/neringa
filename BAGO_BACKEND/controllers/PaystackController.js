@@ -9,8 +9,7 @@ import {
   verifyWebhookSignature,
   getSupportedCountries,
 } from '../services/paystackService.js';
-import User from '../models/userScheme.js';
-import Request from '../models/RequestScheme.js';
+import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { Resend } from 'resend';
 
@@ -24,11 +23,7 @@ try { resend = new Resend(process.env.RESEND_API_KEY); } catch (e) {}
 export const initializePaystackPayment = async (req, res) => {
   try {
     const { amount, currency, requestId, metadata } = req.body;
-    const user = await User.findById(req.user._id);
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    const user = req.user; // already a Postgres profile from isAuthenticated
 
     // Generate unique reference
     const reference = `BAGO-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
@@ -39,7 +34,7 @@ export const initializePaystackPayment = async (req, res) => {
       currency: currency || user.preferredCurrency || 'NGN',
       reference,
       metadata: {
-        userId: user._id.toString(),
+        userId: user.id,
         requestId,
         ...metadata,
       },
@@ -69,33 +64,31 @@ export const verifyPaystackPayment = async (req, res) => {
 
     const result = await verifyPayment(reference);
 
-    if (result.success) {
-      // Update request payment status
-      if (result.data.metadata?.requestId) {
-        const updateRequest = await Request.findByIdAndUpdate(result.data.metadata.requestId, {
-          'paymentInfo.method': 'paystack',
-          'paymentInfo.status': 'paid',
-          'paymentInfo.requestId': reference,
-        });
+    if (result.success && result.data.metadata?.requestId) {
+      const requestId = result.data.metadata.requestId;
 
-        if (updateRequest) {
-          // Add to traveler's escrow balance
-          const amountInUsd = result.data.amount / 100; // Assuming Paystack amount is in kobo and base is USD for balance
-          // Note: If Paystack is in NGN, we should convert to USD before adding to escrowBalance if balance is USD-based
-          // For now, let's stick to the request's amount field which should be in the correct currency/base
-          const traveler = await User.findById(updateRequest.traveler);
-          if (traveler) {
-            traveler.escrowBalance += updateRequest.amount;
-            traveler.escrowHistory.push({
-              type: 'escrow_hold',
-              amount: updateRequest.amount,
-              description: `Escrow hold for Request ${updateRequest.trackingNumber}`,
-              date: new Date()
-            });
-            await traveler.save();
-            console.log(`🔒 Escrowed $${updateRequest.amount} for traveler ${traveler.email}`);
-          }
-        }
+      // Update request payment status in Postgres
+      const updatedRequest = await queryOne(
+        `UPDATE public.shipment_requests
+         SET payment_method = 'paystack',
+             payment_status = 'paid',
+             payment_reference = $2,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, traveler_id, amount`,
+        [requestId, reference]
+      );
+
+      if (updatedRequest) {
+        // Add to traveler's escrow balance
+        await pgQuery(
+          `UPDATE public.profiles
+           SET escrow_balance = escrow_balance + $2,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [updatedRequest.traveler_id, updatedRequest.amount || 0]
+        );
+        console.log(`🔒 Escrowed $${updatedRequest.amount} for traveler via Paystack`);
       }
     }
 
@@ -113,16 +106,11 @@ export const verifyPaystackPayment = async (req, res) => {
 /**
  * Add bank account for payouts
  * POST /api/paystack/add-bank
- * Step 1: Verify account, store details, send OTP to user email
  */
 export const addBankAccount = async (req, res) => {
   try {
     const { accountNumber, bankCode, bankName } = req.body;
-    const user = await User.findById(req.user._id);
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    const user = req.user;
 
     // Resolve account to verify
     const accountInfo = await resolveAccountNumber(accountNumber, bankCode);
@@ -138,15 +126,28 @@ export const addBankAccount = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Store pending bank details + OTP on user
-    user.pendingBankOtp = { code: otp, expiresAt };
-    user.pendingBankDetails = {
-      accountNumber,
-      bankCode,
-      accountName: accountInfo.accountName,
-      bankName: bankName || 'Bank',
-    };
-    await user.save();
+    // Store pending bank details + OTP in Postgres
+    await pgQuery(
+      `UPDATE public.profiles
+       SET bank_details = $2,
+           pending_bank_otp = $3,
+           pending_bank_otp_expires = $4,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [
+        user.id,
+        JSON.stringify({
+          accountNumber,
+          bankCode,
+          accountName: accountInfo.accountName,
+          bankName: bankName || 'Bank',
+          pendingOtp: otp,
+          otpExpiresAt: expiresAt.toISOString(),
+        }),
+        otp,
+        expiresAt,
+      ]
+    );
 
     // Send OTP via email
     if (resend) {
@@ -188,53 +189,64 @@ export const addBankAccount = async (req, res) => {
 
 /**
  * POST /api/paystack/verify-bank-otp
- * Step 2: Verify OTP and finalize bank account
  */
 export const verifyBankOTP = async (req, res) => {
   try {
     const { otp } = req.body;
-    const user = await User.findById(req.user._id);
+    const userId = req.user.id;
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    // Fetch pending bank info from Postgres
+    const profile = await queryOne(
+      `SELECT bank_details, pending_bank_otp, pending_bank_otp_expires, preferred_currency
+       FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
 
-    if (!user.pendingBankOtp || !user.pendingBankDetails) {
+    if (!profile || !profile.pending_bank_otp) {
       return res.status(400).json({ success: false, message: 'No pending bank account. Please start over.' });
     }
 
-    if (new Date() > user.pendingBankOtp.expiresAt) {
+    if (new Date() > new Date(profile.pending_bank_otp_expires)) {
       return res.status(400).json({ success: false, message: 'OTP has expired. Please start over.' });
     }
 
-    if (user.pendingBankOtp.code !== otp) {
+    if (profile.pending_bank_otp !== otp) {
       return res.status(400).json({ success: false, message: 'Invalid OTP. Please try again.' });
     }
 
-    const { accountNumber, bankCode, accountName, bankName } = user.pendingBankDetails;
+    const bankDetails = typeof profile.bank_details === 'string'
+      ? JSON.parse(profile.bank_details)
+      : profile.bank_details || {};
+
+    const { accountNumber, bankCode, accountName, bankName } = bankDetails;
 
     // Create transfer recipient on Paystack
     const result = await createTransferRecipient({
       name: accountName,
       accountNumber,
       bankCode,
-      currency: user.preferredCurrency || 'NGN',
+      currency: profile.preferred_currency || 'NGN',
     });
 
     if (!result.success) {
       throw new Error('Failed to create Paystack recipient');
     }
 
-    // Finalize — save to user, clear pending fields
-    user.paystackRecipientCode = result.recipientCode;
-    user.bankDetails = {
-      bankName,
-      accountNumber,
-      accountHolderName: accountName,
-    };
-    user.pendingBankOtp = undefined;
-    user.pendingBankDetails = undefined;
-    await user.save();
+    // Save recipient code and finalize bank details in Postgres
+    await pgQuery(
+      `UPDATE public.profiles
+       SET paystack_recipient_code = $2,
+           bank_details = $3,
+           pending_bank_otp = NULL,
+           pending_bank_otp_expires = NULL,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [
+        userId,
+        result.recipientCode,
+        JSON.stringify({ bankName, accountNumber, accountHolderName: accountName }),
+      ]
+    );
 
     return res.status(200).json({
       success: true,
@@ -252,89 +264,6 @@ export const verifyBankOTP = async (req, res) => {
 };
 
 /**
- * Withdraw funds to bank account
- * POST /api/paystack/withdraw
- */
-export const withdrawFundsPaystack = async (req, res) => {
-  try {
-    const { amount } = req.body;
-    const user = await User.findById(req.user._id);
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    if (!user.paystackRecipientCode) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please add a bank account first',
-      });
-    }
-
-    // Check balance
-    if (user.balance < amount) {
-      return res.status(400).json({
-        success: false,
-        message: 'Insufficient balance',
-      });
-    }
-
-    // 10% platform fee → keep 10%, send 90%
-    const userAmount = amount * 0.9;
-    const platformFee = amount - userAmount;
-    
-    // Convert traveler's share to local currency for transfer
-    const userCurrency = user.preferredCurrency || 'NGN';
-    let amountInLocalCurrency = userAmount;
-
-    if (userCurrency !== 'USD') {
-      const conversion = await convertCurrency(userAmount, 'USD', userCurrency);
-      amountInLocalCurrency = conversion.convertedAmount;
-    }
-
-    // Generate reference
-    const reference = `BAGO-WD-${Date.now()}-${user._id.toString().substring(0, 8)}`;
-
-    // Initiate transfer
-    const result = await initiateTransfer({
-      amount: amountInLocalCurrency,
-      recipientCode: user.paystackRecipientCode,
-      currency: userCurrency,
-      reason: 'Bago wallet withdrawal',
-      reference,
-    });
-
-    if (result.success) {
-      // Deduct full amount from balance (Traveler balance is in USD)
-      user.balance -= amount;
-      user.balanceHistory.push({
-        type: 'withdrawal',
-        amount,
-        status: 'completed',
-        description: `Withdrawal to ${user.bankDetails.accountNumber}. Platform fee: $${platformFee.toFixed(2)}`,
-        date: new Date(),
-      });
-      await user.save();
-
-      return res.status(200).json({
-        success: true,
-        message: `Withdrawal initiated successfully. Platform fee: $${platformFee.toFixed(2)}`,
-        ...result,
-      });
-    }
-
-    throw new Error('Transfer failed');
-  } catch (error) {
-    console.error('Withdraw funds Paystack error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Withdrawal failed',
-      error: error.message,
-    });
-  }
-};
-
-/**
  * Get list of banks
  * GET /api/paystack/banks?country=NG
  */
@@ -344,26 +273,18 @@ export const getPaystackBanks = async (req, res) => {
     country = Array.isArray(country) ? country[0] : country;
     currency = Array.isArray(currency) ? currency[0] : currency;
 
-    // Normalize country to uppercase 2-letter code
     const countryMap = {
-      'nigeria': 'NG',
-      'ng': 'NG',
-      'ghana': 'GH',
-      'gh': 'GH',
-      'kenya': 'KE',
-      'ke': 'KE',
-      'south africa': 'ZA',
-      'za': 'ZA',
+      'nigeria': 'NG', 'ng': 'NG',
+      'ghana': 'GH', 'gh': 'GH',
+      'kenya': 'KE', 'ke': 'KE',
+      'south africa': 'ZA', 'za': 'ZA',
     };
 
     const countryStr = String(country);
     const normalizedCountry =
       countryMap[countryStr.toLowerCase()] || countryStr.toUpperCase();
 
-    console.log(`📊 Fetching banks for country: ${normalizedCountry}, currency: ${currency}`);
-
     const result = await getBankList(normalizedCountry, currency);
-
     return res.status(200).json(result);
   } catch (error) {
     console.error('Get Paystack banks error:', error.message);
@@ -376,7 +297,7 @@ export const getPaystackBanks = async (req, res) => {
 
 /**
  * Resolve bank account
- * GET /api/paystack/resolve?accountNumber=xxx&bankCode=xxx
+ * GET /api/paystack/resolve
  */
 export const resolvePaystackAccount = async (req, res) => {
   try {
@@ -390,7 +311,6 @@ export const resolvePaystackAccount = async (req, res) => {
     }
 
     const result = await resolveAccountNumber(accountNumber, bankCode);
-
     return res.status(200).json(result);
   } catch (error) {
     console.error('Resolve account error:', error);
@@ -404,34 +324,24 @@ export const resolvePaystackAccount = async (req, res) => {
 
 /**
  * Get supported countries
- * GET /api/paystack/countries
  */
 export const getPaystackCountries = async (req, res) => {
   try {
     const countries = getSupportedCountries();
-    return res.status(200).json({
-      success: true,
-      countries,
-    });
+    return res.status(200).json({ success: true, countries });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch countries',
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: 'Failed to fetch countries', error: error.message });
   }
 };
 
 /**
  * Paystack Webhook Handler
- * POST /api/paystack/webhook
  */
 export const paystackWebhook = async (req, res) => {
   try {
     const signature = req.headers['x-paystack-signature'];
     const body = req.body;
 
-    // Verify webhook signature
     if (!verifyWebhookSignature(signature, body)) {
       console.error('❌ Invalid Paystack webhook signature');
       return res.status(400).json({ success: false, message: 'Invalid signature' });
@@ -444,25 +354,17 @@ export const paystackWebhook = async (req, res) => {
 
     switch (event) {
       case 'charge.success':
-        // Payment successful
         await handleSuccessfulPayment(data);
         break;
-
       case 'transfer.success':
-        // Payout successful
         await handleSuccessfulTransfer(data);
         break;
-
       case 'transfer.failed':
-        // Payout failed
         await handleFailedTransfer(data);
         break;
-
       case 'transfer.reversed':
-        // Payout reversed
         await handleReversedTransfer(data);
         break;
-
       default:
         console.log(`ℹ️ Unhandled webhook event: ${event}`);
     }
@@ -474,32 +376,30 @@ export const paystackWebhook = async (req, res) => {
   }
 };
 
-// Helper functions for webhook events
 async function handleSuccessfulPayment(data) {
   try {
     const { reference, amount, metadata } = data;
 
     if (metadata?.requestId) {
-      const updateRequest = await Request.findByIdAndUpdate(metadata.requestId, {
-        'paymentInfo.method': 'paystack',
-        'paymentInfo.status': 'paid',
-        'paymentInfo.requestId': reference,
-      });
+      const updatedRequest = await queryOne(
+        `UPDATE public.shipment_requests
+         SET payment_method = 'paystack',
+             payment_status = 'paid',
+             payment_reference = $2,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING traveler_id, amount`,
+        [metadata.requestId, reference]
+      );
 
-      if (updateRequest) {
-        // Add to traveler's escrow balance
-        const traveler = await User.findById(updateRequest.traveler);
-        if (traveler) {
-          traveler.escrowBalance += updateRequest.amount;
-          traveler.escrowHistory.push({
-            type: 'escrow_hold',
-            amount: updateRequest.amount,
-            description: `Escrow hold for Request ${updateRequest.trackingNumber} (Webhook)`,
-            date: new Date()
-          });
-          await traveler.save();
-          console.log(`🔒 Escrowed $${updateRequest.amount} for traveler ${traveler.email} via Webhook`);
-        }
+      if (updatedRequest) {
+        await pgQuery(
+          `UPDATE public.profiles
+           SET escrow_balance = escrow_balance + $2, updated_at = NOW()
+           WHERE id = $1`,
+          [updatedRequest.traveler_id, updatedRequest.amount || 0]
+        );
+        console.log(`🔒 Escrowed $${updatedRequest.amount} via Paystack webhook`);
       }
 
       console.log(`✅ Payment confirmed for request ${metadata.requestId}`);
@@ -512,7 +412,6 @@ async function handleSuccessfulPayment(data) {
 async function handleSuccessfulTransfer(data) {
   try {
     console.log(`✅ Transfer successful: ${data.reference}`);
-    // Additional logic if needed
   } catch (error) {
     console.error('Handle successful transfer error:', error);
   }
@@ -521,7 +420,6 @@ async function handleSuccessfulTransfer(data) {
 async function handleFailedTransfer(data) {
   try {
     console.log(`❌ Transfer failed: ${data.reference}`);
-    // Refund user balance if needed
   } catch (error) {
     console.error('Handle failed transfer error:', error);
   }
@@ -530,7 +428,6 @@ async function handleFailedTransfer(data) {
 async function handleReversedTransfer(data) {
   try {
     console.log(`🔄 Transfer reversed: ${data.reference}`);
-    // Refund user balance
   } catch (error) {
     console.error('Handle reversed transfer error:', error);
   }

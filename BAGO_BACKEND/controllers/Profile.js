@@ -1,60 +1,79 @@
-import User from '../models/userScheme.js';
-import Trip from "../models/tripScheme.js";
-
+import { query } from '../lib/postgres/db.js';
 
 export const Profile = async (req, res, next) => {
   try {
-    const userId = req.user?._id;
-    if (!userId) {
-      throw new Error("No ID provided");
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
 
-    const findUser = await User.findById(userId).select("-password -__v -createdAt -updatedAt");
-    if (!findUser) {
-      throw new Error("User not found");
-    }
+    const userId = user.id;
 
-    // ✅ CHECK: User must be KYC verified to access profile
-    // If KYC is not approved, return verification required response
-    if (findUser.kycStatus !== 'approved') {
-      return res.status(100).json({
-        message: `Account verification required. Current status: ${findUser.kycStatus || 'not_started'}`,
-        success: false,
-        error: true,
-        code: 'VERIFICATION_REQUIRED',
-        kycStatus: findUser.kycStatus,
-        data: {
-          findUser: {
-            _id: findUser._id,
-            email: findUser.email,
-            firstName: findUser.firstName,
-            lastName: findUser.lastName,
-            kycStatus: findUser.kycStatus,
-            kycVerifiedAt: findUser.kycVerifiedAt,
-            kycFailureReason: findUser.kycFailureReason,
-          },
-          findTrips: [],
-        },
-      });
-    }
+    // Fetch user's trips from Postgres
+    const tripsResult = await query(
+      `SELECT
+        t.id, t.id as "_id",
+        t.user_id,
+        t.from_location as "fromLocation",
+        t.from_country as "fromCountry",
+        t.to_location as "toLocation",
+        t.to_country as "toCountry",
+        t.collection_city as "collectionCity",
+        t.collection_country as "collectionCountry",
+        t.price_per_kg as "pricePerKg",
+        t.currency,
+        t.landmark,
+        t.departure_date as "departureDate",
+        t.arrival_date as "arrivalDate",
+        t.available_kg as "availableKg",
+        t.travel_means as "travelMeans",
+        t.status,
+        t.request_count as "request",
+        t.travel_document_url as "travelDocument",
+        t.travel_document_verified as "travelDocumentVerified",
+        t.created_at as "createdAt",
+        t.updated_at as "updatedAt"
+       FROM public.trips t
+       WHERE t.user_id = $1
+       ORDER BY t.created_at DESC`,
+      [userId]
+    );
 
-    // ✅ If KYC is approved, proceed with full profile
-    const findTrips = await Trip.find({ user: userId });
-
-    // ✅ Return both user and trips (with verification status)
-    const data = {
-      findUser,
-      findTrips,
-    };
+    const findTrips = tripsResult.rows.map(row => ({
+      id: row.id,
+      _id: row.id,
+      userId: row.user_id,
+      fromLocation: row.fromLocation,
+      fromCountry: row.fromCountry,
+      toLocation: row.toLocation,
+      toCountry: row.toCountry,
+      collectionCity: row.collectionCity,
+      collectionCountry: row.collectionCountry,
+      pricePerKg: parseFloat(row.pricePerKg) || 0,
+      currency: row.currency,
+      landmark: row.landmark,
+      departureDate: row.departureDate,
+      arrivalDate: row.arrivalDate,
+      availableKg: parseFloat(row.availableKg) || 0,
+      travelMeans: row.travelMeans,
+      status: row.status,
+      request: row.request || 0,
+      travelDocument: row.travelDocument,
+      travelDocumentVerified: row.travelDocumentVerified,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
 
     return res.status(200).json({
-      message:
-        findTrips.length === 0
-          ? "User found but no trips yet"
-          : "Gotten user profile successfully",
+      message: findTrips.length === 0
+        ? 'User found but no trips yet'
+        : 'Gotten user profile successfully',
       success: true,
       error: false,
-      data,
+      data: {
+        findUser: user,
+        findTrips,
+      },
     });
   } catch (error) {
     return next(error);

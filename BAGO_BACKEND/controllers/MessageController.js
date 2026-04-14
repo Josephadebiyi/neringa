@@ -1,14 +1,19 @@
-import Conversation from '../models/conversationScheme.js';
-import Message from '../models/messageScheme.js';
-import Request from '../models/RequestScheme.js';
-import User from '../models/userScheme.js';
+import {
+  listUserConversations,
+  resolveConversationForUser,
+  listConversationMessages,
+  createConversationMessage,
+  markConversationRead,
+  getUnreadConversationCount,
+  softDeleteConversation,
+  getConversationById,
+} from '../lib/postgres/messaging.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 
 export const messageController = (io) => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    // Join a room for the specific user so we can send private updates (e.g. inbox refresh)
     socket.on('join_user', (userId) => {
       socket.join(userId.toString());
       console.log(`User ${userId} joined their private room ${userId}`);
@@ -21,82 +26,51 @@ export const messageController = (io) => {
 
     socket.on('send_message', async ({ conversationId, senderId, text }) => {
       try {
-        const conversation = await Conversation.findById(conversationId)
-          .populate('sender', 'email firstName lastName pushTokens')
-          .populate('traveler', 'email firstName lastName pushTokens')
-          .populate('request');
+        const result = await createConversationMessage({ conversationId, senderId, text });
 
-        if (!conversation) {
+        if (!result) {
           socket.emit('error', { message: 'Conversation not found' });
           return;
         }
 
-        if (conversation.request && ['completed', 'cancelled', 'rejected'].includes(conversation.request.status)) {
-          socket.emit('error', { message: 'This conversation is closed' });
-          return;
-        }
-
-        const message = new Message({
-          conversation: conversationId,
-          sender: senderId,
-          text,
-        });
-        await message.save();
-
-        conversation.last_message = text;
-        conversation.updated_at = Date.now();
-
-        let recipientId;
-        let senderName = 'Someone';
-
-        if (conversation.sender._id.toString() === senderId.toString()) {
-          conversation.unread_count_traveler += 1;
-          recipientId = conversation.traveler._id;
-          senderName = conversation.sender.firstName || 'Sender';
-        } else if (conversation.traveler._id.toString() === senderId.toString()) {
-          conversation.unread_count_sender += 1;
-          recipientId = conversation.sender._id;
-          senderName = conversation.traveler.firstName || 'Traveler';
-        }
-        await conversation.save();
+        const { conversation, message } = result;
 
         const messageData = {
-          _id: message._id,
-          id: message._id,
+          _id: message.id,
+          id: message.id,
           conversationId,
           text,
           sender: senderId,
-          timestamp: message.timestamp,
+          timestamp: message.createdAt,
         };
 
-        // Emit to the conversation room (for users currently in the chat screen)
         io.to(conversationId.toString()).emit('new_message', messageData);
+        io.to(conversation.sender?._id?.toString()).emit('update_conversation', conversation);
+        io.to(conversation.traveler?._id?.toString()).emit('update_conversation', conversation);
 
-        // Emit to participants' private rooms (to refresh their conversation list/inbox)
-        const updatedConv = await Conversation.findById(conversationId)
-          .populate('sender', 'email firstName lastName image')
-          .populate('traveler', 'email firstName lastName image')
-          .populate({
-            path: 'request',
-            populate: { path: 'package' }
-          });
+        // Send push notification to recipient
+        const recipientId = conversation.sender?._id === senderId
+          ? conversation.traveler?._id
+          : conversation.sender?._id;
+        const senderName = conversation.sender?._id === senderId
+          ? (conversation.sender?.firstName || 'Sender')
+          : (conversation.traveler?.firstName || 'Traveler');
 
-        io.to(conversation.sender._id.toString()).emit('update_conversation', updatedConv);
-        io.to(conversation.traveler._id.toString()).emit('update_conversation', updatedConv);
-
-        // ✅ Send Push Notification to recipient
         if (recipientId) {
           await sendPushNotification(
             recipientId,
             `💬 New message from ${senderName}`,
             text.length > 50 ? text.substring(0, 47) + '...' : text,
             { conversationId, type: 'chat_message' }
-          );
+          ).catch(() => {});
         }
-
       } catch (error) {
-        console.error('Error sending message:', error);
-        socket.emit('error', { message: 'Failed to send message' });
+        console.error('Error sending message (socket):', error);
+        if (error.code === 'CONVERSATION_CLOSED') {
+          socket.emit('error', { message: 'This conversation is closed' });
+        } else {
+          socket.emit('error', { message: 'Failed to send message' });
+        }
       }
     });
 
@@ -104,65 +78,16 @@ export const messageController = (io) => {
       console.log('User disconnected:', socket.id);
     });
   });
-}
+};
 
 // Fetch all conversations for a user
 export const getConversations = async (req, res) => {
   try {
-    const userId = req.user._id;
-
-    // Auto-create missing conversations for active requests (Healing)
-    const orphanedRequests = await Request.find({
-      $or: [{ sender: userId }, { traveler: userId }],
-      status: { $in: ['pending', 'accepted', 'intransit', 'delivering', 'completed'] }
-    });
-
-    for (const reqObj of orphanedRequests) {
-      if (!reqObj.sender || !reqObj.traveler) {
-        continue;
-      }
-
-      const existing = await Conversation.findOne({ request: reqObj._id });
-      if (!existing) {
-        try {
-          await new Conversation({
-            request: reqObj._id,
-            trip: reqObj.trip,
-            sender: reqObj.sender,
-            traveler: reqObj.traveler,
-            last_message: 'Conversation started',
-            updated_at: reqObj.updatedAt || new Date(),
-          }).save();
-          console.log(`✅ Healed conversation for request ${reqObj._id}`);
-        } catch (healErr) {
-          console.error(`❌ Healing failed for request ${reqObj._id}:`, healErr.message);
-        }
-      }
-    }
-
-    const conversations = await Conversation.find({
-      $or: [
-        { sender: userId, deletedBySender: { $ne: true } },
-        { traveler: userId, deletedByTraveler: { $ne: true } }
-      ],
-    })
-      .populate('sender', 'email firstName lastName image')
-      .populate('traveler', 'email firstName lastName image')
-      .populate({
-        path: 'request',
-        populate: { path: 'package' }
-      })
-      .sort({ updated_at: -1 });
-
-    // Keep historical conversations visible even if the request no longer
-    // populates cleanly. Older chats should still remain readable.
-    const validConversations = conversations.filter(
-      conv => conv.sender && conv.traveler,
-    );
-
+    const userId = req.user.id;
+    const conversations = await listUserConversations(userId);
     res.status(200).json({
       success: true,
-      data: { conversations: validConversations },
+      data: { conversations },
       message: 'Conversations fetched successfully',
     });
   } catch (error) {
@@ -175,42 +100,28 @@ export const getConversations = async (req, res) => {
 export const getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    const conversation = await Conversation.findById(conversationId);
+    const conversation = await getConversationById(conversationId, userId);
     if (!conversation) {
       return res.status(404).json({ success: false, message: 'Conversation not found' });
     }
 
-    if (
-      conversation.sender.toString() !== userId.toString() &&
-      conversation.traveler.toString() !== userId.toString()
-    ) {
+    if (conversation.sender?._id !== userId && conversation.traveler?._id !== userId) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
-    const messages = await Message.find({ conversation: conversationId })
-      .populate('sender', 'email firstName lastName image')
-      .sort({ timestamp: 1 });
+    const messages = await listConversationMessages(conversationId);
 
-    // Reset unread count for the current user
-    if (conversation.sender.toString() === userId.toString()) {
-      conversation.unread_count_sender = 0;
-    } else {
-      conversation.unread_count_traveler = 0;
-    }
-    await conversation.save();
+    // Mark as read
+    await markConversationRead(conversationId, userId).catch(() => {});
 
-    // Notify other participan via socket that this conversation was read (to update their UI)
     const io = req.app.get('io');
     if (io) {
-      const populatedConv = await Conversation.findById(conversationId)
-        .populate('sender', 'email firstName lastName image')
-        .populate('traveler', 'email firstName lastName image');
-      
-      io.to(conversationId.toString()).emit('update_conversation', populatedConv);
-      io.to(conversation.sender.toString()).emit('update_conversation', populatedConv);
-      io.to(conversation.traveler.toString()).emit('update_conversation', populatedConv);
+      const updatedConv = await getConversationById(conversationId, userId);
+      io.to(conversationId.toString()).emit('update_conversation', updatedConv);
+      if (conversation.sender?._id) io.to(conversation.sender._id.toString()).emit('update_conversation', updatedConv);
+      if (conversation.traveler?._id) io.to(conversation.traveler._id.toString()).emit('update_conversation', updatedConv);
     }
 
     res.status(200).json({
@@ -226,42 +137,17 @@ export const getMessages = async (req, res) => {
 
 export const resolveConversation = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const { receiverId, requestId, tripId } = req.body;
 
     if (!receiverId) {
       return res.status(400).json({ success: false, message: 'receiverId is required' });
     }
 
-    const query = {
-      $or: [
-        { sender: userId, traveler: receiverId },
-        { sender: receiverId, traveler: userId },
-      ],
-    };
-
-    if (requestId) {
-      query.request = requestId;
-    }
-
-    if (tripId) {
-      query.trip = tripId;
-    }
-
-    const conversation = await Conversation.findOne(query)
-      .sort({ updated_at: -1 })
-      .populate('sender', 'email firstName lastName image')
-      .populate('traveler', 'email firstName lastName image')
-      .populate({
-        path: 'request',
-        populate: { path: 'package' },
-      });
+    const conversation = await resolveConversationForUser({ userId, receiverId, requestId, tripId });
 
     if (!conversation) {
-      return res.status(404).json({
-        success: false,
-        message: 'Conversation not found',
-      });
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
     }
 
     return res.status(200).json({
@@ -271,10 +157,7 @@ export const resolveConversation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error resolving conversation:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error',
-    });
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -283,96 +166,65 @@ export const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const text = req.body.text || req.body.content;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     if (!text) {
       return res.status(400).json({ success: false, message: 'Message text is required' });
     }
 
-    const conversation = await Conversation.findById(conversationId)
-      .populate('sender', 'email firstName lastName')
-      .populate('traveler', 'email firstName lastName')
-      .populate('request');
+    const result = await createConversationMessage({ conversationId, senderId: userId, text });
 
-    if (!conversation) {
+    if (!result) {
       return res.status(404).json({ success: false, message: 'Conversation not found' });
     }
 
-    if (conversation.request && ['completed', 'cancelled', 'rejected'].includes(conversation.request.status)) {
-      return res.status(400).json({ success: false, message: 'This conversation is closed' });
-    }
-
-    if (conversation.sender._id.toString() !== userId.toString() &&
-      conversation.traveler._id.toString() !== userId.toString()) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-
-    const message = new Message({
-      conversation: conversationId,
-      sender: userId,
-      text: text,
-    });
-    await message.save();
-
-    conversation.last_message = text;
-    conversation.updated_at = Date.now();
-
-    let recipientId;
-    let senderName = 'Someone';
-
-    if (conversation.sender._id.toString() === userId.toString()) {
-      conversation.unread_count_traveler += 1;
-      recipientId = conversation.traveler._id;
-      senderName = conversation.sender.firstName || 'Sender';
-    } else {
-      conversation.unread_count_sender += 1;
-      recipientId = conversation.sender._id;
-      senderName = conversation.traveler.firstName || 'Traveler';
-    }
-
-    await conversation.save();
+    const { conversation, message } = result;
 
     const messageData = {
-      _id: message._id,
-      id: message._id,
+      _id: message.id,
+      id: message.id,
       conversationId,
       text,
       sender: userId,
-      timestamp: message.timestamp,
+      timestamp: message.createdAt,
     };
 
     const io = req.app.get('io');
     if (io) {
-      const updatedConv = await Conversation.findById(conversationId)
-        .populate('sender', 'email firstName lastName image')
-        .populate('traveler', 'email firstName lastName image')
-        .populate({
-          path: 'request',
-          populate: { path: 'package' }
-        });
-
       io.to(conversationId.toString()).emit('new_message', messageData);
-      io.to(conversation.sender._id.toString()).emit('update_conversation', updatedConv);
-      io.to(conversation.traveler._id.toString()).emit('update_conversation', updatedConv);
+      if (conversation.sender?._id) io.to(conversation.sender._id.toString()).emit('update_conversation', conversation);
+      if (conversation.traveler?._id) io.to(conversation.traveler._id.toString()).emit('update_conversation', conversation);
     }
 
-    // ✅ Send Push Notification
+    const recipientId = conversation.sender?._id === userId
+      ? conversation.traveler?._id
+      : conversation.sender?._id;
+    const senderName = conversation.sender?._id === userId
+      ? (conversation.sender?.firstName || 'Sender')
+      : (conversation.traveler?.firstName || 'Traveler');
+
     if (recipientId) {
       await sendPushNotification(
         recipientId,
         `💬 New message from ${senderName}`,
         text.length > 50 ? text.substring(0, 47) + '...' : text,
         { conversationId, type: 'chat_message' }
-      );
+      ).catch(() => {});
     }
 
     res.status(201).json({
       success: true,
       data: message,
-      message: 'Message sent'
+      message: 'Message sent',
     });
   } catch (error) {
     console.error('Error in sendMessage REST:', error);
+    if (error.code === 'CONVERSATION_CLOSED') {
+      return res.status(400).json({ success: false, message: 'This conversation is closed' });
+    }
+    if (error.code === 'UNAUTHORIZED') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -380,39 +232,30 @@ export const sendMessage = async (req, res) => {
 export const markMessagesRead = async (req, res) => {
   try {
     const { conversationId } = req.body;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     if (!conversationId) {
       return res.status(400).json({ success: false, message: 'conversationId is required' });
     }
 
-    const conversation = await Conversation.findById(conversationId);
-    if (!conversation) {
-      return res.status(404).json({ success: false, message: 'Conversation not found' });
-    }
-
-    if (conversation.sender.toString() === userId.toString()) {
-      conversation.unread_count_sender = 0;
-    } else if (conversation.traveler.toString() === userId.toString()) {
-      conversation.unread_count_traveler = 0;
-    } else {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-
-    await conversation.save();
+    await markConversationRead(conversationId, userId);
     return res.status(200).json({ success: true, message: 'Messages marked as read' });
   } catch (error) {
     console.error('Error marking messages read:', error);
+    if (error.code === 'UNAUTHORIZED') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
 export const getUnreadCount = async (req, res) => {
   try {
-    // Return 0 — messaging uses Postgres, unread counts tracked separately
+    const userId = req.user.id;
+    const count = await getUnreadConversationCount(userId);
     return res.status(200).json({
       success: true,
-      data: { count: 0 },
+      data: { count },
       message: 'Unread count fetched successfully',
     });
   } catch (error) {
@@ -424,29 +267,18 @@ export const getUnreadCount = async (req, res) => {
 export const deleteConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    const conversation = await Conversation.findById(conversationId).populate('request');
-    if (!conversation) {
-      return res.status(404).json({ success: false, message: 'Conversation not found' });
-    }
-
-    if (conversation.request && !['completed', 'cancelled', 'rejected'].includes(conversation.request.status)) {
-       return res.status(400).json({ success: false, message: 'Can only delete inactive or completed chats' });
-    }
-
-    if (conversation.sender.toString() === userId.toString()) {
-      conversation.deletedBySender = true;
-    } else if (conversation.traveler.toString() === userId.toString()) {
-      conversation.deletedByTraveler = true;
-    } else {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-
-    await conversation.save();
+    await softDeleteConversation(conversationId, userId);
     res.status(200).json({ success: true, message: 'Conversation removed from inbox' });
   } catch (error) {
     console.error('Error deleting conversation:', error);
+    if (error.code === 'INVALID_STATUS') {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    if (error.code === 'UNAUTHORIZED') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

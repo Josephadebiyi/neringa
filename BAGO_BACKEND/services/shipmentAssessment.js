@@ -7,7 +7,7 @@ import {
   ROUTE_RISK,
   DUTY_RATES
 } from '../data/customsRules.js';
-import PricePerKg from '../models/priceperkgSchema.js';
+import { queryOne as pgQueryOne } from '../lib/postgres/db.js';
 
 // Risk weight configuration
 const RISK_WEIGHTS = {
@@ -377,10 +377,14 @@ async function calculatePriceEstimate(trip, item, riskScores) {
   const toCity = (trip.toCity || trip.destination || 'Abuja').trim();
 
   // Try to find custom pricing for this route
-  let pricingRule = await PricePerKg.findOne({
-    from: { $regex: new RegExp(fromCity, 'i') },
-    to: { $regex: new RegExp(toCity, 'i') }
-  });
+  let pricingRule = await pgQueryOne(
+    `SELECT base_price as "basePrice", weight_multiplier as "weightMultiplier",
+            dimension_multiplier as "dimensionMultiplier", currency
+     FROM public.pricing_rules
+     WHERE from_city ILIKE $1 AND to_city ILIKE $2
+     LIMIT 1`,
+    [fromCity, toCity]
+  ).catch(() => null);
 
   // Default values if no custom pricing is found
   const basePriceValue = pricingRule?.basePrice || 15.00;

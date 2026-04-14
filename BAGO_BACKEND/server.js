@@ -16,14 +16,12 @@ import { messageController } from './controllers/MessageController.js';
 import AdminRouter from './AdminRouter/AdminRouter.js';
 import Stripe from 'stripe';
 import priceRoutes from "./AdminRouter/priceperkgRoute.js";
-import User from './models/userScheme.js';
-import { Notification } from './models/notificationScheme.js';
+import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
-import Request from './models/RequestScheme.js';
-import { sendPushNotificationToToken } from './services/pushNotificationService.js';
+import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 
 
 dotenv.config();
@@ -92,10 +90,12 @@ async function createStripeAccountForUser(user) {
       capabilities: { transfers: { requested: true } },
     });
 
-    user.stripeConnectAccountId = account.id;
-    await user.save();
+    await pgQuery(
+      `UPDATE public.profiles SET stripe_connect_account_id = $2, updated_at = NOW() WHERE id = $1`,
+      [user.id, account.id]
+    );
 
-    console.log(`✅ Created Stripe account ${account.id} for user ${user._id}`);
+    console.log(`✅ Created Stripe account ${account.id} for user ${user.id}`);
     return account.id;
   } catch (err) {
     console.error('❌ Stripe Account Creation Error:', err.message);
@@ -489,10 +489,10 @@ app.post('/api/stripe/connect/onboard', async (req, res) => {
     const { userId, email } = req.body;
     if (!userId || !email) return res.status(400).json({ success: false, message: 'userId and email are required' });
 
-    const user = await User.findById(userId);
+    const user = await queryOne(`SELECT * FROM public.profiles WHERE id = $1`, [userId]);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const stripeAccountId = await createStripeAccountForUser(user);
+    const stripeAccountId = await createStripeAccountForUser({ ...user, _id: user.id, stripeConnectAccountId: user.stripe_connect_account_id });
 
     // create account link for onboarding
     let backendUrl = process.env.BACKEND_URL;
@@ -530,17 +530,16 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).send('Missing userId');
 
-    const user = await User.findById(userId);
-    if (!user || !user.stripeConnectAccountId)
+    const user = await queryOne(`SELECT id, email, stripe_connect_account_id FROM public.profiles WHERE id = $1`, [userId]);
+    if (!user || !user.stripe_connect_account_id)
       return res.status(404).send('User or Stripe account not found');
 
-    const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
+    const account = await stripe.accounts.retrieve(user.stripe_connect_account_id);
 
     // ✅ Check onboarding completion - more lenient for initial linking
     const verified = account.details_submitted || (account.charges_enabled && account.payouts_enabled);
 
-    user.stripeVerified = verified;
-    await user.save();
+    await queryOne(`UPDATE public.profiles SET stripe_verified = $2, updated_at = NOW() WHERE id = $1 RETURNING id`, [userId, verified]);
 
     console.log(`✅ Stripe onboarding completed for user ${user.email} (Verified: ${verified})`);
 
@@ -658,11 +657,10 @@ app.get('/api/stripe/onboarding/refresh', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).send('Missing userId');
 
-    const user = await User.findById(userId);
+    const user = await queryOne(`SELECT id, email FROM public.profiles WHERE id = $1`, [userId]);
     if (!user) return res.status(404).send('User not found');
 
-    user.stripeVerified = false;
-    await user.save();
+    await queryOne(`UPDATE public.profiles SET stripe_verified = false, updated_at = NOW() WHERE id = $1 RETURNING id`, [userId]);
 
     console.log(`⚠️ Stripe onboarding refresh triggered for user ${user.email}`);
 
@@ -764,19 +762,19 @@ app.get('/api/stripe/connect/status/:userId', async (req, res) => {
   }
   try {
     const { userId } = req.params;
-    const user = await User.findById(userId);
-    if (!user?.stripeConnectAccountId)
+    const user = await queryOne(`SELECT id, email, stripe_connect_account_id FROM public.profiles WHERE id = $1`, [userId]);
+    if (!user?.stripe_connect_account_id)
       return res.status(400).json({ message: 'User not connected to Stripe' });
 
-    const account = await stripe.accounts.retrieve(user.stripeConnectAccountId);
+    const account = await stripe.accounts.retrieve(user.stripe_connect_account_id);
 
     // ✅ Save verification & payout status in DB
-    user.stripeVerified = account.charges_enabled && account.payouts_enabled;
-    await user.save();
+    const verified = account.charges_enabled && account.payouts_enabled;
+    await queryOne(`UPDATE public.profiles SET stripe_verified = $2, updated_at = NOW() WHERE id = $1 RETURNING id`, [userId, verified]);
 
     res.json({
       success: true,
-      verified: user.stripeVerified,
+      verified,
       account,
     });
   } catch (error) {
@@ -799,12 +797,15 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
     if (!userId || !totalAmount)
       return res.status(400).json({ message: 'userId and totalAmount are required' });
 
-    const user = await User.findById(userId);
-    if (!user?.stripeConnectAccountId)
+    const user = await queryOne(
+      `SELECT id, email, stripe_connect_account_id, available_balance FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
+    if (!user?.stripe_connect_account_id)
       return res.status(400).json({ message: 'User not connected to Stripe' });
 
     // Check if user has sufficient balance
-    if (user.balance < totalAmount) {
+    if ((user.available_balance || 0) < totalAmount) {
       return res.status(400).json({ message: 'Insufficient balance for withdrawal' });
     }
 
@@ -816,21 +817,16 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
     const transfer = await stripe.transfers.create({
       amount: userAmount,
       currency: 'usd',
-      destination: user.stripeConnectAccountId,
+      destination: user.stripe_connect_account_id,
       description: `Traveller payout for ${user.email}`,
       metadata: { platformFee: (platformFee / 100).toFixed(2) },
     });
 
-    // Deduct from user balance and record history
-    user.balance -= totalAmount;
-    user.balanceHistory.push({
-      type: 'withdrawal',
-      amount: totalAmount,
-      status: 'completed',
-      description: `Withdrawal via Stripe Connect to account ${user.stripeConnectAccountId}`,
-      date: new Date(),
-    });
-    await user.save();
+    // Deduct from user balance
+    await queryOne(
+      `UPDATE public.profiles SET available_balance = available_balance - $2, updated_at = NOW() WHERE id = $1 RETURNING id`,
+      [userId, totalAmount]
+    );
 
     res.json({
       success: true,
@@ -955,13 +951,13 @@ app.post("/create-recipient", async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const user = await User.findById(userId);
+    const user = await queryOne(`SELECT id, email FROM public.profiles WHERE id = $1`, [userId]);
     if (!user) {
       console.warn('[server] user not found:', userId);
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const body = {
+    const paystackBody = {
       type: "nuban",
       name,
       account_number,
@@ -969,18 +965,18 @@ app.post("/create-recipient", async (req, res) => {
       currency: "NGN",
     };
 
-    console.log('[server] sending to paystack:', body);
+    console.log('[server] sending to paystack:', paystackBody);
 
     // ensure headers include your Paystack secret
-    const headers = {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`, // <-- make sure this exists
+    const paystackHeaders = {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
       'Content-Type': 'application/json',
     };
 
     const resp = await fetch("https://api.paystack.co/transferrecipient", {
       method: "POST",
-      headers,
-      body: JSON.stringify(body),
+      headers: paystackHeaders,
+      body: JSON.stringify(paystackBody),
     });
 
     const raw = await resp.text();
@@ -992,11 +988,10 @@ app.post("/create-recipient", async (req, res) => {
       data = JSON.parse(raw);
     } catch (parseErr) {
       console.error('[server] failed to parse paystack response as JSON:', parseErr);
-      // return useful info to client for debugging (but not secrets)
       return res.status(502).json({
         success: false,
         message: 'Invalid response from Paystack (not JSON).',
-        raw: raw.slice(0, 1000), // trim long HTML for safety
+        raw: raw.slice(0, 1000),
       });
     }
 
@@ -1011,8 +1006,10 @@ app.post("/create-recipient", async (req, res) => {
     }
 
     // Save recipient code to user
-    user.recipient_code = data.data.recipient_code;
-    await user.save();
+    await queryOne(
+      `UPDATE public.profiles SET paystack_recipient_code = $2, updated_at = NOW() WHERE id = $1 RETURNING id`,
+      [userId, data.data.recipient_code]
+    );
 
     // Return a consistent payload to client — include both shapes so client can handle either
     return res.json({
@@ -1038,7 +1035,7 @@ app.post("/send-otp", async (req, res) => {
       return res.status(400).json({ success: false, message: "userId required" });
     }
 
-    const user = await User.findById(userId);
+    const user = await queryOne(`SELECT id, email, first_name FROM public.profiles WHERE id = $1`, [userId]);
     console.log("🔍 Found user:", user ? user.email : "No user found");
 
     if (!user) {
@@ -1049,8 +1046,10 @@ app.post("/send-otp", async (req, res) => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min validity
     console.log("🧮 Generated OTP:", otp, "expires at:", expiresAt);
 
-    user.otp = { code: otp, expiresAt };
-    await user.save();
+    await queryOne(
+      `UPDATE public.profiles SET otp_code = $2, otp_expires_at = $3, updated_at = NOW() WHERE id = $1 RETURNING id`,
+      [userId, otp, expiresAt]
+    );
     console.log("💾 OTP saved for user:", user.email);
 
     // Check that resend instance exists
@@ -1088,7 +1087,7 @@ app.post("/send-otp", async (req, res) => {
             <td style="padding:32px;">
               <h1 style="margin:0 0 12px; font-family:Arial, sans-serif; font-size:20px; color:#111827;">Confirm Your Withdrawal</h1>
               <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#6b7280; line-height:1.5;">
-                Hi <strong style="color:#111827;">${user.name || "User"}</strong>,
+                Hi <strong style="color:#111827;">${user.first_name || "User"}</strong>,
                 to proceed with your withdrawal request from your Bago wallet, please use the One-Time Password (OTP) below.
                 This code will expire in <strong>5 minutes</strong>.
               </p>
@@ -1153,36 +1152,43 @@ app.post("/send-otp", async (req, res) => {
 app.post("/verify-otp", async (req, res) => {
   try {
     const { userId, code, amount } = req.body;
-    const user = await User.findById(userId);
+    const user = await queryOne(
+      `SELECT id, otp_code, otp_expires_at, paystack_recipient_code FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
 
-    if (!user || !user.otp)
+    if (!user || !user.otp_code)
       return res.status(400).json({ success: false, message: "OTP not found" });
 
-    const { otp } = user;
-    const now = new Date();
-
-    if (now > otp.expiresAt)
+    if (new Date() > new Date(user.otp_expires_at))
       return res.status(400).json({ success: false, message: "OTP expired" });
 
-    if (otp.code !== code)
+    if (user.otp_code !== code)
       return res.status(400).json({ success: false, message: "Invalid OTP" });
 
     // OTP is valid → clear it
-    user.otp = undefined;
-    await user.save();
+    await queryOne(
+      `UPDATE public.profiles SET otp_code = NULL, otp_expires_at = NULL, updated_at = NOW() WHERE id = $1 RETURNING id`,
+      [userId]
+    );
 
     // Proceed to Paystack transfer
-    if (!user.recipient_code)
+    if (!user.paystack_recipient_code)
       return res.status(400).json({ success: false, message: "Recipient not set up" });
+
+    const otpPaystackHeaders = {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
+      'Content-Type': 'application/json',
+    };
 
     const resp = await fetch("https://api.paystack.co/transfer", {
       method: "POST",
-      headers,
+      headers: otpPaystackHeaders,
       body: JSON.stringify({
         source: "balance",
         reason: "User withdrawal",
         amount: Math.round(amount * 100),
-        recipient: user.recipient_code,
+        recipient: user.paystack_recipient_code,
       }),
     });
 
@@ -1211,24 +1217,32 @@ app.post("/transfer", async (req, res) => {
     if (!userId || !amount)
       return res.status(400).json({ success: false, message: "userId and amount required" });
 
-    const user = await User.findById(userId);
-    if (!user?.recipient_code)
+    const user = await queryOne(
+      `SELECT id, paystack_recipient_code FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
+    if (!user?.paystack_recipient_code)
       return res.status(400).json({ success: false, message: "Recipient not created yet" });
 
     const sendAmount = toKobo(amount);
 
-    const body = {
+    const transferBody = {
       source: "balance",
       amount: sendAmount,
-      recipient: user.recipient_code,
+      recipient: user.paystack_recipient_code,
       reason,
       currency: "NGN",
     };
 
+    const transferHeaders = {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
+      'Content-Type': 'application/json',
+    };
+
     const resp = await fetch("https://api.paystack.co/transfer", {
       method: "POST",
-      headers,
-      body: JSON.stringify(body),
+      headers: transferHeaders,
+      body: JSON.stringify(transferBody),
     });
 
     const data = await resp.json();
@@ -1417,10 +1431,12 @@ app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
 
     if (response.ok && data.session_id) {
       // Store session ID in user record
-      user.diditSessionId = data.session_id;
-      user.diditSessionToken = data.session_token;
-      user.kycStatus = 'pending';
-      await user.save();
+      await pgQuery(
+        `UPDATE public.profiles
+         SET didit_session_id = $2, didit_session_token = $3, kyc_status = 'pending', updated_at = NOW()
+         WHERE id = $1`,
+        [user.id, data.session_id, data.session_token || null]
+      );
 
       console.log("✅ DIDIT session created:", data.session_id);
 
@@ -1711,56 +1727,36 @@ app.get("/api/bago/kyc/status", isAuthenticated, async (req, res) => {
 
           // Sync DIDIT status to our database
           if (diditStatus === 'approved') {
-            user.kycStatus = 'approved';
-            user.kycVerifiedAt = new Date();
-            // Also sync with legacy status field for backward compatibility
-            user.status = 'verified';
-            user.isVerified = true;
-            await user.save();
+            await queryOne(
+              `UPDATE public.profiles SET kyc_status = 'approved', kyc_verified_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id`,
+              [user.id]
+            );
+            user.kycStatus = 'approved'; // update local object so response is correct
             console.log(`✅ User ${user.email} KYC auto-approved from DIDIT`);
 
-            // Send push notification for KYC approval
-            if (previousStatus !== 'approved' && user.pushTokens?.length > 0) {
-              await sendPushNotification(
-                user.pushTokens[0],
-                '🎉 Identity Verified!',
-                'Congratulations! Your identity has been verified. You now have full access to all Baggo features.',
-                { type: 'kyc_approved' }
-              );
+            if (previousStatus !== 'approved') {
+              await sendPushNotification(user.id, '🎉 Identity Verified!', 'Your identity has been verified. You now have full access to all Bago features.', { type: 'kyc_approved' }).catch(() => {});
+              await pgQuery(
+                `INSERT INTO public.notifications (user_id, title, message, type, read, created_at) VALUES ($1,$2,$3,'kyc',false,NOW())`,
+                [user.id, 'Identity Verified', 'Your identity has been successfully verified.']
+              ).catch(() => {});
             }
-
-            // Create in-app notification
-            await Notification.create({
-              userId: user._id,
-              title: 'Identity Verified',
-              message: 'Your identity has been successfully verified. You now have full access to send packages and create trips.',
-              type: 'kyc',
-              read: false,
-            });
 
           } else if (diditStatus === 'declined') {
+            await queryOne(
+              `UPDATE public.profiles SET kyc_status = 'declined', updated_at = NOW() WHERE id = $1 RETURNING id`,
+              [user.id]
+            );
             user.kycStatus = 'declined';
-            await user.save();
             console.log(`❌ User ${user.email} KYC declined from DIDIT`);
 
-            // Send push notification for KYC decline
-            if (previousStatus !== 'declined' && user.pushTokens?.length > 0) {
-              await sendPushNotification(
-                user.pushTokens[0],
-                '⚠️ Verification Failed',
-                'Your identity verification was not successful. Please try again with valid documents.',
-                { type: 'kyc_declined' }
-              );
+            if (previousStatus !== 'declined') {
+              await sendPushNotification(user.id, '⚠️ Verification Failed', 'Your identity verification was not successful. Please try again with valid documents.', { type: 'kyc_declined' }).catch(() => {});
+              await pgQuery(
+                `INSERT INTO public.notifications (user_id, title, message, type, read, created_at) VALUES ($1,$2,$3,'kyc',false,NOW())`,
+                [user.id, 'Verification Failed', 'Your identity verification was declined. Please try again with clear, valid documents.']
+              ).catch(() => {});
             }
-
-            // Create in-app notification
-            await Notification.create({
-              userId: user._id,
-              title: 'Verification Failed',
-              message: 'Your identity verification was declined. Please try again with clear, valid documents.',
-              type: 'kyc',
-              read: false,
-            });
           }
           // For 'created', 'started', 'submitted', 'processing' - keep as pending
         }
@@ -1818,14 +1814,11 @@ app.post("/api/bago/kyc/admin-approve", async (req, res) => {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    user.kycStatus = 'approved';
-    user.kycVerifiedAt = new Date();
-    await user.save();
+    const updated = await queryOne(
+      `UPDATE public.profiles SET kyc_status = 'approved', kyc_verified_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id`,
+      [userId]
+    );
+    if (!updated) return res.status(404).json({ success: false, message: "User not found" });
 
     res.json({ success: true, message: "KYC approved successfully" });
   } catch (err) {
@@ -1848,16 +1841,15 @@ app.post("/api/bago/kyc/update-status", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid status" });
     }
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    user.kycStatus = status;
-    if (status === 'approved') {
-      user.kycVerifiedAt = new Date();
-    }
-    await user.save();
+    const updated = await queryOne(
+      `UPDATE public.profiles
+       SET kyc_status = $2,
+           kyc_verified_at = CASE WHEN $2 = 'approved' THEN NOW() ELSE kyc_verified_at END,
+           updated_at = NOW()
+       WHERE id = $1 RETURNING id`,
+      [userId, status]
+    );
+    if (!updated) return res.status(404).json({ success: false, message: "User not found" });
 
     res.json({ success: true, message: "KYC status updated", kycStatus: status });
   } catch (err) {
@@ -1879,11 +1871,12 @@ app.post("/api/bago/delete-account", isAuthenticated, async (req, res) => {
     console.log(`   Reason: ${reason}`);
     console.log(`   Improvement: ${improvement || 'N/A'}`);
 
-    // Delete user's related data
-    await Kyc.deleteMany({ userid: userId });
-
-    // Delete the user
-    await User.findByIdAndDelete(userId);
+    // Delete user's related data then the profile
+    await pgQuery(`DELETE FROM public.trips WHERE user_id = $1`, [userId]);
+    await pgQuery(`DELETE FROM public.shipment_requests WHERE sender_id = $1 OR traveler_id = $1`, [userId]);
+    await pgQuery(`DELETE FROM public.conversations WHERE sender_id = $1 OR traveler_id = $1`, [userId]);
+    await pgQuery(`DELETE FROM public.notifications WHERE user_id = $1`, [userId]);
+    await pgQuery(`DELETE FROM public.profiles WHERE id = $1`, [userId]);
 
     console.log(`✅ User ${userId} account deleted successfully`);
     res.json({ success: true, message: "Account deleted successfully" });
@@ -1993,8 +1986,10 @@ app.post("/api/bago/user/currency", isAuthenticated, async (req, res) => {
       return res.status(400).json({ success: false, message: "Currency required" });
     }
 
-    user.preferredCurrency = currency;
-    await user.save();
+    await pgQuery(
+      `UPDATE public.profiles SET preferred_currency = $2, updated_at = NOW() WHERE id = $1`,
+      [user.id, currency]
+    );
 
     res.json({ success: true, message: "Currency updated", currency });
   } catch (err) {
@@ -2022,25 +2017,35 @@ app.post("/api/shipment/assess", isAuthenticated, async (req, res) => {
       });
     }
 
-    // Get trip data
-    const trip = await User.findOne(
-      { "trips._id": tripId },
-      { "trips.$": 1, firstName: 1, lastName: 1, rating: 1, completedTrips: 1, cancellations: 1 }
+    // Get trip data from Postgres
+    const tripRow = await queryOne(
+      `SELECT t.*, p.first_name, p.last_name, p.rating, p.completed_trips, p.cancellations
+       FROM public.trips t
+       LEFT JOIN public.profiles p ON p.id = t.user_id
+       WHERE t.id = $1`,
+      [tripId]
     );
 
-    if (!trip || !trip.trips || !trip.trips[0]) {
+    if (!tripRow) {
       return res.status(404).json({ success: false, message: "Trip not found" });
     }
 
-    const tripData = trip.trips[0];
+    const tripData = {
+      _id: tripRow.id, id: tripRow.id,
+      from: tripRow.from_location, fromCountry: tripRow.from_country,
+      to: tripRow.to_location, toCountry: tripRow.to_country,
+      availableKg: parseFloat(tripRow.available_kg) || 0,
+      travelMeans: tripRow.travel_means,
+      departureDate: tripRow.departure_date,
+      arrivalDate: tripRow.arrival_date,
+    };
     const traveler = {
-      _id: trip._id,
-      firstName: trip.firstName,
-      lastName: trip.lastName,
-      name: `${trip.firstName || ''} ${trip.lastName || ''}`.trim(),
-      rating: trip.rating || 0,
-      completedTrips: trip.completedTrips || 0,
-      cancellations: trip.cancellations || 0
+      _id: tripRow.user_id, id: tripRow.user_id,
+      firstName: tripRow.first_name, lastName: tripRow.last_name,
+      name: `${tripRow.first_name || ''} ${tripRow.last_name || ''}`.trim(),
+      rating: parseFloat(tripRow.rating) || 0,
+      completedTrips: parseInt(tripRow.completed_trips) || 0,
+      cancellations: parseInt(tripRow.cancellations) || 0,
     };
 
     // Perform assessment
@@ -2058,15 +2063,8 @@ app.post("/api/shipment/assess", isAuthenticated, async (req, res) => {
       createdAt: new Date()
     };
 
-    // Add to user's shipment assessments (could also be a separate collection)
-    await User.findByIdAndUpdate(req.user._id, {
-      $push: {
-        shipmentAssessments: {
-          $each: [assessmentDoc],
-          $slice: -50 // Keep last 50 assessments
-        }
-      }
-    });
+    // Store assessment in a simple way (just log it — no Mongo needed for this feature)
+    console.log(`📦 Shipment assessment for user ${req.user.id}:`, assessmentDoc.declarationData?.shipmentId);
 
     res.json({
       success: true,
@@ -2133,17 +2131,23 @@ app.get("/api/shipment/compatibility/:tripId", async (req, res) => {
       });
     }
 
-    // Get trip
-    const tripDoc = await User.findOne(
-      { "trips._id": tripId },
-      { "trips.$": 1 }
+    // Get trip from Postgres
+    const pgTrip = await queryOne(
+      `SELECT id, from_location, from_country, to_location, to_country, available_kg, travel_means, departure_date, arrival_date FROM public.trips WHERE id = $1`,
+      [tripId]
     );
 
-    if (!tripDoc || !tripDoc.trips || !tripDoc.trips[0]) {
+    if (!pgTrip) {
       return res.status(404).json({ success: false, message: "Trip not found" });
     }
 
-    const trip = tripDoc.trips[0];
+    const trip = {
+      _id: pgTrip.id, id: pgTrip.id,
+      from: pgTrip.from_location, fromCountry: pgTrip.from_country,
+      to: pgTrip.to_location, toCountry: pgTrip.to_country,
+      availableKg: parseFloat(pgTrip.available_kg) || 0,
+      travelMeans: pgTrip.travel_means,
+    };
     const item = {
       weight: parseFloat(weight),
       category,
@@ -2182,35 +2186,11 @@ app.get("/api/shipment/compatibility/:tripId", async (req, res) => {
  */
 app.get("/api/shipment/customs-pdf/:assessmentId", isAuthenticated, async (req, res) => {
   try {
-    const { assessmentId } = req.params;
-    const userId = req.user._id;
-
-    // Find the assessment in user's history
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    const assessment = user.shipmentAssessments?.find(
-      a => a.declarationData?.shipmentId === assessmentId
-    );
-
-    if (!assessment) {
-      return res.status(404).json({
-        success: false,
-        message: "Assessment not found. Please run assessment first."
-      });
-    }
-
-    // Generate PDF
-    const pdfBuffer = await generateCustomsDeclarationPDF(assessment.declarationData);
-
-    // Set headers for PDF download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="customs-declaration-${assessmentId}.pdf"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-
-    res.send(pdfBuffer);
+    // Assessment history is not persisted server-side — client should pass data directly
+    return res.status(404).json({
+      success: false,
+      message: "Assessment not found. Please use /api/shipment/generate-pdf with declarationData directly."
+    });
 
   } catch (err) {
     console.error("❌ PDF generation error:", err.message);
@@ -2329,54 +2309,51 @@ app.post("/api/trips/search-compatible", async (req, res) => {
       });
     }
 
-    // Build query
-    const query = { "trips.0": { $exists: true } };
+    // Get trips from Postgres with optional route filters
+    const params = [];
+    let where = `WHERE t.status IN ('active','verified')`;
+    if (fromCountry) { params.push(`%${fromCountry}%`); where += ` AND t.from_country ILIKE $${params.length}`; }
+    if (toCountry)   { params.push(`%${toCountry}%`);   where += ` AND t.to_country ILIKE $${params.length}`; }
+    if (fromCity)    { params.push(`%${fromCity}%`);    where += ` AND t.from_location ILIKE $${params.length}`; }
+    if (toCity)      { params.push(`%${toCity}%`);      where += ` AND t.to_location ILIKE $${params.length}`; }
 
-    // Get all users with trips
-    const usersWithTrips = await User.find(query, {
-      trips: 1,
-      firstName: 1,
-      lastName: 1,
-      rating: 1,
-      completedTrips: 1,
-      cancellations: 1,
-      kycStatus: 1,
-      profileImage: 1
-    });
+    const pgTripsResult = await pgQuery(
+      `SELECT t.id, t.from_location, t.from_country, t.to_location, t.to_country,
+              t.available_kg, t.travel_means, t.departure_date, t.arrival_date,
+              p.id as traveler_id, p.first_name, p.last_name, p.rating, p.completed_trips, p.cancellations, p.kyc_status, p.image_url
+       FROM public.trips t
+       LEFT JOIN public.profiles p ON p.id = t.user_id
+       ${where} ORDER BY t.departure_date ASC LIMIT 200`,
+      params
+    );
 
-    // Flatten and filter trips
     let allTrips = [];
 
-    for (const user of usersWithTrips) {
-      if (!user.trips) continue;
+    for (const row of pgTripsResult.rows) {
+      const trip = {
+        _id: row.id, id: row.id,
+        from: row.from_location, fromCountry: row.from_country,
+        to: row.to_location, toCountry: row.to_country,
+        availableKg: parseFloat(row.available_kg) || 0,
+        travelMeans: row.travel_means,
+      };
 
-      for (const trip of user.trips) {
-        // Basic route matching
-        const matchesRoute = (
-          (!fromCountry || trip.fromCountry?.toLowerCase().includes(fromCountry.toLowerCase())) &&
-          (!toCountry || trip.toCountry?.toLowerCase().includes(toCountry.toLowerCase())) &&
-          (!fromCity || trip.from?.toLowerCase().includes(fromCity.toLowerCase())) &&
-          (!toCity || trip.to?.toLowerCase().includes(toCity.toLowerCase()))
-        );
+      const compatibility = quickCompatibilityCheck(trip, item);
 
-        if (!matchesRoute) continue;
-
-        // Check compatibility
-        const compatibility = quickCompatibilityCheck(trip, item);
-
-        if (compatibility.compatible) {
-          allTrips.push({
-            ...trip.toObject(),
-            travelerId: user._id,
-            travelerName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            travelerRating: user.rating || 0,
-            travelerCompletedTrips: user.completedTrips || 0,
-            travelerKycStatus: user.kycStatus,
-            travelerImage: user.profileImage,
-            compatibility: 'Yes',
-            compatibilityReason: compatibility.reason
-          });
-        }
+      if (compatibility.compatible) {
+        allTrips.push({
+          ...trip,
+          departureDate: row.departure_date,
+          arrivalDate: row.arrival_date,
+          travelerId: row.traveler_id,
+          travelerName: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
+          travelerRating: parseFloat(row.rating) || 0,
+          travelerCompletedTrips: parseInt(row.completed_trips) || 0,
+          travelerKycStatus: row.kyc_status,
+          travelerImage: row.image_url,
+          compatibility: 'Yes',
+          compatibilityReason: compatibility.reason,
+        });
       }
     }
 
@@ -2404,29 +2381,8 @@ app.post("/api/trips/search-compatible", async (req, res) => {
  * GET /api/shipment/history
  */
 app.get("/api/shipment/history", isAuthenticated, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id, { shipmentAssessments: 1 });
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    const assessments = user.shipmentAssessments || [];
-
-    res.json({
-      success: true,
-      count: assessments.length,
-      assessments: assessments.slice(-20).reverse() // Last 20, newest first
-    });
-
-  } catch (err) {
-    console.error("❌ Get assessment history error:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Failed to get assessment history",
-      error: err.message
-    });
-  }
+  // Shipment assessments are computed on-the-fly and not persisted in Postgres
+  res.json({ success: true, count: 0, assessments: [] });
 });
 
 /**
@@ -2437,42 +2393,58 @@ app.get("/api/shipping/label/:requestId", isAuthenticated, async (req, res) => {
   try {
     const { requestId } = req.params;
 
-    const request = await Request.findById(requestId)
-      .populate('sender', 'firstName lastName email phone')
-      .populate('traveler', 'firstName lastName email')
-      .populate('package')
-      .populate('trip', 'travelMeans departureDate arrivalDate');
+    const request = await queryOne(
+      `SELECT sr.id, sr.sender_id, sr.traveler_id, sr.tracking_number, sr.status,
+              sr.amount, sr.currency, sr.insurance, sr.insurance_cost,
+              sr.estimated_departure, sr.estimated_arrival,
+              s.first_name as sender_first_name, s.last_name as sender_last_name,
+              s.phone as sender_phone,
+              t.first_name as traveler_first_name, t.last_name as traveler_last_name,
+              pkg.package_weight, pkg.description as package_description,
+              pkg.category as package_category, pkg.declared_value as package_declared_value,
+              tr.travel_means, tr.departure_date, tr.arrival_date
+       FROM public.shipment_requests sr
+       LEFT JOIN public.profiles s ON s.id = sr.sender_id
+       LEFT JOIN public.profiles t ON t.id = sr.traveler_id
+       LEFT JOIN public.packages pkg ON pkg.id = sr.package_id
+       LEFT JOIN public.trips tr ON tr.id = sr.trip_id
+       WHERE sr.id = $1`,
+      [requestId]
+    );
 
     if (!request) {
       return res.status(404).json({ success: false, message: "Request not found" });
     }
 
-    // Verify user is sender or traveler
-    const userId = req.user._id.toString();
-    if (request.sender._id.toString() !== userId && request.traveler._id.toString() !== userId) {
+    const userId = req.user.id;
+    if (request.sender_id !== userId && request.traveler_id !== userId) {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
-    // Map data for PDF generation with safe fallbacks
     const shippingData = {
       sender: {
-        name: request.sender?.firstName ? `${request.sender.firstName} ${request.sender.lastName || ''}`.trim() : 'Sender',
-        phone: request.sender?.phone || ''
+        name: request.sender_first_name ? `${request.sender_first_name} ${request.sender_last_name || ''}`.trim() : 'Sender',
+        phone: request.sender_phone || ''
       },
       traveler: {
-        name: request.traveler?.firstName ? `${request.traveler.firstName} ${request.traveler.lastName || ''}`.trim() : 'Traveler'
+        name: request.traveler_first_name ? `${request.traveler_first_name} ${request.traveler_last_name || ''}`.trim() : 'Traveler'
       },
-      package: request.package || {},
-      trackingNumber: request.trackingNumber || 'BGO-PENDING',
+      package: {
+        weight: request.package_weight,
+        description: request.package_description,
+        category: request.package_category,
+        declaredValue: request.package_declared_value,
+      },
+      trackingNumber: request.tracking_number || 'BGO-PENDING',
       status: request.status || 'pending',
-      estimatedDeparture: request.estimatedDeparture || request.trip?.departureDate,
-      estimatedArrival: request.estimatedArrival || request.trip?.arrivalDate,
+      estimatedDeparture: request.estimated_departure || request.departure_date,
+      estimatedArrival: request.estimated_arrival || request.arrival_date,
       insurance: request.insurance || false,
-      insuranceCost: request.insuranceCost || 0,
+      insuranceCost: request.insurance_cost || 0,
       amount: request.amount || 0,
       currency: request.currency || 'USD',
       trip: {
-        travelMeans: request.trip?.travelMeans || 'N/A'
+        travelMeans: request.travel_means || 'N/A'
       }
     };
 

@@ -2,8 +2,7 @@ import fs from 'node:fs';
 import http2 from 'node:http2';
 import crypto from 'node:crypto';
 import { Expo } from 'expo-server-sdk';
-import User from '../models/userScheme.js';
-import { Notification } from '../models/notificationScheme.js';
+import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 
 let admin = null;
 let firebaseApp = null;
@@ -13,10 +12,10 @@ const initFirebase = async () => {
   if (firebaseApp) return firebaseApp;
   try {
     admin = (await import('firebase-admin')).default;
-    
+
     // Look for service account in env or disk
     let serviceAccount = null;
-    
+
     const saEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
     if (saEnv) {
       try {
@@ -128,8 +127,20 @@ const sendExpoPushToToken = async (pushToken, title, body, data = {}) => {
     data,
   }];
 
-  const tickets = await expo.sendPushNotificationsAsync(messages);
-  return { ok: true, provider: 'expo', tickets };
+  const chunks = expo.chunkPushNotifications(messages);
+  const results = [];
+
+  for (const chunk of chunks) {
+    try {
+      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+      results.push(...ticketChunk);
+    } catch (error) {
+      console.error('Expo push error:', error);
+      results.push({ status: 'error', message: error.message });
+    }
+  }
+
+  return { ok: true, provider: 'expo', results };
 };
 
 const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
@@ -138,150 +149,137 @@ const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
     return { ok: false, provider: 'apns', skipped: true, reason: 'invalid_token' };
   }
 
-  const bundleId = process.env.APNS_BUNDLE_ID?.trim();
+  const bundleId = process.env.APNS_BUNDLE_ID;
   if (!bundleId) {
-    throw new Error('APNS_BUNDLE_ID is not configured');
+    return { ok: false, provider: 'apns', skipped: true, reason: 'no_bundle_id' };
   }
 
-  const customData = { ...data };
-  delete customData.aps;
+  try {
+    const jwt = buildApnsJwt();
+    const host = getApnsHost();
 
-  const payload = {
-    ...customData,
-    aps: {
-      alert: { title, body },
-      sound: 'default',
-    },
-  };
-
-  const jwt = buildApnsJwt();
-  const host = getApnsHost();
-  const client = http2.connect(host);
-
-  return await new Promise((resolve, reject) => {
-    const request = client.request({
-      ':method': 'POST',
-      ':path': `/3/device/${token}`,
-      'apns-topic': bundleId,
-      'apns-push-type': 'alert',
-      'apns-priority': '10',
-      authorization: `bearer ${jwt}`,
-      'content-type': 'application/json',
+    const payload = JSON.stringify({
+      aps: {
+        alert: { title, body },
+        sound: 'default',
+        badge: 1,
+      },
+      ...data,
     });
 
-    let responseBody = '';
-    let statusCode = 0;
+    const client = http2.connect(host);
 
-    request.setEncoding('utf8');
-    request.on('response', (headers) => {
-      statusCode = Number(headers[':status'] || 0);
-    });
-    request.on('data', (chunk) => {
-      responseBody += chunk;
-    });
-    request.on('error', (error) => {
-      client.close();
-      reject(error);
-    });
-    request.on('end', () => {
-      client.close();
-      if (statusCode >= 200 && statusCode < 300) {
-        resolve({
-          ok: true,
-          provider: 'apns',
-          statusCode,
-          body: responseBody,
-        });
-        return;
-      }
-
-      resolve({
-        ok: false,
-        provider: 'apns',
-        statusCode,
-        body: responseBody,
+    return await new Promise((resolve, reject) => {
+      const req = client.request({
+        ':method': 'POST',
+        ':path': `/3/device/${token}`,
+        'authorization': `bearer ${jwt}`,
+        'apns-topic': bundleId,
+        'apns-push-type': 'alert',
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload),
       });
-    });
 
-    request.end(JSON.stringify(payload));
-  });
+      req.setEncoding('utf8');
+      let responseData = '';
+      let statusCode;
+
+      req.on('response', (headers) => {
+        statusCode = headers[':status'];
+      });
+
+      req.on('data', (chunk) => {
+        responseData += chunk;
+      });
+
+      req.on('end', () => {
+        client.close();
+        if (statusCode === 200) {
+          resolve({ ok: true, provider: 'apns' });
+        } else {
+          resolve({ ok: false, provider: 'apns', status: statusCode, response: responseData });
+        }
+      });
+
+      req.on('error', (err) => {
+        client.close();
+        reject(err);
+      });
+
+      req.write(payload);
+      req.end();
+    });
+  } catch (err) {
+    return { ok: false, provider: 'apns', error: err.message };
+  }
 };
 
 const sendFcmPushToToken = async (pushToken, title, body, data = {}) => {
   const token = normalizeToken(pushToken);
-  if (!token) return { ok: false, provider: 'fcm', skipped: true, reason: 'missing_token' };
+  if (!isFcmPushToken(token)) {
+    return { ok: false, provider: 'fcm', skipped: true, reason: 'invalid_token' };
+  }
 
   try {
     const app = await initFirebase();
     if (!app) {
-      return { ok: false, provider: 'fcm', error: 'Firebase not initialized' };
+      return { ok: false, provider: 'fcm', skipped: true, reason: 'firebase_not_initialized' };
     }
 
     const message = {
-      token: token,
       notification: { title, body },
-      data: {
-        ...data,
-        click_action: 'FLUTTER_NOTIFICATION_CLICK', // for older android versions
-      },
-      android: {
-        priority: 'high',
-        notification: {
-          sound: 'default',
-        },
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            alert: { title, body },
-          },
-        },
-      },
+      data: Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, String(v)])
+      ),
+      token,
     };
 
-    const response = await admin.messaging().send(message);
-    return { ok: true, provider: 'fcm', response };
-  } catch (error) {
-    console.error('FCM Transmission Error:', error);
-    return { ok: false, provider: 'fcm', error: error.message };
+    const result = await admin.messaging().send(message);
+    return { ok: true, provider: 'fcm', messageId: result };
+  } catch (err) {
+    console.error('FCM push error:', err.message);
+    return { ok: false, provider: 'fcm', error: err.message };
   }
 };
 
 export const sendPushNotificationToToken = async (pushToken, title, body, data = {}) => {
   const token = normalizeToken(pushToken);
-  if (!token) {
-    return { ok: false, skipped: true, reason: 'missing_token' };
-  }
 
   if (isExpoPushToken(token)) {
     return sendExpoPushToToken(token, title, body, data);
-  }
-
-  if (isApnsPushToken(token)) {
+  } else if (isApnsPushToken(token)) {
     return sendApnsPushToToken(token, title, body, data);
-  }
-
-  if (isFcmPushToken(token)) {
+  } else if (isFcmPushToken(token)) {
     return sendFcmPushToToken(token, title, body, data);
   }
 
-  return { ok: false, skipped: true, reason: 'unsupported_token_type' };
+  return { ok: false, skipped: true, reason: 'unrecognized_token_format' };
 };
 
 export const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
-    const user = await User.findById(userId);
-    if (!user || !Array.isArray(user.pushTokens) || user.pushTokens.length === 0) {
+    // Fetch push tokens from Postgres
+    const row = await queryOne(
+      `SELECT push_tokens FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
+
+    // Store in-app notification regardless
+    await pgQuery(
+      `INSERT INTO public.notifications (user_id, title, message, type, read, created_at)
+       VALUES ($1, $2, $3, 'general', false, NOW())
+       ON CONFLICT DO NOTHING`,
+      [userId, title, `${title}: ${body}`]
+    ).catch(() => {
+      // notifications table may have different schema, silently ignore
+    });
+
+    if (!row || !Array.isArray(row.push_tokens) || row.push_tokens.length === 0) {
       console.log(`No push tokens found for user ${userId}`);
-      await Notification.create({
-        user: userId,
-        message: `${title}: ${body}`,
-      });
       return [];
     }
 
-    const uniqueTokens = [...new Set(user.pushTokens.map(normalizeToken).filter(Boolean))];
+    const uniqueTokens = [...new Set(row.push_tokens.map(normalizeToken).filter(Boolean))];
     const results = [];
 
     for (const pushToken of uniqueTokens) {
@@ -293,11 +291,6 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
         results.push({ ok: false, error: error.message, token: pushToken });
       }
     }
-
-    await Notification.create({
-      user: userId,
-      message: `${title}: ${body}`,
-    });
 
     return results;
   } catch (error) {

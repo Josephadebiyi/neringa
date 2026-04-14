@@ -1,6 +1,5 @@
 import cron from "node-cron";
-import Request from "../models/RequestScheme.js";
-import User from "../models/userScheme.js";
+import { query as pgQuery } from "../lib/postgres/db.js";
 
 export const startEscrowAutoRelease = () => {
   // Run every hour
@@ -8,73 +7,52 @@ export const startEscrowAutoRelease = () => {
     console.log("⏰ Running escrow auto-release job...");
 
     try {
-      // 1️⃣ Find completed requests with proof, but sender hasn’t confirmed receipt yet
-      const eligibleRequests = await Request.find({
-        senderProof: { $ne: null },
-        senderReceived: false,
-        status: "completed",
-      });
+      // Find completed requests with proof, sender hasn't confirmed, not yet auto-released
+      const eligible = await pgQuery(
+        `SELECT id, traveler_id, sender_id, amount, updated_at
+         FROM public.shipment_requests
+         WHERE sender_proof_url IS NOT NULL
+           AND (sender_received IS NULL OR sender_received = false)
+           AND (auto_released IS NULL OR auto_released = false)
+           AND status = 'completed'
+           AND (
+             dispute IS NULL
+             OR (dispute->>'status') = 'resolved'
+           )`,
+        []
+      );
 
-      for (const req of eligibleRequests) {
-        // 🧩 Check dispute logic
-        if (req.dispute) {
-          if (req.dispute.status === "open") {
-            console.log(`🚫 Skipping request ${req._id} — dispute still open.`);
-            continue;
-          }
+      const rows = eligible.rows || eligible;
 
-          if (req.dispute.status === "rejected") {
-            console.log(`❌ Request ${req._id} — dispute rejected. Withdrawal not allowed.`);
-            continue;
-          }
+      for (const req of rows) {
+        const lastUpdated = new Date(req.updated_at);
+        const hoursPassed = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
 
-          // ✅ Only allow if dispute is resolved
-          if (req.dispute.status !== "resolved") continue;
-        }
-
-        if (!req.updatedAt) continue;
-
-        const lastUpdated = new Date(req.updatedAt);
-        const now = new Date();
-        const hoursPassed = (now - lastUpdated) / (1000 * 60 * 60);
-
-        // 2️⃣ Wait at least 48 hours since last update
+        // Wait at least 48 hours since last update
         if (hoursPassed < 48) continue;
 
-        // 3️⃣ Proceed with release
-        const traveler = await User.findById(req.traveler);
-        const sender = await User.findById(req.sender);
-        const amount = req.amount || 0;
+        const amount = parseFloat(req.amount) || 0;
+        if (amount <= 0) continue;
 
-        if (!traveler || !sender) continue;
-        if (sender.escrowBalance < amount) continue;
+        // Transfer escrow → traveler available balance
+        await pgQuery(
+          `UPDATE public.profiles
+           SET escrow_balance = GREATEST(0, escrow_balance - $2),
+               available_balance = available_balance + $2,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [req.traveler_id, amount]
+        );
 
-        // 4️⃣ Update balances
-        sender.escrowBalance -= amount; // Amount taken from Sender's escrow (if BAGO holds it there)
-        traveler.balance += amount;
-        traveler.escrowBalance = Math.max(0, (traveler.escrowBalance || 0) - amount);
+        // Mark request as auto-released
+        await pgQuery(
+          `UPDATE public.shipment_requests
+           SET auto_released = true, updated_at = NOW()
+           WHERE id = $1`,
+          [req.id]
+        );
 
-        // 5️⃣ Record history
-        sender.escrowHistory.push({
-          type: "escrow_release",
-          amount,
-          description: "Auto-release after 48 hours of completed request",
-        });
-
-        traveler.balanceHistory.push({
-          type: "deposit",
-          amount,
-          description: "Auto-released escrow after 48-hour completion period",
-        });
-
-        // 6️⃣ Mark request as released
-        req.autoReleased = true;
-
-        await sender.save();
-        await traveler.save();
-        await req.save();
-
-        console.log(`💸 Auto-released ₦${amount} for request ${req._id}`);
+        console.log(`💸 Auto-released $${amount} for request ${req.id}`);
       }
 
       console.log("✅ Escrow auto-release cron finished successfully.");

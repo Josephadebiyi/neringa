@@ -379,12 +379,12 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
-      body: _isCheckingKyc
-          ? const Center(child: AppLoading())
-          : !_kycApproved
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
+      body: Builder(builder: (context) {
+          if (_isCheckingKyc) return const Center(child: AppLoading());
+          if (!_kycApproved) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
