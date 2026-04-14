@@ -16,7 +16,7 @@ export const createPackage = async (req, res) => {
     const toCity = (to_city || req.body.toCity)?.trim();
     const toCountry = (to_country || req.body.toCountry)?.trim();
 
-    const packageWeight = package_details?.package_weight ?? req.body.packageWeight;
+    const packageWeight = package_details?.package_weight ?? req.body.packageWeight ?? req.body.weight;
     const category = (package_details?.category || req.body.category || 'other')?.trim();
     const value = package_details?.package_value ?? req.body.value ?? 0;
 
@@ -139,7 +139,7 @@ export const updatePackage = async (req, res) => {
     set('pickup_address', req.body.pickupAddress);
     set('delivery_address', req.body.deliveryAddress);
 
-    const weightRaw = package_details?.package_weight ?? req.body.packageWeight;
+    const weightRaw = package_details?.package_weight ?? req.body.packageWeight ?? req.body.weight;
     if (weightRaw !== undefined && weightRaw !== null && weightRaw !== '') {
       const w = Number(weightRaw);
       if (Number.isNaN(w) || w <= 0) return res.status(400).json({ message: 'Package weight must be a positive number' });
