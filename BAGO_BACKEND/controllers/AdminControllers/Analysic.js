@@ -3,7 +3,7 @@ import { query } from '../../lib/postgres/db.js';
 export const analystic = async (req, res, next) => {
   try {
     const users = await query(
-      `SELECT id, email, first_name as "firstName", last_name as "lastName",
+      `SELECT id, id as "_id", email, first_name as "firstName", last_name as "lastName",
               phone, image_url as image, role, signup_method as "signupMethod",
               status, country, banned, email_verified as "emailVerified",
               kyc_status as "kycStatus", rating, completed_trips as "completedTrips",

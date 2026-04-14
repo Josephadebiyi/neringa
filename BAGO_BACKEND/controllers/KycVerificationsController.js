@@ -40,8 +40,8 @@ export const Verifykyc = async (req, res, next) => {
       values
     );
 
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json({ message: "User verification status updated", data: user });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    res.status(200).json({ success: true, message: "User verification status updated", data: user });
   } catch (error) {
     next(error);
   }

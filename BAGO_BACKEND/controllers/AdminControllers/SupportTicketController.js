@@ -3,6 +3,8 @@ import { query, queryOne } from '../../lib/postgres/db.js';
 // support_tickets table: id, user_id, subject, status, priority, assigned_to,
 // messages (jsonb array), created_at, updated_at
 
+const withId = (row) => row ? { ...row, _id: row.id } : null;
+
 export const getAllTickets = async (req, res) => {
   try {
     const result = await query(
@@ -12,7 +14,7 @@ export const getAllTickets = async (req, res) => {
        LEFT JOIN public.profiles p ON p.id = t.user_id
        ORDER BY t.created_at DESC`
     );
-    res.status(200).json({ success: true, data: result.rows });
+    res.status(200).json({ success: true, data: result.rows.map(withId) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -29,7 +31,7 @@ export const getTicketById = async (req, res) => {
       [req.params.id]
     );
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
-    res.status(200).json({ success: true, data: ticket });
+    res.status(200).json({ success: true, data: withId(ticket) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -54,7 +56,7 @@ export const updateTicketStatus = async (req, res) => {
        WHERE id = $${idx} RETURNING *`,
       values
     );
-    res.status(200).json({ success: true, data: ticket });
+    res.status(200).json({ success: true, data: withId(ticket) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -75,7 +77,7 @@ export const addTicketMessage = async (req, res) => {
        WHERE id = $3 RETURNING *`,
       [JSON.stringify(messages), newStatus, req.params.id]
     );
-    res.status(200).json({ success: true, data: updated });
+    res.status(200).json({ success: true, data: withId(updated) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -4,7 +4,7 @@ import { query, queryOne } from '../../lib/postgres/db.js';
 export const getAllStaff = async (req, res) => {
   try {
     const result = await query(
-      `SELECT id, username, email, full_name as "fullName", role, is_active as "isActive",
+      `SELECT id, id as "_id", username, email, full_name as "fullName", role, is_active as "isActive",
               created_at as "createdAt" FROM public.admin_users ORDER BY created_at DESC`
     );
     res.status(200).json({ success: true, data: result.rows });
@@ -29,7 +29,7 @@ export const createStaff = async (req, res) => {
     const newStaff = await queryOne(
       `INSERT INTO public.admin_users (username, email, full_name, password_hash, role, is_active)
        VALUES ($1, $2, $3, $4, $5, true)
-       RETURNING id, username, email, full_name as "fullName", role, is_active as "isActive"`,
+       RETURNING id, id as "_id", username, email, full_name as "fullName", role, is_active as "isActive"`,
       [userName, email || `${userName}@bago.com`, fullName || userName, passwordHash, role || 'admin']
     );
 
@@ -64,7 +64,7 @@ export const updateStaff = async (req, res) => {
     values.push(id);
     const staff = await queryOne(
       `UPDATE public.admin_users SET ${fields.join(', ')} WHERE id = $${idx}
-       RETURNING id, username, email, full_name as "fullName", role, is_active as "isActive"`,
+       RETURNING id, id as "_id", username, email, full_name as "fullName", role, is_active as "isActive"`,
       values
     );
 
