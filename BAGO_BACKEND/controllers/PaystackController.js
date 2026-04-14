@@ -264,6 +264,65 @@ export const verifyBankOTP = async (req, res) => {
 };
 
 /**
+ * Withdraw funds via Paystack transfer
+ * POST /api/paystack/withdraw
+ */
+export const withdrawFundsPaystack = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const user = req.user;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid amount is required' });
+    }
+
+    const profile = await queryOne(
+      `SELECT available_balance, paystack_recipient_code FROM public.profiles WHERE id = $1`,
+      [user.id]
+    );
+
+    if (!profile || !profile.paystack_recipient_code) {
+      return res.status(400).json({ success: false, message: 'No bank account linked. Please add a bank account first.' });
+    }
+
+    if ((profile.available_balance || 0) < amount) {
+      return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
+
+    const reference = `BAGO-WD-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+
+    const result = await initiateTransfer({
+      amount,
+      recipient: profile.paystack_recipient_code,
+      reference,
+      reason: 'Bago wallet withdrawal',
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message || 'Transfer failed' });
+    }
+
+    // Deduct from available balance
+    await pgQuery(
+      `UPDATE public.profiles
+       SET available_balance = available_balance - $2, updated_at = NOW()
+       WHERE id = $1`,
+      [user.id, amount]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Withdrawal initiated successfully',
+      reference,
+      data: result.data,
+    });
+  } catch (error) {
+    console.error('Withdraw funds Paystack error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to initiate withdrawal', error: error.message });
+  }
+};
+
+/**
  * Get list of banks
  * GET /api/paystack/banks?country=NG
  */
