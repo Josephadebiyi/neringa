@@ -21,7 +21,7 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || 'Request failed');
+    throw new Error(error.error || error.message || 'Request failed');
   }
 
   return response.json();

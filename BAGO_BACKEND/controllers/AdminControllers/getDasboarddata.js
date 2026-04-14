@@ -7,6 +7,9 @@ export const dashboard = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    const safeQuery = (sql, params) => query(sql, params).catch(() => ({ rows: [] }));
+    const safeQueryOne = (sql, params) => queryOne(sql, params).catch(() => null);
+
     const [
       userCountRow,
       packageCountRow,
@@ -20,20 +23,20 @@ export const dashboard = async (req, res, next) => {
       verifiedUserCountRow,
       packagesResult,
     ] = await Promise.all([
-      queryOne(`select count(*)::int as total from public.profiles`),
-      queryOne(`select count(*)::int as total from public.packages`),
-      queryOne(`select count(*)::int as total from public.shipment_requests`),
-      queryOne(`
+      safeQueryOne(`select count(*)::int as total from public.profiles`),
+      safeQueryOne(`select count(*)::int as total from public.packages`),
+      safeQueryOne(`select count(*)::int as total from public.shipment_requests`),
+      safeQueryOne(`
         select coalesce(sum(insurance_cost), 0) as total_income
         from public.shipment_requests
         where status in ('accepted', 'picked_up', 'in_transit', 'delivered', 'intransit', 'completed')
       `),
-      query(`
+      safeQuery(`
         select status as name, count(*)::int as count
         from public.shipment_requests
         group by status
       `),
-      query(`
+      safeQuery(`
         select
           extract(year from created_at)::int as year,
           extract(month from created_at)::int as month,
@@ -43,21 +46,21 @@ export const dashboard = async (req, res, next) => {
         group by 1, 2
         order by 1, 2
       `, [new Date(new Date().getFullYear() - 1, 0, 1)]),
-      queryOne(`select count(*)::int as total from public.trips where status = 'active'`),
-      queryOne(`select count(*)::int as total from public.profiles where signup_method = 'google'`),
-      queryOne(`select count(*)::int as total from public.profiles where coalesce(kyc_status, 'pending') <> 'approved'`),
-      queryOne(`select count(*)::int as total from public.profiles where kyc_status = 'approved'`),
-      query(`select * from public.packages order by created_at desc limit $1 offset $2`, [limit, skip]),
+      safeQueryOne(`select count(*)::int as total from public.trips where status = 'active'`),
+      safeQueryOne(`select count(*)::int as total from public.profiles where signup_method = 'google'`),
+      safeQueryOne(`select count(*)::int as total from public.profiles where coalesce(kyc_status, 'pending') <> 'approved'`),
+      safeQueryOne(`select count(*)::int as total from public.profiles where kyc_status = 'approved'`),
+      safeQuery(`select * from public.packages order by created_at desc limit $1 offset $2`, [limit, skip]),
     ]);
 
-    const packageIds = packagesResult.rows.map((row) => row.id);
+    const packageIds = (packagesResult.rows || []).map((row) => row.id);
     let requestIds = [];
     if (packageIds.length) {
-      const packageRequests = await query(
+      const packageRequests = await safeQuery(
         `select id from public.shipment_requests where package_id = any($1::uuid[]) order by created_at desc`,
         [packageIds],
       );
-      requestIds = packageRequests.rows.map((row) => row.id);
+      requestIds = (packageRequests.rows || []).map((row) => row.id);
     }
 
     const requests = await Promise.all(requestIds.map((id) => getShipmentRequestById(id)));
