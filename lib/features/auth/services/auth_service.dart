@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -195,7 +196,9 @@ class AuthService {
   }) async {
     try {
       final pushPlatform = (platform ?? (Platform.isIOS ? 'ios' : 'android')).trim();
-      await _api.post(
+      debugPrint('Bago auth_service.registerPushToken: sending token (len=${token.length}) to backend via POST ${ApiConstants.registerPushToken}');
+      
+      final response = await _api.post(
         ApiConstants.registerPushToken,
         data: {
           'token': token,
@@ -205,9 +208,16 @@ class AuthService {
           'provider': pushPlatform,
         },
       );
+      
+      debugPrint('Bago auth_service.registerPushToken: backend response - ${response.statusCode} ${response.data}');
       await _storage.savePushToken(token);
+      debugPrint('Bago auth_service.registerPushToken: token saved to local storage');
     } on DioException catch (e) {
+      debugPrint('Bago auth_service.registerPushToken: DioException - ${e.statusCode} ${e.message} ${e.response?.data}');
       throw ApiService.parseError(e);
+    } catch (e, stack) {
+      debugPrint('Bago auth_service.registerPushToken: Unexpected error - $e\n$stack');
+      rethrow;
     }
   }
 

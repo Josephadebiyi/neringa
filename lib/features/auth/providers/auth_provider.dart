@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/services/storage_service.dart';
@@ -76,7 +77,11 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final result = await _service.login(email: email, password: password);
       state = state.copyWith(user: result.user, isLoading: false);
-      await PushNotificationService.instance.prepareForSignedInUser();
+      
+      // Register push notification token (fire-and-forget, non-blocking)
+      PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
+        debugPrint('Auth login: push notification prep failed: $e');
+      });
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -134,7 +139,11 @@ class AuthNotifier extends Notifier<AuthState> {
         otp: otp,
       );
       state = state.copyWith(user: user, isLoading: false);
-      await PushNotificationService.instance.prepareForSignedInUser();
+      
+      // Register push notification token (fire-and-forget, non-blocking)
+      PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
+        debugPrint('Auth verifyOtp: push notification prep failed: $e');
+      });
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -169,7 +178,11 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final user = await _service.googleSignIn();
       state = state.copyWith(user: user, isLoading: false);
-      await PushNotificationService.instance.prepareForSignedInUser();
+      
+      // Register push notification token (fire-and-forget, non-blocking)
+      PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
+        debugPrint('Auth googleSignIn: push notification prep failed: $e');
+      });
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;

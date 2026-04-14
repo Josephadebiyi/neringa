@@ -74,8 +74,12 @@ class PushNotificationService {
         debugPrint('Bago device token: ${normalized.length} chars');
         _pendingToken = normalized;
         await _registerIfPossible(normalized);
+      } else {
+        debugPrint('Bago device token is empty — will retry via listener');
       }
-    } catch (_) {}
+    } catch (error) {
+      debugPrint('Bago native device token error: $error — will retry via listener');
+    }
   }
 
   Future<void> _registerIfPossible(String token) async {
@@ -90,21 +94,37 @@ class PushNotificationService {
     }
 
     _registering = true;
-    try {
-      debugPrint('Bago push token registering with backend (len=${token.length})');
-      await AuthService.instance.registerPushToken(
-        token,
-        platform: _firebaseAvailable ? 'fcm'
-            : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android'),
-      );
-      debugPrint('Bago push token registered OK');
-      _pendingToken = null;
-    } catch (e) {
-      debugPrint('Bago push token registration failed: $e');
-      _pendingToken = token;
-    } finally {
-      _registering = false;
+    int retries = 0;
+    const maxRetries = 3;
+    
+    while (retries < maxRetries) {
+      try {
+        final platform = _firebaseAvailable ? 'fcm'
+            : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
+        debugPrint('Bago push token registering (attempt ${retries + 1}/$maxRetries, len=${token.length}, user=${currentUser.id}, platform=$platform)');
+        
+        await AuthService.instance.registerPushToken(
+          token,
+          platform: platform,
+        );
+        
+        debugPrint('Bago push token registered successfully to DB');
+        _pendingToken = null;
+        _registering = false;
+        return;
+      } catch (e) {
+        retries++;
+        debugPrint('Bago push token registration attempt $retries failed: $e');
+        
+        if (retries < maxRetries) {
+          await Future<void>.delayed(Duration(seconds: retries * 2));
+        }
+      }
     }
+    
+    debugPrint('Bago push token registration failed after $maxRetries attempts — will retry on token refresh');
+    _pendingToken = token;
+    _registering = false;
   }
 
   Future<void> refreshAfterAuthChange() async {
