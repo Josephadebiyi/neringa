@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class StorageService {
   StorageService._();
@@ -74,11 +75,44 @@ class StorageService {
 
   Future<String?> getRole() => _safeRead(_selectedRoleKey);
 
-  // ---------- Push token ----------------------------------------------
-  Future<void> savePushToken(String token) =>
-      _storage.write(key: _pushTokenKey, value: token);
+  // ---------- Push token (Secure Storage) --------------------------------
+  Future<void> savePushToken(String token) async {
+    if (token.isEmpty) {
+      throw Exception('Cannot save empty push token');
+    }
+    try {
+      await _storage.write(key: _pushTokenKey, value: token);
+      debugPrint('💾 Push token saved to secure storage (${token.length} chars)');
+    } catch (e) {
+      debugPrint('❌ Failed to save push token: $e');
+      rethrow;
+    }
+  }
 
-  Future<String?> getPushToken() => _safeRead(_pushTokenKey);
+  Future<String?> getPushToken() async {
+    try {
+      final token = await _safeRead(_pushTokenKey);
+      if (token != null && token.isNotEmpty) {
+        debugPrint('✅ Push token retrieved from secure storage (${token.length} chars)');
+      } else {
+        debugPrint('⚠️  No push token found in secure storage');
+      }
+      return token;
+    } catch (e) {
+      debugPrint('❌ Failed to read push token: $e');
+      return null;
+    }
+  }
+  
+  /// Clear stored push token (useful when user logs out)
+  Future<void> clearPushToken() async {
+    try {
+      await _storage.delete(key: _pushTokenKey);
+      debugPrint('✅ Push token cleared from secure storage');
+    } catch (e) {
+      debugPrint('❌ Failed to clear push token: $e');
+    }
+  }
 
   // ---------- Backend context ---------------------------------------
   Future<void> saveBackendUrl(String url) =>

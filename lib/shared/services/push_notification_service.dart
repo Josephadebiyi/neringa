@@ -35,15 +35,22 @@ class PushNotificationService {
     await _ensureFirebaseIfPossible();
 
     if (_firebaseAvailable) {
-      await _requestFirebasePermission();
+      debugPrint('🔔 Firebase available — requesting notification permissions forcefully');
+      // Forcefully request and check permission status
+      await _requestFirebasePermissionForcefully();
+      // Get and store the token
       await _syncFirebaseToken();
       return;
     }
 
     // Native fallback (non-Firebase builds)
+    debugPrint('🔔 Firebase not available — using native fallback');
     try {
-      await _channel.invokeMethod<bool>('requestPermission');
-    } catch (_) {}
+      final permissionGranted = await _channel.invokeMethod<bool>('requestPermission');
+      debugPrint('🔔 Native permission result: $permissionGranted');
+    } catch (e) {
+      debugPrint('❌ Native permission request error: $e');
+    }
     await _syncDeviceToken();
   }
 
@@ -176,46 +183,108 @@ class PushNotificationService {
     });
   }
 
-  Future<void> _requestFirebasePermission() async {
+  /// Request permission FORCEFULLY — re-prompt if denied or not determined
+  Future<void> _requestFirebasePermissionForcefully() async {
     if (!_firebaseAvailable) return;
+    
     try {
-      final settings = await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-      debugPrint('Bago notification permission: ${settings.authorizationStatus}');
+      // Check current permission status
+      final currentSettings = await FirebaseMessaging.instance.getNotificationSettings();
+      debugPrint('🔔 Current permission status: ${currentSettings.authorizationStatus}');
+      
+      // If denied or not determined, request permission
+      if (currentSettings.authorizationStatus != AuthorizationStatus.authorized) {
+        debugPrint('🔔 Permission not authorized - requesting now');
+        final settings = await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+          provisional: false,
+        );
+        debugPrint('🔔 Permission request result: ${settings.authorizationStatus}');
+        
+        // If still denied after request, log it clearly
+        if (settings.authorizationStatus == AuthorizationStatus.denied) {
+          debugPrint('⚠️  User DENIED notification permissions');
+        } else if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+          debugPrint('✅ User GRANTED notification permissions');
+        } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+          debugPrint('✅ Provisional notification permissions granted');
+        }
+      } else {
+        debugPrint('✅ Notification permissions already authorized');
+      }
+      
+      // Ensure foreground options are always set
       await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
       );
     } catch (error) {
-      debugPrint('Firebase permission request failed: $error');
+      debugPrint('❌ Firebase permission request error: $error');
     }
+  }
+
+  /// Deprecated - use _requestFirebasePermissionForcefully instead
+  Future<void> _requestFirebasePermission() async {
+    await _requestFirebasePermissionForcefully();
   }
 
   Future<void> _syncFirebaseToken() async {
     if (!_firebaseAvailable) return;
+    debugPrint('🔔 Syncing Firebase FCM token...');
+    
     // Retry up to 5 times — on iOS, APNs may not have issued a token yet
     for (var attempt = 1; attempt <= 5; attempt++) {
       try {
         final token = await FirebaseMessaging.instance.getToken();
         final normalized = token?.trim() ?? '';
-        debugPrint('Bago FCM getToken attempt $attempt: ${normalized.isEmpty ? "EMPTY" : "${normalized.length} chars"}');
-        if (normalized.isNotEmpty) {
-          _pendingToken = normalized;
-          await _registerIfPossible(normalized);
-          return;
+        
+        if (normalized.isEmpty) {
+          debugPrint('⏳ FCM getToken attempt $attempt: EMPTY (will retry)');
+          if (attempt < 5) {
+            await Future<void>.delayed(const Duration(seconds: 3));
+          }
+          continue;
         }
-        // Wait before retrying
-        await Future<void>.delayed(const Duration(seconds: 3));
+        
+        debugPrint('✅ FCM getToken attempt $attempt: ${normalized.length} chars');
+        _pendingToken = normalized;
+        
+        // Validate and store token
+        await _validateAndStoreToken(normalized);
+        await _registerIfPossible(normalized);
+        return;
       } catch (error) {
-        debugPrint('Firebase getToken attempt $attempt failed: $error');
-        await Future<void>.delayed(const Duration(seconds: 3));
+        debugPrint('❌ Firebase getToken attempt $attempt failed: $error');
+        if (attempt < 5) {
+          await Future<void>.delayed(const Duration(seconds: 3));
+        }
       }
     }
-    debugPrint('Bago FCM getToken gave up after 5 attempts — onTokenRefresh will catch it');
+    
+    debugPrint('⚠️  FCM getToken gave up after 5 attempts — will retry on token refresh');
+  }
+  
+  /// Validate and store token in local secure storage
+  Future<void> _validateAndStoreToken(String token) async {
+    if (token.isEmpty) {
+      debugPrint('❌ Cannot store empty token');
+      return;
+    }
+    
+    try {
+      await _storage.savePushToken(token);
+      final stored = await _storage.getPushToken();
+      
+      if (stored == token) {
+        debugPrint('✅ Token stored successfully in secure storage (${token.length} chars)');
+      } else {
+        debugPrint('⚠️  Token storage verification failed - stored: ${stored?.length ?? 0} chars, expected: ${token.length} chars');
+      }
+    } catch (e) {
+      debugPrint('❌ Token storage error: $e');
+    }
   }
 }

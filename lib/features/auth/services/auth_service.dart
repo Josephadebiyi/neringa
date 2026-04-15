@@ -194,9 +194,14 @@ class AuthService {
     String token, {
     String? platform,
   }) async {
+    if (token.isEmpty) {
+      throw Exception('Cannot register empty push token');
+    }
+    
     try {
       final pushPlatform = (platform ?? (Platform.isIOS ? 'ios' : 'android')).trim();
-      debugPrint('Bago auth_service.registerPushToken: sending token (len=${token.length}) to backend via POST ${ApiConstants.registerPushToken}');
+      debugPrint('🔔 Registering token with backend (len=${token.length}, platform=$pushPlatform)');
+      debugPrint('   Endpoint: POST ${ApiConstants.registerPushToken}');
       
       final response = await _api.post(
         ApiConstants.registerPushToken,
@@ -209,14 +214,37 @@ class AuthService {
         },
       );
       
-      debugPrint('Bago auth_service.registerPushToken: backend response - ${response.statusCode} ${response.data}');
-      await _storage.savePushToken(token);
-      debugPrint('Bago auth_service.registerPushToken: token saved to local storage');
+      // Validate response
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Server returned status ${response.statusCode}');
+      }
+      
+      debugPrint('✅ Backend accepted token registration - Status: ${response.statusCode}');
+      debugPrint('   Response: ${response.data}');
+      
+      // Verify local storage
+      final stored = await _storage.getPushToken();
+      if (stored == token) {
+        debugPrint('✅ Token already in local secure storage');
+      } else {
+        // Try to update local storage if different
+        await _storage.savePushToken(token);
+        final verified = await _storage.getPushToken();
+        if (verified == token) {
+          debugPrint('✅ Token updated in local secure storage');
+        } else {
+          debugPrint('⚠️  Local storage mismatch');
+        }
+      }
+      
     } on DioException catch (e) {
-      debugPrint('Bago auth_service.registerPushToken: DioException - ${e.statusCode} ${e.message} ${e.response?.data}');
+      debugPrint('❌ Backend registration failed - Status: ${e.statusCode}');
+      debugPrint('   Message: ${e.message}');
+      debugPrint('   Response: ${e.response?.data}');
       throw ApiService.parseError(e);
     } catch (e, stack) {
-      debugPrint('Bago auth_service.registerPushToken: Unexpected error - $e\n$stack');
+      debugPrint('❌ Token registration error: $e');
+      debugPrint(stack.toString());
       rethrow;
     }
   }

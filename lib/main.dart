@@ -32,32 +32,23 @@ void main() async {
     await Stripe.instance.applySettings();
   }
 
-  // Firebase init — must pass options so FCM token is available
+  // Firebase init — must pass options so FCM token is available (permissions requested after login)
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      debugPrint('Firebase initialized for push notifications.');
+      debugPrint('✅ Firebase initialized for push notifications.');
     }
-    // Request notification permission — fire-and-forget so startup isn't blocked
-    FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    ).then((settings) {
-      debugPrint('Notification permission: ${settings.authorizationStatus}');
-    }).catchError((e) {
-      debugPrint('Notification permission error: $e');
-    });
+    // Set foreground notification options
     await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
       sound: true,
     );
+    debugPrint('✅ Foreground notification options set.');
   } catch (error) {
-    debugPrint('Firebase init/permission skipped: $error');
+    debugPrint('❌ Firebase init skipped: $error');
   }
 
   // Transparent status bar
