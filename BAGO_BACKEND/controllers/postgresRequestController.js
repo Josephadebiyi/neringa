@@ -151,6 +151,10 @@ export async function updateRequestStatus(req, res) {
 
     try {
       const statusLabel = status === 'completed' ? 'delivered' : status;
+      const senderName = updatedRequest.senderName || 'Sender';
+      const travelerName = updatedRequest.travelerName || updatedRequest.carrierName || 'Traveler';
+
+      // In-app notification for sender
       await createNotification({
         userId: updatedRequest.senderId,
         title: 'Shipping update',
@@ -158,6 +162,28 @@ export async function updateRequestStatus(req, res) {
         type: 'shipment_status',
         payload: { requestId, status: statusLabel, location },
       });
+
+      // PUSH notification for sender on key status changes
+      if (['accepted', 'rejected', 'intransit', 'delivering', 'delivered'].includes(statusLabel)) {
+        const pushTitle = statusLabel === 'accepted' ? 'Request Accepted!'
+          : statusLabel === 'rejected' ? 'Request Declined'
+          : `Shipment ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`;
+        const pushBody = statusLabel === 'accepted' ? `${travelerName} accepted your shipment request. You can now chat!`
+          : statusLabel === 'rejected' ? `${travelerName} declined your shipment request.`
+          : `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`;
+        
+        sendPushNotification(updatedRequest.senderId, pushTitle, pushBody, {
+          type: 'shipment_status', requestId, status: statusLabel,
+        }).catch(e => console.warn('Push to sender failed:', e.message));
+      }
+
+      // Notify traveler too when sender confirms delivery
+      if (statusLabel === 'delivered') {
+        sendPushNotification(updatedRequest.travelerId || updatedRequest.carrierId, 'Delivery Confirmed', `${senderName} has been notified. Funds will be released soon.`, {
+          type: 'shipment_status', requestId, status: statusLabel,
+        }).catch(e => console.warn('Push to traveler failed:', e.message));
+      }
+
       await sendShippingStatusEmail(updatedRequest, statusLabel, location);
       if (statusLabel === 'intransit' && updatedRequest.package?.receiverEmail) {
         await sendReceiverShippingStartedEmail(

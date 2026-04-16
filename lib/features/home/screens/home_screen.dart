@@ -221,8 +221,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 if (!isCarrier) ...[
                   const SizedBox(height: 10),
-                  const _LiveFeedback(),
+                  _LiveTripCount(),
                 ],
+
+                // ── Activity (moved up, right under search) ──────────
+                const SizedBox(height: 16),
+                Text(isCarrier ? l10n.tripActivityShort : l10n.recentActivity,
+                    style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800, color: AppColors.black)),
+                const SizedBox(height: 10),
+                _ActivityCard(
+                  isCarrier: isCarrier,
+                  activeCount: tripState.activeTrips.length,
+                  historyCount: tripState.historyTrips.length,
+                  isLoading: isCarrier ? tripState.isLoading : shipmentState.isLoading,
+                  onTap: () => context.go(isCarrier ? '/trips' : '/shipments'),
+                ),
 
                 const SizedBox(height: 20),
 
@@ -251,19 +264,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     separatorBuilder: (_, __) => const SizedBox(width: 14),
                     itemBuilder: (context, i) => _DestinationCard(route: _popularRoutes[i]),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // ── Activity ─────────────────────────────────────────────
-                Text(isCarrier ? l10n.tripActivityShort : l10n.recentActivity,
-                    style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800, color: AppColors.black)),
-                const SizedBox(height: 10),
-                _ActivityCard(
-                  isCarrier: isCarrier,
-                  activeCount: tripState.activeTrips.length,
-                  historyCount: tripState.historyTrips.length,
-                  isLoading: isCarrier ? tripState.isLoading : shipmentState.isLoading,
-                  onTap: () => context.go(isCarrier ? '/trips' : '/shipments'),
                 ),
               ],
             ),
@@ -1117,14 +1117,19 @@ class _ActivityStat extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Live Feedback
+// Live Trip Count — replaces fake "8 travelers" with real DB count
 // ─────────────────────────────────────────────────────────────────────────────
-class _LiveFeedback extends StatelessWidget {
-  const _LiveFeedback();
+class _LiveTripCount extends ConsumerWidget {
+  const _LiveTripCount();
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Pull the count of available trips from the trip provider
+    final tripState = ref.watch(tripProvider);
+    final tripCount = tripState.searchResults.isNotEmpty
+        ? tripState.searchResults.length
+        : tripState.activeTrips.length;
+
     return Row(
       children: [
         Container(
@@ -1134,7 +1139,9 @@ class _LiveFeedback extends StatelessWidget {
         const SizedBox(width: 7),
         Flexible(
           child: Text(
-            l10n.travelersAvailableToday,
+            tripCount > 0
+                ? '$tripCount listed trips available now'
+                : 'Trips available for booking',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.gray500,
               fontWeight: FontWeight.w600,

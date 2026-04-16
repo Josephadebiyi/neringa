@@ -406,17 +406,23 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             items: tabs
                 .asMap()
                 .map(
-                  (index, tab) => MapEntry(
-                    index,
-                    BottomNavigationBarItem(
-                    icon: _NavTabIcon(
-                      icon: tab.icon,
-                      showBadge: (hasPendingTravelerRequests && index == 1) ||
-                          (unreadCount > 0 && index == 2),
+                  (index, tab) {
+                    final isMessagesTab = tab.path == '/messages';
+                    final isRequestsTab = tab.path == '/trips' || tab.path == '/shipments';
+                    final pendingCount = incomingRequests.where((r) => r.status == RequestStatus.pending).length;
+                    return MapEntry(
+                      index,
+                      BottomNavigationBarItem(
+                      icon: _NavTabIcon(
+                        icon: tab.icon,
+                        showBadge: (isRequestsTab && hasPendingTravelerRequests) ||
+                            (isMessagesTab && unreadCount > 0),
+                        badgeCount: isMessagesTab ? unreadCount : (isRequestsTab ? pendingCount : 0),
+                      ),
+                      label: tab.label,
                     ),
-                    label: tab.label,
-                  ),
-                  ),
+                    );
+                  },
                 )
                 .values
                 .toList(),
@@ -431,10 +437,12 @@ class _NavTabIcon extends StatelessWidget {
   const _NavTabIcon({
     required this.icon,
     required this.showBadge,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
   final bool showBadge;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -444,16 +452,30 @@ class _NavTabIcon extends StatelessWidget {
         Icon(icon),
         if (showBadge)
           Positioned(
-            top: -2,
-            right: -6,
+            top: -4,
+            right: -8,
             child: Container(
-              width: 10,
-              height: 10,
+              padding: badgeCount > 0
+                  ? const EdgeInsets.symmetric(horizontal: 5, vertical: 1)
+                  : EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               decoration: BoxDecoration(
                 color: AppColors.error,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.white, width: 1.5),
               ),
+              child: badgeCount > 0
+                  ? Center(
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
       ],
