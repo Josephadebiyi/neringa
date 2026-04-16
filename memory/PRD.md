@@ -45,7 +45,13 @@ User reported multiple issues across Flutter app + Node.js backend:
 - APNs token fallback, background message handler
 - Android Firebase setup replicated from iOS
 
-### Session 3 - Feature Fixes
+### Session 4 - Escrow Cron Bug Fix + Status Enum
+- **Root cause**: Postgres `request_status` enum doesn't include `'delivered'` — only `'completed'`. Code was mapping `completed` → `delivered` (backwards!) and writing invalid enum to DB
+- Fixed `shipping.js`: `'delivered'` and `'completed'` both map to `'completed'` in DB
+- Fixed `escrowCron.js`: Queries `status = 'completed'` instead of `'delivered'`
+- Fixed `postgresRequestController.js`: Maps incoming `'delivered'` → `'completed'` before DB write
+- Fixed Flutter `RequestStatus` enum: Added `intransit`, `delivering`, `cancelled` values (were missing → all mapped to `pending`)
+- User-facing labels still show "Delivered" — only DB storage uses `'completed'`
 - **Phone change routes**: Added `POST /user/request-phone-change` + `POST /user/verify-phone-change` (were completely missing)
 - **Escrow hold on acceptance**: When traveler accepts, sender's funds held in escrow + wallet transaction logged
 - **KG deduction on acceptance**: Trip `available_kg` decremented by package weight

@@ -552,14 +552,17 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       throw error;
     }
 
-    const normalizedStatus = status === 'completed' ? 'delivered' : status;
+    // Map status to valid Postgres enum values
+    // The DB enum has: pending, accepted, rejected, intransit, delivering, completed, cancelled
+    // 'delivered' and 'completed' both map to 'completed' in the DB
+    const normalizedStatus = (status === 'completed' || status === 'delivered') ? 'completed' : status;
 
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
-    if (['intransit', 'delivering', 'delivered'].includes(normalizedStatus)) {
+    if (['intransit', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
       movementTracking = [
         ...movementTracking,
         {
-          status: normalizedStatus,
+          status: status === 'delivered' ? 'delivered' : normalizedStatus,
           location: location || '',
           notes: notes || '',
           timestamp: new Date().toISOString(),

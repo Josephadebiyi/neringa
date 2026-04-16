@@ -137,8 +137,10 @@ export async function RequestPackage(req, res) {
 export async function updateRequestStatus(req, res) {
   try {
     const { requestId } = req.params;
-    const { status, location, notes } = req.body;
-    const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'delivered', 'completed', 'cancelled'];
+    const { status: rawStatus, location, notes } = req.body;
+    // Map 'delivered' to 'completed' since the DB enum uses 'completed'
+    const status = rawStatus === 'delivered' ? 'completed' : rawStatus;
+    const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
@@ -150,7 +152,8 @@ export async function updateRequestStatus(req, res) {
     }
 
     try {
-      const statusLabel = status === 'completed' ? 'delivered' : status;
+      // For user-facing labels, show 'delivered' when rawStatus was 'delivered'
+      const statusLabel = rawStatus === 'delivered' ? 'delivered' : status;
       const senderName = updatedRequest.senderName || 'Sender';
       const travelerName = updatedRequest.travelerName || updatedRequest.carrierName || 'Traveler';
 
