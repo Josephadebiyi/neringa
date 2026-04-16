@@ -574,8 +574,26 @@ export async function savePushToken(req, res) {
     const { token, deviceToken, pushToken } = req.body;
     const resolvedToken = (token || deviceToken || pushToken || '').trim();
     if (!resolvedToken) return res.status(400).json({ success: false, message: 'Token is required' });
-    await addPushToken(req.user.id || req.user._id, resolvedToken);
-    res.json({ success: true, message: 'Push token registered successfully' });
+    
+    const userId = req.user.id || req.user._id;
+    console.log(`🔔 savePushToken: user=${userId}, tokenLen=${resolvedToken.length}, prefix=${resolvedToken.substring(0, 30)}...`);
+    
+    await addPushToken(userId, resolvedToken);
+    
+    // Verify it was stored
+    const { queryOne: qOne } = await import('../lib/postgres/db.js');
+    const row = await qOne(`SELECT push_tokens FROM public.profiles WHERE id = $1`, [userId]);
+    const storedTokens = row?.push_tokens || [];
+    const isStored = storedTokens.includes(resolvedToken);
+    
+    console.log(`🔔 Token stored: ${isStored}, total tokens for user: ${storedTokens.length}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Push token registered successfully',
+      stored: isStored,
+      totalTokens: storedTokens.length,
+    });
   } catch (error) {
     console.error('savePushToken error:', error);
     res.status(500).json({ success: false, message: 'Failed to save push token' });

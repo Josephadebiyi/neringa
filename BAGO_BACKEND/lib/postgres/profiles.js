@@ -253,17 +253,27 @@ export async function confirmPendingEmailChange(userId, email) {
 }
 
 export async function addPushToken(userId, token) {
-  await query(
+  const result = await query(
     `
       update public.profiles
       set push_tokens = case
         when $2 = any(coalesce(push_tokens, '{}')) then coalesce(push_tokens, '{}')
         else array_append(coalesce(push_tokens, '{}'), $2)
-      end
+      end,
+      updated_at = timezone('utc', now())
       where id = $1
+      returning id, array_length(push_tokens, 1) as token_count
     `,
     [userId, token],
   );
+  
+  if (result.rows.length === 0) {
+    console.warn(`⚠️ addPushToken: No profile found for user ${userId}`);
+  } else {
+    console.log(`✅ addPushToken: user=${userId}, tokenCount=${result.rows[0].token_count}`);
+  }
+  
+  return result.rows[0] || null;
 }
 
 export async function updatePreferredCurrency(userId, currency, paymentGateway) {
