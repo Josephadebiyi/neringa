@@ -32,11 +32,17 @@ async function apiCall(url: string, options: RequestInit = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(url.trim(), {
-    ...options,
-    credentials: 'include',
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url.trim(), {
+      ...options,
+      credentials: 'include',
+      headers,
+    });
+  } catch (networkError) {
+    // Network error (backend unreachable, DNS failure, CORS blocked)
+    throw new Error('Unable to reach the server. Please check if the backend is running and try again.');
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -52,12 +58,17 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
 // Auth
 export async function adminLogin(credentials: any) {
-  const response = await fetch(`${ADMIN_API}/AdminLogin`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(credentials),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${ADMIN_API}/AdminLogin`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(credentials),
+    });
+  } catch (networkError) {
+    throw new Error('Unable to reach the server. Please check if the backend is running.');
+  }
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || data.message || 'Login failed');

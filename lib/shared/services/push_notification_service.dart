@@ -102,13 +102,13 @@ class PushNotificationService {
 
     _registering = true;
     int retries = 0;
-    const maxRetries = 3;
+    const maxRetries = 5;
     
     while (retries < maxRetries) {
       try {
         final platform = _firebaseAvailable ? 'fcm'
             : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
-        debugPrint('Bago push token registering (attempt ${retries + 1}/$maxRetries, len=${token.length}, user=${currentUser.id}, platform=$platform)');
+        debugPrint('Bago push token registering (attempt ${retries + 1}/$maxRetries, len=${token.length}, platform=$platform)');
         
         await AuthService.instance.registerPushToken(
           token,
@@ -124,12 +124,13 @@ class PushNotificationService {
         debugPrint('Bago push token registration attempt $retries failed: $e');
         
         if (retries < maxRetries) {
+          // Exponential backoff: 2s, 4s, 6s, 8s
           await Future<void>.delayed(Duration(seconds: retries * 2));
         }
       }
     }
     
-    debugPrint('Bago push token registration failed after $maxRetries attempts — will retry on token refresh');
+    debugPrint('Bago push token registration failed after $maxRetries attempts — will retry on next app launch or token refresh');
     _pendingToken = token;
     _registering = false;
   }

@@ -887,10 +887,47 @@ app.post('/api/bago/register-token', async (req, res) => {
   try {
     const { addPushToken } = await import('./lib/postgres/profiles.js');
     await addPushToken(userId, resolvedToken);
+    console.log(`✅ Push token registered for user ${userId} (len=${resolvedToken.length})`);
     res.json({ success: true, message: 'Token registered successfully' });
   } catch (err) {
     console.error('Register token error:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ✅ Push notification diagnostic endpoint
+app.get('/api/bago/push-debug/:userId', isAuthenticated, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const row = await queryOne(
+      `SELECT id, email, push_tokens, communication_prefs FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
+    
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const tokens = row.push_tokens || [];
+    const tokenInfo = tokens.map(t => ({
+      length: t?.length || 0,
+      prefix: t?.substring(0, 20) + '...',
+      isExpo: /^ExponentPushToken/.test(t || ''),
+      isApns: /^[0-9a-fA-F]{64}$/.test((t || '').trim()),
+      isFcm: (t || '').length > 50 && !/^ExponentPushToken/.test(t || '') && !/^[0-9a-fA-F]{64}$/.test((t || '').trim()),
+    }));
+
+    res.json({
+      success: true,
+      userId: row.id,
+      email: row.email,
+      tokenCount: tokens.length,
+      tokens: tokenInfo,
+      communicationPrefs: row.communication_prefs,
+    });
+  } catch (err) {
+    console.error('Push debug error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

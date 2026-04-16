@@ -29,10 +29,18 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.deracali.boltexponativewind',
   );
 
-  // Android placeholder — update with your google-services.json values
+  // Android — uses same Firebase project. The appId MUST match the value from
+  // google-services.json (mobilesdk_app_id for com.deracali.boltexponativewind).
+  // If you regenerate google-services.json, update this value accordingly.
+  //
+  // HOW TO GET THE CORRECT ANDROID APP ID:
+  // 1. Go to Firebase Console → Project Settings → Your Apps
+  // 2. Find the Android app with package name "com.deracali.boltexponativewind"
+  // 3. Copy the "App ID" value (format: 1:908126616288:android:XXXXXXXXXXXX)
+  // 4. Also download google-services.json and place in android/app/
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCfEHIrHZmO4u3S5Murc6bKlVZEOYCkpW8',
-    appId: '1:908126616288:android:placeholder',
+    appId: '1:908126616288:android:a3b48ea93890202a086e85',
     messagingSenderId: '908126616288',
     projectId: 'bago-broadcast',
     storageBucket: 'bago-broadcast.firebasestorage.app',

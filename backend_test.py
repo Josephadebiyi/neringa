@@ -2,6 +2,7 @@
 """
 Comprehensive Backend Test for Bago Flutter App
 Tests all the reported fixes and critical functionality
+Includes static code verification for Flutter and Admin fixes
 """
 
 import requests
@@ -294,11 +295,235 @@ class BagoBackendTester:
         except Exception as e:
             self.log_test("Security Headers", False, f"Error: {str(e)}")
     
+    def test_static_code_verification(self):
+        """Test: Static code verification for all reported fixes"""
+        print("\n🔍 Testing Static Code Verification...")
+        
+        # 1. Verify server.js syntax
+        try:
+            result = subprocess.run(
+                ['node', '--check', '/app/BAGO_BACKEND/server.js'],
+                capture_output=True,
+                text=True,
+                cwd='/app/BAGO_BACKEND'
+            )
+            if result.returncode == 0:
+                self.log_test("Server.js Syntax Check", True, "No syntax errors")
+            else:
+                self.log_test("Server.js Syntax Check", False, f"Syntax error: {result.stderr}", True)
+        except Exception as e:
+            self.log_test("Server.js Syntax Check", False, f"Error: {str(e)}", True)
+        
+        # 2. Verify pushNotificationService.js has multiple file paths
+        try:
+            with open('/app/BAGO_BACKEND/services/pushNotificationService.js', 'r') as f:
+                content = f.read()
+            
+            required_paths = [
+                'process.env.FIREBASE_SERVICE_ACCOUNT_PATH',
+                './firebase-service-account.json',
+                '../firebase-service-account.json',
+                '/etc/secrets/firebase-service-account.json'
+            ]
+            
+            found_paths = [path for path in required_paths if path in content]
+            
+            if len(found_paths) >= 3:
+                self.log_test("Firebase Multiple File Paths", True, f"Found {len(found_paths)} paths")
+            else:
+                self.log_test("Firebase Multiple File Paths", False, f"Only found {len(found_paths)} paths")
+        except Exception as e:
+            self.log_test("Firebase Multiple File Paths", False, f"Error: {str(e)}")
+        
+        # 3. Verify push-debug endpoint exists
+        try:
+            with open('/app/BAGO_BACKEND/server.js', 'r') as f:
+                content = f.read()
+            
+            if '/api/bago/push-debug' in content:
+                self.log_test("Push Debug Endpoint", True, "Endpoint found in server.js")
+            else:
+                self.log_test("Push Debug Endpoint", False, "Endpoint not found in server.js")
+        except Exception as e:
+            self.log_test("Push Debug Endpoint", False, f"Error: {str(e)}")
+        
+        # 4. Verify refresh-token endpoint in userRouters.js
+        try:
+            with open('/app/BAGO_BACKEND/routers/userRouters.js', 'r') as f:
+                content = f.read()
+            
+            if '/refresh-token' in content and 'userRouter.post' in content:
+                self.log_test("Refresh Token Endpoint", True, "Found in userRouters.js")
+            else:
+                self.log_test("Refresh Token Endpoint", False, "Not found in userRouters.js")
+        except Exception as e:
+            self.log_test("Refresh Token Endpoint", False, f"Error: {str(e)}")
+        
+        # 5. Verify pg and @supabase/supabase-js in package.json
+        try:
+            with open('/app/BAGO_BACKEND/package.json', 'r') as f:
+                package_data = json.load(f)
+            
+            dependencies = package_data.get('dependencies', {})
+            required_deps = ['pg', '@supabase/supabase-js']
+            missing_deps = [dep for dep in required_deps if dep not in dependencies]
+            
+            if not missing_deps:
+                self.log_test("Required Dependencies", True, f"Found: {required_deps}")
+            else:
+                self.log_test("Required Dependencies", False, f"Missing: {missing_deps}")
+        except Exception as e:
+            self.log_test("Required Dependencies", False, f"Error: {str(e)}")
+    
+    def test_admin_fixes(self):
+        """Test: Admin panel fixes verification"""
+        print("\n🔍 Testing Admin Panel Fixes...")
+        
+        # 1. Verify ErrorBoundary.tsx exists
+        try:
+            error_boundary_path = "/app/ADMIN_NEW/src/react-app/components/ErrorBoundary.tsx"
+            if os.path.exists(error_boundary_path):
+                self.log_test("ErrorBoundary Component", True, "Component file exists")
+            else:
+                self.log_test("ErrorBoundary Component", False, "Component file not found")
+        except Exception as e:
+            self.log_test("ErrorBoundary Component", False, f"Error: {str(e)}")
+        
+        # 2. Verify main.tsx wraps App with ErrorBoundary
+        try:
+            with open('/app/ADMIN_NEW/src/react-app/main.tsx', 'r') as f:
+                content = f.read()
+            
+            if '<ErrorBoundary>' in content and '</ErrorBoundary>' in content:
+                self.log_test("ErrorBoundary Wrapper", True, "App wrapped with ErrorBoundary")
+            else:
+                self.log_test("ErrorBoundary Wrapper", False, "App not wrapped with ErrorBoundary")
+        except Exception as e:
+            self.log_test("ErrorBoundary Wrapper", False, f"Error: {str(e)}")
+        
+        # 3. Verify api.ts has network error handling
+        try:
+            with open('/app/ADMIN_NEW/src/react-app/services/api.ts', 'r') as f:
+                content = f.read()
+            
+            # Check for try/catch in apiCall function
+            apiCall_has_try_catch = 'try {' in content and 'catch (networkError)' in content
+            
+            # Check for try/catch in adminLogin function  
+            adminLogin_has_try_catch = 'adminLogin' in content and 'try {' in content and 'catch (networkError)' in content
+            
+            if apiCall_has_try_catch and adminLogin_has_try_catch:
+                self.log_test("API Network Error Handling", True, "Both apiCall and adminLogin have try/catch")
+            else:
+                self.log_test("API Network Error Handling", False, f"Missing try/catch - apiCall: {apiCall_has_try_catch}, adminLogin: {adminLogin_has_try_catch}")
+        except Exception as e:
+            self.log_test("API Network Error Handling", False, f"Error: {str(e)}")
+    
+    def test_flutter_fixes(self):
+        """Test: Flutter fixes verification"""
+        print("\n🔍 Testing Flutter Fixes...")
+        
+        # 1. Verify firebase_options.dart has real Android appId
+        try:
+            with open('/app/lib/firebase_options.dart', 'r') as f:
+                content = f.read()
+            
+            # Check for real appId (not placeholder)
+            if 'appId:' in content and 'com.example' not in content and '1:908126616288:android:' in content:
+                self.log_test("Firebase Android AppId", True, "Real Android appId found")
+            else:
+                self.log_test("Firebase Android AppId", False, "Placeholder or missing Android appId")
+        except Exception as e:
+            self.log_test("Firebase Android AppId", False, f"Error: {str(e)}")
+        
+        # 2. Verify settings.gradle.kts has google-services plugin
+        try:
+            with open('/app/android/settings.gradle.kts', 'r') as f:
+                content = f.read()
+            
+            if 'com.google.gms.google-services' in content:
+                self.log_test("Settings Gradle Google Services", True, "Plugin found in settings.gradle.kts")
+            else:
+                self.log_test("Settings Gradle Google Services", False, "Plugin not found in settings.gradle.kts")
+        except Exception as e:
+            self.log_test("Settings Gradle Google Services", False, f"Error: {str(e)}")
+        
+        # 3. Verify app/build.gradle.kts has google-services plugin
+        try:
+            with open('/app/android/app/build.gradle.kts', 'r') as f:
+                content = f.read()
+            
+            if 'com.google.gms.google-services' in content:
+                self.log_test("App Gradle Google Services", True, "Plugin found in app/build.gradle.kts")
+            else:
+                self.log_test("App Gradle Google Services", False, "Plugin not found in app/build.gradle.kts")
+        except Exception as e:
+            self.log_test("App Gradle Google Services", False, f"Error: {str(e)}")
+        
+        # 4. Verify AndroidManifest.xml has FCM metadata
+        try:
+            with open('/app/android/app/src/main/AndroidManifest.xml', 'r') as f:
+                content = f.read()
+            
+            required_metadata = [
+                'com.google.firebase.messaging.default_notification_channel_id',
+                'com.google.firebase.messaging.default_notification_icon'
+            ]
+            
+            found_metadata = [meta for meta in required_metadata if meta in content]
+            
+            if len(found_metadata) == len(required_metadata):
+                self.log_test("AndroidManifest FCM Metadata", True, f"All FCM metadata found")
+            else:
+                missing = set(required_metadata) - set(found_metadata)
+                self.log_test("AndroidManifest FCM Metadata", False, f"Missing: {missing}")
+        except Exception as e:
+            self.log_test("AndroidManifest FCM Metadata", False, f"Error: {str(e)}")
+        
+        # 5. Verify push_notification_service.dart has 5 retries
+        try:
+            with open('/app/lib/shared/services/push_notification_service.dart', 'r') as f:
+                content = f.read()
+            
+            if 'maxRetries = 5' in content or 'maxRetries: 5' in content:
+                self.log_test("Push Service 5 Retries", True, "5 retries found in push service")
+            else:
+                self.log_test("Push Service 5 Retries", False, "5 retries not found in push service")
+        except Exception as e:
+            self.log_test("Push Service 5 Retries", False, f"Error: {str(e)}")
+        
+        # 6. Verify socket_io_client in pubspec.yaml
+        try:
+            with open('/app/pubspec.yaml', 'r') as f:
+                content = f.read()
+            
+            if 'socket_io_client:' in content:
+                self.log_test("Socket IO Client Dependency", True, "socket_io_client found in pubspec.yaml")
+            else:
+                self.log_test("Socket IO Client Dependency", False, "socket_io_client not found in pubspec.yaml")
+        except Exception as e:
+            self.log_test("Socket IO Client Dependency", False, f"Error: {str(e)}")
+        
+        # 7. Verify socket_service.dart exists
+        try:
+            socket_service_path = "/app/lib/shared/services/socket_service.dart"
+            if os.path.exists(socket_service_path):
+                self.log_test("Socket Service File", True, "socket_service.dart exists")
+            else:
+                self.log_test("Socket Service File", False, "socket_service.dart not found")
+        except Exception as e:
+            self.log_test("Socket Service File", False, f"Error: {str(e)}")
+    
     def run_all_tests(self):
         """Run all tests and generate report"""
         print("🚀 Starting Bago Backend Comprehensive Test Suite")
         print(f"📍 Testing backend at: {self.base_url}")
         print("=" * 60)
+        
+        # Run static code verification first
+        self.test_static_code_verification()
+        self.test_admin_fixes()
+        self.test_flutter_fixes()
         
         # Run all test categories
         self.test_server_startup()
