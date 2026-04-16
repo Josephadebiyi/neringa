@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../services/message_service.dart';
+import '../../../shared/services/socket_service.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -60,6 +62,7 @@ class MessageState {
 // ---------------------------------------------------------------------------
 class MessageNotifier extends Notifier<MessageState> {
   late final MessageService _service;
+  bool _socketListenerAttached = false;
 
   @override
   MessageState build() {
@@ -98,8 +101,75 @@ class MessageNotifier extends Notifier<MessageState> {
       final msgs = await _service.getMessages(conversationId);
       state = state.copyWith(messages: msgs, isLoading: false);
       _service.markAsRead(conversationId);
+
+      // Join socket room for real-time updates
+      SocketService.instance.joinConversation(conversationId);
+      _attachSocketListener();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Attach socket listener for incoming messages (only once)
+  void _attachSocketListener() {
+    if (_socketListenerAttached) return;
+    _socketListenerAttached = true;
+
+    SocketService.instance.addMessageListener(_onSocketMessage);
+    SocketService.instance.addConversationListener(_onConversationUpdate);
+  }
+
+  /// Detach socket listeners when leaving conversation
+  void detachSocketListener() {
+    if (!_socketListenerAttached) return;
+    _socketListenerAttached = false;
+
+    SocketService.instance.removeMessageListener(_onSocketMessage);
+    SocketService.instance.removeConversationListener(_onConversationUpdate);
+    SocketService.instance.leaveConversation();
+  }
+
+  /// Handle real-time incoming message from socket
+  void _onSocketMessage(Map<String, dynamic> data) {
+    try {
+      final msgConvId = data['conversationId']?.toString() ?? '';
+      if (msgConvId != state.activeConversationId) return;
+
+      final msgId = data['id']?.toString() ?? data['_id']?.toString() ?? '';
+      
+      // Deduplicate: skip if message already exists
+      if (msgId.isNotEmpty && state.messages.any((m) => m.id == msgId)) {
+        return;
+      }
+
+      // Build a MessageModel from socket data
+      final socketMsg = MessageModel.fromSocketData(data);
+      
+      state = state.copyWith(
+        messages: [...state.messages, socketMsg],
+      );
+      debugPrint('MessageNotifier: Real-time message added to UI');
+    } catch (e) {
+      debugPrint('MessageNotifier: Error processing socket message: $e');
+    }
+  }
+
+  /// Handle conversation update from socket  
+  void _onConversationUpdate(Map<String, dynamic> data) {
+    try {
+      final convId = data['id']?.toString() ?? data['_id']?.toString() ?? '';
+      if (convId.isEmpty) return;
+
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+      final updated = ConversationModel.fromJson(data, currentUserId);
+      
+      final conversations = state.conversations.map((c) {
+        return c.id == convId ? updated : c;
+      }).toList();
+      
+      state = state.copyWith(conversations: conversations);
+    } catch (e) {
+      debugPrint('MessageNotifier: Error processing conversation update: $e');
     }
   }
 
@@ -107,26 +177,53 @@ class MessageNotifier extends Notifier<MessageState> {
     final convId = state.activeConversationId;
     if (convId == null) return;
 
-    state = state.copyWith(isSending: true, clearError: true);
+    final currentUserId = ref.read(authProvider).user?.id ?? '';
+    final trimmedContent = content.trim();
+
+    // Optimistic UI: add message immediately for instant feedback
+    final optimisticMsg = MessageModel.optimistic(
+      content: trimmedContent.isEmpty && imageFile != null ? 'Sending image...' : trimmedContent,
+      senderId: currentUserId,
+      conversationId: convId,
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, optimisticMsg],
+      isSending: true,
+      clearError: true,
+    );
+
     try {
       final msg = await _service.sendMessage(
         conversationId: convId,
         content: content,
         imageFile: imageFile,
       );
-      
-      // Deduplicate: Only add if message ID doesn't already exist
-      final messageExists = state.messages.any((m) => m.id == msg.id);
-      final updatedMessages = messageExists 
-        ? state.messages 
-        : [...state.messages, msg];
-      
+
+      // Replace optimistic message with real one
+      final updatedMessages = state.messages.map((m) {
+        if (m.id == optimisticMsg.id) return msg;
+        // Also deduplicate if socket already delivered it
+        if (m.id == msg.id) return msg;
+        return m;
+      }).toList();
+
+      // Remove any duplicates
+      final seen = <String>{};
+      final deduped = updatedMessages.where((m) => seen.add(m.id)).toList();
+
       state = state.copyWith(
-        messages: updatedMessages,
+        messages: deduped,
         isSending: false,
       );
     } catch (e) {
-      state = state.copyWith(isSending: false, error: e.toString());
+      // Remove optimistic message on failure
+      final updatedMessages = state.messages.where((m) => m.id != optimisticMsg.id).toList();
+      state = state.copyWith(
+        messages: updatedMessages,
+        isSending: false,
+        error: e.toString(),
+      );
       rethrow;
     }
   }
@@ -154,6 +251,7 @@ class MessageNotifier extends Notifier<MessageState> {
   }
 
   void clearActiveConversation() {
+    detachSocketListener();
     state = state.copyWith(clearMessages: true, activeConversationId: '');
   }
 }

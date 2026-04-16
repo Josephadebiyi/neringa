@@ -456,7 +456,7 @@ class AuthService {
 
   Future<void> logout() async {
     try {
-      await _api.post(ApiConstants.logout);
+      await _api.get(ApiConstants.logout);
     } catch (_) {}
     await _googleSignIn.signOut().catchError((_) => null);
     await _storage.clearAll();

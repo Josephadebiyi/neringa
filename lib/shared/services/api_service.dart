@@ -19,8 +19,9 @@ class ApiService {
     _dio = Dio(
       BaseOptions(
         baseUrl: ApiConstants.baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 30),
         headers: {
           'Accept': 'application/json',
         },
@@ -135,6 +136,7 @@ class ApiService {
 // ---------------------------------------------------------------------------
 class _AuthInterceptor extends Interceptor {
   final _storage = StorageService.instance;
+  bool _isRefreshing = false;
 
   @override
   Future<void> onRequest(
@@ -159,15 +161,57 @@ class _AuthInterceptor extends Interceptor {
 
     // Skip refresh for auth routes to avoid loops
     final path = err.requestOptions.path;
-    if (path.contains('/auth/login') ||
-        path.contains('/auth/refresh') ||
-        path.contains('/auth/register')) {
+    if (path.contains('signin') ||
+        path.contains('signup') ||
+        path.contains('google-auth') ||
+        path.contains('refresh-token') ||
+        path.contains('forgot-password') ||
+        path.contains('reset-password') ||
+        path.contains('verify-otp') ||
+        path.contains('verify-signup-otp') ||
+        path.contains('resend-otp')) {
       return handler.next(err);
     }
 
-    // Keep the dashboard stable if the backend rejects a token.
-    // The app will continue rendering and the user can re-authenticate
-    // manually instead of being bounced through a refresh loop.
+    // Attempt token refresh once
+    if (_isRefreshing) {
+      return handler.next(err);
+    }
+
+    _isRefreshing = true;
+    try {
+      final refreshToken = await _storage.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        _isRefreshing = false;
+        return handler.next(err);
+      }
+
+      final dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
+      final refreshRes = await dio.post(
+        ApiConstants.refreshToken,
+        data: {'refreshToken': refreshToken},
+      );
+
+      final data = refreshRes.data;
+      if (data is Map<String, dynamic> && data['token'] != null) {
+        final newToken = data['token'].toString();
+        final newRefresh = data['refreshToken']?.toString();
+        await _storage.saveTokens(
+          accessToken: newToken,
+          refreshToken: newRefresh ?? refreshToken,
+        );
+
+        // Retry the original request with new token
+        err.requestOptions.headers['Authorization'] = 'Bearer $newToken';
+        final retryResponse = await dio.fetch(err.requestOptions);
+        _isRefreshing = false;
+        return handler.resolve(retryResponse);
+      }
+    } catch (_) {
+      // Refresh failed — let the original 401 propagate
+    }
+
+    _isRefreshing = false;
     return handler.next(err);
   }
 }

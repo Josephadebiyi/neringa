@@ -46,6 +46,55 @@ userRouter.post('/signup/check-email', checkEmailAvailability);
 userRouter.post('/signin', signIn);
 userRouter.post('/google-auth', googleAuth);
 userRouter.post('/verify-signup-otp', verifySignupOtp);
+
+// Token refresh endpoint
+userRouter.post('/refresh-token', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: 'Refresh token is required' });
+    }
+
+    const jwt = (await import('jsonwebtoken')).default;
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    
+    const { findProfileById: findById } = await import('./lib/postgres/profiles.js');
+    const user = await findById(decoded.id);
+    
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+    
+    if (user.banned) {
+      return res.status(403).json({ success: false, message: 'Account has been suspended' });
+    }
+
+    // Issue new tokens
+    const newToken = jwt.sign(
+      { id: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' },
+    );
+
+    res.status(200).json({
+      success: true,
+      token: newToken,
+      refreshToken: newToken,
+      user: {
+        id: user.id,
+        _id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Refresh token expired. Please log in again.', code: 'TOKEN_EXPIRED' });
+    }
+    return res.status(401).json({ success: false, message: 'Invalid refresh token' });
+  }
+});
 userRouter.post("/coupon", isAuthenticated, createDelivery);
 userRouter.post('/user/image', isAuthenticated, uploadOrUpdateImage);
 userRouter.post('/user/avatar', isAuthenticated, updateAvatar);

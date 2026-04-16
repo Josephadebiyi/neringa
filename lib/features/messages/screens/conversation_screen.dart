@@ -52,9 +52,25 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   @override
   void dispose() {
+    // Detach socket listeners when leaving conversation
+    ref.read(messageProvider.notifier).detachSocketListener();
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollCtrl.hasClients) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_scrollCtrl.hasClients) {
+          _scrollCtrl.animateTo(
+            _scrollCtrl.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -65,6 +81,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final currentUserName = (currentUser?.fullName.trim().isNotEmpty ?? false)
         ? currentUser!.fullName.trim()
         : (currentUser?.email ?? 'You');
+
+    // Auto-scroll to bottom when new messages arrive
+    ref.listen<MessageState>(messageProvider, (previous, next) {
+      if (previous != null && next.messages.length > previous.messages.length) {
+        _scrollToBottom();
+      }
+    });
 
     final conv = state.conversations
         .where((c) => c.id == widget.conversationId)
@@ -187,6 +210,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   child: ListView.builder(
                     controller: _scrollCtrl,
                     padding: const EdgeInsets.all(16),
+                    reverse: false,
                     itemCount: state.messages.length,
                     itemBuilder: (_, i) => _MessageBubble(
                       msg: state.messages[i],

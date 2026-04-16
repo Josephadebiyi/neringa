@@ -264,15 +264,26 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
       [userId]
     );
 
-    // Store in-app notification regardless
-    await pgQuery(
-      `INSERT INTO public.notifications (user_id, title, message, type, read, created_at)
-       VALUES ($1, $2, $3, 'general', false, NOW())
-       ON CONFLICT DO NOTHING`,
-      [userId, title, `${title}: ${body}`]
-    ).catch(() => {
-      // notifications table may have different schema, silently ignore
-    });
+    // Store in-app notification regardless of push delivery
+    try {
+      await pgQuery(
+        `INSERT INTO public.notifications (user_id, title, body, type, read, created_at)
+         VALUES ($1, $2, $3, 'general', false, NOW())`,
+        [userId, title, body]
+      );
+    } catch (notifErr) {
+      // Try alternate schema (some tables use 'message' instead of 'body')
+      try {
+        await pgQuery(
+          `INSERT INTO public.notifications (user_id, title, message, type, read, created_at)
+           VALUES ($1, $2, $3, 'general', false, NOW())`,
+          [userId, title, `${title}: ${body}`]
+        );
+      } catch (_) {
+        // Silently ignore notification storage failures
+        console.warn(`Could not store notification for user ${userId}: ${notifErr.message}`);
+      }
+    }
 
     if (!row || !Array.isArray(row.push_tokens) || row.push_tokens.length === 0) {
       console.log(`No push tokens found for user ${userId}`);
@@ -286,6 +297,13 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
       try {
         const result = await sendPushNotificationToToken(pushToken, title, body, data);
         results.push(result);
+        
+        // Log successful delivery
+        if (result.ok) {
+          console.log(`✅ Push sent to user ${userId} via ${result.provider}`);
+        } else if (result.skipped) {
+          console.log(`⏭ Push skipped for user ${userId}: ${result.reason}`);
+        }
       } catch (error) {
         console.error(`Error sending push notification to token ${pushToken}:`, error);
         results.push({ ok: false, error: error.message, token: pushToken });

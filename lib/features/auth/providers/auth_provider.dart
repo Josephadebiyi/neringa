@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/services/storage_service.dart';
 import '../../../shared/services/push_notification_service.dart';
+import '../../../shared/services/socket_service.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
@@ -63,6 +64,10 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await _service.restoreSession();
       state = state.copyWith(user: user, isInitialising: false);
       if (user != null) {
+        // Connect socket for real-time messaging
+        await SocketService.instance.connect();
+        SocketService.instance.setUserId(user.id);
+        
         await PushNotificationService.instance.prepareForSignedInUser();
       }
     } catch (_) {
@@ -77,6 +82,13 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final result = await _service.login(email: email, password: password);
       state = state.copyWith(user: result.user, isLoading: false);
+      
+      // Connect socket for real-time messaging
+      SocketService.instance.connect().then((_) {
+        SocketService.instance.setUserId(result.user.id);
+      }).catchError((e) {
+        debugPrint('Auth login: socket connection failed: $e');
+      });
       
       // Register push notification token (fire-and-forget, non-blocking)
       PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
@@ -140,6 +152,13 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       state = state.copyWith(user: user, isLoading: false);
       
+      // Connect socket for real-time messaging
+      SocketService.instance.connect().then((_) {
+        SocketService.instance.setUserId(user.id);
+      }).catchError((e) {
+        debugPrint('Auth verifyOtp: socket connection failed: $e');
+      });
+      
       // Register push notification token (fire-and-forget, non-blocking)
       PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
         debugPrint('Auth verifyOtp: push notification prep failed: $e');
@@ -178,6 +197,13 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final user = await _service.googleSignIn();
       state = state.copyWith(user: user, isLoading: false);
+      
+      // Connect socket for real-time messaging
+      SocketService.instance.connect().then((_) {
+        SocketService.instance.setUserId(user.id);
+      }).catchError((e) {
+        debugPrint('Auth googleSignIn: socket connection failed: $e');
+      });
       
       // Register push notification token (fire-and-forget, non-blocking)
       PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
@@ -269,6 +295,7 @@ class AuthNotifier extends Notifier<AuthState> {
   // ---------- Logout / Delete ---------------------------------------------
 
   Future<void> logout() async {
+    SocketService.instance.disconnect();
     await _service.logout();
     state = const AuthState(isInitialising: false);
   }

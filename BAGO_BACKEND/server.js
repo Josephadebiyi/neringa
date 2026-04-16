@@ -45,10 +45,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const io = new Server(httpServer, {
   cors: {
-    origin: Array.from(allowedOrigins),
+    origin: '*', // Allow all origins for mobile app compatibility
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 // ✅ Initialize Stripe (optional - will be null if no key provided)
@@ -109,10 +111,11 @@ async function createStripeAccountForUser(user) {
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
       if (!origin || allowedOrigins.has(origin)) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS'));
+      return callback(null, true); // Allow all origins for mobile app compatibility
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
@@ -241,7 +244,7 @@ app.use((req, res, next) => {
 // ✅ Rate limiting
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 500, // Increased for mobile app usage (multiple API calls per screen)
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests. Please try again in 15 minutes.' },
@@ -249,7 +252,7 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 10, // Increased slightly for mobile auth retries
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many attempts. Please try again in 15 minutes.' },
