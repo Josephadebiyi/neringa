@@ -15,20 +15,43 @@ export const sendNotification = async (req, res) => {
       const user = await queryOne(
         `SELECT id, push_tokens FROM public.profiles WHERE id = $1`, [userId]
       );
-      if (!user || !user.push_tokens?.length) {
-        return res.status(404).json({ error: 'No tokens for this user' });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
       }
       rows = [user];
     } else {
+      // Broadcast to ALL users
       const result = await query(
-        `SELECT id, push_tokens FROM public.profiles WHERE push_tokens IS NOT NULL AND array_length(push_tokens, 1) > 0`
+        `SELECT id, push_tokens FROM public.profiles WHERE banned = false`
       );
       rows = result.rows;
       if (!rows.length) {
-        return res.status(404).json({ error: 'No users with push tokens' });
+        return res.status(404).json({ error: 'No users found' });
       }
     }
 
+    // Store in-app notification for all recipients
+    let storedCount = 0;
+    for (const user of rows) {
+      try {
+        await query(
+          `INSERT INTO public.notifications (user_id, title, body, type, read, created_at) VALUES ($1, $2, $3, 'broadcast', false, NOW())`,
+          [user.id, title, body]
+        );
+        storedCount++;
+      } catch (e) {
+        // Try alternate schema
+        try {
+          await query(
+            `INSERT INTO public.notifications (user_id, title, message, type, read, created_at) VALUES ($1, $2, $3, 'broadcast', false, NOW())`,
+            [user.id, title, body]
+          );
+          storedCount++;
+        } catch (_) {}
+      }
+    }
+
+    // Send push notifications to users with tokens
     const uniqueTokens = new Set();
     for (const user of rows) {
       if (Array.isArray(user.push_tokens)) {
@@ -38,27 +61,58 @@ export const sendNotification = async (req, res) => {
       }
     }
 
-    if (!uniqueTokens.size) {
-      return res.status(404).json({ error: 'No tokens to send to' });
-    }
-
     let sentCount = 0;
     const results = [];
     for (const token of uniqueTokens) {
-      const result = await sendPushNotificationToToken(token, title, body);
-      results.push(result);
-      if (result?.ok) sentCount++;
+      try {
+        const result = await sendPushNotificationToToken(token, title, body);
+        results.push(result);
+        if (result?.ok) sentCount++;
+      } catch (e) {
+        results.push({ ok: false, error: e.message });
+      }
     }
+
+    console.log(`📢 Broadcast: ${storedCount} in-app notifications stored, ${sentCount}/${uniqueTokens.size} push sent`);
 
     res.json({
       success: true,
       count: sentCount,
-      recipientCount: uniqueTokens.size,
+      recipientCount: rows.length,
+      pushTokenCount: uniqueTokens.size,
+      inAppNotifications: storedCount,
       results,
-      message: 'Broadcasting completed',
+      message: `Broadcast sent to ${rows.length} users (${sentCount} push, ${storedCount} in-app)`,
     });
   } catch (err) {
     console.error('Send broadcast notification error:', err);
     res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+};
+
+export const getPushHistory = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, user_id, title, body, COALESCE(body, message) as content, type, read, created_at
+       FROM public.notifications
+       WHERE type = 'broadcast'
+       ORDER BY created_at DESC
+       LIMIT 50`
+    );
+    res.json({ success: true, history: result.rows });
+  } catch (err) {
+    // Try alternate schema
+    try {
+      const result = await query(
+        `SELECT id, user_id, title, message as content, type, read, created_at
+         FROM public.notifications
+         WHERE type = 'broadcast'
+         ORDER BY created_at DESC
+         LIMIT 50`
+      );
+      res.json({ success: true, history: result.rows });
+    } catch (e) {
+      res.json({ success: true, history: [] });
+    }
   }
 };

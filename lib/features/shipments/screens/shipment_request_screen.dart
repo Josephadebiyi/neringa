@@ -398,6 +398,31 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
 
           if (isPending) ...[
             const SizedBox(height: 32),
+            // Show package images gallery before accept/reject
+            if (req.packageImages.length > 1) ...[
+              _InfoCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoLabel('Package Photos'),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 120,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: req.packageImages.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemBuilder: (_, i) => ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: _PackageImage(url: req.packageImages[i], width: 160, height: 120),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             AppButton(
               label: 'Accept Request',
               isLoading: _isAccepting,
@@ -411,6 +436,37 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
               onPressed: _isAccepting || _isRejecting ? null : () => _reject(req),
             ),
           ] else ...[
+            // Shipment status update section (for traveler, after acceptance)
+            if (req.role == 'traveler' && _canUpdateStatus(req.status)) ...[
+              const SizedBox(height: 24),
+              _InfoCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoLabel('Update Shipment Status'),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Keep the sender updated on the shipment progress.',
+                      style: AppTextStyles.muted(AppTextStyles.bodySm),
+                    ),
+                    const SizedBox(height: 16),
+                    _ShipmentStatusButtons(
+                      currentStatus: req.status,
+                      requestId: req.id,
+                      onStatusUpdated: () {
+                        ref.read(shipmentProvider.notifier).loadIncomingRequests();
+                        setState(() {
+                          _requestFuture = ShipmentService.instance
+                              .getRequestDetails(widget.requestId)
+                              .then<RequestModel?>((value) => value)
+                              .catchError((_) => null);
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             AppButton(
               label: 'Open Chat',
@@ -422,6 +478,12 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
         ],
       ),
     );
+  }
+
+  bool _canUpdateStatus(RequestStatus status) {
+    return status == RequestStatus.accepted ||
+        status.apiValue == 'intransit' ||
+        status.apiValue == 'delivering';
   }
 
   Future<void> _showReviewSheet(RequestModel req) async {
@@ -623,8 +685,10 @@ class _InfoLabel extends StatelessWidget {
 }
 
 class _PackageImage extends StatelessWidget {
-  const _PackageImage({required this.url});
+  const _PackageImage({required this.url, this.width, this.height});
   final String url;
+  final double? width;
+  final double? height;
 
   static final _placeholder = Container(
     color: AppColors.gray100,
@@ -633,22 +697,251 @@ class _PackageImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget image;
     if (url.startsWith('data:')) {
-      // Base64 data URI — decode and render in memory
       try {
         final commaIndex = url.indexOf(',');
         if (commaIndex == -1) return _placeholder;
         final base64Str = url.substring(commaIndex + 1);
         final bytes = base64Decode(base64Str);
-        return Image.memory(bytes, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
+        image = Image.memory(bytes, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
       } catch (_) {
         return _placeholder;
       }
+    } else {
+      image = Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
     }
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _placeholder,
+    if (width != null || height != null) {
+      return SizedBox(width: width, height: height, child: image);
+    }
+    return image;
+  }
+}
+
+// Shipment status update buttons for traveler
+class _ShipmentStatusButtons extends StatefulWidget {
+  const _ShipmentStatusButtons({
+    required this.currentStatus,
+    required this.requestId,
+    required this.onStatusUpdated,
+  });
+  final RequestStatus currentStatus;
+  final String requestId;
+  final VoidCallback onStatusUpdated;
+
+  @override
+  State<_ShipmentStatusButtons> createState() => _ShipmentStatusButtonsState();
+}
+
+class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
+  bool _updating = false;
+  final _locationCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _locationCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  String get _nextStatus {
+    final current = widget.currentStatus.apiValue;
+    if (current == 'accepted') return 'intransit';
+    if (current == 'intransit') return 'delivering';
+    if (current == 'delivering') return 'delivered';
+    return '';
+  }
+
+  String get _nextStatusLabel {
+    switch (_nextStatus) {
+      case 'intransit':
+        return 'Mark as In Transit';
+      case 'delivering':
+        return 'Mark as Delivering';
+      case 'delivered':
+        return 'Mark as Delivered';
+      default:
+        return '';
+    }
+  }
+
+  IconData get _nextStatusIcon {
+    switch (_nextStatus) {
+      case 'intransit':
+        return Icons.flight_takeoff_rounded;
+      case 'delivering':
+        return Icons.local_shipping_rounded;
+      case 'delivered':
+        return Icons.check_circle_outline_rounded;
+      default:
+        return Icons.update_rounded;
+    }
+  }
+
+  Future<void> _updateStatus() async {
+    if (_nextStatus.isEmpty || _updating) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Update Status', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Update shipment to "$_nextStatusLabel"?',
+                style: AppTextStyles.bodyMd),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _locationCtrl,
+              decoration: InputDecoration(
+                hintText: 'Current location (optional)',
+                filled: true,
+                fillColor: AppColors.gray50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _notesCtrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Notes (optional)',
+                filled: true,
+                fillColor: AppColors.gray50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    setState(() => _updating = true);
+
+    try {
+      await ShipmentService.instance.updateShipmentStatus(
+        widget.requestId,
+        status: _nextStatus,
+        location: _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : null,
+        notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+      );
+      if (mounted) {
+        AppSnackBar.show(context, message: 'Status updated!', type: SnackBarType.success);
+        _locationCtrl.clear();
+        _notesCtrl.clear();
+        widget.onStatusUpdated();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_nextStatus.isEmpty) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Shipment has been delivered. Waiting for sender confirmation.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.success, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Show status progression
+    final steps = ['accepted', 'intransit', 'delivering', 'delivered'];
+    final currentIdx = steps.indexOf(widget.currentStatus.apiValue);
+
+    return Column(
+      children: [
+        // Progress indicator
+        Row(
+          children: List.generate(steps.length, (i) {
+            final done = i <= currentIdx;
+            final label = switch (steps[i]) {
+              'accepted' => 'Accepted',
+              'intransit' => 'In Transit',
+              'delivering' => 'Delivering',
+              'delivered' => 'Delivered',
+              _ => steps[i],
+            };
+            return Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: done ? AppColors.primary : AppColors.gray200,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    label,
+                    style: AppTextStyles.labelXs.copyWith(
+                      color: done ? AppColors.primary : AppColors.gray400,
+                      fontWeight: done ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 9,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _updating ? null : _updateStatus,
+            icon: _updating
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                : Icon(_nextStatusIcon, size: 20),
+            label: Text(_nextStatusLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

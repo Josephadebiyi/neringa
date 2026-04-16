@@ -18,6 +18,10 @@ import { RESTRICTED_ITEMS } from './restrictedItems.js';
 export async function generateCustomsDeclarationPDF(declarationData) {
   return new Promise((resolve, reject) => {
     try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const logoPath = path.resolve(__dirname, '../controllers/image/Bago_New_2.png');
+
       const doc = new PDFDocument({
         size: 'A4',
         margins: { top: 50, bottom: 50, left: 50, right: 50 }
@@ -27,6 +31,10 @@ export async function generateCustomsDeclarationPDF(declarationData) {
       doc.on('data', chunk => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
+
+      // Brand header with logo
+      drawBrandHeader(doc, logoPath);
+      doc.moveDown(0.5);
 
       // Header
       doc.fontSize(20)
@@ -187,6 +195,10 @@ export async function generateCustomsDeclarationPDF(declarationData) {
 export async function generateShipmentSummaryPDF(assessment) {
   return new Promise((resolve, reject) => {
     try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const logoPath = path.resolve(__dirname, '../controllers/image/Bago_New_2.png');
+
       const doc = new PDFDocument({
         size: 'A4',
         margins: { top: 50, bottom: 50, left: 50, right: 50 }
@@ -196,6 +208,10 @@ export async function generateShipmentSummaryPDF(assessment) {
       doc.on('data', chunk => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
+
+      // Brand header with logo
+      drawBrandHeader(doc, logoPath);
+      doc.moveDown(0.5);
 
       // Header
       doc.fontSize(20)
@@ -520,21 +536,38 @@ function drawLine(doc) {
 }
 
 function drawBrandHeader(doc, logoPath) {
-  if (fs.existsSync(logoPath)) {
+  let logoDrawn = false;
+
+  // Try local file first
+  if (logoPath && fs.existsSync(logoPath)) {
     try {
       doc.image(logoPath, 235, doc.y, { width: 75 });
       doc.moveDown(3);
+      logoDrawn = true;
+    } catch (e) {
+      console.warn('PDF logo local file failed:', e.message);
+    }
+  }
+
+  // Fallback: try fetching from Cloudinary
+  if (!logoDrawn) {
+    try {
+      // Use text-based logo as reliable fallback
+      doc.fontSize(28)
+        .font('Helvetica-Bold')
+        .fillColor('#5240E8')
+        .text('BAGO', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(8)
+        .fillColor('#999999')
+        .text('sendwithbago.com', { align: 'center' });
     } catch {
+      // Last resort
       doc.fontSize(28)
         .font('Helvetica-Bold')
         .fillColor('#5240E8')
         .text('BAGO', { align: 'center' });
     }
-  } else {
-    doc.fontSize(28)
-      .font('Helvetica-Bold')
-      .fillColor('#5240E8')
-      .text('BAGO', { align: 'center' });
   }
 
   doc.moveDown(0.2);

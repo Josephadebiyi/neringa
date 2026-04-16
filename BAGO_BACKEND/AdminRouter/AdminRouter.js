@@ -7,7 +7,7 @@ import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
 import { getAllkyc, Verifykyc } from '../controllers/KycVerificationsController.js';
 import { getCurrentSetting, updateSettings } from '../controllers/AdminControllers/setting.js';
-import { sendNotification } from '../controllers/AdminControllers/NotificationController.js';
+import { sendNotification, getPushHistory } from '../controllers/AdminControllers/NotificationController.js';
 import { Adminlogout } from '../controllers/AdminControllers/AdminLogin.js';
 import { sendPromoEmail } from '../controllers/AdminControllers/PromoEmailController.js';
 import { getInsuranceSettings, updateInsuranceSettings } from '../controllers/InsuranceController.js';
@@ -80,6 +80,7 @@ AdminRouter.get("/getAllkyc", adminAuthenticated, getAllkyc)
 AdminRouter.put("/Verifykyc", adminAuthenticated, Verifykyc)
 AdminRouter.put("/update-settings", adminAuthenticated, updateSettings);
 AdminRouter.post("/send-notification", adminAuthenticated, sendNotification);
+AdminRouter.get("/push-notifications/history", adminAuthenticated, getPushHistory);
 AdminRouter.get("/Adminlogout", adminAuthenticated, Adminlogout);
 AdminRouter.get("/getCurrentSetting", adminAuthenticated, getCurrentSetting);
 AdminRouter.put("/banUser/:userId", adminAuthenticated, banUser);

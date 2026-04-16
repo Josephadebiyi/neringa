@@ -268,6 +268,23 @@ class ShipmentService {
     }
   }
 
+  /// Update shipment status (intransit, delivering, delivered, completed)
+  Future<void> updateShipmentStatus(String requestId, {
+    required String status,
+    String? location,
+    String? notes,
+  }) async {
+    try {
+      await _api.put('${ApiConstants.acceptRequest}/$requestId', data: {
+        'status': status,
+        if (location != null) 'location': location,
+        if (notes != null) 'notes': notes,
+      });
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<void> leaveShipmentReview({
     required String requestId,
     required double rating,

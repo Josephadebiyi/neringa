@@ -43,7 +43,7 @@ export default function PushNotificationPage() {
       setHistory(prev => [{
         ...form,
         sentAt: new Date().toISOString(),
-        recipientCount: data.count || 0,
+        recipientCount: data.recipientCount || data.count || 0,
         status: 'SUCCESS'
       }, ...prev]);
       setShowModal(false);
