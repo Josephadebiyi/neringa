@@ -871,6 +871,49 @@ httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// TEMPORARY: Push notification diagnostic (remove after testing)
+// ────────────────────────────────────────────────────────────────────────────
+app.get('/api/bago/push-diag/tokens', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, email, first_name, last_name, array_length(push_tokens, 1) as token_count, push_tokens
+       FROM public.profiles
+       WHERE push_tokens IS NOT NULL AND array_length(push_tokens, 1) > 0
+       ORDER BY updated_at DESC LIMIT 20`
+    );
+    const users = (result.rows || []).map(r => ({
+      id: r.id,
+      email: r.email,
+      name: `${r.first_name || ''} ${r.last_name || ''}`.trim(),
+      tokenCount: r.token_count || 0,
+      tokens: (r.push_tokens || []).map(t => ({
+        len: (t || '').length,
+        prefix: (t || '').substring(0, 25) + '...',
+        type: /^ExponentPushToken/.test(t) ? 'expo'
+            : /^[0-9a-fA-F]{64}$/.test((t || '').trim()) ? 'apns'
+            : (t || '').length > 50 ? 'fcm' : 'unknown',
+      })),
+    }));
+    res.json({ success: true, usersWithTokens: users.length, users });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/bago/push-diag/test', async (req, res) => {
+  try {
+    const { userId, title, body } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+
+    const { sendPushNotification: sendPush } = await import('./services/pushNotificationService.js');
+    const results = await sendPush(userId, title || 'Bago Test Push', body || 'If you see this, push notifications are working!');
+    res.json({ success: true, results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 
 
