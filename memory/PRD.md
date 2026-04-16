@@ -25,16 +25,28 @@ User reported: 1) Push notifications don't work - token never stored, 2) Admin p
 - Auto-scroll on new messages
 - Socket connects on login, disconnects on logout
 
-### 2. Push Notification Fixes
-- **Root cause**: Android `firebase_options.dart` had PLACEHOLDER appId → FCM tokens never generated
-- Fixed Android appId to match Firebase project
-- Added Google Services Gradle plugin to `settings.gradle.kts` and `app/build.gradle.kts`
-- Added FCM notification channel metadata to `AndroidManifest.xml`
-- Increased push token registration retries from 3 to 5 with exponential backoff
-- Improved Firebase Admin init on backend with multiple file path search
-- Enhanced notification insert with dual-schema fallback
-- Added push-debug diagnostic endpoint
-- **IMPORTANT**: User still needs to place `google-services.json` in `android/app/`
+### 2. Push Notification Fixes (Session 1 + 2)
+- **Root cause iOS**: Dual token conflict — native APNs (MethodChannel) and FCM (Firebase) were racing. No delay after permission grant → FCM `getToken()` called before APNs token ready → returned null → all retries failed → token never stored
+- **Root cause Android**: PLACEHOLDER appId in `firebase_options.dart`, missing `google-services.json`, missing Google Services Gradle plugin
+- **Flutter fixes**:
+  - Rewrote `push_notification_service.dart` with iOS APNs-first approach
+  - Added 2s delay after permission grant to let iOS register with Apple
+  - Checks `getAPNSToken()` readiness before requesting FCM token
+  - APNs token fallback when FCM `getToken()` fails after 8 attempts
+  - Native MethodChannel no longer conflicts with Firebase path (defers when Firebase active)
+  - Increased retries from 3→8 with progressive delays
+  - Added background message handler (`_firebaseMessagingBackgroundHandler`) in `main.dart`
+- **Android fixes**:
+  - Created `google-services.json` from iOS Firebase config
+  - Added Google Services Gradle plugin to `settings.gradle.kts` + `app/build.gradle.kts`
+  - Fixed Android appId in `firebase_options.dart`
+  - Added FCM notification channel/icon metadata to `AndroidManifest.xml`
+- **Backend fixes**:
+  - `savePushToken` now verifies storage and logs details
+  - `addPushToken` SQL now uses `RETURNING` + updates `updated_at`
+  - Added push-debug diagnostic endpoint
+  - Improved Firebase Admin init with multiple file path search
+  - Enhanced notification insert with dual-schema fallback
 
 ### 3. Login Fixes
 - Fixed logout endpoint mismatch (backend=GET, Flutter was calling POST → now GET)
