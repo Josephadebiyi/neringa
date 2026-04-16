@@ -1,11 +1,23 @@
 # Bago Platform - PRD
 
 ## Original Problem Statement
-User reported: 1) Push notifications don't work - token never stored, 2) Admin panel white death screen, 3) Chat not real-time/slow, 4) Login issues, 5) Sidebar features need to work. Backend APIs stopped on Render.
+User reported multiple issues across Flutter app + Node.js backend:
+1. Push notifications don't work (token never stored)
+2. Admin white death screen
+3. Chat not real-time/slow
+4. Login issues
+5. Communication prefs in profile
+6. Phone number update "no routes found"
+7. Traveler should see item images before accepting
+8. Shipment status updates after acceptance
+9. Bago logo missing on PDFs
+10. Escrow balance + kg deduction on acceptance
+11. Don't display unapproved trips
+12. Admin push notification broadcast
 
 ## Architecture
 - **Mobile App**: Flutter (Dart) - iOS & Android
-- **Backend**: Node.js (Express + Socket.IO) hosted on Render
+- **Backend**: Node.js (Express + Socket.IO) on Render
 - **Database**: PostgreSQL via Supabase
 - **Admin Panel**: React + Vite + Tailwind CSS v4
 - **Push Notifications**: Firebase Cloud Messaging (FCM) + Expo Push + APNs
@@ -14,77 +26,54 @@ User reported: 1) Push notifications don't work - token never stored, 2) Admin p
 - **Storage**: Cloudinary
 - **KYC**: Didit.me
 
-## What's Been Implemented (Session 1 - Jan 2026)
+## What's Been Implemented
 
-### 1. Real-time Chat (NEW)
-- Added `socket_io_client` (v3.1.4) to Flutter
-- Created `SocketService` for WebSocket connection management
-- Updated `MessageProvider` with socket listeners for instant message delivery
-- Added `fromSocketData` and `optimistic` factory methods to `MessageModel`
-- Optimistic UI: messages appear instantly before server confirmation
-- Auto-scroll on new messages
-- Socket connects on login, disconnects on logout
+### Session 1 - Real-time Chat + Auth + Push Token Foundation
+- Added `socket_io_client` to Flutter with `SocketService` singleton
+- Updated `MessageProvider` with socket listeners + optimistic UI
+- Fixed logout endpoint (GET vs POST mismatch)
+- Added `/api/bago/refresh-token` endpoint
+- Token refresh interceptor in Flutter `_AuthInterceptor`
+- Fixed CORS for mobile apps, increased rate limiter
+- Added `pg` + `@supabase/supabase-js` to backend package.json (CRITICAL missing deps)
+- Admin ErrorBoundary + network error handling in apiCall
 
-### 2. Push Notification Fixes (Session 1 + 2)
-- **Root cause iOS**: Dual token conflict — native APNs (MethodChannel) and FCM (Firebase) were racing. No delay after permission grant → FCM `getToken()` called before APNs token ready → returned null → all retries failed → token never stored
-- **Root cause Android**: PLACEHOLDER appId in `firebase_options.dart`, missing `google-services.json`, missing Google Services Gradle plugin
-- **Flutter fixes**:
-  - Rewrote `push_notification_service.dart` with iOS APNs-first approach
-  - Added 2s delay after permission grant to let iOS register with Apple
-  - Checks `getAPNSToken()` readiness before requesting FCM token
-  - APNs token fallback when FCM `getToken()` fails after 8 attempts
-  - Native MethodChannel no longer conflicts with Firebase path (defers when Firebase active)
-  - Increased retries from 3→8 with progressive delays
-  - Added background message handler (`_firebaseMessagingBackgroundHandler`) in `main.dart`
-- **Android fixes**:
-  - Created `google-services.json` from iOS Firebase config
-  - Added Google Services Gradle plugin to `settings.gradle.kts` + `app/build.gradle.kts`
-  - Fixed Android appId in `firebase_options.dart`
-  - Added FCM notification channel/icon metadata to `AndroidManifest.xml`
-- **Backend fixes**:
-  - `savePushToken` now verifies storage and logs details
-  - `addPushToken` SQL now uses `RETURNING` + updates `updated_at`
-  - Added push-debug diagnostic endpoint
-  - Improved Firebase Admin init with multiple file path search
-  - Enhanced notification insert with dual-schema fallback
+### Session 2 - iOS Push Token Fix
+- Root cause: No delay after permission → FCM getToken() before APNs ready → null
+- Rewrote `push_notification_service.dart` with APNs-first approach
+- 2s delay after permission, APNs readiness check, 8 retries
+- APNs token fallback, background message handler
+- Android Firebase setup replicated from iOS
 
-### 3. Login Fixes
-- Fixed logout endpoint mismatch (backend=GET, Flutter was calling POST → now GET)
-- Added token refresh endpoint (`/api/bago/refresh-token`) on backend
-- Implemented proper token refresh in Flutter's `_AuthInterceptor` (auto-retry on 401)
-- Increased rate limiter from 100→500 requests/15min (mobile apps need more)
-- Increased auth rate limiter from 5→10 attempts
-- Fixed CORS to allow all origins (required for mobile apps)
-- Added `pg` and `@supabase/supabase-js` to backend `package.json` (were MISSING — likely caused Render crashes)
+### Session 3 - Feature Fixes
+- **Phone change routes**: Added `POST /user/request-phone-change` + `POST /user/verify-phone-change` (were completely missing)
+- **Escrow hold on acceptance**: When traveler accepts, sender's funds held in escrow + wallet transaction logged
+- **KG deduction on acceptance**: Trip `available_kg` decremented by package weight
+- **PDF logo**: Added fallback text-based "BAGO" logo when image file not found on Render. Added logo to ShipmentSummary + CustomsDeclaration PDFs (were missing)
+- **Shipment status updates**: Added `updateShipmentStatus` to Flutter service. Added `_ShipmentStatusButtons` widget with progress indicator (accepted → intransit → delivering → delivered)
+- **Package image gallery**: Added horizontal scrollable gallery of all package images before accept/reject buttons
+- **Trip filtering**: Added `available_kg > 0` filter so fully booked trips don't appear
+- **Admin broadcast**: Improved to store in-app notifications for all recipients + added history endpoint
+- **Backend verification**: `savePushToken` now verifies storage, `addPushToken` uses RETURNING + updated_at
 
-### 4. Admin White Screen Fix
-- Added `ErrorBoundary` component to catch React errors gracefully
-- Wrapped App in ErrorBoundary in `main.tsx`
-- Fixed `apiCall` to handle network errors (fetch throws TypeError when server unreachable)
-- Fixed `adminLogin` to handle network errors
-- All sidebar navigation features verified working (16 nav items)
-
-### 5. Backend Stability
-- Socket.IO CORS set to allow all origins with proper ping/timeout config
-- Added health check path in render.yaml
-
-## Known Requirements / User Needs
-- Firebase service account JSON needs to be configured on Render backend (env: `FIREBASE_SERVICE_ACCOUNT_JSON`)
-- `google-services.json` must be placed in `android/app/` for Android FCM tokens
-- Render free tier causes cold starts (30-60s delay after inactivity)
+## Known Requirements
+- Firebase service account JSON needed on Render for FCM
+- `google-services.json` from Firebase Console for Android
+- Render free tier causes cold starts
 
 ## Prioritized Backlog
 ### P0 (Critical)
-- [ ] User needs to provide/confirm `google-services.json` for Android builds
-- [ ] User needs to set `FIREBASE_SERVICE_ACCOUNT_JSON` env on Render for backend FCM
+- [ ] Register Android app in Firebase Console + real google-services.json
+- [ ] Set FIREBASE_SERVICE_ACCOUNT_JSON on Render
+- [ ] Redeploy backend to Render
 
 ### P1 (Important)
-- [ ] Background message handler for Flutter (handle notifications when app is killed)
-- [ ] Chat message pagination (currently loads all messages)
+- [ ] Chat message pagination
 - [ ] Typing indicators via Socket.IO
+- [ ] Keep-alive cron to prevent Render cold starts
 
 ### P2 (Nice to have)
 - [ ] Read receipts in chat
 - [ ] Push notification sound customization
-- [ ] Admin panel - real-time dashboard updates
-- [ ] Consider upgrading Render from free to paid tier for always-on backend
+- [ ] Admin real-time dashboard updates
+- [ ] Upgrade Render from free tier
