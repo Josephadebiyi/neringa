@@ -44,7 +44,7 @@ export const dashboard = async (req, res, next) => {
       safeQueryOne(`
         select coalesce(sum(insurance_cost), 0) as total_income
         from public.shipment_requests
-        where status in ('accepted', 'picked_up', 'in_transit', 'delivered', 'intransit', 'completed')
+        where status in ('accepted', 'intransit', 'delivering', 'completed')
       `, [], { total_income: 0 }),
       safeQuery(`
         select status as name, count(*)::int as count
