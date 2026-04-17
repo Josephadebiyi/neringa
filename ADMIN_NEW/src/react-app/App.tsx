@@ -28,7 +28,7 @@ import OrdersPage from "./pages/Orders"
 export default function App() {
   return (
     <AuthProvider>
-      <Router basename="/admin">
+      <Router>
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />

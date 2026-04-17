@@ -124,6 +124,23 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
             Expanded(
               child: state.isLoading
                   ? const Center(child: AppLoading())
+                  : state.error != null
+                      ? ListView(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                          children: [
+                            const BagoInfoBanner(
+                              icon: Icons.verified_user_outlined,
+                              message:
+                                  'Chat safely by staying within Bago. We protect your payments and data.',
+                            ),
+                            const SizedBox(height: 28),
+                            BagoEmptyState(
+                              icon: Icons.error_outline_rounded,
+                              title: 'Unable to load messages',
+                              subtitle: state.error!,
+                            ),
+                          ],
+                        )
                   : RefreshIndicator(
                       onRefresh: () =>
                           ref.read(messageProvider.notifier).loadConversations(),

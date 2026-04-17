@@ -910,6 +910,18 @@ class AppLocalizationsIt extends AppLocalizations {
   String get phoneLabel => 'Telefono';
 
   @override
+  String get itemImagesLabel => 'Immagini dell\'articolo';
+
+  @override
+  String get notProvidedLabel => 'Non fornito';
+
+  @override
+  String get receiverInfo => 'Informazioni del destinatario';
+
+  @override
+  String get escrowLabel => 'Saldo di deposito in garanzia';
+
+  @override
   String get trackingNumberTitle => 'Numero di tracciamento';
 
   @override

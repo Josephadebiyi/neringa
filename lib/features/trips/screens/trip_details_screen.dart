@@ -195,6 +195,12 @@ class _TripBody extends StatelessWidget {
                       toCurrency: userCurrencyLabel,
                     ).toStringAsFixed(2)}/kg',
                   ),
+                // Show escrow balance when trip is in transit
+                if (trip.status.toLowerCase() == 'intransit' && trip.escrowBalance != null)
+                  _TripInfoRow(
+                    label: l10n.escrowLabel,
+                    value: '$displayCurrency ${trip.escrowBalance!.toStringAsFixed(2)}',
+                  ),
                 _TripInfoRow(
                   label: l10n.tripProofLabel,
                   value: trip.travelDocument?.isNotEmpty == true ? l10n.uploaded : l10n.missing,

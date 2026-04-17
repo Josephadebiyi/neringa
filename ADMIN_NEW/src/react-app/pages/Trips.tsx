@@ -268,15 +268,40 @@ export default function Trips() {
                                                                     window.open(`https://${doc}`, '_blank', 'noopener,noreferrer');
                                                                 }
                                                             }}
-                                                            className="text-[10px] font-black uppercase text-blue-500 hover:underline text-center"
+                                                            className="px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all text-center flex items-center justify-center gap-1"
                                                         >
-                                                            View Ticket
+                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                            View Proof
                                                         </button>
+                                                    )}
+                                                    {(!trip.travelDocument || trip.travelDocument.trim() === '') && (
+                                                        <span className="text-[10px] font-bold text-red-400 text-center">No proof uploaded</span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="py-5 px-8 text-right">
-                                                <div className="flex justify-end gap-2">
+                                                <div className="flex justify-end gap-2 flex-wrap">
+                                                    <button
+                                                        onClick={() => {
+                                                            const details = [
+                                                                `Traveler: ${trip.user?.firstName || ''} ${trip.user?.lastName || ''}`,
+                                                                `Email: ${trip.user?.email || 'N/A'}`,
+                                                                `Route: ${trip.fromLocation} → ${trip.toLocation}`,
+                                                                `Travel Means: ${trip.travelMeans}`,
+                                                                `Available KG: ${trip.availableKg}`,
+                                                                `Departure: ${new Date(trip.departureDate).toLocaleDateString()}`,
+                                                                `Arrival: ${new Date(trip.arrivalDate).toLocaleDateString()}`,
+                                                                `Status: ${trip.status}`,
+                                                                `Requests: ${trip.request || 0}`,
+                                                                `Created: ${new Date(trip.createdAt).toLocaleString()}`,
+                                                                `Travel Document: ${trip.travelDocument ? 'Uploaded' : 'Not uploaded'}`,
+                                                            ].join('\n');
+                                                            alert(details);
+                                                        }}
+                                                        className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-[10px] font-black uppercase hover:bg-gray-100"
+                                                    >
+                                                        Details
+                                                    </button>
                                                     {(trip.status === 'pending_admin_review' || trip.status === 'pending') && (
                                                         <>
                                                             <button

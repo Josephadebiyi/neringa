@@ -552,12 +552,17 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       throw error;
     }
 
+    // Map status to valid Postgres enum values
+    // The DB enum has: pending, accepted, rejected, intransit, delivering, completed, cancelled
+    // 'delivered' and 'completed' both map to 'completed' in the DB
+    const normalizedStatus = (status === 'completed' || status === 'delivered') ? 'completed' : status;
+
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
-    if (['intransit', 'delivering', 'completed'].includes(status)) {
+    if (['intransit', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
       movementTracking = [
         ...movementTracking,
         {
-          status,
+          status: status === 'delivered' ? 'delivered' : normalizedStatus,
           location: location || '',
           notes: notes || '',
           timestamp: new Date().toISOString(),
@@ -579,11 +584,50 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
             updated_at = timezone('utc', now())
         where id = $1
       `,
-      [requestId, status, trackingNumber, JSON.stringify(movementTracking)],
+      [requestId, normalizedStatus, trackingNumber, JSON.stringify(movementTracking)],
     );
 
-    if (status === 'accepted') {
+    if (normalizedStatus === 'accepted') {
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
+
+      // Deduct available_kg from the trip
+      const packageWeight = toNumber(request.package_weight);
+      if (packageWeight > 0 && request.trip_id) {
+        await client.query(
+          `UPDATE public.trips SET available_kg = greatest(0, available_kg - $2), updated_at = timezone('utc', now()) WHERE id = $1`,
+          [request.trip_id, packageWeight],
+        );
+      }
+
+      // Hold sender's funds in escrow
+      const amount = toNumber(request.amount);
+      if (amount > 0 && request.sender_id) {
+        const senderWallet = await client.query(
+          `SELECT id, available_balance, escrow_balance, currency FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
+          [request.sender_id],
+        );
+        const sw = senderWallet.rows[0];
+        if (sw) {
+          await client.query(
+            `UPDATE public.wallet_accounts SET escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) WHERE user_id = $1`,
+            [request.sender_id, amount],
+          );
+          await client.query(
+            `INSERT INTO public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
+             VALUES ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
+            [
+              sw.id,
+              request.sender_id,
+              request.id,
+              request.trip_id,
+              amount,
+              request.currency || sw.currency || 'USD',
+              `Funds held in escrow for shipment ${request.tracking_number || request.id}`,
+              JSON.stringify({ requestId: request.id }),
+            ],
+          );
+        }
+      }
     }
 
     return getShipmentRequestById(requestId);

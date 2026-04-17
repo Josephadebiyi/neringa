@@ -149,12 +149,6 @@ export const AddAtrip = async (req, res, next) => {
       travelDocument: travelDocumentUrl,
     });
 
-    // Auto-approve to 'active' so trips are immediately visible
-    await query(
-      `UPDATE public.trips SET status = 'active' WHERE id = $1`,
-      [trip.id]
-    );
-
     const activeTrip = await getTripById(trip.id);
 
     // Notify admins
@@ -300,8 +294,8 @@ export const UpdateTrip = async (req, res, next) => {
       updates.arrival_date = arrivalAt;
     }
 
-    // Keep trip active after edits
-    updates.status = 'active';
+    // Edited trips must be re-reviewed by admin
+    updates.status = 'pending_admin_review';
 
     const updated = await updateTripRecord(tripId, userId, updates);
     if (!updated) {

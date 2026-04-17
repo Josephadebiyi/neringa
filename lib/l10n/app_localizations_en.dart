@@ -903,6 +903,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get phoneLabel => 'Phone';
 
   @override
+  String get itemImagesLabel => 'Item Images';
+
+  @override
+  String get notProvidedLabel => 'Not provided';
+
+  @override
+  String get receiverInfo => 'Receiver Information';
+
+  @override
+  String get escrowLabel => 'Escrow Balance';
+
+  @override
   String get trackingNumberTitle => 'Tracking Number';
 
   @override

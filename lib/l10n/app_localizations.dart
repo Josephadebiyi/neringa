@@ -1780,6 +1780,30 @@ abstract class AppLocalizations {
   /// **'Phone'**
   String get phoneLabel;
 
+  /// No description provided for @itemImagesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Item Images'**
+  String get itemImagesLabel;
+
+  /// No description provided for @notProvidedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Not provided'**
+  String get notProvidedLabel;
+
+  /// No description provided for @receiverInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Receiver Information'**
+  String get receiverInfo;
+
+  /// No description provided for @escrowLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrow Balance'**
+  String get escrowLabel;
+
   /// No description provided for @trackingNumberTitle.
   ///
   /// In en, this message translates to:

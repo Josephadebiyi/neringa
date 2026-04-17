@@ -20,13 +20,31 @@ const initFirebase = async () => {
     if (saEnv) {
       try {
         serviceAccount = JSON.parse(saEnv);
+        console.log('✅ Firebase service account loaded from environment variable');
       } catch (e) {
-        console.error('❌ FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON');
+        console.error('❌ FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON:', e.message);
       }
-    } else {
-      const saPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
-      if (fs.existsSync(saPath)) {
-        serviceAccount = JSON.parse(fs.readFileSync(saPath, 'utf8'));
+    }
+    
+    if (!serviceAccount) {
+      // Try multiple paths for the service account file
+      const paths = [
+        process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+        './firebase-service-account.json',
+        '../firebase-service-account.json',
+        '/etc/secrets/firebase-service-account.json',
+      ].filter(Boolean);
+      
+      for (const saPath of paths) {
+        if (fs.existsSync(saPath)) {
+          try {
+            serviceAccount = JSON.parse(fs.readFileSync(saPath, 'utf8'));
+            console.log(`✅ Firebase service account loaded from file: ${saPath}`);
+            break;
+          } catch (e) {
+            console.warn(`⚠️ Could not parse ${saPath}: ${e.message}`);
+          }
+        }
       }
     }
 
@@ -34,13 +52,15 @@ const initFirebase = async () => {
       firebaseApp = admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
       });
-      console.log('✅ Firebase Admin initialized successfully');
+      console.log(`✅ Firebase Admin initialized successfully (project: ${serviceAccount.project_id})`);
       return firebaseApp;
     } else {
-      console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT_JSON not found - FCM features disabled');
+      console.warn('⚠️ Firebase service account not found - FCM push notifications disabled');
+      console.warn('   To enable: Set FIREBASE_SERVICE_ACCOUNT_JSON env var with your Firebase service account JSON');
+      console.warn('   Or place firebase-service-account.json in the backend directory');
     }
   } catch (err) {
-    console.warn('⚠️ Firebase Admin could not be initialized (might not be installed yet or config missing):', err.message);
+    console.warn('⚠️ Firebase Admin could not be initialized:', err.message);
   }
   return null;
 };
@@ -264,15 +284,26 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
       [userId]
     );
 
-    // Store in-app notification regardless
-    await pgQuery(
-      `INSERT INTO public.notifications (user_id, title, message, type, read, created_at)
-       VALUES ($1, $2, $3, 'general', false, NOW())
-       ON CONFLICT DO NOTHING`,
-      [userId, title, `${title}: ${body}`]
-    ).catch(() => {
-      // notifications table may have different schema, silently ignore
-    });
+    // Store in-app notification regardless of push delivery
+    try {
+      await pgQuery(
+        `INSERT INTO public.notifications (user_id, title, body, type, read, created_at)
+         VALUES ($1, $2, $3, 'general', false, NOW())`,
+        [userId, title, body]
+      );
+    } catch (notifErr) {
+      // Try alternate schema (some tables use 'message' instead of 'body')
+      try {
+        await pgQuery(
+          `INSERT INTO public.notifications (user_id, title, message, type, read, created_at)
+           VALUES ($1, $2, $3, 'general', false, NOW())`,
+          [userId, title, `${title}: ${body}`]
+        );
+      } catch (_) {
+        // Silently ignore notification storage failures
+        console.warn(`Could not store notification for user ${userId}: ${notifErr.message}`);
+      }
+    }
 
     if (!row || !Array.isArray(row.push_tokens) || row.push_tokens.length === 0) {
       console.log(`No push tokens found for user ${userId}`);
@@ -286,6 +317,13 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
       try {
         const result = await sendPushNotificationToToken(pushToken, title, body, data);
         results.push(result);
+        
+        // Log successful delivery
+        if (result.ok) {
+          console.log(`✅ Push sent to user ${userId} via ${result.provider}`);
+        } else if (result.skipped) {
+          console.log(`⏭ Push skipped for user ${userId}: ${result.reason}`);
+        }
       } catch (error) {
         console.error(`Error sending push notification to token ${pushToken}:`, error);
         results.push({ ok: false, error: error.message, token: pushToken });

@@ -1,9 +1,15 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../services/message_service.dart';
+import '../services/message_realtime_service.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -17,6 +23,9 @@ class MessageState {
     this.searchQuery = '',
     this.isLoading = false,
     this.isSending = false,
+    this.isOtherTyping = false,
+    this.hasMoreMessages = true,
+    this.currentPage = 1,
     this.error,
   });
 
@@ -27,6 +36,9 @@ class MessageState {
   final String searchQuery;
   final bool isLoading;
   final bool isSending;
+  final bool isOtherTyping;
+  final bool hasMoreMessages;
+  final int currentPage;
   final String? error;
 
   MessageState copyWith({
@@ -37,6 +49,9 @@ class MessageState {
     String? searchQuery,
     bool? isLoading,
     bool? isSending,
+    bool? isOtherTyping,
+    bool? hasMoreMessages,
+    int? currentPage,
     String? error,
     bool clearError = false,
     bool clearMessages = false,
@@ -49,6 +64,9 @@ class MessageState {
         searchQuery: searchQuery ?? this.searchQuery,
         isLoading: isLoading ?? this.isLoading,
         isSending: isSending ?? this.isSending,
+        isOtherTyping: isOtherTyping ?? this.isOtherTyping,
+        hasMoreMessages: hasMoreMessages ?? this.hasMoreMessages,
+        currentPage: currentPage ?? this.currentPage,
         error: clearError ? null : error ?? this.error,
       );
 }
@@ -58,32 +76,64 @@ class MessageState {
 // ---------------------------------------------------------------------------
 class MessageNotifier extends Notifier<MessageState> {
   late final MessageService _service;
+  late final MessageRealtimeService _realtime;
+
+  // Supabase realtime channels
+  RealtimeChannel? _msgChannel;
+  RealtimeChannel? _convChannel;
+
+  // Typing indicator debounce
+  Timer? _typingResetTimer;
 
   @override
   MessageState build() {
     _service = MessageService.instance;
+    _realtime = MessageRealtimeService.instance;
+    ref.onDispose(_teardown);
     return const MessageState();
   }
+
+  void _teardown() {
+    _typingResetTimer?.cancel();
+    _realtime.unsubscribe(_msgChannel);
+    _realtime.unsubscribe(_convChannel);
+    _msgChannel = null;
+    _convChannel = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Conversations
+  // ---------------------------------------------------------------------------
 
   Future<void> loadConversations() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final currentUserId =
-          ref.read(authProvider).user?.id ?? '';
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
       final convs = await _service.getConversations(currentUserId);
-      state = state.copyWith(conversations: convs, isLoading: false);
+      state = state.copyWith(
+        conversations: convs,
+        unreadCount: convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
+        isLoading: false,
+      );
+
+      // Subscribe to conversation updates via Supabase realtime
+      await _realtime.unsubscribe(_convChannel);
+      _convChannel = _realtime.subscribeToConversations(
+        userId: currentUserId,
+        onUpdate: _onConversationUpdate,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query);
-  }
+  void setSearchQuery(String query) =>
+      state = state.copyWith(searchQuery: query);
+  void clearSearchQuery() => state = state.copyWith(searchQuery: '');
 
-  void clearSearchQuery() {
-    state = state.copyWith(searchQuery: '');
-  }
+  // ---------------------------------------------------------------------------
+  // Messages
+  // ---------------------------------------------------------------------------
 
   Future<void> loadMessages(String conversationId) async {
     state = state.copyWith(
@@ -91,42 +141,282 @@ class MessageNotifier extends Notifier<MessageState> {
       clearError: true,
       clearMessages: true,
       activeConversationId: conversationId,
+      hasMoreMessages: true,
+      currentPage: 1,
     );
     try {
-      final msgs = await _service.getMessages(conversationId);
-      state = state.copyWith(messages: msgs, isLoading: false);
+      final msgs =
+          await _service.getMessages(conversationId, page: 1, limit: 50);
+      state = state.copyWith(
+        messages: msgs,
+        isLoading: false,
+        hasMoreMessages: msgs.length == 50,
+      );
       _service.markAsRead(conversationId);
+
+      // Subscribe to new messages via Supabase realtime
+      await _realtime.unsubscribe(_msgChannel);
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+      _msgChannel = _realtime.subscribeToMessages(
+        conversationId: conversationId,
+        onInsert: _onRealtimeMessageInsert,
+        onTyping: (typingUserId) {
+          // Only show indicator if the typing user is the other party
+          if (typingUserId != currentUserId) _showTypingIndicator();
+        },
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> sendMessage(String content) async {
+  /// Load older messages (infinite scroll upward).
+  Future<void> loadMoreMessages() async {
+    if (!state.hasMoreMessages || state.isLoading) return;
+    final convId = state.activeConversationId;
+    if (convId == null || convId.isEmpty) return;
+
+    final nextPage = state.currentPage + 1;
+    try {
+      final older =
+          await _service.getMessages(convId, page: nextPage, limit: 50);
+      if (older.isEmpty) {
+        state = state.copyWith(hasMoreMessages: false);
+        return;
+      }
+      // Prepend older messages, dedup
+      final combined = [...older, ...state.messages];
+      final seen = <String>{};
+      final deduped = combined.where((m) => seen.add(m.id)).toList();
+      state = state.copyWith(
+        messages: deduped,
+        currentPage: nextPage,
+        hasMoreMessages: older.length == 50,
+      );
+    } catch (e) {
+      debugPrint('MessageNotifier.loadMoreMessages error: $e');
+    }
+  }
+
+  /// Called by Supabase realtime when a new row is inserted into messages.
+  void _onRealtimeMessageInsert(Map<String, dynamic> row) {
+    try {
+      final msgId = row['id']?.toString() ?? '';
+      final convId = row['conversation_id']?.toString() ?? '';
+
+      if (convId != state.activeConversationId) return;
+      if (msgId.isNotEmpty && state.messages.any((m) => m.id == msgId)) return;
+
+      final msg = MessageModel.fromJson(row);
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+
+      if (msg.senderId == currentUserId) {
+        // Own message confirmed by DB — reconcile with pending optimistic instead
+        // of appending. This prevents the duplicate-then-dedup flicker and avoids
+        // the race where a concurrent reload wipes state before HTTP reconciles.
+        final optIdx = state.messages.indexWhere(
+          (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+        );
+        if (optIdx >= 0) {
+          final updated = List<MessageModel>.from(state.messages);
+          updated[optIdx] = msg;
+          state = state.copyWith(messages: updated);
+          debugPrint('✅ Optimistic reconciled via Supabase realtime: ${msg.id}');
+          return;
+        }
+        // No matching optimistic (already reconciled by HTTP response) — skip
+        // to avoid showing a duplicate.
+        if (state.messages.any((m) => m.content.trim() == msg.content.trim() &&
+            m.senderId == currentUserId &&
+            !m.id.startsWith('opt_'))) {
+          return;
+        }
+      } else {
+        // Other user's message — clear their typing indicator
+        _typingResetTimer?.cancel();
+        state = state.copyWith(isOtherTyping: false);
+      }
+
+      state = state.copyWith(messages: [...state.messages, msg]);
+      debugPrint('📨 Realtime message appended: ${msg.id}');
+    } catch (e) {
+      debugPrint('MessageNotifier._onRealtimeMessageInsert error: $e');
+    }
+  }
+
+  /// Called when Supabase fires an UPDATE on the conversations table.
+  void _onConversationUpdate(Map<String, dynamic> row) {
+    try {
+      final convId = row['id']?.toString() ?? '';
+      if (convId.isEmpty) return;
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+      final updated = ConversationModel.fromJson(row, currentUserId);
+      final conversations = state.conversations.map((c) {
+        return c.id == convId ? updated : c;
+      }).toList();
+      state = state.copyWith(
+        conversations: conversations,
+        unreadCount:
+            conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
+      );
+    } catch (e) {
+      debugPrint('MessageNotifier._onConversationUpdate error: $e');
+    }
+  }
+
+  void _showTypingIndicator() {
+    state = state.copyWith(isOtherTyping: true);
+    _typingResetTimer?.cancel();
+    _typingResetTimer = Timer(const Duration(seconds: 4), () {
+      state = state.copyWith(isOtherTyping: false);
+    });
+  }
+
+  List<MessageModel> _replaceOptimisticMessage(
+    List<MessageModel> messages,
+    MessageModel optimisticMsg,
+    MessageModel confirmedMsg,
+  ) {
+    final updated = messages
+        .map((m) => m.id == optimisticMsg.id ? confirmedMsg : m)
+        .toList();
+    final seen = <String>{};
+    return updated.where((m) => m.id.isNotEmpty && seen.add(m.id)).toList();
+  }
+
+  Future<List<MessageModel>> _reloadMessagesForConversation(
+      String conversationId) async {
+    final latest =
+        await _service.getMessages(conversationId, page: 1, limit: 50);
+    state = state.copyWith(
+      messages: latest,
+      hasMoreMessages: latest.length == 50,
+      currentPage: 1,
+    );
+    return latest;
+  }
+
+  bool _containsEquivalentMessage(
+    List<MessageModel> messages, {
+    required String senderId,
+    required String content,
+  }) {
+    final normalized = content.trim();
+    if (normalized.isEmpty) return false;
+    return messages.any((message) =>
+        message.senderId == senderId && message.content.trim() == normalized);
+  }
+
+  /// Broadcast that the current user is typing — debounced by the caller.
+  void sendTypingIndicator() {
+    final channel = _msgChannel;
+    final userId = ref.read(authProvider).user?.id ?? '';
+    if (channel != null && userId.isNotEmpty) {
+      _realtime.sendTypingBroadcast(channel, userId);
+    }
+  }
+
+  /// Stop listening to realtime for the active conversation.
+  void detachSocketListener() {
+    _realtime.unsubscribe(_msgChannel);
+    _msgChannel = null;
+    _typingResetTimer?.cancel();
+    state = state.copyWith(isOtherTyping: false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Send
+  // ---------------------------------------------------------------------------
+
+  Future<void> sendMessage(String content, {File? imageFile}) async {
     final convId = state.activeConversationId;
     if (convId == null) return;
+    final currentUserId = ref.read(authProvider).user?.id ?? '';
+    final trimmedContent = content.trim();
 
-    state = state.copyWith(isSending: true, clearError: true);
+    // Optimistic UI
+    final optimisticMsg = MessageModel.optimistic(
+      content: trimmedContent.isEmpty && imageFile != null
+          ? 'Sending image...'
+          : trimmedContent,
+      senderId: currentUserId,
+      conversationId: convId,
+    );
+    state = state.copyWith(
+      messages: [...state.messages, optimisticMsg],
+      isSending: true,
+      clearError: true,
+    );
+
     try {
       final msg = await _service.sendMessage(
         conversationId: convId,
         content: content,
+        imageFile: imageFile,
       );
+
+      final looksIncomplete = msg.id.trim().isEmpty ||
+          (trimmedContent.isNotEmpty && msg.content.trim().isEmpty);
+
+      if (looksIncomplete) {
+        final latest = await _reloadMessagesForConversation(convId);
+        final matched = _containsEquivalentMessage(
+          latest,
+          senderId: currentUserId,
+          content: trimmedContent,
+        );
+        state = state.copyWith(isSending: false);
+        if (!matched) {
+          state = state.copyWith(
+            messages:
+                state.messages.where((m) => m.id != optimisticMsg.id).toList(),
+            error:
+                'Message sent but could not be confirmed yet. Please reopen the chat.',
+          );
+        }
+        return;
+      }
+
       state = state.copyWith(
-        messages: [...state.messages, msg],
+        messages: _replaceOptimisticMessage(state.messages, optimisticMsg, msg),
         isSending: false,
       );
     } catch (e) {
-      state = state.copyWith(isSending: false, error: e.toString());
+      try {
+        final latest = await _reloadMessagesForConversation(convId);
+        final matched = _containsEquivalentMessage(
+          latest,
+          senderId: currentUserId,
+          content: trimmedContent,
+        );
+        state = state.copyWith(isSending: false);
+        if (matched) return;
+      } catch (_) {}
+
+      final rolled =
+          state.messages.where((m) => m.id != optimisticMsg.id).toList();
+      state = state.copyWith(
+          messages: rolled, isSending: false, error: e.toString());
       rethrow;
     }
   }
 
-  Future<String> getOrCreateConversation(String receiverId,
-      {String? context}) async {
-    final convId = await _service.getOrCreateConversation(receiverId,
-        context: context);
-    return convId;
-  }
+  // ---------------------------------------------------------------------------
+  // Misc
+  // ---------------------------------------------------------------------------
+
+  Future<String> getOrCreateConversation(
+    String receiverId, {
+    String? context,
+    String? requestId,
+    String? tripId,
+  }) =>
+      _service.getOrCreateConversation(
+        receiverId,
+        context: context,
+        requestId: requestId,
+        tripId: tripId,
+      );
 
   Future<void> loadUnreadCount() async {
     try {
@@ -136,6 +426,7 @@ class MessageNotifier extends Notifier<MessageState> {
   }
 
   void clearActiveConversation() {
+    detachSocketListener();
     state = state.copyWith(clearMessages: true, activeConversationId: '');
   }
 }

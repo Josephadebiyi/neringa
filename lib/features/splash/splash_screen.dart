@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'dart:async';
 
 import '../../core/theme/app_colors.dart';
 import '../auth/providers/auth_provider.dart';
@@ -33,26 +34,36 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final Animation<double> _logoGlow;
   late final Animation<double> _streakTravel;
   ProviderSubscription<AuthState>? _authSubscription;
-  bool _hasScheduledNavigation = false;
+  Timer? _failsafeTimer;
+  bool _hasNavigated = false;
   late final bool _isReplaySplash;
 
+  // Single point of navigation — idempotent, safe to call multiple times.
+  // router is passed in so this works even after the widget is unmounted.
+  void _go(GoRouter router, String target) {
+    if (_hasNavigated) return;
+    debugPrint('🚀 Splash navigating to: $target');
+    _hasNavigated = true;
+    _failsafeTimer?.cancel();
+    _authSubscription?.close();
+    _authSubscription = null;
+    FlutterNativeSplash.remove();
+    router.go(target);
+  }
+
   void _handleAuthState(AuthState authState) {
-    if (_hasScheduledNavigation || authState.isInitialising) return;
-    _hasScheduledNavigation = true;
+    debugPrint('🔑 _handleAuthState: isInitialising=${authState.isInitialising} isLoggedIn=${authState.isLoggedIn} _hasNavigated=$_hasNavigated');
+    if (_hasNavigated || authState.isInitialising) return;
+
+    // Capture router NOW (before async gap) — GoRouter lives beyond this widget.
+    final router = GoRouter.of(context);
 
     Future<void>(() async {
-      if (_isReplaySplash) {
-        return;
-      }
-
+      if (_hasNavigated || _isReplaySplash) return;
       final target = await _resolveInitialRoute(authState);
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          FlutterNativeSplash.remove();
-          context.go(target);
-        }
-      });
+      debugPrint('🗺 Resolved route: $target');
+      if (_hasNavigated) return;
+      _go(router, target);
     });
   }
 
@@ -60,8 +71,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (widget.nextRoute != null || authState.isLoggedIn) {
       return widget.nextRoute ?? '/home';
     }
-
-    final seen = await hasSeenOnboarding();
+    final seen = await hasSeenOnboarding()
+        .timeout(const Duration(seconds: 2), onTimeout: () => false);
     return seen ? '/auth/signin' : '/onboarding';
   }
 
@@ -102,6 +113,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         authProvider,
         (_, next) => _handleAuthState(next),
       );
+      // Hard deadline: after 8s navigate regardless of auth state.
+      _failsafeTimer = Timer(const Duration(seconds: 8), () async {
+        if (_hasNavigated || !mounted) return;
+        final router = GoRouter.of(context);
+        final authState = ref.read(authProvider);
+        final target = authState.isLoggedIn ? '/home' : '/auth/signin';
+        _go(router, target);
+      });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _handleAuthState(ref.read(authProvider));
       });
@@ -112,6 +131,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void dispose() {
     _controller.dispose();
     _authSubscription?.close();
+    _authSubscription = null;
+    _failsafeTimer?.cancel();
     super.dispose();
   }
 

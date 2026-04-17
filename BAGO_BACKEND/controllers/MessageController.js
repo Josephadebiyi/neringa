@@ -8,7 +8,36 @@ import {
   softDeleteConversation,
   getConversationById,
 } from '../lib/postgres/messaging.js';
+import cloudinary from 'cloudinary';
 import { sendPushNotification } from '../services/pushNotificationService.js';
+
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+async function uploadMessageImage(file, userId) {
+  const mime = file?.mimetype || 'image/jpeg';
+  const base64 = file?.data?.toString('base64');
+  if (!base64) {
+    throw new Error('Invalid image upload');
+  }
+
+  const result = await cloudinary.v2.uploader.upload(
+    `data:${mime};base64,${base64}`,
+    {
+      folder: 'bago/chat_images',
+      public_id: `chat_${userId}_${Date.now()}`,
+    },
+  );
+
+  return {
+    fileUrl: result.secure_url,
+    fileName: file?.name || `chat-image-${Date.now()}.jpg`,
+    mimeType: mime,
+  };
+}
 
 export const messageController = (io) => {
   io.on('connection', (socket) => {
@@ -165,28 +194,56 @@ export const resolveConversation = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const text = req.body.text || req.body.content;
+    const text = req.body.text || req.body.content || '';
+    let type = req.body.type || 'text';
     const userId = req.user.id;
+    let fileUrl = null;
+    let fileName = null;
+    let mimeType = null;
 
-    if (!text) {
-      return res.status(400).json({ success: false, message: 'Message text is required' });
+    if (req.files?.image) {
+      const upload = await uploadMessageImage(req.files.image, userId);
+      fileUrl = upload.fileUrl;
+      fileName = upload.fileName;
+      mimeType = upload.mimeType;
+      type = 'image';
     }
 
-    const result = await createConversationMessage({ conversationId, senderId: userId, text });
+    if (!text.trim() && !fileUrl) {
+      return res.status(400).json({ success: false, message: 'Message text or image is required' });
+    }
+
+    const result = await createConversationMessage({
+      conversationId,
+      senderId: userId,
+      text,
+      type,
+      fileUrl,
+      fileName,
+      mimeType,
+    });
 
     if (!result) {
       return res.status(404).json({ success: false, message: 'Conversation not found' });
     }
 
     const { conversation, message } = result;
+    const trimmedText = text.trim();
+    const pushPreview = type === 'image'
+      ? (trimmedText ? `Image: ${trimmedText}` : 'Sent an image')
+      : text;
 
     const messageData = {
       _id: message.id,
       id: message.id,
       conversationId,
-      text,
+      text: message.content || text,
+      content: message.content || text,
       sender: userId,
       timestamp: message.createdAt,
+      type,
+      fileUrl,
+      fileName,
     };
 
     const io = req.app.get('io');
@@ -207,7 +264,7 @@ export const sendMessage = async (req, res) => {
       await sendPushNotification(
         recipientId,
         `💬 New message from ${senderName}`,
-        text.length > 50 ? text.substring(0, 47) + '...' : text,
+        pushPreview.length > 50 ? pushPreview.substring(0, 47) + '...' : pushPreview,
         { conversationId, type: 'chat_message' }
       ).catch(() => {});
     }

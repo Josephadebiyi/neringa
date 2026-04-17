@@ -137,7 +137,9 @@ export async function RequestPackage(req, res) {
 export async function updateRequestStatus(req, res) {
   try {
     const { requestId } = req.params;
-    const { status, location, notes } = req.body;
+    const { status: rawStatus, location, notes } = req.body;
+    // Map 'delivered' to 'completed' since the DB enum uses 'completed'
+    const status = rawStatus === 'delivered' ? 'completed' : rawStatus;
     const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
@@ -150,15 +152,43 @@ export async function updateRequestStatus(req, res) {
     }
 
     try {
+      // For user-facing labels, show 'delivered' when rawStatus was 'delivered'
+      const statusLabel = rawStatus === 'delivered' ? 'delivered' : status;
+      const senderName = updatedRequest.senderName || 'Sender';
+      const travelerName = updatedRequest.travelerName || updatedRequest.carrierName || 'Traveler';
+
+      // In-app notification for sender
       await createNotification({
         userId: updatedRequest.senderId,
         title: 'Shipping update',
-        body: `Your shipment is now ${status}${location ? ` at ${location}` : ''}`,
+        body: `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`,
         type: 'shipment_status',
-        payload: { requestId, status, location },
+        payload: { requestId, status: statusLabel, location },
       });
-      await sendShippingStatusEmail(updatedRequest, status, location);
-      if (status === 'intransit' && updatedRequest.package?.receiverEmail) {
+
+      // PUSH notification for sender on key status changes
+      if (['accepted', 'rejected', 'intransit', 'delivering', 'delivered'].includes(statusLabel)) {
+        const pushTitle = statusLabel === 'accepted' ? 'Request Accepted!'
+          : statusLabel === 'rejected' ? 'Request Declined'
+          : `Shipment ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`;
+        const pushBody = statusLabel === 'accepted' ? `${travelerName} accepted your shipment request. You can now chat!`
+          : statusLabel === 'rejected' ? `${travelerName} declined your shipment request.`
+          : `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`;
+        
+        sendPushNotification(updatedRequest.senderId, pushTitle, pushBody, {
+          type: 'shipment_status', requestId, status: statusLabel,
+        }).catch(e => console.warn('Push to sender failed:', e.message));
+      }
+
+      // Notify traveler too when sender confirms delivery
+      if (statusLabel === 'delivered') {
+        sendPushNotification(updatedRequest.travelerId || updatedRequest.carrierId, 'Delivery Confirmed', `${senderName} has been notified. Funds will be released soon.`, {
+          type: 'shipment_status', requestId, status: statusLabel,
+        }).catch(e => console.warn('Push to traveler failed:', e.message));
+      }
+
+      await sendShippingStatusEmail(updatedRequest, statusLabel, location);
+      if (statusLabel === 'intransit' && updatedRequest.package?.receiverEmail) {
         await sendReceiverShippingStartedEmail(
           updatedRequest.package.receiverEmail,
           updatedRequest.package.receiverName,

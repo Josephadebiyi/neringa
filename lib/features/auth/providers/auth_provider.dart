@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/services/storage_service.dart';
 import '../../../shared/services/push_notification_service.dart';
+import '../../../shared/services/socket_service.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
@@ -57,14 +59,51 @@ class AuthNotifier extends Notifier<AuthState> {
     return const AuthState();
   }
 
+  Future<void> _connectRealtime(String userId) async {
+    try {
+      await SocketService.instance.connect();
+      SocketService.instance.setUserId(userId);
+    } catch (e) {
+      debugPrint('Auth realtime connection failed: $e');
+    }
+  }
+
   Future<void> _init() async {
     try {
-      final user = await _service.restoreSession();
-      state = state.copyWith(user: user, isInitialising: false);
-      if (user != null) {
-        await PushNotificationService.instance.prepareForSignedInUser();
+      final token = await _storage
+          .getAccessToken()
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
+      final userData = await _storage
+          .getUser()
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
+
+      if (token == null || userData == null) {
+        debugPrint('Auth init: no saved session found in secure storage');
+        state = state.copyWith(isInitialising: false);
+        return;
       }
-    } catch (_) {
+
+      final hasSavedSession = await _storage
+          .hasSavedSession()
+          .timeout(const Duration(seconds: 2), onTimeout: () => false);
+      debugPrint(
+          'Auth init: secure storage session present = $hasSavedSession');
+
+      final user = await _service
+          .restoreSession(validateWithBackend: true)
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
+      state = state.copyWith(user: user, isInitialising: false);
+
+      if (user != null) {
+        await _connectRealtime(user.id);
+        PushNotificationService.instance
+            .prepareForSignedInUserSilently()
+            .catchError((e) {
+          debugPrint('Push notification prep failed: $e');
+        });
+      }
+    } catch (e) {
+      debugPrint('Auth init failed, continuing to app shell: $e');
       state = state.copyWith(isInitialising: false);
     }
   }
@@ -76,7 +115,12 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final result = await _service.login(email: email, password: password);
       state = state.copyWith(user: result.user, isLoading: false);
-      await PushNotificationService.instance.prepareForSignedInUser();
+      _connectRealtime(result.user.id);
+      PushNotificationService.instance
+          .prepareForSignedInUserSilently()
+          .catchError((e) {
+        debugPrint('Auth login: push notification prep failed: $e');
+      });
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -134,7 +178,12 @@ class AuthNotifier extends Notifier<AuthState> {
         otp: otp,
       );
       state = state.copyWith(user: user, isLoading: false);
-      await PushNotificationService.instance.prepareForSignedInUser();
+      _connectRealtime(user.id);
+      PushNotificationService.instance
+          .prepareForSignedInUserSilently()
+          .catchError((e) {
+        debugPrint('Auth verifyOtp: push notification prep failed: $e');
+      });
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -169,7 +218,12 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final user = await _service.googleSignIn();
       state = state.copyWith(user: user, isLoading: false);
-      await PushNotificationService.instance.prepareForSignedInUser();
+      _connectRealtime(user.id);
+      PushNotificationService.instance
+          .prepareForSignedInUserSilently()
+          .catchError((e) {
+        debugPrint('Auth googleSignIn: push notification prep failed: $e');
+      });
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -256,6 +310,7 @@ class AuthNotifier extends Notifier<AuthState> {
   // ---------- Logout / Delete ---------------------------------------------
 
   Future<void> logout() async {
+    SocketService.instance.disconnect();
     await _service.logout();
     state = const AuthState(isInitialising: false);
   }
@@ -275,4 +330,5 @@ class AuthNotifier extends Notifier<AuthState> {
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider =
+    NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);

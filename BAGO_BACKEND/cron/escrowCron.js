@@ -8,6 +8,7 @@ export const startEscrowAutoRelease = () => {
 
     try {
       // Find completed requests with proof, sender hasn't confirmed, not yet auto-released
+      // Note: DB enum uses 'completed' (not 'delivered') for delivered shipments
       const eligible = await pgQuery(
         `SELECT id, traveler_id, sender_id, amount, updated_at
          FROM public.shipment_requests

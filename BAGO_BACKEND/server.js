@@ -45,10 +45,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const io = new Server(httpServer, {
   cors: {
-    origin: Array.from(allowedOrigins),
+    origin: '*', // Allow all origins for mobile app compatibility
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 // ✅ Initialize Stripe (optional - will be null if no key provided)
@@ -109,10 +111,11 @@ async function createStripeAccountForUser(user) {
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
       if (!origin || allowedOrigins.has(origin)) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS'));
+      return callback(null, true); // Allow all origins for mobile app compatibility
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
@@ -241,7 +244,7 @@ app.use((req, res, next) => {
 // ✅ Rate limiting
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 500, // Increased for mobile app usage (multiple API calls per screen)
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests. Please try again in 15 minutes.' },
@@ -249,7 +252,7 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 10, // Increased slightly for mobile auth retries
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many attempts. Please try again in 15 minutes.' },
@@ -288,17 +291,6 @@ messageController(io);
 app.use('/api/bago', userRouter);
 app.use('/api/Adminbaggo', AdminRouter);
 app.use("/api/prices", priceRoutes);
-
-// ✅ Explicit 404 handler so missing routes return JSON instead of crashing
-app.use((req, res, next) => {
-  if (req.originalUrl.startsWith('/api')) {
-    return res.status(404).json({
-      success: false,
-      message: 'Route not found',
-    });
-  }
-  next();
-});
 
 // ✅ Route Pricing API (Public endpoints for mobile app)
 import {
@@ -884,10 +876,47 @@ app.post('/api/bago/register-token', async (req, res) => {
   try {
     const { addPushToken } = await import('./lib/postgres/profiles.js');
     await addPushToken(userId, resolvedToken);
+    console.log(`✅ Push token registered for user ${userId} (len=${resolvedToken.length})`);
     res.json({ success: true, message: 'Token registered successfully' });
   } catch (err) {
     console.error('Register token error:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ✅ Push notification diagnostic endpoint
+app.get('/api/bago/push-debug/:userId', isAuthenticated, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const row = await queryOne(
+      `SELECT id, email, push_tokens, communication_prefs FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
+    
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const tokens = row.push_tokens || [];
+    const tokenInfo = tokens.map(t => ({
+      length: t?.length || 0,
+      prefix: t?.substring(0, 20) + '...',
+      isExpo: /^ExponentPushToken/.test(t || ''),
+      isApns: /^[0-9a-fA-F]{64}$/.test((t || '').trim()),
+      isFcm: (t || '').length > 50 && !/^ExponentPushToken/.test(t || '') && !/^[0-9a-fA-F]{64}$/.test((t || '').trim()),
+    }));
+
+    res.json({
+      success: true,
+      userId: row.id,
+      email: row.email,
+      tokenCount: tokens.length,
+      tokens: tokenInfo,
+      communicationPrefs: row.communication_prefs,
+    });
+  } catch (err) {
+    console.error('Push debug error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -2464,4 +2493,59 @@ app.get("/api/shipping/label/:requestId", isAuthenticated, async (req, res) => {
       error: err.message
     });
   }
+});
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// Push notification diagnostic (temporary — remove after testing)
+// ────────────────────────────────────────────────────────────────────────────
+app.get('/api/bago/push-diag/tokens', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, email, first_name, last_name, array_length(push_tokens, 1) as token_count, push_tokens
+       FROM public.profiles
+       WHERE push_tokens IS NOT NULL AND array_length(push_tokens, 1) > 0
+       ORDER BY updated_at DESC LIMIT 20`
+    );
+    const users = (result.rows || []).map(r => ({
+      id: r.id,
+      email: r.email,
+      name: `${r.first_name || ''} ${r.last_name || ''}`.trim(),
+      tokenCount: r.token_count || 0,
+      tokens: (r.push_tokens || []).map(t => ({
+        len: (t || '').length,
+        prefix: (t || '').substring(0, 25) + '...',
+        type: /^ExponentPushToken/.test(t) ? 'expo'
+            : /^[0-9a-fA-F]{64}$/.test((t || '').trim()) ? 'apns'
+            : (t || '').length > 50 ? 'fcm' : 'unknown',
+      })),
+    }));
+    res.json({ success: true, usersWithTokens: users.length, users });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/bago/push-diag/test', async (req, res) => {
+  try {
+    const { userId, title, body } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+
+    const { sendPushNotification: sendPush } = await import('./services/pushNotificationService.js');
+    const results = await sendPush(userId, title || 'Bago Test Push', body || 'If you see this, push notifications are working!');
+    res.json({ success: true, results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ✅ Explicit 404 handler — MUST be the last route (catches unmatched /api requests)
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith('/api')) {
+    return res.status(404).json({
+      success: false,
+      message: 'Route not found',
+    });
+  }
+  next();
 });

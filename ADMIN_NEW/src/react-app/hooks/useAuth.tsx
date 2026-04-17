@@ -35,11 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (adminData) {
         setUser({
-          id: adminData._id,
-          username: adminData.userName || adminData.email || 'Admin',
+          id: adminData.id || adminData._id,
+          username: adminData.username || adminData.userName || adminData.email || 'Admin',
           email: adminData.email || '',
-          firstName: adminData.firstName || '',
-          lastName: adminData.lastName || '',
+          firstName: adminData.firstName || adminData.first_name || adminData.fullName || adminData.full_name || '',
+          lastName: adminData.lastName || adminData.last_name || '',
           role: 'admin',
         });
       } else {

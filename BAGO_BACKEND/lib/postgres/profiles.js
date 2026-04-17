@@ -252,18 +252,55 @@ export async function confirmPendingEmailChange(userId, email) {
   );
 }
 
-export async function addPushToken(userId, token) {
+export async function setPendingPhoneChange(userId, pendingPhone, otpCode, otpExpiresAt) {
   await query(
+    `
+      update public.profiles
+      set pending_phone = $2,
+          phone_change_otp_code = $3,
+          phone_change_otp_expires_at = $4
+      where id = $1
+    `,
+    [userId, pendingPhone, otpCode, otpExpiresAt],
+  );
+}
+
+export async function confirmPendingPhoneChange(userId, phone) {
+  await query(
+    `
+      update public.profiles
+      set phone = $2,
+          pending_phone = null,
+          phone_change_otp_code = null,
+          phone_change_otp_expires_at = null
+      where id = $1
+    `,
+    [userId, phone],
+  );
+}
+
+export async function addPushToken(userId, token) {
+  const result = await query(
     `
       update public.profiles
       set push_tokens = case
         when $2 = any(coalesce(push_tokens, '{}')) then coalesce(push_tokens, '{}')
         else array_append(coalesce(push_tokens, '{}'), $2)
-      end
+      end,
+      updated_at = timezone('utc', now())
       where id = $1
+      returning id, array_length(push_tokens, 1) as token_count
     `,
     [userId, token],
   );
+  
+  if (result.rows.length === 0) {
+    console.warn(`⚠️ addPushToken: No profile found for user ${userId}`);
+  } else {
+    console.log(`✅ addPushToken: user=${userId}, tokenCount=${result.rows[0].token_count}`);
+  }
+  
+  return result.rows[0] || null;
 }
 
 export async function updatePreferredCurrency(userId, currency, paymentGateway) {

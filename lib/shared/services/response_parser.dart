@@ -25,6 +25,14 @@ abstract final class ResponseParser {
       final v = data[key];
       if (v is Map<String, dynamic>) return v;
     }
+    final fallback = data['data'];
+    if (fallback is Map<String, dynamic>) {
+      for (final key in keys) {
+        final nested = fallback[key];
+        if (nested is Map<String, dynamic>) return nested;
+      }
+      return fallback;
+    }
     return data;
   }
 

@@ -9,6 +9,7 @@ import {
   applySignupBonus,
   checkDuplicateNameDob,
   confirmPendingEmailChange,
+  confirmPendingPhoneChange,
   createOrUpdateGoogleProfile,
   createProfileWithWallet,
   findActivePromoCode,
@@ -17,6 +18,7 @@ import {
   findProfileByReferralCode,
   getWalletByUserId,
   setPendingEmailChange,
+  setPendingPhoneChange,
   updatePasswordOtp,
   updatePreferredCurrency,
   clearOtpAndUpdatePassword,
@@ -50,6 +52,8 @@ function buildUserResponse(user) {
     pushTokens: user.pushTokens,
     walletBalance: Number(user.balance || 0),
     wallet_balance: Number(user.balance || 0),
+    escrowBalance: Number(user.escrowBalance || 0),
+    escrow_balance: Number(user.escrowBalance || 0),
     bankAccountLinked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
     bank_account_linked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
   };
@@ -543,6 +547,50 @@ export async function verifyEmailChange(req, res) {
   }
 }
 
+export async function requestPhoneChange(req, res) {
+  try {
+    const { newPhone } = req.body;
+    const user = await findProfileById(req.user.id || req.user._id);
+
+    if (!newPhone) return res.status(400).json({ message: 'New phone number is required' });
+    if (newPhone.trim() === user.phone?.trim()) {
+      return res.status(400).json({ message: 'New phone must be different from current phone' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await setPendingPhoneChange(user.id, newPhone.trim(), otp, new Date(Date.now() + 15 * 60 * 1000));
+
+    res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
+  } catch (error) {
+    console.error('requestPhoneChange error:', error);
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export async function verifyPhoneChange(req, res) {
+  try {
+    const { otp } = req.body;
+    const user = await findProfileById(req.user.id || req.user._id);
+
+    if (!user.pendingPhone || !user.phone_change_otp_code) {
+      return res.status(400).json({ message: 'No phone change request found' });
+    }
+
+    if (new Date(user.phone_change_otp_expires_at) < new Date()) {
+      return res.status(400).json({ message: 'Verification code expired' });
+    }
+
+    if (user.phone_change_otp_code !== otp) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+
+    await confirmPendingPhoneChange(user.id, user.pendingPhone);
+    res.status(200).json({ success: true, message: 'Phone number updated successfully!' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 export async function getWallet(req, res) {
   try {
     const wallet = await getWalletByUserId(req.user.id || req.user._id);
@@ -551,7 +599,15 @@ export async function getWallet(req, res) {
     res.status(200).json({
       success: true,
       balance: wallet.balance,
+      escrowBalance: wallet.escrowBalance,
+      currency: wallet.currency,
       history: wallet.history,
+      data: {
+        balance: wallet.balance,
+        escrowBalance: wallet.escrowBalance,
+        currency: wallet.currency,
+        history: wallet.history,
+      },
     });
   } catch (error) {
     console.error('getWallet error:', error);
@@ -564,8 +620,26 @@ export async function savePushToken(req, res) {
     const { token, deviceToken, pushToken } = req.body;
     const resolvedToken = (token || deviceToken || pushToken || '').trim();
     if (!resolvedToken) return res.status(400).json({ success: false, message: 'Token is required' });
-    await addPushToken(req.user.id || req.user._id, resolvedToken);
-    res.json({ success: true, message: 'Push token registered successfully' });
+    
+    const userId = req.user.id || req.user._id;
+    console.log(`🔔 savePushToken: user=${userId}, tokenLen=${resolvedToken.length}, prefix=${resolvedToken.substring(0, 30)}...`);
+    
+    await addPushToken(userId, resolvedToken);
+    
+    // Verify it was stored
+    const { queryOne: qOne } = await import('../lib/postgres/db.js');
+    const row = await qOne(`SELECT push_tokens FROM public.profiles WHERE id = $1`, [userId]);
+    const storedTokens = row?.push_tokens || [];
+    const isStored = storedTokens.includes(resolvedToken);
+    
+    console.log(`🔔 Token stored: ${isStored}, total tokens for user: ${storedTokens.length}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Push token registered successfully',
+      stored: isStored,
+      totalTokens: storedTokens.length,
+    });
   } catch (error) {
     console.error('savePushToken error:', error);
     res.status(500).json({ success: false, message: 'Failed to save push token' });

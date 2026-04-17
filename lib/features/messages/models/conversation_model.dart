@@ -12,6 +12,9 @@ class ConversationModel {
   final String? requestId;
   final String? requestStatus;
   final String? tripId;
+  final String? packageTitle;
+  final String? routeLabel;
+  final String? trackingNumber;
 
   const ConversationModel({
     required this.id,
@@ -25,6 +28,9 @@ class ConversationModel {
     this.requestId,
     this.requestStatus,
     this.tripId,
+    this.packageTitle,
+    this.routeLabel,
+    this.trackingNumber,
   });
 
   bool get isClosed =>
@@ -60,12 +66,18 @@ class ConversationModel {
         : json['otherUserName']?.toString() ??
             json['participantName']?.toString() ??
             'User';
-    final otherAvatar = other != null
-        ? other['avatar']?.toString() ??
-            other['profile_picture']?.toString() ??
-            other['image']?.toString()
-        : json['otherUserAvatar']?.toString() ??
-            json['participantAvatar']?.toString();
+    final otherAvatar = _normalizeAvatar(
+      other != null
+          ? other['avatar']?.toString() ??
+              other['profile_picture']?.toString() ??
+              other['image']?.toString()
+          : json['otherUserAvatar']?.toString() ??
+              json['participantAvatar']?.toString(),
+    );
+    final package = request?['package'] as Map<String, dynamic>?;
+    final fromCity = package?['fromCity']?.toString().trim() ?? '';
+    final toCity = package?['toCity']?.toString().trim() ?? '';
+    final routeLabel = [fromCity, toCity].where((part) => part.isNotEmpty).join(' → ');
 
     final rawLastMsg = json['lastMessage'];
     final lastMsg = rawLastMsg is Map<String, dynamic>
@@ -101,6 +113,12 @@ class ConversationModel {
       tripId: request?['trip']?['_id']?.toString() ??
           request?['trip']?.toString() ??
           json['tripId']?.toString(),
+      packageTitle: package?['description']?.toString() ??
+          package?['title']?.toString() ??
+          json['packageTitle']?.toString(),
+      routeLabel: routeLabel.isEmpty ? null : routeLabel,
+      trackingNumber: request?['trackingNumber']?.toString() ??
+          json['trackingNumber']?.toString(),
     );
   }
 
@@ -114,5 +132,16 @@ class ConversationModel {
     final composed = JsonParser.parseFullName(user).trim();
     if (composed.isNotEmpty) return composed;
     return user['email']?.toString() ?? 'User';
+  }
+
+  static String? _normalizeAvatar(String? raw) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty || value.toLowerCase() == 'null') return null;
+    if (value.startsWith('http://') ||
+        value.startsWith('https://') ||
+        value.startsWith('data:image/')) {
+      return value;
+    }
+    return null;
   }
 }

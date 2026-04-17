@@ -39,12 +39,18 @@ enum RequestStatus {
   pending,
   accepted,
   rejected,
-  completed;
+  intransit,
+  delivering,
+  completed,
+  cancelled;
 
   static RequestStatus fromString(String? s) => switch (s) {
         'accepted' => RequestStatus.accepted,
         'rejected' => RequestStatus.rejected,
-        'completed' => RequestStatus.completed,
+        'intransit' => RequestStatus.intransit,
+        'delivering' => RequestStatus.delivering,
+        'completed' || 'delivered' => RequestStatus.completed,
+        'cancelled' => RequestStatus.cancelled,
         _ => RequestStatus.pending,
       };
 
@@ -52,7 +58,10 @@ enum RequestStatus {
         RequestStatus.pending => 'Pending',
         RequestStatus.accepted => 'Accepted',
         RequestStatus.rejected => 'Rejected',
-        RequestStatus.completed => 'Completed',
+        RequestStatus.intransit => 'In Transit',
+        RequestStatus.delivering => 'Delivering',
+        RequestStatus.completed => 'Delivered',
+        RequestStatus.cancelled => 'Cancelled',
       };
 
   String get apiValue => name;

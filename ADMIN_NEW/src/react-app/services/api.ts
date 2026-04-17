@@ -2,25 +2,53 @@ import { API_BASE_URL as ADMIN_API, API_ROOT, MAIN_API_URL as MAIN_API } from '.
 
 // Centralized API service for admin panel
 const API_BASE = API_ROOT;
+const ADMIN_TOKEN_KEY = 'bago_admin_token';
+
+function getAdminToken() {
+  return window.localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+function setAdminToken(token: string) {
+  window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
+}
+
+function clearAdminToken() {
+  window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+export function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}) {
+  const token = getAdminToken();
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extraHeaders,
+  };
+}
 
 // Helper function for API calls
 async function apiCall(url: string, options: RequestInit = {}) {
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
-  };
+  const headers = getAdminAuthHeaders(options.headers as Record<string, string>);
 
   if (options.body && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(url.trim(), {
-    ...options,
-    credentials: 'include',
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url.trim(), {
+      ...options,
+      credentials: 'include',
+      headers,
+    });
+  } catch (networkError) {
+    // Network error (backend unreachable, DNS failure, CORS blocked)
+    throw new Error('Unable to reach the server. Please check if the backend is running and try again.');
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    if (response.status === 401) {
+      clearAdminToken();
+    }
     throw new Error(error.error || error.message || 'Request failed');
   }
 
@@ -30,13 +58,25 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
 // Auth
 export async function adminLogin(credentials: any) {
-  const response = await fetch(`${ADMIN_API}/AdminLogin`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credentials),
-  });
-  return response.json();
+  let response: Response;
+  try {
+    response = await fetch(`${ADMIN_API}/AdminLogin`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(credentials),
+    });
+  } catch (networkError) {
+    throw new Error('Unable to reach the server. Please check if the backend is running.');
+  }
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || 'Login failed');
+  }
+  if (data.token) {
+    setAdminToken(data.token);
+  }
+  return data;
 }
 
 export async function checkAdminAuth() {
@@ -44,7 +84,11 @@ export async function checkAdminAuth() {
 }
 
 export async function adminLogout() {
-  return apiCall(`${ADMIN_API}/Adminlogout`);
+  try {
+    return await apiCall(`${ADMIN_API}/Adminlogout`);
+  } finally {
+    clearAdminToken();
+  }
 }
 
 // Dashboard
