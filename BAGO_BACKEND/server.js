@@ -2501,7 +2501,7 @@ app.get("/api/shipping/label/:requestId", isAuthenticated, async (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 app.get('/api/bago/push-diag/tokens', async (req, res) => {
   try {
-    const result = await query(
+    const result = await pgQuery(
       `SELECT id, email, first_name, last_name, array_length(push_tokens, 1) as token_count, push_tokens
        FROM public.profiles
        WHERE push_tokens IS NOT NULL AND array_length(push_tokens, 1) > 0
