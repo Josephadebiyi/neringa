@@ -80,15 +80,15 @@ export const verifyPaystackPayment = async (req, res) => {
       );
 
       if (updatedRequest) {
-        // Add to traveler's escrow balance
+        // Add to traveler's escrow balance (wallet_accounts is the source of truth)
         await pgQuery(
-          `UPDATE public.profiles
+          `UPDATE public.wallet_accounts
            SET escrow_balance = escrow_balance + $2,
                updated_at = NOW()
-           WHERE id = $1`,
+           WHERE user_id = $1`,
           [updatedRequest.traveler_id, updatedRequest.amount || 0]
         );
-        console.log(`🔒 Escrowed $${updatedRequest.amount} for traveler via Paystack`);
+        console.log(`🔒 Escrowed ${updatedRequest.amount} for traveler via Paystack verify`);
       }
     }
 
@@ -453,9 +453,9 @@ async function handleSuccessfulPayment(data) {
 
       if (updatedRequest) {
         await pgQuery(
-          `UPDATE public.profiles
+          `UPDATE public.wallet_accounts
            SET escrow_balance = escrow_balance + $2, updated_at = NOW()
-           WHERE id = $1`,
+           WHERE user_id = $1`,
           [updatedRequest.traveler_id, updatedRequest.amount || 0]
         );
         console.log(`🔒 Escrowed $${updatedRequest.amount} via Paystack webhook`);
