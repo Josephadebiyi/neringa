@@ -206,7 +206,9 @@ export const RequestPackage = async (req, res, next) => {
 
     await newRequest.save();
 
-    await Trip.findByIdAndUpdate(tripId, { $inc: { request: 1 } });
+    await Trip.findByIdAndUpdate(tripId, {
+      $inc: { request: 1, availableKg: -packageDoc.packageWeight },
+    });
 
     console.log("✅ New Request created successfully:", newRequest._id);
     console.log("📡 Tracking number will be generated when the trip starts");
@@ -344,6 +346,16 @@ export const updateRequestStatus = async (req, res) => {
       const io = req.app.get('io'); // Get Socket.IO instance
       await createConversation(updatedRequest, io);
       console.log(`Conversation created for request ${requestId} with status 'accepted'`);
+    }
+
+    // Restore available kg when traveler rejects or request is cancelled
+    if (['rejected', 'cancelled'].includes(status) && updatedRequest.trip?._id) {
+      const packageWeight = updatedRequest.package?.packageWeight || 0;
+      if (packageWeight > 0) {
+        await Trip.findByIdAndUpdate(updatedRequest.trip._id, {
+          $inc: { availableKg: packageWeight },
+        });
+      }
     }
 
     // Create notifications for accepted, rejected, intransit, delivering, or completed
