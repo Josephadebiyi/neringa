@@ -7,6 +7,7 @@ import 'storage_service.dart';
 /// Callback type for incoming real-time messages.
 typedef OnNewMessage = void Function(Map<String, dynamic> data);
 typedef OnConversationUpdate = void Function(Map<String, dynamic> data);
+typedef OnTripUpdate = void Function(Map<String, dynamic> data);
 
 class SocketService {
   SocketService._();
@@ -19,6 +20,7 @@ class SocketService {
 
   final List<OnNewMessage> _messageListeners = [];
   final List<OnConversationUpdate> _conversationListeners = [];
+  final List<OnTripUpdate> _tripUpdateListeners = [];
 
   bool get isConnected => _connected;
 
@@ -59,7 +61,8 @@ class SocketService {
       // Rejoin conversation if active
       if (_activeConversationId != null) {
         _socket!.emit('join_conversation', _activeConversationId);
-        debugPrint('SocketService: Rejoined conversation $_activeConversationId');
+        debugPrint(
+            'SocketService: Rejoined conversation $_activeConversationId');
       }
     });
 
@@ -105,6 +108,22 @@ class SocketService {
         }
       }
     });
+
+    void notifyTripListeners(dynamic data) {
+      if (data is Map<String, dynamic>) {
+        for (final listener in _tripUpdateListeners) {
+          listener(data);
+        }
+      } else if (data is Map) {
+        final mapped = Map<String, dynamic>.from(data);
+        for (final listener in _tripUpdateListeners) {
+          listener(mapped);
+        }
+      }
+    }
+
+    _socket!.on('trip_capacity_updated', notifyTripListeners);
+    _socket!.on('public_trip_updated', notifyTripListeners);
 
     _socket!.connect();
   }
@@ -168,6 +187,14 @@ class SocketService {
     _conversationListeners.remove(listener);
   }
 
+  void addTripUpdateListener(OnTripUpdate listener) {
+    _tripUpdateListeners.add(listener);
+  }
+
+  void removeTripUpdateListener(OnTripUpdate listener) {
+    _tripUpdateListeners.remove(listener);
+  }
+
   /// Disconnect and clean up
   void disconnect() {
     _socket?.disconnect();
@@ -178,6 +205,7 @@ class SocketService {
     _activeConversationId = null;
     _messageListeners.clear();
     _conversationListeners.clear();
+    _tripUpdateListeners.clear();
     debugPrint('SocketService: Disconnected and cleaned up');
   }
 }

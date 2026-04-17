@@ -140,6 +140,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final tripState = ref.watch(tripProvider);
     final shipmentState = ref.watch(shipmentProvider);
     final isCarrier = user?.isCarrier ?? false;
+    final carrierTrips = tripState.activeTrips;
+    final carrierKgSold = carrierTrips.fold<double>(
+        0, (sum, trip) => sum + trip.soldKg + trip.reservedKg);
+    final carrierKgRemaining =
+        carrierTrips.fold<double>(0, (sum, trip) => sum + trip.availableKg);
+    final carrierEarnings = carrierTrips.fold<double>(
+        0, (sum, trip) => sum + trip.travelerEarnings);
+    final carrierActiveShipments = carrierTrips.fold<int>(
+        0, (sum, trip) => sum + trip.activeShipmentCount);
     final services = isCarrier
         ? [
             _ServiceItem(
@@ -286,6 +295,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 if (!isCarrier) ...[
                   const SizedBox(height: 10),
                   _LiveTripCount(),
+                ],
+
+                if (isCarrier) ...[
+                  const SizedBox(height: 14),
+                  _CarrierTripMetrics(
+                    totalTrips: carrierTrips.length,
+                    totalKgSold: carrierKgSold,
+                    totalKgRemaining: carrierKgRemaining,
+                    totalEarnings: carrierEarnings,
+                    activeShipmentCount: carrierActiveShipments,
+                  ),
                 ],
 
                 // ── Recent Activity ───────────────────────────────────
@@ -1436,6 +1456,68 @@ class _RecentActivityList extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CarrierTripMetrics extends StatelessWidget {
+  const _CarrierTripMetrics({
+    required this.totalTrips,
+    required this.totalKgSold,
+    required this.totalKgRemaining,
+    required this.totalEarnings,
+    required this.activeShipmentCount,
+  });
+
+  final int totalTrips;
+  final double totalKgSold;
+  final double totalKgRemaining;
+  final double totalEarnings;
+  final int activeShipmentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = [
+      ('Trips listed', '$totalTrips'),
+      ('Kg booked', totalKgSold.toStringAsFixed(0)),
+      ('Kg remaining', totalKgRemaining.toStringAsFixed(0)),
+      ('Earnings', totalEarnings.toStringAsFixed(0)),
+      ('Active shipments', '$activeShipmentCount'),
+    ];
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: metrics
+          .map(
+            (metric) => Container(
+              width: 156,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.gray100,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    metric.$1,
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.gray500),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    metric.$2,
+                    style: AppTextStyles.h3.copyWith(
+                      color: AppColors.black,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

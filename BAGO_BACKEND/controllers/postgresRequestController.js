@@ -28,6 +28,40 @@ import {
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 
+function buildTripRealtimePayload(trip) {
+  if (!trip) return null;
+  return {
+    id: trip.id,
+    tripId: trip.id,
+    userId: trip.userId,
+    status: trip.status,
+    availableKg: trip.availableKg,
+    remainingKg: trip.remainingKg ?? trip.availableKg,
+    totalKg: trip.totalKg,
+    soldKg: trip.soldKg,
+    reservedKg: trip.reservedKg,
+    activeShipmentCount: trip.activeShipmentCount ?? 0,
+    grossSales: trip.grossSales ?? 0,
+    travelerEarnings: trip.travelerEarnings ?? 0,
+    bookingStatusSummary: trip.bookingStatusSummary,
+    publicVisible: ['active', 'verified'].includes((trip.status || '').toLowerCase()) && Number(trip.availableKg || 0) > 0,
+    updatedAt: trip.updatedAt,
+  };
+}
+
+function emitTripUpdate(req, trip, participants = []) {
+  const io = req.app.get('io');
+  if (!io || !trip) return;
+  const payload = buildTripRealtimePayload(trip);
+  if (!payload) return;
+
+  for (const participantId of participants.filter(Boolean)) {
+    io.to(participantId.toString()).emit('trip_capacity_updated', payload);
+  }
+
+  io.emit('public_trip_updated', payload);
+}
+
 export async function RequestPackage(req, res) {
   try {
     const {
@@ -68,10 +102,6 @@ export async function RequestPackage(req, res) {
     if (!tripDoc || tripDoc.userId !== travelerId) {
       return res.status(404).json({ message: 'Trip not found or not owned by traveler' });
     }
-    if (Number(tripDoc.availableKg || 0) < Number(packageDoc.packageWeight || 0)) {
-      return res.status(400).json({ message: 'Not enough available weight for this trip' });
-    }
-
     const newRequest = await createShipmentRequestRecord({
       senderId,
       travelerId,
@@ -104,6 +134,9 @@ export async function RequestPackage(req, res) {
     }
 
     try {
+      const updatedTrip = await getTripById(tripId);
+      emitTripUpdate(req, updatedTrip, [travelerId, senderId]);
+
       if (newRequest?.travelerId) {
         await createNotification({
           userId: newRequest.travelerId,
@@ -130,6 +163,15 @@ export async function RequestPackage(req, res) {
     return res.status(201).json({ message: 'You have successfully sent the request', request: newRequest });
   } catch (error) {
     console.error('Error creating request:', error);
+    if ([
+      'This trip does not have enough space left',
+      'This trip is no longer available for booking',
+      'Trip not found or not owned by traveler',
+      'Package not found or not owned by sender',
+      'Package weight must be greater than 0kg',
+    ].includes(error.message)) {
+      return res.status(400).json({ message: error.message });
+    }
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 }
@@ -152,6 +194,11 @@ export async function updateRequestStatus(req, res) {
     }
 
     try {
+      if (updatedRequest?.tripId) {
+        const updatedTrip = await getTripById(updatedRequest.tripId);
+        emitTripUpdate(req, updatedTrip, [updatedRequest.travelerId, updatedRequest.senderId]);
+      }
+
       // For user-facing labels, show 'delivered' when rawStatus was 'delivered'
       const statusLabel = rawStatus === 'delivered' ? 'delivered' : status;
       const senderName = updatedRequest.senderName || 'Sender';

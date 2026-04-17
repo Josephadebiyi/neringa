@@ -55,19 +55,19 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   bool _currencyLoading = true;
 
   // Form data
-  String _from     = '';
-  String _to       = '';
-  String _date     = '';
-  String _time     = '';
+  String _from = '';
+  String _to = '';
+  String _date = '';
+  String _time = '';
   String _travelMeans = 'airplane';
-  int    _capacity = 5;
-  String _price    = '';
+  int _capacity = 5;
+  String _price = '';
   File? _travelDocumentFile;
   String? _existingTravelDocument;
   final _picker = ImagePicker();
 
   // Time picker state
-  String _hour   = '08';
+  String _hour = '08';
   String _minute = '00';
   String _period = 'AM';
 
@@ -226,34 +226,45 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                       Text(
                         AppLocalizations.of(context).setWalletCurrencyTitle,
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                        style: AppTextStyles.h3
+                            .copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        AppLocalizations.of(context).chooseWalletCurrencyDescription,
+                        AppLocalizations.of(context)
+                            .chooseWalletCurrencyDescription,
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+                        style: AppTextStyles.bodyMd
+                            .copyWith(color: AppColors.gray500),
                       ),
                       const SizedBox(height: 18),
                       Flexible(
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: currencies.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
                           itemBuilder: (_, index) {
                             final currency = currencies[index];
-                            final symbol = CurrencyConversionHelper.symbolForCurrency(currency);
+                            final symbol =
+                                CurrencyConversionHelper.symbolForCurrency(
+                                    currency);
                             final selectedRow = tempSelection == currency;
                             return InkWell(
-                              onTap: () => setSheetState(() => tempSelection = currency),
+                              onTap: () =>
+                                  setSheetState(() => tempSelection = currency),
                               borderRadius: BorderRadius.circular(18),
                               child: Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: selectedRow ? AppColors.primarySoft : AppColors.white,
+                                  color: selectedRow
+                                      ? AppColors.primarySoft
+                                      : AppColors.white,
                                   borderRadius: BorderRadius.circular(18),
                                   border: Border.all(
-                                    color: selectedRow ? AppColors.primary : AppColors.border,
+                                    color: selectedRow
+                                        ? AppColors.primary
+                                        : AppColors.border,
                                   ),
                                 ),
                                 child: Row(
@@ -262,14 +273,18 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                                       width: 44,
                                       height: 44,
                                       decoration: BoxDecoration(
-                                        color: selectedRow ? AppColors.primary : AppColors.gray100,
+                                        color: selectedRow
+                                            ? AppColors.primary
+                                            : AppColors.gray100,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       alignment: Alignment.center,
                                       child: Text(
                                         symbol,
                                         style: AppTextStyles.labelMd.copyWith(
-                                          color: selectedRow ? AppColors.white : AppColors.black,
+                                          color: selectedRow
+                                              ? AppColors.white
+                                              : AppColors.black,
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
@@ -278,11 +293,13 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                                     Expanded(
                                       child: Text(
                                         currency,
-                                        style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
+                                        style: AppTextStyles.labelLg.copyWith(
+                                            fontWeight: FontWeight.w800),
                                       ),
                                     ),
                                     if (selectedRow)
-                                      const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+                                      const Icon(Icons.check_circle_rounded,
+                                          color: AppColors.primary),
                                   ],
                                 ),
                               ),
@@ -296,14 +313,16 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                         child: ElevatedButton(
                           onPressed: tempSelection == null
                               ? null
-                              : () => Navigator.pop(sheetContext, tempSelection),
+                              : () =>
+                                  Navigator.pop(sheetContext, tempSelection),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             shape: const StadiumBorder(),
                             elevation: 0,
                           ),
-                          child: Text(AppLocalizations.of(context).confirmCurrency),
+                          child: Text(
+                              AppLocalizations.of(context).confirmCurrency),
                         ),
                       ),
                     ],
@@ -328,7 +347,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       setState(() => _lockedCurrency = selected.toUpperCase());
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
       }
     } finally {
       _currencyPromptShown = false;
@@ -377,12 +397,15 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     final l10n = AppLocalizations.of(context);
     if (_step == 0) {
       if (!_termsAccepted) {
-        AppSnackBar.show(context, message: l10n.acceptTermsToContinue, type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: l10n.acceptTermsToContinue, type: SnackBarType.error);
         return;
       }
       final user = ref.read(authProvider).user;
       if (user?.hasPassedKyc != true) {
-        AppSnackBar.show(context, message: l10n.identityVerificationRequiredTrip, type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: l10n.identityVerificationRequiredTrip,
+            type: SnackBarType.error);
         return;
       }
       try {
@@ -393,11 +416,13 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       if (!mounted) return;
     }
     if (_step == 1 && _from.isEmpty) {
-      AppSnackBar.show(context, message: l10n.selectDepartureCity, type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: l10n.selectDepartureCity, type: SnackBarType.error);
       return;
     }
     if (_step == 2 && _to.isEmpty) {
-      AppSnackBar.show(context, message: l10n.selectDestinationCity, type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: l10n.selectDestinationCity, type: SnackBarType.error);
       return;
     }
     if (_step == 2 && _locationsMatch(_from, _to)) {
@@ -409,19 +434,25 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       return;
     }
     if (_step == 3 && _date.isEmpty) {
-      AppSnackBar.show(context, message: l10n.selectTravelDate, type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: l10n.selectTravelDate, type: SnackBarType.error);
       return;
     }
     if (_step == 4 && _time.isEmpty) {
-      AppSnackBar.show(context, message: l10n.setDepartureTime, type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: l10n.setDepartureTime, type: SnackBarType.error);
       return;
     }
-    if (_step == 5 && _travelDocumentFile == null && (_existingTravelDocument == null || _existingTravelDocument!.isEmpty)) {
-      AppSnackBar.show(context, message: l10n.uploadTripProofContinue, type: SnackBarType.error);
+    if (_step == 5 &&
+        _travelDocumentFile == null &&
+        (_existingTravelDocument == null || _existingTravelDocument!.isEmpty)) {
+      AppSnackBar.show(context,
+          message: l10n.uploadTripProofContinue, type: SnackBarType.error);
       return;
     }
     if (_step == 7 && _price.isEmpty) {
-      AppSnackBar.show(context, message: l10n.enterPricePerKg, type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: l10n.enterPricePerKg, type: SnackBarType.error);
       return;
     }
     if (_step < 8) {
@@ -472,7 +503,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         throw Exception(l10n.chooseTravelType);
       }
       if (_travelDocumentFile == null &&
-          (_existingTravelDocument == null || _existingTravelDocument!.isEmpty)) {
+          (_existingTravelDocument == null ||
+              _existingTravelDocument!.isEmpty)) {
         throw Exception(l10n.uploadProofOfTrip);
       }
       if (_capacity < 1) {
@@ -544,10 +576,15 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           travelDocument: _travelDocumentFile,
         );
       }
-      setState(() { _loading = false; _showSuccess = true; });
+      setState(() {
+        _loading = false;
+        _showSuccess = true;
+      });
     } catch (e) {
       setState(() => _loading = false);
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted)
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
     }
   }
 
@@ -555,7 +592,20 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     try {
       // Parse "Dec 15, 2025" format
       final parts = _date.replaceAll(',', '').split(' ');
-      const months = {'Jan':1,'Feb':2,'Mar':3,'Apr':4,'May':5,'Jun':6,'Jul':7,'Aug':8,'Sep':9,'Oct':10,'Nov':11,'Dec':12};
+      const months = {
+        'Jan': 1,
+        'Feb': 2,
+        'Mar': 3,
+        'Apr': 4,
+        'May': 5,
+        'Jun': 6,
+        'Jul': 7,
+        'Aug': 8,
+        'Sep': 9,
+        'Oct': 10,
+        'Nov': 11,
+        'Dec': 12
+      };
       final month = months[parts[0]] ?? 1;
       final day = int.tryParse(parts[1]) ?? 1;
       final year = int.tryParse(parts[2]) ?? DateTime.now().year;
@@ -567,14 +617,19 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
 
       return DateTime(year, month, day, hour, minute).toUtc().toIso8601String();
     } catch (_) {
-      return DateTime.now().add(const Duration(days: 1)).toUtc().toIso8601String();
+      return DateTime.now()
+          .add(const Duration(days: 1))
+          .toUtc()
+          .toIso8601String();
     }
   }
 
   Future<void> _loadTrip() async {
     // Prefer the trip already loaded on the details page so edit mode stays stable.
     final trip = widget.initialTrip ??
-        ref.read(tripProvider).myTrips
+        ref
+            .read(tripProvider)
+            .myTrips
             .where((t) => t.id == widget.tripId)
             .firstOrNull ??
         await _fetchTripFallback();
@@ -586,16 +641,24 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     try {
       return await TripService.instance.getTripById(widget.tripId!);
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted)
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
       return null;
     }
   }
 
   void _populateFields(dynamic trip) {
     final departure = DateTime.tryParse(trip.departureDate)?.toLocal();
-    final hour = departure == null ? '08' : (((departure.hour % 12) == 0 ? 12 : (departure.hour % 12))).toString().padLeft(2, '0');
-    final minute = departure == null ? '00' : departure.minute.toString().padLeft(2, '0');
-    final period = departure == null ? 'AM' : (departure.hour >= 12 ? 'PM' : 'AM');
+    final hour = departure == null
+        ? '08'
+        : (((departure.hour % 12) == 0 ? 12 : (departure.hour % 12)))
+            .toString()
+            .padLeft(2, '0');
+    final minute =
+        departure == null ? '00' : departure.minute.toString().padLeft(2, '0');
+    final period =
+        departure == null ? 'AM' : (departure.hour >= 12 ? 'PM' : 'AM');
     final dateLabel = departure == null
         ? ''
         : '${_shortMonth(departure.month)} ${departure.day}, ${departure.year}';
@@ -615,7 +678,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       _period = period;
       _selectedDate = departure;
       _currentMonth = departure ?? _currentMonth;
-      _capacity = trip.availableKg.round();
+      _capacity = trip.totalKg.round();
       _price = trip.pricePerKg.toStringAsFixed(2);
       _travelMeans = _normalizeTravelMeans(trip.travelMeans);
       _existingTravelDocument = trip.travelDocument;
@@ -640,12 +703,20 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 36, height: 4,
-                  decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2))),
+              Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: AppColors.gray200,
+                      borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 20),
-              Text(l10n.uploadProofTitle, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+              Text(l10n.uploadProofTitle,
+                  style:
+                      AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
-              Text(l10n.jpegPdfMaxSize, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+              Text(l10n.jpegPdfMaxSize,
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
               const SizedBox(height: 20),
               _UploadOption(
                 icon: Icons.image_rounded,
@@ -695,8 +766,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     if (size > _maxFileBytes) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: l10n.fileTooLargeUnder2mb,
-            type: SnackBarType.error);
+            message: l10n.fileTooLargeUnder2mb, type: SnackBarType.error);
       }
       return;
     }
@@ -710,7 +780,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     final l10n = AppLocalizations.of(context);
     const totalSteps = 9; // steps 0-8
     final progress = _step / totalSteps;
-    final currentCurrency = _resolvedCurrency(candidate: _strictUserCurrency(ref.watch(authProvider).user));
+    final currentCurrency = _resolvedCurrency(
+        candidate: _strictUserCurrency(ref.watch(authProvider).user));
 
     if (_currencyLoading) {
       return const Scaffold(
@@ -746,32 +817,34 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       body: SafeArea(
         child: Column(
           children: [
-                // ── Header ──────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
-                    children: [
-                      Material(
-                        color: AppColors.gray100,
-                        borderRadius: BorderRadius.circular(22),
-                        child: InkWell(
-                          onTap: _back,
-                          borderRadius: BorderRadius.circular(22),
-                          child: const SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Icon(Icons.arrow_back_rounded, size: 20),
-                          ),
-                        ),
+            // ── Header ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  Material(
+                    color: AppColors.gray100,
+                    borderRadius: BorderRadius.circular(22),
+                    child: InkWell(
+                      onTap: _back,
+                      borderRadius: BorderRadius.circular(22),
+                      child: const SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Icon(Icons.arrow_back_rounded, size: 20),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(_isEditMode ? l10n.editTrip : l10n.postTripTitle,
-                            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                        _isEditMode ? l10n.editTrip : l10n.postTripTitle,
+                        style: AppTextStyles.h3
+                            .copyWith(fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ),
             // ── Progress bar ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -790,7 +863,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.gray100,
                     borderRadius: BorderRadius.circular(10),
@@ -799,16 +873,21 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _CrumbItem(
-                        label: _from.isEmpty ? l10n.departureLabelShort : _from.split(',').first,
+                        label: _from.isEmpty
+                            ? l10n.departureLabelShort
+                            : _from.split(',').first,
                         active: _step == 1,
                         done: _from.isNotEmpty,
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.gray400),
+                        child: Icon(Icons.arrow_forward_rounded,
+                            size: 14, color: AppColors.gray400),
                       ),
                       _CrumbItem(
-                        label: _to.isEmpty ? l10n.destinationLabelShort : _to.split(',').first,
+                        label: _to.isEmpty
+                            ? l10n.destinationLabelShort
+                            : _to.split(',').first,
                         active: _step == 2,
                         done: _to.isNotEmpty,
                       ),
@@ -836,13 +915,23 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                     elevation: 0,
                   ),
                   child: _loading
-                      ? const SizedBox(width: 22, height: 22,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2.5))
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(_step == 8 ? (_isEditMode ? l10n.saveChanges : l10n.publishTripAction) : l10n.continueLabel,
-                                style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                            Text(
+                                _step == 8
+                                    ? (_isEditMode
+                                        ? l10n.saveChanges
+                                        : l10n.publishTripAction)
+                                    : l10n.continueLabel,
+                                style: AppTextStyles.labelLg.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800)),
                             const SizedBox(width: 8),
                             const Icon(Icons.arrow_forward_rounded, size: 20),
                           ],
@@ -859,45 +948,57 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   Widget _buildStep(String currentCurrency) {
     final l10n = AppLocalizations.of(context);
     switch (_step) {
-      case 0: return _ComplianceStep(
+      case 0:
+        return _ComplianceStep(
           accepted: _termsAccepted,
           onAccepted: (v) => setState(() => _termsAccepted = v),
           onStartKyc: () => context.push('/kyc'),
           user: ref.watch(authProvider).user,
         );
-      case 1: return _LocationStep(
+      case 1:
+        return _LocationStep(
           key: const ValueKey('from-city'),
           title: l10n.departureCityTitle,
           subtitle: l10n.departureCitySubtitle,
           value: _from,
           onSelect: (v) => setState(() => _from = v),
         );
-      case 2: return _LocationStep(
+      case 2:
+        return _LocationStep(
           key: const ValueKey('to-city'),
           title: l10n.destinationCityTitle,
           subtitle: l10n.destinationCitySubtitle,
           value: _to,
           onSelect: (v) => setState(() => _to = v),
         );
-      case 3: return _DateStep(
+      case 3:
+        return _DateStep(
           value: _date,
           currentMonth: _currentMonth,
           selectedDate: _selectedDate,
           onMonthPrev: () {
             final now = DateTime.now();
             final prev = DateTime(_currentMonth.year, _currentMonth.month - 1);
-            if (prev.year > now.year || (prev.year == now.year && prev.month >= now.month)) {
+            if (prev.year > now.year ||
+                (prev.year == now.year && prev.month >= now.month)) {
               setState(() => _currentMonth = prev);
             }
           },
-          onMonthNext: () => setState(() => _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1)),
+          onMonthNext: () => setState(() => _currentMonth =
+              DateTime(_currentMonth.year, _currentMonth.month + 1)),
           onDaySelect: (d) {
             final formatted = '${_shortMonth(d.month)} ${d.day}, ${d.year}';
-            setState(() { _selectedDate = d; _date = formatted; });
+            setState(() {
+              _selectedDate = d;
+              _date = formatted;
+            });
           },
         );
-      case 4: return _TimeStep(
-          hour: _hour, minute: _minute, period: _period,
+      case 4:
+        return _TimeStep(
+          hour: _hour,
+          minute: _minute,
+          period: _period,
           onHourChanged: (v) => setState(() => _hour = v),
           onMinuteChanged: (v) => setState(() => _minute = v),
           onPeriodChanged: (v) {
@@ -908,24 +1009,33 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           },
           onConfirm: () => setState(() => _time = '$_hour:$_minute $_period'),
         );
-      case 5: return _TravelProofStep(
+      case 5:
+        return _TravelProofStep(
           travelMeans: _travelMeans,
-          hasProof: _travelDocumentFile != null || (_existingTravelDocument?.isNotEmpty == true),
-          proofName: _travelDocumentFile?.path.split('/').last ?? _existingTravelDocument?.split('/').last,
-          onTravelMeansChanged: (value) => setState(() => _travelMeans = _normalizeTravelMeans(value)),
+          hasProof: _travelDocumentFile != null ||
+              (_existingTravelDocument?.isNotEmpty == true),
+          proofName: _travelDocumentFile?.path.split('/').last ??
+              _existingTravelDocument?.split('/').last,
+          onTravelMeansChanged: (value) =>
+              setState(() => _travelMeans = _normalizeTravelMeans(value)),
           onPickProof: _pickTravelProof,
         );
-      case 6: return _CapacityStep(
+      case 6:
+        return _CapacityStep(
           capacity: _capacity,
           onInc: () => setState(() => _capacity++),
-          onDec: () { if (_capacity > 1) setState(() => _capacity--); },
+          onDec: () {
+            if (_capacity > 1) setState(() => _capacity--);
+          },
         );
-      case 7: return _PriceStep(
+      case 7:
+        return _PriceStep(
           value: _price,
           currency: currentCurrency,
           onChanged: (v) => setState(() => _price = v),
         );
-      case 8: return _ReviewStep(
+      case 8:
+        return _ReviewStep(
           from: _from,
           to: _to,
           date: _date,
@@ -934,20 +1044,36 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           capacity: _capacity,
           price: _price,
           currency: currentCurrency,
-          hasProof: _travelDocumentFile != null || (_existingTravelDocument?.isNotEmpty == true),
+          hasProof: _travelDocumentFile != null ||
+              (_existingTravelDocument?.isNotEmpty == true),
         );
-      default: return const SizedBox.shrink();
+      default:
+        return const SizedBox.shrink();
     }
   }
 
-  String _shortMonth(int m) =>
-      ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
+  String _shortMonth(int m) => [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ][m - 1];
 
   bool _locationsMatch(String first, String second) {
-    String normalize(String input) => input.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    String normalize(String input) =>
+        input.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
     final firstParts = first.split(',').map((part) => normalize(part)).toList();
-    final secondParts = second.split(',').map((part) => normalize(part)).toList();
+    final secondParts =
+        second.split(',').map((part) => normalize(part)).toList();
 
     if (firstParts.isEmpty || secondParts.isEmpty) return false;
     if (firstParts.first != secondParts.first) return false;
@@ -958,14 +1084,16 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
 
     return true;
   }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Success Screen
 // ─────────────────────────────────────────────────────────────────────────────
 class _SuccessScreen extends StatelessWidget {
-  const _SuccessScreen({required this.destination, required this.onDone, required this.isEditMode});
+  const _SuccessScreen(
+      {required this.destination,
+      required this.onDone,
+      required this.isEditMode});
   final String destination;
   final VoidCallback onDone;
   final bool isEditMode;
@@ -982,28 +1110,37 @@ class _SuccessScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 120, height: 120,
+                width: 120,
+                height: 120,
                 decoration: BoxDecoration(
                   color: AppColors.primarySoft,
                   borderRadius: BorderRadius.circular(60),
                 ),
-                child: const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 72),
+                child: const Icon(Icons.check_circle_rounded,
+                    color: AppColors.primary, size: 72),
               ),
               const SizedBox(height: 28),
               Text(isEditMode ? l10n.tripUpdatedTitle : l10n.tripSubmittedTitle,
-                  style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black),
+                  style: AppTextStyles.displaySm.copyWith(
+                      fontWeight: FontWeight.w900, color: AppColors.black),
                   textAlign: TextAlign.center),
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 16),
+                    const Icon(Icons.check_circle_rounded,
+                        color: Color(0xFF059669), size: 16),
                     const SizedBox(width: 6),
                     Text(l10n.statusPendingReview,
-                        style: AppTextStyles.labelSm.copyWith(color: const Color(0xFF059669), fontWeight: FontWeight.w900)),
+                        style: AppTextStyles.labelSm.copyWith(
+                            color: const Color(0xFF059669),
+                            fontWeight: FontWeight.w900)),
                   ],
                 ),
               ),
@@ -1012,13 +1149,18 @@ class _SuccessScreen extends StatelessWidget {
                 isEditMode
                     ? l10n.tripUpdatedApproval(destination)
                     : l10n.tripSubmittedApproval(destination),
-                style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray600, height: 1.6),
+                style: AppTextStyles.bodyMd
+                    .copyWith(color: AppColors.gray600, height: 1.6),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              _InfoRow(icon: Icons.verified_outlined, text: l10n.ticketProofAttached),
+              _InfoRow(
+                  icon: Icons.verified_outlined,
+                  text: l10n.ticketProofAttached),
               const SizedBox(height: 12),
-              _InfoRow(icon: Icons.support_agent_outlined, text: l10n.pendingSupportApproval),
+              _InfoRow(
+                  icon: Icons.support_agent_outlined,
+                  text: l10n.pendingSupportApproval),
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
@@ -1031,7 +1173,8 @@ class _SuccessScreen extends StatelessWidget {
                     elevation: 0,
                   ),
                   child: Text(l10n.goToMyTrips,
-                      style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                      style: AppTextStyles.labelLg.copyWith(
+                          color: Colors.white, fontWeight: FontWeight.w800)),
                 ),
               ),
             ],
@@ -1049,13 +1192,15 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, color: AppColors.primary, size: 22),
-      const SizedBox(width: 10),
-      Text(text, style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray700, fontWeight: FontWeight.w600)),
-    ],
-  );
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.primary, size: 22),
+          const SizedBox(width: 10),
+          Text(text,
+              style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.gray700, fontWeight: FontWeight.w600)),
+        ],
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1083,16 +1228,17 @@ class _ComplianceStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(l10n.almostThere,
-              style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+              style: AppTextStyles.displaySm.copyWith(
+                  fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 10),
           Text(
             kycPassed
                 ? l10n.reviewGuidelinesBeforePosting
                 : l10n.verifyIdentityAndAgreeTerms,
-            style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray600, height: 1.5),
+            style: AppTextStyles.bodyMd
+                .copyWith(color: AppColors.gray600, height: 1.5),
           ),
           const SizedBox(height: 24),
-
           if (!kycPassed) ...[
             Container(
               padding: const EdgeInsets.all(18),
@@ -1106,17 +1252,26 @@ class _ComplianceStep extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        width: 44, height: 44,
-                        decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.shield_outlined, color: AppColors.gray400),
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.shield_outlined,
+                            color: AppColors.gray400),
                       ),
                       const SizedBox(width: 14),
-                      Expanded(child: Column(
+                      Expanded(
+                          child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(l10n.identityVerificationKyc, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                          Text(l10n.identityVerificationKyc,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 15)),
                           const SizedBox(height: 2),
-                          Text(l10n.requiredToPostTrip, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
+                          Text(l10n.requiredToPostTrip,
+                              style: const TextStyle(
+                                  color: Color(0xFF6B7280), fontSize: 13)),
                         ],
                       )),
                     ],
@@ -1133,7 +1288,9 @@ class _ComplianceStep extends StatelessWidget {
                         elevation: 0,
                       ),
                       child: Text(l10n.startVerification,
-                          style: AppTextStyles.labelMd.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                          style: AppTextStyles.labelMd.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800)),
                     ),
                   ),
                 ],
@@ -1141,7 +1298,6 @@ class _ComplianceStep extends StatelessWidget {
             ),
             const SizedBox(height: 20),
           ],
-
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF7F7F8),
@@ -1154,7 +1310,8 @@ class _ComplianceStep extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
                   child: Text(l10n.communityGuidelinesTerms,
-                      style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
+                      style: AppTextStyles.h4
+                          .copyWith(fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(
                   height: 200,
@@ -1169,7 +1326,10 @@ class _ComplianceStep extends StatelessWidget {
                         '4. Timely Delivery: You agree to deliver items within the agreed timeframe. Any delays must be communicated immediately via the app.\n\n'
                         '5. In-App Conduct: All negotiations, tracking, and payments must occur via the Bago platform to be protected by our escrow and insurance policies.\n\n'
                         '6. Liability: Bago is not liable for transport-related losses beyond the insured value. You indemnify Bago against any legal claims arising from your conduct.',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.6),
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                            height: 1.6),
                       ),
                     ),
                   ),
@@ -1182,20 +1342,28 @@ class _ComplianceStep extends StatelessWidget {
                     child: Row(
                       children: [
                         Container(
-                          width: 24, height: 24,
+                          width: 24,
+                          height: 24,
                           decoration: BoxDecoration(
-                            color: accepted ? AppColors.primary : AppColors.white,
-                            border: Border.all(color: accepted ? AppColors.primary : AppColors.border, width: 1.5),
+                            color:
+                                accepted ? AppColors.primary : AppColors.white,
+                            border: Border.all(
+                                color: accepted
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                                width: 1.5),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: accepted
-                              ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                              ? const Icon(Icons.check_rounded,
+                                  color: Colors.white, size: 16)
                               : null,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(l10n.acceptSafetyTerms,
-                              style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600)),
+                              style: AppTextStyles.bodyMd
+                                  .copyWith(fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
@@ -1216,7 +1384,10 @@ class _ComplianceStep extends StatelessWidget {
 class _LocationStep extends StatefulWidget {
   const _LocationStep({
     super.key,
-    required this.title, required this.subtitle, required this.value, required this.onSelect,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onSelect,
   });
   final String title, subtitle, value;
   final void Function(String) onSelect;
@@ -1255,7 +1426,10 @@ class _LocationStepState extends State<_LocationStep> {
   }
 
   Future<void> _search(String q) async {
-    if (q.length < 2) { setState(() => _suggestions = []); return; }
+    if (q.length < 2) {
+      setState(() => _suggestions = []);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final dio = Dio();
@@ -1269,7 +1443,8 @@ class _LocationStepState extends State<_LocationStep> {
           'limit': 15,
           'accept-language': languageCode,
         },
-        options: Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
+        options:
+            Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
       );
       final seen = <String>{};
       final list = <Map<String, String>>[];
@@ -1285,13 +1460,20 @@ class _LocationStepState extends State<_LocationStep> {
         final country = addr['country'] as String? ?? '';
         final code = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
         final key = '${city.toString().toLowerCase()},$code';
-        if (!seen.contains(key) && city.toString().isNotEmpty && country.isNotEmpty) {
+        if (!seen.contains(key) &&
+            city.toString().isNotEmpty &&
+            country.isNotEmpty) {
           seen.add(key);
-          list.add({'name': '${city.toString().trim()}, $country', 'code': code});
+          list.add(
+              {'name': '${city.toString().trim()}, $country', 'code': code});
         }
         if (list.length >= 8) break;
       }
-      if (mounted) setState(() { _suggestions = list; _loading = false; });
+      if (mounted)
+        setState(() {
+          _suggestions = list;
+          _loading = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -1299,7 +1481,11 @@ class _LocationStepState extends State<_LocationStep> {
 
   String _flag(String code) {
     if (code.length != 2) return '🌍';
-    final pts = code.toUpperCase().split('').map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0)).toList();
+    final pts = code
+        .toUpperCase()
+        .split('')
+        .map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0))
+        .toList();
     return String.fromCharCode(pts[0]) + String.fromCharCode(pts[1]);
   }
 
@@ -1314,9 +1500,13 @@ class _LocationStepState extends State<_LocationStep> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.title, style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+              Text(widget.title,
+                  style: AppTextStyles.displaySm.copyWith(
+                      fontWeight: FontWeight.w900, color: AppColors.black)),
               const SizedBox(height: 6),
-              Text(widget.subtitle, style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+              Text(widget.subtitle,
+                  style:
+                      AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
               const SizedBox(height: 8),
               Text(
                 'You can choose cities in the same country, but departure and destination cannot be the exact same city.',
@@ -1328,20 +1518,25 @@ class _LocationStepState extends State<_LocationStep> {
               if (widget.value.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 18),
+                      const Icon(Icons.check_circle_rounded,
+                          color: AppColors.primary, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           widget.value,
-                          style: AppTextStyles.labelMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+                          style: AppTextStyles.labelMd.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
@@ -1359,13 +1554,15 @@ class _LocationStepState extends State<_LocationStep> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, color: AppColors.gray400, size: 20),
+                    const Icon(Icons.search,
+                        color: AppColors.gray400, size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: _ctrl,
                         autofocus: true,
-                        style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                        style: AppTextStyles.bodyMd
+                            .copyWith(fontWeight: FontWeight.w600),
                         decoration: const InputDecoration(
                           hintText: 'Search city or country...',
                           border: InputBorder.none,
@@ -1374,12 +1571,17 @@ class _LocationStepState extends State<_LocationStep> {
                         ),
                         onChanged: (v) {
                           _debounce?.cancel();
-                          _debounce = Timer(const Duration(milliseconds: 400), () => _search(v));
+                          _debounce = Timer(const Duration(milliseconds: 400),
+                              () => _search(v));
                         },
                       ),
                     ),
                     if (_loading)
-                      const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                      const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.primary)),
                   ],
                 ),
               ),
@@ -1395,13 +1597,18 @@ class _LocationStepState extends State<_LocationStep> {
               final loc = display[i];
               final isSelected = _ctrl.text == loc['name'];
               return ListTile(
-                leading: Text(_flag(loc['code']!), style: const TextStyle(fontSize: 28)),
-                title: Text(loc['name']!, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                leading: Text(_flag(loc['code']!),
+                    style: const TextStyle(fontSize: 28)),
+                title: Text(loc['name']!,
+                    style: AppTextStyles.bodyMd
+                        .copyWith(fontWeight: FontWeight.w700)),
                 trailing: isSelected
-                    ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
+                    ? const Icon(Icons.check_circle_rounded,
+                        color: AppColors.primary, size: 22)
                     : null,
                 tileColor: isSelected ? AppColors.primarySoft : null,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 onTap: () {
                   setState(() => _ctrl.text = loc['name']!);
                   widget.onSelect(loc['name']!);
@@ -1420,8 +1627,12 @@ class _LocationStepState extends State<_LocationStep> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _DateStep extends StatelessWidget {
   const _DateStep({
-    required this.value, required this.currentMonth, required this.selectedDate,
-    required this.onMonthPrev, required this.onMonthNext, required this.onDaySelect,
+    required this.value,
+    required this.currentMonth,
+    required this.selectedDate,
+    required this.onMonthPrev,
+    required this.onMonthNext,
+    required this.onDaySelect,
   });
   final String value;
   final DateTime currentMonth;
@@ -1429,23 +1640,42 @@ class _DateStep extends StatelessWidget {
   final VoidCallback onMonthPrev, onMonthNext;
   final void Function(DateTime) onDaySelect;
 
-  String _monthName(int m) => ['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1];
+  String _monthName(int m) => [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December'
+      ][m - 1];
 
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final firstWeekday = DateTime(currentMonth.year, currentMonth.month, 1).weekday % 7;
-    final daysInMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
-    final isAtMinMonth = currentMonth.year == today.year && currentMonth.month == today.month;
+    final firstWeekday =
+        DateTime(currentMonth.year, currentMonth.month, 1).weekday % 7;
+    final daysInMonth =
+        DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
+    final isAtMinMonth =
+        currentMonth.year == today.year && currentMonth.month == today.month;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Travel Date', style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+          Text('Travel Date',
+              style: AppTextStyles.displaySm.copyWith(
+                  fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 6),
-          Text('When are you travelling?', style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+          Text('When are you travelling?',
+              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1455,19 +1685,26 @@ class _DateStep extends StatelessWidget {
                 child: Opacity(
                   opacity: isAtMinMonth ? 0.3 : 1,
                   child: Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(20)),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                        color: AppColors.gray100,
+                        borderRadius: BorderRadius.circular(20)),
                     child: const Icon(Icons.chevron_left),
                   ),
                 ),
               ),
               Text('${_monthName(currentMonth.month)} ${currentMonth.year}',
-                  style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
+                  style:
+                      AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
               GestureDetector(
                 onTap: onMonthNext,
                 child: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(20)),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(20)),
                   child: const Icon(Icons.chevron_right),
                 ),
               ),
@@ -1476,24 +1713,36 @@ class _DateStep extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: ['Su','Mo','Tu','We','Th','Fr','Sa']
-                .map((d) => SizedBox(width: 40, child: Center(
-                  child: Text(d, style: AppTextStyles.labelSm.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w700)))))
+            children: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+                .map((d) => SizedBox(
+                    width: 40,
+                    child: Center(
+                        child: Text(d,
+                            style: AppTextStyles.labelSm.copyWith(
+                                color: AppColors.gray400,
+                                fontWeight: FontWeight.w700)))))
                 .toList(),
           ),
           const SizedBox(height: 8),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 1.1),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7, childAspectRatio: 1.1),
             itemCount: firstWeekday + daysInMonth,
             itemBuilder: (_, i) {
               if (i < firstWeekday) return const SizedBox.shrink();
               final day = i - firstWeekday + 1;
               final date = DateTime(currentMonth.year, currentMonth.month, day);
-              final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
-              final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
-              final isSel = selectedDate != null && selectedDate!.year == date.year && selectedDate!.month == date.month && selectedDate!.day == date.day;
+              final isPast =
+                  date.isBefore(DateTime(today.year, today.month, today.day));
+              final isToday = date.year == today.year &&
+                  date.month == today.month &&
+                  date.day == today.day;
+              final isSel = selectedDate != null &&
+                  selectedDate!.year == date.year &&
+                  selectedDate!.month == date.month &&
+                  selectedDate!.day == date.day;
               return GestureDetector(
                 onTap: isPast ? null : () => onDaySelect(date),
                 child: Container(
@@ -1503,10 +1752,19 @@ class _DateStep extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   alignment: Alignment.center,
-                  child: Text('$day', style: AppTextStyles.bodyMd.copyWith(
-                    color: isPast ? AppColors.gray300 : isSel ? Colors.white : isToday ? AppColors.primary : AppColors.black,
-                    fontWeight: isSel || isToday ? FontWeight.w900 : FontWeight.w600,
-                  )),
+                  child: Text('$day',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: isPast
+                            ? AppColors.gray300
+                            : isSel
+                                ? Colors.white
+                                : isToday
+                                    ? AppColors.primary
+                                    : AppColors.black,
+                        fontWeight: isSel || isToday
+                            ? FontWeight.w900
+                            : FontWeight.w600,
+                      )),
                 ),
               );
             },
@@ -1521,9 +1779,13 @@ class _DateStep extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 18),
+                  const Icon(Icons.calendar_today_rounded,
+                      color: AppColors.primary, size: 18),
                   const SizedBox(width: 10),
-                  Text('Selected: $value', style: AppTextStyles.bodyMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                  Text('Selected: $value',
+                      style: AppTextStyles.bodyMd.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
@@ -1539,9 +1801,13 @@ class _DateStep extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _TimeStep extends StatelessWidget {
   const _TimeStep({
-    required this.hour, required this.minute, required this.period,
-    required this.onHourChanged, required this.onMinuteChanged,
-    required this.onPeriodChanged, required this.onConfirm,
+    required this.hour,
+    required this.minute,
+    required this.period,
+    required this.onHourChanged,
+    required this.onMinuteChanged,
+    required this.onPeriodChanged,
+    required this.onConfirm,
   });
   final String hour, minute, period;
   final void Function(String) onHourChanged, onMinuteChanged, onPeriodChanged;
@@ -1554,9 +1820,12 @@ class _TimeStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Departure Time', style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+          Text('Departure Time',
+              style: AppTextStyles.displaySm.copyWith(
+                  fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 6),
-          Text('When does your journey begin?', style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+          Text('When does your journey begin?',
+              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
           const SizedBox(height: 40),
           Center(
             child: Row(
@@ -1567,39 +1836,51 @@ class _TimeStep extends StatelessWidget {
                   hint: 'HH',
                   onChanged: (v) {
                     final n = int.tryParse(v);
-                    if (n == null || (n >= 1 && n <= 12)) onHourChanged(v.padLeft(2, '0'));
+                    if (n == null || (n >= 1 && n <= 12))
+                      onHourChanged(v.padLeft(2, '0'));
                   },
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(':', style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+                  child: Text(':',
+                      style: AppTextStyles.displaySm.copyWith(
+                          fontWeight: FontWeight.w900, color: AppColors.black)),
                 ),
                 _TimeInput(
                   value: minute,
                   hint: 'MM',
                   onChanged: (v) {
                     final n = int.tryParse(v);
-                    if (n == null || (n >= 0 && n <= 59)) onMinuteChanged(v.padLeft(2, '0'));
+                    if (n == null || (n >= 0 && n <= 59))
+                      onMinuteChanged(v.padLeft(2, '0'));
                   },
                 ),
                 const SizedBox(width: 16),
                 Column(
-                  children: ['AM', 'PM'].map((p) => GestureDetector(
-                    onTap: () => onPeriodChanged(p),
-                    child: Container(
-                      width: 56, height: 44,
-                      margin: const EdgeInsets.only(bottom: 6),
-                      decoration: BoxDecoration(
-                        color: period == p ? AppColors.primary : AppColors.gray100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(p, style: AppTextStyles.labelMd.copyWith(
-                        color: period == p ? Colors.white : AppColors.gray600,
-                        fontWeight: FontWeight.w800,
-                      )),
-                    ),
-                  )).toList(),
+                  children: ['AM', 'PM']
+                      .map((p) => GestureDetector(
+                            onTap: () => onPeriodChanged(p),
+                            child: Container(
+                              width: 56,
+                              height: 44,
+                              margin: const EdgeInsets.only(bottom: 6),
+                              decoration: BoxDecoration(
+                                color: period == p
+                                    ? AppColors.primary
+                                    : AppColors.gray100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(p,
+                                  style: AppTextStyles.labelMd.copyWith(
+                                    color: period == p
+                                        ? Colors.white
+                                        : AppColors.gray600,
+                                    fontWeight: FontWeight.w800,
+                                  )),
+                            ),
+                          ))
+                      .toList(),
                 ),
               ],
             ),
@@ -1607,7 +1888,8 @@ class _TimeStep extends StatelessWidget {
           const SizedBox(height: 32),
           Center(
             child: Text('$hour:$minute $period',
-                style: AppTextStyles.displaySm.copyWith(color: AppColors.primary, fontWeight: FontWeight.w900)),
+                style: AppTextStyles.displaySm.copyWith(
+                    color: AppColors.primary, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -1616,41 +1898,46 @@ class _TimeStep extends StatelessWidget {
 }
 
 class _TimeInput extends StatelessWidget {
-  const _TimeInput({required this.value, required this.hint, required this.onChanged});
+  const _TimeInput(
+      {required this.value, required this.hint, required this.onChanged});
   final String value, hint;
   final void Function(String) onChanged;
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 80, height: 80,
-    decoration: BoxDecoration(
-      color: const Color(0xFFF7F7F8),
-      border: Border.all(color: AppColors.border),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    alignment: Alignment.center,
-    child: TextField(
-      controller: TextEditingController(text: value),
-      textAlign: TextAlign.center,
-      keyboardType: TextInputType.number,
-      maxLength: 2,
-      style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900),
-      decoration: InputDecoration(
-        hintText: hint, counterText: '',
-        border: InputBorder.none,
-        isDense: true, contentPadding: EdgeInsets.zero,
-      ),
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      onChanged: onChanged,
-    ),
-  );
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F7F8),
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.center,
+        child: TextField(
+          controller: TextEditingController(text: value),
+          textAlign: TextAlign.center,
+          keyboardType: TextInputType.number,
+          maxLength: 2,
+          style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900),
+          decoration: InputDecoration(
+            hintText: hint,
+            counterText: '',
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: onChanged,
+        ),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Step 5: Capacity
 // ─────────────────────────────────────────────────────────────────────────────
 class _CapacityStep extends StatelessWidget {
-  const _CapacityStep({required this.capacity, required this.onInc, required this.onDec});
+  const _CapacityStep(
+      {required this.capacity, required this.onInc, required this.onDec});
   final int capacity;
   final VoidCallback onInc, onDec;
 
@@ -1661,28 +1948,40 @@ class _CapacityStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Available Capacity', style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+          Text('Available Capacity',
+              style: AppTextStyles.displaySm.copyWith(
+                  fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 6),
-          Text('How many kg can you carry?', style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+          Text('How many kg can you carry?',
+              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
           const SizedBox(height: 60),
           Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _CounterBtn(icon: Icons.remove_rounded, onTap: onDec, enabled: capacity > 1),
+                _CounterBtn(
+                    icon: Icons.remove_rounded,
+                    onTap: onDec,
+                    enabled: capacity > 1),
                 Container(
                   width: 120,
                   alignment: Alignment.center,
                   child: Text('$capacity',
-                      style: const TextStyle(fontSize: 72, fontWeight: FontWeight.w900, color: AppColors.black)),
+                      style: const TextStyle(
+                          fontSize: 72,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.black)),
                 ),
-                _CounterBtn(icon: Icons.add_rounded, onTap: onInc, enabled: true),
+                _CounterBtn(
+                    icon: Icons.add_rounded, onTap: onInc, enabled: true),
               ],
             ),
           ),
           const SizedBox(height: 16),
           Center(
-            child: Text('kg', style: AppTextStyles.h2.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w700)),
+            child: Text('kg',
+                style: AppTextStyles.h2.copyWith(
+                    color: AppColors.gray400, fontWeight: FontWeight.w700)),
           ),
           const SizedBox(height: 40),
           Container(
@@ -1693,11 +1992,14 @@ class _CapacityStep extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+                const Icon(Icons.info_outline_rounded,
+                    color: AppColors.primary, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Senders will see your available kg and match accordingly.',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.primary, height: 1.4)),
+                  child: Text(
+                      'Senders will see your available kg and match accordingly.',
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.primary, height: 1.4)),
                 ),
               ],
             ),
@@ -1709,23 +2011,26 @@ class _CapacityStep extends StatelessWidget {
 }
 
 class _CounterBtn extends StatelessWidget {
-  const _CounterBtn({required this.icon, required this.onTap, required this.enabled});
+  const _CounterBtn(
+      {required this.icon, required this.onTap, required this.enabled});
   final IconData icon;
   final VoidCallback onTap;
   final bool enabled;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: enabled ? onTap : null,
-    child: Container(
-      width: 56, height: 56,
-      decoration: BoxDecoration(
-        color: enabled ? AppColors.primary : AppColors.gray100,
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Icon(icon, color: enabled ? Colors.white : AppColors.gray300, size: 24),
-    ),
-  );
+        onTap: enabled ? onTap : null,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: enabled ? AppColors.primary : AppColors.gray100,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Icon(icon,
+              color: enabled ? Colors.white : AppColors.gray300, size: 24),
+        ),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1759,14 +2064,19 @@ class _TravelProofStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Trip Proof', style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+          Text('Trip Proof',
+              style: AppTextStyles.displaySm.copyWith(
+                  fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 6),
           Text(
             'Choose how you are traveling and upload your ticket or booking proof. This is required for approval.',
-            style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.5),
+            style: AppTextStyles.bodyMd
+                .copyWith(color: AppColors.gray500, height: 1.5),
           ),
           const SizedBox(height: 24),
-          Text('Travel type', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          Text('Travel type',
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -1776,7 +2086,8 @@ class _TravelProofStep extends StatelessWidget {
               return GestureDetector(
                 onTap: () => onTravelMeansChanged(option.$2),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   decoration: BoxDecoration(
                     color: selected ? AppColors.primary : AppColors.gray100,
                     borderRadius: BorderRadius.circular(14),
@@ -1793,7 +2104,9 @@ class _TravelProofStep extends StatelessWidget {
             }).toList(),
           ),
           const SizedBox(height: 24),
-          Text('Proof of trip', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          Text('Proof of trip',
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           GestureDetector(
             onTap: onPickProof,
@@ -1801,7 +2114,8 @@ class _TravelProofStep extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: hasProof ? AppColors.primarySoft : const Color(0xFFF7F7F8),
+                color:
+                    hasProof ? AppColors.primarySoft : const Color(0xFFF7F7F8),
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: hasProof ? AppColors.primary : AppColors.border,
@@ -1811,7 +2125,9 @@ class _TravelProofStep extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    hasProof ? Icons.check_circle_rounded : Icons.upload_file_rounded,
+                    hasProof
+                        ? Icons.check_circle_rounded
+                        : Icons.upload_file_rounded,
                     color: hasProof ? AppColors.primary : AppColors.gray500,
                   ),
                   const SizedBox(width: 12),
@@ -1820,13 +2136,18 @@ class _TravelProofStep extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          hasProof ? 'Proof uploaded' : 'Upload ticket or booking screenshot',
-                          style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                          hasProof
+                              ? 'Proof uploaded'
+                              : 'Upload ticket or booking screenshot',
+                          style: AppTextStyles.labelMd
+                              .copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          proofName ?? 'Flight ticket, bus ticket, train ticket, or booking confirmation',
-                          style: AppTextStyles.bodySm.copyWith(color: AppColors.gray600),
+                          proofName ??
+                              'Flight ticket, bus ticket, train ticket, or booking confirmation',
+                          style: AppTextStyles.bodySm
+                              .copyWith(color: AppColors.gray600),
                         ),
                       ],
                     ),
@@ -1845,7 +2166,8 @@ class _TravelProofStep extends StatelessWidget {
 // Step 6: Price
 // ─────────────────────────────────────────────────────────────────────────────
 class _PriceStep extends StatefulWidget {
-  const _PriceStep({required this.value, required this.currency, required this.onChanged});
+  const _PriceStep(
+      {required this.value, required this.currency, required this.onChanged});
   final String value, currency;
   final void Function(String) onChanged;
 
@@ -1860,7 +2182,8 @@ class _PriceStepState extends State<_PriceStep> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.value);
-    _ctrl.selection = TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
+    _ctrl.selection =
+        TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
   }
 
   @override
@@ -1877,9 +2200,13 @@ class _PriceStepState extends State<_PriceStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Price per kg', style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+          Text('Price per kg',
+              style: AppTextStyles.displaySm.copyWith(
+                  fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 6),
-          Text('Set your rate. Competitive pricing attracts more senders.', style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.5)),
+          Text('Set your rate. Competitive pricing attracts more senders.',
+              style: AppTextStyles.bodyMd
+                  .copyWith(color: AppColors.gray500, height: 1.5)),
           const SizedBox(height: 40),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1913,10 +2240,14 @@ class _PriceStepState extends State<_PriceStep> {
                 Expanded(
                   child: TextField(
                     controller: _ctrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     autofocus: true,
-                    style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w900),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                    style:
+                        AppTextStyles.h2.copyWith(fontWeight: FontWeight.w900),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+                    ],
                     decoration: const InputDecoration(
                       hintText: '0.00',
                       border: InputBorder.none,
@@ -1926,21 +2257,28 @@ class _PriceStepState extends State<_PriceStep> {
                     onChanged: widget.onChanged,
                   ),
                 ),
-                Text('/kg', style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w600)),
+                Text('/kg',
+                    style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.gray400, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(16)),
             child: Row(
               children: [
-                const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFF59E0B), size: 20),
+                const Icon(Icons.lightbulb_outline_rounded,
+                    color: Color(0xFFF59E0B), size: 20),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Typical rates range from $currency 5 - $currency 20 per kg depending on the route.',
-                      style: AppTextStyles.bodySm.copyWith(color: const Color(0xFF92400E), height: 1.4)),
+                  child: Text(
+                      'Typical rates range from $currency 5 - $currency 20 per kg depending on the route.',
+                      style: AppTextStyles.bodySm.copyWith(
+                          color: const Color(0xFF92400E), height: 1.4)),
                 ),
               ],
             ),
@@ -1978,9 +2316,12 @@ class _ReviewStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Review Your Trip', style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+          Text('Review Your Trip',
+              style: AppTextStyles.displaySm.copyWith(
+                  fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 6),
-          Text('Everything look right? Publish when ready.', style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+          Text('Everything look right? Publish when ready.',
+              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
           const SizedBox(height: 20),
           if (from.isNotEmpty && to.isNotEmpty)
             TripRouteCard(from: from, to: to, travelMeans: travelMeans),
@@ -1995,43 +2336,50 @@ class _ReviewStep extends StatelessWidget {
             child: Column(
               children: [
                 _ReviewRow(
-                  leading: const Icon(Icons.flight_takeoff_rounded, color: AppColors.primary, size: 20),
+                  leading: const Icon(Icons.flight_takeoff_rounded,
+                      color: AppColors.primary, size: 20),
                   label: 'From',
                   value: from,
                 ),
                 const Divider(height: 24, color: AppColors.border),
                 _ReviewRow(
-                  leading: const Icon(Icons.flight_land_rounded, color: AppColors.primary, size: 20),
+                  leading: const Icon(Icons.flight_land_rounded,
+                      color: AppColors.primary, size: 20),
                   label: 'To',
                   value: to,
                 ),
                 const Divider(height: 24, color: AppColors.border),
                 _ReviewRow(
-                  leading: const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
+                  leading: const Icon(Icons.calendar_today_rounded,
+                      color: AppColors.primary, size: 20),
                   label: 'Date',
                   value: date,
                 ),
                 const Divider(height: 24, color: AppColors.border),
                 _ReviewRow(
-                  leading: const Icon(Icons.access_time_rounded, color: AppColors.primary, size: 20),
+                  leading: const Icon(Icons.access_time_rounded,
+                      color: AppColors.primary, size: 20),
                   label: 'Time',
                   value: time,
                 ),
                 const Divider(height: 24, color: AppColors.border),
                 _ReviewRow(
-                  leading: const Icon(Icons.route_rounded, color: AppColors.primary, size: 20),
+                  leading: const Icon(Icons.route_rounded,
+                      color: AppColors.primary, size: 20),
                   label: 'Travel Type',
                   value: travelMeans,
                 ),
                 const Divider(height: 24, color: AppColors.border),
                 _ReviewRow(
-                  leading: const Icon(Icons.verified_outlined, color: AppColors.primary, size: 20),
+                  leading: const Icon(Icons.verified_outlined,
+                      color: AppColors.primary, size: 20),
                   label: 'Proof',
                   value: hasProof ? 'Attached' : 'Missing',
                 ),
                 const Divider(height: 24, color: AppColors.border),
                 _ReviewRow(
-                  leading: const Icon(Icons.scale_rounded, color: AppColors.primary, size: 20),
+                  leading: const Icon(Icons.scale_rounded,
+                      color: AppColors.primary, size: 20),
                   label: 'Capacity',
                   value: '$capacity kg',
                 ),
@@ -2054,12 +2402,14 @@ class _ReviewStep extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.shield_outlined, color: AppColors.primary, size: 20),
+                const Icon(Icons.shield_outlined,
+                    color: AppColors.primary, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'By submitting, you confirm this trip is accurate. Trips with new or edited details are sent to the support team again for approval before going live.',
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.primary, height: 1.5),
+                    style: AppTextStyles.bodySm
+                        .copyWith(color: AppColors.primary, height: 1.5),
                   ),
                 ),
               ],
@@ -2072,29 +2422,35 @@ class _ReviewStep extends StatelessWidget {
 }
 
 class _ReviewRow extends StatelessWidget {
-  const _ReviewRow({required this.leading, required this.label, required this.value});
+  const _ReviewRow(
+      {required this.leading, required this.label, required this.value});
   final Widget leading;
   final String label, value;
 
   @override
   Widget build(BuildContext context) => Row(
-    children: [
-      leading,
-      const SizedBox(width: 14),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTextStyles.labelSm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(value, style: AppTextStyles.bodyMd.copyWith(color: AppColors.black, fontWeight: FontWeight.w700)),
+          leading,
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.gray500, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(value,
+                  style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.black, fontWeight: FontWeight.w700)),
+            ],
+          ),
         ],
-      ),
-    ],
-  );
+      );
 }
 
 class _CrumbItem extends StatelessWidget {
-  const _CrumbItem({required this.label, required this.active, required this.done});
+  const _CrumbItem(
+      {required this.label, required this.active, required this.done});
   final String label;
   final bool active;
   final bool done;
@@ -2105,7 +2461,8 @@ class _CrumbItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (done && !active)
-          const Icon(Icons.check_circle_rounded, size: 14, color: AppColors.success)
+          const Icon(Icons.check_circle_rounded,
+              size: 14, color: AppColors.success)
         else
           Container(
             width: 14,
@@ -2119,7 +2476,9 @@ class _CrumbItem extends StatelessWidget {
         Text(
           label,
           style: AppTextStyles.labelSm.copyWith(
-            color: active ? AppColors.primary : (done ? AppColors.success : AppColors.gray500),
+            color: active
+                ? AppColors.primary
+                : (done ? AppColors.success : AppColors.gray500),
             fontWeight: active ? FontWeight.w800 : FontWeight.w600,
           ),
           overflow: TextOverflow.ellipsis,
@@ -2184,7 +2543,8 @@ class _UploadOption extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 44, height: 44,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: AppColors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -2196,8 +2556,12 @@ class _UploadOption extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
-                    Text(subtitle, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+                    Text(label,
+                        style: AppTextStyles.labelMd
+                            .copyWith(fontWeight: FontWeight.w800)),
+                    Text(subtitle,
+                        style: AppTextStyles.bodySm
+                            .copyWith(color: AppColors.gray500)),
                   ],
                 ),
               ),

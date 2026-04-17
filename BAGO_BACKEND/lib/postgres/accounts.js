@@ -336,14 +336,6 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       [requestId, { method: provider, status: 'paid', requestId: providerReference, gateway: provider }],
     );
 
-    // Deduct weight from trip
-    if (request.trip_id && request.package_weight) {
-      await client.query(
-        `update public.trips set available_kg = greatest(0, available_kg - $2), updated_at = timezone('utc', now()) where id = $1`,
-        [request.trip_id, request.package_weight]
-      );
-    }
-
     const walletResult = await client.query(`select id, currency from public.wallet_accounts where user_id = $1 for update`, [request.traveler_id]);
     const wallet = walletResult.rows[0];
     if (wallet) {

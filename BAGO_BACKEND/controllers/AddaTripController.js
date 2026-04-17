@@ -98,6 +98,10 @@ export const AddAtrip = async (req, res, next) => {
     const price = parseFloat(pricePerKg);
     const weight = parseFloat(availableKg);
 
+    if (!Number.isFinite(weight) || weight <= 0) {
+      return res.status(400).json({ message: "Trip capacity must be greater than 0kg" });
+    }
+
     // Price Validation: Max 15 USD
     const priceInUSD = await convertCurrency(price, currency, 'USD');
     if (priceInUSD.convertedAmount > 15) {
@@ -130,7 +134,7 @@ export const AddAtrip = async (req, res, next) => {
       ? await uploadTravelDocument(travelDocument, userid)
       : null;
 
-    // Create the trip (auto-approved as 'active' so it appears in search)
+    // Create the trip with tracked capacity fields.
     const trip = await createTripRecord({
       userId: userid,
       fromLocation,
@@ -276,7 +280,23 @@ export const UpdateTrip = async (req, res, next) => {
     if (toCountry) updates.to_country = toCountry;
     if (landmark) updates.landmark = landmark;
     if (travelMeans) updates.travel_means = travelMeans.trim().toLowerCase();
-    if (availableKg) updates.available_kg = parseFloat(availableKg);
+    if (availableKg !== undefined) {
+      const requestedTotalKg = parseFloat(availableKg);
+      const lockedKg = Number(existing.soldKg || 0) + Number(existing.reservedKg || 0);
+
+      if (!Number.isFinite(requestedTotalKg) || requestedTotalKg <= 0) {
+        return res.status(400).json({ message: "Trip capacity must be greater than 0kg" });
+      }
+
+      if (requestedTotalKg < lockedKg) {
+        return res.status(400).json({
+          message: `You cannot reduce this trip below ${lockedKg}kg because that space is already booked.`,
+        });
+      }
+
+      updates.total_kg = requestedTotalKg;
+      updates.available_kg = requestedTotalKg - lockedKg;
+    }
 
     if (departureDate) {
       const departureAt = new Date(departureDate);

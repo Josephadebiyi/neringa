@@ -90,19 +90,6 @@ export const verifyPaystackPayment = async (req, res) => {
         );
         console.log(`🔒 Escrowed ${updatedRequest.amount} for traveler via Paystack verify`);
 
-        // Deduct package weight from trip capacity
-        const reqData = await queryOne(
-          `SELECT package_weight, trip_id FROM public.shipment_requests WHERE id = $1`,
-          [requestId]
-        );
-        const weightKg = reqData?.package_weight ? parseFloat(reqData.package_weight) : 0;
-        if (weightKg > 0 && reqData?.trip_id) {
-          await pgQuery(
-            `UPDATE public.trips SET available_kg = GREATEST(0, available_kg - $2), updated_at = NOW() WHERE id = $1`,
-            [reqData.trip_id, weightKg]
-          );
-          console.log(`📦 Deducted ${weightKg}kg from trip ${reqData.trip_id}`);
-        }
       }
     }
 
@@ -474,20 +461,6 @@ async function handleSuccessfulPayment(data) {
         );
         console.log(`🔒 Escrowed $${updatedRequest.amount} via Paystack webhook`);
 
-        // Deduct package weight from trip capacity
-        const reqData = await queryOne(
-          `SELECT p.package_weight FROM public.shipment_requests sr
-           JOIN public.packages p ON p.id = sr.package_id
-           WHERE sr.id = $1`,
-          [metadata.requestId]
-        );
-        if (reqData?.package_weight && updatedRequest.trip_id) {
-          await pgQuery(
-            `UPDATE public.trips SET available_kg = GREATEST(0, available_kg - $2), updated_at = NOW() WHERE id = $1`,
-            [updatedRequest.trip_id, reqData.package_weight]
-          );
-          console.log(`📦 Deducted ${reqData.package_weight}kg from trip ${updatedRequest.trip_id}`);
-        }
       }
 
       console.log(`✅ Payment confirmed for request ${metadata.requestId}`);

@@ -1,4 +1,10 @@
 import { query, queryOne, withTransaction } from './db.js';
+import {
+  buildTripCapacitySnapshot,
+  ensureTripCapacityColumns,
+  isTripPubliclyVisible,
+  syncTripCapacity,
+} from './tripCapacity.js';
 
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
@@ -68,7 +74,11 @@ function normalizeTrip(row) {
     toCountry: row.to_country,
     departureDate: row.departure_date,
     arrivalDate: row.arrival_date,
+    totalKg: toNumber(row.total_kg, toNumber(row.available_kg)),
     availableKg: toNumber(row.available_kg),
+    soldKg: toNumber(row.sold_kg),
+    reservedKg: toNumber(row.reserved_kg),
+    remainingKg: toNumber(row.available_kg),
     travelMeans: row.travel_means,
     status: row.trip_status || row.status,
     pricePerKg: toNumber(row.price_per_kg),
@@ -77,6 +87,13 @@ function normalizeTrip(row) {
     travelDocument: row.travel_document_url,
     createdAt: row.trip_created_at || row.created_at,
     updatedAt: row.trip_updated_at || row.updated_at,
+    activeShipmentCount: toNumber(row.active_shipment_count),
+    bookingStatusSummary: row.booking_status_summary || 'No active bookings',
+    grossSales: toNumber(row.gross_sales),
+    commissionAmount: toNumber(row.commission_amount),
+    travelerEarnings: toNumber(row.traveler_earnings),
+    payoutAmount: toNumber(row.traveler_earnings),
+    payoutStatus: row.payout_status || 'pending',
     user: row.user_id ? normalizeProfile({
       id: row.user_id,
       first_name: row.first_name,
@@ -285,7 +302,13 @@ export async function findProfileWithWallet(userId) {
 }
 
 export async function searchTravelerTrips({ currentUserId, fromLocation, toLocation, fromCountry, toCountry, date }) {
-  const conditions = ["t.status in ('verified', 'active')"];
+  await ensureTripCapacityColumns({ query });
+  const conditions = [
+    "t.status in ('verified', 'active')",
+    "coalesce(p.kyc_status, 'pending') in ('approved', 'verified', 'completed')",
+    "date(t.departure_date) >= current_date",
+    "greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) > 0",
+  ];
   const params = [];
   let index = 1;
 
@@ -318,8 +341,6 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
     conditions.push(`date(t.departure_date) >= date($${index})`);
     params.push(date);
     index += 1;
-  } else {
-    conditions.push(`date(t.departure_date) >= current_date`);
   }
 
   const result = await query(
@@ -333,7 +354,10 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
         t.to_country,
         t.departure_date,
         t.arrival_date,
-        t.available_kg,
+        coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) as total_kg,
+        greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) as available_kg,
+        coalesce(trip_stats.sold_kg, 0) as sold_kg,
+        coalesce(trip_stats.reserved_kg, 0) as reserved_kg,
         t.travel_means,
         t.status,
         t.price_per_kg,
@@ -347,9 +371,38 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
         p.email,
         p.image_url,
         p.kyc_status,
-        p.selected_avatar
+        p.selected_avatar,
+        trip_stats.active_shipment_count,
+        trip_stats.booking_status_summary,
+        (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as gross_sales,
+        0::numeric as commission_amount,
+        (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as traveler_earnings,
+        case
+          when coalesce(trip_stats.completed_booking_count, 0) > 0 then 'partially_paid'
+          when coalesce(trip_stats.active_shipment_count, 0) > 0 then 'pending'
+          else 'pending'
+        end as payout_status
       from public.trips t
       join public.profiles p on p.id = t.user_id
+      left join lateral (
+        select
+          coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
+          coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
+          count(*) filter (where sr.status not in ('rejected', 'cancelled'))::int as active_shipment_count,
+          count(*) filter (where sr.status = 'completed')::int as completed_booking_count,
+          trim(
+            both ' ' from concat_ws(
+              ' · ',
+              case when count(*) filter (where sr.status = 'pending') > 0 then (count(*) filter (where sr.status = 'pending'))::text || ' pending' end,
+              case when count(*) filter (where sr.status = 'accepted') > 0 then (count(*) filter (where sr.status = 'accepted'))::text || ' approved' end,
+              case when count(*) filter (where sr.status in ('intransit', 'delivering')) > 0 then (count(*) filter (where sr.status in ('intransit', 'delivering')))::text || ' in transit' end,
+              case when count(*) filter (where sr.status = 'completed') > 0 then (count(*) filter (where sr.status = 'completed'))::text || ' delivered' end
+            )
+          ) as booking_status_summary
+        from public.shipment_requests sr
+        left join public.packages pkg on pkg.id = sr.package_id
+        where sr.trip_id = t.id
+      ) trip_stats on true
       where ${conditions.join(' and ')}
       order by t.departure_date asc, t.created_at desc
     `,
@@ -409,15 +462,50 @@ export async function getPackageById(id) {
 }
 
 export async function getTripById(id) {
+  await ensureTripCapacityColumns({ query });
   const row = await queryOne(
     `
       select t.id, t.user_id, t.from_location, t.from_country, t.to_location, t.to_country,
-             t.departure_date, t.arrival_date, t.available_kg, t.travel_means, t.status,
+             t.departure_date, t.arrival_date,
+             coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) as total_kg,
+             greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) as available_kg,
+             coalesce(trip_stats.sold_kg, 0) as sold_kg,
+             coalesce(trip_stats.reserved_kg, 0) as reserved_kg,
+             t.travel_means, t.status,
              t.price_per_kg, t.currency as trip_currency, t.landmark, t.travel_document_url,
              t.created_at as trip_created_at, t.updated_at as trip_updated_at,
-             p.first_name, p.last_name, p.email, p.image_url, p.kyc_status, p.selected_avatar
+             p.first_name, p.last_name, p.email, p.image_url, p.kyc_status, p.selected_avatar,
+             trip_stats.active_shipment_count,
+             trip_stats.booking_status_summary,
+             (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as gross_sales,
+             0::numeric as commission_amount,
+             (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as traveler_earnings,
+             case
+               when coalesce(trip_stats.completed_booking_count, 0) > 0 then 'partially_paid'
+               when coalesce(trip_stats.active_shipment_count, 0) > 0 then 'pending'
+               else 'pending'
+             end as payout_status
       from public.trips t
       join public.profiles p on p.id = t.user_id
+      left join lateral (
+        select
+          coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
+          coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
+          count(*) filter (where sr.status not in ('rejected', 'cancelled'))::int as active_shipment_count,
+          count(*) filter (where sr.status = 'completed')::int as completed_booking_count,
+          trim(
+            both ' ' from concat_ws(
+              ' · ',
+              case when count(*) filter (where sr.status = 'pending') > 0 then (count(*) filter (where sr.status = 'pending'))::text || ' pending' end,
+              case when count(*) filter (where sr.status = 'accepted') > 0 then (count(*) filter (where sr.status = 'accepted'))::text || ' approved' end,
+              case when count(*) filter (where sr.status in ('intransit', 'delivering')) > 0 then (count(*) filter (where sr.status in ('intransit', 'delivering')))::text || ' in transit' end,
+              case when count(*) filter (where sr.status = 'completed') > 0 then (count(*) filter (where sr.status = 'completed'))::text || ' delivered' end
+            )
+          ) as booking_status_summary
+        from public.shipment_requests sr
+        left join public.packages pkg on pkg.id = sr.package_id
+        where sr.trip_id = t.id
+      ) trip_stats on true
       where t.id = $1
     `,
     [id],
@@ -489,36 +577,66 @@ export async function createShipmentRequestRecord({
   termsAccepted,
   paymentInfo = {},
 }) {
-  const row = await queryOne(
-    `
-      insert into public.shipment_requests (
-        sender_id, traveler_id, package_id, trip_id, amount, currency, image_url,
-        insurance, insurance_cost, estimated_departure, estimated_arrival,
-        terms_accepted, terms_accepted_at, payment_info
-      )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-      returning id
-    `,
-    [
-      senderId,
-      travelerId,
-      packageId,
-      tripId,
-      amount,
-      currency || 'USD',
-      imageUrl || null,
-      insurance,
-      insuranceCost,
-      estimatedDeparture,
-      estimatedArrival,
-      termsAccepted,
-      termsAccepted ? new Date() : null,
-      paymentInfo,
-    ],
-  );
+  const requestId = await withTransaction(async (client) => {
+    await ensureTripCapacityColumns(client);
 
-  await query(`update public.trips set request_count = request_count + 1 where id = $1`, [tripId]);
-  return getShipmentRequestById(row.id);
+    const packageResult = await client.query(
+      `select id, package_weight from public.packages where id = $1 and user_id = $2`,
+      [packageId, senderId],
+    );
+    const packageRow = packageResult.rows[0];
+    if (!packageRow) {
+      throw new Error('Package not found or not owned by sender');
+    }
+
+    const packageWeight = toNumber(packageRow.package_weight);
+    if (packageWeight <= 0) {
+      throw new Error('Package weight must be greater than 0kg');
+    }
+
+    const tripSnapshot = await buildTripCapacitySnapshot(client, tripId, { lockTrip: true });
+    if (!tripSnapshot || tripSnapshot.userId !== travelerId) {
+      throw new Error('Trip not found or not owned by traveler');
+    }
+    if (!isTripPubliclyVisible(tripSnapshot)) {
+      throw new Error('This trip is no longer available for booking');
+    }
+    if (packageWeight > tripSnapshot.availableKg) {
+      throw new Error('This trip does not have enough space left');
+    }
+
+    const row = await client.query(
+      `
+        insert into public.shipment_requests (
+          sender_id, traveler_id, package_id, trip_id, amount, currency, image_url,
+          insurance, insurance_cost, estimated_departure, estimated_arrival,
+          terms_accepted, terms_accepted_at, payment_info
+        )
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        returning id
+      `,
+      [
+        senderId,
+        travelerId,
+        packageId,
+        tripId,
+        amount,
+        currency || 'USD',
+        imageUrl || null,
+        insurance,
+        insuranceCost,
+        estimatedDeparture,
+        estimatedArrival,
+        termsAccepted,
+        termsAccepted ? new Date() : null,
+        paymentInfo,
+      ],
+    );
+
+    await syncTripCapacity(client, tripId);
+    return row.rows[0].id;
+  });
+  return getShipmentRequestById(requestId);
 }
 
 export async function getShipmentRequestById(id) {
@@ -542,7 +660,8 @@ export async function listRequestsForUser(userId) {
 }
 
 export async function updateShipmentRequestStatus({ requestId, travelerId, status, location, notes }) {
-  return withTransaction(async (client) => {
+  const updatedRequestId = await withTransaction(async (client) => {
+    await ensureTripCapacityColumns(client);
     const current = await client.query(`${requestSelect} where sr.id = $1`, [requestId]);
     const request = current.rows[0];
     if (!request) return null;
@@ -590,15 +709,6 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
     if (normalizedStatus === 'accepted') {
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
 
-      // Deduct available_kg from the trip
-      const packageWeight = toNumber(request.package_weight);
-      if (packageWeight > 0 && request.trip_id) {
-        await client.query(
-          `UPDATE public.trips SET available_kg = greatest(0, available_kg - $2), updated_at = timezone('utc', now()) WHERE id = $1`,
-          [request.trip_id, packageWeight],
-        );
-      }
-
       // Hold sender's funds in escrow
       const amount = toNumber(request.amount);
       if (amount > 0 && request.sender_id) {
@@ -630,8 +740,13 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       }
     }
 
-    return getShipmentRequestById(requestId);
+    if (request.trip_id) {
+      await syncTripCapacity(client, request.trip_id);
+    }
+
+    return requestId;
   });
+  return getShipmentRequestById(updatedRequestId);
 }
 
 export async function updateTravelerProof({ requestId, travelerId, travelerProofUrl }) {

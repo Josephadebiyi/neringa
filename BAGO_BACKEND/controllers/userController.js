@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import cloudinary from 'cloudinary';
 import { Resend } from 'resend';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
+import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 
 let resend = null;
@@ -399,7 +400,7 @@ export const handleCancelledRequestEscrow = async (req, res) => {
     if (!requestId) return res.status(400).json({ message: 'requestId is required' });
 
     const request = await queryOne(
-      `SELECT id, sender_id, amount, status FROM public.shipment_requests WHERE id = $1`,
+      `SELECT id, sender_id, trip_id, amount, status FROM public.shipment_requests WHERE id = $1`,
       [requestId]
     );
     if (!request) return res.status(404).json({ message: 'Request not found' });
@@ -411,6 +412,10 @@ export const handleCancelledRequestEscrow = async (req, res) => {
       `UPDATE public.shipment_requests SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
       [requestId]
     );
+
+    if (request.trip_id) {
+      await syncTripCapacity({ query: pgQuery }, request.trip_id);
+    }
 
     const escrowAmount = parseFloat(request.amount) || 0;
     if (escrowAmount > 0 && request.sender_id) {

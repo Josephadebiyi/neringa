@@ -1,4 +1,5 @@
 import { query, queryOne, withTransaction } from './db.js';
+import { ensureTripCapacityColumns } from './tripCapacity.js';
 
 const DEFAULT_AFRICAN_CURRENCIES = ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
 
@@ -66,7 +67,11 @@ function normalizeTripRow(row, reviews = []) {
     collectionCountry: row.collection_country,
     departureDate: row.departure_date,
     arrivalDate: row.arrival_date,
+    totalKg: toNumber(row.total_kg, toNumber(row.available_kg)),
     availableKg: toNumber(row.available_kg),
+    soldKg: toNumber(row.sold_kg),
+    reservedKg: toNumber(row.reserved_kg),
+    remainingKg: toNumber(row.available_kg),
     travelMeans: row.travel_means,
     status: row.status,
     request: toNumber(row.request_count),
@@ -81,6 +86,13 @@ function normalizeTripRow(row, reviews = []) {
     travelDocumentUploadedAt: row.travel_document_uploaded_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    activeShipmentCount: toNumber(row.active_shipment_count),
+    bookingStatusSummary: row.booking_status_summary || 'No active bookings',
+    grossSales: toNumber(row.gross_sales),
+    commissionAmount: toNumber(row.commission_amount),
+    travelerEarnings: toNumber(row.traveler_earnings),
+    payoutAmount: toNumber(row.traveler_earnings),
+    payoutStatus: row.payout_status || 'pending',
   };
 }
 
@@ -99,7 +111,10 @@ const baseTripSelect = `
     t.landmark,
     t.departure_date,
     t.arrival_date,
-    t.available_kg,
+    coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) as total_kg,
+    greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) as available_kg,
+    coalesce(trip_stats.sold_kg, 0) as sold_kg,
+    coalesce(trip_stats.reserved_kg, 0) as reserved_kg,
     t.travel_means,
     t.status,
     t.request_count,
@@ -112,9 +127,41 @@ const baseTripSelect = `
     p.last_name as user_last_name,
     p.email as user_email,
     p.image_url as user_image_url,
-    p.selected_avatar as user_selected_avatar
+    p.selected_avatar as user_selected_avatar,
+    trip_stats.active_shipment_count,
+    trip_stats.booking_status_summary,
+    (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as gross_sales,
+    0::numeric as commission_amount,
+    (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as traveler_earnings,
+    case
+      when coalesce(trip_stats.completed_booking_count, 0) > 0 then 'partially_paid'
+      when coalesce(trip_stats.active_shipment_count, 0) > 0 then 'pending'
+      else 'pending'
+    end as payout_status
   from public.trips t
   left join public.profiles p on p.id = t.user_id
+  left join lateral (
+    select
+      coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
+      coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
+      count(*) filter (where sr.status not in ('rejected', 'cancelled'))::int as active_shipment_count,
+      count(*) filter (where sr.status = 'pending')::int as pending_booking_count,
+      count(*) filter (where sr.status = 'accepted')::int as accepted_booking_count,
+      count(*) filter (where sr.status in ('intransit', 'delivering'))::int as in_transit_booking_count,
+      count(*) filter (where sr.status = 'completed')::int as completed_booking_count,
+      trim(
+        both ' ' from concat_ws(
+          ' · ',
+          case when count(*) filter (where sr.status = 'pending') > 0 then (count(*) filter (where sr.status = 'pending'))::text || ' pending' end,
+          case when count(*) filter (where sr.status = 'accepted') > 0 then (count(*) filter (where sr.status = 'accepted'))::text || ' approved' end,
+          case when count(*) filter (where sr.status in ('intransit', 'delivering')) > 0 then (count(*) filter (where sr.status in ('intransit', 'delivering')))::text || ' in transit' end,
+          case when count(*) filter (where sr.status = 'completed') > 0 then (count(*) filter (where sr.status = 'completed'))::text || ' delivered' end
+        )
+      ) as booking_status_summary
+    from public.shipment_requests sr
+    left join public.packages pkg on pkg.id = sr.package_id
+    where sr.trip_id = t.id
+  ) trip_stats on true
 `;
 
 async function fetchTripReviews(tripId) {
@@ -176,6 +223,7 @@ export async function createTripRecord({
   landmark,
   travelDocument,
 }) {
+  await ensureTripCapacityColumns({ query });
   const trip = await queryOne(
     `
       insert into public.trips (
@@ -188,7 +236,10 @@ export async function createTripRecord({
         collection_country,
         departure_date,
         arrival_date,
+        total_kg,
         available_kg,
+        sold_kg,
+        reserved_kg,
         travel_means,
         price_per_kg,
         currency,
@@ -197,7 +248,7 @@ export async function createTripRecord({
         travel_document_uploaded_at,
         status
       )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'pending_admin_review')
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,0,0,$11,$12,$13,$14,$15,$16,'pending_admin_review')
       returning id
     `,
     [
@@ -224,6 +275,7 @@ export async function createTripRecord({
 }
 
 export async function listTripsByUserId(userId) {
+  await ensureTripCapacityColumns({ query });
   const result = await query(
     `${baseTripSelect}
       where t.user_id = $1
@@ -237,18 +289,21 @@ export async function listTripsByUserId(userId) {
 }
 
 export async function getTripById(tripId) {
+  await ensureTripCapacityColumns({ query });
   const row = await queryOne(`${baseTripSelect} where t.id = $1`, [tripId]);
   if (!row) return null;
   return normalizeTripRow(row, await fetchTripReviews(tripId));
 }
 
 export async function getTripOwnedByUser(tripId, userId) {
+  await ensureTripCapacityColumns({ query });
   const row = await queryOne(`${baseTripSelect} where t.id = $1 and t.user_id = $2`, [tripId, userId]);
   if (!row) return null;
   return normalizeTripRow(row, await fetchTripReviews(tripId));
 }
 
 export async function updateTripRecord(tripId, userId, updates) {
+  await ensureTripCapacityColumns({ query });
   const fields = [];
   const values = [];
   let index = 1;

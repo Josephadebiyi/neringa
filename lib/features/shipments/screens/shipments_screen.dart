@@ -117,7 +117,8 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
                       ),
                     ],
                   ),
-                  if (_bannerConfig != null && _bannerConfig!['isActive'] != false) ...[
+                  if (_bannerConfig != null &&
+                      _bannerConfig!['isActive'] != false) ...[
                     const SizedBox(height: 16),
                     _PromoBanner(config: _bannerConfig!),
                   ],
@@ -250,7 +251,8 @@ class _PendingPaymentDraftCard extends StatefulWidget {
   const _PendingPaymentDraftCard();
 
   @override
-  State<_PendingPaymentDraftCard> createState() => _PendingPaymentDraftCardState();
+  State<_PendingPaymentDraftCard> createState() =>
+      _PendingPaymentDraftCardState();
 }
 
 class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
@@ -261,7 +263,8 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Discard draft?'),
-        content: const Text('This will remove your saved shipment draft. You\'ll need to start over if you want to send this package.'),
+        content: const Text(
+            'This will remove your saved shipment draft. You\'ll need to start over if you want to send this package.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -291,7 +294,8 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
           final draft = snapshot.data;
           if (draft == null) return const SizedBox.shrink();
 
-          final expiresAt = DateTime.tryParse(draft['expiresAt']?.toString() ?? '');
+          final expiresAt =
+              DateTime.tryParse(draft['expiresAt']?.toString() ?? '');
           final amount = _toDouble(draft['totalAmount']);
           final currency = draft['currency']?.toString() ?? '';
           final fromLocation = draft['fromLocation']?.toString() ?? 'Pickup';
@@ -326,7 +330,8 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: AppColors.primarySoft,
                               borderRadius: BorderRadius.circular(999),
@@ -372,7 +377,8 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
                   const SizedBox(height: 14),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppColors.gray50,
                       borderRadius: BorderRadius.circular(14),
@@ -467,11 +473,16 @@ class _PackageCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _TypeBadge(label: package.category.isNotEmpty ? package.category : 'Package', isCarrier: false),
+              _TypeBadge(
+                  label: package.category.isNotEmpty
+                      ? package.category
+                      : 'Package',
+                  isCarrier: false),
               const Spacer(),
               Text(
                 _shortDate(package.createdAt),
-                style: AppTextStyles.captionBold.copyWith(color: AppColors.gray400),
+                style: AppTextStyles.captionBold
+                    .copyWith(color: AppColors.gray400),
               ),
             ],
           ),
@@ -514,6 +525,14 @@ class _TripsList extends ConsumerWidget {
     final items = activeTab ? tripState.activeTrips : tripState.historyTrips;
     final requests = shipmentState.incomingRequests;
     final showRequestSection = activeTab && requests.isNotEmpty;
+    final totalKgSold = items.fold<double>(
+        0, (sum, trip) => sum + trip.soldKg + trip.reservedKg);
+    final totalKgRemaining =
+        items.fold<double>(0, (sum, trip) => sum + trip.availableKg);
+    final totalEarnings =
+        items.fold<double>(0, (sum, trip) => sum + trip.travelerEarnings);
+    final activeShipmentCount =
+        items.fold<int>(0, (sum, trip) => sum + trip.activeShipmentCount);
 
     if (items.isEmpty && !showRequestSection) {
       return ListView(
@@ -540,6 +559,16 @@ class _TripsList extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          if (activeTab && items.isNotEmpty) ...[
+            _TripSummaryStrip(
+              totalTrips: items.length,
+              totalKgSold: totalKgSold,
+              totalKgRemaining: totalKgRemaining,
+              totalEarnings: totalEarnings,
+              activeShipmentCount: activeShipmentCount,
+            ),
+            const SizedBox(height: 16),
+          ],
           if (showRequestSection) ...[
             _SectionHeader(
               title: l10n.incomingRequests,
@@ -557,9 +586,8 @@ class _TripsList extends ConsumerWidget {
           if (items.isNotEmpty) ...[
             _SectionHeader(
               title: activeTab ? l10n.tripsTitle : l10n.tripHistory,
-              subtitle: activeTab
-                  ? l10n.myTripsSubtitle
-                  : l10n.tripHistorySubtitle,
+              subtitle:
+                  activeTab ? l10n.myTripsSubtitle : l10n.tripHistorySubtitle,
             ),
             const SizedBox(height: 12),
             ...items.map((trip) {
@@ -577,14 +605,17 @@ class _TripsList extends ConsumerWidget {
                                 content: Text(l10n.deleteTripMessage),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.pop(dialogContext, false),
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, false),
                                     child: Text(l10n.cancel),
                                   ),
                                   TextButton(
-                                    onPressed: () => Navigator.pop(dialogContext, true),
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, true),
                                     child: Text(
                                       l10n.delete,
-                                      style: const TextStyle(color: AppColors.error),
+                                      style: const TextStyle(
+                                          color: AppColors.error),
                                     ),
                                   ),
                                 ],
@@ -594,7 +625,9 @@ class _TripsList extends ConsumerWidget {
                       },
                       onDismissed: (_) async {
                         try {
-                          await ref.read(tripProvider.notifier).cancelTrip(tripId);
+                          await ref
+                              .read(tripProvider.notifier)
+                              .cancelTrip(tripId);
                           if (context.mounted) {
                             AppSnackBar.show(
                               context,
@@ -619,7 +652,8 @@ class _TripsList extends ConsumerWidget {
                           color: AppColors.error.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(Icons.delete_rounded, color: AppColors.error),
+                        child: const Icon(Icons.delete_rounded,
+                            color: AppColors.error),
                       ),
                       child: _TripCard(trip: trip),
                     );
@@ -647,7 +681,8 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Text(
           title,
-          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800, color: AppColors.black),
+          style: AppTextStyles.h3
+              .copyWith(fontWeight: FontWeight.w800, color: AppColors.black),
         ),
         const SizedBox(height: 4),
         Text(
@@ -699,12 +734,14 @@ class _RequestCard extends StatelessWidget {
                   children: [
                     Text(
                       request.senderName ?? 'Unknown sender',
-                      style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                      style: AppTextStyles.labelMd
+                          .copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       request.packageTitle ?? 'Shipment request',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                   ],
                 ),
@@ -716,7 +753,8 @@ class _RequestCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               routeLabel,
-              style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
             ),
           ],
           const SizedBox(height: 8),
@@ -791,12 +829,14 @@ class _SenderRequestCard extends StatelessWidget {
                   children: [
                     Text(
                       counterpart,
-                      style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                      style: AppTextStyles.labelMd
+                          .copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       request.packageTitle ?? 'Shipment request',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                   ],
                 ),
@@ -808,7 +848,8 @@ class _SenderRequestCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               routeLabel,
-              style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
             ),
           ],
           const SizedBox(height: 8),
@@ -856,7 +897,9 @@ class _OpenShipmentChatButton extends ConsumerWidget {
           try {
             final convId = (request.conversationId ?? '').trim().isNotEmpty
                 ? request.conversationId!.trim()
-                : await ref.read(messageProvider.notifier).getOrCreateConversation(
+                : await ref
+                    .read(messageProvider.notifier)
+                    .getOrCreateConversation(
                       receiverId,
                       requestId: request.id,
                       tripId: request.tripId,
@@ -891,17 +934,20 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tripId = trip.id.trim();
+    final bookedKg = trip.soldKg + trip.reservedKg;
     return AppCard(
       onTap: () {
         if (tripId.isEmpty) {
           AppSnackBar.show(
             context,
-            message: 'This trip is missing its details reference. Please refresh and try again.',
+            message:
+                'This trip is missing its details reference. Please refresh and try again.',
             type: SnackBarType.error,
           );
           return;
         }
-        context.push('/trip-details/${Uri.encodeComponent(tripId)}', extra: trip);
+        context.push('/trip-details/${Uri.encodeComponent(tripId)}',
+            extra: trip);
       },
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -912,7 +958,8 @@ class _TripCard extends StatelessWidget {
               const Spacer(),
               Text(
                 _shortDate(trip.departureDate),
-                style: AppTextStyles.captionBold.copyWith(color: AppColors.gray400),
+                style: AppTextStyles.captionBold
+                    .copyWith(color: AppColors.gray400),
               ),
             ],
           ),
@@ -925,11 +972,79 @@ class _TripCard extends StatelessWidget {
             children: [
               _StatusDot(label: trip.statusLabel),
               const Spacer(),
-              _InfoChip(label: '${trip.availableKg} kg'),
+              _InfoChip(label: '${bookedKg.toStringAsFixed(0)} booked'),
+              const SizedBox(width: 8),
+              _InfoChip(label: '${trip.availableKg.toStringAsFixed(0)} left'),
               const SizedBox(width: 10),
               const Icon(Icons.chevron_right_rounded, color: AppColors.gray300),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${trip.activeShipmentCount} active shipments',
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                ),
+              ),
+              Text(
+                '${trip.currency} ${trip.travelerEarnings.toStringAsFixed(0)}',
+                style: AppTextStyles.labelMd.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              trip.bookingStatusSummary,
+              style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TripSummaryStrip extends StatelessWidget {
+  const _TripSummaryStrip({
+    required this.totalTrips,
+    required this.totalKgSold,
+    required this.totalKgRemaining,
+    required this.totalEarnings,
+    required this.activeShipmentCount,
+  });
+
+  final int totalTrips;
+  final double totalKgSold;
+  final double totalKgRemaining;
+  final double totalEarnings;
+  final int activeShipmentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _InfoChip(label: '$totalTrips trips'),
+          _InfoChip(label: '${totalKgSold.toStringAsFixed(0)}kg booked'),
+          _InfoChip(label: '${totalKgRemaining.toStringAsFixed(0)}kg left'),
+          _InfoChip(label: '$activeShipmentCount active'),
+          _InfoChip(label: 'Earned ${totalEarnings.toStringAsFixed(0)}'),
         ],
       ),
     );
@@ -952,23 +1067,30 @@ class _RouteRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(from, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+              Text(from,
+                  style:
+                      AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               Text('Departure', style: AppTextStyles.captionBold),
             ],
           ),
         ),
         const Column(
           children: [
-            SizedBox(width: 24, child: Divider(color: AppColors.gray100, thickness: 2)),
+            SizedBox(
+                width: 24,
+                child: Divider(color: AppColors.gray100, thickness: 2)),
             SizedBox(height: 8),
-            Icon(Icons.location_on_rounded, color: AppColors.accentLime, size: 16),
+            Icon(Icons.location_on_rounded,
+                color: AppColors.accentLime, size: 16),
           ],
         ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(to, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+              Text(to,
+                  style:
+                      AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               Text('Arrival', style: AppTextStyles.captionBold),
             ],
           ),
@@ -1132,7 +1254,12 @@ class _PromoBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(21),
-        boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.2), blurRadius: 9, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.2),
+              blurRadius: 9,
+              offset: const Offset(0, 4))
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Row(
@@ -1147,7 +1274,9 @@ class _PromoBanner extends StatelessWidget {
               colorBlendMode: BlendMode.darken,
               errorWidget: (_, __, ___) => Container(
                 color: AppColors.primarySoft,
-                child: const Center(child: Icon(Icons.image_not_supported_outlined, color: AppColors.primary, size: 28)),
+                child: const Center(
+                    child: Icon(Icons.image_not_supported_outlined,
+                        color: AppColors.primary, size: 28)),
               ),
             ),
           ),
@@ -1165,22 +1294,40 @@ class _PromoBanner extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(config['tag'] as String? ?? 'DESTINATION SPECIAL',
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.labelXs.copyWith(color: Colors.white.withValues(alpha: 0.6), fontWeight: FontWeight.w900)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.labelXs.copyWith(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontWeight: FontWeight.w900)),
                         const SizedBox(height: 2),
                         Text(config['title'] as String? ?? 'Lagos to London',
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.h3.copyWith(color: Colors.white, fontWeight: FontWeight.w900)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.h3.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900)),
                         const SizedBox(height: 2),
-                        Text(config['description'] as String? ?? 'Ship your packages starting from...',
-                            maxLines: 2, overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.bodySm.copyWith(color: Colors.white.withValues(alpha: 0.8), height: 1.2)),
+                        Text(
+                            config['description'] as String? ??
+                                'Ship your packages starting from...',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.bodySm.copyWith(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                height: 1.2)),
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                          child: Text(config['buttonText'] as String? ?? 'Check Flights',
-                              style: AppTextStyles.labelSm.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8)),
+                          child: Text(
+                              config['buttonText'] as String? ??
+                                  'Check Flights',
+                              style: AppTextStyles.labelSm.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ),

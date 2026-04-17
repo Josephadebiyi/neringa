@@ -17,7 +17,8 @@ import '../services/trip_service.dart';
 import '../widgets/trip_route_card.dart';
 
 class TripDetailsScreen extends ConsumerStatefulWidget {
-  const TripDetailsScreen({super.key, required this.tripId, this.preloadedTrip});
+  const TripDetailsScreen(
+      {super.key, required this.tripId, this.preloadedTrip});
 
   final String tripId;
   final TripModel? preloadedTrip;
@@ -46,7 +47,9 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
     }
 
     // 2. Look up in already-loaded tripProvider state (no API call needed)
-    final cached = ref.read(tripProvider).myTrips
+    final cached = ref
+        .read(tripProvider)
+        .myTrips
         .where((t) => t.id == widget.tripId)
         .firstOrNull;
     if (cached != null) {
@@ -57,16 +60,31 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
 
     // 3. Fall back to API call
     TripService.instance.getTripById(widget.tripId).then((trip) {
-      if (mounted) setState(() { _trip = trip; _loading = false; });
+      if (mounted)
+        setState(() {
+          _trip = trip;
+          _loading = false;
+        });
     }).catchError((e) {
-      if (mounted) setState(() { _error = e?.toString() ?? 'Could not load trip.'; _loading = false; });
+      if (mounted)
+        setState(() {
+          _error = e?.toString() ?? 'Could not load trip.';
+          _loading = false;
+        });
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final userCurrency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+    final userCurrency =
+        UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+    final liveTrip = ref
+        .watch(tripProvider)
+        .myTrips
+        .where((trip) => trip.id == widget.tripId)
+        .firstOrNull;
+    final resolvedTrip = liveTrip ?? _trip;
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
       appBar: AppBar(
@@ -79,21 +97,22 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
       ),
       body: _loading
           ? const Center(child: AppLoading())
-          : _error != null || _trip == null
+          : _error != null || resolvedTrip == null
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       _error ?? l10n.couldNotLoadTrip,
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodyMd
+                          .copyWith(color: AppColors.gray500),
                     ),
                   ),
                 )
               : _TripBody(
-                  trip: _trip!,
+                  trip: resolvedTrip,
                   userCurrency: userCurrency,
-                  onDelete: () => _confirmDelete(context, _trip!.id),
+                  onDelete: () => _confirmDelete(context, resolvedTrip.id),
                 ),
     );
   }
@@ -112,7 +131,8 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.delete, style: const TextStyle(color: AppColors.error)),
+            child: Text(l10n.delete,
+                style: const TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -123,12 +143,14 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
     try {
       await TripService.instance.cancelTrip(tripId);
       if (context.mounted) {
-        AppSnackBar.show(context, message: l10n.tripDeletedSuccessfully, type: SnackBarType.success);
+        AppSnackBar.show(context,
+            message: l10n.tripDeletedSuccessfully, type: SnackBarType.success);
         context.pop();
       }
     } catch (e) {
       if (context.mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
       }
     }
   }
@@ -175,35 +197,73 @@ class _TripBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _TripInfoRow(label: l10n.statusLabel, value: formatFrontendStatus(trip.status)),
-                _TripInfoRow(label: l10n.travelTypeLabel, value: trip.travelMeans),
-                _TripInfoRow(label: l10n.departureLabel, value: _formatDate(trip.departureDate)),
-                _TripInfoRow(label: l10n.capacityLabel, value: '${trip.availableKg.toStringAsFixed(0)} kg'),
+                _TripInfoRow(
+                    label: l10n.statusLabel,
+                    value: formatFrontendStatus(trip.status)),
+                _TripInfoRow(
+                    label: l10n.travelTypeLabel, value: trip.travelMeans),
+                _TripInfoRow(
+                    label: l10n.departureLabel,
+                    value: _formatDate(trip.departureDate)),
+                _TripInfoRow(
+                    label: 'Total space',
+                    value: '${trip.totalKg.toStringAsFixed(0)} kg'),
+                _TripInfoRow(
+                    label: 'Sold',
+                    value: '${trip.soldKg.toStringAsFixed(0)} kg'),
+                _TripInfoRow(
+                    label: 'Reserved',
+                    value: '${trip.reservedKg.toStringAsFixed(0)} kg'),
+                _TripInfoRow(
+                    label: 'Remaining',
+                    value: '${trip.availableKg.toStringAsFixed(0)} kg'),
+                _TripInfoRow(
+                    label: 'Active shipments',
+                    value: '${trip.activeShipmentCount}'),
+                _TripInfoRow(
+                    label: 'Bookings', value: trip.bookingStatusSummary),
                 // Always show the trip's own currency first (carrier set this price)
                 _TripInfoRow(
                   label: l10n.priceLabel,
-                  value: '$displayCurrency ${trip.pricePerKg.toStringAsFixed(2)}/kg',
+                  value:
+                      '$displayCurrency ${trip.pricePerKg.toStringAsFixed(2)}/kg',
                 ),
+                _TripInfoRow(
+                  label: 'Gross sales',
+                  value:
+                      '$displayCurrency ${trip.grossSales.toStringAsFixed(2)}',
+                ),
+                _TripInfoRow(
+                  label: 'Your earnings',
+                  value:
+                      '$displayCurrency ${trip.travelerEarnings.toStringAsFixed(2)}',
+                ),
+                _TripInfoRow(label: 'Payout status', value: trip.payoutStatus),
                 if (userCurrencyLabel.isNotEmpty &&
                     displayCurrency.isNotEmpty &&
                     userCurrencyLabel != displayCurrency)
                   _TripInfoRow(
                     label: l10n.approxInCurrency(userCurrencyLabel),
-                    value: '$userCurrencyLabel ${CurrencyConversionHelper.convert(
+                    value:
+                        '$userCurrencyLabel ${CurrencyConversionHelper.convert(
                       amount: trip.pricePerKg,
                       fromCurrency: displayCurrency,
                       toCurrency: userCurrencyLabel,
                     ).toStringAsFixed(2)}/kg',
                   ),
                 // Show escrow balance when trip is in transit
-                if (trip.status.toLowerCase() == 'intransit' && trip.escrowBalance != null)
+                if (trip.status.toLowerCase() == 'intransit' &&
+                    trip.escrowBalance != null)
                   _TripInfoRow(
                     label: l10n.escrowLabel,
-                    value: '$displayCurrency ${trip.escrowBalance!.toStringAsFixed(2)}',
+                    value:
+                        '$displayCurrency ${trip.escrowBalance!.toStringAsFixed(2)}',
                   ),
                 _TripInfoRow(
                   label: l10n.tripProofLabel,
-                  value: trip.travelDocument?.isNotEmpty == true ? l10n.uploaded : l10n.missing,
+                  value: trip.travelDocument?.isNotEmpty == true
+                      ? l10n.uploaded
+                      : l10n.missing,
                 ),
               ],
             ),
@@ -217,7 +277,8 @@ class _TripBody extends StatelessWidget {
             ),
             child: Text(
               l10n.tripEditApprovalMessage,
-              style: AppTextStyles.bodySm.copyWith(color: AppColors.primary, height: 1.4),
+              style: AppTextStyles.bodySm
+                  .copyWith(color: AppColors.primary, height: 1.4),
             ),
           ),
           const SizedBox(height: 24),
@@ -234,7 +295,8 @@ class _TripBody extends StatelessWidget {
                   );
                   return;
                 }
-                context.push('/edit-trip/${Uri.encodeComponent(tripId)}', extra: trip);
+                context.push('/edit-trip/${Uri.encodeComponent(tripId)}',
+                    extra: trip);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -245,7 +307,8 @@ class _TripBody extends StatelessWidget {
               ),
               child: Text(
                 l10n.editTrip,
-                style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                style: AppTextStyles.labelLg
+                    .copyWith(color: Colors.white, fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -263,7 +326,8 @@ class _TripBody extends StatelessWidget {
               ),
               child: Text(
                 l10n.deleteTrip,
-                style: AppTextStyles.labelLg.copyWith(color: AppColors.error, fontWeight: FontWeight.w800),
+                style: AppTextStyles.labelLg.copyWith(
+                    color: AppColors.error, fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -294,10 +358,13 @@ class _TripInfoRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 110,
-            child: Text(label, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+            child: Text(label,
+                style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
           ),
           Expanded(
-            child: Text(value, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+            child: Text(value,
+                style: AppTextStyles.labelMd
+                    .copyWith(fontWeight: FontWeight.w700)),
           ),
         ],
       ),

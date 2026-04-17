@@ -37,9 +37,11 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.fromCity == null || widget.fromCity!.trim().isEmpty ||
-          widget.toCity == null || widget.toCity!.trim().isEmpty) {
-          return;
+      if (widget.fromCity == null ||
+          widget.fromCity!.trim().isEmpty ||
+          widget.toCity == null ||
+          widget.toCity!.trim().isEmpty) {
+        return;
       }
       ref.read(tripProvider.notifier).searchTrips(
             from: widget.fromCity,
@@ -62,9 +64,10 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(tripProvider);
     final results = state.searchResults;
-    final hasRequiredCities =
-        widget.fromCity != null && widget.fromCity!.trim().isNotEmpty &&
-        widget.toCity != null && widget.toCity!.trim().isNotEmpty;
+    final hasRequiredCities = widget.fromCity != null &&
+        widget.fromCity!.trim().isNotEmpty &&
+        widget.toCity != null &&
+        widget.toCity!.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -130,33 +133,32 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                     onBack: () => _goBack(context),
                   )
                 : state.isSearching
-                ? const Center(child: AppLoading())
-                : results.isEmpty
-                    ? _EmptyState(
-                        onRefresh: () => ref
-                            .read(tripProvider.notifier)
-                            .searchTrips(
-                              from: widget.fromCity,
-                              to: widget.toCity,
-                              date: widget.date,
+                    ? const Center(child: AppLoading())
+                    : results.isEmpty
+                        ? _EmptyState(
+                            onRefresh: () =>
+                                ref.read(tripProvider.notifier).searchTrips(
+                                      from: widget.fromCity,
+                                      to: widget.toCity,
+                                      date: widget.date,
+                                    ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: () =>
+                                ref.read(tripProvider.notifier).searchTrips(
+                                      from: widget.fromCity,
+                                      to: widget.toCity,
+                                      date: widget.date,
+                                    ),
+                            child: ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: results.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (_, i) =>
+                                  _TripCard(trip: results[i]),
                             ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => ref
-                            .read(tripProvider.notifier)
-                            .searchTrips(
-                              from: widget.fromCity,
-                              to: widget.toCity,
-                              date: widget.date,
-                            ),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: results.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (_, i) => _TripCard(trip: results[i]),
-                        ),
-                      ),
+                          ),
           ),
         ],
       ),
@@ -167,7 +169,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
 
 class _SearchSummary extends StatelessWidget {
-  const _SearchSummary({this.fromCity, this.toCity, this.date, required this.onBack});
+  const _SearchSummary(
+      {this.fromCity, this.toCity, this.date, required this.onBack});
   final String? fromCity, toCity, date;
   final VoidCallback onBack;
 
@@ -175,52 +178,52 @@ class _SearchSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.location_on_rounded,
-                size: 16, color: AppColors.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${fromCity ?? l10n.anyLabel} → ${toCity ?? l10n.anyLabel}',
-                    style: AppTextStyles.labelMd,
-                  ),
-                  if (date != null)
-                    Text(date!,
-                        style: AppTextStyles.caption
-                            .copyWith(color: AppColors.gray500)),
-                ],
-              ),
-            ),
-            TextButton.icon(
-              onPressed: onBack,
-              icon: const Icon(Icons.close_rounded, size: 18),
-              label: Text(
-                l10n.goBack,
-                style: AppTextStyles.labelSm.copyWith(color: AppColors.gray500),
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.gray500,
-                backgroundColor: AppColors.gray50,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.location_on_rounded,
+              size: 16, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${fromCity ?? l10n.anyLabel} → ${toCity ?? l10n.anyLabel}',
+                  style: AppTextStyles.labelMd,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
+                if (date != null)
+                  Text(date!,
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.gray500)),
+              ],
             ),
-          ],
-        ),
-      );
+          ),
+          TextButton.icon(
+            onPressed: onBack,
+            icon: const Icon(Icons.close_rounded, size: 18),
+            label: Text(
+              l10n.goBack,
+              style: AppTextStyles.labelSm.copyWith(color: AppColors.gray500),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.gray500,
+              backgroundColor: AppColors.gray50,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -232,28 +235,27 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.search_off_rounded,
-                size: 56, color: AppColors.gray300),
-            const SizedBox(height: 16),
-            Text(l10n.noTripsFound,
-                style: AppTextStyles.h3.copyWith(color: AppColors.black)),
-            const SizedBox(height: 8),
-            Text(l10n.tryAdjustingSearch,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.search_off_rounded,
+              size: 56, color: AppColors.gray300),
+          const SizedBox(height: 16),
+          Text(l10n.noTripsFound,
+              style: AppTextStyles.h3.copyWith(color: AppColors.black)),
+          const SizedBox(height: 8),
+          Text(l10n.tryAdjustingSearch,
+              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+          const SizedBox(height: 24),
+          TextButton(
+            onPressed: onRefresh,
+            child: Text(l10n.searchAgain,
                 style:
-                    AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
-            const SizedBox(height: 24),
-            TextButton(
-              onPressed: onRefresh,
-              child: Text(l10n.searchAgain,
-                  style: AppTextStyles.labelMd
-                      .copyWith(color: AppColors.primary)),
-            ),
-          ],
-        ),
-      );
+                    AppTextStyles.labelMd.copyWith(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -266,36 +268,37 @@ class _MissingCitiesState extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.place_outlined, size: 56, color: AppColors.gray300),
-              const SizedBox(height: 16),
-              Text(
-                l10n.selectBothCitiesFirst,
-                style: AppTextStyles.h3.copyWith(color: AppColors.black),
-                textAlign: TextAlign.center,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.place_outlined,
+                size: 56, color: AppColors.gray300),
+            const SizedBox(height: 16),
+            Text(
+              l10n.selectBothCitiesFirst,
+              style: AppTextStyles.h3.copyWith(color: AppColors.black),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.searchRequiresCities,
+              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: onBack,
+              child: Text(
+                l10n.goBack,
+                style: AppTextStyles.labelMd.copyWith(color: AppColors.primary),
               ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.searchRequiresCities,
-                style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: onBack,
-                child: Text(
-                  l10n.goBack,
-                  style: AppTextStyles.labelMd.copyWith(color: AppColors.primary),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -306,7 +309,8 @@ class _TripCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final userCurrency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+    final userCurrency =
+        UserCurrencyHelper.resolve(ref.watch(authProvider).user);
     final priceDisplay = formatTripPriceForViewer(
       trip,
       userCurrency,
@@ -381,7 +385,8 @@ class _TripCard extends ConsumerWidget {
                             const SizedBox(height: 2),
                             Text(
                               priceDisplay.secondary!,
-                              style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+                              style: AppTextStyles.caption
+                                  .copyWith(color: AppColors.gray500),
                             ),
                           ],
                           const SizedBox(height: 4),
@@ -427,7 +432,15 @@ class _TripCard extends ConsumerWidget {
                       const Icon(Icons.luggage_outlined,
                           size: 14, color: AppColors.gray500),
                       const SizedBox(width: 4),
-                      Text(l10n.kgAvailable(trip.availableKg.toString()),
+                      Text(
+                          l10n.kgAvailable(trip.availableKg.toStringAsFixed(0)),
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.gray600)),
+                      const SizedBox(width: 14),
+                      const Icon(Icons.sell_outlined,
+                          size: 14, color: AppColors.gray500),
+                      const SizedBox(width: 4),
+                      Text('${trip.soldKg.toStringAsFixed(0)} sold',
                           style: AppTextStyles.caption
                               .copyWith(color: AppColors.gray600)),
                     ],
@@ -437,8 +450,7 @@ class _TripCard extends ConsumerWidget {
             ),
             const Divider(height: 1, color: AppColors.border),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: SizedBox(
                 width: double.infinity,
                 height: 40,
@@ -466,8 +478,18 @@ class _TripCard extends ConsumerWidget {
     try {
       final dt = DateTime.parse(raw).toLocal();
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
     } catch (_) {
