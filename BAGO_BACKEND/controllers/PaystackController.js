@@ -92,17 +92,16 @@ export const verifyPaystackPayment = async (req, res) => {
 
         // Deduct package weight from trip capacity
         const reqData = await queryOne(
-          `SELECT p.package_weight FROM public.shipment_requests sr
-           JOIN public.packages p ON p.id = sr.package_id
-           WHERE sr.id = $1`,
+          `SELECT package_weight, trip_id FROM public.shipment_requests WHERE id = $1`,
           [requestId]
         );
-        if (reqData?.package_weight && updatedRequest.trip_id) {
+        const weightKg = reqData?.package_weight ? parseFloat(reqData.package_weight) : 0;
+        if (weightKg > 0 && reqData?.trip_id) {
           await pgQuery(
             `UPDATE public.trips SET available_kg = GREATEST(0, available_kg - $2), updated_at = NOW() WHERE id = $1`,
-            [updatedRequest.trip_id, reqData.package_weight]
+            [reqData.trip_id, weightKg]
           );
-          console.log(`📦 Deducted ${reqData.package_weight}kg from trip ${updatedRequest.trip_id}`);
+          console.log(`📦 Deducted ${weightKg}kg from trip ${reqData.trip_id}`);
         }
       }
     }
