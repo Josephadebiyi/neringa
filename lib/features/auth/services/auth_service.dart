@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -222,7 +223,6 @@ class AuthService {
 
       debugPrint(
           '✅ Backend accepted token registration - Status: ${response.statusCode}');
-      debugPrint('   Response: ${response.data}');
 
       // Verify local storage
       final stored = await _storage.getPushToken();
@@ -242,7 +242,6 @@ class AuthService {
       debugPrint(
           '❌ Backend registration failed - Status: ${e.response?.statusCode}');
       debugPrint('   Message: ${e.message}');
-      debugPrint('   Response: ${e.response?.data}');
       throw ApiService.parseError(e);
     } catch (e, stack) {
       debugPrint('❌ Token registration error: $e');
@@ -482,7 +481,7 @@ class AuthService {
 
   // ---------- Restore session from storage ----------------------------
 
-  Future<UserModel?> restoreSession() async {
+  Future<UserModel?> restoreSession({bool validateWithBackend = false}) async {
     final token = await _storage.getAccessToken();
     final userData = await _storage.getUser();
     if (token == null || userData == null) return null;
@@ -494,7 +493,29 @@ class AuthService {
       return null;
     }
     try {
-      return await _applyStoredRole(UserModel.fromJsonString(userData));
+      final cachedUser = await _applyStoredRole(UserModel.fromJsonString(userData));
+      if (!validateWithBackend) return cachedUser;
+
+      try {
+        final freshUser = await getProfile().timeout(const Duration(seconds: 5));
+        return freshUser;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          await _storage.clearAll();
+          return null;
+        }
+
+        final isOfflineOrTimeout = e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout;
+        if (isOfflineOrTimeout) {
+          return cachedUser;
+        }
+
+        return cachedUser;
+      } on TimeoutException {
+        return cachedUser;
+      }
     } catch (_) {
       return null;
     }

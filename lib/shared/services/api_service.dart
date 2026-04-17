@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/constants/api_constants.dart';
 import 'storage_service.dart';
@@ -28,14 +29,17 @@ class ApiService {
       ),
     );
 
-    _dio.interceptors.addAll([
-      _AuthInterceptor(),
-      LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-        error: true,
-      ),
-    ]);
+    _dio.interceptors.add(_AuthInterceptor());
+
+    if (kDebugMode) {
+      _dio.interceptors.add(
+        LogInterceptor(
+          requestBody: true,
+          responseBody: true,
+          error: true,
+        ),
+      );
+    }
   }
 
   Dio get dio {

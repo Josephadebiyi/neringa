@@ -77,8 +77,6 @@ class AuthNotifier extends Notifier<AuthState> {
           .getUser()
           .timeout(const Duration(seconds: 2), onTimeout: () => null);
 
-      await Future.delayed(const Duration(milliseconds: 300));
-
       if (token == null || userData == null) {
         debugPrint('Auth init: no saved session found in secure storage');
         state = state.copyWith(isInitialising: false);
@@ -92,7 +90,7 @@ class AuthNotifier extends Notifier<AuthState> {
           'Auth init: secure storage session present = $hasSavedSession');
 
       final user = await _service
-          .restoreSession()
+          .restoreSession(validateWithBackend: true)
           .timeout(const Duration(seconds: 3), onTimeout: () => null);
       state = state.copyWith(user: user, isInitialising: false);
 
