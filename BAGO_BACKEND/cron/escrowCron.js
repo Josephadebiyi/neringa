@@ -35,13 +35,13 @@ export const startEscrowAutoRelease = () => {
         const amount = parseFloat(req.amount) || 0;
         if (amount <= 0) continue;
 
-        // Transfer escrow → traveler available balance
+        // Transfer escrow → traveler available balance (wallet_accounts is source of truth)
         await pgQuery(
-          `UPDATE public.profiles
+          `UPDATE public.wallet_accounts
            SET escrow_balance = GREATEST(0, escrow_balance - $2),
                available_balance = available_balance + $2,
                updated_at = NOW()
-           WHERE id = $1`,
+           WHERE user_id = $1`,
           [req.traveler_id, amount]
         );
 

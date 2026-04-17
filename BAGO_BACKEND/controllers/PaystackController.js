@@ -75,7 +75,7 @@ export const verifyPaystackPayment = async (req, res) => {
              payment_reference = $2,
              updated_at = NOW()
          WHERE id = $1
-         RETURNING id, traveler_id, amount`,
+         RETURNING id, traveler_id, trip_id, amount`,
         [requestId, reference]
       );
 
@@ -89,6 +89,21 @@ export const verifyPaystackPayment = async (req, res) => {
           [updatedRequest.traveler_id, updatedRequest.amount || 0]
         );
         console.log(`🔒 Escrowed ${updatedRequest.amount} for traveler via Paystack verify`);
+
+        // Deduct package weight from trip capacity
+        const reqData = await queryOne(
+          `SELECT p.package_weight FROM public.shipment_requests sr
+           JOIN public.packages p ON p.id = sr.package_id
+           WHERE sr.id = $1`,
+          [requestId]
+        );
+        if (reqData?.package_weight && updatedRequest.trip_id) {
+          await pgQuery(
+            `UPDATE public.trips SET available_kg = GREATEST(0, available_kg - $2), updated_at = NOW() WHERE id = $1`,
+            [updatedRequest.trip_id, reqData.package_weight]
+          );
+          console.log(`📦 Deducted ${reqData.package_weight}kg from trip ${updatedRequest.trip_id}`);
+        }
       }
     }
 
@@ -447,7 +462,7 @@ async function handleSuccessfulPayment(data) {
              payment_reference = $2,
              updated_at = NOW()
          WHERE id = $1
-         RETURNING traveler_id, amount`,
+         RETURNING traveler_id, trip_id, amount`,
         [metadata.requestId, reference]
       );
 
@@ -459,6 +474,21 @@ async function handleSuccessfulPayment(data) {
           [updatedRequest.traveler_id, updatedRequest.amount || 0]
         );
         console.log(`🔒 Escrowed $${updatedRequest.amount} via Paystack webhook`);
+
+        // Deduct package weight from trip capacity
+        const reqData = await queryOne(
+          `SELECT p.package_weight FROM public.shipment_requests sr
+           JOIN public.packages p ON p.id = sr.package_id
+           WHERE sr.id = $1`,
+          [metadata.requestId]
+        );
+        if (reqData?.package_weight && updatedRequest.trip_id) {
+          await pgQuery(
+            `UPDATE public.trips SET available_kg = GREATEST(0, available_kg - $2), updated_at = NOW() WHERE id = $1`,
+            [updatedRequest.trip_id, reqData.package_weight]
+          );
+          console.log(`📦 Deducted ${reqData.package_weight}kg from trip ${updatedRequest.trip_id}`);
+        }
       }
 
       console.log(`✅ Payment confirmed for request ${metadata.requestId}`);
