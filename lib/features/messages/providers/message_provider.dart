@@ -355,44 +355,32 @@ class MessageNotifier extends Notifier<MessageState> {
         imageFile: imageFile,
       );
 
-      final looksIncomplete = msg.id.trim().isEmpty ||
-          (trimmedContent.isNotEmpty && msg.content.trim().isEmpty);
-
-      if (looksIncomplete) {
-        final latest = await _reloadMessagesForConversation(convId);
-        final matched = _containsEquivalentMessage(
-          latest,
-          senderId: currentUserId,
-          content: trimmedContent,
+      // If the HTTP response has an ID, use it to reconcile the optimistic message.
+      // Supabase realtime may have already reconciled it — _replaceOptimisticMessage
+      // is a no-op in that case, which is safe.
+      if (msg.id.isNotEmpty) {
+        state = state.copyWith(
+          messages: _replaceOptimisticMessage(state.messages, optimisticMsg, msg),
+          isSending: false,
         );
+      } else {
+        // Rare: backend returned no ID (should not happen after the RETURNING fix).
+        // Supabase realtime will reconcile; just clear the sending flag.
         state = state.copyWith(isSending: false);
-        if (!matched) {
-          state = state.copyWith(
-            messages:
-                state.messages.where((m) => m.id != optimisticMsg.id).toList(),
-            error:
-                'Message sent but could not be confirmed yet. Please reopen the chat.',
-          );
-        }
+      }
+    } catch (e) {
+      // On network error, check if the message arrived anyway (Supabase realtime
+      // or a fast DB commit). If it's already in state, leave it. Otherwise remove
+      // the optimistic and surface the error.
+      final alreadyDelivered = _containsEquivalentMessage(
+        state.messages,
+        senderId: currentUserId,
+        content: trimmedContent,
+      );
+      if (alreadyDelivered) {
+        state = state.copyWith(isSending: false);
         return;
       }
-
-      state = state.copyWith(
-        messages: _replaceOptimisticMessage(state.messages, optimisticMsg, msg),
-        isSending: false,
-      );
-    } catch (e) {
-      try {
-        final latest = await _reloadMessagesForConversation(convId);
-        final matched = _containsEquivalentMessage(
-          latest,
-          senderId: currentUserId,
-          content: trimmedContent,
-        );
-        state = state.copyWith(isSending: false);
-        if (matched) return;
-      } catch (_) {}
-
       final rolled =
           state.messages.where((m) => m.id != optimisticMsg.id).toList();
       state = state.copyWith(
