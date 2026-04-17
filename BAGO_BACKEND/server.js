@@ -2528,12 +2528,23 @@ app.get('/api/bago/push-diag/tokens', async (req, res) => {
 
 app.post('/api/bago/push-diag/test', async (req, res) => {
   try {
-    const { userId, title, body } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
+    let { userId, email, title, body } = req.body;
+
+    // Allow lookup by email
+    if (!userId && email) {
+      const user = await queryOne(`SELECT id, push_tokens FROM public.profiles WHERE lower(email) = lower($1)`, [email]);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      userId = user.id;
+      if (!user.push_tokens?.length) {
+        return res.status(200).json({ success: false, userId, tokens: 0, message: 'User has no push tokens stored — token registration may be failing' });
+      }
+    }
+
+    if (!userId) return res.status(400).json({ error: 'userId or email required' });
 
     const { sendPushNotification: sendPush } = await import('./services/pushNotificationService.js');
-    const results = await sendPush(userId, title || 'Bago Test Push', body || 'If you see this, push notifications are working!');
-    res.json({ success: true, results });
+    const results = await sendPush(userId, title || 'Bago Test 🔔', body || 'Push notifications are working!');
+    res.json({ success: true, userId, results });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
