@@ -274,7 +274,10 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final updated = await _service.updateCurrency(currency);
       state = state.copyWith(user: updated);
-      await PushNotificationService.instance.refreshAfterAuthChange();
+      // Don't await - fire and forget to not block currency update
+      PushNotificationService.instance
+          .refreshAfterAuthChange()
+          .catchError((_) {});
     } catch (e) {
       rethrow;
     }
