@@ -285,6 +285,19 @@ class ShipmentService {
     }
   }
 
+  /// Upload a proof-of-collection image for a shipment (traveler only).
+  /// [imageUrl] is a publicly accessible URL (e.g. from Supabase Storage).
+  Future<void> uploadTravelerProof(String requestId, String imageUrl) async {
+    try {
+      await _api.put(
+        '${ApiConstants.travelerProof}/$requestId/traveler-proof',
+        data: {'image': imageUrl},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<void> leaveShipmentReview({
     required String requestId,
     required double rating,

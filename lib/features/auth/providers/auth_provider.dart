@@ -59,18 +59,46 @@ class AuthNotifier extends Notifier<AuthState> {
     return const AuthState();
   }
 
+  Future<void> _connectRealtime(String userId) async {
+    try {
+      await SocketService.instance.connect();
+      SocketService.instance.setUserId(userId);
+    } catch (e) {
+      debugPrint('Auth realtime connection failed: $e');
+    }
+  }
+
   Future<void> _init() async {
     try {
-      final user = await _service.restoreSession();
-      state = state.copyWith(user: user, isInitialising: false);
-      if (user != null) {
-        // Connect socket for real-time messaging
-        await SocketService.instance.connect();
-        SocketService.instance.setUserId(user.id);
-        
-        await PushNotificationService.instance.prepareForSignedInUser();
+      final token = await _storage
+          .getAccessToken()
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
+      final userData = await _storage
+          .getUser()
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
+
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (token == null || userData == null) {
+        state = state.copyWith(isInitialising: false);
+        return;
       }
-    } catch (_) {
+
+      final user = await _service
+          .restoreSession()
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
+      state = state.copyWith(user: user, isInitialising: false);
+
+      if (user != null) {
+        await _connectRealtime(user.id);
+        PushNotificationService.instance
+            .prepareForSignedInUser()
+            .catchError((e) {
+          debugPrint('Push notification prep failed: $e');
+        });
+      }
+    } catch (e) {
+      debugPrint('Auth init failed, continuing to app shell: $e');
       state = state.copyWith(isInitialising: false);
     }
   }
@@ -82,14 +110,7 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final result = await _service.login(email: email, password: password);
       state = state.copyWith(user: result.user, isLoading: false);
-      
-      // Connect socket for real-time messaging
-      SocketService.instance.connect().then((_) {
-        SocketService.instance.setUserId(result.user.id);
-      }).catchError((e) {
-        debugPrint('Auth login: socket connection failed: $e');
-      });
-      
+      _connectRealtime(result.user.id);
       // Register push notification token (fire-and-forget, non-blocking)
       PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
         debugPrint('Auth login: push notification prep failed: $e');
@@ -151,14 +172,7 @@ class AuthNotifier extends Notifier<AuthState> {
         otp: otp,
       );
       state = state.copyWith(user: user, isLoading: false);
-      
-      // Connect socket for real-time messaging
-      SocketService.instance.connect().then((_) {
-        SocketService.instance.setUserId(user.id);
-      }).catchError((e) {
-        debugPrint('Auth verifyOtp: socket connection failed: $e');
-      });
-      
+      _connectRealtime(user.id);
       // Register push notification token (fire-and-forget, non-blocking)
       PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
         debugPrint('Auth verifyOtp: push notification prep failed: $e');
@@ -197,14 +211,7 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final user = await _service.googleSignIn();
       state = state.copyWith(user: user, isLoading: false);
-      
-      // Connect socket for real-time messaging
-      SocketService.instance.connect().then((_) {
-        SocketService.instance.setUserId(user.id);
-      }).catchError((e) {
-        debugPrint('Auth googleSignIn: socket connection failed: $e');
-      });
-      
+      _connectRealtime(user.id);
       // Register push notification token (fire-and-forget, non-blocking)
       PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
         debugPrint('Auth googleSignIn: push notification prep failed: $e');
@@ -315,4 +322,5 @@ class AuthNotifier extends Notifier<AuthState> {
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider =
+    NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);

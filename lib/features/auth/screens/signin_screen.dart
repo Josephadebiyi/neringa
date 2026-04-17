@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -241,8 +244,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   _DarkBtn(
                     label: l10n.continueWithGoogle,
                     icon: Icons.g_mobiledata_rounded,
+                    isLoading: isLoading,
                     onPressed: isLoading ? null : _googleSignIn,
                   ),
+
+                  if (Platform.isIOS && !kReleaseMode) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Google Sign-In can be unreliable on the iPhone simulator. If it hangs, use email login here and test Google on a real device.',
+                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                    ),
+                  ],
 
                   if (_biometricAvailable && _biometricEnabled) ...[
                     const SizedBox(height: 12),
@@ -321,33 +333,48 @@ class _PrimaryBtn extends StatelessWidget {
 }
 
 class _DarkBtn extends StatelessWidget {
-  const _DarkBtn({required this.label, required this.icon, required this.onPressed});
+  const _DarkBtn({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.isLoading = false,
+  });
   final String label;
   final IconData icon;
   final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) => SizedBox(
         width: double.infinity,
         height: 56,
         child: ElevatedButton(
-          onPressed: onPressed,
+          onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0D0E12),
             foregroundColor: Colors.white,
             shape: const StadiumBorder(),
             elevation: 0,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 22),
-              const SizedBox(width: 10),
-              Text(label,
-                  style: AppTextStyles.labelLg.copyWith(
-                      color: Colors.white, fontWeight: FontWeight.w800)),
-            ],
-          ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 22),
+                    const SizedBox(width: 10),
+                    Text(label,
+                        style: AppTextStyles.labelLg.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.w800)),
+                  ],
+                ),
         ),
       );
 }

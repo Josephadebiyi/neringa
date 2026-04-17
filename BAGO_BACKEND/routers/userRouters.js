@@ -1,6 +1,6 @@
 import express from 'express';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
-import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, getUser, logout, getWallet, editCurrency, requestEmailChange, verifyEmailChange, savePushToken as savePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
+import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, getUser, logout, getWallet, editCurrency, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
@@ -187,68 +187,8 @@ userRouter.put('/communication-prefs', isAuthenticated, updateCommunicationPrefs
 userRouter.delete('/user/delete', isAuthenticated, deleteAccount);
 userRouter.post('/user/request-email-change', isAuthenticated, requestEmailChange);
 userRouter.post('/user/verify-email-change', isAuthenticated, verifyEmailChange);
-
-// Phone change routes
-userRouter.post('/user/request-phone-change', isAuthenticated, async (req, res) => {
-  try {
-    const { newPhone } = req.body;
-    const userId = req.user.id || req.user._id;
-    if (!newPhone) return res.status(400).json({ message: 'New phone number is required' });
-
-    const { queryOne: qOne, query: pgQuery } = await import('../lib/postgres/db.js');
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await pgQuery(
-      `UPDATE public.profiles SET otp_code = $2, otp_expires_at = $3, pending_phone = $4, updated_at = NOW() WHERE id = $1`,
-      [userId, otp, new Date(Date.now() + 15 * 60 * 1000), newPhone.trim()]
-    );
-
-    // Send OTP via email (since SMS isn't configured)
-    const user = await qOne(`SELECT email, first_name FROM public.profiles WHERE id = $1`, [userId]);
-    const { resend } = await import('../server.js');
-    if (resend) {
-      await resend.emails.send({
-        from: 'Bago <no-reply@sendwithbago.com>',
-        to: user.email,
-        subject: 'Bago - Phone Change Verification Code',
-        html: `<p>Hi ${user.first_name || 'there'},</p><p>Your phone change verification code is <strong>${otp}</strong>.</p><p>This code expires in 15 minutes.</p>`,
-      });
-    }
-
-    res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
-  } catch (error) {
-    console.error('requestPhoneChange error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-userRouter.post('/user/verify-phone-change', isAuthenticated, async (req, res) => {
-  try {
-    const { otp } = req.body;
-    const userId = req.user.id || req.user._id;
-    if (!otp) return res.status(400).json({ message: 'OTP is required' });
-
-    const { queryOne: qOne } = await import('../lib/postgres/db.js');
-    const user = await qOne(
-      `SELECT id, otp_code, otp_expires_at, pending_phone FROM public.profiles WHERE id = $1`,
-      [userId]
-    );
-
-    if (!user || !user.otp_code) return res.status(400).json({ message: 'No verification request found' });
-    if (new Date(user.otp_expires_at) < new Date()) return res.status(400).json({ message: 'Verification code expired' });
-    if (user.otp_code !== otp.trim()) return res.status(400).json({ message: 'Invalid verification code' });
-    if (!user.pending_phone) return res.status(400).json({ message: 'No pending phone change' });
-
-    await qOne(
-      `UPDATE public.profiles SET phone = $2, pending_phone = NULL, otp_code = NULL, otp_expires_at = NULL, updated_at = NOW() WHERE id = $1 RETURNING id`,
-      [userId, user.pending_phone]
-    );
-
-    res.status(200).json({ success: true, message: 'Phone number updated successfully!' });
-  } catch (error) {
-    console.error('verifyPhoneChange error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
+userRouter.post('/user/request-phone-change', isAuthenticated, requestPhoneChange);
+userRouter.post('/user/verify-phone-change', isAuthenticated, verifyPhoneChange);
 userRouter.get('/payment-methods', isAuthenticated, requireKycVerification, listPaymentMethods);
 userRouter.post('/payment-methods/attach', isAuthenticated, requireKycVerification, attachPaymentMethod);
 userRouter.post('/payment-methods/setup-intent', isAuthenticated, requireKycVerification, createSetupIntent);

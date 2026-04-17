@@ -252,6 +252,33 @@ export async function confirmPendingEmailChange(userId, email) {
   );
 }
 
+export async function setPendingPhoneChange(userId, pendingPhone, otpCode, otpExpiresAt) {
+  await query(
+    `
+      update public.profiles
+      set pending_phone = $2,
+          phone_change_otp_code = $3,
+          phone_change_otp_expires_at = $4
+      where id = $1
+    `,
+    [userId, pendingPhone, otpCode, otpExpiresAt],
+  );
+}
+
+export async function confirmPendingPhoneChange(userId, phone) {
+  await query(
+    `
+      update public.profiles
+      set phone = $2,
+          pending_phone = null,
+          phone_change_otp_code = null,
+          phone_change_otp_expires_at = null
+      where id = $1
+    `,
+    [userId, phone],
+  );
+}
+
 export async function addPushToken(userId, token) {
   const result = await query(
     `

@@ -914,6 +914,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get phoneLabel => 'Telefon';
 
   @override
+  String get itemImagesLabel => 'Artikelbilder';
+
+  @override
+  String get notProvidedLabel => 'Nicht angegeben';
+
+  @override
+  String get receiverInfo => 'Empfängerinformationen';
+
+  @override
+  String get escrowLabel => 'Treuhandsaldo';
+
+  @override
   String get trackingNumberTitle => 'Sendungsnummer';
 
   @override

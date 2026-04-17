@@ -94,7 +94,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get languageItalian => 'Italien';
 
   @override
-  String get emailLabel => 'E-mail';
+  String get emailLabel => 'Email';
 
   @override
   String get emailHint => 'vous@exemple.com';
@@ -915,6 +915,18 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get phoneLabel => 'Téléphone';
+
+  @override
+  String get itemImagesLabel => 'Images de l\'article';
+
+  @override
+  String get notProvidedLabel => 'Non fourni';
+
+  @override
+  String get receiverInfo => 'Informations du destinataire';
+
+  @override
+  String get escrowLabel => 'Solde de dépôt garanti';
 
   @override
   String get trackingNumberTitle => 'Numéro de suivi';

@@ -9,6 +9,7 @@ import {
   applySignupBonus,
   checkDuplicateNameDob,
   confirmPendingEmailChange,
+  confirmPendingPhoneChange,
   createOrUpdateGoogleProfile,
   createProfileWithWallet,
   findActivePromoCode,
@@ -17,6 +18,7 @@ import {
   findProfileByReferralCode,
   getWalletByUserId,
   setPendingEmailChange,
+  setPendingPhoneChange,
   updatePasswordOtp,
   updatePreferredCurrency,
   clearOtpAndUpdatePassword,
@@ -540,6 +542,50 @@ export async function verifyEmailChange(req, res) {
 
     await confirmPendingEmailChange(user.id, user.pendingEmail);
     res.status(200).json({ success: true, message: 'Email updated successfully!' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export async function requestPhoneChange(req, res) {
+  try {
+    const { newPhone } = req.body;
+    const user = await findProfileById(req.user.id || req.user._id);
+
+    if (!newPhone) return res.status(400).json({ message: 'New phone number is required' });
+    if (newPhone.trim() === user.phone?.trim()) {
+      return res.status(400).json({ message: 'New phone must be different from current phone' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await setPendingPhoneChange(user.id, newPhone.trim(), otp, new Date(Date.now() + 15 * 60 * 1000));
+
+    res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
+  } catch (error) {
+    console.error('requestPhoneChange error:', error);
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export async function verifyPhoneChange(req, res) {
+  try {
+    const { otp } = req.body;
+    const user = await findProfileById(req.user.id || req.user._id);
+
+    if (!user.pendingPhone || !user.phone_change_otp_code) {
+      return res.status(400).json({ message: 'No phone change request found' });
+    }
+
+    if (new Date(user.phone_change_otp_expires_at) < new Date()) {
+      return res.status(400).json({ message: 'Verification code expired' });
+    }
+
+    if (user.phone_change_otp_code !== otp) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+
+    await confirmPendingPhoneChange(user.id, user.pendingPhone);
+    res.status(200).json({ success: true, message: 'Phone number updated successfully!' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

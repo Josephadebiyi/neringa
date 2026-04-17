@@ -23,18 +23,17 @@ class AuthService {
   static final _googleSignIn = _initializeGoogleSignIn();
 
   static GoogleSignIn _initializeGoogleSignIn() {
-    final clientId = Platform.isIOS
-        ? null
-        : (ApiConstants.googleWebClientId.isNotEmpty
-              ? ApiConstants.googleWebClientId
-              : null);
+    final webClientId = ApiConstants.googleWebClientId.isNotEmpty
+        ? ApiConstants.googleWebClientId
+        : null;
+    final iosClientId = ApiConstants.googleIosClientId.isNotEmpty
+        ? ApiConstants.googleIosClientId
+        : null;
 
     return GoogleSignIn(
-      clientId: clientId,
+      clientId: iosClientId,
       scopes: ['email', 'profile'],
-      serverClientId: ApiConstants.googleWebClientId.isEmpty
-          ? null
-          : ApiConstants.googleWebClientId,
+      serverClientId: webClientId,
     );
   }
 
@@ -197,12 +196,14 @@ class AuthService {
     if (token.isEmpty) {
       throw Exception('Cannot register empty push token');
     }
-    
+
     try {
-      final pushPlatform = (platform ?? (Platform.isIOS ? 'ios' : 'android')).trim();
-      debugPrint('🔔 Registering token with backend (len=${token.length}, platform=$pushPlatform)');
+      final pushPlatform =
+          (platform ?? (Platform.isIOS ? 'ios' : 'android')).trim();
+      debugPrint(
+          '🔔 Registering token with backend (len=${token.length}, platform=$pushPlatform)');
       debugPrint('   Endpoint: POST ${ApiConstants.registerPushToken}');
-      
+
       final response = await _api.post(
         ApiConstants.registerPushToken,
         data: {
@@ -213,15 +214,16 @@ class AuthService {
           'provider': pushPlatform,
         },
       );
-      
+
       // Validate response
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Server returned status ${response.statusCode}');
       }
-      
-      debugPrint('✅ Backend accepted token registration - Status: ${response.statusCode}');
+
+      debugPrint(
+          '✅ Backend accepted token registration - Status: ${response.statusCode}');
       debugPrint('   Response: ${response.data}');
-      
+
       // Verify local storage
       final stored = await _storage.getPushToken();
       if (stored == token) {
@@ -236,9 +238,9 @@ class AuthService {
           debugPrint('⚠️  Local storage mismatch');
         }
       }
-      
     } on DioException catch (e) {
-      debugPrint('❌ Backend registration failed - Status: ${e.statusCode}');
+      debugPrint(
+          '❌ Backend registration failed - Status: ${e.response?.statusCode}');
       debugPrint('   Message: ${e.message}');
       debugPrint('   Response: ${e.response?.data}');
       throw ApiService.parseError(e);
@@ -254,48 +256,54 @@ class AuthService {
   Future<UserModel> googleSignIn() async {
     try {
       // Check if Google Sign-In is properly configured
-      final hasGoogleConfig = Platform.isIOS ||
-          ApiConstants.googleIosClientId.isNotEmpty ||
+      final hasGoogleConfig = ApiConstants.googleIosClientId.isNotEmpty ||
           ApiConstants.googleWebClientId.isNotEmpty;
       if (!hasGoogleConfig) {
         throw 'Google Sign-In is not configured. Please provide GOOGLE_IOS_CLIENT_ID or GOOGLE_WEB_CLIENT_ID environment variables during build.';
       }
 
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) throw 'Google sign-in was cancelled';
+      try {
+        final googleUser = await _googleSignIn
+            .signIn()
+            .timeout(const Duration(seconds: 12));
+        if (googleUser == null) throw 'Google sign-in was cancelled';
 
-      final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-      final accessToken = googleAuth.accessToken;
+        final googleAuth = await googleUser.authentication
+            .timeout(const Duration(seconds: 12));
+        final idToken = googleAuth.idToken;
+        final accessToken = googleAuth.accessToken;
 
-      if ((idToken == null || idToken.isEmpty) &&
-          (accessToken == null || accessToken.isEmpty)) {
-        throw 'Failed to get Google authentication token';
+        if ((idToken == null || idToken.isEmpty) &&
+            (accessToken == null || accessToken.isEmpty)) {
+          throw 'Failed to get Google authentication token';
+        }
+
+        final res = await _api.post(
+          ApiConstants.googleAuth,
+          data: {
+            if (idToken != null && idToken.isNotEmpty) 'idToken': idToken,
+            if (accessToken != null && accessToken.isNotEmpty)
+              'accessToken': accessToken,
+          },
+        );
+        final data = res.data as Map<String, dynamic>;
+        final user = await _applyStoredRole(
+          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+        );
+        final token = data['token']?.toString() ?? '';
+        final refreshTok = data['refreshToken']?.toString();
+
+        await _storage.saveTokens(
+          accessToken: token,
+          refreshToken: refreshTok ?? token,
+        );
+        await _storage.saveRole(user.role);
+        await _storage.saveUser(user.toJsonString());
+        await _storage.saveBackendUrl(ApiConstants.baseUrl);
+        return user;
+      } catch (googleError) {
+        throw _mapGoogleSignInError(googleError);
       }
-
-      final res = await _api.post(
-        ApiConstants.googleAuth,
-        data: {
-          if (idToken != null && idToken.isNotEmpty) 'idToken': idToken,
-          if (accessToken != null && accessToken.isNotEmpty)
-            'accessToken': accessToken,
-        },
-      );
-      final data = res.data as Map<String, dynamic>;
-      final user = await _applyStoredRole(
-        UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
-      );
-      final token = data['token']?.toString() ?? '';
-      final refreshTok = data['refreshToken']?.toString();
-
-      await _storage.saveTokens(
-        accessToken: token,
-        refreshToken: refreshTok ?? token,
-      );
-      await _storage.saveRole(user.role);
-      await _storage.saveUser(user.toJsonString());
-      await _storage.saveBackendUrl(ApiConstants.baseUrl);
-      return user;
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     } catch (e) {
@@ -373,8 +381,8 @@ class AuthService {
         fieldName: 'image',
       );
       final data = res.data as Map<String, dynamic>;
-      final user = UserModel.fromJson(
-          (data['user'] ?? data) as Map<String, dynamic>);
+      final user =
+          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>);
       await _storage.saveUser(user.toJsonString());
       await _storage.saveBackendUrl(ApiConstants.baseUrl);
       return user;
@@ -385,15 +393,13 @@ class AuthService {
 
   Future<UserModel> updateCurrency(String currency) async {
     try {
-      final res = await _api.put(
-          ApiConstants.changeCurrency, data: {'currency': currency});
+      final res = await _api
+          .put(ApiConstants.changeCurrency, data: {'currency': currency});
       final data = res.data as Map<String, dynamic>;
-      final returned = UserModel.fromJson(
-          (data['user'] ?? data) as Map<String, dynamic>);
+      final returned =
+          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>);
       final stored = await _storage.getUser();
-      final existing = stored == null
-          ? null
-          : UserModel.fromJsonString(stored);
+      final existing = stored == null ? null : UserModel.fromJsonString(stored);
       final user = (existing == null)
           ? returned
           : existing.copyWith(
@@ -402,7 +408,9 @@ class AuthService {
                   : existing.currency,
               preferredCurrency: returned.preferredCurrency.isNotEmpty
                   ? returned.preferredCurrency
-                  : (returned.currency.isNotEmpty ? returned.currency : existing.preferredCurrency),
+                  : (returned.currency.isNotEmpty
+                      ? returned.currency
+                      : existing.preferredCurrency),
             );
       await _storage.saveUser(user.toJsonString());
       await _storage.saveBackendUrl(ApiConstants.baseUrl);
@@ -423,8 +431,8 @@ class AuthService {
 
   Future<void> verifyEmailChange(String otp) async {
     try {
-      await _api.post(ApiConstants.verifyEmailChange,
-          data: {'otp': otp.trim()});
+      await _api
+          .post(ApiConstants.verifyEmailChange, data: {'otp': otp.trim()});
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -526,6 +534,13 @@ class AuthService {
 
     if (normalized.contains('failed to get google authentication token')) {
       return 'Google Sign-In could not complete. Please try again.';
+    }
+
+    if (normalized.contains('timeoutexception')) {
+      if (Platform.isIOS) {
+        return 'Google Sign-In timed out on this iPhone simulator. Please use email login here, or test Google Sign-In on a real iPhone.';
+      }
+      return 'Google Sign-In timed out. Please try again.';
     }
 
     return message;

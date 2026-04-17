@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -10,6 +12,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../messages/providers/message_provider.dart';
+import '../../messages/services/message_realtime_service.dart';
 import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
 import '../services/shipment_service.dart';
@@ -31,7 +34,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
   bool _isAccepting = false;
   bool _isRejecting = false;
   bool _hasReviewed = false;
-  late final Future<RequestModel?> _requestFuture;
+  late Future<RequestModel?> _requestFuture;
 
   @override
   void initState() {
@@ -718,7 +721,9 @@ class _PackageImage extends StatelessWidget {
   }
 }
 
-// Shipment status update buttons for traveler
+// ---------------------------------------------------------------------------
+// Shipment status update buttons (traveler only)
+// ---------------------------------------------------------------------------
 class _ShipmentStatusButtons extends StatefulWidget {
   const _ShipmentStatusButtons({
     required this.currentStatus,
@@ -754,44 +759,96 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
   }
 
   String get _nextStatusLabel {
-    switch (_nextStatus) {
-      case 'intransit':
-        return 'Mark as In Transit';
-      case 'delivering':
-        return 'Mark as Delivering';
-      case 'delivered':
-        return 'Mark as Delivered';
-      default:
-        return '';
-    }
+    return switch (_nextStatus) {
+      'intransit' => 'Mark as In Transit',
+      'delivering' => 'Mark as Delivering',
+      'delivered' => 'Mark as Delivered',
+      _ => '',
+    };
   }
 
   IconData get _nextStatusIcon {
-    switch (_nextStatus) {
-      case 'intransit':
-        return Icons.flight_takeoff_rounded;
-      case 'delivering':
-        return Icons.local_shipping_rounded;
-      case 'delivered':
-        return Icons.check_circle_outline_rounded;
-      default:
-        return Icons.update_rounded;
-    }
+    return switch (_nextStatus) {
+      'intransit' => Icons.flight_takeoff_rounded,
+      'delivering' => Icons.local_shipping_rounded,
+      'delivered' => Icons.check_circle_outline_rounded,
+      _ => Icons.update_rounded,
+    };
   }
 
   Future<void> _updateStatus() async {
     if (_nextStatus.isEmpty || _updating) return;
 
-    final confirmed = await showDialog<bool>(
+    // Both intransit and delivering require proof photo + 48-hour acknowledgement
+    if (_nextStatus == 'intransit' || _nextStatus == 'delivering') {
+      await _handleProofRequiredStatus(_nextStatus);
+      return;
+    }
+
+    // Other statuses: standard confirmation dialog
+    final confirmed = await _showConfirmDialog();
+    if (confirmed != true) return;
+
+    await _doStatusUpdate();
+  }
+
+  /// Proof-required flow: 48-hr warning → proof photo → confirm → upload → update status
+  Future<void> _handleProofRequiredStatus(String targetStatus) async {
+    final result = await showModalBottomSheet<File?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ProofRequiredSheet(
+        requestId: widget.requestId,
+        isDelivering: targetStatus == 'delivering',
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() => _updating = true);
+    try {
+      final String? proofUrl = await MessageRealtimeService.instance.uploadChatImage(
+        result,
+        'proofs/${widget.requestId}',
+      );
+
+      if (proofUrl != null) {
+        await ShipmentService.instance.uploadTravelerProof(widget.requestId, proofUrl);
+      }
+
+      await ShipmentService.instance.updateShipmentStatus(
+        widget.requestId,
+        status: targetStatus,
+        location: _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : null,
+        notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+      );
+
+      if (mounted) {
+        final msg = targetStatus == 'delivering'
+            ? 'Shipment is now Out for Delivery!'
+            : 'Shipment is now In Transit!';
+        AppSnackBar.show(context, message: msg, type: SnackBarType.success);
+        widget.onStatusUpdated();
+      }
+    } catch (e) {
+      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  Future<bool?> _showConfirmDialog() {
+    return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Update Status', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        title: Text('Update Status',
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Update shipment to "$_nextStatusLabel"?',
-                style: AppTextStyles.bodyMd),
+            Text('Update shipment to "$_nextStatusLabel"?', style: AppTextStyles.bodyMd),
             const SizedBox(height: 16),
             TextField(
               controller: _locationCtrl,
@@ -800,9 +857,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
                 filled: true,
                 fillColor: AppColors.gray50,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
+                    borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 10),
@@ -814,18 +869,14 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
                 filled: true,
                 fillColor: AppColors.gray50,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
+                    borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -838,10 +889,10 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
         ],
       ),
     );
+  }
 
-    if (confirmed != true) return;
+  Future<void> _doStatusUpdate() async {
     setState(() => _updating = true);
-
     try {
       await ShipmentService.instance.updateShipmentStatus(
         widget.requestId,
@@ -856,9 +907,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
         widget.onStatusUpdated();
       }
     } catch (e) {
-      if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
-      }
+      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -874,20 +923,19 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
           Expanded(
             child: Text(
               'Shipment has been delivered. Waiting for sender confirmation.',
-              style: AppTextStyles.bodySm.copyWith(color: AppColors.success, fontWeight: FontWeight.w600),
+              style: AppTextStyles.bodySm
+                  .copyWith(color: AppColors.success, fontWeight: FontWeight.w600),
             ),
           ),
         ],
       );
     }
 
-    // Show status progression
     final steps = ['accepted', 'intransit', 'delivering', 'delivered'];
     final currentIdx = steps.indexOf(widget.currentStatus.apiValue);
 
     return Column(
       children: [
-        // Progress indicator
         Row(
           children: List.generate(steps.length, (i) {
             final done = i <= currentIdx;
@@ -930,7 +978,11 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
           child: ElevatedButton.icon(
             onPressed: _updating ? null : _updateStatus,
             icon: _updating
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                  )
                 : Icon(_nextStatusIcon, size: 20),
             label: Text(_nextStatusLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
@@ -942,6 +994,319 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bottom sheet: 48-hr warning + mandatory proof photo (intransit & delivering)
+// ---------------------------------------------------------------------------
+class _ProofRequiredSheet extends StatefulWidget {
+  const _ProofRequiredSheet({required this.requestId, this.isDelivering = false});
+  final String requestId;
+  final bool isDelivering;
+
+  @override
+  State<_ProofRequiredSheet> createState() => _ProofRequiredSheetState();
+}
+
+class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
+  File? _proofImage;
+  bool _acknowledged = false;
+  bool _uploading = false;
+  final _picker = ImagePicker();
+
+  Future<void> _pickPhoto() async {
+    final xFile = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      preferredCameraDevice: CameraDevice.rear,
+    );
+    if (xFile != null && mounted) {
+      setState(() => _proofImage = File(xFile.path));
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    final xFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (xFile != null && mounted) {
+      setState(() => _proofImage = File(xFile.path));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canProceed = _proofImage != null && _acknowledged && !_uploading;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.gray200, borderRadius: BorderRadius.circular(999)),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Title
+            Row(
+              children: [
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentAmber.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    widget.isDelivering ? Icons.local_shipping_rounded : Icons.flight_takeoff_rounded,
+                    color: AppColors.accentAmber, size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    widget.isDelivering ? 'Mark as Delivering' : 'Mark as In Transit',
+                    style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 48-hour warning banner
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.accentAmber.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.timer_outlined, color: AppColors.accentAmber, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '⏱ 48-Hour Policy\n'
+                      'Do not hold the item for more than 48 hours after collecting it. '
+                      'Delays may result in a dispute and your account may be flagged.',
+                      style: AppTextStyles.bodySm.copyWith(
+                        color: AppColors.gray800,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Proof photo requirement
+            Text(
+              'PROOF OF COLLECTION REQUIRED',
+              style: AppTextStyles.labelXs.copyWith(
+                  color: AppColors.gray400, letterSpacing: 1, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              widget.isDelivering
+                  ? 'Take a photo of the item out for delivery. This is required before you can mark the shipment as Delivering.'
+                  : 'Take a photo of the item you\'ve collected. This is required before you can mark the shipment as In Transit.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray600, height: 1.5),
+            ),
+            const SizedBox(height: 14),
+
+            // Photo preview / picker
+            if (_proofImage != null) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.file(
+                      _proofImage!,
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _proofImage = null),
+                      child: Container(
+                        width: 30, height: 30,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54, shape: BoxShape.circle),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: _pickPhoto,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                            const SizedBox(width: 4),
+                            Text('Retake', style: AppTextStyles.captionBold.copyWith(color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _PhotoButton(
+                      icon: Icons.camera_alt_rounded,
+                      label: 'Take Photo',
+                      onTap: _pickPhoto,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PhotoButton(
+                      icon: Icons.photo_library_rounded,
+                      label: 'From Gallery',
+                      onTap: _pickFromGallery,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            // Acknowledgement checkbox
+            GestureDetector(
+              onTap: () => setState(() => _acknowledged = !_acknowledged),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 22, height: 22,
+                    decoration: BoxDecoration(
+                      color: _acknowledged ? AppColors.primary : AppColors.white,
+                      border: Border.all(
+                        color: _acknowledged ? AppColors.primary : AppColors.gray300,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: _acknowledged
+                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.isDelivering
+                          ? 'I confirm this item is out for delivery and will be delivered within 48 hours.'
+                          : 'I confirm I have collected this item and understand I must deliver it within 48 hours.',
+                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray700, height: 1.45),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Confirm button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: canProceed
+                    ? () {
+                        setState(() => _uploading = true);
+                        Navigator.of(context).pop(_proofImage);
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  disabledBackgroundColor: AppColors.gray200,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text(
+                  _proofImage == null
+                      ? 'Add a photo to continue'
+                      : !_acknowledged
+                          ? 'Confirm the checkbox above'
+                          : 'Confirm & Start Transit',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoButton extends StatelessWidget {
+  const _PhotoButton({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: AppColors.gray50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.gray200),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.primary, size: 28),
+            const SizedBox(height: 6),
+            Text(label,
+                style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.gray700, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
     );
   }
 }
