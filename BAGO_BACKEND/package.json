@@ -12,7 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.103.3",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -25,7 +25,7 @@
     "express": "^5.1.0",
     "express-fileupload": "^1.5.2",
     "express-rate-limit": "8.3.1",
-    "firebase-admin": "^12.0.0",
+    "firebase-admin": "^13.8.0",
     "google-auth-library": "^10.6.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.0",
@@ -38,5 +38,13 @@
     "resend": "^6.2.2",
     "socket.io": "^4.8.1",
     "stripe": "^19.1.0"
+  },
+  "overrides": {
+    "@supabase/auth-js": "2.103.3",
+    "brace-expansion": "5.0.5",
+    "follow-redirects": "1.16.0",
+    "lodash": "4.18.1",
+    "path-to-regexp": "8.4.2",
+    "protobufjs": "7.5.5"
   }
 }
