@@ -80,9 +80,16 @@ class AuthNotifier extends Notifier<AuthState> {
       await Future.delayed(const Duration(milliseconds: 300));
 
       if (token == null || userData == null) {
+        debugPrint('Auth init: no saved session found in secure storage');
         state = state.copyWith(isInitialising: false);
         return;
       }
+
+      final hasSavedSession = await _storage
+          .hasSavedSession()
+          .timeout(const Duration(seconds: 2), onTimeout: () => false);
+      debugPrint(
+          'Auth init: secure storage session present = $hasSavedSession');
 
       final user = await _service
           .restoreSession()
@@ -92,7 +99,7 @@ class AuthNotifier extends Notifier<AuthState> {
       if (user != null) {
         await _connectRealtime(user.id);
         PushNotificationService.instance
-            .prepareForSignedInUser()
+            .prepareForSignedInUserSilently()
             .catchError((e) {
           debugPrint('Push notification prep failed: $e');
         });
@@ -111,8 +118,9 @@ class AuthNotifier extends Notifier<AuthState> {
       final result = await _service.login(email: email, password: password);
       state = state.copyWith(user: result.user, isLoading: false);
       _connectRealtime(result.user.id);
-      // Register push notification token (fire-and-forget, non-blocking)
-      PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
+      PushNotificationService.instance
+          .prepareForSignedInUserSilently()
+          .catchError((e) {
         debugPrint('Auth login: push notification prep failed: $e');
       });
     } catch (e) {
@@ -173,8 +181,9 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      // Register push notification token (fire-and-forget, non-blocking)
-      PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
+      PushNotificationService.instance
+          .prepareForSignedInUserSilently()
+          .catchError((e) {
         debugPrint('Auth verifyOtp: push notification prep failed: $e');
       });
     } catch (e) {
@@ -212,8 +221,9 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await _service.googleSignIn();
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      // Register push notification token (fire-and-forget, non-blocking)
-      PushNotificationService.instance.prepareForSignedInUser().catchError((e) {
+      PushNotificationService.instance
+          .prepareForSignedInUserSilently()
+          .catchError((e) {
         debugPrint('Auth googleSignIn: push notification prep failed: $e');
       });
     } catch (e) {

@@ -30,6 +30,62 @@ class PushNotificationService {
     _ensureFirebaseIfPossible();
   }
 
+  Future<AuthorizationStatus?> notificationAuthorizationStatus() async {
+    await _ensureFirebaseIfPossible();
+    if (!_firebaseAvailable) return null;
+
+    try {
+      final settings =
+          await FirebaseMessaging.instance.getNotificationSettings();
+      return settings.authorizationStatus;
+    } catch (error) {
+      debugPrint('❌ Could not read notification settings: $error');
+      return null;
+    }
+  }
+
+  Future<bool> shouldShowLoginNotificationPrompt() async {
+    final storedToken = await _storage.getPushToken();
+    if (storedToken?.isNotEmpty ?? false) {
+      debugPrint('🔔 Push token already stored — skipping login prompt');
+      return false;
+    }
+
+    final status = await notificationAuthorizationStatus();
+    if (status == null) {
+      return true;
+    }
+
+    return status == AuthorizationStatus.notDetermined;
+  }
+
+  Future<void> prepareForSignedInUserSilently() async {
+    startListening();
+    await _ensureFirebaseIfPossible();
+
+    if (_firebaseAvailable) {
+      final status = await notificationAuthorizationStatus();
+      debugPrint('🔔 Silent notification prep — status: $status');
+
+      if (status == AuthorizationStatus.authorized ||
+          status == AuthorizationStatus.provisional) {
+        await FirebaseMessaging.instance
+            .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        await _syncFirebaseToken();
+      } else {
+        debugPrint(
+            '🔔 Notification permission not granted yet — waiting for user prompt');
+      }
+      return;
+    }
+
+    await _syncDeviceToken();
+  }
+
   Future<void> prepareForSignedInUser() async {
     startListening();
     await _ensureFirebaseIfPossible();
@@ -50,7 +106,8 @@ class PushNotificationService {
     // Native fallback (non-Firebase builds)
     debugPrint('🔔 Firebase not available — using native fallback');
     try {
-      final permissionGranted = await _channel.invokeMethod<bool>('requestPermission');
+      final permissionGranted =
+          await _channel.invokeMethod<bool>('requestPermission');
       debugPrint('🔔 Native permission result: $permissionGranted');
     } catch (e) {
       debugPrint('❌ Native permission request error: $e');
@@ -63,14 +120,16 @@ class PushNotificationService {
       case 'onDeviceToken':
         final token = call.arguments?.toString().trim() ?? '';
         if (token.isNotEmpty) {
-          debugPrint('🔔 Native APNs token received via channel: ${token.length} chars');
+          debugPrint(
+              '🔔 Native APNs token received via channel: ${token.length} chars');
           // When Firebase is available, we prefer FCM tokens over raw APNs.
           // Only use the native token as a fallback if Firebase fails.
           if (!_firebaseAvailable) {
             _pendingToken = token;
             await _registerIfPossible(token);
           } else {
-            debugPrint('🔔 Firebase active — native APNs token noted but FCM path preferred');
+            debugPrint(
+                '🔔 Firebase active — native APNs token noted but FCM path preferred');
             // Store it as a fallback in case FCM getToken fails
             if (_pendingToken == null || _pendingToken!.isEmpty) {
               _pendingToken = token;
@@ -99,7 +158,8 @@ class PushNotificationService {
         debugPrint('🔔 Native device token is empty — will retry via listener');
       }
     } catch (error) {
-      debugPrint('🔔 Native device token error: $error — will retry via listener');
+      debugPrint(
+          '🔔 Native device token error: $error — will retry via listener');
     }
   }
 
@@ -127,18 +187,20 @@ class PushNotificationService {
     _registering = true;
     int retries = 0;
     const maxRetries = 5;
-    
+
     while (retries < maxRetries) {
       try {
-        final platform = _firebaseAvailable ? 'fcm'
+        final platform = _firebaseAvailable
+            ? 'fcm'
             : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
-        debugPrint('🔔 Registering token (attempt ${retries + 1}/$maxRetries, len=${token.length}, platform=$platform)');
-        
+        debugPrint(
+            '🔔 Registering token (attempt ${retries + 1}/$maxRetries, len=${token.length}, platform=$platform)');
+
         await AuthService.instance.registerPushToken(
           token,
           platform: platform,
         );
-        
+
         debugPrint('✅ Push token registered successfully to backend DB');
         _pendingToken = null;
         _registering = false;
@@ -146,14 +208,15 @@ class PushNotificationService {
       } catch (e) {
         retries++;
         debugPrint('❌ Push token registration attempt $retries failed: $e');
-        
+
         if (retries < maxRetries) {
           await Future<void>.delayed(Duration(seconds: retries * 2));
         }
       }
     }
-    
-    debugPrint('⚠️ Push token registration failed after $maxRetries attempts — will retry on token refresh or next app launch');
+
+    debugPrint(
+        '⚠️ Push token registration failed after $maxRetries attempts — will retry on token refresh or next app launch');
     _pendingToken = token;
     _registering = false;
 
@@ -168,12 +231,12 @@ class PushNotificationService {
   Future<void> refreshAfterAuthChange() async {
     startListening();
     await _ensureFirebaseIfPossible();
-    
+
     // Try pending token first
     if (_pendingToken != null && _pendingToken!.isNotEmpty) {
       await _registerIfPossible(_pendingToken!);
     }
-    
+
     // Then sync fresh token
     if (_firebaseAvailable) {
       await _syncFirebaseToken();
@@ -207,7 +270,8 @@ class PushNotificationService {
   }
 
   void _attachTokenRefreshListener() {
-    _tokenRefreshSub ??= FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+    _tokenRefreshSub ??=
+        FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
       final normalized = token.trim();
       if (normalized.isNotEmpty) {
         debugPrint('🔔 FCM token refreshed: ${normalized.length} chars');
@@ -220,12 +284,15 @@ class PushNotificationService {
   /// Request notification permission forcefully
   Future<void> _requestFirebasePermissionForcefully() async {
     if (!_firebaseAvailable) return;
-    
+
     try {
-      final currentSettings = await FirebaseMessaging.instance.getNotificationSettings();
-      debugPrint('🔔 Current permission status: ${currentSettings.authorizationStatus}');
-      
-      if (currentSettings.authorizationStatus != AuthorizationStatus.authorized) {
+      final currentSettings =
+          await FirebaseMessaging.instance.getNotificationSettings();
+      debugPrint(
+          '🔔 Current permission status: ${currentSettings.authorizationStatus}');
+
+      if (currentSettings.authorizationStatus !=
+          AuthorizationStatus.authorized) {
         debugPrint('🔔 Permission not authorized - requesting now');
         final settings = await FirebaseMessaging.instance.requestPermission(
           alert: true,
@@ -233,18 +300,21 @@ class PushNotificationService {
           sound: true,
           provisional: false,
         );
-        debugPrint('🔔 Permission request result: ${settings.authorizationStatus}');
-        
+        debugPrint(
+            '🔔 Permission request result: ${settings.authorizationStatus}');
+
         if (settings.authorizationStatus == AuthorizationStatus.denied) {
-          debugPrint('⚠️ User DENIED notification permissions — push will not work');
+          debugPrint(
+              '⚠️ User DENIED notification permissions — push will not work');
           return;
         }
       } else {
         debugPrint('✅ Notification permissions already authorized');
       }
-      
+
       // Ensure foreground presentation options
-      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
@@ -257,7 +327,7 @@ class PushNotificationService {
   Future<void> _syncFirebaseToken() async {
     if (!_firebaseAvailable) return;
     debugPrint('🔔 Syncing Firebase FCM token...');
-    
+
     // On iOS, the FCM token depends on the APNs token being available.
     // Retry with increasing delays to give iOS time to register with Apple.
     for (var attempt = 1; attempt <= 8; attempt++) {
@@ -267,14 +337,16 @@ class PushNotificationService {
           try {
             final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
             if (apnsToken == null || apnsToken.isEmpty) {
-              debugPrint('⏳ APNs token not ready (attempt $attempt) — waiting...');
+              debugPrint(
+                  '⏳ APNs token not ready (attempt $attempt) — waiting...');
               if (attempt < 8) {
                 // Longer delays for APNs: 2s, 3s, 4s, 5s...
                 await Future<void>.delayed(Duration(seconds: attempt + 1));
               }
               continue;
             }
-            debugPrint('✅ APNs token available (${apnsToken.length} chars) — getting FCM token');
+            debugPrint(
+                '✅ APNs token available (${apnsToken.length} chars) — getting FCM token');
           } catch (e) {
             debugPrint('⚠️ getAPNSToken error (attempt $attempt): $e');
           }
@@ -282,7 +354,7 @@ class PushNotificationService {
 
         final token = await FirebaseMessaging.instance.getToken();
         final normalized = token?.trim() ?? '';
-        
+
         if (normalized.isEmpty) {
           debugPrint('⏳ FCM getToken attempt $attempt: EMPTY (will retry)');
           if (attempt < 8) {
@@ -290,10 +362,11 @@ class PushNotificationService {
           }
           continue;
         }
-        
-        debugPrint('✅ FCM token obtained (attempt $attempt): ${normalized.length} chars');
+
+        debugPrint(
+            '✅ FCM token obtained (attempt $attempt): ${normalized.length} chars');
         _pendingToken = normalized;
-        
+
         await _validateAndStoreToken(normalized);
         await _registerIfPossible(normalized);
         return;
@@ -304,14 +377,16 @@ class PushNotificationService {
         }
       }
     }
-    
+
     // FCM token failed — try APNs token as fallback (iOS only)
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      debugPrint('⚠️ FCM getToken failed after 8 attempts — trying APNs fallback');
+      debugPrint(
+          '⚠️ FCM getToken failed after 8 attempts — trying APNs fallback');
       try {
         final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
         if (apnsToken != null && apnsToken.isNotEmpty) {
-          debugPrint('🔔 Using APNs token as fallback: ${apnsToken.length} chars');
+          debugPrint(
+              '🔔 Using APNs token as fallback: ${apnsToken.length} chars');
           _pendingToken = apnsToken;
           await _validateAndStoreToken(apnsToken);
           await _registerIfPossible(apnsToken);
@@ -324,25 +399,27 @@ class PushNotificationService {
 
     // Last resort: try native MethodChannel token
     if (_pendingToken != null && _pendingToken!.isNotEmpty) {
-      debugPrint('🔔 Using cached native token as last resort: ${_pendingToken!.length} chars');
+      debugPrint(
+          '🔔 Using cached native token as last resort: ${_pendingToken!.length} chars');
       await _registerIfPossible(_pendingToken!);
       return;
     }
-    
-    debugPrint('⚠️ All token acquisition methods failed — will retry on token refresh');
+
+    debugPrint(
+        '⚠️ All token acquisition methods failed — will retry on token refresh');
   }
-  
+
   /// Validate and store token in local secure storage
   Future<void> _validateAndStoreToken(String token) async {
     if (token.isEmpty) {
       debugPrint('❌ Cannot store empty token');
       return;
     }
-    
+
     try {
       await _storage.savePushToken(token);
       final stored = await _storage.getPushToken();
-      
+
       if (stored == token) {
         debugPrint('✅ Token stored in secure storage (${token.length} chars)');
       } else {

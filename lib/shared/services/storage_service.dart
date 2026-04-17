@@ -45,6 +45,15 @@ class StorageService {
   Future<String?> getAccessToken() => _safeRead(_accessTokenKey);
   Future<String?> getRefreshToken() => _safeRead(_refreshTokenKey);
 
+  Future<bool> hasSavedSession() async {
+    final accessToken = await getAccessToken();
+    final refreshToken = await getRefreshToken();
+    final user = await getUser();
+    return (accessToken?.isNotEmpty ?? false) &&
+        (refreshToken?.isNotEmpty ?? false) &&
+        (user?.isNotEmpty ?? false);
+  }
+
   Future<void> clearTokens() async {
     await Future.wait([
       _storage.delete(key: _accessTokenKey),
@@ -82,7 +91,8 @@ class StorageService {
     }
     try {
       await _storage.write(key: _pushTokenKey, value: token);
-      debugPrint('💾 Push token saved to secure storage (${token.length} chars)');
+      debugPrint(
+          '💾 Push token saved to secure storage (${token.length} chars)');
     } catch (e) {
       debugPrint('❌ Failed to save push token: $e');
       rethrow;
@@ -93,7 +103,8 @@ class StorageService {
     try {
       final token = await _safeRead(_pushTokenKey);
       if (token != null && token.isNotEmpty) {
-        debugPrint('✅ Push token retrieved from secure storage (${token.length} chars)');
+        debugPrint(
+            '✅ Push token retrieved from secure storage (${token.length} chars)');
       } else {
         debugPrint('⚠️  No push token found in secure storage');
       }
@@ -103,7 +114,7 @@ class StorageService {
       return null;
     }
   }
-  
+
   /// Clear stored push token (useful when user logs out)
   Future<void> clearPushToken() async {
     try {

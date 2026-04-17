@@ -127,7 +127,8 @@ class MessageNotifier extends Notifier<MessageState> {
     }
   }
 
-  void setSearchQuery(String query) => state = state.copyWith(searchQuery: query);
+  void setSearchQuery(String query) =>
+      state = state.copyWith(searchQuery: query);
   void clearSearchQuery() => state = state.copyWith(searchQuery: '');
 
   // ---------------------------------------------------------------------------
@@ -144,7 +145,8 @@ class MessageNotifier extends Notifier<MessageState> {
       currentPage: 1,
     );
     try {
-      final msgs = await _service.getMessages(conversationId, page: 1, limit: 50);
+      final msgs =
+          await _service.getMessages(conversationId, page: 1, limit: 50);
       state = state.copyWith(
         messages: msgs,
         isLoading: false,
@@ -176,7 +178,8 @@ class MessageNotifier extends Notifier<MessageState> {
 
     final nextPage = state.currentPage + 1;
     try {
-      final older = await _service.getMessages(convId, page: nextPage, limit: 50);
+      final older =
+          await _service.getMessages(convId, page: nextPage, limit: 50);
       if (older.isEmpty) {
         state = state.copyWith(hasMoreMessages: false);
         return;
@@ -232,7 +235,8 @@ class MessageNotifier extends Notifier<MessageState> {
       }).toList();
       state = state.copyWith(
         conversations: conversations,
-        unreadCount: conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
+        unreadCount:
+            conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
       );
     } catch (e) {
       debugPrint('MessageNotifier._onConversationUpdate error: $e');
@@ -245,6 +249,41 @@ class MessageNotifier extends Notifier<MessageState> {
     _typingResetTimer = Timer(const Duration(seconds: 4), () {
       state = state.copyWith(isOtherTyping: false);
     });
+  }
+
+  List<MessageModel> _replaceOptimisticMessage(
+    List<MessageModel> messages,
+    MessageModel optimisticMsg,
+    MessageModel confirmedMsg,
+  ) {
+    final updated = messages
+        .map((m) => m.id == optimisticMsg.id ? confirmedMsg : m)
+        .toList();
+    final seen = <String>{};
+    return updated.where((m) => m.id.isNotEmpty && seen.add(m.id)).toList();
+  }
+
+  Future<List<MessageModel>> _reloadMessagesForConversation(
+      String conversationId) async {
+    final latest =
+        await _service.getMessages(conversationId, page: 1, limit: 50);
+    state = state.copyWith(
+      messages: latest,
+      hasMoreMessages: latest.length == 50,
+      currentPage: 1,
+    );
+    return latest;
+  }
+
+  bool _containsEquivalentMessage(
+    List<MessageModel> messages, {
+    required String senderId,
+    required String content,
+  }) {
+    final normalized = content.trim();
+    if (normalized.isEmpty) return false;
+    return messages.any((message) =>
+        message.senderId == senderId && message.content.trim() == normalized);
   }
 
   /// Broadcast that the current user is typing — debounced by the caller.
@@ -295,19 +334,48 @@ class MessageNotifier extends Notifier<MessageState> {
         imageFile: imageFile,
       );
 
-      // Replace optimistic message with the confirmed one; deduplicate
-      final updated = state.messages.map((m) {
-        if (m.id == optimisticMsg.id || m.id == msg.id) return msg;
-        return m;
-      }).toList();
-      final seen = <String>{};
-      final deduped = updated.where((m) => seen.add(m.id)).toList();
+      final looksIncomplete = msg.id.trim().isEmpty ||
+          (trimmedContent.isNotEmpty && msg.content.trim().isEmpty);
 
-      state = state.copyWith(messages: deduped, isSending: false);
+      if (looksIncomplete) {
+        final latest = await _reloadMessagesForConversation(convId);
+        final matched = _containsEquivalentMessage(
+          latest,
+          senderId: currentUserId,
+          content: trimmedContent,
+        );
+        state = state.copyWith(isSending: false);
+        if (!matched) {
+          state = state.copyWith(
+            messages:
+                state.messages.where((m) => m.id != optimisticMsg.id).toList(),
+            error:
+                'Message sent but could not be confirmed yet. Please reopen the chat.',
+          );
+        }
+        return;
+      }
+
+      state = state.copyWith(
+        messages: _replaceOptimisticMessage(state.messages, optimisticMsg, msg),
+        isSending: false,
+      );
     } catch (e) {
-      // Remove the optimistic message on failure
-      final rolled = state.messages.where((m) => m.id != optimisticMsg.id).toList();
-      state = state.copyWith(messages: rolled, isSending: false, error: e.toString());
+      try {
+        final latest = await _reloadMessagesForConversation(convId);
+        final matched = _containsEquivalentMessage(
+          latest,
+          senderId: currentUserId,
+          content: trimmedContent,
+        );
+        state = state.copyWith(isSending: false);
+        if (matched) return;
+      } catch (_) {}
+
+      final rolled =
+          state.messages.where((m) => m.id != optimisticMsg.id).toList();
+      state = state.copyWith(
+          messages: rolled, isSending: false, error: e.toString());
       rethrow;
     }
   }
