@@ -273,7 +273,7 @@ export async function createConversationMessage({
       `
         insert into public.messages (conversation_id, sender_id, content, metadata)
         values ($1, $2, $3, $4)
-        returning id
+        returning id, conversation_id, sender_id, content, metadata, created_at
       `,
       [conversationId, senderId, messageContent, metadata],
     );
@@ -294,9 +294,27 @@ export async function createConversationMessage({
       [conversationId, messageContent, senderIsSender],
     );
 
+    // Build message directly from INSERT result — avoids a race condition where
+    // a subsequent listConversationMessages query might not yet see the new row.
+    const row = messageResult.rows[0];
+    const insertedMessage = row ? {
+      _id: row.id,
+      id: row.id,
+      conversationId: row.conversation_id,
+      sender_id: row.sender_id,
+      senderId: row.sender_id,
+      content: row.content,
+      text: row.content,
+      type: (row.metadata?.type) || 'text',
+      fileUrl: row.metadata?.fileUrl || row.metadata?.imageUrl || null,
+      fileName: row.metadata?.fileName || null,
+      timestamp: row.created_at,
+      createdAt: row.created_at,
+    } : null;
+
     return {
       conversation: await getConversationById(conversationId, senderId),
-      message: (await listConversationMessages(conversationId)).slice(-1)[0] || { id: messageResult.rows[0].id },
+      message: insertedMessage || (await listConversationMessages(conversationId)).slice(-1)[0],
     };
   });
 }
