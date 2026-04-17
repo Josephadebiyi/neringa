@@ -36,6 +36,7 @@ class ApiConstants {
   static const String register        = '/api/bago/signup';
   static const String checkEmail      = '/api/bago/signup/check-email';
   static const String verifyOtp       = '/api/bago/verify-signup-otp';
+  static const String verifyPasswordResetOtp = '/api/bago/verify-otp';
   static const String resendOtp       = '/api/bago/resend-otp';
   static const String forgotPassword  = '/api/bago/forgot-password';
   static const String resetPassword   = '/api/bago/reset-password';

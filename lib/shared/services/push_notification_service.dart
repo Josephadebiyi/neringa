@@ -45,18 +45,28 @@ class PushNotificationService {
   }
 
   Future<bool> shouldShowLoginNotificationPrompt() async {
-    final storedToken = await _storage.getPushToken();
-    if (storedToken?.isNotEmpty ?? false) {
-      debugPrint('🔔 Push token already stored — skipping login prompt');
-      return false;
-    }
-
     final status = await notificationAuthorizationStatus();
     if (status == null) {
       return true;
     }
 
-    return status == AuthorizationStatus.notDetermined;
+    // Always prompt if permission hasn't been determined or was denied (they might want to enable later)
+    if (status == AuthorizationStatus.notDetermined ||
+        status == AuthorizationStatus.denied) {
+      debugPrint('🔔 Notification status: $status — will prompt login user');
+      return true;
+    }
+
+    // Also check if we have a valid stored token
+    final storedToken = await _storage.getPushToken();
+    if (storedToken?.isEmpty ?? true) {
+      debugPrint('🔔 No push token stored — will prompt');
+      return true;
+    }
+
+    debugPrint(
+        '🔔 Push token already stored and permission granted — skipping prompt');
+    return false;
   }
 
   Future<void> prepareForSignedInUserSilently() async {
@@ -196,10 +206,15 @@ class PushNotificationService {
         debugPrint(
             '🔔 Registering token (attempt ${retries + 1}/$maxRetries, len=${token.length}, platform=$platform)');
 
-        await AuthService.instance.registerPushToken(
+        await AuthService.instance
+            .registerPushToken(
           token,
           platform: platform,
-        );
+        )
+            .catchError((e) {
+          debugPrint('❌ registerPushToken API error: $e');
+          throw e;
+        });
 
         debugPrint('✅ Push token registered successfully to backend DB');
         _pendingToken = null;
@@ -231,6 +246,20 @@ class PushNotificationService {
   Future<void> refreshAfterAuthChange() async {
     startListening();
     await _ensureFirebaseIfPossible();
+
+    // Check current permission status
+    final status = await notificationAuthorizationStatus();
+    if (status == AuthorizationStatus.authorized ||
+        status == AuthorizationStatus.provisional) {
+      debugPrint('🔔 Permission granted — syncing token to backend');
+    } else if (status == AuthorizationStatus.denied) {
+      debugPrint('🔔 Permission denied — cannot register token');
+      return;
+    } else {
+      debugPrint('🔔 Permission not determined — requesting now');
+      await prepareForSignedInUser();
+      return;
+    }
 
     // Try pending token first
     if (_pendingToken != null && _pendingToken!.isNotEmpty) {

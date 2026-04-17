@@ -7,7 +7,9 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/models/user_model.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/widgets/app_unlock_gate.dart';
 import 'l10n/app_localizations.dart';
+import 'shared/providers/app_lock_provider.dart';
 import 'shared/providers/locale_provider.dart';
 import 'shared/services/push_notification_service.dart';
 
@@ -32,9 +34,69 @@ class BagoApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      builder: (context, child) => _NotificationPromptHost(
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => _SecurityGateHost(
+        child: _NotificationPromptHost(
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
+    );
+  }
+}
+
+class _SecurityGateHost extends ConsumerStatefulWidget {
+  const _SecurityGateHost({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_SecurityGateHost> createState() => _SecurityGateHostState();
+}
+
+class _SecurityGateHostState extends ConsumerState<_SecurityGateHost>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final auth = ref.read(authProvider);
+    final appLock = ref.read(appLockProvider);
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      appLock.noteBackgrounded();
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      appLock.noteResumed(isLoggedIn: auth.isLoggedIn);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final appLock = ref.watch(appLockProvider);
+
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      appLock.handleAuthenticatedSession(isLoggedIn: next.isLoggedIn);
+    });
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        if (auth.isLoggedIn && appLock.locked) const AppUnlockGate(),
+      ],
     );
   }
 }

@@ -10,7 +10,13 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../services/auth_service.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  const ResetPasswordScreen({super.key, required this.token});
+  const ResetPasswordScreen({
+    super.key,
+    required this.email,
+    this.token = '',
+  });
+
+  final String email;
   final String token;
 
   @override
@@ -18,14 +24,24 @@ class ResetPasswordScreen extends StatefulWidget {
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  final _otpCtrl = TextEditingController();
   final _newPasswordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
   bool _showNewPassword = false;
   bool _showConfirmPassword = false;
   bool _isLoading = false;
+  bool _isResending = false;
+  String? _resetToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetToken = widget.token.isEmpty ? null : widget.token;
+  }
 
   @override
   void dispose() {
+    _otpCtrl.dispose();
     _newPasswordCtrl.dispose();
     _confirmPasswordCtrl.dispose();
     super.dispose();
@@ -51,15 +67,35 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       return;
     }
 
+    if (_otpCtrl.text.trim().length < 6 && (_resetToken == null || _resetToken!.isEmpty)) {
+      AppSnackBar.show(
+        context,
+        message: l10n.enterVerificationCodePrompt,
+        type: SnackBarType.error,
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
+      final resetToken = _resetToken ??
+          await AuthService.instance.verifyPasswordResetOtp(
+            email: widget.email,
+            otp: _otpCtrl.text.trim(),
+          );
+
+      if (resetToken.isEmpty) {
+        throw 'Verification code could not be validated.';
+      }
+
       await AuthService.instance.resetPassword(
-        token: widget.token,
+        email: widget.email,
+        token: resetToken,
         newPassword: newPassword,
       );
       if (mounted) {
         AppSnackBar.show(context, message: l10n.passwordResetSuccessfully, type: SnackBarType.success);
-        context.go('/auth/login');
+        context.go('/auth/signin');
       }
     } catch (e) {
       if (mounted) {
@@ -67,6 +103,26 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _resendCode() async {
+    setState(() => _isResending = true);
+    try {
+      await AuthService.instance.resendOtp(widget.email);
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          message: 'A new verification code was sent to ${widget.email}.',
+          type: SnackBarType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _isResending = false);
     }
   }
 
@@ -91,10 +147,26 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               Text(l10n.createNewPasswordTitle, style: AppTextStyles.h2),
               const SizedBox(height: 8),
               Text(
-                l10n.enterNewPasswordDescription,
+                l10n.verificationCodeSentTo(widget.email),
                 style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
               ),
               const SizedBox(height: 32),
+              AppTextField(
+                label: l10n.verificationCodeLabel,
+                hint: '123456',
+                controller: _otpCtrl,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _isResending ? null : _resendCode,
+                  child: Text(_isResending ? l10n.resend : l10n.resendCode),
+                ),
+              ),
+              const SizedBox(height: 12),
               AppTextField(
                 label: l10n.newPasswordLabel,
                 hint: l10n.newPasswordHint,

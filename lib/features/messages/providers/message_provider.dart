@@ -10,6 +10,7 @@ import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../services/message_service.dart';
 import '../services/message_realtime_service.dart';
+import '../../../shared/services/supabase_service.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -85,6 +86,10 @@ class MessageNotifier extends Notifier<MessageState> {
   // Typing indicator debounce
   Timer? _typingResetTimer;
 
+  // Polling fallback when Supabase realtime unavailable
+  Timer? _pollingTimer;
+  DateTime? _lastMessageTime;
+
   @override
   MessageState build() {
     _service = MessageService.instance;
@@ -95,10 +100,60 @@ class MessageNotifier extends Notifier<MessageState> {
 
   void _teardown() {
     _typingResetTimer?.cancel();
+    _pollingTimer?.cancel();
+    _lastMessageTime = null;
     _realtime.unsubscribe(_msgChannel);
     _realtime.unsubscribe(_convChannel);
     _msgChannel = null;
     _convChannel = null;
+  }
+
+  void _startPolling(String conversationId) {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+      await _pollForNewMessages(conversationId);
+    });
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
+  DateTime? _parseTimestamp(String ts) {
+    try {
+      return DateTime.parse(ts);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _pollForNewMessages(String conversationId) async {
+    if (conversationId != state.activeConversationId) return;
+    try {
+      final latest =
+          await _service.getMessages(conversationId, page: 1, limit: 20);
+      if (latest.isEmpty) return;
+
+      final latestMsgTime = _parseTimestamp(latest.first.createdAt);
+      if (latestMsgTime == null) return;
+
+      if (_lastMessageTime != null &&
+          latestMsgTime.isAfter(_lastMessageTime!)) {
+        final currentUserId = ref.read(authProvider).user?.id ?? '';
+        final new_msgs =
+            latest.where((m) => m.senderId != currentUserId).toList();
+        if (new_msgs.isNotEmpty) {
+          final combined = [...state.messages, ...new_msgs];
+          final seen = <String>{};
+          final deduped = combined.where((m) => seen.add(m.id)).toList();
+          state = state.copyWith(messages: deduped);
+        }
+      }
+      _lastMessageTime = latestMsgTime;
+    } catch (e) {
+      debugPrint('Polling error: $e');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -165,8 +220,15 @@ class MessageNotifier extends Notifier<MessageState> {
           if (typingUserId != currentUserId) _showTypingIndicator();
         },
       );
+
+      // Fallback: start polling if realtime not available or Supabase not configured
+      if (_msgChannel == null || !SupabaseService.isConfigured) {
+        _startPolling(conversationId);
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+      // Fallback: start polling on error
+      _startPolling(conversationId);
     }
   }
 
@@ -215,18 +277,21 @@ class MessageNotifier extends Notifier<MessageState> {
         // of appending. This prevents the duplicate-then-dedup flicker and avoids
         // the race where a concurrent reload wipes state before HTTP reconciles.
         final optIdx = state.messages.indexWhere(
-          (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+          (m) =>
+              m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
         );
         if (optIdx >= 0) {
           final updated = List<MessageModel>.from(state.messages);
           updated[optIdx] = msg;
           state = state.copyWith(messages: updated);
-          debugPrint('✅ Optimistic reconciled via Supabase realtime: ${msg.id}');
+          debugPrint(
+              '✅ Optimistic reconciled via Supabase realtime: ${msg.id}');
           return;
         }
         // No matching optimistic (already reconciled by HTTP response) — skip
         // to avoid showing a duplicate.
-        if (state.messages.any((m) => m.content.trim() == msg.content.trim() &&
+        if (state.messages.any((m) =>
+            m.content.trim() == msg.content.trim() &&
             m.senderId == currentUserId &&
             !m.id.startsWith('opt_'))) {
           return;
@@ -321,6 +386,7 @@ class MessageNotifier extends Notifier<MessageState> {
     _realtime.unsubscribe(_msgChannel);
     _msgChannel = null;
     _typingResetTimer?.cancel();
+    _stopPolling();
     state = state.copyWith(isOtherTyping: false);
   }
 
@@ -360,7 +426,8 @@ class MessageNotifier extends Notifier<MessageState> {
       // is a no-op in that case, which is safe.
       if (msg.id.isNotEmpty) {
         state = state.copyWith(
-          messages: _replaceOptimisticMessage(state.messages, optimisticMsg, msg),
+          messages:
+              _replaceOptimisticMessage(state.messages, optimisticMsg, msg),
           isSending: false,
         );
       } else {

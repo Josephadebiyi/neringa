@@ -19,6 +19,9 @@ class StorageService {
   static const _pushTokenKey = 'push_token';
   static const _backendUrlKey = 'backend_url';
   static const _languageCodeKey = 'language_code';
+  static const _quickUnlockEnabledKey = 'quick_unlock_enabled';
+  static const _appPasscodeKey = 'app_passcode';
+  static const _lastUnlockAtKey = 'last_unlock_at';
 
   Future<String?> _safeRead(String key) async {
     try {
@@ -77,6 +80,39 @@ class StorageService {
     final val = await _safeRead(_biometricEnabledKey);
     return val == 'true';
   }
+
+  Future<void> setQuickUnlockEnabled(bool enabled) =>
+      _storage.write(key: _quickUnlockEnabledKey, value: enabled.toString());
+
+  Future<bool> isQuickUnlockEnabled() async {
+    final val = await _safeRead(_quickUnlockEnabledKey);
+    return val == 'true';
+  }
+
+  Future<void> saveAppPasscode(String passcode) =>
+      _storage.write(key: _appPasscodeKey, value: passcode);
+
+  Future<String?> getAppPasscode() => _safeRead(_appPasscodeKey);
+
+  Future<bool> hasAppPasscode() async {
+    final value = await getAppPasscode();
+    return value != null && value.isNotEmpty;
+  }
+
+  Future<void> clearAppPasscode() => _storage.delete(key: _appPasscodeKey);
+
+  Future<void> saveLastUnlockAt(DateTime timestamp) => _storage.write(
+        key: _lastUnlockAtKey,
+        value: timestamp.toUtc().toIso8601String(),
+      );
+
+  Future<DateTime?> getLastUnlockAt() async {
+    final raw = await _safeRead(_lastUnlockAtKey);
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toUtc();
+  }
+
+  Future<void> clearLastUnlockAt() => _storage.delete(key: _lastUnlockAtKey);
 
   // ---------- Role ----------------------------------------------------
   Future<void> saveRole(String role) =>

@@ -115,7 +115,7 @@ class _FormView extends StatelessWidget {
           Text(l10n.forgotPasswordTitle, style: AppTextStyles.displaySm),
           const SizedBox(height: 8),
           Text(
-            l10n.forgotPasswordDescription,
+            'Enter your email and we will send you a 6-digit verification code to reset your password.',
             style: AppTextStyles.muted(AppTextStyles.bodyMd),
           ),
           const SizedBox(height: 32),
@@ -136,7 +136,7 @@ class _FormView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           AppButton(
-            label: l10n.sendResetLink,
+            label: 'Send Verification Code',
             onPressed: onSubmit,
             isLoading: isLoading,
           ),
@@ -168,15 +168,23 @@ class _SuccessView extends StatelessWidget {
               color: AppColors.success, size: 28),
         ),
         const SizedBox(height: 20),
-        Text(l10n.checkYourInbox, style: AppTextStyles.displaySm),
+        Text('Check your inbox', style: AppTextStyles.displaySm),
         const SizedBox(height: 8),
         Text(
-          l10n.passwordResetEmailSent(email),
+          'We sent a 6-digit verification code to $email. Enter it on the next screen to set a new password.',
           style: AppTextStyles.muted(AppTextStyles.bodyMd),
         ),
         const SizedBox(height: 32),
         AppButton(
+          label: l10n.resetPasswordTitle,
+          onPressed: () => context.push(
+            '/auth/reset-password?email=${Uri.encodeComponent(email)}',
+          ),
+        ),
+        const SizedBox(height: 12),
+        AppButton(
           label: l10n.backToSignIn,
+          variant: AppButtonVariant.outline,
           onPressed: () => context.go('/auth/signin'),
         ),
       ],

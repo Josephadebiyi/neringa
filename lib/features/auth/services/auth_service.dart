@@ -162,14 +162,34 @@ class AuthService {
     }
   }
 
+  Future<String> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final res = await _api.post(
+        ApiConstants.verifyPasswordResetOtp,
+        data: {'email': email.trim(), 'otp': otp.trim()},
+      );
+      final data = res.data as Map<String, dynamic>;
+      return data['token']?.toString() ?? '';
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<void> resetPassword({
+    required String email,
     required String token,
     required String newPassword,
   }) async {
     try {
       await _api.post(
         ApiConstants.resetPassword,
-        data: {'token': token, 'newPassword': newPassword},
+        data: {'email': email.trim(), 'newPassword': newPassword},
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
       );
     } on DioException catch (e) {
       throw ApiService.parseError(e);
@@ -555,6 +575,13 @@ class AuthService {
 
     if (normalized.contains('failed to get google authentication token')) {
       return 'Google Sign-In could not complete. Please try again.';
+    }
+
+    if (normalized.contains('something went wrong')) {
+      if (Platform.isIOS) {
+        return 'Google Sign-In hit an iPhone-side error. If this is the simulator, please test Google Sign-In on a real device or use email login here.';
+      }
+      return 'Google Sign-In hit an unexpected error. Please try again.';
     }
 
     if (normalized.contains('timeoutexception')) {

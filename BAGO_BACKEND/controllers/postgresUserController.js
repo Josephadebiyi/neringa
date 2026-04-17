@@ -29,6 +29,8 @@ import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotific
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const FALLBACK_GOOGLE_WEB_CLIENT_ID =
+  '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com';
 const FALLBACK_GOOGLE_IOS_CLIENT_ID =
   '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com';
 
@@ -65,6 +67,70 @@ function signUserToken(user) {
     process.env.JWT_SECRET,
     { expiresIn: '30d' },
   );
+}
+
+async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
+  if (idToken) {
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: googleAudiences,
+      });
+      const payload = ticket.getPayload();
+      return {
+        email: payload.email,
+        givenName: payload.given_name,
+        familyName: payload.family_name,
+        picture: payload.picture,
+      };
+    } catch (error) {
+      try {
+        const response = await axios.get(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
+        );
+        const payload = response.data || {};
+        const normalizedAudience = String(payload.aud || '').trim();
+        if (
+          normalizedAudience &&
+          googleAudiences.length > 0 &&
+          !googleAudiences.includes(normalizedAudience)
+        ) {
+          throw new Error(`Google token audience mismatch: ${normalizedAudience}`);
+        }
+
+        return {
+          email: payload.email,
+          givenName: payload.given_name,
+          familyName: payload.family_name,
+          picture: payload.picture,
+        };
+      } catch (tokenInfoError) {
+        console.warn(
+          'googleAuth tokeninfo fallback failed:',
+          tokenInfoError?.message || tokenInfoError,
+        );
+      }
+
+      if (!accessToken) {
+        throw error;
+      }
+      console.warn('googleAuth idToken verification failed, falling back to access token userinfo:', error.message);
+    }
+  }
+
+  if (accessToken) {
+    const response = await axios.get(
+      `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`,
+    );
+    return {
+      email: response.data.email,
+      givenName: response.data.given_name,
+      familyName: response.data.family_name,
+      picture: response.data.picture,
+    };
+  }
+
+  throw new Error('Google token is required');
 }
 
 export async function signUp(req, res) {
@@ -388,40 +454,35 @@ export async function googleAuth(req, res) {
     const { idToken, accessToken, referralCode, promoCode, country } = req.body;
     const googleAudiences = Array.from(new Set([
       process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_WEB_CLIENT_ID,
       process.env.GOOGLE_IOS_CLIENT_ID,
       process.env.GOOGLE_ANDROID_CLIENT_ID,
+      FALLBACK_GOOGLE_WEB_CLIENT_ID,
       FALLBACK_GOOGLE_IOS_CLIENT_ID,
     ].filter(Boolean)));
-    let email;
-    let givenName;
-    let familyName;
-    let picture;
-
-    if (idToken) {
-      if (!googleAudiences.length) {
-        return res.status(500).json({
-          success: false,
-          message: 'Google login is not configured on the server',
-        });
-      }
-
-      const ticket = await client.verifyIdToken({
-        idToken,
-        audience: googleAudiences,
+    if (idToken && !googleAudiences.length && !accessToken) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google login is not configured on the server',
       });
-      const payload = ticket.getPayload();
-      email = payload.email;
-      givenName = payload.given_name;
-      familyName = payload.family_name;
-      picture = payload.picture;
-    } else if (accessToken) {
-      const response = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
-      email = response.data.email;
-      givenName = response.data.given_name;
-      familyName = response.data.family_name;
-      picture = response.data.picture;
-    } else {
-      return res.status(400).json({ success: false, message: 'Google token is required' });
+    }
+
+    const {
+      email,
+      givenName,
+      familyName,
+      picture,
+    } = await resolveGoogleProfile({
+      idToken,
+      accessToken,
+      googleAudiences,
+    });
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google account email could not be resolved',
+      });
     }
 
     const { user, isNewUser } = await createOrUpdateGoogleProfile({
@@ -624,7 +685,14 @@ export async function savePushToken(req, res) {
     const userId = req.user.id || req.user._id;
     console.log(`🔔 savePushToken: user=${userId}, tokenLen=${resolvedToken.length}, prefix=${resolvedToken.substring(0, 30)}...`);
     
-    await addPushToken(userId, resolvedToken);
+    const updateResult = await addPushToken(userId, resolvedToken);
+    if (!updateResult) {
+      console.warn(`⚠️ savePushToken: no profile row updated for authenticated user ${userId}`);
+      return res.status(404).json({
+        success: false,
+        message: 'Authenticated user profile was not found',
+      });
+    }
     
     // Verify it was stored
     const { queryOne: qOne } = await import('../lib/postgres/db.js');
