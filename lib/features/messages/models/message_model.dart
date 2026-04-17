@@ -33,7 +33,7 @@ class MessageModel {
             json['conversation_id']?.toString() ??
             json['chatId']?.toString() ??
             '',
-        senderId: _participantId(json['senderId'] ?? json['sender'] ?? json['from']),
+        senderId: _participantId(json['senderId'] ?? json['sender_id'] ?? json['sender'] ?? json['from']),
         receiverId: _participantId(json['receiverId'] ?? json['receiver'] ?? json['to']),
         content: json['content']?.toString() ??
             json['text']?.toString() ??

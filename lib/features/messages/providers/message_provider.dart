@@ -202,21 +202,42 @@ class MessageNotifier extends Notifier<MessageState> {
   void _onRealtimeMessageInsert(Map<String, dynamic> row) {
     try {
       final msgId = row['id']?.toString() ?? '';
+      final convId = row['conversation_id']?.toString() ?? '';
+
+      if (convId != state.activeConversationId) return;
       if (msgId.isNotEmpty && state.messages.any((m) => m.id == msgId)) return;
 
-      final convId = row['conversation_id']?.toString() ?? '';
-      if (convId != state.activeConversationId) return;
-
       final msg = MessageModel.fromJson(row);
-      state = state.copyWith(messages: [...state.messages, msg]);
-
-      // Clear typing indicator when the other user sends
       final currentUserId = ref.read(authProvider).user?.id ?? '';
-      if (msg.senderId != currentUserId) {
+
+      if (msg.senderId == currentUserId) {
+        // Own message confirmed by DB — reconcile with pending optimistic instead
+        // of appending. This prevents the duplicate-then-dedup flicker and avoids
+        // the race where a concurrent reload wipes state before HTTP reconciles.
+        final optIdx = state.messages.indexWhere(
+          (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+        );
+        if (optIdx >= 0) {
+          final updated = List<MessageModel>.from(state.messages);
+          updated[optIdx] = msg;
+          state = state.copyWith(messages: updated);
+          debugPrint('✅ Optimistic reconciled via Supabase realtime: ${msg.id}');
+          return;
+        }
+        // No matching optimistic (already reconciled by HTTP response) — skip
+        // to avoid showing a duplicate.
+        if (state.messages.any((m) => m.content.trim() == msg.content.trim() &&
+            m.senderId == currentUserId &&
+            !m.id.startsWith('opt_'))) {
+          return;
+        }
+      } else {
+        // Other user's message — clear their typing indicator
         _typingResetTimer?.cancel();
         state = state.copyWith(isOtherTyping: false);
       }
 
+      state = state.copyWith(messages: [...state.messages, msg]);
       debugPrint('📨 Realtime message appended: ${msg.id}');
     } catch (e) {
       debugPrint('MessageNotifier._onRealtimeMessageInsert error: $e');
