@@ -379,7 +379,7 @@ export async function resetPassword(req, res) {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.email.toLowerCase() !== email.toLowerCase()) {
+    if (!decoded?.email || decoded.email.toLowerCase() !== email.toLowerCase()) {
       return res.status(401).json({ message: 'Unauthorized, token email mismatch' });
     }
 
