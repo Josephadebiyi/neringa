@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../shared/services/socket_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../services/message_service.dart';
 import '../services/message_realtime_service.dart';
-import '../../../shared/services/supabase_service.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -89,11 +89,16 @@ class MessageNotifier extends Notifier<MessageState> {
   // Polling fallback when Supabase realtime unavailable
   Timer? _pollingTimer;
   DateTime? _lastMessageTime;
+  bool _socketListenerAttached = false;
+  late final void Function(Map<String, dynamic>) _socketMessageListener;
+  late final void Function(Map<String, dynamic>) _socketConversationListener;
 
   @override
   MessageState build() {
     _service = MessageService.instance;
     _realtime = MessageRealtimeService.instance;
+    _socketMessageListener = _onSocketMessage;
+    _socketConversationListener = _onSocketConversationUpdate;
     ref.onDispose(_teardown);
     return const MessageState();
   }
@@ -106,11 +111,12 @@ class MessageNotifier extends Notifier<MessageState> {
     _realtime.unsubscribe(_convChannel);
     _msgChannel = null;
     _convChannel = null;
+    _detachSocketListeners();
   }
 
   void _startPolling(String conversationId) {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       await _pollForNewMessages(conversationId);
     });
   }
@@ -141,10 +147,10 @@ class MessageNotifier extends Notifier<MessageState> {
       if (_lastMessageTime != null &&
           latestMsgTime.isAfter(_lastMessageTime!)) {
         final currentUserId = ref.read(authProvider).user?.id ?? '';
-        final new_msgs =
+        final newMessages =
             latest.where((m) => m.senderId != currentUserId).toList();
-        if (new_msgs.isNotEmpty) {
-          final combined = [...state.messages, ...new_msgs];
+        if (newMessages.isNotEmpty) {
+          final combined = [...state.messages, ...newMessages];
           final seen = <String>{};
           final deduped = combined.where((m) => seen.add(m.id)).toList();
           state = state.copyWith(messages: deduped);
@@ -170,6 +176,7 @@ class MessageNotifier extends Notifier<MessageState> {
         unreadCount: convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
         isLoading: false,
       );
+      _attachSocketListeners();
 
       // Subscribe to conversation updates via Supabase realtime
       await _realtime.unsubscribe(_convChannel);
@@ -207,7 +214,11 @@ class MessageNotifier extends Notifier<MessageState> {
         isLoading: false,
         hasMoreMessages: msgs.length == 50,
       );
+      _lastMessageTime =
+          msgs.isNotEmpty ? _parseTimestamp(msgs.first.createdAt) : null;
       _service.markAsRead(conversationId);
+      _attachSocketListeners();
+      SocketService.instance.joinConversation(conversationId);
 
       // Subscribe to new messages via Supabase realtime
       await _realtime.unsubscribe(_msgChannel);
@@ -221,10 +232,9 @@ class MessageNotifier extends Notifier<MessageState> {
         },
       );
 
-      // Fallback: start polling if realtime not available or Supabase not configured
-      if (_msgChannel == null || !SupabaseService.isConfigured) {
-        _startPolling(conversationId);
-      }
+      // Always keep polling as a safety net. This covers cases where
+      // realtime is configured but the backing tables are not actually enabled.
+      _startPolling(conversationId);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       // Fallback: start polling on error
@@ -329,6 +339,85 @@ class MessageNotifier extends Notifier<MessageState> {
     }
   }
 
+  void _onSocketMessage(Map<String, dynamic> data) {
+    try {
+      final convId = data['conversationId']?.toString() ?? '';
+      if (convId.isEmpty || convId != state.activeConversationId) return;
+
+      final msg = MessageModel.fromSocketData(data);
+      if (msg.id.isNotEmpty && state.messages.any((m) => m.id == msg.id)) {
+        return;
+      }
+
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+      if (msg.senderId == currentUserId) {
+        final optIdx = state.messages.indexWhere(
+          (m) =>
+              m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+        );
+        if (optIdx >= 0) {
+          final updated = List<MessageModel>.from(state.messages);
+          updated[optIdx] = msg;
+          state = state.copyWith(messages: updated);
+          return;
+        }
+      } else {
+        _typingResetTimer?.cancel();
+        state = state.copyWith(isOtherTyping: false);
+      }
+
+      final seen = <String>{};
+      state = state.copyWith(
+        messages:
+            [...state.messages, msg].where((m) => seen.add(m.id)).toList(),
+      );
+      _lastMessageTime = _parseTimestamp(msg.createdAt) ?? _lastMessageTime;
+    } catch (e) {
+      debugPrint('MessageNotifier._onSocketMessage error: $e');
+    }
+  }
+
+  void _onSocketConversationUpdate(Map<String, dynamic> data) {
+    try {
+      final activeConversationId = state.activeConversationId;
+      if (activeConversationId != null && activeConversationId.isNotEmpty) {
+        unawaited(_reloadMessagesForConversation(activeConversationId));
+      }
+      unawaited(_refreshConversationsSilently());
+    } catch (e) {
+      debugPrint('MessageNotifier._onSocketConversationUpdate error: $e');
+    }
+  }
+
+  Future<void> _refreshConversationsSilently() async {
+    try {
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+      if (currentUserId.isEmpty) return;
+      final convs = await _service.getConversations(currentUserId);
+      state = state.copyWith(
+        conversations: convs,
+        unreadCount: convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
+      );
+    } catch (e) {
+      debugPrint('MessageNotifier._refreshConversationsSilently error: $e');
+    }
+  }
+
+  void _attachSocketListeners() {
+    if (_socketListenerAttached) return;
+    SocketService.instance.addMessageListener(_socketMessageListener);
+    SocketService.instance.addConversationListener(_socketConversationListener);
+    _socketListenerAttached = true;
+  }
+
+  void _detachSocketListeners() {
+    if (!_socketListenerAttached) return;
+    SocketService.instance.removeMessageListener(_socketMessageListener);
+    SocketService.instance
+        .removeConversationListener(_socketConversationListener);
+    _socketListenerAttached = false;
+  }
+
   void _showTypingIndicator() {
     state = state.copyWith(isOtherTyping: true);
     _typingResetTimer?.cancel();
@@ -353,6 +442,9 @@ class MessageNotifier extends Notifier<MessageState> {
       String conversationId) async {
     final latest =
         await _service.getMessages(conversationId, page: 1, limit: 50);
+    _lastMessageTime = latest.isNotEmpty
+        ? _parseTimestamp(latest.first.createdAt)
+        : _lastMessageTime;
     state = state.copyWith(
       messages: latest,
       hasMoreMessages: latest.length == 50,
@@ -387,6 +479,7 @@ class MessageNotifier extends Notifier<MessageState> {
     _msgChannel = null;
     _typingResetTimer?.cancel();
     _stopPolling();
+    SocketService.instance.leaveConversation();
     state = state.copyWith(isOtherTyping: false);
   }
 

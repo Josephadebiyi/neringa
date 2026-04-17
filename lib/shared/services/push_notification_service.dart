@@ -179,6 +179,8 @@ class PushNotificationService {
       return;
     }
 
+    await _validateAndStoreToken(token);
+
     // Allow re-entry if we're not currently in the middle of a registration attempt
     if (_registering) {
       debugPrint('⚠️ Registration already in progress, queueing token');

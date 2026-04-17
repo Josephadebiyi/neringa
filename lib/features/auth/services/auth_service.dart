@@ -219,6 +219,7 @@ class AuthService {
     }
 
     try {
+      await _storage.savePushToken(token);
       final pushPlatform =
           (platform ?? (Platform.isIOS ? 'ios' : 'android')).trim();
       debugPrint(
@@ -244,19 +245,11 @@ class AuthService {
       debugPrint(
           '✅ Backend accepted token registration - Status: ${response.statusCode}');
 
-      // Verify local storage
       final stored = await _storage.getPushToken();
       if (stored == token) {
-        debugPrint('✅ Token already in local secure storage');
+        debugPrint('✅ Token confirmed in local secure storage');
       } else {
-        // Try to update local storage if different
-        await _storage.savePushToken(token);
-        final verified = await _storage.getPushToken();
-        if (verified == token) {
-          debugPrint('✅ Token updated in local secure storage');
-        } else {
-          debugPrint('⚠️  Local storage mismatch');
-        }
+        debugPrint('⚠️  Local storage mismatch after backend success');
       }
     } on DioException catch (e) {
       debugPrint(
@@ -282,9 +275,8 @@ class AuthService {
       }
 
       try {
-        final googleUser = await _googleSignIn
-            .signIn()
-            .timeout(const Duration(seconds: 12));
+        final googleUser =
+            await _googleSignIn.signIn().timeout(const Duration(seconds: 12));
         if (googleUser == null) throw 'Google sign-in was cancelled';
 
         final googleAuth = await googleUser.authentication
@@ -513,11 +505,13 @@ class AuthService {
       return null;
     }
     try {
-      final cachedUser = await _applyStoredRole(UserModel.fromJsonString(userData));
+      final cachedUser =
+          await _applyStoredRole(UserModel.fromJsonString(userData));
       if (!validateWithBackend) return cachedUser;
 
       try {
-        final freshUser = await getProfile().timeout(const Duration(seconds: 5));
+        final freshUser =
+            await getProfile().timeout(const Duration(seconds: 5));
         return freshUser;
       } on DioException catch (e) {
         if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
