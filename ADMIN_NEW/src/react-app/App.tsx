@@ -1,5 +1,5 @@
 import { HashRouter as Router, Navigate, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./hooks/useAuth";
+import { AuthProvider, DEFAULT_ADMIN_ROUTE } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
 import UsersPage from "./pages/Users";
@@ -242,7 +242,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={DEFAULT_ADMIN_ROUTE} replace />} />
         </Routes>
       </Router>
     </AuthProvider>

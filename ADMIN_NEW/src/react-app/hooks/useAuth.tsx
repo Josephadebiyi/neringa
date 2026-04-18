@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { adminLogin, checkAdminAuth, adminLogout } from '../services/api';
 
+export const DEFAULT_ADMIN_ROUTE = '/users';
+
 interface AdminUser {
   id: string;
   username: string;
@@ -80,7 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Terminal session termination error:', error);
     } finally {
       setUser(null);
-      window.location.href = window.location.pathname; // Clean state reset
+      window.location.hash = '#/'; // Clean reset for HashRouter
+      window.location.reload();
     }
   };
 

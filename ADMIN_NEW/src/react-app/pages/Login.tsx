@@ -9,7 +9,7 @@ import {
   User as UserIcon,
   ArrowRight,
 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { DEFAULT_ADMIN_ROUTE, useAuth } from '../hooks/useAuth';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -26,7 +26,7 @@ export default function Login() {
     setIsMounted(true);
     // If user is already logged in, redirect to dashboard
     if (user) {
-      navigate('/dashboard');
+      navigate(DEFAULT_ADMIN_ROUTE, { replace: true });
     }
   }, [user, navigate]);
 
@@ -39,7 +39,7 @@ export default function Login() {
       await login(username, password);
       // Brief delay for smoother transition
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate(DEFAULT_ADMIN_ROUTE, { replace: true });
       }, 500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid credentials. Please try again.');
