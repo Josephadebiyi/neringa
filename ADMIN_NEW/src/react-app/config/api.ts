@@ -10,6 +10,9 @@ const rawApiRoot =
     ? 'http://localhost:3000/api'
     : 'https://neringa.onrender.com/api');
 
-export const API_ROOT = rawApiRoot.trim().replace(/\/+$/, '');
+// Normalise: strip trailing slashes, and guarantee the root ends with `/api`
+// so that builds where VITE_API_URL is set without `/api` still work.
+const trimmed = rawApiRoot.trim().replace(/\/+$/, '');
+export const API_ROOT = /\/api$/i.test(trimmed) ? trimmed : `${trimmed}/api`;
 export const API_BASE_URL = `${API_ROOT}/Adminbaggo`;
 export const MAIN_API_URL = `${API_ROOT}/bago`;
