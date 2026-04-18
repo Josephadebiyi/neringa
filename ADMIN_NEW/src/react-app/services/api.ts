@@ -36,7 +36,7 @@ async function apiCall(url: string, options: RequestInit = {}) {
   try {
     response = await fetch(url.trim(), {
       ...options,
-      credentials: 'include',
+      credentials: 'omit',
       headers,
     });
   } catch (networkError) {
@@ -62,7 +62,7 @@ export async function adminLogin(credentials: any) {
   try {
     response = await fetch(`${ADMIN_API}/AdminLogin`, {
       method: 'POST',
-      credentials: 'include',
+      credentials: 'omit',
       headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(credentials),
     });
