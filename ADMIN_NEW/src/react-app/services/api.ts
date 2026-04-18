@@ -3,6 +3,113 @@ import { API_BASE_URL as ADMIN_API, API_ROOT, MAIN_API_URL as MAIN_API } from '.
 // Centralized API service for admin panel
 const API_BASE = API_ROOT;
 const ADMIN_TOKEN_KEY = 'bago_admin_token';
+const ADMIN_API_BASE_KEY = 'bago_admin_api_base';
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.map((value) => value.trim().replace(/\/+$/, '')).filter(Boolean))];
+}
+
+function getAdminApiCandidates() {
+  return uniqueStrings([
+    ADMIN_API,
+    `${API_ROOT}/Adminbaggo`,
+    `${API_ROOT}/admin`,
+    `${API_ROOT}/adminbaggo`,
+  ]);
+}
+
+function getStoredAdminApiBase() {
+  return window.localStorage.getItem(ADMIN_API_BASE_KEY);
+}
+
+function setStoredAdminApiBase(baseUrl: string) {
+  window.localStorage.setItem(
+    ADMIN_API_BASE_KEY,
+    baseUrl.trim().replace(/\/+$/, ''),
+  );
+}
+
+function clearStoredAdminApiBase() {
+  window.localStorage.removeItem(ADMIN_API_BASE_KEY);
+}
+
+function getPreferredAdminApiBases() {
+  const stored = getStoredAdminApiBase();
+  return uniqueStrings([
+    ...(stored ? [stored] : []),
+    ...getAdminApiCandidates(),
+  ]);
+}
+
+function extractAdminPath(url: string) {
+  const normalizedUrl = url.trim();
+  for (const base of getAdminApiCandidates()) {
+    if (normalizedUrl.startsWith(base)) {
+      return normalizedUrl.slice(base.length) || '/';
+    }
+  }
+  return null;
+}
+
+function resolveAdminUrl(url: string) {
+  const adminPath = extractAdminPath(url);
+  if (adminPath == null) return url;
+
+  const storedBase = getStoredAdminApiBase();
+  return storedBase ? `${storedBase}${adminPath}` : url;
+}
+
+async function tryAdminEndpoints<T>(
+  paths: string[],
+  options: RequestInit = {},
+): Promise<{ response: Response; data: T; baseUrl: string; path: string }> {
+  const attemptedUrls: string[] = [];
+  let sawNetworkError = false;
+
+  for (const baseUrl of getPreferredAdminApiBases()) {
+    for (const path of paths) {
+      const requestUrl = `${baseUrl}${path}`;
+      attemptedUrls.push(requestUrl);
+      try {
+        const response = await fetch(requestUrl, {
+          ...options,
+          credentials: 'omit',
+          headers: getAdminAuthHeaders(options.headers as Record<string, string>),
+        });
+        const data = await response.json().catch(() => ({} as T));
+
+        if (response.ok) {
+          setStoredAdminApiBase(baseUrl);
+          return { response, data, baseUrl, path };
+        }
+
+        if (response.status !== 404) {
+          if (response.status === 401) {
+            clearAdminToken();
+          }
+          const message =
+            (data as any)?.error ||
+            (data as any)?.message ||
+            `Request failed with HTTP ${response.status}`;
+          throw new Error(message);
+        }
+      } catch (error) {
+        if (error instanceof Error &&
+            !error.message.startsWith('Request failed with HTTP') &&
+            error.message !== 'Failed to fetch') {
+          throw error;
+        }
+        sawNetworkError = true;
+      }
+    }
+  }
+
+  if (sawNetworkError) {
+    throw new Error('Unable to reach the server. Please check if the backend is running and try again.');
+  }
+
+  throw new Error(`Admin API route not found. Tried: ${attemptedUrls.join(', ')}`);
+}
 
 function getAdminToken() {
   return window.localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -26,6 +133,7 @@ export function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}) {
 
 // Helper function for API calls
 async function apiCall(url: string, options: RequestInit = {}) {
+  const resolvedUrl = resolveAdminUrl(url.trim());
   const headers = getAdminAuthHeaders(options.headers as Record<string, string>);
 
   if (options.body && !headers['Content-Type']) {
@@ -34,7 +142,7 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
   let response: Response;
   try {
-    response = await fetch(url.trim(), {
+    response = await fetch(resolvedUrl, {
       ...options,
       credentials: 'omit',
       headers,
@@ -58,23 +166,14 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
 // Auth
 export async function adminLogin(credentials: any) {
-  let response: Response;
-  try {
-    response = await fetch(`${ADMIN_API}/AdminLogin`, {
+  const { data } = await tryAdminEndpoints<any>(
+    ['/AdminLogin', '/login'],
+    {
       method: 'POST',
-      credentials: 'omit',
-      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(credentials),
-    });
-  } catch {
-    throw new Error('Unable to reach the server. Check your connection and try again.');
-  }
-  const data = await response.json().catch(() => {
-    throw new Error(`Server error (HTTP ${response.status}). Please try again.`);
-  });
-  if (!response.ok) {
-    throw new Error(data.error || data.message || 'Invalid credentials');
-  }
+      headers: { 'Content-Type': 'application/json' },
+    },
+  );
   if (data.token) {
     setAdminToken(data.token);
   }
@@ -82,14 +181,38 @@ export async function adminLogin(credentials: any) {
 }
 
 export async function checkAdminAuth() {
-  return apiCall(`${ADMIN_API}/CheckAdmin`);
+  const storedBase = getStoredAdminApiBase();
+  if (storedBase) {
+    try {
+      return await apiCall(`${storedBase}/CheckAdmin`);
+    } catch (_) {
+      clearStoredAdminApiBase();
+    }
+  }
+
+  const { data } = await tryAdminEndpoints<any>(['/CheckAdmin', '/me']);
+  return data;
 }
 
 export async function adminLogout() {
   try {
-    return await apiCall(`${ADMIN_API}/Adminlogout`);
+    const storedBase = getStoredAdminApiBase();
+    if (storedBase) {
+      try {
+        return await apiCall(`${storedBase}/Adminlogout`, { method: 'GET' });
+      } catch (_) {
+        clearStoredAdminApiBase();
+      }
+    }
+
+    const { data } = await tryAdminEndpoints<any>(
+      ['/Adminlogout', '/logout'],
+      { method: 'GET' },
+    );
+    return data;
   } finally {
     clearAdminToken();
+    clearStoredAdminApiBase();
   }
 }
 
