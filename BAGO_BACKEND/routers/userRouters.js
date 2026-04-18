@@ -1,6 +1,6 @@
 import express from 'express';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
-import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, getUser, logout, getWallet, editCurrency, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
+import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, getUser, logout, getWallet, editCurrency, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
@@ -182,6 +182,7 @@ userRouter.put("/updateRequestDates/:requestId", isAuthenticated, requireKycVeri
 userRouter.get('/user-stats', getUserStats);
 userRouter.put('/edit-currency', isAuthenticated, editCurrency);
 userRouter.post('/push-token', isAuthenticated, savePushTokenPg);
+userRouter.delete('/push-token', isAuthenticated, removePushTokenPg);
 userRouter.get('/communication-prefs', isAuthenticated, getCommunicationPrefs);
 userRouter.put('/communication-prefs', isAuthenticated, updateCommunicationPrefs);
 userRouter.delete('/user/delete', isAuthenticated, deleteAccount);

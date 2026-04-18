@@ -43,10 +43,11 @@ export default function DisputesPage() {
   };
 
   const handleEditClick = (dispute: any) => {
+    if (!dispute?.dispute) return;
     setSelectedDispute({
       id: dispute._id,
-      status: dispute.dispute.status,
-      resolutionNote: dispute.dispute.resolutionNote || "",
+      status: dispute.dispute.status ?? 'open',
+      resolutionNote: dispute.dispute.resolutionNote ?? "",
     });
     setShowEditModal(true);
   };

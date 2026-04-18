@@ -130,6 +130,8 @@ export const getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const before = req.query.before || null; // ISO timestamp cursor for older messages
 
     const conversation = await getConversationById(conversationId, userId);
     if (!conversation) {
@@ -140,7 +142,7 @@ export const getMessages = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
-    const messages = await listConversationMessages(conversationId);
+    const messages = await listConversationMessages(conversationId, { limit, before });
 
     // Mark as read
     await markConversationRead(conversationId, userId).catch(() => {});

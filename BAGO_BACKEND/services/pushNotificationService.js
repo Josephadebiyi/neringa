@@ -1,166 +1,42 @@
 import fs from 'node:fs';
 import http2 from 'node:http2';
 import crypto from 'node:crypto';
-import { Expo } from 'expo-server-sdk';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
-
-let admin = null;
-let firebaseApp = null;
-
-// Dynamically handle firebase-admin to prevent crash if not installed
-const initFirebase = async () => {
-  if (firebaseApp) return firebaseApp;
-  try {
-    admin = (await import('firebase-admin')).default;
-
-    // Look for service account in env or disk
-    let serviceAccount = null;
-
-    const saEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (saEnv) {
-      try {
-        serviceAccount = JSON.parse(saEnv);
-        console.log('✅ Firebase service account loaded from environment variable');
-      } catch (e) {
-        console.error('❌ FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON:', e.message);
-      }
-    }
-    
-    if (!serviceAccount) {
-      // Try multiple paths for the service account file
-      const paths = [
-        process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
-        './firebase-service-account.json',
-        '../firebase-service-account.json',
-        '/etc/secrets/firebase-service-account.json',
-      ].filter(Boolean);
-      
-      for (const saPath of paths) {
-        if (fs.existsSync(saPath)) {
-          try {
-            serviceAccount = JSON.parse(fs.readFileSync(saPath, 'utf8'));
-            console.log(`✅ Firebase service account loaded from file: ${saPath}`);
-            break;
-          } catch (e) {
-            console.warn(`⚠️ Could not parse ${saPath}: ${e.message}`);
-          }
-        }
-      }
-    }
-
-    if (serviceAccount && serviceAccount.project_id) {
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      console.log(`✅ Firebase Admin initialized successfully (project: ${serviceAccount.project_id})`);
-      return firebaseApp;
-    } else {
-      console.warn('⚠️ Firebase service account not found - FCM push notifications disabled');
-      console.warn('   To enable: Set FIREBASE_SERVICE_ACCOUNT_JSON env var with your Firebase service account JSON');
-      console.warn('   Or place firebase-service-account.json in the backend directory');
-    }
-  } catch (err) {
-    console.warn('⚠️ Firebase Admin could not be initialized:', err.message);
-  }
-  return null;
-};
-
-// Initial attempt
-initFirebase();
-
-const expo = new Expo();
-
-const APNS_PROD_HOST = 'https://api.push.apple.com';
-const APNS_SANDBOX_HOST = 'https://api.sandbox.push.apple.com';
-
-const base64UrlEncode = (value) =>
-  Buffer.from(value)
-    .toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
 
 const normalizeToken = (token) => (typeof token === 'string' ? token.trim() : '');
 
-const isExpoPushToken = (token) => Expo.isExpoPushToken(normalizeToken(token));
-
 const isApnsPushToken = (token) => /^[0-9a-fA-F]{64}$/.test(normalizeToken(token));
-
-const isFcmPushToken = (token) => {
-  const t = normalizeToken(token);
-  // FCM tokens are typically long alphanumeric strings (>100 chars)
-  // and do not match the Expo or raw APNs hex pattern.
-  return t.length > 50 && !isExpoPushToken(t) && !isApnsPushToken(t);
-};
 
 const getApnsPrivateKey = () => {
   const inlineKey = process.env.APNS_PRIVATE_KEY?.trim();
   if (inlineKey) {
     return inlineKey.includes('-----BEGIN') ? inlineKey : inlineKey.replace(/\\n/g, '\n');
   }
-
   const keyPath = process.env.APNS_PRIVATE_KEY_PATH?.trim();
-  if (keyPath) {
-    return fs.readFileSync(keyPath, 'utf8');
-  }
-
+  if (keyPath) return fs.readFileSync(keyPath, 'utf8');
   return null;
 };
 
 const getApnsHost = () =>
-  process.env.APNS_USE_SANDBOX === 'true' ? APNS_SANDBOX_HOST : APNS_PROD_HOST;
+  process.env.APNS_USE_SANDBOX === 'true'
+    ? 'https://api.sandbox.push.apple.com'
+    : 'https://api.push.apple.com';
+
+const base64UrlEncode = (value) =>
+  Buffer.from(value).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 
 const buildApnsJwt = () => {
   const teamId = process.env.APNS_TEAM_ID?.trim();
   const keyId = process.env.APNS_KEY_ID?.trim();
   const privateKey = getApnsPrivateKey();
 
-  if (!teamId || !keyId || !privateKey) {
-    throw new Error('APNs credentials are not configured');
-  }
+  if (!teamId || !keyId || !privateKey) throw new Error('APNs credentials not configured');
 
   const header = { alg: 'ES256', kid: keyId };
-  const payload = {
-    iss: teamId,
-    iat: Math.floor(Date.now() / 1000),
-  };
-
-  const unsignedToken =
-    `${base64UrlEncode(JSON.stringify(header))}.` +
-    `${base64UrlEncode(JSON.stringify(payload))}`;
-  const signature = crypto.sign('sha256', Buffer.from(unsignedToken), privateKey);
-
-  return `${unsignedToken}.${base64UrlEncode(signature)}`;
-};
-
-const sendExpoPushToToken = async (pushToken, title, body, data = {}) => {
-  const token = normalizeToken(pushToken);
-  if (!isExpoPushToken(token)) {
-    return { ok: false, provider: 'expo', skipped: true, reason: 'invalid_token' };
-  }
-
-  const messages = [{
-    to: token,
-    sound: 'default',
-    title,
-    body,
-    data,
-  }];
-
-  const chunks = expo.chunkPushNotifications(messages);
-  const results = [];
-
-  for (const chunk of chunks) {
-    try {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      results.push(...ticketChunk);
-    } catch (error) {
-      console.error('Expo push error:', error);
-      results.push({ status: 'error', message: error.message });
-    }
-  }
-
-  return { ok: true, provider: 'expo', results };
+  const payload = { iss: teamId, iat: Math.floor(Date.now() / 1000) };
+  const unsigned = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(payload))}`;
+  const signature = crypto.sign('sha256', Buffer.from(unsigned), privateKey);
+  return `${unsigned}.${base64UrlEncode(signature)}`;
 };
 
 const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
@@ -170,20 +46,13 @@ const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
   }
 
   const bundleId = process.env.APNS_BUNDLE_ID;
-  if (!bundleId) {
-    return { ok: false, provider: 'apns', skipped: true, reason: 'no_bundle_id' };
-  }
+  if (!bundleId) return { ok: false, provider: 'apns', skipped: true, reason: 'no_bundle_id' };
 
   try {
     const jwt = buildApnsJwt();
     const host = getApnsHost();
-
     const payload = JSON.stringify({
-      aps: {
-        alert: { title, body },
-        sound: 'default',
-        badge: 1,
-      },
+      aps: { alert: { title, body }, sound: 'default', badge: 1 },
       ...data,
     });
 
@@ -204,28 +73,18 @@ const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
       let responseData = '';
       let statusCode;
 
-      req.on('response', (headers) => {
-        statusCode = headers[':status'];
-      });
-
-      req.on('data', (chunk) => {
-        responseData += chunk;
-      });
-
+      req.on('response', (headers) => { statusCode = headers[':status']; });
+      req.on('data', (chunk) => { responseData += chunk; });
       req.on('end', () => {
         client.close();
         if (statusCode === 200) {
           resolve({ ok: true, provider: 'apns' });
         } else {
+          console.error(`❌ APNs error ${statusCode}: ${responseData}`);
           resolve({ ok: false, provider: 'apns', status: statusCode, response: responseData });
         }
       });
-
-      req.on('error', (err) => {
-        client.close();
-        reject(err);
-      });
-
+      req.on('error', (err) => { client.close(); reject(err); });
       req.write(payload);
       req.end();
     });
@@ -234,78 +93,37 @@ const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
   }
 };
 
-const sendFcmPushToToken = async (pushToken, title, body, data = {}) => {
-  const token = normalizeToken(pushToken);
-  if (!isFcmPushToken(token)) {
-    return { ok: false, provider: 'fcm', skipped: true, reason: 'invalid_token' };
-  }
-
-  try {
-    const app = await initFirebase();
-    if (!app) {
-      return { ok: false, provider: 'fcm', skipped: true, reason: 'firebase_not_initialized' };
-    }
-
-    const message = {
-      notification: { title, body },
-      data: Object.fromEntries(
-        Object.entries(data).map(([k, v]) => [k, String(v)])
-      ),
-      token,
-    };
-
-    const result = await admin.messaging().send(message);
-    return { ok: true, provider: 'fcm', messageId: result };
-  } catch (err) {
-    console.error('FCM push error:', err.message);
-    return { ok: false, provider: 'fcm', error: err.message };
-  }
-};
-
 export const sendPushNotificationToToken = async (pushToken, title, body, data = {}) => {
   const token = normalizeToken(pushToken);
-
-  if (isExpoPushToken(token)) {
-    return sendExpoPushToToken(token, title, body, data);
-  } else if (isApnsPushToken(token)) {
-    return sendApnsPushToToken(token, title, body, data);
-  } else if (isFcmPushToken(token)) {
-    return sendFcmPushToToken(token, title, body, data);
+  if (!isApnsPushToken(token)) {
+    return { ok: false, skipped: true, reason: 'unrecognized_token_format', token: token.substring(0, 20) };
   }
-
-  return { ok: false, skipped: true, reason: 'unrecognized_token_format' };
+  return sendApnsPushToToken(token, title, body, data);
 };
 
 export const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
-    // Fetch push tokens from Postgres
     const row = await queryOne(
       `SELECT push_tokens FROM public.profiles WHERE id = $1`,
       [userId]
     );
 
-    // Store in-app notification regardless of push delivery
+    // Store in-app notification
     try {
       await pgQuery(
-        `INSERT INTO public.notifications (user_id, title, body, type, read, created_at)
-         VALUES ($1, $2, $3, 'general', false, NOW())`,
+        `INSERT INTO public.notifications (user_id, title, body, type, read, created_at) VALUES ($1, $2, $3, 'general', false, NOW())`,
         [userId, title, body]
       );
-    } catch (notifErr) {
-      // Try alternate schema (some tables use 'message' instead of 'body')
+    } catch {
       try {
         await pgQuery(
-          `INSERT INTO public.notifications (user_id, title, message, type, read, created_at)
-           VALUES ($1, $2, $3, 'general', false, NOW())`,
+          `INSERT INTO public.notifications (user_id, title, message, type, read, created_at) VALUES ($1, $2, $3, 'general', false, NOW())`,
           [userId, title, `${title}: ${body}`]
         );
-      } catch (_) {
-        // Silently ignore notification storage failures
-        console.warn(`Could not store notification for user ${userId}: ${notifErr.message}`);
-      }
+      } catch (_) {}
     }
 
-    if (!row || !Array.isArray(row.push_tokens) || row.push_tokens.length === 0) {
+    if (!row?.push_tokens?.length) {
       console.log(`No push tokens found for user ${userId}`);
       return [];
     }
@@ -317,22 +135,16 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
       try {
         const result = await sendPushNotificationToToken(pushToken, title, body, data);
         results.push(result);
-        
-        // Log successful delivery
-        if (result.ok) {
-          console.log(`✅ Push sent to user ${userId} via ${result.provider}`);
-        } else if (result.skipped) {
-          console.log(`⏭ Push skipped for user ${userId}: ${result.reason}`);
-        }
+        if (result.ok) console.log(`✅ APNs push sent to user ${userId}`);
+        else if (result.skipped) console.log(`⏭ Push skipped: ${result.reason}`);
       } catch (error) {
-        console.error(`Error sending push notification to token ${pushToken}:`, error);
-        results.push({ ok: false, error: error.message, token: pushToken });
+        results.push({ ok: false, error: error.message });
       }
     }
 
     return results;
   } catch (error) {
-    console.error('Error in sendPushNotification service:', error);
+    console.error('sendPushNotification error:', error);
     throw error;
   }
 };

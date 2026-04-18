@@ -279,6 +279,15 @@ export async function confirmPendingPhoneChange(userId, phone) {
   );
 }
 
+export async function clearPushTokens(userId) {
+  const result = await query(
+    `update public.profiles set push_tokens = '{}', updated_at = timezone('utc', now()) where id = $1 returning id`,
+    [userId],
+  );
+  console.log(`🔕 clearPushTokens: user=${userId}, cleared=${result.rows.length > 0}`);
+  return result.rows[0] || null;
+}
+
 export async function addPushToken(userId, token) {
   const result = await query(
     `

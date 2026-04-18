@@ -6,6 +6,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { Resend } from 'resend';
 import {
   addPushToken,
+  clearPushTokens,
   applySignupBonus,
   checkDuplicateNameDob,
   confirmPendingEmailChange,
@@ -711,6 +712,18 @@ export async function savePushToken(req, res) {
   } catch (error) {
     console.error('savePushToken error:', error);
     res.status(500).json({ success: false, message: 'Failed to save push token' });
+  }
+}
+
+export async function removePushToken(req, res) {
+  try {
+    const userId = req.user.id || req.user._id;
+    console.log(`🔕 removePushToken: clearing all tokens for user=${userId}`);
+    await clearPushTokens(userId);
+    res.json({ success: true, message: 'Push tokens removed' });
+  } catch (error) {
+    console.error('removePushToken error:', error);
+    res.status(500).json({ success: false, message: 'Failed to remove push token' });
   }
 }
 

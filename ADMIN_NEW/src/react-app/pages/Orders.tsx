@@ -64,7 +64,7 @@ export default function OrdersPage() {
     const filteredOrders = orders.filter(o =>
         (statusFilter === 'all' || o.status === statusFilter) &&
         (o.package?.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            o._id.toLowerCase().includes(searchTerm.toLowerCase()))
+            (o._id ?? '').toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     return (

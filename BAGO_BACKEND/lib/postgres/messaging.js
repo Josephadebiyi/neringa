@@ -193,7 +193,13 @@ export async function resolveConversationForUser({ userId, receiverId, requestId
   return normalizeConversation(row, userId);
 }
 
-export async function listConversationMessages(conversationId) {
+export async function listConversationMessages(conversationId, { limit = 50, before = null } = {}) {
+  const safeLimit = Math.min(Math.max(parseInt(limit) || 50, 1), 100);
+  const params = [conversationId, safeLimit];
+  const beforeClause = before ? `and m.created_at < $3` : '';
+  if (before) params.push(before);
+
+  // Fetch DESC (newest first with LIMIT), then reverse to ASC for the client
   const result = await query(
     `
       select
@@ -210,13 +216,14 @@ export async function listConversationMessages(conversationId) {
         p.image_url as sender_image_url
       from public.messages m
       join public.profiles p on p.id = m.sender_id
-      where m.conversation_id = $1
-      order by m.created_at asc
+      where m.conversation_id = $1 ${beforeClause}
+      order by m.created_at desc
+      limit $2
     `,
-    [conversationId],
+    params,
   );
 
-  return result.rows.map(normalizeMessage);
+  return result.rows.reverse().map(normalizeMessage);
 }
 
 export async function createConversationMessage({
