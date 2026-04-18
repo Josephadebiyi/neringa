@@ -66,12 +66,17 @@ export async function adminLogin(credentials: any) {
       headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(credentials),
     });
-  } catch (networkError) {
-    throw new Error('Unable to reach the server. Please check if the backend is running.');
+  } catch {
+    throw new Error('Unable to reach the server. Check your connection and try again.');
   }
-  const data = await response.json();
+  const data = await response.json().catch(() => {
+    if (response.status === 502 || response.status === 503) {
+      throw new Error('Server is starting up, please try again in a moment.');
+    }
+    throw new Error('Invalid response from server. Please try again.');
+  });
   if (!response.ok) {
-    throw new Error(data.error || data.message || 'Login failed');
+    throw new Error(data.error || data.message || 'Invalid credentials');
   }
   if (data.token) {
     setAdminToken(data.token);
