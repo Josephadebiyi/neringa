@@ -555,9 +555,10 @@ class _CarrierHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final total = balance + pendingEarnings;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0D0E12),
         borderRadius: BorderRadius.circular(24),
@@ -569,54 +570,72 @@ class _CarrierHero extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Icon(Icons.account_balance_wallet_outlined,
-                    color: Colors.white, size: 22),
+                    color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.earnedBalance,
-                        style: AppTextStyles.labelXs.copyWith(
-                            color: Colors.white.withOpacity(0.5),
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.1)),
-                    const SizedBox(height: 4),
-                    Text('$currency ${balance.toStringAsFixed(2)}',
-                        style: AppTextStyles.displaySm.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.w900)),
-                    if (pendingEarnings > 0) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.schedule_rounded, color: Color(0xFFFBBF24), size: 13),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$currency ${pendingEarnings.toStringAsFixed(2)} pending from sales',
-                            style: AppTextStyles.labelXs.copyWith(
-                              color: const Color(0xFFFBBF24),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'TOTAL BALANCE',
+                    style: AppTextStyles.labelXs.copyWith(
+                        color: Colors.white38,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '$currency ${total.toStringAsFixed(2)}',
+                    style: AppTextStyles.displaySm.copyWith(
+                        color: Colors.white, fontWeight: FontWeight.w900),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          // Available vs Held breakdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _WalletBreakdownTile(
+                    label: 'Available',
+                    sublabel: 'Withdraw now',
+                    amount: balance,
+                    currency: currency,
+                    color: const Color(0xFF34D399),
+                  ),
+                ),
+                Container(width: 1, height: 36, color: Colors.white12),
+                Expanded(
+                  child: _WalletBreakdownTile(
+                    label: 'Held',
+                    sublabel: 'Released on delivery',
+                    amount: pendingEarnings,
+                    currency: currency,
+                    color: const Color(0xFFFBBF24),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           InkWell(
             onTap: onPostTrip,
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
               height: 38,
               decoration: BoxDecoration(
@@ -636,6 +655,43 @@ class _CarrierHero extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WalletBreakdownTile extends StatelessWidget {
+  const _WalletBreakdownTile({
+    required this.label,
+    required this.sublabel,
+    required this.amount,
+    required this.currency,
+    required this.color,
+  });
+  final String label;
+  final String sublabel;
+  final double amount;
+  final String currency;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(label,
+            style: AppTextStyles.labelXs.copyWith(
+                color: color, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+        const SizedBox(height: 3),
+        Text(
+          '$currency ${amount.toStringAsFixed(2)}',
+          style: AppTextStyles.labelLg.copyWith(
+              color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 2),
+        Text(sublabel,
+            style: AppTextStyles.caption
+                .copyWith(color: Colors.white30, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }
