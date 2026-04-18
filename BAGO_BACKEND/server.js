@@ -832,22 +832,13 @@ app.post('/api/stripe/connect/transfer', async (req, res) => {
 });
 
 
-// ✅ PRODUCTION NOTE: Frontend files should be served from separate hosting (Hostinger, Vercel, etc.)
-// Backend on Render.com is API-only. Admin and webapp dist folders don't exist in git.
-// Uncomment below only for local development if you want backend to serve frontend files.
-
-// const adminDist = path.join(__dirname, '../ADMIN_NEW/dist');
-// const clientDist = path.join(__dirname, '../BAGO_WEBAPP/dist');
-// app.use('/admin', express.static(adminDist));
-// app.use(express.static(clientDist));
-// app.get(/^\/admin/, (req, res) => {
-//   if (req.originalUrl === '/admin') return res.redirect(301, '/admin/');
-//   res.sendFile(path.join(adminDist, 'index.html'));
-// });
-// app.get(/.*/, (req, res, next) => {
-//   if (req.url.startsWith('/api') || req.url.startsWith('/admin')) return next();
-//   res.sendFile(path.join(clientDist, 'index.html'));
-// });
+// Serve admin panel from /admin
+const adminDist = path.join(__dirname, '../ADMIN_NEW/dist');
+app.use('/admin', express.static(adminDist));
+app.get(/^\/admin(\/.*)?$/, (req, res) => {
+  if (req.originalUrl === '/admin') return res.redirect(301, '/admin/');
+  res.sendFile(path.join(adminDist, 'index.html'));
+});
 
 // ✅ Error handling middleware
 app.use((err, req, res, next) => {
