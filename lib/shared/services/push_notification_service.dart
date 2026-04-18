@@ -185,6 +185,17 @@ class PushNotificationService {
     _registering = false;
   }
 
+  /// Clear the locally stored push token (called when user disables push notifications).
+  Future<void> clearLocalToken() async {
+    try {
+      await _storage.savePushToken('');
+      _pendingToken = null;
+      debugPrint('🔕 Local push token cleared');
+    } catch (e) {
+      debugPrint('❌ clearLocalToken error: $e');
+    }
+  }
+
   Future<void> _validateAndStoreToken(String token) async {
     if (token.isEmpty) return;
     try {

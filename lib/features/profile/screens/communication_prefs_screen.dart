@@ -5,6 +5,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/services/push_notification_service.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 
@@ -55,20 +56,34 @@ class _CommunicationPrefsScreenState
   Future<void> _togglePref(String key) async {
     if (_saving) return;
     final prev = _prefs[key]!;
+    final next = !prev;
+
     setState(() {
-      _prefs[key] = !prev;
+      _prefs[key] = next;
       _saving = true;
     });
 
     try {
-      await ApiService.instance.put(
-        ApiConstants.communicationPrefs,
-        data: _prefs,
-      );
+      await ApiService.instance.put(ApiConstants.communicationPrefs, data: _prefs);
+
+      // When toggling push notifications, register or remove the APNs token
+      if (key == 'push') {
+        if (next) {
+          // Turning ON — request permission and register token
+          await PushNotificationService.instance.prepareForSignedInUser();
+        } else {
+          // Turning OFF — remove token from backend so no more push notifications
+          await ApiService.instance.delete(ApiConstants.removePushToken);
+          await PushNotificationService.instance.clearLocalToken();
+        }
+      }
+
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'Preferences updated',
+        message: key == 'push'
+            ? (next ? 'Push notifications enabled' : 'Push notifications disabled')
+            : 'Preferences updated',
         type: SnackBarType.success,
       );
     } catch (_) {
@@ -179,10 +194,16 @@ class _CommunicationPrefsScreenState
             ),
           ),
           const SizedBox(width: 12),
-          Switch(
-            value: value,
-            onChanged: locked ? null : (_) => _togglePref(prefKey),
-          ),
+          _saving && !locked
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Switch(
+                  value: value,
+                  onChanged: locked ? null : (_) => _togglePref(prefKey),
+                ),
         ],
       ),
     );

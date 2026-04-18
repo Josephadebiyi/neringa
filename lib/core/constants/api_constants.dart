@@ -9,7 +9,7 @@ class ApiConstants {
   static const String supabaseUrl =
       String.fromEnvironment('SUPABASE_URL', defaultValue: '');
   static const String supabasePublishableKey = String.fromEnvironment(
-    'SUPABASE_PUBLISHABLE_KEY',
+    'SUPABASE_PUBLISHABLE_KEY',  
     defaultValue: '',
   );
 
@@ -146,6 +146,7 @@ class ApiConstants {
   // Notifications
   // ---------------------------------------------------------------------------
   static const String registerPushToken          = '/api/bago/push-token';
+  static const String removePushToken            = '/api/bago/push-token';
   static const String communicationPrefs         = '/api/bago/communication-prefs';
   static const String getNotifications           = '/api/bago/getNotifications';
   static const String markNotificationRead       = '/api/bago/markNotificationAsRead';
