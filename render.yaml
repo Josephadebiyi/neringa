@@ -12,3 +12,13 @@ services:
         value: production
       - key: PORT
         value: 10000
+  - type: web
+    name: neringa-admin
+    runtime: static
+    rootDir: ADMIN_NEW
+    buildCommand: ADMIN_BASE_PATH=/ npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
