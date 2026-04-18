@@ -293,6 +293,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
 
                 if (!isCarrier) ...[
+                  if ((user?.escrowBalance ?? 0) > 0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.lock_outline_rounded, color: Color(0xFFD97706), size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${UserCurrencyHelper.resolve(user)} ${user!.escrowBalance.toStringAsFixed(2)} held in escrow',
+                            style: AppTextStyles.labelMd.copyWith(
+                              color: const Color(0xFF92400E),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   _LiveTripCount(),
                 ],

@@ -17,25 +17,34 @@ class PaymentsRefundsScreen extends ConsumerStatefulWidget {
 
 class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
   List<Map<String, dynamic>> _transactions = [];
+  double _available = 0;
+  double _escrow = 0;
+  String _currency = 'USD';
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchTransactions();
+    _fetchWallet();
   }
 
-  Future<void> _fetchTransactions() async {
+  Future<void> _fetchWallet() async {
     try {
       final res = await ApiService.instance.get(ApiConstants.walletBalance);
       final data = res.data as Map<String, dynamic>?;
-      final list = data?['transactions'] as List?;
-      if (list != null && mounted) {
-        setState(() { _transactions = list.cast<Map<String, dynamic>>(); _loading = false; });
-        return;
+      final list = (data?['history'] ?? data?['transactions']) as List?;
+      if (mounted) {
+        setState(() {
+          _available = (data?['balance'] as num?)?.toDouble() ?? 0;
+          _escrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
+          _currency = data?['currency']?.toString() ?? 'USD';
+          _transactions = list?.cast<Map<String, dynamic>>() ?? [];
+          _loading = false;
+        });
       }
-    } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -67,6 +76,37 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Balance breakdown card
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D0E12),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _BalanceTile(
+                            label: 'Available',
+                            amount: _available,
+                            currency: _currency,
+                            iconColor: const Color(0xFF34D399),
+                          ),
+                        ),
+                        Container(width: 1, height: 48, color: Colors.white12),
+                        Expanded(
+                          child: _BalanceTile(
+                            label: 'In Escrow',
+                            amount: _escrow,
+                            currency: _currency,
+                            iconColor: const Color(0xFFFBBF24),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Escrow protection info
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
@@ -128,11 +168,25 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
         children: txList.asMap().entries.map((e) {
           final tx = e.value;
           final isLast = e.key == txList.length - 1;
-          final isRefund = (tx['type'] as String?) == 'Refund';
+          final type = (tx['type'] as String?) ?? '';
+          final isCredit = type == 'earning' || type == 'escrow_release' || type == 'refund';
+          final isEscrow = type == 'escrow_hold';
           final status = (tx['status'] as String?) ?? '';
+          final description = (tx['description'] as String?) ?? '';
+          final amount = tx['amount'];
+          final currency = (tx['currency'] as String?) ?? _currency;
+          final createdAt = tx['created_at'] as String? ?? '';
+          final dateLabel = createdAt.isNotEmpty ? createdAt.substring(0, 10) : '';
           Color statusColor = AppColors.gray500;
-          if (status == 'Refunded') statusColor = const Color(0xFF059669);
-          if (status == 'In Escrow') statusColor = const Color(0xFFD97706);
+          if (isCredit) statusColor = const Color(0xFF059669);
+          if (isEscrow) statusColor = const Color(0xFFD97706);
+          final title = isEscrow
+              ? 'Held in Escrow'
+              : isCredit
+                  ? (type == 'earning' ? 'Shipment Earning' : type == 'escrow_release' ? 'Escrow Released' : 'Refund')
+                  : description.isNotEmpty
+                      ? description
+                      : 'Transaction';
           return Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: Colors.white, width: 1.5))),
@@ -141,28 +195,79 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
                 width: 44, height: 44,
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                 child: Icon(
-                  isRefund ? Icons.arrow_upward_rounded : Icons.receipt_long_rounded,
-                  color: isRefund ? const Color(0xFF059669) : AppColors.primary, size: 20,
+                  isEscrow
+                      ? Icons.lock_outline_rounded
+                      : isCredit
+                          ? Icons.arrow_downward_rounded
+                          : Icons.receipt_long_rounded,
+                  color: isEscrow
+                      ? const Color(0xFFD97706)
+                      : isCredit
+                          ? const Color(0xFF059669)
+                          : AppColors.primary,
+                  size: 20,
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tx['item'] as String? ?? '', style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w800)),
+                Text(title, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
-                Text('${tx['date']} • Ref: ${tx['ref']}',
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w600)),
+                Text(dateLabel, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w600)),
               ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('${isRefund ? '+' : ''}${tx['amount']}',
-                    style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w900,
-                        color: isRefund ? const Color(0xFF059669) : AppColors.black)),
+                Text(
+                  '${isCredit ? '+' : isEscrow ? '' : '-'}$currency ${amount ?? ''}',
+                  style: AppTextStyles.bodyMd.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: isEscrow
+                        ? const Color(0xFFD97706)
+                        : isCredit
+                            ? const Color(0xFF059669)
+                            : AppColors.black,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(status, style: AppTextStyles.labelSm.copyWith(color: statusColor, fontWeight: FontWeight.w800)),
+                Text(
+                  isEscrow ? 'In Escrow' : status,
+                  style: AppTextStyles.labelSm.copyWith(color: statusColor, fontWeight: FontWeight.w800),
+                ),
               ]),
             ]),
           );
         }).toList(),
       ),
+    );
+  }
+}
+
+class _BalanceTile extends StatelessWidget {
+  const _BalanceTile({required this.label, required this.amount, required this.currency, required this.iconColor});
+  final String label;
+  final double amount;
+  final String currency;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: AppTextStyles.labelXs.copyWith(
+            color: Colors.white54,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '$currency ${amount.toStringAsFixed(2)}',
+          style: AppTextStyles.h3.copyWith(
+            color: iconColor,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     );
   }
 }

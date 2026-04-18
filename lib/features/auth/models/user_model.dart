@@ -15,6 +15,7 @@ class UserModel {
   final bool emailVerified;
   final String? kycStatus; // 'pending' | 'approved' | 'rejected'
   final double walletBalance;
+  final double escrowBalance;
   final String currency;
   final String preferredCurrency;
   final String? bio;
@@ -40,6 +41,7 @@ class UserModel {
     this.emailVerified = false,
     this.kycStatus,
     this.walletBalance = 0.0,
+    this.escrowBalance = 0.0,
     this.currency = '',
     this.preferredCurrency = '',
     this.bio,
@@ -77,6 +79,7 @@ class UserModel {
     bool? emailVerified,
     String? kycStatus,
     double? walletBalance,
+    double? escrowBalance,
     String? currency,
     String? preferredCurrency,
     String? bio,
@@ -111,6 +114,7 @@ class UserModel {
       emailVerified: resolvedEmailVerified,
       kycStatus: kycStatus ?? this.kycStatus,
       walletBalance: walletBalance ?? this.walletBalance,
+      escrowBalance: escrowBalance ?? this.escrowBalance,
       currency: currency ?? this.currency,
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
       bio: bio ?? this.bio,
@@ -147,6 +151,7 @@ class UserModel {
             json['email_verified'] == true,
         kycStatus: json['kyc_status']?.toString() ?? json['kycStatus']?.toString(),
         walletBalance: JsonParser.parseDoubleFirst(json, ['wallet_balance', 'walletBalance']),
+        escrowBalance: JsonParser.parseDoubleFirst(json, ['escrow_balance', 'escrowBalance']),
         currency: json['currency']?.toString() ??
             json['preferredCurrency']?.toString() ??
             json['preferred_currency']?.toString() ??
@@ -180,6 +185,7 @@ class UserModel {
         'emailVerified': emailVerified,
         'kyc_status': kycStatus,
         'wallet_balance': walletBalance,
+        'escrow_balance': escrowBalance,
         'currency': currency,
         'preferredCurrency': preferredCurrency.isNotEmpty ? preferredCurrency : currency,
         'bio': bio,
