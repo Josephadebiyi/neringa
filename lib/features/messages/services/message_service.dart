@@ -28,12 +28,19 @@ class MessageService {
     }
   }
 
-  Future<List<MessageModel>> getMessages(String conversationId,
-      {int page = 1, int limit = 50}) async {
+  Future<List<MessageModel>> getMessages(
+    String conversationId, {
+    int page = 1,
+    int limit = 50,
+    String? before, // ISO timestamp cursor — fetch messages older than this
+  }) async {
     try {
       final res = await _api.get(
         '${ApiConstants.conversationMessages}/$conversationId/messages',
-        queryParameters: {'page': page, 'limit': limit},
+        queryParameters: {
+          'limit': limit,
+          if (before != null) 'before': before,
+        },
       );
       return ResponseParser.parseList(res.data, ['messages'])
           .map(MessageModel.fromJson)

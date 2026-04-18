@@ -2,7 +2,6 @@ import Flutter
 import UIKit
 import UserNotifications
 import GoogleSignIn
-import Firebase
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -14,8 +13,6 @@ import Firebase
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Must be called before super so Firebase Messaging can swizzle APNs delegates
-    FirebaseApp.configure()
     UNUserNotificationCenter.current().delegate = self
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -44,6 +41,8 @@ import Firebase
         self.requestPushPermission(application: UIApplication.shared, result: result)
       case "getDeviceToken":
         result(self.currentDeviceToken)
+      case "getPermissionStatus":
+        self.getPermissionStatus(result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -66,6 +65,21 @@ import Firebase
     }
   }
 
+  private func getPermissionStatus(result: @escaping FlutterResult) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      DispatchQueue.main.async {
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+          result("authorized")
+        case .denied:
+          result("denied")
+        default:
+          result("notDetermined")
+        }
+      }
+    }
+  }
+
   override func application(
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
@@ -73,7 +87,6 @@ import Firebase
     let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
     currentDeviceToken = token
     pushMethodChannel?.invokeMethod("onDeviceToken", arguments: token)
-    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
   override func application(
@@ -81,7 +94,6 @@ import Firebase
     didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
     pushMethodChannel?.invokeMethod("onDeviceTokenError", arguments: error.localizedDescription)
-    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 
   override func userNotificationCenter(

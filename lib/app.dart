@@ -1,4 +1,3 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -178,8 +177,7 @@ class _NotificationPromptHostState
           .notificationAuthorizationStatus();
       if (!mounted) return;
 
-      final granted = status == AuthorizationStatus.authorized ||
-          status == AuthorizationStatus.provisional;
+      final granted = status == ApnsAuthStatus.authorized;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

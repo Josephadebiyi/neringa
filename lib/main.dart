@@ -2,30 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'app.dart';
 import 'core/constants/api_constants.dart';
-import 'firebase_options.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/supabase_service.dart';
 import 'shared/services/app_settings_service.dart';
-
-/// Background message handler — MUST be a top-level function (not a method).
-/// Required by Firebase Messaging on both iOS and Android.
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Ensure Firebase is initialized for background processing
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  }
-  debugPrint('🔔 Background message received: ${message.messageId}');
-}
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -43,29 +27,6 @@ void main() async {
   if (ApiConstants.stripePublishableKey.isNotEmpty) {
     Stripe.publishableKey = ApiConstants.stripePublishableKey;
     await Stripe.instance.applySettings();
-  }
-
-  // Firebase init — must pass options so FCM token is available (permissions requested after login)
-  try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      debugPrint('✅ Firebase initialized for push notifications.');
-    }
-    
-    // Register background message handler BEFORE any foreground config
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    
-    // Set foreground notification options
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    debugPrint('✅ Foreground notification options set.');
-  } catch (error) {
-    debugPrint('❌ Firebase init skipped: $error');
   }
 
   // Transparent status bar

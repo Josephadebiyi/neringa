@@ -26,6 +26,7 @@ class MessageRealtimeService {
     required String conversationId,
     required void Function(Map<String, dynamic> row) onInsert,
     void Function(String userId)? onTyping,
+    void Function(String status)? onStatus,
   }) {
     final client = _client;
     if (client == null || conversationId.isEmpty) return null;
@@ -61,6 +62,7 @@ class MessageRealtimeService {
       channel.subscribe((status, [error]) {
         debugPrint('📡 Messages channel ($conversationId): $status');
         if (error != null) debugPrint('  error: $error');
+        onStatus?.call(status.toString());
       });
 
       return channel;

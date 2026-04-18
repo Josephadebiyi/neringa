@@ -41,8 +41,7 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      # Strip x86_64 simulator slices from device/App Store builds
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'x86_64'
+      config.build_settings['VALID_ARCHS'] = 'arm64'
     end
   end
 end

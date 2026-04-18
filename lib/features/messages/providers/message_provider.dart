@@ -79,16 +79,24 @@ class MessageNotifier extends Notifier<MessageState> {
   late final MessageService _service;
   late final MessageRealtimeService _realtime;
 
-  // Supabase realtime channels
+  // Supabase realtime channel — messages only (convs handled via socket)
   RealtimeChannel? _msgChannel;
-  RealtimeChannel? _convChannel;
 
-  // Typing indicator debounce
-  Timer? _typingResetTimer;
+  // Cross-source deduplication registry. Cleared when entering a new conv.
+  // Prevents Socket + Realtime + Polling all adding the same message.
+  final _seenMessageIds = <String>{};
 
-  // Polling fallback when Supabase realtime unavailable
+  // True once Supabase Realtime confirms SUBSCRIBED — polling stops.
+  bool _realtimeActive = false;
+
+  // Polling fallback
   Timer? _pollingTimer;
   DateTime? _lastMessageTime;
+
+  // Typing indicator reset
+  Timer? _typingResetTimer;
+
+  // Socket listeners (stable references for add/remove)
   bool _socketListenerAttached = false;
   late final void Function(Map<String, dynamic>) _socketMessageListener;
   late final void Function(Map<String, dynamic>) _socketConversationListener;
@@ -106,17 +114,26 @@ class MessageNotifier extends Notifier<MessageState> {
   void _teardown() {
     _typingResetTimer?.cancel();
     _pollingTimer?.cancel();
+    _seenMessageIds.clear();
     _lastMessageTime = null;
+    _realtimeActive = false;
     _realtime.unsubscribe(_msgChannel);
-    _realtime.unsubscribe(_convChannel);
     _msgChannel = null;
-    _convChannel = null;
     _detachSocketListeners();
   }
 
+  // ---------------------------------------------------------------------------
+  // Polling (fallback when Supabase Realtime is unavailable)
+  // ---------------------------------------------------------------------------
+
   void _startPolling(String conversationId) {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+      // Stop polling once realtime has confirmed SUBSCRIBED
+      if (_realtimeActive) {
+        _stopPolling();
+        return;
+      }
       await _pollForNewMessages(conversationId);
     });
   }
@@ -137,26 +154,37 @@ class MessageNotifier extends Notifier<MessageState> {
   Future<void> _pollForNewMessages(String conversationId) async {
     if (conversationId != state.activeConversationId) return;
     try {
-      final latest =
-          await _service.getMessages(conversationId, page: 1, limit: 20);
+      final latest = await _service.getMessages(conversationId, page: 1, limit: 30);
       if (latest.isEmpty) return;
 
-      final latestMsgTime = _parseTimestamp(latest.first.createdAt);
-      if (latestMsgTime == null) return;
+      // Add only messages not already seen
+      final newMsgs = latest.where((m) => !_seenMessageIds.contains(m.id)).toList();
+      if (newMsgs.isEmpty) return;
 
-      if (_lastMessageTime != null &&
-          latestMsgTime.isAfter(_lastMessageTime!)) {
-        final currentUserId = ref.read(authProvider).user?.id ?? '';
-        final newMessages =
-            latest.where((m) => m.senderId != currentUserId).toList();
-        if (newMessages.isNotEmpty) {
-          final combined = [...state.messages, ...newMessages];
-          final seen = <String>{};
-          final deduped = combined.where((m) => seen.add(m.id)).toList();
-          state = state.copyWith(messages: deduped);
+      for (final m in newMsgs) {
+        _seenMessageIds.add(m.id);
+      }
+
+      // Merge: replace any matching optimistic, append new
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+      var updated = List<MessageModel>.from(state.messages);
+      for (final msg in newMsgs) {
+        final optIdx = msg.senderId == currentUserId
+            ? updated.indexWhere(
+                (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim())
+            : -1;
+        if (optIdx >= 0) {
+          updated[optIdx] = msg;
+        } else {
+          updated.add(msg);
         }
       }
-      _lastMessageTime = latestMsgTime;
+      // Sort by createdAt to maintain order
+      updated.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      state = state.copyWith(messages: updated);
+
+      final newestTs = _parseTimestamp(latest.last.createdAt);
+      if (newestTs != null) _lastMessageTime = newestTs;
     } catch (e) {
       debugPrint('Polling error: $e');
     }
@@ -177,13 +205,7 @@ class MessageNotifier extends Notifier<MessageState> {
         isLoading: false,
       );
       _attachSocketListeners();
-
-      // Subscribe to conversation updates via Supabase realtime
-      await _realtime.unsubscribe(_convChannel);
-      _convChannel = _realtime.subscribeToConversations(
-        userId: currentUserId,
-        onUpdate: _onConversationUpdate,
-      );
+      // No Supabase Realtime for conversations — socket sends full hydrated data.
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -198,6 +220,11 @@ class MessageNotifier extends Notifier<MessageState> {
   // ---------------------------------------------------------------------------
 
   Future<void> loadMessages(String conversationId) async {
+    // Clear dedup registry for the new conversation
+    _seenMessageIds.clear();
+    _realtimeActive = false;
+    _stopPolling();
+
     state = state.copyWith(
       isLoading: true,
       clearError: true,
@@ -206,156 +233,153 @@ class MessageNotifier extends Notifier<MessageState> {
       hasMoreMessages: true,
       currentPage: 1,
     );
+
     try {
-      final msgs =
-          await _service.getMessages(conversationId, page: 1, limit: 50);
+      final msgs = await _service.getMessages(conversationId, page: 1, limit: 50);
+
+      // Seed dedup registry with loaded messages
+      for (final m in msgs) {
+        _seenMessageIds.add(m.id);
+      }
+
       state = state.copyWith(
         messages: msgs,
         isLoading: false,
         hasMoreMessages: msgs.length == 50,
       );
-      _lastMessageTime =
-          msgs.isNotEmpty ? _parseTimestamp(msgs.first.createdAt) : null;
-      _service.markAsRead(conversationId);
+      // msgs are ASC ordered — last item is the newest
+      _lastMessageTime = msgs.isNotEmpty ? _parseTimestamp(msgs.last.createdAt) : null;
+
+      unawaited(_service.markAsRead(conversationId));
       _attachSocketListeners();
       SocketService.instance.joinConversation(conversationId);
 
-      // Subscribe to new messages via Supabase realtime
+      // Subscribe to new messages via Supabase Realtime
       await _realtime.unsubscribe(_msgChannel);
       final currentUserId = ref.read(authProvider).user?.id ?? '';
       _msgChannel = _realtime.subscribeToMessages(
         conversationId: conversationId,
         onInsert: _onRealtimeMessageInsert,
         onTyping: (typingUserId) {
-          // Only show indicator if the typing user is the other party
           if (typingUserId != currentUserId) _showTypingIndicator();
+        },
+        onStatus: (status) {
+          if (status == 'SUBSCRIBED') {
+            _realtimeActive = true;
+            _stopPolling(); // realtime is live — polling not needed
+            debugPrint('📡 Realtime SUBSCRIBED — polling stopped');
+          } else if (status == 'CHANNEL_ERROR' || status == 'TIMED_OUT') {
+            _realtimeActive = false;
+            _startPolling(conversationId); // realtime failed — use polling
+            debugPrint('📡 Realtime $status — polling started as fallback');
+          }
         },
       );
 
-      // Always keep polling as a safety net. This covers cases where
-      // realtime is configured but the backing tables are not actually enabled.
+      // Start polling immediately as safety net.
+      // It stops itself once realtime confirms SUBSCRIBED.
       _startPolling(conversationId);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
-      // Fallback: start polling on error
       _startPolling(conversationId);
     }
   }
 
-  /// Load older messages (infinite scroll upward).
+  /// Load older messages (scroll up / infinite scroll).
+  /// Uses cursor-based pagination — fetches messages older than the oldest in state.
   Future<void> loadMoreMessages() async {
     if (!state.hasMoreMessages || state.isLoading) return;
     final convId = state.activeConversationId;
     if (convId == null || convId.isEmpty) return;
 
-    final nextPage = state.currentPage + 1;
+    // Use oldest visible message's timestamp as cursor
+    final oldestTs = state.messages.isNotEmpty ? state.messages.first.createdAt : null;
+
     try {
-      final older =
-          await _service.getMessages(convId, page: nextPage, limit: 50);
+      final older = await _service.getMessages(convId, limit: 50, before: oldestTs);
       if (older.isEmpty) {
         state = state.copyWith(hasMoreMessages: false);
         return;
       }
-      // Prepend older messages, dedup
-      final combined = [...older, ...state.messages];
-      final seen = <String>{};
-      final deduped = combined.where((m) => seen.add(m.id)).toList();
+      final newOlder = older.where((m) => !_seenMessageIds.contains(m.id)).toList();
+      for (final m in newOlder) {
+        _seenMessageIds.add(m.id);
+      }
+      final combined = [...newOlder, ...state.messages];
+      combined.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       state = state.copyWith(
-        messages: deduped,
-        currentPage: nextPage,
+        messages: combined,
         hasMoreMessages: older.length == 50,
       );
     } catch (e) {
-      debugPrint('MessageNotifier.loadMoreMessages error: $e');
+      debugPrint('loadMoreMessages error: $e');
     }
   }
 
-  /// Called by Supabase realtime when a new row is inserted into messages.
+  // ---------------------------------------------------------------------------
+  // Realtime handlers
+  // ---------------------------------------------------------------------------
+
+  /// Supabase Realtime INSERT on messages table — primary source for incoming msgs.
   void _onRealtimeMessageInsert(Map<String, dynamic> row) {
     try {
       final msgId = row['id']?.toString() ?? '';
       final convId = row['conversation_id']?.toString() ?? '';
-
       if (convId != state.activeConversationId) return;
-      if (msgId.isNotEmpty && state.messages.any((m) => m.id == msgId)) return;
 
       final msg = MessageModel.fromJson(row);
       final currentUserId = ref.read(authProvider).user?.id ?? '';
 
       if (msg.senderId == currentUserId) {
-        // Own message confirmed by DB — reconcile with pending optimistic instead
-        // of appending. This prevents the duplicate-then-dedup flicker and avoids
-        // the race where a concurrent reload wipes state before HTTP reconciles.
+        // Own message confirmed by DB — reconcile with pending optimistic
         final optIdx = state.messages.indexWhere(
-          (m) =>
-              m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+          (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
         );
         if (optIdx >= 0) {
+          _seenMessageIds.add(msgId);
           final updated = List<MessageModel>.from(state.messages);
           updated[optIdx] = msg;
           state = state.copyWith(messages: updated);
-          debugPrint(
-              '✅ Optimistic reconciled via Supabase realtime: ${msg.id}');
+          debugPrint('✅ Optimistic reconciled via Realtime: ${msg.id}');
           return;
         }
-        // No matching optimistic (already reconciled by HTTP response) — skip
-        // to avoid showing a duplicate.
-        if (state.messages.any((m) =>
-            m.content.trim() == msg.content.trim() &&
-            m.senderId == currentUserId &&
-            !m.id.startsWith('opt_'))) {
-          return;
-        }
+        // Already reconciled by HTTP response — skip to avoid duplicate
+        if (_seenMessageIds.contains(msgId)) return;
       } else {
-        // Other user's message — clear their typing indicator
+        if (_seenMessageIds.contains(msgId)) return;
         _typingResetTimer?.cancel();
         state = state.copyWith(isOtherTyping: false);
       }
 
-      state = state.copyWith(messages: [...state.messages, msg]);
+      _seenMessageIds.add(msgId);
+      final updated = [...state.messages, msg];
+      updated.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      state = state.copyWith(messages: updated);
+      _lastMessageTime = _parseTimestamp(msg.createdAt) ?? _lastMessageTime;
       debugPrint('📨 Realtime message appended: ${msg.id}');
     } catch (e) {
-      debugPrint('MessageNotifier._onRealtimeMessageInsert error: $e');
+      debugPrint('_onRealtimeMessageInsert error: $e');
     }
   }
 
-  /// Called when Supabase fires an UPDATE on the conversations table.
-  void _onConversationUpdate(Map<String, dynamic> row) {
-    try {
-      final convId = row['id']?.toString() ?? '';
-      if (convId.isEmpty) return;
-      final currentUserId = ref.read(authProvider).user?.id ?? '';
-      final updated = ConversationModel.fromJson(row, currentUserId);
-      final conversations = state.conversations.map((c) {
-        return c.id == convId ? updated : c;
-      }).toList();
-      state = state.copyWith(
-        conversations: conversations,
-        unreadCount:
-            conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
-      );
-    } catch (e) {
-      debugPrint('MessageNotifier._onConversationUpdate error: $e');
-    }
-  }
-
+  /// Socket `new_message` — fallback for when Supabase Realtime is not active.
   void _onSocketMessage(Map<String, dynamic> data) {
+    // Skip if Supabase Realtime is handling messages to avoid duplicates
+    if (_realtimeActive) return;
     try {
       final convId = data['conversationId']?.toString() ?? '';
       if (convId.isEmpty || convId != state.activeConversationId) return;
 
       final msg = MessageModel.fromSocketData(data);
-      if (msg.id.isNotEmpty && state.messages.any((m) => m.id == msg.id)) {
-        return;
-      }
+      if (_seenMessageIds.contains(msg.id)) return;
 
       final currentUserId = ref.read(authProvider).user?.id ?? '';
       if (msg.senderId == currentUserId) {
         final optIdx = state.messages.indexWhere(
-          (m) =>
-              m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+          (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
         );
         if (optIdx >= 0) {
+          _seenMessageIds.add(msg.id);
           final updated = List<MessageModel>.from(state.messages);
           updated[optIdx] = msg;
           state = state.copyWith(messages: updated);
@@ -366,26 +390,53 @@ class MessageNotifier extends Notifier<MessageState> {
         state = state.copyWith(isOtherTyping: false);
       }
 
-      final seen = <String>{};
-      state = state.copyWith(
-        messages:
-            [...state.messages, msg].where((m) => seen.add(m.id)).toList(),
-      );
+      _seenMessageIds.add(msg.id);
+      final updated = [...state.messages, msg];
+      updated.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      state = state.copyWith(messages: updated);
       _lastMessageTime = _parseTimestamp(msg.createdAt) ?? _lastMessageTime;
     } catch (e) {
-      debugPrint('MessageNotifier._onSocketMessage error: $e');
+      debugPrint('_onSocketMessage error: $e');
     }
   }
 
+  /// Socket `update_conversation` — update conversation list with full hydrated data.
+  /// CRITICAL: never reload the message list from here (causes disappearing messages).
   void _onSocketConversationUpdate(Map<String, dynamic> data) {
     try {
-      final activeConversationId = state.activeConversationId;
-      if (activeConversationId != null && activeConversationId.isNotEmpty) {
-        unawaited(_reloadMessagesForConversation(activeConversationId));
+      final convId = data['id']?.toString() ?? data['_id']?.toString() ?? '';
+      final currentUserId = ref.read(authProvider).user?.id ?? '';
+
+      if (convId.isEmpty) {
+        // Fallback: refresh the full list if we can't identify the conversation
+        unawaited(_refreshConversationsSilently());
+        return;
       }
-      unawaited(_refreshConversationsSilently());
+
+      // Build updated conversation from the full socket payload (includes joins)
+      final updated = ConversationModel.fromJson(data, currentUserId);
+      var conversations = state.conversations.toList();
+
+      final idx = conversations.indexWhere((c) => c.id == convId);
+      if (idx >= 0) {
+        conversations[idx] = updated;
+      } else {
+        conversations.insert(0, updated);
+      }
+
+      // Keep sorted: most recently updated first
+      conversations.sort((a, b) {
+        final aTime = a.lastMessageTime ?? a.createdAt;
+        final bTime = b.lastMessageTime ?? b.createdAt;
+        return bTime.compareTo(aTime);
+      });
+
+      state = state.copyWith(
+        conversations: conversations,
+        unreadCount: conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
+      );
     } catch (e) {
-      debugPrint('MessageNotifier._onSocketConversationUpdate error: $e');
+      debugPrint('_onSocketConversationUpdate error: $e');
     }
   }
 
@@ -399,9 +450,13 @@ class MessageNotifier extends Notifier<MessageState> {
         unreadCount: convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
       );
     } catch (e) {
-      debugPrint('MessageNotifier._refreshConversationsSilently error: $e');
+      debugPrint('_refreshConversationsSilently error: $e');
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Socket lifecycle
+  // ---------------------------------------------------------------------------
 
   void _attachSocketListeners() {
     if (_socketListenerAttached) return;
@@ -413,10 +468,13 @@ class MessageNotifier extends Notifier<MessageState> {
   void _detachSocketListeners() {
     if (!_socketListenerAttached) return;
     SocketService.instance.removeMessageListener(_socketMessageListener);
-    SocketService.instance
-        .removeConversationListener(_socketConversationListener);
+    SocketService.instance.removeConversationListener(_socketConversationListener);
     _socketListenerAttached = false;
   }
+
+  // ---------------------------------------------------------------------------
+  // Typing indicator
+  // ---------------------------------------------------------------------------
 
   void _showTypingIndicator() {
     state = state.copyWith(isOtherTyping: true);
@@ -426,45 +484,6 @@ class MessageNotifier extends Notifier<MessageState> {
     });
   }
 
-  List<MessageModel> _replaceOptimisticMessage(
-    List<MessageModel> messages,
-    MessageModel optimisticMsg,
-    MessageModel confirmedMsg,
-  ) {
-    final updated = messages
-        .map((m) => m.id == optimisticMsg.id ? confirmedMsg : m)
-        .toList();
-    final seen = <String>{};
-    return updated.where((m) => m.id.isNotEmpty && seen.add(m.id)).toList();
-  }
-
-  Future<List<MessageModel>> _reloadMessagesForConversation(
-      String conversationId) async {
-    final latest =
-        await _service.getMessages(conversationId, page: 1, limit: 50);
-    _lastMessageTime = latest.isNotEmpty
-        ? _parseTimestamp(latest.first.createdAt)
-        : _lastMessageTime;
-    state = state.copyWith(
-      messages: latest,
-      hasMoreMessages: latest.length == 50,
-      currentPage: 1,
-    );
-    return latest;
-  }
-
-  bool _containsEquivalentMessage(
-    List<MessageModel> messages, {
-    required String senderId,
-    required String content,
-  }) {
-    final normalized = content.trim();
-    if (normalized.isEmpty) return false;
-    return messages.any((message) =>
-        message.senderId == senderId && message.content.trim() == normalized);
-  }
-
-  /// Broadcast that the current user is typing — debounced by the caller.
   void sendTypingIndicator() {
     final channel = _msgChannel;
     final userId = ref.read(authProvider).user?.id ?? '';
@@ -473,18 +492,8 @@ class MessageNotifier extends Notifier<MessageState> {
     }
   }
 
-  /// Stop listening to realtime for the active conversation.
-  void detachSocketListener() {
-    _realtime.unsubscribe(_msgChannel);
-    _msgChannel = null;
-    _typingResetTimer?.cancel();
-    _stopPolling();
-    SocketService.instance.leaveConversation();
-    state = state.copyWith(isOtherTyping: false);
-  }
-
   // ---------------------------------------------------------------------------
-  // Send
+  // Send message
   // ---------------------------------------------------------------------------
 
   Future<void> sendMessage(String content, {File? imageFile}) async {
@@ -493,7 +502,6 @@ class MessageNotifier extends Notifier<MessageState> {
     final currentUserId = ref.read(authProvider).user?.id ?? '';
     final trimmedContent = content.trim();
 
-    // Optimistic UI
     final optimisticMsg = MessageModel.optimistic(
       content: trimmedContent.isEmpty && imageFile != null
           ? 'Sending image...'
@@ -501,6 +509,7 @@ class MessageNotifier extends Notifier<MessageState> {
       senderId: currentUserId,
       conversationId: convId,
     );
+
     state = state.copyWith(
       messages: [...state.messages, optimisticMsg],
       isSending: true,
@@ -514,43 +523,47 @@ class MessageNotifier extends Notifier<MessageState> {
         imageFile: imageFile,
       );
 
-      // If the HTTP response has an ID, use it to reconcile the optimistic message.
-      // Supabase realtime may have already reconciled it — _replaceOptimisticMessage
-      // is a no-op in that case, which is safe.
       if (msg.id.isNotEmpty) {
-        state = state.copyWith(
-          messages:
-              _replaceOptimisticMessage(state.messages, optimisticMsg, msg),
-          isSending: false,
-        );
+        // Register real ID so realtime/socket don't re-add it
+        _seenMessageIds.add(msg.id);
+
+        // Replace optimistic message with confirmed one
+        final updated = List<MessageModel>.from(state.messages);
+        final optIdx = updated.indexWhere((m) => m.id == optimisticMsg.id);
+        if (optIdx >= 0) {
+          updated[optIdx] = msg;
+        } else {
+          // Optimistic was already reconciled by Realtime — ensure no duplicate
+          if (!updated.any((m) => m.id == msg.id)) {
+            updated.add(msg);
+            updated.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          }
+        }
+        state = state.copyWith(messages: updated, isSending: false);
       } else {
-        // Rare: backend returned no ID (should not happen after the RETURNING fix).
-        // Supabase realtime will reconcile; just clear the sending flag.
         state = state.copyWith(isSending: false);
       }
     } catch (e) {
-      // On network error, check if the message arrived anyway (Supabase realtime
-      // or a fast DB commit). If it's already in state, leave it. Otherwise remove
-      // the optimistic and surface the error.
-      final alreadyDelivered = _containsEquivalentMessage(
-        state.messages,
-        senderId: currentUserId,
-        content: trimmedContent,
-      );
+      // Check if message arrived anyway via realtime before removing optimistic
+      final alreadyDelivered = state.messages.any((m) =>
+          !m.id.startsWith('opt_') &&
+          m.senderId == currentUserId &&
+          m.content.trim() == trimmedContent.trim());
       if (alreadyDelivered) {
-        state = state.copyWith(isSending: false);
+        // Remove orphaned optimistic
+        final cleaned = state.messages.where((m) => m.id != optimisticMsg.id).toList();
+        state = state.copyWith(messages: cleaned, isSending: false);
         return;
       }
-      final rolled =
-          state.messages.where((m) => m.id != optimisticMsg.id).toList();
-      state = state.copyWith(
-          messages: rolled, isSending: false, error: e.toString());
+      // Mark optimistic as failed (keep it visible, show error)
+      final rolled = state.messages.where((m) => m.id != optimisticMsg.id).toList();
+      state = state.copyWith(messages: rolled, isSending: false, error: e.toString());
       rethrow;
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Misc
+  // Public helpers
   // ---------------------------------------------------------------------------
 
   Future<String> getOrCreateConversation(
@@ -573,8 +586,19 @@ class MessageNotifier extends Notifier<MessageState> {
     } catch (_) {}
   }
 
+  void detachSocketListener() {
+    _realtime.unsubscribe(_msgChannel);
+    _msgChannel = null;
+    _realtimeActive = false;
+    _typingResetTimer?.cancel();
+    _stopPolling();
+    SocketService.instance.leaveConversation();
+    state = state.copyWith(isOtherTyping: false);
+  }
+
   void clearActiveConversation() {
     detachSocketListener();
+    _seenMessageIds.clear();
     state = state.copyWith(clearMessages: true, activeConversationId: '');
   }
 }
