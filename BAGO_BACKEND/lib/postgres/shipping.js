@@ -719,7 +719,11 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
         const sw = senderWallet.rows[0];
         if (sw) {
           await client.query(
-            `UPDATE public.wallet_accounts SET escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) WHERE user_id = $1`,
+            `UPDATE public.wallet_accounts
+             SET available_balance = greatest(0, available_balance - $2),
+                 escrow_balance = escrow_balance + $2,
+                 updated_at = timezone('utc', now())
+             WHERE user_id = $1`,
             [request.sender_id, amount],
           );
           await client.query(
@@ -801,37 +805,62 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
 
     const amount = toNumber(request.amount);
     if (amount > 0) {
-      const walletResult = await client.query(
-        `select id, available_balance, escrow_balance, currency from public.wallet_accounts where user_id = $1 for update`,
+      // Deduct from sender's escrow (where the hold was placed on accept)
+      const senderWalletResult = await client.query(
+        `select id, escrow_balance, currency from public.wallet_accounts where user_id = $1 for update`,
+        [request.sender_id],
+      );
+      const senderWallet = senderWalletResult.rows[0];
+      if (senderWallet) {
+        await client.query(
+          `update public.wallet_accounts
+           set escrow_balance = greatest(0, escrow_balance - $2),
+               updated_at = timezone('utc', now())
+           where user_id = $1`,
+          [request.sender_id, amount],
+        );
+        await client.query(
+          `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
+           values ($1,$2,$3,$4,'escrow_release',$5,$6,'completed',$7,$8)`,
+          [
+            senderWallet.id,
+            request.sender_id,
+            request.id,
+            request.trip_id,
+            amount,
+            request.currency || senderWallet.currency || 'USD',
+            `Escrow released — payment for ${request.tracking_number || request.id}`,
+            JSON.stringify({ requestId: request.id }),
+          ],
+        );
+      }
+
+      // Credit traveler's available balance
+      const travelerWalletResult = await client.query(
+        `select id, currency from public.wallet_accounts where user_id = $1 for update`,
         [request.traveler_id],
       );
-      const wallet = walletResult.rows[0];
-      if (wallet) {
+      const travelerWallet = travelerWalletResult.rows[0];
+      if (travelerWallet) {
         await client.query(
-          `
-            update public.wallet_accounts
-            set available_balance = available_balance + $2,
-                escrow_balance = greatest(0, escrow_balance - $2),
-                updated_at = timezone('utc', now())
-            where user_id = $1
-          `,
+          `update public.wallet_accounts
+           set available_balance = available_balance + $2,
+               updated_at = timezone('utc', now())
+           where user_id = $1`,
           [request.traveler_id, amount],
         );
-
         await client.query(
-          `
-            insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
-            values ($1,$2,$3,$4,'escrow_release',$5,$6,'completed',$7,$8)
-          `,
+          `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
+           values ($1,$2,$3,$4,'earning',$5,$6,'completed',$7,$8)`,
           [
-            wallet.id,
+            travelerWallet.id,
             request.traveler_id,
             request.id,
             request.trip_id,
             amount,
-            request.currency || wallet.currency || 'USD',
-            `Funds released from escrow for Request ${request.tracking_number || request.id}`,
-            { requestId: request.id },
+            request.currency || travelerWallet.currency || 'USD',
+            `Earned for delivering ${request.tracking_number || request.id}`,
+            JSON.stringify({ requestId: request.id }),
           ],
         );
       }
