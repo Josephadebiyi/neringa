@@ -279,6 +279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 isCarrier
                     ? _CarrierHero(
                         balance: user?.walletBalance ?? 0,
+                        pendingEarnings: carrierEarnings,
                         currency: UserCurrencyHelper.resolve(user),
                         onPostTrip: () => context.push('/post-trip'),
                       )
@@ -543,9 +544,11 @@ class _InputRow extends StatelessWidget {
 class _CarrierHero extends StatelessWidget {
   const _CarrierHero(
       {required this.balance,
+      required this.pendingEarnings,
       required this.currency,
       required this.onPostTrip});
   final double balance;
+  final double pendingEarnings;
   final String currency;
   final VoidCallback onPostTrip;
 
@@ -576,19 +579,37 @@ class _CarrierHero extends StatelessWidget {
                     color: Colors.white, size: 22),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.earnedBalance,
-                      style: AppTextStyles.labelXs.copyWith(
-                          color: Colors.white.withOpacity(0.5),
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1)),
-                  const SizedBox(height: 4),
-                  Text('$currency ${balance.toStringAsFixed(2)}',
-                      style: AppTextStyles.displaySm.copyWith(
-                          color: Colors.white, fontWeight: FontWeight.w900)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.earnedBalance,
+                        style: AppTextStyles.labelXs.copyWith(
+                            color: Colors.white.withOpacity(0.5),
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.1)),
+                    const SizedBox(height: 4),
+                    Text('$currency ${balance.toStringAsFixed(2)}',
+                        style: AppTextStyles.displaySm.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.w900)),
+                    if (pendingEarnings > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.schedule_rounded, color: Color(0xFFFBBF24), size: 13),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$currency ${pendingEarnings.toStringAsFixed(2)} pending from sales',
+                            style: AppTextStyles.labelXs.copyWith(
+                              color: const Color(0xFFFBBF24),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
