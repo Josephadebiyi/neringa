@@ -473,6 +473,11 @@ class _AccountTab extends StatelessWidget {
               onTap: () => context.push('/profile/payout-methods'),
             ),
             BagoMenuItem(
+              label: 'Withdraw Earnings',
+              leading: const Icon(Icons.savings_outlined, color: AppColors.gray600),
+              onTap: () => context.push('/profile/withdraw'),
+            ),
+            BagoMenuItem(
               label: l10n.paymentsRefunds,
               leading: const Icon(Icons.receipt_long_outlined, color: AppColors.gray600),
               onTap: () => context.push('/profile/payments-refunds'),

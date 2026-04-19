@@ -37,6 +37,7 @@ class PackageModel {
   final String? paymentStatus;
   final String? estimatedDeparture;
   final String? estimatedArrival;
+  final bool senderReceived;
 
   const PackageModel({
     required this.id,
@@ -74,6 +75,7 @@ class PackageModel {
     this.paymentStatus,
     this.estimatedDeparture,
     this.estimatedArrival,
+    this.senderReceived = false,
   });
 
   bool get isActive => status.isActive;
@@ -213,6 +215,7 @@ class PackageModel {
             _mapValue(json['dates'], 'estimatedDeparture'),
         estimatedArrival: json['estimatedArrival']?.toString() ??
             _mapValue(json['dates'], 'estimatedArrival'),
+        senderReceived: json['senderReceived'] == true,
       );
 
   Map<String, dynamic> toJson() => {

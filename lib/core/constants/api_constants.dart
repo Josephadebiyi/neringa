@@ -103,6 +103,8 @@ class ApiConstants {
   static const String rejectRequest     = '/api/bago/reject-request';
   // Backend: PUT /request/:requestId/traveler-proof — caller appends /<id>/traveler-proof
   static const String travelerProof     = '/api/bago/request';
+  // Backend: PUT /request/:requestId/confirm-received — caller appends /<id>/confirm-received
+  static const String confirmReceived   = '/api/bago/request';
 
   // ---------------------------------------------------------------------------
   // Wallet / payments

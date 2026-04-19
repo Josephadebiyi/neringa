@@ -27,6 +27,7 @@ class ShipmentDetailsScreen extends ConsumerStatefulWidget {
 class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
   late Future<PackageModel> _future;
   bool _hasReviewed = false;
+  bool _confirmingReceived = false;
 
   @override
   void initState() {
@@ -81,13 +82,20 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
             );
           }
           final currentUser = ref.watch(authProvider).user;
+          final pkg = snap.data!;
+          final isSender = currentUser?.id == pkg.senderId;
           return _ShipmentBody(
-            package: snap.data!,
-            onDownloadPdf: () => _showPdfOptions(snap.data!, currentUser),
+            package: pkg,
+            onDownloadPdf: () => _showPdfOptions(pkg, currentUser),
             canLeaveFeedback: !_hasReviewed &&
-                snap.data!.status == PackageStatus.delivered &&
-                snap.data!.requestId.isNotEmpty,
-            onLeaveFeedback: () => _showReviewSheet(snap.data!, currentUser),
+                pkg.status == PackageStatus.delivered &&
+                pkg.requestId.isNotEmpty,
+            onLeaveFeedback: () => _showReviewSheet(pkg, currentUser),
+            canConfirmReceived: isSender &&
+                pkg.status == PackageStatus.delivered &&
+                !pkg.senderReceived,
+            confirmingReceived: _confirmingReceived,
+            onConfirmReceived: () => _confirmReceived(pkg.requestId),
           );
         },
       ),
@@ -319,6 +327,38 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
     );
     commentCtrl.dispose();
   }
+
+  Future<void> _confirmReceived(String requestId) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm delivery?'),
+        content: const Text(
+          'Confirming receipt will release payment to the traveler. Only do this once you have the package.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(l10n.confirm)),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _confirmingReceived = true);
+    try {
+      await ShipmentService.instance.confirmReceived(requestId);
+      if (!mounted) return;
+      AppSnackBar.show(context, message: 'Delivery confirmed! Payment released to traveler.', type: SnackBarType.success);
+      setState(() {
+        _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
+      });
+    } catch (e) {
+      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+    } finally {
+      if (mounted) setState(() => _confirmingReceived = false);
+    }
+  }
 }
 
 class _ShipmentBody extends StatelessWidget {
@@ -327,11 +367,17 @@ class _ShipmentBody extends StatelessWidget {
     required this.onDownloadPdf,
     required this.canLeaveFeedback,
     required this.onLeaveFeedback,
+    required this.canConfirmReceived,
+    required this.confirmingReceived,
+    required this.onConfirmReceived,
   });
   final PackageModel package;
   final VoidCallback onDownloadPdf;
   final bool canLeaveFeedback;
   final VoidCallback onLeaveFeedback;
+  final bool canConfirmReceived;
+  final bool confirmingReceived;
+  final VoidCallback onConfirmReceived;
 
   @override
   Widget build(BuildContext context) {
@@ -541,6 +587,28 @@ class _ShipmentBody extends StatelessWidget {
               ],
             ),
           ),
+          if (canConfirmReceived) ...[
+            const SizedBox(height: 14),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Label('Confirm delivery'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The traveler has marked this package as delivered. Please confirm you\'ve received it to release the payment.',
+                    style: AppTextStyles.muted(AppTextStyles.bodySm),
+                  ),
+                  const SizedBox(height: 12),
+                  AppButton(
+                    label: 'I Received My Package',
+                    isLoading: confirmingReceived,
+                    onPressed: onConfirmReceived,
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (canLeaveFeedback) ...[
             const SizedBox(height: 14),
             _Card(
