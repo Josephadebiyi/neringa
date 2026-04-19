@@ -8,12 +8,21 @@ import GoogleSignIn
   private let pushChannelName = "bago/push_notifications"
   private var pushMethodChannel: FlutterMethodChannel?
   private var currentDeviceToken: String?
+  private var pendingNotificationData: [String: String]?
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = self
+    // App launched by tapping a notification while killed
+    if let remoteNotif = launchOptions?[.remoteNotification] as? [String: AnyObject],
+       let conversationId = remoteNotif["conversationId"] as? String {
+      pendingNotificationData = [
+        "conversationId": conversationId,
+        "type": remoteNotif["type"] as? String ?? "chat_message",
+      ]
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -31,6 +40,12 @@ import GoogleSignIn
       name: pushChannelName,
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
+    // Deliver any notification that launched the app from killed state
+    if let data = pendingNotificationData {
+      pushMethodChannel?.invokeMethod("onNotificationTap", arguments: data)
+      pendingNotificationData = nil
+    }
+
     pushMethodChannel?.setMethodCallHandler { [weak self] call, result in
       guard let self else {
         result(FlutterError(code: "unavailable", message: "App delegate unavailable", details: nil))
@@ -102,5 +117,26 @@ import GoogleSignIn
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     completionHandler([.alert, .sound, .badge])
+  }
+
+  // User tapped a notification while app was in background or foreground
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    let userInfo = response.notification.request.content.userInfo
+    if let conversationId = userInfo["conversationId"] as? String {
+      let data: [String: String] = [
+        "conversationId": conversationId,
+        "type": userInfo["type"] as? String ?? "chat_message",
+      ]
+      if pushMethodChannel != nil {
+        pushMethodChannel?.invokeMethod("onNotificationTap", arguments: data)
+      } else {
+        pendingNotificationData = data
+      }
+    }
+    completionHandler()
   }
 }
