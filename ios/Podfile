@@ -26,7 +26,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  use_frameworks! :linkage => :static
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -40,8 +40,18 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      config.build_settings['VALID_ARCHS'] = 'arm64'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+    end
+  end
+
+  # Force stripe_ios to depend on Stripe SDK targets so they compile first
+  stripe_sdk_names = %w[Stripe StripeCore StripeApplePay StripePayments StripePaymentSheet
+                        StripeFinancialConnections StripeUICore StripePaymentsUI]
+  stripe_sdk_targets = installer.pods_project.targets.select { |t| stripe_sdk_names.include?(t.name) }
+
+  installer.pods_project.targets.each do |target|
+    if target.name == 'stripe_ios'
+      stripe_sdk_targets.each { |dep| target.add_dependency(dep) }
     end
   end
 end
