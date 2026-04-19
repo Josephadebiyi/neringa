@@ -27,13 +27,15 @@ class ShipmentRequestScreen extends ConsumerStatefulWidget {
   final RequestModel? preloadedRequest;
 
   @override
-  ConsumerState<ShipmentRequestScreen> createState() => _ShipmentRequestScreenState();
+  ConsumerState<ShipmentRequestScreen> createState() =>
+      _ShipmentRequestScreenState();
 }
 
 class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
   bool _isAccepting = false;
   bool _isRejecting = false;
   bool _hasReviewed = false;
+  bool _confirmingReceived = false;
   late Future<RequestModel?> _requestFuture;
 
   @override
@@ -55,11 +57,15 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     try {
       await ref.read(shipmentProvider.notifier).acceptRequest(req.id);
       if (mounted) {
-        AppSnackBar.show(context, message: 'Request accepted!', type: SnackBarType.success);
+        AppSnackBar.show(context,
+            message: 'Request accepted!', type: SnackBarType.success);
         context.pop();
       }
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _isAccepting = false);
     }
@@ -70,11 +76,15 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     try {
       await ref.read(shipmentProvider.notifier).rejectRequest(req.id);
       if (mounted) {
-        AppSnackBar.show(context, message: 'Request declined.', type: SnackBarType.info);
+        AppSnackBar.show(context,
+            message: 'Request declined.', type: SnackBarType.info);
         context.pop();
       }
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _isRejecting = false);
     }
@@ -113,6 +123,60 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     }
   }
 
+  Future<void> _confirmReceived(RequestModel req) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm delivery?'),
+        content: const Text(
+          'Confirm this only after the package is in your hands. This will release payment to the traveler.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _confirmingReceived = true);
+    try {
+      await ShipmentService.instance.confirmReceived(req.id);
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: 'Delivery confirmed! Payment released to traveler.',
+        type: SnackBarType.success,
+      );
+      setState(() {
+        _requestFuture = ShipmentService.instance
+            .getRequestDetails(widget.requestId)
+            .then<RequestModel?>((value) => value)
+            .catchError((_) => null);
+      });
+      ref.read(shipmentProvider.notifier).loadMyRequestHistory();
+      ref.read(shipmentProvider.notifier).loadMyPackages();
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          message: e.toString(),
+          type: SnackBarType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _confirmingReceived = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,7 +184,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        title: Text('Shipment Request', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        title: Text('Shipment Request',
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
@@ -149,7 +214,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.inbox_rounded, color: AppColors.gray300, size: 56),
+                    const Icon(Icons.inbox_rounded,
+                        color: AppColors.gray300, size: 56),
                     const SizedBox(height: 16),
                     Text('Request not found', style: AppTextStyles.h3),
                     const SizedBox(height: 8),
@@ -162,7 +228,9 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     AppButton(
                       label: 'Refresh',
                       onPressed: () {
-                        ref.read(shipmentProvider.notifier).loadIncomingRequests();
+                        ref
+                            .read(shipmentProvider.notifier)
+                            .loadIncomingRequests();
                         setState(() {});
                       },
                     ),
@@ -180,6 +248,10 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
 
   Widget _buildBody(BuildContext context, RequestModel req) {
     final isPending = req.status == RequestStatus.pending;
+    final isSender = req.role == 'sender';
+    final awaitingSenderConfirmation =
+        isSender && req.awaitingSenderConfirmation;
+    final canLeaveFeedback = req.isCompletedBySender && !_hasReviewed;
     final statusColor = switch (req.status) {
       RequestStatus.accepted => AppColors.success,
       RequestStatus.rejected => AppColors.error,
@@ -199,7 +271,9 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(20)),
             child: Column(
               children: [
                 if (itemImage.isNotEmpty) ...[
@@ -213,25 +287,30 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   const SizedBox(height: 16),
                 ],
                 Container(
-                  width: 64, height: 64,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.inbox_rounded, color: statusColor, size: 30),
+                  child:
+                      Icon(Icons.inbox_rounded, color: statusColor, size: 30),
                 ),
                 const SizedBox(height: 12),
                 Text(req.packageTitle ?? 'Shipment Request',
-                    style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+                    style:
+                        AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(req.statusLabel,
-                      style: AppTextStyles.labelSm.copyWith(color: statusColor, fontWeight: FontWeight.w700)),
+                      style: AppTextStyles.labelSm.copyWith(
+                          color: statusColor, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -244,14 +323,23 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
               children: [
                 _InfoLabel('Package Details'),
                 const SizedBox(height: 12),
-                if ((req.packageTitle ?? '').isNotEmpty) _DetailRow('Item', req.packageTitle!),
-                if ((req.packageDescription ?? '').isNotEmpty) _DetailRow('Description', req.packageDescription!),
-                if ((req.packageWeight ?? 0) > 0) _DetailRow('Weight', '${req.packageWeight!.toStringAsFixed(1)} kg'),
-                if ((req.receiverName ?? '').isNotEmpty) _DetailRow('Receiver', req.receiverName!),
-                if ((req.receiverPhone ?? '').isNotEmpty) _DetailRow('Phone', req.receiverPhone!),
-                if ((req.receiverEmail ?? '').isNotEmpty) _DetailRow('Email', req.receiverEmail!),
-                if ((req.pickupAddress ?? '').isNotEmpty) _DetailRow('Pickup', req.pickupAddress!),
-                if ((req.deliveryAddress ?? '').isNotEmpty) _DetailRow('Delivery', req.deliveryAddress!),
+                if ((req.packageTitle ?? '').isNotEmpty)
+                  _DetailRow('Item', req.packageTitle!),
+                if ((req.packageDescription ?? '').isNotEmpty)
+                  _DetailRow('Description', req.packageDescription!),
+                if ((req.packageWeight ?? 0) > 0)
+                  _DetailRow(
+                      'Weight', '${req.packageWeight!.toStringAsFixed(1)} kg'),
+                if ((req.receiverName ?? '').isNotEmpty)
+                  _DetailRow('Receiver', req.receiverName!),
+                if ((req.receiverPhone ?? '').isNotEmpty)
+                  _DetailRow('Phone', req.receiverPhone!),
+                if ((req.receiverEmail ?? '').isNotEmpty)
+                  _DetailRow('Email', req.receiverEmail!),
+                if ((req.pickupAddress ?? '').isNotEmpty)
+                  _DetailRow('Pickup', req.pickupAddress!),
+                if ((req.deliveryAddress ?? '').isNotEmpty)
+                  _DetailRow('Delivery', req.deliveryAddress!),
               ],
             ),
           ),
@@ -263,19 +351,32 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('FROM', style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400, letterSpacing: 1)),
-                      const SizedBox(height: 4),
-                      Text(req.fromLocation!, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('FROM',
+                              style: AppTextStyles.labelXs.copyWith(
+                                  color: AppColors.gray400, letterSpacing: 1)),
+                          const SizedBox(height: 4),
+                          Text(req.fromLocation!,
+                              style: AppTextStyles.labelMd
+                                  .copyWith(fontWeight: FontWeight.w800)),
+                        ]),
                   ),
-                  const Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 18),
+                  const Icon(Icons.arrow_forward_rounded,
+                      color: AppColors.primary, size: 18),
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text('TO', style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400, letterSpacing: 1)),
-                      const SizedBox(height: 4),
-                      Text(req.toLocation!, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('TO',
+                              style: AppTextStyles.labelXs.copyWith(
+                                  color: AppColors.gray400, letterSpacing: 1)),
+                          const SizedBox(height: 4),
+                          Text(req.toLocation!,
+                              style: AppTextStyles.labelMd
+                                  .copyWith(fontWeight: FontWeight.w800)),
+                        ]),
                   ),
                 ],
               ),
@@ -285,7 +386,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
 
           // Sender info
           _InfoCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _InfoLabel('Sender Details'),
               const SizedBox(height: 14),
               Row(children: [
@@ -294,20 +396,27 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   backgroundColor: AppColors.primarySoft,
                   child: Text(
                     (req.senderName ?? 'U').substring(0, 1).toUpperCase(),
-                    style: AppTextStyles.labelMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800),
+                    style: AppTextStyles.labelMd.copyWith(
+                        color: AppColors.primary, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(req.senderName ?? 'Unknown Sender',
-                        style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
-                    Text('Sender', style: AppTextStyles.muted(AppTextStyles.bodySm)),
-                    if (req.senderEmail != null && req.senderEmail!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(req.senderEmail!, style: AppTextStyles.muted(AppTextStyles.bodySm)),
-                    ],
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(req.senderName ?? 'Unknown Sender',
+                            style: AppTextStyles.labelMd
+                                .copyWith(fontWeight: FontWeight.w800)),
+                        Text('Sender',
+                            style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                        if (req.senderEmail != null &&
+                            req.senderEmail!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(req.senderEmail!,
+                              style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                        ],
+                      ]),
                 ),
               ]),
             ]),
@@ -319,16 +428,21 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      _InfoLabel('Tracking Number'),
-                      const SizedBox(height: 8),
-                      Text(
-                        req.trackingNumber!,
-                        style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.4),
-                      ),
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _InfoLabel('Tracking Number'),
+                          const SizedBox(height: 8),
+                          Text(
+                            req.trackingNumber!,
+                            style: AppTextStyles.labelMd.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4),
+                          ),
+                        ]),
                   ),
-                  const Icon(Icons.copy_rounded, color: AppColors.primary, size: 18),
+                  const Icon(Icons.copy_rounded,
+                      color: AppColors.primary, size: 18),
                 ],
               ),
             ),
@@ -340,14 +454,41 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Agreed Price', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+                Text('Agreed Price',
+                    style: AppTextStyles.labelMd
+                        .copyWith(fontWeight: FontWeight.w700)),
                 Text('${req.currency} ${req.agreedPrice.toStringAsFixed(2)}',
-                    style: AppTextStyles.h3.copyWith(color: AppColors.primary, fontWeight: FontWeight.w900)),
+                    style: AppTextStyles.h3.copyWith(
+                        color: AppColors.primary, fontWeight: FontWeight.w900)),
               ],
             ),
           ),
 
-          if (req.status == RequestStatus.completed && !_hasReviewed) ...[
+          if (awaitingSenderConfirmation) ...[
+            const SizedBox(height: 14),
+            _InfoCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _InfoLabel('Confirm delivery'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The traveler marked this shipment as delivered. Confirm receipt here to release the payment.',
+                    style: AppTextStyles.muted(AppTextStyles.bodySm),
+                  ),
+                  const SizedBox(height: 12),
+                  AppButton(
+                    label: 'I Received My Package',
+                    isLoading: _confirmingReceived,
+                    onPressed: _confirmingReceived
+                        ? null
+                        : () => _confirmReceived(req),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (canLeaveFeedback) ...[
             const SizedBox(height: 14),
             _InfoCard(
               child: Column(
@@ -378,7 +519,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   Expanded(
                     child: Text(
                       'Thanks for sharing your feedback. It helps other users trust the marketplace.',
-                      style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                      style: AppTextStyles.bodyMd
+                          .copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -390,12 +532,15 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
           if (req.message != null && req.message!.isNotEmpty) ...[
             const SizedBox(height: 14),
             _InfoCard(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _InfoLabel('Message from Sender'),
-                const SizedBox(height: 10),
-                Text(req.message!,
-                    style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w500, height: 1.5)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoLabel('Message from Sender'),
+                    const SizedBox(height: 10),
+                    Text(req.message!,
+                        style: AppTextStyles.bodyMd.copyWith(
+                            fontWeight: FontWeight.w500, height: 1.5)),
+                  ]),
             ),
           ],
 
@@ -417,7 +562,10 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                         separatorBuilder: (_, __) => const SizedBox(width: 10),
                         itemBuilder: (_, i) => ClipRRect(
                           borderRadius: BorderRadius.circular(14),
-                          child: _PackageImage(url: req.packageImages[i], width: 160, height: 120),
+                          child: _PackageImage(
+                              url: req.packageImages[i],
+                              width: 160,
+                              height: 120),
                         ),
                       ),
                     ),
@@ -429,14 +577,16 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
             AppButton(
               label: 'Accept Request',
               isLoading: _isAccepting,
-              onPressed: _isAccepting || _isRejecting ? null : () => _accept(req),
+              onPressed:
+                  _isAccepting || _isRejecting ? null : () => _accept(req),
             ),
             const SizedBox(height: 12),
             AppButton(
               label: 'Decline',
               variant: AppButtonVariant.outline,
               isLoading: _isRejecting,
-              onPressed: _isAccepting || _isRejecting ? null : () => _reject(req),
+              onPressed:
+                  _isAccepting || _isRejecting ? null : () => _reject(req),
             ),
           ] else ...[
             // Shipment status update section (for traveler, after acceptance)
@@ -457,7 +607,9 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                       currentStatus: req.status,
                       requestId: req.id,
                       onStatusUpdated: () {
-                        ref.read(shipmentProvider.notifier).loadIncomingRequests();
+                        ref
+                            .read(shipmentProvider.notifier)
+                            .loadIncomingRequests();
                         setState(() {
                           _requestFuture = ShipmentService.instance
                               .getRequestDetails(widget.requestId)
@@ -510,25 +662,31 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   rating: rating,
                   comment: commentCtrl.text,
                   reviewerRole: req.role,
-                  targetRole: req.role == 'sender' ? 'traveler' : req.role == 'traveler' ? 'sender' : null,
+                  targetRole: req.role == 'sender'
+                      ? 'traveler'
+                      : req.role == 'traveler'
+                          ? 'sender'
+                          : null,
                   requestStatus: req.status.apiValue,
                   conversationId: req.conversationId,
                 );
-                if (mounted) {
+                if (!mounted) return;
+                if (sheetContext.mounted) {
                   setState(() => _hasReviewed = true);
                   AppSnackBar.show(
-                    context,
+                    this.context,
                     message: 'Feedback submitted successfully.',
                     type: SnackBarType.success,
                   );
                 }
-                if (Navigator.of(sheetContext).canPop()) {
+                if (sheetContext.mounted &&
+                    Navigator.of(sheetContext).canPop()) {
                   Navigator.of(sheetContext).pop();
                 }
               } catch (e) {
-                if (mounted) {
+                if (mounted && sheetContext.mounted) {
                   AppSnackBar.show(
-                    context,
+                    this.context,
                     message: e.toString(),
                     type: SnackBarType.error,
                   );
@@ -569,12 +727,14 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'Leave feedback',
-                      style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                      style: AppTextStyles.h3
+                          .copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Rate this shipment experience and add a short comment.',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -583,10 +743,15 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                         final starValue = index + 1;
                         final selected = starValue <= rating.round();
                         return IconButton(
-                          onPressed: () => setSheetState(() => rating = starValue.toDouble()),
+                          onPressed: () => setSheetState(
+                              () => rating = starValue.toDouble()),
                           icon: Icon(
-                            selected ? Icons.star_rounded : Icons.star_border_rounded,
-                            color: selected ? AppColors.primary : AppColors.gray300,
+                            selected
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.gray300,
                             size: 32,
                           ),
                         );
@@ -597,7 +762,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                       controller: commentCtrl,
                       maxLines: 4,
                       decoration: InputDecoration(
-                        hintText: 'Share what went well or what could improve...',
+                        hintText:
+                            'Share what went well or what could improve...',
                         filled: true,
                         fillColor: AppColors.gray50,
                         border: OutlineInputBorder(
@@ -636,7 +802,8 @@ class _InfoCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(
+            color: AppColors.white, borderRadius: BorderRadius.circular(20)),
         child: child,
       );
 }
@@ -667,7 +834,8 @@ class _DetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -683,7 +851,10 @@ class _InfoLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text.toUpperCase(),
-        style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w800, letterSpacing: 1),
+        style: AppTextStyles.labelXs.copyWith(
+            color: AppColors.gray400,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1),
       );
 }
 
@@ -695,7 +866,8 @@ class _PackageImage extends StatelessWidget {
 
   static final _placeholder = Container(
     color: AppColors.gray100,
-    child: const Icon(Icons.inventory_2_outlined, color: AppColors.gray300, size: 40),
+    child: const Icon(Icons.inventory_2_outlined,
+        color: AppColors.gray300, size: 40),
   );
 
   @override
@@ -707,12 +879,14 @@ class _PackageImage extends StatelessWidget {
         if (commaIndex == -1) return _placeholder;
         final base64Str = url.substring(commaIndex + 1);
         final bytes = base64Decode(base64Str);
-        image = Image.memory(bytes, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
+        image = Image.memory(bytes,
+            fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
       } catch (_) {
         return _placeholder;
       }
     } else {
-      image = Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
+      image = Image.network(url,
+          fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
     }
     if (width != null || height != null) {
       return SizedBox(width: width, height: height, child: image);
@@ -808,20 +982,25 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
 
     setState(() => _updating = true);
     try {
-      final String? proofUrl = await MessageRealtimeService.instance.uploadChatImage(
+      final String? proofUrl =
+          await MessageRealtimeService.instance.uploadChatImage(
         result,
         'proofs/${widget.requestId}',
       );
 
       if (proofUrl != null) {
-        await ShipmentService.instance.uploadTravelerProof(widget.requestId, proofUrl);
+        await ShipmentService.instance
+            .uploadTravelerProof(widget.requestId, proofUrl);
       }
 
       await ShipmentService.instance.updateShipmentStatus(
         widget.requestId,
         status: targetStatus,
-        location: _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : null,
-        notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+        location: _locationCtrl.text.trim().isNotEmpty
+            ? _locationCtrl.text.trim()
+            : null,
+        notes:
+            _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
       );
 
       if (mounted) {
@@ -832,7 +1011,10 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
         widget.onStatusUpdated();
       }
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -848,7 +1030,8 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Update shipment to "$_nextStatusLabel"?', style: AppTextStyles.bodyMd),
+            Text('Update shipment to "$_nextStatusLabel"?',
+                style: AppTextStyles.bodyMd),
             const SizedBox(height: 16),
             TextField(
               controller: _locationCtrl,
@@ -857,7 +1040,8 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
                 filled: true,
                 fillColor: AppColors.gray50,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 10),
@@ -869,19 +1053,22 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
                 filled: true,
                 fillColor: AppColors.gray50,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
               ),
             ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Confirm'),
@@ -897,17 +1084,24 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
       await ShipmentService.instance.updateShipmentStatus(
         widget.requestId,
         status: _nextStatus,
-        location: _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : null,
-        notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+        location: _locationCtrl.text.trim().isNotEmpty
+            ? _locationCtrl.text.trim()
+            : null,
+        notes:
+            _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
       );
       if (mounted) {
-        AppSnackBar.show(context, message: 'Status updated!', type: SnackBarType.success);
+        AppSnackBar.show(context,
+            message: 'Status updated!', type: SnackBarType.success);
         _locationCtrl.clear();
         _notesCtrl.clear();
         widget.onStatusUpdated();
       }
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -918,13 +1112,14 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
     if (_nextStatus.isEmpty) {
       return Row(
         children: [
-          const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+          const Icon(Icons.check_circle_rounded,
+              color: AppColors.success, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Shipment has been delivered. Waiting for sender confirmation.',
-              style: AppTextStyles.bodySm
-                  .copyWith(color: AppColors.success, fontWeight: FontWeight.w600),
+              style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.success, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -981,15 +1176,18 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppColors.white),
                   )
                 : Icon(_nextStatusIcon, size: 20),
-            label: Text(_nextStatusLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+            label: Text(_nextStatusLabel,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
             ),
           ),
         ),
@@ -1002,7 +1200,8 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
 // Bottom sheet: 48-hr warning + mandatory proof photo (intransit & delivering)
 // ---------------------------------------------------------------------------
 class _ProofRequiredSheet extends StatefulWidget {
-  const _ProofRequiredSheet({required this.requestId, this.isDelivering = false});
+  const _ProofRequiredSheet(
+      {required this.requestId, this.isDelivering = false});
   final String requestId;
   final bool isDelivering;
 
@@ -1063,7 +1262,8 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: AppColors.gray200, borderRadius: BorderRadius.circular(999)),
+                    color: AppColors.gray200,
+                    borderRadius: BorderRadius.circular(999)),
               ),
             ),
             const SizedBox(height: 20),
@@ -1072,21 +1272,28 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
             Row(
               children: [
                 Container(
-                  width: 42, height: 42,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
                     color: AppColors.accentAmber.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    widget.isDelivering ? Icons.local_shipping_rounded : Icons.flight_takeoff_rounded,
-                    color: AppColors.accentAmber, size: 22,
+                    widget.isDelivering
+                        ? Icons.local_shipping_rounded
+                        : Icons.flight_takeoff_rounded,
+                    color: AppColors.accentAmber,
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    widget.isDelivering ? 'Mark as Delivering' : 'Mark as In Transit',
-                    style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                    widget.isDelivering
+                        ? 'Mark as Delivering'
+                        : 'Mark as In Transit',
+                    style:
+                        AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
                   ),
                 ),
               ],
@@ -1100,12 +1307,14 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
               decoration: BoxDecoration(
                 color: AppColors.accentAmber.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
+                border: Border.all(
+                    color: AppColors.accentAmber.withValues(alpha: 0.4)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.timer_outlined, color: AppColors.accentAmber, size: 20),
+                  const Icon(Icons.timer_outlined,
+                      color: AppColors.accentAmber, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -1127,14 +1336,17 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
             Text(
               'PROOF OF COLLECTION REQUIRED',
               style: AppTextStyles.labelXs.copyWith(
-                  color: AppColors.gray400, letterSpacing: 1, fontWeight: FontWeight.w800),
+                  color: AppColors.gray400,
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 10),
             Text(
               widget.isDelivering
                   ? 'Take a photo of the item out for delivery. This is required before you can mark the shipment as Delivering.'
                   : 'Take a photo of the item you\'ve collected. This is required before you can mark the shipment as In Transit.',
-              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray600, height: 1.5),
+              style: AppTextStyles.bodySm
+                  .copyWith(color: AppColors.gray600, height: 1.5),
             ),
             const SizedBox(height: 14),
 
@@ -1157,10 +1369,12 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                     child: GestureDetector(
                       onTap: () => setState(() => _proofImage = null),
                       child: Container(
-                        width: 30, height: 30,
+                        width: 30,
+                        height: 30,
                         decoration: const BoxDecoration(
-                          color: Colors.black54, shape: BoxShape.circle),
-                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                            color: Colors.black54, shape: BoxShape.circle),
+                        child: const Icon(Icons.close,
+                            color: Colors.white, size: 16),
                       ),
                     ),
                   ),
@@ -1170,7 +1384,8 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                     child: GestureDetector(
                       onTap: _pickPhoto,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(20),
@@ -1178,9 +1393,12 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                            const Icon(Icons.camera_alt_rounded,
+                                color: Colors.white, size: 14),
                             const SizedBox(width: 4),
-                            Text('Retake', style: AppTextStyles.captionBold.copyWith(color: Colors.white)),
+                            Text('Retake',
+                                style: AppTextStyles.captionBold
+                                    .copyWith(color: Colors.white)),
                           ],
                         ),
                       ),
@@ -1218,17 +1436,22 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 22, height: 22,
+                    width: 22,
+                    height: 22,
                     decoration: BoxDecoration(
-                      color: _acknowledged ? AppColors.primary : AppColors.white,
+                      color:
+                          _acknowledged ? AppColors.primary : AppColors.white,
                       border: Border.all(
-                        color: _acknowledged ? AppColors.primary : AppColors.gray300,
+                        color: _acknowledged
+                            ? AppColors.primary
+                            : AppColors.gray300,
                         width: 2,
                       ),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: _acknowledged
-                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                        ? const Icon(Icons.check_rounded,
+                            color: Colors.white, size: 14)
                         : null,
                   ),
                   const SizedBox(width: 10),
@@ -1237,7 +1460,8 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                       widget.isDelivering
                           ? 'I confirm this item is out for delivery and will be delivered within 48 hours.'
                           : 'I confirm I have collected this item and understand I must deliver it within 48 hours.',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray700, height: 1.45),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray700, height: 1.45),
                     ),
                   ),
                 ],
@@ -1260,7 +1484,8 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                   foregroundColor: AppColors.white,
                   disabledBackgroundColor: AppColors.gray200,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                 ),
                 child: Text(
                   _proofImage == null
@@ -1280,7 +1505,8 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
 }
 
 class _PhotoButton extends StatelessWidget {
-  const _PhotoButton({required this.icon, required this.label, required this.onTap});
+  const _PhotoButton(
+      {required this.icon, required this.label, required this.onTap});
   final IconData icon;
   final String label;
   final VoidCallback onTap;

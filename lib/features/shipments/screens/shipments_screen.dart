@@ -873,6 +873,64 @@ class _SenderRequestCard extends StatelessWidget {
               receiverId: request.carrierId,
             ),
           ],
+          if (request.awaitingSenderConfirmation) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Action needed',
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Confirm delivery to release the payment.',
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: AppColors.gray700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => context.push(
+                      '/shipment-request/${request.id}',
+                      extra: request,
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Confirm delivery'),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (request.isCompletedBySender) ...[
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => context.push(
+                '/shipment-request/${request.id}',
+                extra: request,
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Leave feedback'),
+            ),
+          ],
         ],
       ),
     );

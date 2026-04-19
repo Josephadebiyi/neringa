@@ -16,6 +16,14 @@ import { Resend } from 'resend';
 let resend = null;
 try { resend = new Resend(process.env.RESEND_API_KEY); } catch (e) {}
 
+function normalizeBankPayload(body = {}) {
+  return {
+    accountNumber: body.accountNumber || body.account_number || '',
+    bankCode: body.bankCode || body.bank_code || '',
+    bankName: body.bankName || body.bank_name || 'Bank',
+  };
+}
+
 /**
  * Initialize Paystack payment
  * POST /api/paystack/initialize
@@ -110,8 +118,15 @@ export const verifyPaystackPayment = async (req, res) => {
  */
 export const addBankAccount = async (req, res) => {
   try {
-    const { accountNumber, bankCode, bankName } = req.body;
+    const { accountNumber, bankCode, bankName } = normalizeBankPayload(req.body);
     const user = req.user;
+
+    if (!accountNumber || !bankCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account number and bank are required.',
+      });
+    }
 
     // Resolve account to verify
     const accountInfo = await resolveAccountNumber(accountNumber, bankCode);
@@ -146,34 +161,50 @@ export const addBankAccount = async (req, res) => {
       ]
     );
 
-    // Send OTP via email
+    let deliveryStatus = 'email_sent';
     if (resend) {
-      await resend.emails.send({
-        from: 'Bago <noreply@bagoapp.com>',
-        to: user.email,
-        subject: 'Confirm Your Bank Account',
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
-            <h2 style="color:#5C4BFD">Confirm Bank Account</h2>
-            <p>You are linking a new payout account to your Bago profile:</p>
-            <p><strong>Bank:</strong> ${bankName || 'Bank'}</p>
-            <p><strong>Account:</strong> ${accountInfo.accountName} — ****${accountNumber.slice(-4)}</p>
-            <p>Use the code below to confirm. It expires in 10 minutes.</p>
-            <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#5C4BFD;margin:24px 0">${otp}</div>
-            <p style="color:#9CA3AF;font-size:12px">If you did not request this, please contact support immediately.</p>
-          </div>
-        `,
-      });
+      try {
+        await resend.emails.send({
+          from: 'Bago <noreply@bagoapp.com>',
+          to: user.email,
+          subject: 'Confirm Your Bank Account',
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
+              <h2 style="color:#5C4BFD">Confirm Bank Account</h2>
+              <p>You are linking a new payout account to your Bago profile:</p>
+              <p><strong>Bank:</strong> ${bankName || 'Bank'}</p>
+              <p><strong>Account:</strong> ${accountInfo.accountName} — ****${accountNumber.slice(-4)}</p>
+              <p>Use the code below to confirm. It expires in 10 minutes.</p>
+              <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#5C4BFD;margin:24px 0">${otp}</div>
+              <p style="color:#9CA3AF;font-size:12px">If you did not request this, please contact support immediately.</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        deliveryStatus = 'email_failed';
+        console.error('Bank OTP email send error:', emailError);
+      }
     } else {
+      deliveryStatus = 'email_unavailable';
       console.log('Bank OTP (no email):', otp);
     }
 
-    return res.status(200).json({
+    const shouldExposeDebugOtp = req.get('X-Debug-Bank-Otp') === 'true';
+    const response = {
       success: true,
       requiresOtp: true,
       accountName: accountInfo.accountName,
-      message: `A 6-digit confirmation code has been sent to ${user.email}`,
-    });
+      deliveryStatus,
+      message: deliveryStatus === 'email_sent'
+        ? `A 6-digit confirmation code has been sent to ${user.email}`
+        : 'Use the 6-digit confirmation code shown in the app to complete bank setup.',
+    };
+
+    if (shouldExposeDebugOtp) {
+      response.debugOtp = otp;
+    }
+
+    return res.status(200).json(response);
   } catch (error) {
     console.error('Add bank account error:', error);
     return res.status(500).json({
@@ -189,7 +220,7 @@ export const addBankAccount = async (req, res) => {
  */
 export const verifyBankOTP = async (req, res) => {
   try {
-    const { otp } = req.body;
+    const otp = req.body?.otp?.toString().trim();
     const userId = req.user.id;
 
     // Fetch pending bank info from Postgres

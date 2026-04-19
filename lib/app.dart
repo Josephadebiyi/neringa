@@ -160,27 +160,38 @@ class _NotificationPromptHostState
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final router = ref.read(routerProvider);
+      if (router.routerDelegate.navigatorKey.currentContext == null) {
+        _lastPromptedUserId = null;
+        return;
+      }
 
       final shouldPrompt = await PushNotificationService.instance
           .shouldShowLoginNotificationPrompt();
       if (!mounted || !shouldPrompt) return;
 
       _notificationPromptOpen = true;
+      final dialogContext = router.routerDelegate.navigatorKey.currentContext;
+      if (dialogContext == null) {
+        _notificationPromptOpen = false;
+        _lastPromptedUserId = null;
+        return;
+      }
       final allow = await showDialog<bool>(
-            context: context,
+            context: dialogContext,
             barrierDismissible: false,
-            builder: (dialogContext) => AlertDialog(
+            builder: (alertContext) => AlertDialog(
               title: const Text('Allow notifications?'),
               content: const Text(
                 'Get instant updates about messages, shipment activity, and delivery progress.',
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  onPressed: () => Navigator.of(alertContext).pop(false),
                   child: const Text('Not now'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  onPressed: () => Navigator.of(alertContext).pop(true),
                   child: const Text('Allow'),
                 ),
               ],
@@ -198,7 +209,10 @@ class _NotificationPromptHostState
       if (!mounted) return;
 
       final granted = status == ApnsAuthStatus.authorized;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final snackContext = router.routerDelegate.navigatorKey.currentContext;
+      final messenger =
+          snackContext == null ? null : ScaffoldMessenger.maybeOf(snackContext);
+      messenger?.showSnackBar(
         SnackBar(
           content: Text(
             granted
