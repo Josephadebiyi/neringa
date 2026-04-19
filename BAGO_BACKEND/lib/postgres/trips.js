@@ -248,7 +248,7 @@ export async function createTripRecord({
         travel_document_uploaded_at,
         status
       )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,0,0,$11,$12,$13,$14,$15,$16,'pending_admin_review')
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,0,0,$11,$12,$13,$14,$15,$16,'active')
       returning id
     `,
     [

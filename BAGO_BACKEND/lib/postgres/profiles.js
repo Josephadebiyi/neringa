@@ -323,14 +323,35 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway) 
     [userId, currency, paymentGateway],
   );
 
-  await query(
-    `
-      update public.wallet_accounts
-      set currency = $2
-      where user_id = $1
-    `,
-    [userId, currency],
+  // Convert balance from old currency to new currency using stored exchange rates
+  const wallet = await queryOne(
+    `select available_balance, escrow_balance, currency from public.wallet_accounts where user_id = $1`,
+    [userId],
   );
+
+  if (wallet && wallet.currency && wallet.currency !== currency) {
+    const ratesRow = await queryOne(
+      `select value from public.bago_config where key = 'app_settings'`,
+    );
+    const settings = ratesRow?.value
+      ? (typeof ratesRow.value === 'string' ? JSON.parse(ratesRow.value) : ratesRow.value)
+      : {};
+    const rates = settings.exchangeRates || { USD: 1 };
+    const oldRate = rates[wallet.currency] ?? 1;
+    const newRate = rates[currency] ?? 1;
+    const factor = newRate / oldRate;
+    const newAvailable = Number((Number(wallet.available_balance || 0) * factor).toFixed(2));
+    const newEscrow = Number((Number(wallet.escrow_balance || 0) * factor).toFixed(2));
+    await query(
+      `update public.wallet_accounts set currency = $2, available_balance = $3, escrow_balance = $4 where user_id = $1`,
+      [userId, currency, newAvailable, newEscrow],
+    );
+  } else {
+    await query(
+      `update public.wallet_accounts set currency = $2 where user_id = $1`,
+      [userId, currency],
+    );
+  }
 }
 
 export async function getWalletByUserId(userId) {

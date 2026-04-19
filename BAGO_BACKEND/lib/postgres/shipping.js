@@ -304,8 +304,7 @@ export async function findProfileWithWallet(userId) {
 export async function searchTravelerTrips({ currentUserId, fromLocation, toLocation, fromCountry, toCountry, date }) {
   await ensureTripCapacityColumns({ query });
   const conditions = [
-    "t.status in ('verified', 'active')",
-    "coalesce(p.kyc_status, 'pending') in ('approved', 'verified', 'completed')",
+    "t.status in ('verified', 'active', 'pending_admin_review')",
     "date(t.departure_date) >= current_date",
     "greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) > 0",
   ];
