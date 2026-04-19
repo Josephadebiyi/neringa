@@ -1,115 +1,7 @@
 import { API_BASE_URL as ADMIN_API, API_ROOT, MAIN_API_URL as MAIN_API } from '../config/api';
 
-// Centralized API service for admin panel
 const API_BASE = API_ROOT;
 const ADMIN_TOKEN_KEY = 'bago_admin_token';
-const ADMIN_API_BASE_KEY = 'bago_admin_api_base';
-
-function uniqueStrings(values: string[]) {
-  return [...new Set(values.map((value) => value.trim().replace(/\/+$/, '')).filter(Boolean))];
-}
-
-function getAdminApiCandidates() {
-  return uniqueStrings([
-    ADMIN_API,
-    `${API_ROOT}/Adminbaggo`,
-    `${API_ROOT}/admin`,
-    `${API_ROOT}/adminbaggo`,
-  ]);
-}
-
-function getStoredAdminApiBase() {
-  return window.localStorage.getItem(ADMIN_API_BASE_KEY);
-}
-
-function setStoredAdminApiBase(baseUrl: string) {
-  window.localStorage.setItem(
-    ADMIN_API_BASE_KEY,
-    baseUrl.trim().replace(/\/+$/, ''),
-  );
-}
-
-function clearStoredAdminApiBase() {
-  window.localStorage.removeItem(ADMIN_API_BASE_KEY);
-}
-
-function getPreferredAdminApiBases() {
-  const stored = getStoredAdminApiBase();
-  return uniqueStrings([
-    ...(stored ? [stored] : []),
-    ...getAdminApiCandidates(),
-  ]);
-}
-
-function extractAdminPath(url: string) {
-  const normalizedUrl = url.trim();
-  for (const base of getAdminApiCandidates()) {
-    if (normalizedUrl.startsWith(base)) {
-      return normalizedUrl.slice(base.length) || '/';
-    }
-  }
-  return null;
-}
-
-function resolveAdminUrl(url: string) {
-  const adminPath = extractAdminPath(url);
-  if (adminPath == null) return url;
-
-  const storedBase = getStoredAdminApiBase();
-  return storedBase ? `${storedBase}${adminPath}` : url;
-}
-
-async function tryAdminEndpoints<T>(
-  paths: string[],
-  options: RequestInit = {},
-): Promise<{ response: Response; data: T; baseUrl: string; path: string }> {
-  const attemptedUrls: string[] = [];
-  let sawNetworkError = false;
-
-  for (const baseUrl of getPreferredAdminApiBases()) {
-    for (const path of paths) {
-      const requestUrl = `${baseUrl}${path}`;
-      attemptedUrls.push(requestUrl);
-      try {
-        const response = await fetch(requestUrl, {
-          ...options,
-          credentials: 'omit',
-          headers: getAdminAuthHeaders(options.headers as Record<string, string>),
-        });
-        const data = await response.json().catch(() => ({} as T));
-
-        if (response.ok) {
-          setStoredAdminApiBase(baseUrl);
-          return { response, data, baseUrl, path };
-        }
-
-        if (response.status !== 404) {
-          if (response.status === 401) {
-            clearAdminToken();
-          }
-          const message =
-            (data as any)?.error ||
-            (data as any)?.message ||
-            `Request failed with HTTP ${response.status}`;
-          throw new Error(message);
-        }
-      } catch (error) {
-        if (error instanceof Error &&
-            !error.message.startsWith('Request failed with HTTP') &&
-            error.message !== 'Failed to fetch') {
-          throw error;
-        }
-        sawNetworkError = true;
-      }
-    }
-  }
-
-  if (sawNetworkError) {
-    throw new Error('Unable to reach the server. Please check if the backend is running and try again.');
-  }
-
-  throw new Error(`Admin API route not found. Tried: ${attemptedUrls.join(', ')}`);
-}
 
 function getAdminToken() {
   return window.localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -131,9 +23,7 @@ export function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}) {
   };
 }
 
-// Helper function for API calls
 async function apiCall(url: string, options: RequestInit = {}) {
-  const resolvedUrl = resolveAdminUrl(url.trim());
   const headers = getAdminAuthHeaders(options.headers as Record<string, string>);
 
   if (options.body && !headers['Content-Type']) {
@@ -142,77 +32,56 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
   let response: Response;
   try {
-    response = await fetch(resolvedUrl, {
+    response = await fetch(url.trim(), {
       ...options,
       credentials: 'omit',
       headers,
     });
-  } catch (networkError) {
-    // Network error (backend unreachable, DNS failure, CORS blocked)
-    throw new Error('Unable to reach the server. Please check if the backend is running and try again.');
+  } catch {
+    throw new Error('Unable to reach the server. Please check your connection and try again.');
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    if (response.status === 401) {
-      clearAdminToken();
-    }
+    const error = await response.json().catch(() => ({ message: `Server error (HTTP ${response.status})` }));
+    if (response.status === 401) clearAdminToken();
     throw new Error(error.error || error.message || 'Request failed');
   }
 
   return response.json();
 }
 
-
 // Auth
 export async function adminLogin(credentials: any) {
-  const { data } = await tryAdminEndpoints<any>(
-    ['/AdminLogin', '/login'],
-    {
+  let response: Response;
+  try {
+    response = await fetch(`${ADMIN_API}/AdminLogin`, {
       method: 'POST',
+      credentials: 'omit',
+      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(credentials),
-      headers: { 'Content-Type': 'application/json' },
-    },
-  );
-  if (data.token) {
-    setAdminToken(data.token);
+    });
+  } catch {
+    throw new Error('Unable to reach the server. Check your connection and try again.');
   }
+  const data = await response.json().catch(() => {
+    throw new Error(`Server error (HTTP ${response.status}). Please try again.`);
+  });
+  if (!response.ok) {
+    throw new Error(data.error || data.message || 'Invalid credentials');
+  }
+  if (data.token) setAdminToken(data.token);
   return data;
 }
 
 export async function checkAdminAuth() {
-  const storedBase = getStoredAdminApiBase();
-  if (storedBase) {
-    try {
-      return await apiCall(`${storedBase}/CheckAdmin`);
-    } catch (_) {
-      clearStoredAdminApiBase();
-    }
-  }
-
-  const { data } = await tryAdminEndpoints<any>(['/CheckAdmin', '/me']);
-  return data;
+  return apiCall(`${ADMIN_API}/CheckAdmin`);
 }
 
 export async function adminLogout() {
   try {
-    const storedBase = getStoredAdminApiBase();
-    if (storedBase) {
-      try {
-        return await apiCall(`${storedBase}/Adminlogout`, { method: 'GET' });
-      } catch (_) {
-        clearStoredAdminApiBase();
-      }
-    }
-
-    const { data } = await tryAdminEndpoints<any>(
-      ['/Adminlogout', '/logout'],
-      { method: 'GET' },
-    );
-    return data;
+    return await apiCall(`${ADMIN_API}/Adminlogout`);
   } finally {
     clearAdminToken();
-    clearStoredAdminApiBase();
   }
 }
 
@@ -238,9 +107,7 @@ export async function banUser(userId: string, banned: boolean) {
 }
 
 export async function deleteUser(userId: string) {
-  return apiCall(`${ADMIN_API}/deleteUser/${userId}`, {
-    method: 'DELETE',
-  });
+  return apiCall(`${ADMIN_API}/deleteUser/${userId}`, { method: 'DELETE' });
 }
 
 export async function updateUser(userId: string, data: any) {
@@ -346,9 +213,7 @@ export async function updateTripStatus(tripId: string, status: string, reason?: 
 }
 
 export async function deleteTrip(tripId: string) {
-  return apiCall(`${ADMIN_API}/admin-trips/${tripId}`, {
-    method: 'DELETE',
-  });
+  return apiCall(`${ADMIN_API}/admin-trips/${tripId}`, { method: 'DELETE' });
 }
 
 // Staff
@@ -371,9 +236,7 @@ export async function updateStaff(id: string, data: any) {
 }
 
 export async function deleteStaff(id: string) {
-  return apiCall(`${ADMIN_API}/staff/${id}`, {
-    method: 'DELETE',
-  });
+  return apiCall(`${ADMIN_API}/staff/${id}`, { method: 'DELETE' });
 }
 
 // Support
@@ -412,15 +275,11 @@ export async function createPromoCode(data: any) {
 }
 
 export async function deletePromoCode(id: string) {
-  return apiCall(`${ADMIN_API}/promo-codes/${id}`, {
-    method: 'DELETE',
-  });
+  return apiCall(`${ADMIN_API}/promo-codes/${id}`, { method: 'DELETE' });
 }
 
 export async function togglePromoCode(id: string) {
-  return apiCall(`${ADMIN_API}/promo-codes/${id}/toggle`, {
-    method: 'PUT',
-  });
+  return apiCall(`${ADMIN_API}/promo-codes/${id}/toggle`, { method: 'PUT' });
 }
 
 // Locations
@@ -443,9 +302,7 @@ export async function updateLocation(id: string, data: any) {
 }
 
 export async function deleteLocation(id: string) {
-  return apiCall(`${ADMIN_API}/locations/${id}`, {
-    method: 'DELETE',
-  });
+  return apiCall(`${ADMIN_API}/locations/${id}`, { method: 'DELETE' });
 }
 
 // Routes
@@ -468,9 +325,7 @@ export async function updateRoute(id: string, data: any) {
 }
 
 export async function deleteRoute(id: string) {
-  return apiCall(`${ADMIN_API}/routes/${id}`, {
-    method: 'DELETE',
-  });
+  return apiCall(`${ADMIN_API}/routes/${id}`, { method: 'DELETE' });
 }
 
 // Push Notifications
@@ -503,9 +358,7 @@ export async function getRefunds() {
 }
 
 export async function processRefund(id: string, action: 'approve' | 'reject') {
-  return apiCall(`${MAIN_API}/${action}/${id}`, {
-    method: 'PUT',
-  });
+  return apiCall(`${MAIN_API}/${action}/${id}`, { method: 'PUT' });
 }
 
 export async function sendPromoEmail(data: any) {
@@ -527,5 +380,4 @@ export async function updateInsuranceSettings(data: any) {
   });
 }
 
-// Export base URLs for custom calls
 export { API_BASE, ADMIN_API, MAIN_API };
