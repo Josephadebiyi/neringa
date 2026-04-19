@@ -1,180 +1,109 @@
-import Refund from "../models/refundModel.js";
-import Request from "../models/RequestScheme.js";
+import { query, queryOne } from '../lib/postgres/db.js';
 
+async function ensureRefundsTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS public.refunds (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL,
+      request_id UUID,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'refunded')),
+      payment_method TEXT,
+      admin_note TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+}
 
-
-// USER: Request refund
 export const requestRefund = async (req, res) => {
   try {
-    const { userId, reason, paymentInfo } = req.body;
-    // paymentInfo should have: method, status, requestId
+    const userId = req.user.id || req.user._id;
+    const { reason, requestId, paymentMethod } = req.body;
 
-    const refundRequest = await Refund.create({
-      userId,
-      reason,
-      status: "pending",
-      paymentInfo: {
-        method: paymentInfo?.method || null,
-        status: paymentInfo?.status || null,
-        requestId: paymentInfo?.requestId || null,
-      },
-    });
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ success: false, message: 'Reason is required' });
+    }
 
-    res.status(201).json({
-      success: true,
-      message: "Refund request submitted",
-      data: refundRequest
-    });
+    await ensureRefundsTable();
 
+    // Verify the request belongs to this user if requestId provided
+    if (requestId) {
+      const shipRequest = await queryOne(
+        `SELECT id FROM public.shipment_requests WHERE id = $1 AND (sender_id = $2 OR traveler_id = $2)`,
+        [requestId, userId],
+      );
+      if (!shipRequest) {
+        return res.status(403).json({ success: false, message: 'Request not found or access denied' });
+      }
+    }
+
+    const refund = await queryOne(
+      `INSERT INTO public.refunds (user_id, request_id, reason, payment_method)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [userId, requestId || null, reason.trim(), paymentMethod || null],
+    );
+
+    res.status(201).json({ success: true, message: 'Refund request submitted', data: refund });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// ADMIN: Approve refund
 export const approveRefund = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const refundRequest = await Refund.findById(id);
-    if (!refundRequest) {
-      return res.status(404).json({ message: "Refund request not found" });
-    }
-
-    // Simply mark as refunded; no Stripe/Paystack calls
-    refundRequest.status = "refunded";
-    await refundRequest.save();
-
-    res.json({
-      success: true,
-      message: "Refund approved",
-      data: refundRequest
-    });
-
+    await ensureRefundsTable();
+    const refund = await queryOne(
+      `UPDATE public.refunds SET status = 'refunded', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id],
+    );
+    if (!refund) return res.status(404).json({ message: 'Refund request not found' });
+    res.json({ success: true, message: 'Refund approved', data: refund });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// ADMIN: Reject refund
 export const rejectRefund = async (req, res) => {
   try {
-    const refundRequest = await Refund.findById(req.params.id);
-
-    if (!refundRequest) {
-      return res.status(404).json({ message: "Refund request not found" });
-    }
-
-    refundRequest.status = "rejected";
-    await refundRequest.save();
-
-    res.json({
-      success: true,
-      message: "Refund request rejected"
-    });
-
+    await ensureRefundsTable();
+    const { adminNote } = req.body;
+    const refund = await queryOne(
+      `UPDATE public.refunds SET status = 'rejected', admin_note = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id, adminNote || null],
+    );
+    if (!refund) return res.status(404).json({ message: 'Refund request not found' });
+    res.json({ success: true, message: 'Refund rejected', data: refund });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-
-
 
 export const getAllRefunds = async (req, res) => {
   try {
-    const { status } = req.query; // optional filter by status
-    const filter = {};
-    if (status) filter.status = status;
-
-    // Fetch refunds with populations
-    const refunds = await Refund.find(filter)
-      .populate("userId", "firstName lastName email") // populate refund user
-      .populate({
-        path: "paymentInfo.requestId",
-        select: "sender traveler amount status createdAt package", // fields from the related request
-        populate: [
-          { path: "sender", select: "firstName email" },
-          { path: "traveler", select: "firstName email" },
-          { path: "package", select: "description" },
-        ],
-      })
-      .sort({ createdAt: -1 });
-
-    // Debugging logs
-    console.log("💡 Refunds fetched:", refunds.length);
-    refunds.forEach((r, i) => {
-      console.log(`Refund ${i + 1}:`);
-      console.log("  userId:", r.userId);
-      console.log("  requestId:", r.paymentInfo?.requestId);
-      console.log("  package:", r.paymentInfo?.requestId?.package);
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Refund requests fetched successfully",
-      data: refunds,
-    });
+    await ensureRefundsTable();
+    const { status } = req.query;
+    const rows = status
+      ? await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id WHERE r.status = $1 ORDER BY r.created_at DESC`, [status])
+      : await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id ORDER BY r.created_at DESC`);
+    res.status(200).json({ success: true, message: 'Refunds fetched', data: rows.rows });
   } catch (error) {
-    console.error("Error fetching refund requests:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-
-
-
-
-// Get refund by requestId with status
 export const getRefundByRequestId = async (req, res) => {
   try {
+    await ensureRefundsTable();
+    const userId = req.user.id || req.user._id;
     const { requestId } = req.params;
-
-    if (!requestId) {
-      return res.status(400).json({ success: false, message: "RequestId is required" });
-    }
-
-    // Find the refund by paymentInfo.requestId
-    const refund = await Refund.findOne({ "paymentInfo.requestId": requestId })
-      .populate("userId", "firstName lastName email") // populate refund user
-      .populate({
-        path: "paymentInfo.requestId",
-        select: "sender traveler amount status createdAt package",
-        populate: [
-          { path: "sender", select: "firstName email" },
-          { path: "traveler", select: "firstName email" },
-          { path: "package", select: "description" },
-        ],
-      });
-
-    if (!refund) {
-      return res.status(404).json({ success: false, message: "Refund not found for this request" });
-    }
-
-    // Return refund including its status
-    res.status(200).json({
-      success: true,
-      message: "Refund fetched successfully",
-      data: {
-        refundId: refund._id,
-        status: refund.status,         // ✅ refund status included
-        reason: refund.reason,
-        user: refund.userId,
-        paymentInfo: refund.paymentInfo,
-        createdAt: refund.createdAt,
-        updatedAt: refund.updatedAt,
-      },
-    });
-
+    const refund = await queryOne(
+      `SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id WHERE r.request_id = $1 AND r.user_id = $2`,
+      [requestId, userId],
+    );
+    if (!refund) return res.status(404).json({ success: false, message: 'Refund not found' });
+    res.status(200).json({ success: true, data: refund });
   } catch (error) {
-    console.error("Error fetching refund by requestId:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };

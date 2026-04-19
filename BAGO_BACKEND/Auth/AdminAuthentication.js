@@ -1,22 +1,27 @@
 import jwt from "jsonwebtoken";
 import { queryOne } from "../lib/postgres/db.js";
 
+function getAdminSecret(res) {
+  const secret = process.env.ADMIN_SECRET_KEY;
+  if (!secret) {
+    res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
+    return null;
+  }
+  return secret;
+}
+
 export const adminAuthenticated = async (req, res, next) => {
   let token = req.cookies.adminToken;
-
   if (!token && req.headers.authorization?.startsWith('Bearer ')) {
     token = req.headers.authorization.split(' ')[1];
   }
-
   if (!token) {
     return res.status(401).json({ message: "User is not authenticated.", success: false });
   }
 
   try {
-    const secret = process.env.ADMIN_SECRET_KEY || process.env.JWT_SECRET;
-    if (!secret) {
-      return res.status(500).json({ message: "JWT secret is not configured.", success: false });
-    }
+    const secret = getAdminSecret(res);
+    if (!secret) return;
 
     const decoded = jwt.verify(token, secret);
     const admin = await queryOne(
@@ -30,26 +35,23 @@ export const adminAuthenticated = async (req, res, next) => {
 
     req.admin = admin;
     next();
-  } catch (error) {
+  } catch {
     return res.status(401).json({ message: "Invalid or expired token.", success: false });
   }
 };
 
-export const CheckAdmin = async (req, res, next) => {
+export const CheckAdmin = async (req, res) => {
   try {
     let token = req.cookies.adminToken;
     if (!token && req.headers.authorization?.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
     }
-
     if (!token) {
       return res.status(401).json({ message: "No token provided, authorization denied." });
     }
 
-    const secret = process.env.ADMIN_SECRET_KEY || process.env.JWT_SECRET;
-    if (!secret) {
-      return res.status(500).json({ message: "JWT secret is not configured.", success: false });
-    }
+    const secret = getAdminSecret(res);
+    if (!secret) return;
 
     const decoded = jwt.verify(token, secret);
     const admin = await queryOne(
@@ -61,14 +63,8 @@ export const CheckAdmin = async (req, res, next) => {
       return res.status(401).json({ message: "Admin not found, authorization denied." });
     }
 
-    res.status(200).json({
-      message: "Admin is authenticated",
-      success: true,
-      error: false,
-      data: admin,
-      admin,
-    });
-  } catch (error) {
+    res.status(200).json({ message: "Admin is authenticated", success: true, error: false, data: admin, admin });
+  } catch {
     res.status(401).json({ message: "Invalid session" });
   }
 };

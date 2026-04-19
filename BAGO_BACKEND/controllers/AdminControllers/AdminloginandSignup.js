@@ -31,7 +31,7 @@ export const AdminLogin = async (req, res, next) => {
     // Update last login
     await query(`UPDATE public.admin_users SET last_login_at = NOW() WHERE id = $1`, [admin.id]);
 
-    const secret = process.env.ADMIN_SECRET_KEY || process.env.JWT_SECRET;
+    const secret = process.env.ADMIN_SECRET_KEY;
     const token = jwt.sign(
       { id: admin.id, userName: admin.username, role: admin.role },
       secret,
@@ -92,7 +92,7 @@ export const AdminSignup = async (req, res, next) => {
       ]
     );
 
-    const secret = process.env.ADMIN_SECRET_KEY || process.env.JWT_SECRET;
+    const secret = process.env.ADMIN_SECRET_KEY;
     const token = jwt.sign(
       { id: newAdmin.id, userName: newAdmin.username, role: newAdmin.role },
       secret,

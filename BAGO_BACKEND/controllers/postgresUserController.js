@@ -63,11 +63,18 @@ function buildUserResponse(user) {
 }
 
 function signUserToken(user) {
-  return jwt.sign(
-    { id: user.id, email: user.email },
+  const accessToken = jwt.sign(
+    { id: user.id, email: user.email, kycStatus: user.kycStatus },
     process.env.JWT_SECRET,
+    { expiresIn: '15m' },
+  );
+  const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+  const refreshToken = jwt.sign(
+    { id: user.id, email: user.email },
+    refreshSecret,
     { expiresIn: '30d' },
   );
+  return { accessToken, refreshToken };
 }
 
 async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
@@ -155,6 +162,12 @@ export async function signUp(req, res) {
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
     }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      return res.status(400).json({ message: 'Password must contain at least one letter and one number' });
+    }
 
     const existingUser = await findProfileByEmail(email.toLowerCase());
     if (existingUser) {
@@ -181,13 +194,15 @@ export async function signUp(req, res) {
     }
 
     const activationOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Hash the password before embedding in the JWT — never store plaintext in tokens
+    const hashedPasswordForToken = await bcrypt.hash(password, 10);
     const signupToken = jwt.sign(
       {
         firstName,
         lastName,
         email: email.toLowerCase(),
         phone,
-        password,
+        passwordHash: hashedPasswordForToken,
         referredBy,
         promoCode: promoCode ? promoCode.toUpperCase() : null,
         dateOfBirth,
@@ -242,7 +257,8 @@ export async function verifySignupOtp(req, res) {
       });
     }
 
-    const passwordHash = await bcrypt.hash(decoded.password, 10);
+    // Use pre-hashed password from token (passwordHash field); legacy tokens may have plain password field
+    const passwordHash = decoded.passwordHash || await bcrypt.hash(decoded.password, 10);
     const paymentGateway = getPaymentGateway(decoded.country);
     const preferredCurrency = getCurrencyByCountry(decoded.country);
 
@@ -274,12 +290,13 @@ export async function verifySignupOtp(req, res) {
       });
     }
 
-    const token = signUserToken(newUser);
+    const { accessToken, refreshToken } = signUserToken(newUser);
 
     res.status(201).json({
       success: true,
       message: 'Account verified successfully!',
-      token,
+      token: accessToken,
+      refreshToken,
       user: buildUserResponse(newUser),
     });
   } catch (error) {
@@ -297,7 +314,8 @@ export async function forgotPassword(req, res) {
     if (!email) return res.status(400).json({ message: 'Email is required' });
 
     const user = await findProfileByEmail(email.toLowerCase());
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    // Return identical 200 regardless of whether email exists (prevents enumeration)
+    if (!user) return res.status(200).json({ message: 'If that email is registered, a reset code has been sent.' });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await updatePasswordOtp(email.toLowerCase(), otp, new Date(Date.now() + 5 * 60 * 1000));
@@ -418,18 +436,19 @@ export async function signIn(req, res) {
       return res.status(403).json({ message: 'Account has been suspended' });
     }
 
-    const token = signUserToken(user);
-    res.cookie('token', token, {
+    const { accessToken, refreshToken } = signUserToken(user);
+    res.cookie('token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 15 * 60 * 1000,
       sameSite: 'lax',
     });
 
     res.status(200).json({
       success: true,
       message: 'Sign-in successful',
-      token,
+      token: accessToken,
+      refreshToken,
       user: buildUserResponse(user),
     });
   } catch (error) {
@@ -504,11 +523,11 @@ export async function googleAuth(req, res) {
       await sendWelcomeEmail(user.email, user.firstName || 'User', 'google').catch(() => {});
     }
 
-    const token = signUserToken(user);
-    res.cookie('token', token, {
+    const { accessToken: userAccessToken, refreshToken: userRefreshToken } = signUserToken(user);
+    res.cookie('token', userAccessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 15 * 60 * 1000,
       sameSite: 'lax',
     });
 
@@ -516,7 +535,8 @@ export async function googleAuth(req, res) {
       success: true,
       message: isNewUser ? 'Google signup successful' : 'Google sign-in successful',
       isNewUser,
-      token,
+      token: userAccessToken,
+      refreshToken: userRefreshToken,
       user: buildUserResponse(user),
     });
   } catch (error) {
@@ -622,6 +642,15 @@ export async function requestPhoneChange(req, res) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await setPendingPhoneChange(user.id, newPhone.trim(), otp, new Date(Date.now() + 15 * 60 * 1000));
 
+    if (resend) {
+      await resend.emails.send({
+        from: 'Bago <no-reply@sendwithbago.com>',
+        to: user.email,
+        subject: 'Verify your new phone number',
+        html: generateOtpEmailHtml({ firstName: user.firstName || 'there', otp, subtitle: 'Use this code to verify your new phone number.', expiryNote: 'This code expires in 15 minutes.' }),
+      }).catch(() => {});
+    }
+
     res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
   } catch (error) {
     console.error('requestPhoneChange error:', error);
@@ -718,9 +747,20 @@ export async function savePushToken(req, res) {
 export async function removePushToken(req, res) {
   try {
     const userId = req.user.id || req.user._id;
-    console.log(`🔕 removePushToken: clearing all tokens for user=${userId}`);
-    await clearPushTokens(userId);
-    res.json({ success: true, message: 'Push tokens removed' });
+    const token = req.body?.token || req.body?.pushToken || req.body?.deviceToken;
+
+    if (token) {
+      // Remove only the specific device token
+      await queryOne(
+        `UPDATE public.profiles SET push_tokens = array_remove(push_tokens, $2), updated_at = NOW() WHERE id = $1`,
+        [userId, token],
+      );
+    } else {
+      // Fallback: clear all (e.g. full logout)
+      await clearPushTokens(userId);
+    }
+
+    res.json({ success: true, message: 'Push token removed' });
   } catch (error) {
     console.error('removePushToken error:', error);
     res.status(500).json({ success: false, message: 'Failed to remove push token' });
