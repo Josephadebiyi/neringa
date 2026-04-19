@@ -125,7 +125,7 @@ class ApiConstants {
   static const String paystackResolve        = '/api/bago/paystack/resolve';
   static const String paystackAddBank        = '/api/bago/paystack/add-bank';
   static const String paystackVerifyBankOtp  = '/api/bago/paystack/verify-bank-otp';
-  static const String stripeConnectOnboard   = '/api/bago/stripe/connect/onboard';
+  static const String stripeConnectOnboard   = '/api/stripe/connect/onboard';
 
   // ---------------------------------------------------------------------------
   // Messaging
