@@ -2,7 +2,7 @@ import express from 'express';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
 import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, getUser, logout, getWallet, editCurrency, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
-import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, DeleteTrip } from '../controllers/AddaTripController.js';
+import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewToRequest, DeleteTrip } from '../controllers/AddaTripController.js';
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { requireKycVerification } from '../middleware/kycMiddleware.js';
@@ -134,6 +134,7 @@ userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => 
 });
 userRouter.post('/use-referral-discount', useReferralDiscount);
 
+userRouter.post('/request/:requestId/reviews', isAuthenticated, requireKycVerification, AddReviewToRequest);
 userRouter.post('/request/:requestId/raise-dispute', isAuthenticated, requireKycVerification, raiseDispute);
 userRouter.put("/request/:requestId/payment", isAuthenticated, requireKycVerification, updatePaymentStatus);
 

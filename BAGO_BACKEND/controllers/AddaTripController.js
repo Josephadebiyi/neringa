@@ -12,6 +12,7 @@ import {
   listActiveAdminEmails,
   userHasCompletedTripRequest,
 } from '../lib/postgres/trips.js';
+import { getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { getExchangeRate, convertCurrency } from '../services/currencyConverter.js';
 import { sendNewTripAdminNotification } from '../services/emailNotifications.js';
 import { query } from '../lib/postgres/db.js';
@@ -358,6 +359,50 @@ export const AddReviewToTrip = async (req, res, next) => {
 
     res.status(200).json({
       message: "Review added successfully",
+      reviews: updatedTrip.reviews,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const AddReviewToRequest = async (req, res, next) => {
+  const userId = req.user.id || req.user._id;
+  const { requestId } = req.params;
+  const { rating, comment } = req.body;
+
+  try {
+    if (rating == null || rating < 0 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be between 0 and 5' });
+    }
+
+    const shipmentRequest = await getShipmentRequestById(requestId);
+    if (!shipmentRequest) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    const tripId = shipmentRequest.tripId;
+    if (!tripId) {
+      return res.status(404).json({ message: 'Trip not found for this request' });
+    }
+
+    const trip = await getTripById(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    const hasCompleted = await userHasCompletedTripRequest(userId, tripId);
+    if (!hasCompleted) {
+      return res.status(403).json({
+        message: 'You can only rate travelers after a successful (completed) trip.',
+      });
+    }
+
+    await addTripReview({ tripId, userId, rating, comment });
+    const updatedTrip = await getTripById(tripId);
+
+    res.status(200).json({
+      message: 'Review added successfully',
       reviews: updatedTrip.reviews,
     });
   } catch (error) {

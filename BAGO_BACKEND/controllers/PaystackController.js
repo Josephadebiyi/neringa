@@ -127,12 +127,10 @@ export const addBankAccount = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Store pending bank details + OTP in Postgres
+    // Store pending bank details + OTP inside bank_details JSON
     await pgQuery(
       `UPDATE public.profiles
        SET bank_details = $2,
-           pending_bank_otp = $3,
-           pending_bank_otp_expires = $4,
            updated_at = NOW()
        WHERE id = $1`,
       [
@@ -145,8 +143,6 @@ export const addBankAccount = async (req, res) => {
           pendingOtp: otp,
           otpExpiresAt: expiresAt.toISOString(),
         }),
-        otp,
-        expiresAt,
       ]
     );
 
@@ -198,26 +194,26 @@ export const verifyBankOTP = async (req, res) => {
 
     // Fetch pending bank info from Postgres
     const profile = await queryOne(
-      `SELECT bank_details, pending_bank_otp, pending_bank_otp_expires, preferred_currency
+      `SELECT bank_details, preferred_currency
        FROM public.profiles WHERE id = $1`,
       [userId]
     );
 
-    if (!profile || !profile.pending_bank_otp) {
+    const bankDetails = typeof profile?.bank_details === 'string'
+      ? JSON.parse(profile.bank_details)
+      : profile?.bank_details || {};
+
+    if (!profile || !bankDetails.pendingOtp) {
       return res.status(400).json({ success: false, message: 'No pending bank account. Please start over.' });
     }
 
-    if (new Date() > new Date(profile.pending_bank_otp_expires)) {
+    if (new Date() > new Date(bankDetails.otpExpiresAt)) {
       return res.status(400).json({ success: false, message: 'OTP has expired. Please start over.' });
     }
 
-    if (profile.pending_bank_otp !== otp) {
+    if (bankDetails.pendingOtp !== otp) {
       return res.status(400).json({ success: false, message: 'Invalid OTP. Please try again.' });
     }
-
-    const bankDetails = typeof profile.bank_details === 'string'
-      ? JSON.parse(profile.bank_details)
-      : profile.bank_details || {};
 
     const { accountNumber, bankCode, accountName, bankName } = bankDetails;
 
@@ -238,8 +234,6 @@ export const verifyBankOTP = async (req, res) => {
       `UPDATE public.profiles
        SET paystack_recipient_code = $2,
            bank_details = $3,
-           pending_bank_otp = NULL,
-           pending_bank_otp_expires = NULL,
            updated_at = NOW()
        WHERE id = $1`,
       [
