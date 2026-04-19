@@ -20,13 +20,7 @@ import {
   deletePaymentMethod,
   listPaymentMethods,
 } from '../controllers/postgresPaymentMethodController.js';
-import {
-  requestRefund,
-  approveRefund,
-  rejectRefund,
-  getAllRefunds,
-  getRefundByRequestId
-} from "../controllers/refundController.js";
+import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import fileUpload from 'express-fileupload';
 
 
@@ -56,36 +50,43 @@ userRouter.post('/refresh-token', async (req, res) => {
     }
 
     const jwt = (await import('jsonwebtoken')).default;
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-    
+    // Refresh tokens are verified against the dedicated refresh secret
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+    const decoded = jwt.verify(refreshToken, refreshSecret);
+
     const { findProfileById: findById } = await import('./lib/postgres/profiles.js');
     const user = await findById(decoded.id);
-    
+
     if (!user) {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
-    
     if (user.banned) {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
     }
 
-    // Issue new tokens
-    const newToken = jwt.sign(
-      { id: user.id, email: user.email },
+    // Short-lived access token (15 min); long-lived refresh token (30 days)
+    const accessToken = jwt.sign(
+      { id: user.id, email: user.email, kycStatus: user.kycStatus },
       process.env.JWT_SECRET,
+      { expiresIn: '15m' },
+    );
+    const newRefreshToken = jwt.sign(
+      { id: user.id, email: user.email },
+      refreshSecret,
       { expiresIn: '30d' },
     );
 
     res.status(200).json({
       success: true,
-      token: newToken,
-      refreshToken: newToken,
+      token: accessToken,
+      refreshToken: newRefreshToken,
       user: {
         id: user.id,
         _id: user.id,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        kycStatus: user.kycStatus,
       },
     });
   } catch (error) {
@@ -115,11 +116,10 @@ userRouter.put("/edit", isAuthenticated, edit)
 userRouter.put("/Trip/:id", isAuthenticated, requireKycVerification, UpdateTrip);
 userRouter.delete("/Trip/:id", isAuthenticated, requireKycVerification, DeleteTrip);
 
-userRouter.post("/request/refund", requestRefund);
-userRouter.put("/approve/:id", approveRefund);
-userRouter.put("/reject/:id", rejectRefund);
-userRouter.get("/get-refund", getAllRefunds);
-userRouter.get("/request/:requestId", getRefundByRequestId);
+// Refund routes — authenticated
+userRouter.post("/request/refund", isAuthenticated, requireKycVerification, requestRefund);
+userRouter.get("/get-refund", isAuthenticated, getAllRefunds);
+userRouter.get("/request/:requestId/refund", isAuthenticated, getRefundByRequestId);
 userRouter.get("/track/:trackingNumber", getPublicTracking);
 
 
@@ -132,7 +132,7 @@ userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => 
   req.params = { ...req.params, sessionId: req.body?.sessionId || req.query?.sessionId };
   return fetchDiditResult(req, res, next);
 });
-userRouter.post('/use-referral-discount', useReferralDiscount);
+userRouter.post('/use-referral-discount', isAuthenticated, useReferralDiscount);
 
 userRouter.post('/request/:requestId/reviews', isAuthenticated, requireKycVerification, AddReviewToRequest);
 userRouter.post('/request/:requestId/raise-dispute', isAuthenticated, requireKycVerification, raiseDispute);
@@ -146,9 +146,9 @@ userRouter.post("/RequestPackage", isAuthenticated, requireKycVerification, Requ
 userRouter.get("/recentOrder", isAuthenticated, recentOrder)
 userRouter.get("/getRequests/:tripId", isAuthenticated, requireKycVerification, getRequests)
 userRouter.get("/incoming-requests", isAuthenticated, requireKycVerification, getIncomingRequests)
-userRouter.get("/disputes", getDisputes);
-userRouter.put("/disputes/:id", updateDispute);
-userRouter.get('/completed/:userId', getCompletedRequests);
+userRouter.get("/disputes", isAuthenticated, requireKycVerification, getDisputes);
+userRouter.put("/disputes/:id", isAuthenticated, requireKycVerification, updateDispute);
+userRouter.get('/completed', isAuthenticated, requireKycVerification, getCompletedRequests);
 userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, requireKycVerification, updateRequestStatus)
 userRouter.put('/request/:requestId/image', isAuthenticated, requireKycVerification, uploadRequestImage);
 userRouter.put('/request/:requestId/confirm-received', isAuthenticated, requireKycVerification, confirmReceivedBySender);

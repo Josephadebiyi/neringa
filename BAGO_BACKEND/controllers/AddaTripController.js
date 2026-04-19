@@ -102,6 +102,9 @@ export const AddAtrip = async (req, res, next) => {
     if (!Number.isFinite(weight) || weight <= 0) {
       return res.status(400).json({ message: "Trip capacity must be greater than 0kg" });
     }
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ message: "Price per kg must be a positive number" });
+    }
 
     // Price Validation: Max 15 USD
     const priceInUSD = await convertCurrency(price, currency, 'USD');

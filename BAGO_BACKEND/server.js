@@ -111,11 +111,11 @@ async function createStripeAccountForUser(user) {
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman)
+      // Allow requests with no origin (mobile apps, Postman) and listed origins
       if (!origin || allowedOrigins.has(origin)) {
         return callback(null, true);
       }
-      return callback(null, true); // Allow all origins for mobile app compatibility
+      return callback(new Error(`CORS: origin ${origin} not allowed`), false);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
@@ -454,8 +454,7 @@ app.post('/api/payment/create-intent', async (req, res) => {
     });
 
 
-    console.log('💡 PaymentIntent created successfully:', paymentIntent.id);
-    console.log('💡 Client Secret:', paymentIntent.client_secret);
+    // PaymentIntent created — client secret returned in response, not logged
 
     res.status(200).json({
       success: true,
@@ -473,13 +472,14 @@ app.post('/api/payment/create-intent', async (req, res) => {
 
 
 // ✅ STRIPE CONNECT - Onboarding
-app.post('/api/stripe/connect/onboard', async (req, res) => {
+app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
   if (!stripe) {
     return res.status(503).json({ success: false, message: 'Payment service not configured' });
   }
   try {
-    const { userId, email } = req.body;
-    if (!userId || !email) return res.status(400).json({ success: false, message: 'userId and email are required' });
+    const userId = req.user.id || req.user._id;
+    const email = req.user.email || req.body.email;
+    if (!userId || !email) return res.status(400).json({ success: false, message: 'User email is required' });
 
     const user = await queryOne(`SELECT * FROM public.profiles WHERE id = $1`, [userId]);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -1043,40 +1043,27 @@ app.post("/create-recipient", async (req, res) => {
 
 
 
-app.post("/send-otp", async (req, res) => {
+app.post("/send-otp", isAuthenticated, async (req, res) => {
   try {
-    console.log("📩 Incoming /send-otp request with body:", req.body);
-
-    const { userId } = req.body;
-    if (!userId) {
-      console.warn("⚠️ No userId provided in body");
-      return res.status(400).json({ success: false, message: "userId required" });
-    }
+    const userId = req.user.id || req.user._id;
 
     const user = await queryOne(`SELECT id, email, first_name FROM public.profiles WHERE id = $1`, [userId]);
-    console.log("🔍 Found user:", user ? user.email : "No user found");
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min validity
-    console.log("🧮 Generated OTP:", otp, "expires at:", expiresAt);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await queryOne(
       `UPDATE public.profiles SET otp_code = $2, otp_expires_at = $3, updated_at = NOW() WHERE id = $1 RETURNING id`,
       [userId, otp, expiresAt]
     );
-    console.log("💾 OTP saved for user:", user.email);
 
-    // Check that resend instance exists
     if (!resend || !resend.emails?.send) {
-      console.error("🚨 Resend instance not configured properly!");
       return res.status(500).json({ success: false, message: "Email service not configured" });
     }
-
-    console.log("📤 Sending email to:", user.email);
     const html = `
   <!doctype html>
   <html>
@@ -1146,7 +1133,7 @@ app.post("/send-otp", async (req, res) => {
   `;
 
 
-    const emailResponse = await resend.emails.send({
+    await resend.emails.send({
       from: "Bago <no-reply@sendwithbago.com>",
       to: user.email,
       subject: "Your Withdrawal OTP Code",
@@ -1154,9 +1141,7 @@ app.post("/send-otp", async (req, res) => {
     });
 
 
-    console.log("📨 Email API response:", emailResponse);
-
-    res.json({ success: true, message: "OTP sent to email", debug: emailResponse });
+    res.json({ success: true, message: "OTP sent to email" });
   } catch (err) {
     console.error("❌ send-otp error:", err);
     res.status(500).json({ success: false, message: err.message });

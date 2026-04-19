@@ -790,6 +790,12 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
       error.code = 'ALREADY_DONE';
       throw error;
     }
+    const allowedStatuses = ['delivering', 'delivered', 'completed'];
+    if (!allowedStatuses.includes(request.status)) {
+      const error = new Error('Cannot confirm receipt until the traveler has marked the shipment as delivering or delivered');
+      error.code = 'NOT_DELIVERED';
+      throw error;
+    }
 
     await client.query(
       `

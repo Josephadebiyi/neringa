@@ -224,9 +224,10 @@ export const checkEmailAvailability = async (req, res) => {
 
 export const addFunds = async (req, res) => {
   try {
-    const { userId, amount, description } = req.body;
-    if (!userId || !amount || amount <= 0) {
-      return res.status(400).json({ message: 'userId and positive amount required' });
+    const userId = req.user.id || req.user._id;
+    const { amount, description } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Positive amount required' });
     }
 
     const row = await queryOne(
@@ -295,9 +296,10 @@ export const withdrawFunds = async (req, res) => {
 
 export const sendToEscrow = async (req, res) => {
   try {
-    const { userId, amount, description } = req.body;
-    if (!userId || !amount || amount <= 0) {
-      return res.status(400).json({ message: 'userId and positive amount required' });
+    const userId = req.user.id || req.user._id;
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Positive amount required' });
     }
 
     const profile = await queryOne(
@@ -332,9 +334,10 @@ export const sendToEscrow = async (req, res) => {
 
 export const releaseFromEscrow = async (req, res) => {
   try {
-    const { userId, amount, description } = req.body;
-    if (!userId || !amount || amount <= 0) {
-      return res.status(400).json({ message: 'userId and positive amount required' });
+    const userId = req.user.id || req.user._id;
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Positive amount required' });
     }
 
     const profile = await queryOne(
@@ -369,9 +372,10 @@ export const releaseFromEscrow = async (req, res) => {
 
 export const addToEscrow = async (req, res) => {
   try {
-    const { userId, amount } = req.body;
-    if (!userId || !amount || amount <= 0) {
-      return res.status(400).json({ message: 'userId and positive amount required' });
+    const userId = req.user.id || req.user._id;
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Positive amount required' });
     }
 
     const row = await queryOne(

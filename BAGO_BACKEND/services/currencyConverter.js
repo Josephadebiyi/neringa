@@ -111,6 +111,8 @@ export async function convertCurrency(amount, fromCurrency, toCurrency) {
 
     const fromRate = fromCurrency === 'USD' ? 1 : effectiveRates[fromCurrency];
     const toRate = toCurrency === 'USD' ? 1 : effectiveRates[toCurrency];
+    if (!fromRate || fromRate <= 0) throw new Error(`Invalid exchange rate for ${fromCurrency}`);
+    if (!toRate || toRate <= 0) throw new Error(`Invalid exchange rate for ${toCurrency}`);
     return Number(((Number(amount) * toRate) / fromRate).toFixed(4));
   } catch (error) {
     console.error('❌ Currency conversion error:', error);

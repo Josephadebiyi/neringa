@@ -27,6 +27,8 @@ import {
   updateTravelerProof,
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
+import { verifyPayment as verifyPaystackPaymentRef } from '../services/paystackService.js';
+import { getAppSettings } from './AdminControllers/setting.js';
 
 function buildTripRealtimePayload(trip) {
   if (!trip) return null;
@@ -111,7 +113,18 @@ export async function RequestPackage(req, res) {
       currency: currency || 'USD',
       imageUrl: typeof image === 'string' ? image : null,
       insurance: insurance === 'yes' || insurance === true,
-      insuranceCost: insurance ? Number(insuranceCost) || 0 : 0,
+      insuranceCost: (() => {
+        if (!(insurance === 'yes' || insurance === true)) return 0;
+        // Recompute server-side to prevent client manipulation
+        const settings = global._appSettingsCache || {};
+        const packageValue = Number(0); // value used in insurance calc
+        if (settings.insuranceType === 'fixed') return Number(settings.insuranceFixedAmount) || 0;
+        const pct = Number(settings.insurancePercentage) || 3;
+        const clientCost = Number(insuranceCost) || 0;
+        // Accept client value if within 5% of server-computed; otherwise use server value
+        const serverCost = (Number(amount) * pct) / 100;
+        return Math.abs(clientCost - serverCost) / Math.max(serverCost, 1) < 0.05 ? clientCost : serverCost;
+      })(),
       estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
       estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : null,
       termsAccepted: true,
@@ -126,6 +139,22 @@ export async function RequestPackage(req, res) {
     });
 
     if (paymentReference) {
+      // Verify payment server-side before holding escrow
+      const provider = (paymentProvider || 'paystack').toLowerCase();
+      if (provider === 'paystack') {
+        const verification = await verifyPaystackPaymentRef(paymentReference);
+        if (!verification.success || verification.data?.status !== 'success') {
+          return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
+        }
+        // Ensure the verified amount matches what was agreed
+        const verifiedAmountKobo = verification.data?.amount || 0;
+        const verifiedAmount = verifiedAmountKobo / 100;
+        const agreedAmount = Number(amount);
+        if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
+          return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
+        }
+      }
+      // For Stripe, the intent was already confirmed client-side; server verifies via webhook separately
       await holdEscrowForPaidRequest({
         requestId: newRequest.id,
         providerReference: paymentReference,
@@ -267,10 +296,20 @@ export async function getRequests(req, res) {
   try {
     const { tripId } = req.params;
     const userId = req.user.id || req.user._id;
+
+    if (tripId) {
+      // Verify the authenticated user owns this trip before exposing its requests
+      const trip = await getTripById(tripId);
+      if (!trip) return res.status(404).json({ message: 'Trip not found', success: false });
+      if (String(trip.userId || trip.user_id) !== String(userId)) {
+        return res.status(403).json({ message: 'Access denied', success: false });
+      }
+    }
+
     const requests = tripId ? await listRequestsForTrip(tripId) : await listRequestsForUser(userId);
 
     if (!requests.length) {
-      return res.status(404).json({ message: tripId ? 'No requests found for this trip' : 'No requests found' });
+      return res.status(200).json({ message: 'No requests found', data: { requests: [], packages: [] }, requests: [], success: true, errors: false });
     }
 
     const sortedRequests = [
@@ -394,6 +433,9 @@ export async function confirmReceivedBySender(req, res) {
     if (error.code === 'ALREADY_DONE') {
       return res.status(400).json({ success: false, message: error.message });
     }
+    if (error.code === 'NOT_DELIVERED') {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error('confirmReceivedBySender error:', error);
     return res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
@@ -506,9 +548,9 @@ export async function recentOrder(req, res) {
 
 export async function getCompletedRequests(req, res) {
   try {
-    const userId = req.params?.userId || req.query?.userId || req.user?.id || req.user?._id;
+    const userId = req.user?.id || req.user?._id;
     if (!userId) {
-      return res.status(400).json({ message: 'userId is required', success: false });
+      return res.status(401).json({ message: 'Unauthorized', success: false });
     }
     const data = await listCompletedRequestsByUser(userId);
     return res.status(200).json({

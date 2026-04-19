@@ -189,8 +189,7 @@ export const addBankAccount = async (req, res) => {
       console.log('Bank OTP (no email):', otp);
     }
 
-    const shouldExposeDebugOtp = req.get('X-Debug-Bank-Otp') === 'true';
-    const response = {
+    return res.status(200).json({
       success: true,
       requiresOtp: true,
       accountName: accountInfo.accountName,
@@ -198,13 +197,7 @@ export const addBankAccount = async (req, res) => {
       message: deliveryStatus === 'email_sent'
         ? `A 6-digit confirmation code has been sent to ${user.email}`
         : 'Use the 6-digit confirmation code shown in the app to complete bank setup.',
-    };
-
-    if (shouldExposeDebugOtp) {
-      response.debugOtp = otp;
-    }
-
-    return res.status(200).json(response);
+    });
   } catch (error) {
     console.error('Add bank account error:', error);
     return res.status(500).json({
