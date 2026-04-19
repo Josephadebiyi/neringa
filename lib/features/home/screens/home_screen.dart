@@ -282,6 +282,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         pendingEarnings: carrierEarnings,
                         currency: UserCurrencyHelper.resolve(user),
                         onPostTrip: () => context.push('/post-trip'),
+                        onWithdraw: () => context.push('/profile/withdraw'),
                       )
                     : _SenderHero(
                         from: _from,
@@ -297,7 +298,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   if ((user?.escrowBalance ?? 0) > 0) ...[
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFFBEB),
                         borderRadius: BorderRadius.circular(12),
@@ -305,7 +307,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.lock_outline_rounded, color: Color(0xFFD97706), size: 18),
+                          const Icon(Icons.lock_outline_rounded,
+                              color: Color(0xFFD97706), size: 18),
                           const SizedBox(width: 8),
                           Text(
                             '${UserCurrencyHelper.resolve(user)} ${user!.escrowBalance.toStringAsFixed(2)} held in escrow',
@@ -324,6 +327,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 if (isCarrier) ...[
                   const SizedBox(height: 14),
+                  Text(l10n.whatDoYouWantToDo,
+                      style: AppTextStyles.h3.copyWith(
+                          fontWeight: FontWeight.w800, color: AppColors.black)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 110,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: services.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (context, i) =>
+                          _ServiceCard(item: services[i]),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   _CarrierTripMetrics(
                     totalTrips: carrierTrips.length,
                     totalKgSold: carrierKgSold,
@@ -355,22 +373,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Services ─────────────────────────────────────────────
-                Text(l10n.whatDoYouWantToDo,
-                    style: AppTextStyles.h3.copyWith(
-                        fontWeight: FontWeight.w800, color: AppColors.black)),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 110,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: services.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (context, i) =>
-                        _ServiceCard(item: services[i]),
+                if (!isCarrier) ...[
+                  // ── Services ─────────────────────────────────────────────
+                  Text(l10n.whatDoYouWantToDo,
+                      style: AppTextStyles.h3.copyWith(
+                          fontWeight: FontWeight.w800, color: AppColors.black)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 110,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: services.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (context, i) =>
+                          _ServiceCard(item: services[i]),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                ],
 
                 // ── Top Destinations ─────────────────────────────────────
                 Text(l10n.topDestination,
@@ -546,11 +566,13 @@ class _CarrierHero extends StatelessWidget {
       {required this.balance,
       required this.pendingEarnings,
       required this.currency,
-      required this.onPostTrip});
+      required this.onPostTrip,
+      required this.onWithdraw});
   final double balance;
   final double pendingEarnings;
   final String currency;
   final VoidCallback onPostTrip;
+  final VoidCallback onWithdraw;
 
   @override
   Widget build(BuildContext context) {
@@ -634,7 +656,7 @@ class _CarrierHero extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           InkWell(
-            onTap: onPostTrip,
+            onTap: onWithdraw,
             borderRadius: BorderRadius.circular(12),
             child: Container(
               height: 38,
@@ -643,10 +665,10 @@ class _CarrierHero extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.add_rounded,
+                  const Icon(Icons.savings_outlined,
                       color: AppColors.primary, size: 19),
                   const SizedBox(width: 8),
-                  Text(l10n.publishNewItinerary,
+                  Text('Withdraw Earnings',
                       style: AppTextStyles.buttonMd.copyWith(
                           color: AppColors.black, fontWeight: FontWeight.w800)),
                 ],
@@ -684,8 +706,8 @@ class _WalletBreakdownTile extends StatelessWidget {
         const SizedBox(height: 3),
         Text(
           '$currency ${amount.toStringAsFixed(2)}',
-          style: AppTextStyles.labelLg.copyWith(
-              color: Colors.white, fontWeight: FontWeight.w900),
+          style: AppTextStyles.labelLg
+              .copyWith(color: Colors.white, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 2),
         Text(sublabel,
