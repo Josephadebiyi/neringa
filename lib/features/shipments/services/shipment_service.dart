@@ -348,4 +348,11 @@ class ShipmentService {
     }
   }
 
+  Future<void> confirmReceived(String requestId) async {
+    try {
+      await _api.put('${ApiConstants.confirmReceived}/$requestId/confirm-received');
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
 }
