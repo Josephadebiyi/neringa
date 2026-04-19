@@ -20,6 +20,11 @@ class PushNotificationService {
   bool _registering = false;
   String? _pendingToken;
 
+  static final _tapController = StreamController<String>.broadcast();
+
+  /// Emits a conversationId whenever the user taps a chat push notification.
+  static Stream<String> get onChatTap => _tapController.stream;
+
   void startListening() {
     if (_listening) return;
     _listening = true;
@@ -118,6 +123,15 @@ class PushNotificationService {
           debugPrint('🔔 APNs token received via channel: ${token.length} chars');
           _pendingToken = token;
           await _registerIfPossible(token);
+        }
+        break;
+      case 'onNotificationTap':
+        final args = call.arguments as Map?;
+        final type = args?['type']?.toString() ?? '';
+        final conversationId = args?['conversationId']?.toString() ?? '';
+        debugPrint('🔔 Notification tapped — type: $type conversationId: $conversationId');
+        if (type == 'chat_message' && conversationId.isNotEmpty) {
+          _tapController.add(conversationId);
         }
         break;
       default:

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,6 +116,24 @@ class _NotificationPromptHostState
     extends ConsumerState<_NotificationPromptHost> {
   String? _lastPromptedUserId;
   bool _notificationPromptOpen = false;
+  StreamSubscription<String>? _chatTapSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _chatTapSub = PushNotificationService.onChatTap.listen((conversationId) {
+      final auth = ref.read(authProvider);
+      if (!auth.isLoggedIn) return;
+      final router = ref.read(routerProvider);
+      router.go('/messages/$conversationId');
+    });
+  }
+
+  @override
+  void dispose() {
+    _chatTapSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
