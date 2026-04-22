@@ -38,9 +38,9 @@ export default function Analytics() {
   // Filter users based on search query
   const filteredUsers = users.filter(
     (user) =>
-      `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.phone.includes(searchQuery)
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.phone ?? '').includes(searchQuery)
   );
 
   if (loading) {

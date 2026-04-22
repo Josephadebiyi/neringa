@@ -111,7 +111,7 @@ export default function Trips() {
     };
 
     const getTravelIcon = (means: string) => {
-        switch (means.toLowerCase()) {
+        switch ((means ?? '').toLowerCase()) {
             case 'airplane': return <Plane className="w-4 h-4" />;
             case 'train': return <Train className="w-4 h-4" />;
             case 'car': return <Car className="w-4 h-4" />;

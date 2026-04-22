@@ -64,8 +64,8 @@ export default function SettingsPage() {
   const [selectedRegion, setSelectedRegion] = useState<"africa" | "europe" | "global">("global");
   const [currencyRows, setCurrencyRows] = useState<CurrencyRateRow[]>(defaultRows);
   const [currentPassword, setCurrentPassword] = useState("");
-  const [nextAdminEmail, setNextAdminEmail] = useState("Taiwojos2@yahoo.com");
-  const [nextAdminPassword, setNextAdminPassword] = useState("passk3y");
+  const [nextAdminEmail, setNextAdminEmail] = useState("");
+  const [nextAdminPassword, setNextAdminPassword] = useState("");
   const [credentialOtp, setCredentialOtp] = useState("");
 
   useEffect(() => {

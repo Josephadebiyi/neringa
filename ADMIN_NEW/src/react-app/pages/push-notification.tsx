@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell,
   Loader2,
@@ -14,7 +14,7 @@ import {
   Layers
 } from "lucide-react";
 
-import { sendPushNotification } from "../services/api";
+import { sendPushNotification, getPushHistory } from "../services/api";
 
 interface Notification {
   title: string;
@@ -24,22 +24,43 @@ interface Notification {
   status: 'SUCCESS' | 'FAILED';
 }
 
+interface PushHistoryItem {
+  id?: number;
+  title: string;
+  message?: string;
+  body?: string;
+  sent_count?: number;
+  status?: string;
+  sent_at?: string;
+  created_at?: string;
+}
+
 export default function PushNotificationPage() {
   const [history, setHistory] = useState<Notification[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    body: "",
-  });
+  const [form, setForm] = useState({ title: "", body: "" });
+
+  useEffect(() => {
+    getPushHistory().then((result) => {
+      const raw: PushHistoryItem[] = result?.data || result?.notifications || (Array.isArray(result) ? result : []);
+      if (raw.length > 0) {
+        setHistory(raw.map((item) => ({
+          title: item.title,
+          body: item.message || item.body || '',
+          sentAt: item.sent_at || item.created_at || new Date().toISOString(),
+          recipientCount: item.sent_count || 0,
+          status: item.status === 'failed' ? 'FAILED' : 'SUCCESS',
+        })));
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleSend = async () => {
     if (!form.title.trim() || !form.body.trim()) return;
-
     try {
       setLoading(true);
       const data = await sendPushNotification(form);
-      
       setHistory(prev => [{
         ...form,
         sentAt: new Date().toISOString(),
@@ -54,6 +75,16 @@ export default function PushNotificationPage() {
       setLoading(false);
     }
   };
+
+  const totalReach = history.reduce((sum, n) => sum + n.recipientCount, 0);
+  const successCount = history.filter(n => n.status === 'SUCCESS').length;
+  const deliveryRate = history.length > 0 ? Math.round((successCount / history.length) * 100) : 0;
+
+  const stats = [
+    { label: 'Total Reach', value: totalReach.toLocaleString(), sub: 'Recipients Notified', colorClass: 'bg-blue-50 text-blue-600', icon: Smartphone },
+    { label: 'Delivery Rate', value: `${deliveryRate}%`, sub: 'Successful Sends', colorClass: 'bg-green-50 text-green-600', icon: CheckCircle2 },
+    { label: 'Total Sent', value: history.length.toString(), sub: 'All Time', colorClass: 'bg-purple-50 text-purple-600', icon: Layers },
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -76,14 +107,10 @@ export default function PushNotificationPage() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: 'Total Reach', value: '2,840', sub: 'Active Tokens', color: 'blue', icon: Smartphone },
-          { label: 'Avg Delivery', value: '98.2%', sub: 'Last 7 Days', color: 'green', icon: CheckCircle2 },
-          { label: 'Scheduled', value: '0', sub: 'Pending Queue', color: 'purple', icon: Layers },
-        ].map((stat, i) => (
+        {stats.map((stat, i) => (
           <div key={i} className="premium-card p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 rounded-2xl bg-${stat.color}-50 text-${stat.color}-600`}>
+              <div className={`p-3 rounded-2xl ${stat.colorClass}`}>
                 <stat.icon className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{stat.label}</span>
@@ -109,7 +136,7 @@ export default function PushNotificationPage() {
               <Bell className="w-8 h-8 text-gray-200" />
             </div>
             <p className="font-bold text-[#1e2749]">Registry Empty</p>
-            <p className="text-xs text-gray-400 mt-1 max-w-[200px]">No notification events have been logged in the current session</p>
+            <p className="text-xs text-gray-400 mt-1 max-w-[200px]">No notification events have been logged yet</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -144,7 +171,7 @@ export default function PushNotificationPage() {
                     <td className="py-5 px-8">
                       <span className="flex items-center gap-1.5 text-[10px] font-black text-green-600 uppercase">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                        Success
+                        {n.status === 'SUCCESS' ? 'Success' : 'Failed'}
                       </span>
                     </td>
                     <td className="py-5 px-8 text-right">

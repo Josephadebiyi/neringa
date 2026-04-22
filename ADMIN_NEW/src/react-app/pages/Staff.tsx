@@ -31,6 +31,8 @@ const ROLES = [
     name: 'Super Admin',
     icon: ShieldCheck,
     color: 'red',
+    cardClass: 'bg-red-50 text-red-500',
+    iconClass: 'text-red-500',
     desc: 'Full system access and staff management'
   },
   {
@@ -38,6 +40,8 @@ const ROLES = [
     name: 'Safety Admin',
     icon: ShieldAlert,
     color: 'orange',
+    cardClass: 'bg-orange-50 text-orange-500',
+    iconClass: 'text-orange-500',
     desc: 'Compliance, KYC, and dispute resolution'
   },
   {
@@ -45,6 +49,8 @@ const ROLES = [
     name: 'Support Admin',
     icon: Shield,
     color: 'blue',
+    cardClass: 'bg-blue-50 text-blue-500',
+    iconClass: 'text-blue-500',
     desc: 'User queries and shipment tracking'
   }
 ];
@@ -138,9 +144,9 @@ export default function Staff() {
   };
 
   const filteredStaff = staff.filter(member =>
-    member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.userName.toLowerCase().includes(searchTerm.toLowerCase())
+    (member.email ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (member.fullName ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (member.userName ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -165,7 +171,7 @@ export default function Staff() {
         {ROLES.map((role) => (
           <div key={role.id} className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
             <div className="flex items-center gap-4 mb-3">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${role.color}-50 text-${role.color}-500`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${role.cardClass}`}>
                 <role.icon className="w-6 h-6" />
               </div>
               <div>
@@ -222,7 +228,7 @@ export default function Staff() {
                             member.role === 'SAFETY_ADMIN' ? 'from-orange-400 to-orange-500' :
                               'from-[#5240E8] to-[#6366F1]'
                             }`}>
-                            {member.fullName[0].toUpperCase()}
+                            {(member.fullName?.[0] ?? '?').toUpperCase()}
                           </div>
                           <div>
                             <div className="font-bold text-[#1e2749] text-sm">{member.fullName}</div>
@@ -234,7 +240,7 @@ export default function Staff() {
                       </td>
                       <td className="py-5 px-8">
                         <div className="flex items-center gap-2">
-                          {roleInfo && <roleInfo.icon className={`w-3 h-3 text-${roleInfo.color}-500`} />}
+                          {roleInfo && <roleInfo.icon className={`w-3 h-3 ${roleInfo.iconClass}`} />}
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${member.role === 'SUPER_ADMIN' ? 'bg-red-50 text-red-600' :
                             member.role === 'SAFETY_ADMIN' ? 'bg-orange-50 text-orange-600' :
                               'bg-blue-50 text-blue-600'

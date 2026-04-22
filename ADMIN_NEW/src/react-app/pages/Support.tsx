@@ -55,6 +55,7 @@ export default function Support() {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [filter, setFilter] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchTickets();
@@ -128,7 +129,16 @@ export default function Support() {
     }
   };
 
-  const filteredTickets = tickets.filter(t => filter === 'ALL' || t.status === filter);
+  const filteredTickets = tickets.filter(t => {
+    const matchesStatus = filter === 'ALL' || t.status === filter;
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = !q ||
+      t.subject.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      `${t.user.firstName} ${t.user.lastName}`.toLowerCase().includes(q) ||
+      t.user.email.toLowerCase().includes(q);
+    return matchesStatus && matchesSearch;
+  });
 
   return (
     <div className="h-[calc(100vh-160px)] flex gap-8 animate-in fade-in duration-500">
@@ -155,6 +165,8 @@ export default function Support() {
             <input
               type="text"
               placeholder="Query tickets..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl focus:ring-4 focus:ring-[#5240E8]/10 outline-none text-sm font-medium"
             />
           </div>

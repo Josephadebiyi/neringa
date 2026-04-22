@@ -101,7 +101,7 @@ export default function KYCVerificationManager() {
     return (
       <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${statusColors[status] || "bg-gray-100 text-gray-700"}`}>
         {statusIcons[status]}
-        <span className="capitalize">{status.replaceAll("_", " ")}</span>
+        <span className="capitalize">{(status ?? '').replaceAll("_", " ")}</span>
       </span>
     );
   };

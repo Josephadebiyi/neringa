@@ -98,6 +98,7 @@ export default function Tracking() {
   const [updatingItem, setUpdatingItem] = useState<TableItem | null>(null);
   const [updateStatus, setUpdateStatus] = useState<string>('');
   const [updateTravelerId, setUpdateTravelerId] = useState<string>('');
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const limit = 20;
 
   useEffect(() => {
@@ -130,7 +131,7 @@ export default function Tracking() {
       const userIds = new Set<string>();
       trackingData.data.forEach((item) => {
         item.requests.forEach((req) => {
-          userIds.add(req.sender);
+          if (req.sender) userIds.add(req.sender);
           if (req.traveler) userIds.add(req.traveler);
         });
       });
@@ -265,7 +266,7 @@ export default function Tracking() {
       setUpdatingItem(null);
       fetchTrackingAndUsers();
     } catch (error) {
-      alert('Failed to update: ' + error);
+      setUpdateError('Failed to update request. Please try again.');
     }
   };
 
@@ -488,11 +489,16 @@ export default function Tracking() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
               <h3 className="font-bold text-gray-900 text-lg">Update Booking Request</h3>
-              <button onClick={() => setUpdatingItem(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => { setUpdatingItem(null); setUpdateError(null); }} className="text-gray-400 hover:text-gray-600">
                 ✕
               </button>
             </div>
             <div className="p-6 space-y-4">
+              {updateError && (
+                <div className="bg-red-50 border border-red-100 text-red-600 text-sm font-medium px-4 py-3 rounded-lg">
+                  {updateError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select
@@ -521,7 +527,7 @@ export default function Tracking() {
             </div>
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
               <button
-                onClick={() => setUpdatingItem(null)}
+                onClick={() => { setUpdatingItem(null); setUpdateError(null); }}
                 className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors border border-gray-200"
               >
                 Cancel

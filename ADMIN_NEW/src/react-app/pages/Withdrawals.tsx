@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Filter, CreditCard, User, Calendar, DollarSign, CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
+import { Search, Filter, CreditCard, User, Calendar, DollarSign, CheckCircle, XCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { getWithdrawals, updateWithdrawalStatus as updateStatus } from "../services/api";
 
 // Interface for withdrawal requests from API
@@ -21,6 +21,7 @@ interface WithdrawalRequest {
 export default function Withdrawals() {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -42,17 +43,32 @@ export default function Withdrawals() {
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: string) => {
+  const handleUpdateStatus = async (id: string, status: string, failureReason?: string) => {
     try {
       setLoading(true);
-      const result = await updateStatus(id, status);
+      const result = await updateStatus(id, status, failureReason);
       if (result.success) {
         await fetchWithdrawals();
       }
     } catch (error) {
-      alert('Failed to update status');
+      console.error('Failed to update status:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    const pending = withdrawals.filter(w => w.status === 'pending');
+    if (pending.length === 0) return;
+    if (!confirm(`Approve all ${pending.length} pending withdrawal request(s)?`)) return;
+    try {
+      setBatchLoading(true);
+      await Promise.all(pending.map(w => updateStatus(w.id, 'completed')));
+      await fetchWithdrawals();
+    } catch (error) {
+      console.error('Batch approve failed:', error);
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -115,13 +131,13 @@ export default function Withdrawals() {
           <p className="text-gray-600">Manage user withdrawal requests and payments</p>
         </div>
         <div className="flex space-x-2">
-          <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors">
-            <CheckCircle className="w-4 h-4" />
-            <span>Batch Approve</span>
-          </button>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors">
-            <DollarSign className="w-4 h-4" />
-            <span>Process Payments</span>
+          <button
+            onClick={handleBatchApprove}
+            disabled={batchLoading || withdrawals.filter(w => w.status === 'pending').length === 0}
+            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+          >
+            {batchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+            <span>Batch Approve ({withdrawals.filter(w => w.status === 'pending').length})</span>
           </button>
         </div>
       </div>
@@ -288,10 +304,10 @@ export default function Withdrawals() {
                           >
                             Approve
                           </button>
-                          <button 
+                          <button
                             onClick={() => {
                               const reason = prompt('Reason for rejection?');
-                              if (reason) handleUpdateStatus(withdrawal.id, 'failed');
+                              if (reason) handleUpdateStatus(withdrawal.id, 'failed', reason);
                             }}
                             className="text-red-600 hover:text-red-800 text-sm font-medium"
                           >

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Send, Bell, Users, UserCheck, Target, Calendar, CheckCircle, Clock } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
+import { getPushHistory, getAdminAuthHeaders } from "../services/api";
 
 interface PushNotification {
   id: number;
@@ -38,15 +39,12 @@ export default function Notifications() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      // For now, we don't have a history endpoint, so we'll just set an empty list
-      // const response = await fetch(`${API_BASE_URL}/push-history`);
-      // if (response.ok) {
-      //   const data = await response.json();
-      //   setNotifications(data);
-      // }
-      setNotifications([]);
+      const result = await getPushHistory();
+      const list = result?.data || result?.notifications || result || [];
+      setNotifications(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -56,6 +54,7 @@ export default function Notifications() {
     try {
       const response = await fetch(`${API_BASE_URL}/GetAllUsers`, {
         credentials: 'include',
+        headers: getAdminAuthHeaders(),
       });
       if (response.ok) {
         const result = await response.json();
@@ -212,7 +211,7 @@ export default function Notifications() {
                       {getTargetIcon(notification.target_type)}
                       <span className="text-gray-900 capitalize">
                         {notification.target_type === 'specific'
-                          ? `${JSON.parse(notification.target_users || '[]').length} users`
+                          ? `${(() => { try { return JSON.parse(notification.target_users || '[]').length; } catch { return 0; } })()} users`
                           : notification.target_type
                         }
                       </span>
