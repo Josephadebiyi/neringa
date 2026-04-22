@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
+import PageErrorBoundary from "./PageErrorBoundary";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -228,7 +229,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Page content */}
         <main className="flex-1 overflow-auto bg-gray-100">
           <div className="p-6">
-            {children}
+            <PageErrorBoundary>
+              {children}
+            </PageErrorBoundary>
           </div>
         </main>
       </div>

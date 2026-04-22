@@ -34,9 +34,15 @@ export default class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
             <h2 className="text-2xl font-black text-white mb-3">Something went wrong</h2>
-            <p className="text-slate-400 text-sm mb-6">
-              {this.state.error?.message || 'An unexpected error occurred. This is usually caused by a network issue or server being temporarily unavailable.'}
+            <p className="text-red-400 text-sm font-mono bg-red-500/10 px-4 py-2 rounded-lg mb-3 break-words">
+              {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
+            <details className="text-left w-full mb-6">
+              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 text-center">Show details</summary>
+              <pre className="text-xs text-slate-500 bg-slate-800 p-3 rounded-lg mt-2 overflow-x-auto whitespace-pre-wrap text-left">
+                {this.state.error?.stack}
+              </pre>
+            </details>
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });

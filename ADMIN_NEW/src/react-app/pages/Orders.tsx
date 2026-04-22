@@ -117,7 +117,7 @@ export default function OrdersPage() {
                     <tbody className="divide-y divide-gray-200">
                         {filteredOrders.map(order => (
                             <tr key={order._id} className="hover:bg-gray-50">
-                                <td className="py-4 px-4 font-medium text-gray-900 text-sm">#{order._id.slice(-6).toUpperCase()}</td>
+                                <td className="py-4 px-4 font-medium text-gray-900 text-sm">#{(order._id ?? '').slice(-6).toUpperCase()}</td>
                                 <td className="py-4 px-4">
                                     <div className="text-sm text-gray-900">{order.package?.description || 'Package'}</div>
                                     <div className="text-xs text-gray-500">{order.package?.packageWeight} KG</div>
