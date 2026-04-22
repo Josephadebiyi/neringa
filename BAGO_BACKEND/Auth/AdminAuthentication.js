@@ -2,9 +2,9 @@ import jwt from "jsonwebtoken";
 import { queryOne } from "../lib/postgres/db.js";
 
 function getAdminSecret(res) {
-  const secret = process.env.ADMIN_SECRET_KEY;
+  const secret = process.env.ADMIN_SECRET_KEY || process.env.JWT_SECRET;
   if (!secret) {
-    res.status(500).json({ message: "ADMIN_SECRET_KEY is not configured.", success: false });
+    res.status(500).json({ message: "Server misconfiguration: admin secret not set.", success: false });
     return null;
   }
   return secret;
