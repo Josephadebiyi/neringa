@@ -51,8 +51,12 @@ TripPriceDisplay formatTripPriceForViewer(
     toCurrency: preferredCurrency,
   );
 
+  // Preserve precision for small converted amounts — e.g. 1000 NGN ≈ 0.59 EUR
+  // must not round to "1 EUR" when decimals=0.
+  final effectiveDecimals = converted < 10 ? 2 : decimals;
+
   return TripPriceDisplay(
-    primary: '$preferredCurrency ${converted.toStringAsFixed(decimals)}/kg',
+    primary: '$preferredCurrency ${converted.toStringAsFixed(effectiveDecimals)}/kg',
     secondary: includeBaseSecondary ? '$baseLabel base' : null,
     usesViewerCurrency: true,
   );
