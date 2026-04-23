@@ -11,6 +11,7 @@ import {
   checkDuplicateNameDob,
   confirmPendingEmailChange,
   confirmPendingPhoneChange,
+  createOrUpdateAppleProfile,
   createOrUpdateGoogleProfile,
   createProfileWithWallet,
   findActivePromoCode,
@@ -557,6 +558,78 @@ export async function googleAuth(req, res) {
           ? 'Google login could not be verified'
           : 'Internal server error during Google login',
     });
+  }
+}
+
+// ─── Apple Sign-In ──────────────────────────────────────────────────────────
+
+import crypto from 'crypto';
+
+async function verifyAppleIdentityToken(identityToken) {
+  const [headerB64] = identityToken.split('.');
+  const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+
+  const { data: jwks } = await axios.get('https://appleid.apple.com/auth/keys', { timeout: 8000 });
+  const jwk = jwks.keys.find(k => k.kid === header.kid);
+  if (!jwk) throw new Error('Apple public key not found for kid: ' + header.kid);
+
+  const pubKey = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+  const pem = pubKey.export({ type: 'spki', format: 'pem' });
+  return jwt.verify(identityToken, pem, { algorithms: ['RS256'] });
+}
+
+export async function appleAuth(req, res) {
+  try {
+    const { identityToken, firstName, lastName, email } = req.body;
+
+    if (!identityToken) {
+      return res.status(400).json({ success: false, message: 'identityToken is required' });
+    }
+
+    let decoded;
+    try {
+      decoded = await verifyAppleIdentityToken(identityToken);
+    } catch {
+      return res.status(401).json({ success: false, message: 'Invalid Apple identity token' });
+    }
+
+    const appleSub = decoded.sub;
+    const resolvedEmail = email || decoded.email || null;
+
+    const { user, isNewUser } = await createOrUpdateAppleProfile({
+      appleSub,
+      email: resolvedEmail,
+      firstName: firstName || null,
+      lastName: lastName || null,
+    });
+
+    if (user.banned) {
+      return res.status(403).json({ success: false, message: 'Account has been suspended' });
+    }
+
+    if (isNewUser) {
+      await sendWelcomeEmail(user.email, user.firstName || 'User', 'apple').catch(() => {});
+    }
+
+    const { accessToken, refreshToken } = signUserToken(user);
+    res.cookie('token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 15 * 60 * 1000,
+      sameSite: 'lax',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: isNewUser ? 'Apple signup successful' : 'Apple sign-in successful',
+      isNewUser,
+      token: accessToken,
+      refreshToken,
+      user: buildUserResponse(user),
+    });
+  } catch (error) {
+    console.error('appleAuth error:', error);
+    res.status(500).json({ success: false, message: 'Apple sign-in failed. Please try again.' });
   }
 }
 

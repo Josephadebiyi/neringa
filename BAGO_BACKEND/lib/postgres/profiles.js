@@ -493,6 +493,88 @@ export async function applySignupBonus(userId, promoCode) {
   });
 }
 
+export async function findProfileByAppleSub(appleSub) {
+  const row = await queryOne(
+    `SELECT id FROM public.profiles WHERE apple_sub = $1 LIMIT 1`,
+    [appleSub],
+  );
+  if (!row) return null;
+  return findProfileById(row.id);
+}
+
+export async function createOrUpdateAppleProfile({
+  appleSub,
+  email,
+  firstName,
+  lastName,
+  country = 'United States',
+}) {
+  // Lookup by Apple sub first (handles subsequent sign-ins where email is absent)
+  const existingBySub = await findProfileByAppleSub(appleSub);
+  if (existingBySub) {
+    const updated = await queryOne(
+      `UPDATE public.profiles
+       SET first_name = COALESCE(NULLIF($2, ''), first_name),
+           last_name  = COALESCE(NULLIF($3, ''), last_name),
+           updated_at = timezone('utc', now())
+       WHERE id = $1
+       RETURNING id`,
+      [existingBySub.id, firstName || null, lastName || null],
+    );
+    return { user: await findProfileById(updated.id), isNewUser: false };
+  }
+
+  // Lookup by email and link Apple sub
+  if (email) {
+    const existingByEmail = await findProfileByEmail(email);
+    if (existingByEmail) {
+      const updated = await queryOne(
+        `UPDATE public.profiles
+         SET apple_sub   = $2,
+             first_name  = COALESCE(NULLIF($3, ''), first_name),
+             last_name   = COALESCE(NULLIF($4, ''), last_name),
+             email_verified = true,
+             signup_method  = CASE WHEN signup_method = 'email' THEN signup_method ELSE 'apple' END,
+             updated_at  = timezone('utc', now())
+         WHERE id = $1
+         RETURNING id`,
+        [existingByEmail.id, appleSub, firstName || null, lastName || null],
+      );
+      return { user: await findProfileById(updated.id), isNewUser: false };
+    }
+  }
+
+  if (!email) {
+    throw new Error('Email is required for first-time Apple Sign In. Please allow email sharing.');
+  }
+
+  // Create new user
+  const fallbackPassword = await bcrypt.hash(Math.random().toString(36).slice(-20), 10);
+  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'stripe';
+  const preferredCurrency = country === 'Nigeria' ? 'NGN' : 'USD';
+
+  const user = await createProfileWithWallet({
+    firstName: firstName || 'User',
+    lastName: lastName || 'Bago',
+    email,
+    phone: null,
+    passwordHash: fallbackPassword,
+    country,
+    dateOfBirth: '2000-01-01',
+    paymentGateway,
+    preferredCurrency,
+    signupMethod: 'apple',
+    emailVerified: true,
+  });
+
+  await queryOne(
+    `UPDATE public.profiles SET apple_sub = $2 WHERE id = $1`,
+    [user.id, appleSub],
+  );
+
+  return { user: await findProfileById(user.id), isNewUser: true };
+}
+
 export async function createOrUpdateGoogleProfile({
   email,
   firstName,

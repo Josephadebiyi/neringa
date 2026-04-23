@@ -267,6 +267,7 @@ const authRoutes = [
   '/api/bago/signin',
   '/api/bago/signup',
   '/api/bago/google-auth',
+  '/api/bago/apple-auth',
   '/api/bago/forgot-password',
   '/api/bago/verify-otp',
   '/api/bago/reset-password',
