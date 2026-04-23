@@ -43,6 +43,7 @@ class ApiConstants {
   static const String refreshToken    = '/api/bago/refresh-token';
   static const String logout          = '/api/bago/logout';       // GET on backend
   static const String googleAuth      = '/api/bago/google-auth';
+  static const String appleAuth       = '/api/bago/apple-auth';
   static const String acceptTerms     = '/api/bago/user/accept-terms';
   static const String deleteAccount   = '/api/bago/user/delete';
 

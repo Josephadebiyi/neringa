@@ -76,7 +76,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   Future<void> _googleSignIn() async {
     try {
       await ref.read(authProvider.notifier).googleSignIn();
-      // Router redirect handles navigation when isLoggedIn changes
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      }
+    }
+  }
+
+  Future<void> _appleSignIn() async {
+    try {
+      await ref.read(authProvider.notifier).appleSignIn();
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
@@ -247,6 +256,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     isLoading: isLoading,
                     onPressed: isLoading ? null : _googleSignIn,
                   ),
+
+                  // Sign in with Apple (required on iOS by App Store Guideline 4.8)
+                  if (Platform.isIOS) ...[
+                    const SizedBox(height: 12),
+                    _DarkBtn(
+                      label: 'Continue with Apple',
+                      icon: Icons.apple,
+                      isLoading: isLoading,
+                      onPressed: isLoading ? null : _appleSignIn,
+                    ),
+                  ],
 
                   if (Platform.isIOS && !kReleaseMode) ...[
                     const SizedBox(height: 10),

@@ -230,6 +230,25 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  // ---------- Apple Sign-In -----------------------------------------------
+
+  Future<void> appleSignIn() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final user = await _service.appleSignIn();
+      state = state.copyWith(user: user, isLoading: false);
+      _connectRealtime(user.id);
+      PushNotificationService.instance
+          .prepareForSignedInUserSilently()
+          .catchError((e) {
+        debugPrint('Auth appleSignIn: push notification prep failed: $e');
+      });
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
   // ---------- Biometrics --------------------------------------------------
 
   Future<bool> loginWithBiometrics() async {

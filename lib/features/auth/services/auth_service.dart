@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
@@ -319,6 +320,55 @@ class AuthService {
       throw ApiService.parseError(e);
     } catch (e) {
       throw _mapGoogleSignInError(e);
+    }
+  }
+
+  // ---------- Apple Sign-In -------------------------------------------
+
+  Future<UserModel> appleSignIn() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final res = await _api.post(
+        ApiConstants.appleAuth,
+        data: {
+          'identityToken': credential.identityToken,
+          if (credential.email != null && credential.email!.isNotEmpty)
+            'email': credential.email,
+          if (credential.givenName != null && credential.givenName!.isNotEmpty)
+            'firstName': credential.givenName,
+          if (credential.familyName != null && credential.familyName!.isNotEmpty)
+            'lastName': credential.familyName,
+        },
+      );
+      final data = res.data as Map<String, dynamic>;
+      final user = await _applyStoredRole(
+        UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+      );
+      final token = data['token']?.toString() ?? '';
+      final refreshTok = data['refreshToken']?.toString();
+
+      await _storage.saveTokens(
+        accessToken: token,
+        refreshToken: refreshTok ?? token,
+      );
+      await _storage.saveRole(user.role);
+      await _storage.saveUser(user.toJsonString());
+      await _storage.saveBackendUrl(ApiConstants.baseUrl);
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    } catch (e) {
+      if (e is SignInWithAppleAuthorizationException) {
+        if (e.code == AuthorizationErrorCode.canceled) throw 'Apple sign-in was cancelled';
+        throw 'Apple sign-in failed: ${e.message}';
+      }
+      rethrow;
     }
   }
 
