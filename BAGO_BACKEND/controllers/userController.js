@@ -246,6 +246,8 @@ export const addFunds = async (req, res) => {
   }
 };
 
+const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
+
 export const withdrawFunds = async (req, res) => {
   try {
     const { amount, method } = req.body;
@@ -267,6 +269,25 @@ export const withdrawFunds = async (req, res) => {
     if (!profile) return res.status(404).json({ success: false, message: 'User not found' });
     if ((profile.available_balance || 0) < amount) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
+
+    // Daily withdrawal limit check
+    const dailyTotal = await queryOne(
+      `SELECT COALESCE(SUM(amount), 0) AS total
+       FROM public.transactions
+       WHERE user_id = $1
+         AND type = 'withdrawal'
+         AND created_at >= NOW() - INTERVAL '24 hours'`,
+      [userId]
+    );
+    const spentToday = Number(dailyTotal?.total || 0);
+    if (spentToday + amount > DAILY_WITHDRAWAL_LIMIT_USD) {
+      const remaining = Math.max(0, DAILY_WITHDRAWAL_LIMIT_USD - spentToday);
+      return res.status(429).json({
+        success: false,
+        message: `Daily withdrawal limit reached. You can withdraw up to $${remaining.toFixed(2)} more today.`,
+        code: 'DAILY_LIMIT_EXCEEDED',
+      });
     }
 
     const row = await queryOne(

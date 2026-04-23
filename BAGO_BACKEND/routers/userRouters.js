@@ -1,6 +1,6 @@
 import express from 'express';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
-import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, logout, getWallet, editCurrency, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
+import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, logout, revokeAllSessions, getWallet, editCurrency, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewToRequest, DeleteTrip } from '../controllers/AddaTripController.js';
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
@@ -42,7 +42,7 @@ userRouter.post('/google-auth', googleAuth);
 userRouter.post('/apple-auth', appleAuth);
 userRouter.post('/verify-signup-otp', verifySignupOtp);
 
-// Token refresh endpoint
+// Token refresh endpoint (validates token is in DB and not revoked)
 userRouter.post('/refresh-token', async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -51,11 +51,17 @@ userRouter.post('/refresh-token', async (req, res) => {
     }
 
     const jwt = (await import('jsonwebtoken')).default;
-    // Refresh tokens are verified against the dedicated refresh secret
     const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
     const decoded = jwt.verify(refreshToken, refreshSecret);
 
-    const { findProfileById: findById } = await import('./lib/postgres/profiles.js');
+    // Validate token exists and hasn't been revoked
+    const { validateRefreshToken, storeRefreshToken, revokeRefreshToken } = await import('../lib/postgres/userSessions.js');
+    const session = await validateRefreshToken(refreshToken);
+    if (!session) {
+      return res.status(401).json({ success: false, message: 'Session has been revoked. Please log in again.', code: 'SESSION_REVOKED' });
+    }
+
+    const { findProfileById: findById } = await import('../lib/postgres/profiles.js');
     const user = await findById(decoded.id);
 
     if (!user) {
@@ -65,7 +71,9 @@ userRouter.post('/refresh-token', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
     }
 
-    // Short-lived access token (15 min); long-lived refresh token (30 days)
+    // Rotate: revoke old token, issue new pair
+    await revokeRefreshToken(refreshToken);
+
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, kycStatus: user.kycStatus },
       process.env.JWT_SECRET,
@@ -76,6 +84,7 @@ userRouter.post('/refresh-token', async (req, res) => {
       refreshSecret,
       { expiresIn: '30d' },
     );
+    await storeRefreshToken(user.id, newRefreshToken, 30, req.headers['user-agent']?.slice(0, 200));
 
     res.status(200).json({
       success: true,
@@ -113,6 +122,7 @@ userRouter.get("/getTravelers", getTravelers)
 userRouter.get("/get-settings", getCurrentSetting)
 userRouter.get("/Profile", isAuthenticated, Profile)
 userRouter.get("/logout", logout)
+userRouter.post("/revoke-all-sessions", isAuthenticated, revokeAllSessions)
 userRouter.put("/edit", isAuthenticated, edit)
 userRouter.put("/Trip/:id", isAuthenticated, requireKycVerification, UpdateTrip);
 userRouter.delete("/Trip/:id", isAuthenticated, requireKycVerification, DeleteTrip);

@@ -26,6 +26,7 @@ import {
   clearOtpAndUpdatePassword,
 } from '../lib/postgres/profiles.js';
 import { queryOne } from '../lib/postgres/db.js';
+import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
 
@@ -416,6 +417,9 @@ export async function resetPassword(req, res) {
   }
 }
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 export async function signIn(req, res) {
   try {
     const { email, password } = req.body;
@@ -428,16 +432,59 @@ export async function signIn(req, res) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' });
-    }
-
     if (user.banned) {
       return res.status(403).json({ message: 'Account has been suspended' });
     }
 
+    // Brute-force lockout
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil((new Date(user.locked_until) - Date.now()) / 60000);
+      return res.status(429).json({
+        message: `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}.`,
+        code: 'ACCOUNT_LOCKED',
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      const attempts = (user.failed_login_attempts || 0) + 1;
+      const lockedUntil = attempts >= MAX_LOGIN_ATTEMPTS
+        ? new Date(Date.now() + LOCK_DURATION_MS).toISOString()
+        : null;
+      await queryOne(
+        `UPDATE public.profiles
+         SET failed_login_attempts = $2, locked_until = $3
+         WHERE id = $1`,
+        [user.id, attempts, lockedUntil],
+      );
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        return res.status(429).json({
+          message: 'Too many failed attempts. Account locked for 15 minutes.',
+          code: 'ACCOUNT_LOCKED',
+        });
+      }
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    // Email verification gate
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        message: 'Please verify your email before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
+
+    // Reset failure counter on success
+    if ((user.failed_login_attempts || 0) > 0 || user.locked_until) {
+      await queryOne(
+        `UPDATE public.profiles SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1`,
+        [user.id],
+      );
+    }
+
     const { accessToken, refreshToken } = signUserToken(user);
+    await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+
     res.cookie('token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -525,6 +572,7 @@ export async function googleAuth(req, res) {
     }
 
     const { accessToken: userAccessToken, refreshToken: userRefreshToken } = signUserToken(user);
+    await storeRefreshToken(user.id, userRefreshToken, 30, req.headers['user-agent']?.slice(0, 200));
     res.cookie('token', userAccessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -612,6 +660,7 @@ export async function appleAuth(req, res) {
     }
 
     const { accessToken, refreshToken } = signUserToken(user);
+    await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
     res.cookie('token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -635,12 +684,32 @@ export async function appleAuth(req, res) {
 
 export async function logout(req, res) {
   try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken).catch(() => {});
+    }
     res.clearCookie('token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
     });
     res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function revokeAllSessions(req, res) {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) return res.status(401).json({ message: 'Not authenticated' });
+    await revokeAllUserTokens(userId);
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+    res.status(200).json({ success: true, message: 'All sessions revoked' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
