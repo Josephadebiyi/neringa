@@ -73,6 +73,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!ref.read(authProvider).isLoggedIn) return;
       ref.read(tripProvider.notifier).loadMyTrips();
       ref.read(shipmentProvider.notifier).loadMyPackages();
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
@@ -806,8 +807,12 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardHeight),
+      child: Container(
+      height: (screenHeight * 0.55).clamp(300.0, screenHeight * 0.55),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -915,6 +920,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

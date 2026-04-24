@@ -99,10 +99,16 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isAuthRoute = loc.startsWith('/auth');
       final isOnboarding = loc == '/onboarding';
+      // Routes accessible without login (guest mode)
+      final isGuestAllowed = loc == '/home' ||
+          loc.startsWith('/trips-list') ||
+          loc.startsWith('/trip-details') ||
+          loc.startsWith('/legal') ||
+          loc.startsWith('/help');
       if (loc == '/') return null;
       if (isInitialising) return null;
 
-      if (!isLoggedIn && !isAuthRoute && !isOnboarding) return '/auth/signin';
+      if (!isLoggedIn && !isAuthRoute && !isOnboarding && !isGuestAllowed) return '/home';
       // Allow signup/signin even when logged in (e.g. from onboarding)
       if (isLoggedIn && isAuthRoute && loc != '/auth/signup' && loc != '/auth/signin') return '/home';
       return null;

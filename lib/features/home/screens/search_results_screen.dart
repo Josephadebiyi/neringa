@@ -11,6 +11,7 @@ import '../../../shared/utils/trip_price_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
+import '../../../shared/widgets/auth_required_modal.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/providers/trip_provider.dart';
@@ -319,10 +320,15 @@ class _TripCard extends ConsumerWidget {
     final rating = trip.averageRating;
     Future<void> startShipment() async {
       final user = ref.read(authProvider).user;
-      final kycApproved = user?.hasPassedKyc == true;
 
       if (!context.mounted) return;
-      if (!kycApproved) {
+
+      if (user == null) {
+        showAuthRequiredModal(context);
+        return;
+      }
+
+      if (user.hasPassedKyc != true) {
         AppSnackBar.show(
           context,
           message: l10n.passKycBeforeShipment,
@@ -411,6 +417,14 @@ class _TripCard extends ConsumerWidget {
                   // Details row
                   Row(
                     children: [
+                      Icon(_travelMeansIcon(trip.travelMeans),
+                          size: 14, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(trip.travelMeans,
+                          style: AppTextStyles.caption.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(width: 14),
                       if (trip.carrierName != null) ...[
                         const Icon(Icons.person_outline_rounded,
                             size: 14, color: AppColors.gray500),
@@ -434,13 +448,6 @@ class _TripCard extends ConsumerWidget {
                       const SizedBox(width: 4),
                       Text(
                           l10n.kgAvailable(trip.availableKg.toStringAsFixed(0)),
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.gray600)),
-                      const SizedBox(width: 14),
-                      const Icon(Icons.sell_outlined,
-                          size: 14, color: AppColors.gray500),
-                      const SizedBox(width: 4),
-                      Text('${trip.soldKg.toStringAsFixed(0)} sold',
                           style: AppTextStyles.caption
                               .copyWith(color: AppColors.gray600)),
                     ],
@@ -472,6 +479,23 @@ class _TripCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  IconData _travelMeansIcon(String means) {
+    switch (means.toLowerCase()) {
+      case 'bus':
+        return Icons.directions_bus_rounded;
+      case 'train':
+        return Icons.train_rounded;
+      case 'car':
+        return Icons.directions_car_rounded;
+      case 'ship':
+      case 'boat':
+        return Icons.directions_boat_rounded;
+      case 'flight':
+      default:
+        return Icons.flight_rounded;
+    }
   }
 
   String _formatDate(String raw) {

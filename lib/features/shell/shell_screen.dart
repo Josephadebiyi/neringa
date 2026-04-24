@@ -10,6 +10,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/model_enums.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/auth_required_modal.dart';
 import '../auth/providers/auth_provider.dart';
 import '../messages/providers/message_provider.dart';
 import '../shipments/models/request_model.dart';
@@ -402,7 +403,15 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             unselectedItemColor: AppColors.gray400,
             selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             unselectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-            onTap: (i) => context.go(tabs[i].path),
+            onTap: (i) {
+                final path = tabs[i].path;
+                final isLoggedIn = ref.read(authProvider).isLoggedIn;
+                if (!isLoggedIn && path != '/home') {
+                  showAuthRequiredModal(context);
+                  return;
+                }
+                context.go(path);
+              },
             items: tabs
                 .asMap()
                 .map(

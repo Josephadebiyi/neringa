@@ -73,7 +73,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
     final seen = await hasSeenOnboarding()
         .timeout(const Duration(seconds: 2), onTimeout: () => false);
-    return seen ? '/auth/signin' : '/onboarding';
+    return seen ? '/home' : '/onboarding';
   }
 
   @override
@@ -117,9 +117,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       _failsafeTimer = Timer(const Duration(seconds: 8), () async {
         if (_hasNavigated || !mounted) return;
         final router = GoRouter.of(context);
-        final authState = ref.read(authProvider);
-        final target = authState.isLoggedIn ? '/home' : '/auth/signin';
-        _go(router, target);
+        _go(router, '/home');
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _handleAuthState(ref.read(authProvider));
@@ -141,12 +139,40 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!_isReplaySplash) {
       return Scaffold(
         backgroundColor: AppColors.primary,
-        body: Center(
-          child: Image.asset(
-            'assets/images/bago-logo-white.png',
-            height: 62,
-            fit: BoxFit.contain,
-          ),
+        body: Stack(
+          children: [
+            Center(
+              child: Image.asset(
+                'assets/images/bago-logo-white.png',
+                height: 62,
+                fit: BoxFit.contain,
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: GestureDetector(
+                    onTap: () {
+                      final router = GoRouter.of(context);
+                      _go(router, '/home');
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.20),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.close_rounded,
+                          color: Colors.white, size: 18),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
