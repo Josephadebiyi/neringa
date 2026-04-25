@@ -168,7 +168,8 @@ class _PackagesList extends ConsumerWidget {
         : state.myRequests
             .where((r) =>
                 r.status == RequestStatus.rejected ||
-                r.status == RequestStatus.completed)
+                r.status == RequestStatus.completed ||
+                r.status == RequestStatus.cancelled)
             .toList();
 
     if (items.isEmpty && requests.isEmpty && !activeTab) {
