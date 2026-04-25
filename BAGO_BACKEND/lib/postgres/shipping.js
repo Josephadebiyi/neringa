@@ -654,7 +654,10 @@ export async function listIncomingRequestsForTraveler(travelerId) {
 }
 
 export async function listRequestsForUser(userId) {
-  const result = await query(`${requestSelect} where sr.sender_id = $1 order by sr.created_at desc`, [userId]);
+  const result = await query(
+    `${requestSelect} where (sr.sender_id = $1 or sr.traveler_id = $1) order by sr.created_at desc`,
+    [userId],
+  );
   return result.rows.map(normalizeRequest);
 }
 
