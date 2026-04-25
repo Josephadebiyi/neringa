@@ -3,6 +3,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readdir, readFile } from 'fs/promises';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
@@ -72,6 +73,22 @@ if (process.env.RESEND_API_KEY) {
   console.warn('⚠️ RESEND_API_KEY not set - Email features disabled');
 }
 
+// Run all SQL migration files on startup (all use IF NOT EXISTS so safe to re-run)
+async function runMigrations() {
+  const migrationsDir = path.join(__dirname, 'migrations');
+  try {
+    const files = (await readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
+    for (const file of files) {
+      const sql = await readFile(path.join(migrationsDir, file), 'utf8');
+      await pgQuery(sql);
+      console.log(`✅ Migration applied: ${file}`);
+    }
+  } catch (err) {
+    console.error('❌ Migration error:', err.message);
+  }
+}
+
+runMigrations();
 startEscrowAutoRelease();
 startCurrencyRateSync();
 
