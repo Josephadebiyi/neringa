@@ -352,27 +352,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
 
-                // ── Recent Activity ───────────────────────────────────
-                const SizedBox(height: 16),
-                Text(isCarrier ? l10n.tripActivityShort : l10n.recentActivity,
-                    style: AppTextStyles.h3.copyWith(
-                        fontWeight: FontWeight.w800, color: AppColors.black)),
-                const SizedBox(height: 10),
-                _RecentActivityList(
-                  isCarrier: isCarrier,
-                  requests: isCarrier
+                // ── Recent Activity — only shown when there is data or loading ──
+                Builder(builder: (context) {
+                  final activityRequests = isCarrier
                       ? shipmentState.incomingRequests.take(5).toList()
-                      : shipmentState.myRequests.take(5).toList(),
-                  packages: isCarrier
-                      ? const []
-                      : shipmentState.activePackages.take(5).toList(),
-                  isLoading:
-                      isCarrier ? tripState.isLoading : shipmentState.isLoading,
-                  onViewAll: () =>
-                      context.go(isCarrier ? '/requests' : '/shipments'),
-                ),
+                      : shipmentState.myRequests.take(5).toList();
+                  final activityPackages = isCarrier
+                      ? const <PackageModel>[]
+                      : shipmentState.activePackages.take(5).toList();
+                  final activityLoading = isCarrier
+                      ? tripState.isLoading
+                      : shipmentState.isLoading;
+                  final hasActivity = activityRequests.isNotEmpty ||
+                      activityPackages.isNotEmpty;
 
-                const SizedBox(height: 20),
+                  if (!activityLoading && !hasActivity) return const SizedBox.shrink();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+                      Text(
+                          isCarrier
+                              ? l10n.tripActivityShort
+                              : l10n.recentActivity,
+                          style: AppTextStyles.h3.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.black)),
+                      const SizedBox(height: 10),
+                      _RecentActivityList(
+                        isCarrier: isCarrier,
+                        requests: activityRequests,
+                        packages: activityPackages,
+                        isLoading: activityLoading,
+                        onViewAll: () => context
+                            .go(isCarrier ? '/requests' : '/shipments'),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                }),
 
                 if (!isCarrier) ...[
                   // ── Services ─────────────────────────────────────────────

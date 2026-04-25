@@ -277,11 +277,11 @@ class AuthService {
 
       try {
         final googleUser =
-            await _googleSignIn.signIn().timeout(const Duration(seconds: 12));
+            await _googleSignIn.signIn().timeout(const Duration(seconds: 60));
         if (googleUser == null) throw 'Google sign-in was cancelled';
 
         final googleAuth = await googleUser.authentication
-            .timeout(const Duration(seconds: 12));
+            .timeout(const Duration(seconds: 30));
         final idToken = googleAuth.idToken;
         final accessToken = googleAuth.accessToken;
 
