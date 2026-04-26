@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import PageErrorBoundary from "./PageErrorBoundary";
 import { useAuth } from "../hooks/useAuth";
+import { useAdminSocket } from "../hooks/useAdminSocket";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Home,
@@ -65,7 +66,8 @@ const navItems: NavItem[] = [
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, logout } = useAuth();  // Assuming useAuth has a logout function; if not, we'll implement inline
+  const { user, logout } = useAuth();
+  const { unreadSupportCount, clearSupportBadge } = useAdminSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -119,6 +121,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.path && location.pathname === item.path;
+            const isSupport = item.path === '/support';
+            const badge = isSupport && unreadSupportCount > 0 ? unreadSupportCount : 0;
 
             return (
               <div key={item.label}>
@@ -126,6 +130,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   onClick={() => {
                     if (item.path) {
                       navigate(item.path);
+                      if (isSupport) clearSupportBadge();
                     }
                     setSidebarOpen(false);
                   }}
@@ -141,9 +146,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <Icon className="w-5 h-5 mr-3" />
                     <span className="font-medium">{item.label}</span>
                   </div>
-                  {item.expandable && (
+                  {badge > 0 ? (
+                    <span className="bg-red-500 text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  ) : item.expandable ? (
                     <ChevronDown className="w-4 h-4" />
-                  )}
+                  ) : null}
                 </button>
               </div>
             );

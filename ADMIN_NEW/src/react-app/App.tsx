@@ -1,5 +1,6 @@
 import { HashRouter as Router, Navigate, Routes, Route } from "react-router-dom";
 import { AuthProvider, DEFAULT_ADMIN_ROUTE } from "./hooks/useAuth";
+import { AdminSocketProvider } from "./hooks/useAdminSocket";
 import Login from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
 import UsersPage from "./pages/Users";
@@ -28,6 +29,7 @@ import OrdersPage from "./pages/Orders"
 export default function App() {
   return (
     <AuthProvider>
+      <AdminSocketProvider>
       <Router>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -245,6 +247,7 @@ export default function App() {
           <Route path="*" element={<Navigate to={DEFAULT_ADMIN_ROUTE} replace />} />
         </Routes>
       </Router>
+      </AdminSocketProvider>
     </AuthProvider>
   );
 }
