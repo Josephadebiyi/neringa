@@ -255,10 +255,10 @@ export async function updateTicketStatus(id: string, status: string) {
   });
 }
 
-export async function replyToTicket(id: string, message: string) {
+export async function replyToTicket(id: string, message: string, senderName?: string) {
   return apiCall(`${ADMIN_API}/tickets/${id}/message`, {
     method: 'POST',
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ content: message, sender: 'ADMIN', senderName }),
   });
 }
 

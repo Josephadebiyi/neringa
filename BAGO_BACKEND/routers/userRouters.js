@@ -21,6 +21,7 @@ import {
   listPaymentMethods,
 } from '../controllers/postgresPaymentMethodController.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
+import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
 import fileUpload from 'express-fileupload';
 
 
@@ -215,6 +216,12 @@ userRouter.post('/paystack/initialize', isAuthenticated, requireKycVerification,
 userRouter.get('/paystack/verify/:reference', isAuthenticated, requireKycVerification, verifyPaystackPayment);
 userRouter.post('/paystack/add-bank', isAuthenticated, requireKycVerification, addBankAccount);
 userRouter.post('/paystack/verify-bank-otp', isAuthenticated, requireKycVerification, verifyBankOTP);
+
+// 🎫 Support Tickets
+userRouter.post('/support/tickets', isAuthenticated, createTicket);
+userRouter.get('/support/tickets', isAuthenticated, listMyTickets);
+userRouter.get('/support/tickets/:id', isAuthenticated, getMyTicket);
+userRouter.post('/support/tickets/:id/message', isAuthenticated, sendUserMessage);
 
 // 🌍 Public Routes (No Auth)
 userRouter.get('/public/track/:trackingNumber', getPublicTrackingByNumber);

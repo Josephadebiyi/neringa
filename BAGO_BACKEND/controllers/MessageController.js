@@ -103,6 +103,56 @@ export const messageController = (io) => {
       }
     });
 
+    // ── Support / CRM ─────────────────────────────────────────────────────────
+
+    // Admin agent joins the global agent broadcast room
+    socket.on('join_support_agents', () => {
+      socket.join('support:agents');
+      console.log(`Agent ${socket.id} joined support:agents`);
+    });
+
+    // Anyone (user or agent) joins a specific ticket room
+    socket.on('join_support_ticket', (ticketId) => {
+      socket.join(`support:${ticketId}`);
+      console.log(`Socket ${socket.id} joined support:${ticketId}`);
+    });
+
+    // Agent sends a reply — stored in DB then broadcast
+    socket.on('support_agent_message', async ({ ticketId, agentId, agentName, content }) => {
+      try {
+        if (!ticketId || !content?.trim()) return;
+        const { query: pgq, queryOne: pgone } = await import('../lib/postgres/db.js');
+
+        const ticket = await pgone(`SELECT * FROM public.support_tickets WHERE id = $1`, [ticketId]);
+        if (!ticket) return;
+
+        const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
+        const newMsg = { sender: 'ADMIN', senderId: agentId, senderName: agentName, content: content.trim(), timestamp: new Date() };
+        messages.push(newMsg);
+
+        await pgq(
+          `UPDATE public.support_tickets SET messages = $1, status = 'IN_PROGRESS', last_agent_at = NOW(), updated_at = NOW() WHERE id = $2`,
+          [JSON.stringify(messages), ticketId]
+        );
+
+        const payload = { ticketId, message: newMsg, senderName: agentName };
+        // Broadcast to ticket room (user + agents in that ticket) and global agents room
+        io.to(`support:${ticketId}`).emit('support_message', payload);
+        io.to('support:agents').emit('support_message', payload);
+        // Push notification to ticket owner
+        await import('../services/pushNotificationService.js').then(({ sendPushNotification }) =>
+          sendPushNotification(ticket.user_id, `💬 Support reply from ${agentName || 'Agent'}`, content.length > 60 ? content.slice(0, 57) + '...' : content, { ticketId, type: 'support_message' }).catch(() => {})
+        );
+      } catch (err) {
+        console.error('support_agent_message error:', err);
+      }
+    });
+
+    // Agent joined ticket notification
+    socket.on('support_agent_joined', ({ ticketId, agentName }) => {
+      io.to(`support:${ticketId}`).emit('support_agent_joined', { ticketId, agentName });
+    });
+
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id);
     });
