@@ -73,18 +73,25 @@ if (process.env.RESEND_API_KEY) {
   console.warn('⚠️ RESEND_API_KEY not set - Email features disabled');
 }
 
-// Run all SQL migration files on startup (all use IF NOT EXISTS so safe to re-run)
+// Run all SQL migration files on startup — each in its own try/catch so one
+// failure doesn't block the rest.
 async function runMigrations() {
   const migrationsDir = path.join(__dirname, 'migrations');
+  let files;
   try {
-    const files = (await readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
-    for (const file of files) {
+    files = (await readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
+  } catch (err) {
+    console.error('❌ Could not read migrations dir:', err.message);
+    return;
+  }
+  for (const file of files) {
+    try {
       const sql = await readFile(path.join(migrationsDir, file), 'utf8');
       await pgQuery(sql);
       console.log(`✅ Migration applied: ${file}`);
+    } catch (err) {
+      console.error(`❌ Migration failed (${file}):`, err.message);
     }
-  } catch (err) {
-    console.error('❌ Migration error:', err.message);
   }
 }
 
