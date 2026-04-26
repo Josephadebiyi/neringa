@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../features/support/screens/create_ticket_screen.dart';
+import '../../../features/support/screens/support_tickets_screen.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -82,28 +83,102 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             const SizedBox(height: 32),
 
-            Text(l10n.quickHelp.toUpperCase(),
-                style: AppTextStyles.labelSm.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w800, letterSpacing: 1)),
-            const SizedBox(height: 14),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.5,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreateTicketScreen())),
-                  child: const _HelpCard(icon: Icons.chat_bubble_outline_rounded, title: 'Live Chat', desc: 'Avg response: 5m', color: AppColors.primarySoft),
+            // ── Contact options ──────────────────────────────────────────
+            // Live Chat card
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const CreateTicketScreen(mode: SupportMode.liveChat),
+              )),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF5C4BFD), Color(0xFF7B6FFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: const Color(0xFF5C4BFD).withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))],
                 ),
-                const _HelpCard(icon: Icons.mail_outline_rounded, title: 'Email Support', desc: 'help@sendwithbago.com', color: Color(0xFFF0FDFA)),
-                GestureDetector(
-                  onTap: () => context.push('/profile/support/tickets'),
-                  child: const _HelpCard(icon: Icons.confirmation_number_outlined, title: 'My Tickets', desc: 'View & track your tickets', color: Color(0xFFFFFBEB)),
+                child: Row(children: [
+                  Container(
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(color: AppColors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
+                    child: const Icon(Icons.support_agent_rounded, color: AppColors.white, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Live Chat with Support', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w900, color: AppColors.white)),
+                    const SizedBox(height: 3),
+                    Text('Chat directly with an agent • Avg 5 min reply',
+                        style: AppTextStyles.bodySm.copyWith(color: AppColors.white.withOpacity(0.8))),
+                  ])),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.white, size: 16),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Submit Ticket card
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const CreateTicketScreen(mode: SupportMode.submitTicket),
+              )),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.gray200),
                 ),
-                const _HelpCard(icon: Icons.phone_outlined, title: 'Call Us', desc: '+234 8081008086', color: Color(0xFFFFF1F2)),
-              ],
+                child: Row(children: [
+                  Container(
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(16)),
+                    child: const Icon(Icons.confirmation_number_outlined, color: AppColors.success, size: 26),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Submit a Ticket', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+                    const SizedBox(height: 3),
+                    Text('Describe your issue, we\'ll email you back',
+                        style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+                  ])),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.gray400, size: 16),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // My Tickets card
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SupportTicketsScreen())),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.gray200),
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(16)),
+                    child: const Icon(Icons.history_rounded, color: Color(0xFFF59E0B), size: 26),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('My Tickets', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w900, color: AppColors.black)),
+                    const SizedBox(height: 3),
+                    Text('View and continue previous conversations',
+                        style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+                  ])),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.gray400, size: 16),
+                ]),
+              ),
             ),
             const SizedBox(height: 32),
 
