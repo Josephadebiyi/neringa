@@ -159,4 +159,9 @@ class ApiConstants {
   // Tracking (public endpoint on backend)
   // ---------------------------------------------------------------------------
   static const String trackPackage = '/api/bago/public/track';
+
+  // ---------------------------------------------------------------------------
+  // Support / CRM
+  // ---------------------------------------------------------------------------
+  static const String supportTickets  = '/api/bago/support/tickets';
 }

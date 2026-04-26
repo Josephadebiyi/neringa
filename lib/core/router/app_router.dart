@@ -37,6 +37,8 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/ratings_screen.dart';
 import '../../features/profile/screens/saved_routes_screen.dart';
 import '../../features/profile/screens/support_screen.dart';
+import '../../features/support/screens/support_tickets_screen.dart';
+import '../../features/support/screens/ticket_chat_screen.dart';
 import '../../features/profile/screens/withdraw_screen.dart';
 import '../../features/services_pages/screens/buy_items_screen.dart';
 import '../../features/services_pages/screens/gift_items_screen.dart';
@@ -407,6 +409,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/support',
         builder: (_, __) => const SupportScreen(),
+      ),
+      GoRoute(
+        path: '/profile/support/tickets',
+        builder: (_, __) => const SupportTicketsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/support/ticket/:id',
+        builder: (_, state) => TicketChatScreen(ticketId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/profile/withdraw',

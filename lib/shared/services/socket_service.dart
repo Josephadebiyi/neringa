@@ -8,6 +8,7 @@ import 'storage_service.dart';
 typedef OnNewMessage = void Function(Map<String, dynamic> data);
 typedef OnConversationUpdate = void Function(Map<String, dynamic> data);
 typedef OnTripUpdate = void Function(Map<String, dynamic> data);
+typedef OnSupportMessage = void Function(Map<String, dynamic> data);
 
 class SocketService {
   SocketService._();
@@ -21,6 +22,7 @@ class SocketService {
   final List<OnNewMessage> _messageListeners = [];
   final List<OnConversationUpdate> _conversationListeners = [];
   final List<OnTripUpdate> _tripUpdateListeners = [];
+  final List<OnSupportMessage> _supportListeners = [];
 
   bool get isConnected => _connected;
 
@@ -125,6 +127,16 @@ class SocketService {
     _socket!.on('trip_capacity_updated', notifyTripListeners);
     _socket!.on('public_trip_updated', notifyTripListeners);
 
+    // Support / CRM messages
+    _socket!.on('support_message', (data) {
+      final mapped = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data as Map);
+      for (final l in _supportListeners) { l(mapped); }
+    });
+    _socket!.on('support_agent_joined', (data) {
+      final mapped = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data as Map);
+      for (final l in _supportListeners) { l({...mapped, '_event': 'agent_joined'}); }
+    });
+
     _socket!.connect();
   }
 
@@ -195,6 +207,20 @@ class SocketService {
     _tripUpdateListeners.remove(listener);
   }
 
+  void joinSupportTicket(String ticketId) {
+    if (_connected && _socket != null) {
+      _socket!.emit('join_support_ticket', ticketId);
+    }
+  }
+
+  void addSupportListener(OnSupportMessage listener) {
+    _supportListeners.add(listener);
+  }
+
+  void removeSupportListener(OnSupportMessage listener) {
+    _supportListeners.remove(listener);
+  }
+
   /// Disconnect and clean up
   void disconnect() {
     _socket?.disconnect();
@@ -206,6 +232,7 @@ class SocketService {
     _messageListeners.clear();
     _conversationListeners.clear();
     _tripUpdateListeners.clear();
+    _supportListeners.clear();
     debugPrint('SocketService: Disconnected and cleaned up');
   }
 }

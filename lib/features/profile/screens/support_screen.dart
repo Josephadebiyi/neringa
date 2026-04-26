@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../features/support/screens/create_ticket_screen.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -91,11 +92,17 @@ class _SupportScreenState extends State<SupportScreen> {
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
               childAspectRatio: 1.5,
-              children: const [
-                _HelpCard(icon: Icons.chat_bubble_outline_rounded, title: 'Live Chat', desc: 'Avg response: 5m', color: AppColors.primarySoft),
-                _HelpCard(icon: Icons.mail_outline_rounded, title: 'Email Support', desc: 'help@sendwithbago.com', color: Color(0xFFF0FDFA)),
-                _HelpCard(icon: Icons.book_outlined, title: 'Knowledge Base', desc: 'Articles & FAQs', color: Color(0xFFFFFBEB)),
-                _HelpCard(icon: Icons.phone_outlined, title: 'Call Us', desc: '+234 8081008086', color: Color(0xFFFFF1F2)),
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreateTicketScreen())),
+                  child: const _HelpCard(icon: Icons.chat_bubble_outline_rounded, title: 'Live Chat', desc: 'Avg response: 5m', color: AppColors.primarySoft),
+                ),
+                const _HelpCard(icon: Icons.mail_outline_rounded, title: 'Email Support', desc: 'help@sendwithbago.com', color: Color(0xFFF0FDFA)),
+                GestureDetector(
+                  onTap: () => context.push('/profile/support/tickets'),
+                  child: const _HelpCard(icon: Icons.confirmation_number_outlined, title: 'My Tickets', desc: 'View & track your tickets', color: Color(0xFFFFFBEB)),
+                ),
+                const _HelpCard(icon: Icons.phone_outlined, title: 'Call Us', desc: '+234 8081008086', color: Color(0xFFFFF1F2)),
               ],
             ),
             const SizedBox(height: 32),
