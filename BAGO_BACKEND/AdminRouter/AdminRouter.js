@@ -68,7 +68,7 @@ import {
 const AdminRouter = express.Router();
 
 
-AdminRouter.post("/AdminSignup", AdminSignup)
+AdminRouter.post("/AdminSignup", adminAuthenticated, AdminSignup)
 AdminRouter.post("/AdminLogin", AdminLogin)
 AdminRouter.get("/CheckAdmin", adminAuthenticated, CheckAdmin)
 AdminRouter.get("/GetAllUsers", adminAuthenticated, GetAllUsers)

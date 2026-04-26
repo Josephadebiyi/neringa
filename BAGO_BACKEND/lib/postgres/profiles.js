@@ -27,7 +27,6 @@ function normalizeProfileRow(row) {
     pushTokens: row.push_tokens || [],
     communicationPrefs: row.communication_prefs || { push: true, email: true, sms: false },
     selectedAvatar: row.selected_avatar,
-    password: row.password_hash,
     pendingEmail: row.pending_email,
     balance: row.available_balance ?? 0,
     escrowBalance: row.escrow_balance ?? 0,

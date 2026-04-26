@@ -45,7 +45,7 @@ export const messageController = (io) => {
 
     socket.on('join_user', (userId) => {
       socket.join(userId.toString());
-      console.log(`User ${userId} joined their private room ${userId}`);
+      socket.data.userId = userId.toString();
     });
 
     socket.on('join_conversation', (conversationId) => {
@@ -55,6 +55,11 @@ export const messageController = (io) => {
 
     socket.on('send_message', async ({ conversationId, senderId, text }) => {
       try {
+        // Reject if the claimed senderId doesn't match the authenticated socket user
+        if (socket.data.userId && socket.data.userId !== senderId?.toString()) {
+          socket.emit('error', { message: 'Sender identity mismatch' });
+          return;
+        }
         const result = await createConversationMessage({ conversationId, senderId, text });
 
         if (!result) {

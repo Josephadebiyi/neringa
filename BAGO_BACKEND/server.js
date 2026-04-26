@@ -46,7 +46,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*', // Allow all origins for mobile app compatibility
+    // null origin = mobile apps / Postman (no browser Origin header)
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.has(origin)) return cb(null, true);
+      return cb(new Error(`Socket CORS: origin ${origin} not allowed`), false);
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -342,6 +346,8 @@ const authRoutes = [
   '/api/bago/user/verify-email-change',
   '/api/bago/user/request-phone-change',
   '/api/bago/user/verify-phone-change',
+  '/api/Adminbaggo/AdminLogin',
+  '/api/Adminbaggo/AdminSignup',
 ];
 authRoutes.forEach(route => app.use(route, authLimiter));
 
