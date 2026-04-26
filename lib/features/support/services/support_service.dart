@@ -26,13 +26,21 @@ class SupportService {
     required String description,
     required String category,
   }) async {
-    final res = await _api.post(ApiConstants.supportTickets, data: {
-      'subject': subject,
-      'description': description,
-      'category': category,
-    });
-    final data = res.data as Map<String, dynamic>;
-    return SupportTicket.fromJson(data['data'] as Map<String, dynamic>);
+    try {
+      final res = await _api.post(ApiConstants.supportTickets, data: {
+        'subject': subject,
+        'description': description,
+        'category': category,
+      });
+      final data = res.data as Map<String, dynamic>;
+      final ticket = data['data'] ?? data['ticket'];
+      if (ticket == null) throw Exception('No ticket in response: $data');
+      return SupportTicket.fromJson(ticket as Map<String, dynamic>);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[SupportService.createTicket] ERROR: $e');
+      rethrow;
+    }
   }
 
   Future<SupportTicket> sendMessage(String ticketId, String content) async {
