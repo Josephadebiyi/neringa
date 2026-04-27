@@ -86,7 +86,8 @@ type QueueFilter = "ALL" | "OPEN" | "IN_PROGRESS" | "RESOLVED";
 const uName  = (t: Ticket) => t.user ? `${t.user.firstName} ${t.user.lastName}`.trim() : `${t.userFirstName ?? ""} ${t.userLastName ?? ""}`.trim() || "User";
 const uEmail = (t: Ticket) => t.user?.email || t.userEmail || "";
 const uInit  = (t: Ticket) => uName(t)[0]?.toUpperCase() || "?";
-const lastTs = (t: Ticket) => t.messages[t.messages.length - 1]?.timestamp || t.createdAt;
+const msgs   = (t: Ticket) => Array.isArray(t.messages) ? t.messages : [];
+const lastTs = (t: Ticket) => { const m = msgs(t); return m[m.length - 1]?.timestamp || t.createdAt; };
 
 function ago(v: string) {
   const d = Date.now() - new Date(v).getTime();
@@ -172,10 +173,10 @@ export default function Support() {
       setNewIds(p => new Set(p).add(ticket._id || ticket.id || ""));
     });
     s.on("support_message", ({ ticketId, message }: { ticketId: string; message: TicketMessage }) => {
-      const dup = (ms: TicketMessage[]) => ms.some(m => m.timestamp === message.timestamp && m.content === message.content);
-      setTickets(p => p.map(t => t._id !== ticketId || dup(t.messages) ? t : { ...t, messages: [...t.messages, message] }));
+      const dup = (ms: TicketMessage[]) => (Array.isArray(ms) ? ms : []).some(m => m.timestamp === message.timestamp && m.content === message.content);
+      setTickets(p => p.map(t => t._id !== ticketId || dup(msgs(t)) ? t : { ...t, messages: [...msgs(t), message] }));
       if (selRef.current?._id === ticketId)
-        setSel(p => !p || dup(p.messages) ? p : { ...p, messages: [...p.messages, message] });
+        setSel(p => !p || dup(msgs(p)) ? p : { ...p, messages: [...msgs(p), message] });
     });
     return () => { s.disconnect(); };
   }, []);
@@ -200,7 +201,7 @@ export default function Support() {
   }, [sel?._id]);
 
   useEffect(() => { setAssignee(sel?.assignedTo || ""); }, [sel?._id, sel?.assignedTo]);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sel?.messages.length]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sel ? msgs(sel).length : 0]);
 
   // Data
   useEffect(() => { (async () => { try { setLoading(true); const d = await getTickets(); if (d.success) setTickets(d.data); } catch {/**/ } finally { setLoading(false); } })(); }, []);
@@ -214,11 +215,11 @@ export default function Support() {
   // Actions
   const sendReply = async () => {
     if (!sel || !reply.trim()) return;
-    const txt = reply.trim(), prev = sel.messages;
+    const txt = reply.trim(), prev = msgs(sel);
     setSending(true); setReply("");
     const opt: TicketMessage = { sender: "ADMIN", senderId: user?.id ?? "", senderName: me, content: txt, timestamp: new Date().toISOString() };
-    setSel(p => p ? { ...p, messages: [...p.messages, opt], status: "IN_PROGRESS" } : p);
-    setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: [...t.messages, opt], status: "IN_PROGRESS" } : t));
+    setSel(p => p ? { ...p, messages: [...msgs(p), opt], status: "IN_PROGRESS" } : p);
+    setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: [...msgs(t), opt], status: "IN_PROGRESS" } : t));
     try { await replyToTicket(sel._id, txt, me); }
     catch { setSel(p => p ? { ...p, messages: prev } : p); setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: prev } : t)); push("Failed to send.", false); }
     finally { setSending(false); }
@@ -426,7 +427,7 @@ export default function Support() {
               </div>
             </div>
 
-            {sel.messages.map((msg, i) => {
+            {msgs(sel).map((msg, i) => {
               const isAdmin = msg.sender === "ADMIN";
               const isBot   = msg.sender === "ASSISTANT";
               return (
