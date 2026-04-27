@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 
+import '../../../shared/services/api_service.dart';
 import '../../../shared/services/socket_service.dart';
 import '../models/support_ticket_model.dart';
 import '../services/support_service.dart';
@@ -14,6 +16,7 @@ class SupportState {
     this.isLoading = false,
     this.isSending = false,
     this.error,
+    this.agentJoinedMessage,
   });
 
   final List<SupportTicket> tickets;
@@ -21,6 +24,7 @@ class SupportState {
   final bool isLoading;
   final bool isSending;
   final String? error;
+  final String? agentJoinedMessage;
 
   SupportState copyWith({
     List<SupportTicket>? tickets,
@@ -28,8 +32,10 @@ class SupportState {
     bool? isLoading,
     bool? isSending,
     String? error,
+    String? agentJoinedMessage,
     bool clearError = false,
     bool clearActive = false,
+    bool clearAgentJoinedMessage = false,
   }) =>
       SupportState(
         tickets: tickets ?? this.tickets,
@@ -37,6 +43,9 @@ class SupportState {
         isLoading: isLoading ?? this.isLoading,
         isSending: isSending ?? this.isSending,
         error: clearError ? null : error ?? this.error,
+        agentJoinedMessage: clearAgentJoinedMessage
+            ? null
+            : agentJoinedMessage ?? this.agentJoinedMessage,
       );
 }
 
@@ -47,6 +56,13 @@ class SupportNotifier extends Notifier<SupportState> {
   final _service = SupportService.instance;
   late final _socket = SocketService.instance;
 
+  String _formatError(Object error) {
+    if (error is DioException) {
+      return ApiService.parseError(error);
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
   @override
   SupportState build() => const SupportState();
 
@@ -55,11 +71,25 @@ class SupportNotifier extends Notifier<SupportState> {
   }
 
   void _onSupportMessage(Map<String, dynamic> data) {
+    if (data['_event'] == 'agent_joined') {
+      final ticketId = data['ticketId'] as String?;
+      if (ticketId != null && state.activeTicket?.id == ticketId) {
+        final agentName = (data['agentName'] as String?)?.trim();
+        state = state.copyWith(
+          agentJoinedMessage: agentName?.isNotEmpty == true
+              ? '$agentName joined the chat'
+              : 'A support agent joined the chat',
+        );
+      }
+      return;
+    }
+
     final ticketId = data['ticketId'] as String?;
     final rawMsg = data['message'];
     if (ticketId == null || rawMsg == null) return;
 
-    final msg = SupportMessage.fromJson(Map<String, dynamic>.from(rawMsg as Map));
+    final msg =
+        SupportMessage.fromJson(Map<String, dynamic>.from(rawMsg as Map));
 
     // Append to active ticket if open
     final active = state.activeTicket;
@@ -83,7 +113,7 @@ class SupportNotifier extends Notifier<SupportState> {
       state = state.copyWith(tickets: tickets, isLoading: false);
       _listenSocket();
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: _formatError(e));
     }
   }
 
@@ -94,13 +124,17 @@ class SupportNotifier extends Notifier<SupportState> {
       _socket.joinSupportTicket(id);
       state = state.copyWith(activeTicket: ticket, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: _formatError(e));
     }
   }
 
   void closeActiveTicket() {
     state = state.copyWith(clearActive: true);
     _socket.removeSupportListener(_onSupportMessage);
+  }
+
+  void clearAgentJoinedMessage() {
+    state = state.copyWith(clearAgentJoinedMessage: true);
   }
 
   Future<SupportTicket?> createTicket({
@@ -123,7 +157,7 @@ class SupportNotifier extends Notifier<SupportState> {
       );
       return ticket;
     } catch (e) {
-      state = state.copyWith(isSending: false, error: e.toString());
+      state = state.copyWith(isSending: false, error: _formatError(e));
       return null;
     }
   }
@@ -136,7 +170,7 @@ class SupportNotifier extends Notifier<SupportState> {
       final updated = await _service.sendMessage(ticket.id, content);
       state = state.copyWith(activeTicket: updated, isSending: false);
     } catch (e) {
-      state = state.copyWith(isSending: false, error: e.toString());
+      state = state.copyWith(isSending: false, error: _formatError(e));
     }
   }
 }
@@ -144,4 +178,5 @@ class SupportNotifier extends Notifier<SupportState> {
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
-final supportProvider = NotifierProvider<SupportNotifier, SupportState>(SupportNotifier.new);
+final supportProvider =
+    NotifierProvider<SupportNotifier, SupportState>(SupportNotifier.new);

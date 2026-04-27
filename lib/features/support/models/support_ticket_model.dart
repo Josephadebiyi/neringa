@@ -7,13 +7,14 @@ class SupportMessage {
     this.senderName,
   });
 
-  final String sender; // 'USER' | 'ADMIN'
+  final String sender; // 'USER' | 'ADMIN' | 'ASSISTANT'
   final String senderId;
   final String content;
   final DateTime timestamp;
   final String? senderName;
 
   bool get isAdmin => sender == 'ADMIN';
+  bool get isAssistant => sender == 'ASSISTANT';
 
   factory SupportMessage.fromJson(Map<String, dynamic> j) => SupportMessage(
         sender: j['sender'] ?? 'USER',
@@ -46,6 +47,9 @@ class SupportTicket {
     required this.createdAt,
     required this.updatedAt,
     this.assignedTo,
+    this.assistantState,
+    this.firstAgentResponseDueAt,
+    this.firstAgentResponseAt,
   });
 
   final String id;
@@ -58,11 +62,21 @@ class SupportTicket {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? assignedTo;
+  final String? assistantState;
+  final DateTime? firstAgentResponseDueAt;
+  final DateTime? firstAgentResponseAt;
 
   bool get isOpen => status == 'OPEN' || status == 'IN_PROGRESS';
   bool get isClosed => status == 'RESOLVED' || status == 'CLOSED';
 
-  SupportTicket copyWith({List<SupportMessage>? messages, String? status}) => SupportTicket(
+  SupportTicket copyWith({
+    List<SupportMessage>? messages,
+    String? status,
+    String? assistantState,
+    DateTime? firstAgentResponseDueAt,
+    DateTime? firstAgentResponseAt,
+  }) =>
+      SupportTicket(
         id: id,
         subject: subject,
         description: description,
@@ -73,6 +87,10 @@ class SupportTicket {
         createdAt: createdAt,
         updatedAt: updatedAt,
         assignedTo: assignedTo,
+        assistantState: assistantState ?? this.assistantState,
+        firstAgentResponseDueAt:
+            firstAgentResponseDueAt ?? this.firstAgentResponseDueAt,
+        firstAgentResponseAt: firstAgentResponseAt ?? this.firstAgentResponseAt,
       );
 
   factory SupportTicket.fromJson(Map<String, dynamic> j) {
@@ -92,6 +110,13 @@ class SupportTicket {
       priority: j['priority'] ?? 'MEDIUM',
       messages: msgs,
       assignedTo: j['assignedTo'],
+      assistantState: j['assistantState'],
+      firstAgentResponseDueAt: j['firstAgentResponseDueAt'] != null
+          ? DateTime.tryParse(j['firstAgentResponseDueAt'].toString())
+          : null,
+      firstAgentResponseAt: j['firstAgentResponseAt'] != null
+          ? DateTime.tryParse(j['firstAgentResponseAt'].toString())
+          : null,
       createdAt: j['createdAt'] != null
           ? DateTime.tryParse(j['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),

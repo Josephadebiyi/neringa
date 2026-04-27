@@ -35,6 +35,10 @@ import {
   getTicketById,
   updateTicketStatus,
   addTicketMessage,
+  addInternalNote,
+  getSavedReplies,
+  createSavedReply,
+  updateSupportPresence,
 } from '../controllers/AdminControllers/SupportTicketController.js';
 import {
   createPromoCode,
@@ -112,6 +116,10 @@ AdminRouter.get("/tickets", adminAuthenticated, getAllTickets);
 AdminRouter.get("/tickets/:id", adminAuthenticated, getTicketById);
 AdminRouter.put("/tickets/:id/status", adminAuthenticated, updateTicketStatus);
 AdminRouter.post("/tickets/:id/message", adminAuthenticated, addTicketMessage);
+AdminRouter.post("/tickets/:id/internal-note", adminAuthenticated, addInternalNote);
+AdminRouter.get("/support/saved-replies", adminAuthenticated, getSavedReplies);
+AdminRouter.post("/support/saved-replies", adminAuthenticated, createSavedReply);
+AdminRouter.put("/support/presence", adminAuthenticated, updateSupportPresence);
 
 // Promo Code Management
 AdminRouter.get("/promo-codes", adminAuthenticated, getAllPromoCodes);

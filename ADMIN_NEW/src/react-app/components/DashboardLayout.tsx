@@ -4,6 +4,7 @@ import PageErrorBoundary from "./PageErrorBoundary";
 import { useAuth } from "../hooks/useAuth";
 import { useAdminSocket } from "../hooks/useAdminSocket";
 import { useNavigate, useLocation } from "react-router-dom";
+import { BAGO_BRAND } from "../config/brand";
 import {
   Home,
   CreditCard,
@@ -86,7 +87,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-[#F4F6FB]">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -97,16 +98,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Sidebar */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[#1e2749] transform transition-transform duration-300 ease-in-out flex flex-col h-full
+        fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[linear-gradient(180deg,#1E2749_0%,#202C58_45%,#2A3770_100%)] transform transition-transform duration-300 ease-in-out flex flex-col h-full
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Logo */}
+      {/* Logo */}
         <div className="flex items-center h-20 px-6 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="bg-white rounded-lg p-2">
-              <span className="text-[#1e2749] font-bold text-lg">BZ</span>
+            <div className="bg-white rounded-2xl p-2.5 shadow-[0_10px_20px_rgba(0,0,0,0.12)]">
+              <img
+                src={BAGO_BRAND.logoUrl}
+                alt={BAGO_BRAND.name}
+                className="h-8 w-8 rounded-xl object-cover"
+              />
             </div>
-            <span className="text-white text-xl font-bold">Bago</span>
+            <div>
+              <span className="block text-white text-xl font-black tracking-tight">{BAGO_BRAND.name}</span>
+              <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+                Support Desk
+              </span>
+            </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -137,7 +147,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   className={`
                     w-full flex items-center justify-between px-4 py-3 text-left rounded-lg transition-all duration-200
                     ${isActive
-                      ? 'bg-white/10 text-white border-r-2 border-white'
+                      ? 'bg-white/10 text-white border-r-2 border-[#5C4BFD]'
                       : 'text-gray-300 hover:bg-white/5 hover:text-white'
                     }
                   `}
@@ -172,16 +182,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* Bottom section */}
-        <div className="border-t border-gray-600 p-4">
+        <div className="border-t border-white/10 p-4">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-gray-300" />
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+              <User className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1">
               <div className="text-white text-sm font-medium">
-                Welcome
+                Operator
               </div>
-              <div className="text-gray-400 text-xs truncate max-w-[120px]">
+              <div className="text-white/55 text-xs truncate max-w-[120px]">
                 {user?.firstName && user?.lastName
                   ? `${user.firstName} ${user.lastName}`
                   : user?.username || 'Administrator'
@@ -195,7 +205,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="bg-white h-20 flex items-center justify-between px-6 border-b border-gray-200">
+        <header className="bg-white/90 backdrop-blur h-20 flex items-center justify-between px-6 border-b border-[#E7EAF0]">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-gray-500 hover:text-gray-900"
@@ -205,7 +215,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* User profile with dropdown for logout (optional duplicate) */}
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">Welcome</span>
+            <span className="text-sm text-gray-600">{BAGO_BRAND.adminLabel}</span>
             <div className="relative group">
               <div className="flex items-center space-x-2 cursor-pointer">
                 <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">

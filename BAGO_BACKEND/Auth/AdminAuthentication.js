@@ -25,7 +25,7 @@ export const adminAuthenticated = async (req, res, next) => {
 
     const decoded = jwt.verify(token, secret);
     const admin = await queryOne(
-      `SELECT id, username, email, role, is_active FROM public.admin_users WHERE id = $1`,
+      `SELECT id, username, email, full_name, role, permissions, support_presence, support_last_seen_at, is_active FROM public.admin_users WHERE id = $1`,
       [decoded.id]
     );
 
@@ -55,7 +55,7 @@ export const CheckAdmin = async (req, res) => {
 
     const decoded = jwt.verify(token, secret);
     const admin = await queryOne(
-      `SELECT id, username, email, full_name, role, is_active FROM public.admin_users WHERE id = $1`,
+      `SELECT id, username, email, full_name, role, permissions, support_presence, support_last_seen_at, is_active FROM public.admin_users WHERE id = $1`,
       [decoded.id]
     );
 

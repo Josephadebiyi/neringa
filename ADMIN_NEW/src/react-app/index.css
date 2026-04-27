@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-    --color-brand-primary: #5240E8;
+    --color-brand-primary: #5C4BFD;
     --color-brand-secondary: #1E2749;
     --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 :root {
-    --primary: #5240e8;
+    --primary: #5c4bfd;
     --secondary: #1e2749;
-    --accent: #ff6b6b;
-    --background: #f8fafc;
+    --accent: #00bcd4;
+    --background: #f4f6fb;
     --card-bg: #ffffff;
 }
 

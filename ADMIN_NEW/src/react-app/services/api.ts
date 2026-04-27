@@ -248,10 +248,13 @@ export async function getTicketById(id: string) {
   return apiCall(`${ADMIN_API}/tickets/${id}`);
 }
 
-export async function updateTicketStatus(id: string, status: string) {
+export async function updateTicketStatus(id: string, status: string, assignedTo?: string | null) {
   return apiCall(`${ADMIN_API}/tickets/${id}/status`, {
     method: 'PUT',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({
+      status,
+      ...(assignedTo ? { assigned_to: assignedTo } : {}),
+    }),
   });
 }
 
@@ -259,6 +262,31 @@ export async function replyToTicket(id: string, message: string, senderName?: st
   return apiCall(`${ADMIN_API}/tickets/${id}/message`, {
     method: 'POST',
     body: JSON.stringify({ content: message, sender: 'ADMIN', senderName }),
+  });
+}
+
+export async function addSupportInternalNote(id: string, content: string) {
+  return apiCall(`${ADMIN_API}/tickets/${id}/internal-note`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function getSupportSavedReplies() {
+  return apiCall(`${ADMIN_API}/support/saved-replies`);
+}
+
+export async function createSupportSavedReply(data: { title: string; body: string }) {
+  return apiCall(`${ADMIN_API}/support/saved-replies`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateSupportPresence(presence: 'OFFLINE' | 'AWAY' | 'AVAILABLE') {
+  return apiCall(`${ADMIN_API}/support/presence`, {
+    method: 'PUT',
+    body: JSON.stringify({ presence }),
   });
 }
 
