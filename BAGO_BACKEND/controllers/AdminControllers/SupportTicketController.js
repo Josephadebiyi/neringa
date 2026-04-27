@@ -139,15 +139,14 @@ export const addTicketMessage = async (req, res) => {
       [JSON.stringify(messages), newStatus, req.params.id, senderId || req.admin?.id || null]
     );
 
-    // Real-time: push to ticket room and user's personal room
+    // Real-time: push to ticket room (user is in it) + agents room
     const io = req.app.get('io');
     if (io) {
       const payload = { ticketId: req.params.id, message: newMsg, senderName: senderName ?? 'Agent' };
       io.to(`support:${req.params.id}`).emit('support_message', payload);
       io.to('support:agents').emit('support_message', payload);
-      // Notify user via their personal room
+      // Push notification covers users not actively in the chat screen
       if (ticket.user_id) {
-        io.to(ticket.user_id.toString()).emit('support_message', payload);
         await sendPushNotification(
           ticket.user_id,
           `💬 Support reply from ${senderName ?? 'Agent'}`,

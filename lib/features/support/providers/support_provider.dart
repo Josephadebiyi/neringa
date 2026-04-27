@@ -55,6 +55,7 @@ class SupportState {
 class SupportNotifier extends Notifier<SupportState> {
   final _service = SupportService.instance;
   late final _socket = SocketService.instance;
+  bool _listeningToSocket = false;
 
   String _formatError(Object error) {
     if (error is DioException) {
@@ -67,6 +68,8 @@ class SupportNotifier extends Notifier<SupportState> {
   SupportState build() => const SupportState();
 
   void _listenSocket() {
+    if (_listeningToSocket) return;
+    _listeningToSocket = true;
     _socket.addSupportListener(_onSupportMessage);
   }
 
@@ -91,16 +94,26 @@ class SupportNotifier extends Notifier<SupportState> {
     final msg =
         SupportMessage.fromJson(Map<String, dynamic>.from(rawMsg as Map));
 
+    // Only process admin messages — user messages are already added via the REST response
+    if (msg.sender != 'ADMIN') return;
+
+    bool isDuplicate(List<SupportMessage> msgs) => msgs.any(
+      (m) => m.sender == msg.sender &&
+             m.content == msg.content &&
+             m.timestamp.difference(msg.timestamp).inSeconds.abs() < 5,
+    );
+
     // Append to active ticket if open
     final active = state.activeTicket;
-    if (active != null && active.id == ticketId) {
-      final updated = active.copyWith(messages: [...active.messages, msg]);
-      state = state.copyWith(activeTicket: updated);
+    if (active != null && active.id == ticketId && !isDuplicate(active.messages)) {
+      state = state.copyWith(
+        activeTicket: active.copyWith(messages: [...active.messages, msg]),
+      );
     }
 
     // Update ticket list preview
     final tickets = state.tickets.map((t) {
-      if (t.id != ticketId) return t;
+      if (t.id != ticketId || isDuplicate(t.messages)) return t;
       return t.copyWith(messages: [...t.messages, msg]);
     }).toList();
     state = state.copyWith(tickets: tickets);
@@ -122,6 +135,7 @@ class SupportNotifier extends Notifier<SupportState> {
     try {
       final ticket = await _service.getTicket(id);
       _socket.joinSupportTicket(id);
+      _listenSocket(); // ensure listener is registered even without loadTickets()
       state = state.copyWith(activeTicket: ticket, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _formatError(e));
@@ -131,6 +145,7 @@ class SupportNotifier extends Notifier<SupportState> {
   void closeActiveTicket() {
     state = state.copyWith(clearActive: true);
     _socket.removeSupportListener(_onSupportMessage);
+    _listeningToSocket = false;
   }
 
   void clearAgentJoinedMessage() {
@@ -150,6 +165,7 @@ class SupportNotifier extends Notifier<SupportState> {
         category: category,
       );
       _socket.joinSupportTicket(ticket.id);
+      _listenSocket(); // register listener immediately after ticket creation
       state = state.copyWith(
         tickets: [ticket, ...state.tickets],
         activeTicket: ticket,
