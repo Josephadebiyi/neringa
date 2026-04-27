@@ -94,13 +94,13 @@ class SupportNotifier extends Notifier<SupportState> {
     final msg =
         SupportMessage.fromJson(Map<String, dynamic>.from(rawMsg as Map));
 
-    // Only process admin messages — user messages are already added via the REST response
-    if (msg.sender != 'ADMIN') return;
+    // Skip user's own messages — they arrive via the REST response already
+    if (msg.sender == 'USER') return;
 
     bool isDuplicate(List<SupportMessage> msgs) => msgs.any(
-      (m) => m.sender == msg.sender &&
-             m.content == msg.content &&
-             m.timestamp.difference(msg.timestamp).inSeconds.abs() < 5,
+      (m) => m.content == msg.content &&
+             m.sender == msg.sender &&
+             m.timestamp.difference(msg.timestamp).inSeconds.abs() < 10,
     );
 
     // Append to active ticket if open

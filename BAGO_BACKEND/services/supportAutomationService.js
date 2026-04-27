@@ -10,7 +10,8 @@ function isSchemaCompatibilityError(error) {
 }
 
 async function bootstrapSupportSchema() {
-  await query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+  // pgcrypto needed for gen_random_uuid() on older PG; ignore if already exists or no permission
+  await query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`).catch(() => {});
 
   await query(`
     CREATE TABLE IF NOT EXISTS public.support_tickets (

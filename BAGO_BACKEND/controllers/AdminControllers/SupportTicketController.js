@@ -126,18 +126,30 @@ export const addTicketMessage = async (req, res) => {
     messages.push(newMsg);
 
     const newStatus = sender === 'ADMIN' ? 'IN_PROGRESS' : ticket.status;
-    const updated = await queryOne(
-      `UPDATE public.support_tickets
-       SET messages = $1,
-           status = $2,
-           assistant_state = CASE WHEN $2 = 'IN_PROGRESS' THEN 'HANDOFF' ELSE assistant_state END,
-           assigned_to = COALESCE(assigned_to, $4),
-           first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
-           last_agent_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $3 RETURNING *`,
-      [JSON.stringify(messages), newStatus, req.params.id, senderId || req.admin?.id || null]
-    );
+    let updated;
+    try {
+      updated = await queryOne(
+        `UPDATE public.support_tickets
+         SET messages = $1,
+             status = $2,
+             assistant_state = CASE WHEN $2 = 'IN_PROGRESS' THEN 'HANDOFF' ELSE assistant_state END,
+             assigned_to = COALESCE(assigned_to, $4),
+             first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
+             last_agent_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $3 RETURNING *`,
+        [JSON.stringify(messages), newStatus, req.params.id, senderId || req.admin?.id || null]
+      );
+    } catch (schemaErr) {
+      // Fallback: columns assistant_state / first_agent_response_at may not exist yet
+      if (!isSchemaCompatibilityError(schemaErr)) throw schemaErr;
+      updated = await queryOne(
+        `UPDATE public.support_tickets
+         SET messages = $1, status = $2, last_agent_at = NOW(), updated_at = NOW()
+         WHERE id = $3 RETURNING *`,
+        [JSON.stringify(messages), newStatus, req.params.id]
+      );
+    }
 
     // Real-time: push to ticket room (user is in it) + agents room
     const io = req.app.get('io');
