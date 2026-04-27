@@ -4,17 +4,13 @@ import {
   Bot,
   CheckCircle2,
   ChevronDown,
-  Clock3,
-  Flag,
-  Inbox,
+  Clock,
   Loader2,
   MessageSquare,
-  MoreHorizontal,
+  Plus,
   Search,
   Send,
-  Shield,
   StickyNote,
-  UserRound,
   Wifi,
   WifiOff,
   X,
@@ -48,7 +44,6 @@ interface InternalNote {
   id: string;
   content: string;
   createdAt: string;
-  authorId?: string;
   authorName?: string;
 }
 
@@ -61,11 +56,11 @@ interface Ticket {
   userEmail?: string;
   subject: string;
   description: string;
-  category: "SHIPMENT" | "PAYMENT" | "ACCOUNT" | "OTHER";
+  category: string;
   status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   assignedTo?: string;
-  assistantState?: "ACTIVE" | "HANDOFF" | "DISABLED";
+  assistantState?: string;
   firstAgentResponseDueAt?: string;
   firstAgentResponseAt?: string | null;
   internalNotes?: InternalNote[];
@@ -75,428 +70,278 @@ interface Ticket {
 
 interface StaffMember {
   _id: string;
-  id?: number | string;
   fullName?: string;
   first_name?: string;
   last_name?: string;
   email: string;
-  role: "SUPER_ADMIN" | "SAFETY_ADMIN" | "SUPPORT_ADMIN";
+  role: string;
 }
 
 interface SavedReply { id: string; title: string; body: string; }
-interface Toast     { id: string; message: string; type: "success" | "error" | "info"; }
-
-type QueueFilter    = "ALL" | "OPEN" | "IN_PROGRESS" | "RESOLVED";
-type Presence       = "AVAILABLE" | "AWAY" | "OFFLINE";
+interface Toast { id: string; msg: string; ok: boolean; }
+type QueueFilter = "ALL" | "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function userName(t: Ticket) {
-  if (t.user) return `${t.user.firstName} ${t.user.lastName}`.trim();
-  return `${t.userFirstName ?? ""} ${t.userLastName ?? ""}`.trim() || "User";
-}
-function userEmail(t: Ticket) { return t.user?.email || t.userEmail || ""; }
-function userInitial(t: Ticket) { return userName(t)[0]?.toUpperCase() || "U"; }
-function lastActivity(t: Ticket) {
-  return t.messages[t.messages.length - 1]?.timestamp || t.createdAt;
-}
+const uName  = (t: Ticket) => t.user ? `${t.user.firstName} ${t.user.lastName}`.trim() : `${t.userFirstName ?? ""} ${t.userLastName ?? ""}`.trim() || "User";
+const uEmail = (t: Ticket) => t.user?.email || t.userEmail || "";
+const uInit  = (t: Ticket) => uName(t)[0]?.toUpperCase() || "?";
+const lastTs = (t: Ticket) => t.messages[t.messages.length - 1]?.timestamp || t.createdAt;
 
-function relativeTime(v: string) {
+function ago(v: string) {
   const d = Date.now() - new Date(v).getTime();
-  const m = 60_000, h = 60 * m, day = 24 * h;
-  if (d < m)       return "now";
-  if (d < h)       return `${Math.floor(d / m)}m`;
-  if (d < day)     return `${Math.floor(d / h)}h`;
-  if (d < 7 * day) return `${Math.floor(d / day)}d`;
+  if (d < 60_000)      return "now";
+  if (d < 3_600_000)   return `${Math.floor(d / 60_000)}m`;
+  if (d < 86_400_000)  return `${Math.floor(d / 3_600_000)}h`;
+  if (d < 604_800_000) return `${Math.floor(d / 86_400_000)}d`;
   return new Date(v).toLocaleDateString();
 }
 
-function slaCountdown(dueAt: string): { label: string; hot: boolean } {
-  const ms = new Date(dueAt).getTime() - Date.now();
-  if (ms <= 0) return { label: "SLA breached", hot: true };
-  const h = Math.floor(ms / 3_600_000), mm = Math.floor((ms % 3_600_000) / 60_000);
-  return { label: h > 0 ? `${h}h ${mm}m` : `${mm}m`, hot: ms < 4 * 3_600_000 };
+function fmtDate(v?: string | null) {
+  if (!v) return "—";
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-const STATUS_COLORS: Record<Ticket["status"], string> = {
-  OPEN:        "bg-amber-100 text-amber-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  RESOLVED:    "bg-emerald-100 text-emerald-700",
-  CLOSED:      "bg-slate-100 text-slate-500",
-};
-const STATUS_DOT: Record<Ticket["status"], string> = {
-  OPEN:        "bg-amber-400",
-  IN_PROGRESS: "bg-blue-500",
-  RESOLVED:    "bg-emerald-500",
-  CLOSED:      "bg-slate-400",
-};
-const PRIORITY_COLORS: Record<Ticket["priority"], string> = {
-  URGENT: "text-red-600",
-  HIGH:   "text-orange-500",
-  MEDIUM: "text-indigo-500",
-  LOW:    "text-slate-400",
-};
+function slaInfo(dueAt: string): { label: string; hot: boolean } {
+  const ms = new Date(dueAt).getTime() - Date.now();
+  if (ms <= 0) return { label: "Breached", hot: true };
+  const h = Math.floor(ms / 3_600_000), m = Math.floor((ms % 3_600_000) / 60_000);
+  return { label: h > 0 ? `${h}h ${m}m left` : `${m}m left`, hot: ms < 4 * 3_600_000 };
+}
 
-// ─── Component ───────────────────────────────────────────────────────────────
+const STATUS_LABEL: Record<string, string> = { OPEN: "Open", IN_PROGRESS: "In Progress", RESOLVED: "Resolved", CLOSED: "Closed" };
+const STATUS_CLS: Record<string, string>   = {
+  OPEN:        "bg-amber-50  text-amber-700  ring-1 ring-amber-200",
+  IN_PROGRESS: "bg-blue-50   text-blue-700   ring-1 ring-blue-200",
+  RESOLVED:    "bg-green-50  text-green-700  ring-1 ring-green-200",
+  CLOSED:      "bg-gray-100  text-gray-500   ring-1 ring-gray-200",
+};
+const STATUS_DOT: Record<string, string> = { OPEN: "bg-amber-400", IN_PROGRESS: "bg-blue-500", RESOLVED: "bg-green-500", CLOSED: "bg-gray-300" };
+const PRI_CLS: Record<string, string> = { URGENT: "text-red-600 font-semibold", HIGH: "text-orange-500 font-semibold", MEDIUM: "text-slate-600", LOW: "text-slate-400" };
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Support() {
   const { user } = useAuth();
-  const agentName = user
-    ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || "Agent"
-    : "Agent";
+  const me = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || "Agent" : "Agent";
 
-  const [tickets, setTickets]             = useState<Ticket[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [selected, setSelected]           = useState<Ticket | null>(null);
-  const [reply, setReply]                 = useState("");
-  const [sending, setSending]             = useState(false);
-  const [filter, setFilter]               = useState<QueueFilter>("ALL");
-  const [search, setSearch]               = useState("");
-  const [connected, setConnected]         = useState(false);
-  const [newIds, setNewIds]               = useState<Set<string>>(new Set());
-  const [staff, setStaff]                 = useState<StaffMember[]>([]);
-  const [assignee, setAssignee]           = useState("");
-  const [savedReplies, setSavedReplies]   = useState<SavedReply[]>([]);
-  const [noteDraft, setNoteDraft]         = useState("");
-  const [savingNote, setSavingNote]       = useState(false);
-  const [srTitle, setSrTitle]             = useState("");
-  const [srBody, setSrBody]               = useState("");
-  const [creatingSr, setCreatingSr]       = useState(false);
-  const [presence, setPresence]           = useState<Presence>("AVAILABLE");
-  const [toasts, setToasts]               = useState<Toast[]>([]);
-  const [showNotes, setShowNotes]         = useState(false);
-  const [showSavedReplyForm, setShowSavedReplyForm] = useState(false);
-  const [, setTick]                       = useState(0);
+  const [tickets,  setTickets]   = useState<Ticket[]>([]);
+  const [loading,  setLoading]   = useState(true);
+  const [sel,      setSel]       = useState<Ticket | null>(null);
+  const [reply,    setReply]     = useState("");
+  const [sending,  setSending]   = useState(false);
+  const [filter,   setFilter]    = useState<QueueFilter>("ALL");
+  const [search,   setSearch]    = useState("");
+  const [live,     setLive]      = useState(false);
+  const [newIds,   setNewIds]    = useState<Set<string>>(new Set());
+  const [staff,    setStaff]     = useState<StaffMember[]>([]);
+  const [assignee, setAssignee]  = useState("");
+  const [replies,  setReplies]   = useState<SavedReply[]>([]);
+  const [note,     setNote]      = useState("");
+  const [saving,   setSaving]    = useState(false);
+  const [presence, setPresence]  = useState<"AVAILABLE"|"AWAY">("AVAILABLE");
+  const [toasts,   setToasts]    = useState<Toast[]>([]);
+  const [showNotes,setShowNotes] = useState(false);
+  const [srOpen,   setSrOpen]    = useState(false);
+  const [srTitle,  setSrTitle]   = useState("");
+  const [srBody,   setSrBody]    = useState("");
+  const [, setTick] = useState(0);
 
-  const socketRef  = useRef<Socket | null>(null);
-  const bottomRef  = useRef<HTMLDivElement>(null);
-  const selRef     = useRef<Ticket | null>(null);
-  selRef.current   = selected;
+  const sockRef  = useRef<Socket | null>(null);
+  const endRef   = useRef<HTMLDivElement>(null);
+  const selRef   = useRef<Ticket | null>(null);
+  selRef.current = sel;
 
-  // ── SLA ticker ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    const id = window.setInterval(() => setTick(n => n + 1), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
+  useEffect(() => { const id = setInterval(() => setTick(n => n + 1), 60_000); return () => clearInterval(id); }, []);
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
-  const toast = (message: string, type: Toast["type"] = "info") => {
+  const push = (msg: string, ok = true) => {
     const id = `${Date.now()}`;
-    setToasts(p => [...p, { id, message, type }]);
-    window.setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
+    setToasts(p => [...p, { id, msg, ok }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
   };
 
-  // ── Socket ────────────────────────────────────────────────────────────────
+  // Socket
   useEffect(() => {
-    const socket = io(API_ROOT.replace("/api", ""), {
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: 10,
+    const s = io(API_ROOT.replace("/api", ""), { transports: ["websocket","polling"], reconnection: true });
+    sockRef.current = s;
+    s.on("connect",    () => { setLive(true); s.emit("join_support_agents"); });
+    s.on("disconnect", () => setLive(false));
+    s.on("new_support_ticket", ({ ticket }: { ticket: Ticket }) => {
+      setTickets(p => { const id = ticket._id || ticket.id || ""; if (p.some(t => t._id === id)) return p; return [{ ...ticket, _id: id }, ...p]; });
+      setNewIds(p => new Set(p).add(ticket._id || ticket.id || ""));
     });
-    socketRef.current = socket;
-
-    socket.on("connect",    () => { setConnected(true);  socket.emit("join_support_agents"); });
-    socket.on("disconnect", () => setConnected(false));
-
-    socket.on("new_support_ticket", ({ ticket }: { ticket: Ticket }) => {
-      setTickets(prev => {
-        const nid = ticket._id || ticket.id || "";
-        if (prev.some(t => t._id === nid)) return prev;
-        return [{ ...ticket, _id: nid }, ...prev];
-      });
-      setNewIds(prev => new Set(prev).add(ticket._id || ticket.id || ""));
+    s.on("support_message", ({ ticketId, message }: { ticketId: string; message: TicketMessage }) => {
+      const dup = (ms: TicketMessage[]) => ms.some(m => m.timestamp === message.timestamp && m.content === message.content);
+      setTickets(p => p.map(t => t._id !== ticketId || dup(t.messages) ? t : { ...t, messages: [...t.messages, message] }));
+      if (selRef.current?._id === ticketId)
+        setSel(p => !p || dup(p.messages) ? p : { ...p, messages: [...p.messages, message] });
     });
-
-    socket.on("support_message", ({ ticketId, message }: { ticketId: string; message: TicketMessage }) => {
-      const dup = (msgs: TicketMessage[]) =>
-        msgs.some(m => m.timestamp === message.timestamp && m.content === message.content);
-
-      setTickets(prev => prev.map(t => {
-        if (t._id !== ticketId || dup(t.messages)) return t;
-        return { ...t, messages: [...t.messages, message] };
-      }));
-      if (selRef.current?._id === ticketId) {
-        setSelected(prev => {
-          if (!prev || dup(prev.messages)) return prev;
-          return { ...prev, messages: [...prev.messages, message] };
-        });
-      }
-    });
-
-    return () => { socket.disconnect(); };
+    return () => { s.disconnect(); };
   }, []);
 
-  // ── Presence ──────────────────────────────────────────────────────────────
+  // Presence
   useEffect(() => {
-    const sync = (p: Presence) => updateSupportPresence(p).catch(() => {});
+    const sync = (p: "AVAILABLE"|"AWAY"|"OFFLINE") => updateSupportPresence(p).catch(() => {});
     sync("AVAILABLE");
-    const id = window.setInterval(() => { if (presence === "AVAILABLE") sync("AVAILABLE"); }, 30_000);
-    const vis = () => { const p: Presence = document.hidden ? "AWAY" : "AVAILABLE"; setPresence(p); sync(p); };
-    document.addEventListener("visibilitychange", vis);
-    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", vis); sync("OFFLINE"); };
+    const id = setInterval(() => { if (presence === "AVAILABLE") sync("AVAILABLE"); }, 30_000);
+    const onVis = () => { const p = document.hidden ? "AWAY" : "AVAILABLE"; setPresence(p); sync(p); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); sync("OFFLINE"); };
   }, [presence]);
 
-  // ── Select ticket ─────────────────────────────────────────────────────────
+  // On select
   useEffect(() => {
-    if (!selected) return;
-    socketRef.current?.emit("join_support_ticket", selected._id);
-    socketRef.current?.emit("support_agent_joined", { ticketId: selected._id, agentId: user?.id, agentName });
-    setNewIds(prev => { const n = new Set(prev); n.delete(selected._id); return n; });
-    setNoteDraft("");
-    setShowNotes(false);
-  }, [selected?._id]);
+    if (!sel) return;
+    sockRef.current?.emit("join_support_ticket", sel._id);
+    sockRef.current?.emit("support_agent_joined", { ticketId: sel._id, agentId: user?.id, agentName: me });
+    setNewIds(p => { const n = new Set(p); n.delete(sel._id); return n; });
+    setNote(""); setShowNotes(false);
+  }, [sel?._id]);
 
-  useEffect(() => {
-    setAssignee(selected?.assignedTo || "");
-  }, [selected?._id, selected?.assignedTo]);
+  useEffect(() => { setAssignee(sel?.assignedTo || ""); }, [sel?._id, sel?.assignedTo]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sel?.messages.length]);
 
-  // Auto-scroll on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selected?.messages.length]);
+  // Data
+  useEffect(() => { (async () => { try { setLoading(true); const d = await getTickets(); if (d.success) setTickets(d.data); } catch {/**/ } finally { setLoading(false); } })(); }, []);
+  useEffect(() => { (async () => { try { const d = await getStaff(); if (d.success) setStaff(d.data); } catch {/**/ } })(); }, []);
+  useEffect(() => { (async () => { try { const d = await getSupportSavedReplies(); if (d.success) setReplies(d.data); } catch {/**/ } })(); }, []);
 
-  // ── Data ──────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    (async () => {
-      try { setLoading(true); const d = await getTickets(); if (d.success) setTickets(d.data); }
-      catch { /**/ } finally { setLoading(false); }
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try { const d = await getStaff(); if (d.success) setStaff(d.data); } catch { /**/ }
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try { const d = await getSupportSavedReplies(); if (d.success) setSavedReplies(d.data); } catch { /**/ }
-    })();
-  }, []);
-
-  // ── Filtering ─────────────────────────────────────────────────────────────
   const filtered = tickets
-    .filter(t => {
-      if (filter !== "ALL" && t.status !== filter) return false;
-      const q = search.trim().toLowerCase();
-      if (!q) return true;
-      return [t.subject, t.description, userName(t), userEmail(t), t.category,
-              t.messages[t.messages.length - 1]?.content || ""]
-        .join(" ").toLowerCase().includes(q);
-    })
-    .sort((a, b) => new Date(lastActivity(b)).getTime() - new Date(lastActivity(a)).getTime());
+    .filter(t => (filter === "ALL" || t.status === filter) && (!search.trim() || [t.subject, uName(t), uEmail(t), t.category].join(" ").toLowerCase().includes(search.toLowerCase())))
+    .sort((a, b) => new Date(lastTs(b)).getTime() - new Date(lastTs(a)).getTime());
 
-  const counts = {
-    open:     tickets.filter(t => t.status === "OPEN").length,
-    active:   tickets.filter(t => t.status === "IN_PROGRESS").length,
-    resolved: tickets.filter(t => t.status === "RESOLVED").length,
-    urgent:   tickets.filter(t => t.priority === "URGENT").length,
-  };
-
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // Actions
   const sendReply = async () => {
-    if (!selected || !reply.trim()) return;
-    const content = reply.trim();
-    const prevMsgs = selected.messages;
-    setSending(true);
-    setReply("");
-
-    const opt: TicketMessage = {
-      sender: "ADMIN", senderId: user?.id ?? "", senderName: agentName,
-      content, timestamp: new Date().toISOString(),
-    };
-    setSelected(p => p ? { ...p, messages: [...p.messages, opt], status: "IN_PROGRESS" } : p);
-    setTickets(p => p.map(t => t._id === selected._id
-      ? { ...t, messages: [...t.messages, opt], status: "IN_PROGRESS" } : t));
-
-    try {
-      await replyToTicket(selected._id, content, agentName);
-    } catch {
-      setSelected(p => p ? { ...p, messages: prevMsgs } : p);
-      setTickets(p => p.map(t => t._id === selected._id ? { ...t, messages: prevMsgs } : t));
-      toast("Failed to send reply.", "error");
-    } finally { setSending(false); }
+    if (!sel || !reply.trim()) return;
+    const txt = reply.trim(), prev = sel.messages;
+    setSending(true); setReply("");
+    const opt: TicketMessage = { sender: "ADMIN", senderId: user?.id ?? "", senderName: me, content: txt, timestamp: new Date().toISOString() };
+    setSel(p => p ? { ...p, messages: [...p.messages, opt], status: "IN_PROGRESS" } : p);
+    setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: [...t.messages, opt], status: "IN_PROGRESS" } : t));
+    try { await replyToTicket(sel._id, txt, me); }
+    catch { setSel(p => p ? { ...p, messages: prev } : p); setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: prev } : t)); push("Failed to send.", false); }
+    finally { setSending(false); }
   };
 
   const changeStatus = async (id: string, status: Ticket["status"]) => {
     const prev = tickets.find(t => t._id === id)?.status;
     setTickets(p => p.map(t => t._id === id ? { ...t, status } : t));
-    if (selected?._id === id) setSelected(p => p ? { ...p, status } : p);
+    if (sel?._id === id) setSel(p => p ? { ...p, status } : p);
     try { await updateTicketStatus(id, status); }
-    catch {
-      if (prev) {
-        setTickets(p => p.map(t => t._id === id ? { ...t, status: prev } : t));
-        if (selected?._id === id) setSelected(p => p ? { ...p, status: prev } : p);
-      }
-      toast("Failed to update status.", "error");
-    }
+    catch { if (prev) { setTickets(p => p.map(t => t._id === id ? { ...t, status: prev } : t)); if (sel?._id === id) setSel(p => p ? { ...p, status: prev } : p); } push("Failed to update status.", false); }
   };
 
   const changeAssignee = async (val: string) => {
-    if (!selected) return;
+    if (!sel) return;
     setAssignee(val);
-    try {
-      await updateTicketStatus(selected._id, selected.status, val || null);
-      setTickets(p => p.map(t => t._id === selected._id ? { ...t, assignedTo: val } : t));
-      setSelected(p => p ? { ...p, assignedTo: val } : p);
-    } catch {
-      setAssignee(selected.assignedTo || "");
-      toast("Failed to assign ticket.", "error");
-    }
+    try { await updateTicketStatus(sel._id, sel.status, val || null); setTickets(p => p.map(t => t._id === sel._id ? { ...t, assignedTo: val } : t)); setSel(p => p ? { ...p, assignedTo: val } : p); }
+    catch { setAssignee(sel.assignedTo || ""); push("Failed to assign.", false); }
   };
 
   const saveNote = async () => {
-    if (!selected || !noteDraft.trim()) return;
-    setSavingNote(true);
-    try {
-      const d = await addSupportInternalNote(selected._id, noteDraft.trim());
-      if (d.success) {
-        setSelected(d.data);
-        setTickets(p => p.map(t => t._id === selected._id ? d.data : t));
-        setNoteDraft("");
-        toast("Note saved.", "success");
-      }
-    } catch { toast("Failed to save note.", "error"); }
-    finally { setSavingNote(false); }
+    if (!sel || !note.trim()) return;
+    setSaving(true);
+    try { const d = await addSupportInternalNote(sel._id, note.trim()); if (d.success) { setSel(d.data); setTickets(p => p.map(t => t._id === sel._id ? d.data : t)); setNote(""); push("Note saved."); } }
+    catch { push("Failed to save note.", false); } finally { setSaving(false); }
   };
 
-  const saveSavedReply = async () => {
+  const createSR = async () => {
     if (!srTitle.trim() || !srBody.trim()) return;
-    setCreatingSr(true);
-    try {
-      const d = await createSupportSavedReply({ title: srTitle.trim(), body: srBody.trim() });
-      if (d.success) {
-        setSavedReplies(p => [d.data, ...p]);
-        setSrTitle(""); setSrBody("");
-        setShowSavedReplyForm(false);
-        toast("Saved reply created.", "success");
-      }
-    } catch { toast("Failed.", "error"); }
-    finally { setCreatingSr(false); }
+    try { const d = await createSupportSavedReply({ title: srTitle.trim(), body: srBody.trim() }); if (d.success) { setReplies(p => [d.data, ...p]); setSrTitle(""); setSrBody(""); setSrOpen(false); push("Saved reply created."); } }
+    catch { push("Failed.", false); }
   };
 
-  const supportStaff = staff.filter(m =>
-    m.role === "SUPPORT_ADMIN" || m.role === "SUPER_ADMIN" || m.role === "SAFETY_ADMIN"
-  );
-  const assignedMember = supportStaff.find(m => String(m._id) === String(assignee));
-  const assignedName = assignedMember
-    ? (assignedMember.fullName || `${assignedMember.first_name || ""} ${assignedMember.last_name || ""}`.trim() || assignedMember.email).trim()
-    : null;
+  const supportStaff = staff.filter(m => ["SUPPORT_ADMIN","SUPER_ADMIN","SAFETY_ADMIN"].includes(m.role));
+  const assignedName = supportStaff.find(m => String(m._id) === String(assignee));
+  const sla = sel?.firstAgentResponseDueAt && !sel.firstAgentResponseAt ? slaInfo(sel.firstAgentResponseDueAt) : null;
 
-  const sla = selected?.firstAgentResponseDueAt && !selected.firstAgentResponseAt
-    ? slaCountdown(selected.firstAgentResponseDueAt) : null;
+  const counts = { open: tickets.filter(t => t.status === "OPEN").length, active: tickets.filter(t => t.status === "IN_PROGRESS").length, resolved: tickets.filter(t => t.status === "RESOLVED").length };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  // -m-6 cancels the DashboardLayout p-6 so we own the full viewport below the topbar
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="-m-6 flex h-[calc(100vh-80px)] overflow-hidden bg-[#F0F2F8]">
+    <div className="-m-6 flex h-[calc(100vh-80px)] overflow-hidden bg-gray-50 font-sans text-gray-900">
 
-      {/* ── Toasts ──────────────────────────────────────────────────────── */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2">
+      {/* Toasts */}
+      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
         {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold shadow-lg ${
-            t.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-            : t.type === "error" ? "bg-red-50 text-red-800 border border-red-200"
-            : "bg-blue-50 text-blue-800 border border-blue-200"
-          }`}>
-            {t.type === "success" && <CheckCircle2 className="h-4 w-4 shrink-0" />}
-            {t.type === "error"   && <AlertCircle  className="h-4 w-4 shrink-0" />}
-            {t.message}
-            <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} className="ml-1 opacity-50 hover:opacity-100">
-              <X className="h-3.5 w-3.5" />
-            </button>
+          <div key={t.id} className={`pointer-events-auto flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm shadow-lg ${t.ok ? "bg-white border border-gray-200 text-gray-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+            {t.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />}
+            {t.msg}
+            <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} className="ml-1 text-gray-400 hover:text-gray-600"><X className="h-3 w-3" /></button>
           </div>
         ))}
       </div>
 
-      {/* ══════════════════ LEFT — QUEUE PANEL ══════════════════════════════ */}
-      <aside className="flex w-[300px] shrink-0 flex-col border-r border-[#E2E5EF] bg-white">
+      {/* ── LEFT: Queue ─────────────────────────────────────────────────── */}
+      <div className="flex w-72 shrink-0 flex-col border-r border-gray-200 bg-white">
 
-        {/* Queue header */}
-        <div className="shrink-0 border-b border-[#E2E5EF] px-4 pt-4 pb-3">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-[#1e2749]">Inbox</h2>
-              <p className="text-[11px] text-[#98A2B3]">{filtered.length} conversations</p>
+        {/* Header */}
+        <div className="border-b border-gray-100 px-4 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-[13px] font-semibold text-gray-900">Support</h1>
+            <div className="flex items-center gap-3 text-[11px] text-gray-400">
+              <span className={`flex items-center gap-1 ${live ? "text-green-600" : "text-gray-400"}`}>
+                {live ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+                {live ? "Live" : "Offline"}
+              </span>
             </div>
-            <span className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-              connected ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-            }`}>
-              {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {connected ? "Live" : "Off"}
-            </span>
+          </div>
+
+          {/* Stats row */}
+          <div className="mb-3 flex gap-3 text-[11px]">
+            {[{ l: "Open", v: counts.open, c: "text-amber-600" }, { l: "Active", v: counts.active, c: "text-blue-600" }, { l: "Done", v: counts.resolved, c: "text-green-600" }].map(s => (
+              <div key={s.l} className="flex items-center gap-1">
+                <span className={`font-bold ${s.c}`}>{s.v}</span>
+                <span className="text-gray-400">{s.l}</span>
+              </div>
+            ))}
           </div>
 
           {/* Search */}
-          <div className="relative mb-2.5">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#C0C5D4]" />
-            <input
-              value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search…"
-              className="w-full rounded-xl border border-[#E7EAF0] bg-[#F8F9FC] py-2.5 pl-9 pr-3 text-[13px] text-[#1e2749] outline-none focus:border-[#5240E8] focus:ring-2 focus:ring-[#5240E8]/10"
-            />
-          </div>
-
-          {/* Status filter */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {(["ALL","OPEN","IN_PROGRESS","RESOLVED"] as QueueFilter[]).map(f => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] transition ${
-                  filter === f ? "bg-[#5240E8] text-white" : "bg-[#F0F2F8] text-[#667085] hover:bg-[#E7EAF0]"
-                }`}>
-                {f.replace("_"," ")}
-              </button>
-            ))}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+              className="w-full rounded-md border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-[13px] outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100" />
           </div>
         </div>
 
-        {/* Ticket list */}
+        {/* Filter tabs */}
+        <div className="flex border-b border-gray-100">
+          {(["ALL","OPEN","IN_PROGRESS","RESOLVED"] as QueueFilter[]).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wide transition-colors ${filter === f ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-400 hover:text-gray-600"}`}>
+              {f === "IN_PROGRESS" ? "Active" : f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-20">
-              <Loader2 className="h-6 w-6 animate-spin text-[#5240E8]" />
-              <p className="text-[11px] font-medium text-[#98A2B3]">Loading…</p>
-            </div>
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div>
           ) : filtered.length === 0 ? (
-            <div className="px-6 py-16 text-center">
-              <Inbox className="mx-auto h-8 w-8 text-[#C0C5D4]" />
-              <p className="mt-3 text-[13px] font-medium text-[#98A2B3]">No conversations</p>
-            </div>
+            <div className="py-16 text-center text-[13px] text-gray-400">No conversations</div>
           ) : filtered.map(ticket => {
-            const isActive = selected?._id === ticket._id;
-            const preview = ticket.messages[ticket.messages.length - 1]?.content || ticket.description;
+            const active = sel?._id === ticket._id;
             return (
-              <button key={ticket._id} onClick={() => setSelected(ticket)}
-                className={`relative w-full border-b border-[#F0F2F8] px-4 py-3.5 text-left transition-colors ${
-                  isActive ? "bg-[#F0EEFF] border-l-2 border-l-[#5240E8]" : "hover:bg-[#F8F9FC]"
-                }`}
-              >
-                {newIds.has(ticket._id) && (
-                  <span className="absolute right-3 top-3.5 h-2 w-2 rounded-full bg-red-500" />
-                )}
+              <button key={ticket._id} onClick={() => setSel(ticket)}
+                className={`relative w-full border-b border-gray-50 px-4 py-3 text-left transition-colors ${active ? "bg-indigo-50 border-l-2 border-l-indigo-500" : "hover:bg-gray-50"}`}>
+                {newIds.has(ticket._id) && <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-400" />}
                 <div className="flex items-start gap-2.5">
-                  {/* Avatar */}
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[13px] font-black ${
-                    isActive ? "bg-[#5240E8] text-white" : "bg-[#EAF1FF] text-[#355CC9]"
-                  }`}>
-                    {userInitial(ticket)}
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${active ? "bg-indigo-500 text-white" : "bg-gray-100 text-gray-600"}`}>
+                    {uInit(ticket)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <p className="truncate text-[13px] font-bold text-[#1e2749]">{userName(ticket)}</p>
-                      <span className="shrink-0 text-[11px] text-[#B0B8CC]">{relativeTime(lastActivity(ticket))}</span>
+                    <div className="flex items-baseline justify-between gap-1">
+                      <span className="truncate text-[13px] font-medium text-gray-900">{uName(ticket)}</span>
+                      <span className="shrink-0 text-[11px] text-gray-400">{ago(lastTs(ticket))}</span>
                     </div>
-                    <p className="truncate text-[12px] font-medium text-[#667085]">{ticket.subject}</p>
-                    <p className="mt-0.5 line-clamp-1 text-[11px] text-[#9AA3B5]">{preview}</p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[ticket.status]}`} />
-                      <span className="text-[10px] font-semibold text-[#9AA3B5]">
-                        {ticket.status.replace("_"," ")}
-                      </span>
-                      <span className={`ml-auto text-[10px] font-black ${PRIORITY_COLORS[ticket.priority]}`}>
-                        {ticket.priority}
-                      </span>
+                    <p className="truncate text-[12px] text-gray-500">{ticket.subject}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[ticket.status] || "bg-gray-300"}`} />
+                      <span className="text-[11px] text-gray-400">{STATUS_LABEL[ticket.status]}</span>
+                      <span className={`ml-auto text-[10px] ${PRI_CLS[ticket.priority] || ""}`}>{ticket.priority}</span>
                     </div>
                   </div>
                 </div>
@@ -505,71 +350,47 @@ export default function Support() {
           })}
         </div>
 
-        {/* Presence footer */}
-        <div className="shrink-0 border-t border-[#E2E5EF] p-3">
-          <button
-            onClick={() => {
-              const next: Presence = presence === "AVAILABLE" ? "AWAY" : "AVAILABLE";
-              setPresence(next);
-              updateSupportPresence(next).catch(() => {});
-            }}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left hover:bg-[#F0F2F8] transition-colors"
-          >
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-              presence === "AVAILABLE" ? "bg-emerald-400" : "bg-amber-400"
-            }`} />
-            <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-bold text-[#1e2749]">{agentName}</p>
-              <p className="text-[10px] text-[#98A2B3]">
-                {presence === "AVAILABLE" ? "Online · click to go away" : "Away · click to go online"}
-              </p>
-            </div>
+        {/* Presence */}
+        <div className="border-t border-gray-100 px-4 py-2.5">
+          <button onClick={() => { const n = presence === "AVAILABLE" ? "AWAY" : "AVAILABLE"; setPresence(n); updateSupportPresence(n).catch(() => {}); }}
+            className="flex items-center gap-2 text-[12px] text-gray-500 hover:text-gray-700 transition-colors">
+            <span className={`h-2 w-2 rounded-full ${presence === "AVAILABLE" ? "bg-green-400" : "bg-amber-400"}`} />
+            <span>{me}</span>
+            <span className="text-gray-400">·</span>
+            <span>{presence === "AVAILABLE" ? "Online" : "Away"}</span>
           </button>
         </div>
-      </aside>
+      </div>
 
-      {/* ══════════════════ CENTER — CHAT ════════════════════════════════════ */}
-      {selected ? (
-        <main className="flex min-w-0 flex-1 flex-col bg-white">
+      {/* ── CENTER: Chat ─────────────────────────────────────────────────── */}
+      {sel ? (
+        <div className="flex min-w-0 flex-1 flex-col">
 
-          {/* Chat topbar */}
-          <div className="shrink-0 border-b border-[#E2E5EF] bg-white px-6 py-3">
+          {/* Chat header */}
+          <div className="shrink-0 border-b border-gray-200 bg-white px-6 py-3">
             <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-[15px] font-black text-[#1e2749]">{selected.subject}</h2>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.15em] ${STATUS_COLORS[selected.status]}`}>
-                    {selected.status.replace("_"," ")}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-[15px] font-semibold text-gray-900 truncate">{sel.subject}</h2>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_CLS[sel.status] || ""}`}>
+                    {STATUS_LABEL[sel.status]}
                   </span>
-                  {selected.assistantState === "ACTIVE" && (
-                    <span className="flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black text-violet-700">
-                      <Bot className="h-3 w-3" /> Bot active
-                    </span>
-                  )}
-                  {selected.assistantState === "HANDOFF" && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">
-                      Agent took over
+                  {sel.assistantState === "ACTIVE" && (
+                    <span className="flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-200">
+                      <Bot className="h-3 w-3" /> Bot
                     </span>
                   )}
                   {sla && (
-                    <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black ${
-                      sla.hot ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                    }`}>
-                      <Clock3 className="h-3 w-3" /> {sla.label}
+                    <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${sla.hot ? "bg-red-50 text-red-700 ring-1 ring-red-200" : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"}`}>
+                      <Clock className="h-3 w-3" /> {sla.label}
                     </span>
                   )}
                 </div>
-                <p className="mt-0.5 text-[12px] text-[#98A2B3]">
-                  {userName(selected)} · {userEmail(selected)} · {relativeTime(lastActivity(selected))} ago
-                </p>
+                <p className="mt-0.5 text-[12px] text-gray-400">{uName(sel)} · {uEmail(sel)}</p>
               </div>
-
-              {/* Status + assign controls */}
               <div className="flex shrink-0 items-center gap-2">
-                <select
-                  value={assignee} onChange={e => changeAssignee(e.target.value)}
-                  className="rounded-xl border border-[#E2E5EF] bg-[#F8F9FC] px-3 py-2 text-[12px] font-semibold text-[#1e2749] outline-none focus:border-[#5240E8]"
-                >
+                <select value={assignee} onChange={e => changeAssignee(e.target.value)}
+                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] text-gray-700 outline-none focus:border-indigo-400">
                   <option value="">Unassigned</option>
                   {supportStaff.map(m => (
                     <option key={m._id} value={m._id}>
@@ -577,11 +398,8 @@ export default function Support() {
                     </option>
                   ))}
                 </select>
-                <select
-                  value={selected.status}
-                  onChange={e => changeStatus(selected._id, e.target.value as Ticket["status"])}
-                  className="rounded-xl border border-[#E2E5EF] bg-[#F8F9FC] px-3 py-2 text-[12px] font-semibold text-[#1e2749] outline-none focus:border-[#5240E8]"
-                >
+                <select value={sel.status} onChange={e => changeStatus(sel._id, e.target.value as Ticket["status"])}
+                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] text-gray-700 outline-none focus:border-indigo-400">
                   <option value="OPEN">Open</option>
                   <option value="IN_PROGRESS">In Progress</option>
                   <option value="RESOLVED">Resolved</option>
@@ -591,55 +409,40 @@ export default function Support() {
             </div>
           </div>
 
-          {/* Message thread — fills all remaining space */}
-          <div className="flex-1 overflow-y-auto bg-[#F8F9FC] px-6 py-5 space-y-4">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-5 space-y-3">
 
             {/* Original request */}
             <div className="flex justify-start">
-              <div className="max-w-[70%]">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EAF1FF] text-[11px] font-black text-[#355CC9]">
-                    {userInitial(selected)}
-                  </div>
-                  <span className="text-[12px] font-bold text-[#667085]">{userName(selected)}</span>
-                  <span className="text-[11px] text-[#B0B8CC]">Original request</span>
+              <div className="max-w-[66%]">
+                <div className="mb-1 flex items-center gap-1.5 text-[11px] text-gray-400">
+                  <span className="font-medium text-gray-600">{uName(sel)}</span>
+                  <span>·</span>
+                  <span>Original request</span>
                 </div>
-                <div className="rounded-2xl rounded-tl-sm border border-[#E7EAF0] bg-white px-4 py-3 text-[14px] leading-6 text-[#475467] shadow-sm">
-                  {selected.description}
+                <div className="rounded-lg rounded-tl-sm border border-gray-200 bg-white px-4 py-3 text-[14px] leading-6 text-gray-700 shadow-sm">
+                  {sel.description}
                 </div>
               </div>
             </div>
 
-            {/* Messages */}
-            {selected.messages.map((msg, i) => {
-              const isAdmin     = msg.sender === "ADMIN";
-              const isAssistant = msg.sender === "ASSISTANT";
+            {sel.messages.map((msg, i) => {
+              const isAdmin = msg.sender === "ADMIN";
+              const isBot   = msg.sender === "ASSISTANT";
               return (
                 <div key={`${msg.timestamp}-${i}`} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[68%] ${isAdmin ? "items-end" : "items-start"} flex flex-col`}>
-                    <div className={`mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#9AA3B5] ${isAdmin ? "flex-row-reverse" : ""}`}>
-                      {!isAdmin && (
-                        <div className={`flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black ${
-                          isAssistant ? "bg-violet-100 text-violet-700" : "bg-[#EAF1FF] text-[#355CC9]"
-                        }`}>
-                          {isAssistant ? <Bot className="h-3 w-3" /> : userInitial(selected)}
-                        </div>
-                      )}
-                      {isAdmin && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#5240E8] text-[10px] font-black text-white">
-                          {(msg.senderName || agentName)[0]?.toUpperCase()}
-                        </div>
-                      )}
-                      <span>{isAdmin ? (msg.senderName || "Agent") : isAssistant ? "Bago Assistant" : userName(selected)}</span>
+                  <div className="max-w-[66%]">
+                    <div className={`mb-1 flex items-center gap-1.5 text-[11px] text-gray-400 ${isAdmin ? "flex-row-reverse" : ""}`}>
+                      <span className="font-medium text-gray-600">
+                        {isAdmin ? (msg.senderName || me) : isBot ? "Bago Assistant" : uName(sel)}
+                      </span>
                       <span>·</span>
                       <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
-                    <div className={`rounded-2xl px-4 py-3 text-[14px] leading-6 shadow-sm ${
-                      isAdmin
-                        ? "rounded-tr-sm bg-[#5240E8] text-white"
-                        : isAssistant
-                          ? "rounded-tl-sm border border-violet-200 bg-violet-50 text-violet-900"
-                          : "rounded-tl-sm border border-[#E7EAF0] bg-white text-[#344054]"
+                    <div className={`rounded-lg px-4 py-3 text-[14px] leading-6 ${
+                      isAdmin ? "rounded-tr-sm bg-indigo-600 text-white"
+                      : isBot  ? "rounded-tl-sm border border-violet-200 bg-violet-50 text-violet-900"
+                      : "rounded-tl-sm border border-gray-200 bg-white text-gray-800 shadow-sm"
                     }`}>
                       {msg.content}
                     </div>
@@ -647,209 +450,146 @@ export default function Support() {
                 </div>
               );
             })}
-            <div ref={bottomRef} />
+            <div ref={endRef} />
           </div>
 
-          {/* Reply area */}
-          {selected.status !== "CLOSED" ? (
-            <div className="shrink-0 border-t border-[#E2E5EF] bg-white px-5 py-4">
+          {/* Reply box */}
+          {sel.status !== "CLOSED" ? (
+            <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-4">
               {/* Saved reply chips */}
-              {savedReplies.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                  {savedReplies.map(sr => (
-                    <button key={sr.id}
-                      onClick={() => setReply(p => p.trim() ? `${p}\n\n${sr.body}` : sr.body)}
-                      className="rounded-full border border-[#DDE2F2] bg-[#F6F4FF] px-3 py-1 text-[11px] font-bold text-[#5240E8] hover:bg-[#EDE9FF] transition-colors"
-                    >
-                      {sr.title}
+              {replies.length > 0 && (
+                <div className="mb-2.5 flex flex-wrap gap-1.5">
+                  {replies.map(r => (
+                    <button key={r.id} onClick={() => setReply(p => p.trim() ? `${p}\n\n${r.body}` : r.body)}
+                      className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-medium text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
+                      {r.title}
                     </button>
                   ))}
                 </div>
               )}
-
-              {/* Textarea + send */}
               <div className="flex items-end gap-3">
-                <div className="flex-1 rounded-2xl border border-[#E2E5EF] bg-[#F8F9FC] px-4 py-3 focus-within:border-[#5240E8] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#5240E8]/10 transition-all">
-                  <textarea
-                    value={reply}
-                    onChange={e => setReply(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
-                    placeholder={`Reply as ${agentName}… (Enter to send, Shift+Enter for new line)`}
-                    rows={3}
-                    className="w-full resize-none bg-transparent text-[14px] leading-6 text-[#1e2749] outline-none placeholder:text-[#B0B8CC]"
-                  />
-                </div>
-                <button
-                  onClick={sendReply}
-                  disabled={sending || !reply.trim()}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#5240E8] text-white shadow-md transition hover:bg-[#4030C8] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
-                >
+                <textarea
+                  value={reply}
+                  onChange={e => setReply(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+                  placeholder="Write a reply… (Enter to send)"
+                  rows={3}
+                  className="flex-1 resize-none rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-3 text-[14px] leading-6 text-gray-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-1 focus:ring-indigo-100 placeholder:text-gray-400 transition-all"
+                />
+                <button onClick={sendReply} disabled={sending || !reply.trim()}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-40">
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="shrink-0 border-t border-[#E2E5EF] bg-[#F8F9FC] px-5 py-4 text-center text-[13px] text-[#98A2B3]">
+            <div className="shrink-0 border-t border-gray-100 bg-gray-50 px-5 py-3 text-center text-[13px] text-gray-400">
               This conversation is closed.
             </div>
           )}
-        </main>
+        </div>
+
       ) : (
-        /* Empty state */
-        <main className="flex flex-1 items-center justify-center bg-[#F8F9FC]">
+        <div className="flex flex-1 items-center justify-center bg-gray-50">
           <div className="text-center">
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] bg-white shadow-md text-[#5240E8]">
-              <MessageSquare className="h-9 w-9" />
-            </div>
-            <h3 className="text-xl font-black text-[#1e2749]">Select a conversation</h3>
-            <p className="mt-2 text-[13px] text-[#98A2B3]">Pick one from the inbox on the left to start helping.</p>
+            <MessageSquare className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+            <p className="text-[14px] font-medium text-gray-500">Select a conversation</p>
+            <p className="mt-1 text-[12px] text-gray-400">Choose one from the list to open it here.</p>
           </div>
-        </main>
+        </div>
       )}
 
-      {/* ══════════════════ RIGHT — CONTEXT PANEL ═══════════════════════════ */}
-      {selected && (
-        <aside className="flex w-[260px] shrink-0 flex-col overflow-y-auto border-l border-[#E2E5EF] bg-white">
+      {/* ── RIGHT: Context panel ─────────────────────────────────────────── */}
+      {sel && (
+        <div className="flex w-60 shrink-0 flex-col overflow-y-auto border-l border-gray-200 bg-white">
 
           {/* Customer */}
-          <div className="border-b border-[#F0F2F8] p-4">
+          <div className="border-b border-gray-100 px-4 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EAF1FF] text-lg font-black text-[#355CC9]">
-                {userInitial(selected)}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-bold text-gray-600">
+                {uInit(sel)}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-[14px] font-black text-[#1e2749]">{userName(selected)}</p>
-                <p className="truncate text-[11px] text-[#98A2B3]">{userEmail(selected)}</p>
+                <p className="truncate text-[13px] font-semibold text-gray-900">{uName(sel)}</p>
+                <p className="truncate text-[11px] text-gray-400">{uEmail(sel)}</p>
               </div>
             </div>
           </div>
 
-          {/* Ticket meta */}
-          <div className="border-b border-[#F0F2F8] p-4 space-y-2.5">
-            <MRow label="Category"  value={selected.category} />
-            <MRow label="Priority"  value={selected.priority} className={PRIORITY_COLORS[selected.priority]} />
-            <MRow label="Assigned"  value={assignedName || "Unassigned"} />
-            <MRow label="Bot"       value={selected.assistantState === "HANDOFF" ? "Handed off" : selected.assistantState || "ACTIVE"} />
-            <MRow label="Created"   value={new Date(selected.createdAt).toLocaleDateString()} />
-            {sla && (
-              <MRow label="SLA" value={sla.label} className={sla.hot ? "text-red-600 font-bold" : "text-amber-700 font-bold"} />
-            )}
-            {selected.firstAgentResponseAt && (
-              <MRow label="1st reply" value="✓ Sent" className="text-emerald-700" />
-            )}
+          {/* Ticket details */}
+          <div className="border-b border-gray-100 px-4 py-4 space-y-2.5">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Details</p>
+            <Row label="Status"   value={STATUS_LABEL[sel.status] || sel.status} />
+            <Row label="Priority" value={sel.priority} vClass={PRI_CLS[sel.priority]} />
+            <Row label="Category" value={sel.category} />
+            <Row label="Assigned" value={assignedName ? (assignedName.fullName || `${assignedName.first_name||""} ${assignedName.last_name||""}`.trim() || assignedName.email).trim() : "Unassigned"} />
+            <Row label="Created"  value={fmtDate(sel.createdAt)} />
+            <Row label="Bot"      value={sel.assistantState === "HANDOFF" ? "Handed off" : sel.assistantState === "ACTIVE" ? "Active" : sel.assistantState || "—"} />
+            {sel.firstAgentResponseAt && <Row label="1st reply" value="Sent ✓" vClass="text-green-600" />}
+            {sla && <Row label="SLA" value={sla.label} vClass={sla.hot ? "text-red-600 font-semibold" : "text-amber-600"} />}
           </div>
 
           {/* Internal notes */}
-          <div className="border-b border-[#F0F2F8]">
-            <button
-              onClick={() => setShowNotes(p => !p)}
-              className="flex w-full items-center justify-between px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-[#667085] hover:bg-[#F8F9FC] transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <StickyNote className="h-3.5 w-3.5" />
-                Internal notes {(selected.internalNotes?.length ?? 0) > 0 && `(${selected.internalNotes!.length})`}
+          <div className="border-b border-gray-100">
+            <button onClick={() => setShowNotes(p => !p)}
+              className="flex w-full items-center justify-between px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">
+              <div className="flex items-center gap-1.5">
+                <StickyNote className="h-3 w-3" />
+                Notes {(sel.internalNotes?.length ?? 0) > 0 && `(${sel.internalNotes!.length})`}
               </div>
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showNotes ? "rotate-180" : ""}`} />
             </button>
             {showNotes && (
               <div className="px-4 pb-4 space-y-3">
-                {/* Existing notes */}
-                {(selected.internalNotes ?? []).map(note => (
-                  <div key={note.id} className="rounded-xl border border-[#E7EAF0] bg-[#FAFBFF] p-3">
-                    <p className="text-[12px] leading-5 text-[#475467]">{note.content}</p>
-                    <p className="mt-1 text-[10px] text-[#B0B8CC]">
-                      {note.authorName || "Team"} · {relativeTime(note.createdAt)}
-                    </p>
+                {(sel.internalNotes ?? []).map(n => (
+                  <div key={n.id} className="rounded-md border border-gray-100 bg-gray-50 p-2.5">
+                    <p className="text-[12px] leading-5 text-gray-700">{n.content}</p>
+                    <p className="mt-1 text-[10px] text-gray-400">{n.authorName || "Team"} · {ago(n.createdAt)}</p>
                   </div>
                 ))}
-                <textarea
-                  value={noteDraft} onChange={e => setNoteDraft(e.target.value)}
-                  placeholder="Add a note…"
-                  rows={3}
-                  className="w-full resize-none rounded-xl border border-[#E7EAF0] bg-white px-3 py-2.5 text-[12px] leading-5 text-[#1e2749] outline-none focus:border-[#5240E8] focus:ring-2 focus:ring-[#5240E8]/10"
-                />
-                <button onClick={saveNote} disabled={savingNote || !noteDraft.trim()}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#1E2749] py-2 text-[11px] font-black uppercase tracking-[0.15em] text-white disabled:opacity-40 transition-opacity">
-                  {savingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  {savingNote ? "Saving…" : "Save note"}
+                <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" rows={2}
+                  className="w-full resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-[12px] outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100" />
+                <button onClick={saveNote} disabled={saving || !note.trim()}
+                  className="w-full rounded-md bg-gray-800 py-1.5 text-[11px] font-semibold text-white hover:bg-gray-900 disabled:opacity-40 transition-colors">
+                  {saving ? "Saving…" : "Save note"}
                 </button>
               </div>
             )}
           </div>
 
-          {/* Saved replies management */}
-          <div className="p-4">
-            <button
-              onClick={() => setShowSavedReplyForm(p => !p)}
-              className="flex w-full items-center justify-between text-[11px] font-black uppercase tracking-[0.18em] text-[#667085] hover:text-[#5240E8] transition-colors mb-3"
-            >
+          {/* Saved replies */}
+          <div className="px-4 py-3">
+            <button onClick={() => setSrOpen(p => !p)}
+              className="flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">
               <span>Saved replies</span>
-              <MoreHorizontal className="h-3.5 w-3.5" />
+              <Plus className={`h-3.5 w-3.5 transition-transform ${srOpen ? "rotate-45" : ""}`} />
             </button>
-            {showSavedReplyForm && (
-              <div className="space-y-2.5">
+            {srOpen && (
+              <div className="mt-3 space-y-2">
                 <input value={srTitle} onChange={e => setSrTitle(e.target.value)} placeholder="Title"
-                  className="w-full rounded-xl border border-[#E7EAF0] bg-white px-3 py-2 text-[12px] text-[#1e2749] outline-none focus:border-[#5240E8]" />
+                  className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[12px] outline-none focus:border-indigo-400" />
                 <textarea value={srBody} onChange={e => setSrBody(e.target.value)} placeholder="Reply text" rows={3}
-                  className="w-full resize-none rounded-xl border border-[#E7EAF0] bg-white px-3 py-2 text-[12px] text-[#1e2749] outline-none focus:border-[#5240E8]" />
-                <button onClick={saveSavedReply} disabled={creatingSr || !srTitle.trim() || !srBody.trim()}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#5240E8] py-2 text-[11px] font-black uppercase tracking-[0.15em] text-white disabled:opacity-40">
-                  {creatingSr ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  {creatingSr ? "Saving…" : "Create"}
+                  className="w-full resize-none rounded-md border border-gray-200 px-3 py-1.5 text-[12px] outline-none focus:border-indigo-400" />
+                <button onClick={createSR} disabled={!srTitle.trim() || !srBody.trim()}
+                  className="w-full rounded-md bg-indigo-600 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-40">
+                  Create
                 </button>
               </div>
             )}
-
-            {/* Quick tips */}
-            <div className="mt-4 space-y-2">
-              <TipRow icon={Clock3}    text="Respond within 4 h of first open." />
-              <TipRow icon={Shield}    text="Mark IN PROGRESS as soon as you start." />
-              <TipRow icon={UserRound} text="Assign to yourself to own the thread." />
-              <TipRow icon={Flag}      text="URGENT tickets need an ack in 30 min." />
-            </div>
           </div>
-        </aside>
-      )}
-
-      {/* Metric bar — fixed at the very bottom when no ticket selected */}
-      {!selected && (
-        <div className="pointer-events-none absolute bottom-0 left-[300px] right-0 flex items-center justify-center gap-6 border-t border-[#E2E5EF] bg-white/90 px-8 py-3 backdrop-blur">
-          <Stat icon={Inbox}        label="Open"     value={counts.open}     color="text-amber-600" />
-          <Stat icon={Clock3}       label="Active"   value={counts.active}   color="text-blue-600" />
-          <Stat icon={CheckCircle2} label="Resolved" value={counts.resolved} color="text-emerald-600" />
-          <Stat icon={Flag}         label="Urgent"   value={counts.urgent}   color="text-red-600" />
         </div>
       )}
     </div>
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function MRow({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+function Row({ label, value, vClass = "" }: { label: string; value: string; vClass?: string }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-[11px] text-[#B0B8CC] shrink-0">{label}</span>
-      <span className={`text-right text-[12px] font-semibold text-[#344054] truncate ${className}`}>{value}</span>
-    </div>
-  );
-}
-
-function TipRow({ icon: Icon, text }: { icon: typeof Clock3; text: string }) {
-  return (
-    <div className="flex items-start gap-2 text-[11px] text-[#98A2B3]">
-      <Icon className="mt-0.5 h-3 w-3 shrink-0 text-[#C0C5D4]" />
-      {text}
-    </div>
-  );
-}
-
-function Stat({ icon: Icon, label, value, color }: { icon: typeof Inbox; label: string; value: number; color: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Icon className={`h-4 w-4 ${color}`} />
-      <span className="text-[13px] font-black text-[#1e2749]">{value}</span>
-      <span className="text-[11px] text-[#98A2B3]">{label}</span>
+      <span className="shrink-0 text-[11px] text-gray-400">{label}</span>
+      <span className={`truncate text-right text-[12px] text-gray-800 ${vClass}`}>{value}</span>
     </div>
   );
 }
