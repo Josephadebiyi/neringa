@@ -482,7 +482,7 @@ export default function Support() {
     setReply((prev) => (prev.trim() ? `${prev}\n\n${value}` : value));
   };
 
-  const supportStaff   = staff.filter((m) => m.role === "SUPPORT_ADMIN" || m.role === "SUPER_ADMIN");
+  const supportStaff   = staff.filter((m) => m.role === "SUPPORT_ADMIN" || m.role === "SUPER_ADMIN" || m.role === "SAFETY_ADMIN");
   const assignedStaff  = supportStaff.find((m) => String(m._id) === String(selectedAssignee));
   const selectedLastMsg = selectedTicket?.messages[selectedTicket.messages.length - 1];
 

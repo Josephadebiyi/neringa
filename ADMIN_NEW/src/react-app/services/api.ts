@@ -15,7 +15,7 @@ function clearAdminToken() {
   window.localStorage.removeItem(ADMIN_TOKEN_KEY);
 }
 
-export function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}) {
+export function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
   const token = getAdminToken();
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -253,7 +253,8 @@ export async function updateTicketStatus(id: string, status: string, assignedTo?
     method: 'PUT',
     body: JSON.stringify({
       status,
-      ...(assignedTo ? { assigned_to: assignedTo } : {}),
+      // always include assigned_to when caller passes it so "" clears the assignee
+      ...(assignedTo !== undefined ? { assigned_to: assignedTo || null } : {}),
     }),
   });
 }

@@ -9,7 +9,39 @@ import {
 // support_tickets table: id, user_id, subject, status, priority, assigned_to,
 // messages (jsonb array), created_at, updated_at
 
-const withId = (row) => row ? { ...row, _id: row.id } : null;
+function parseJsonArray(val) {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') { try { return JSON.parse(val); } catch { return []; } }
+  return [];
+}
+
+// Normalise a postgres row → camelCase shape the admin dashboard expects.
+// JOIN-aliased columns (userFirstName etc.) are already camelCase from SQL aliases.
+function normaliseAdmin(row) {
+  if (!row) return null;
+  return {
+    _id: row.id,
+    id: row.id,
+    subject: row.subject,
+    description: row.description,
+    category: row.category,
+    status: row.status,
+    priority: row.priority,
+    assignedTo: row.assigned_to,
+    assistantState: row.assistant_state,
+    firstAgentResponseDueAt: row.first_agent_response_due_at,
+    firstAgentResponseAt: row.first_agent_response_at,
+    internalNotes: parseJsonArray(row.internal_notes),
+    messages: parseJsonArray(row.messages),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    // JOIN-aliased from SELECT (already camelCase via SQL "as" aliases)
+    userFirstName: row.userFirstName,
+    userLastName: row.userLastName,
+    userEmail: row.userEmail,
+    userImage: row.userImage,
+  };
+}
 
 function isSchemaCompatibilityError(error) {
   return ['42703', '42P01'].includes(error?.code) ||
@@ -35,7 +67,7 @@ export const getAllTickets = async (req, res) => {
        LEFT JOIN public.profiles p ON p.id = t.user_id
        ORDER BY t.created_at DESC`
     );
-    res.status(200).json({ success: true, data: result.rows.map(withId) });
+    res.status(200).json({ success: true, data: result.rows.map(normaliseAdmin) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -54,7 +86,7 @@ export const getTicketById = async (req, res) => {
       [req.params.id]
     );
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
-    res.status(200).json({ success: true, data: withId(ticket) });
+    res.status(200).json({ success: true, data: normaliseAdmin(ticket) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -107,7 +139,7 @@ export const updateTicketStatus = async (req, res) => {
         safeValues
       );
     }
-    res.status(200).json({ success: true, data: withId(ticket) });
+    res.status(200).json({ success: true, data: normaliseAdmin(ticket) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -168,7 +200,7 @@ export const addTicketMessage = async (req, res) => {
       }
     }
 
-    res.status(200).json({ success: true, data: withId(updated) });
+    res.status(200).json({ success: true, data: normaliseAdmin(updated) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -211,12 +243,12 @@ export const addInternalNote = async (req, res) => {
       if (!isSchemaCompatibilityError(error)) throw error;
       return res.status(200).json({
         success: true,
-        data: withId({ id: req.params.id, internal_notes: notes }),
+        data: normaliseAdmin({ id: req.params.id, internal_notes: notes }),
         fallback: true,
       });
     }
 
-    res.status(200).json({ success: true, data: withId(updated) });
+    res.status(200).json({ success: true, data: normaliseAdmin(updated) });
   } catch (error) {
     if (isSchemaCompatibilityError(error)) {
       return res.status(200).json({ success: true, data: [] });
