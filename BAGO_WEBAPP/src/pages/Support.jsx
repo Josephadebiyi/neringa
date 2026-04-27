@@ -35,7 +35,7 @@ function LiveChatWidget({ onClose, user }) {
         socketRef.current = socket;
         socket.on('connect', () => socket.emit('join_support_ticket', ticketId));
         socket.on('support_message', (data) => {
-            if (data.ticketId === ticketId && data.message.sender === 'ADMIN') {
+            if (data.ticketId === ticketId && data.message.sender !== 'USER') {
                 setMessages(prev => [...prev, data.message]);
             }
         });
@@ -55,7 +55,7 @@ function LiveChatWidget({ onClose, user }) {
             const res = await api.post('/api/bago/support/tickets', {
                 subject, description, category, priority: 'HIGH'
             });
-            const t = res.data.ticket || res.data;
+            const t = res.data.data || res.data.ticket || res.data;
             setTicket(t);
             setMessages(t.messages || []);
             connectSocket(t.id || t._id);
@@ -337,7 +337,7 @@ function MyTicketsPanel({ onClose, user }) {
         setLoading(true);
         try {
             const res = await api.get('/api/bago/support/tickets');
-            setTickets(res.data.tickets || res.data || []);
+            setTickets(res.data.data || res.data.tickets || []);
         } catch (err) {
             console.error('Failed to load tickets:', err);
         } finally {
@@ -354,7 +354,7 @@ function MyTicketsPanel({ onClose, user }) {
         socketRef.current = socket;
         socket.on('connect', () => socket.emit('join_support_ticket', tid));
         socket.on('support_message', (data) => {
-            if (data.ticketId === tid && data.message.sender === 'ADMIN') {
+            if (data.ticketId === tid && data.message.sender !== 'USER') {
                 setMessages(prev => [...prev, data.message]);
             }
         });
