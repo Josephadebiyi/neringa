@@ -20,6 +20,15 @@ ALTER TABLE public.admin_users
     CHECK (support_presence IN ('OFFLINE', 'AWAY', 'AVAILABLE')),
   ADD COLUMN IF NOT EXISTS support_last_seen_at TIMESTAMPTZ;
 
+UPDATE public.support_tickets
+SET assigned_to = NULL
+WHERE assigned_to IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.admin_users au
+    WHERE au.id::text = public.support_tickets.assigned_to::text
+  );
+
 CREATE TABLE IF NOT EXISTS public.support_saved_replies (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,

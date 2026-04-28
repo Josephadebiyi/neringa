@@ -84,6 +84,19 @@ async function bootstrapSupportSchema() {
     ADD COLUMN IF NOT EXISTS support_presence TEXT NOT NULL DEFAULT 'OFFLINE',
     ADD COLUMN IF NOT EXISTS support_last_seen_at TIMESTAMPTZ
   `);
+
+  // Repair legacy assignments that point at deleted / invalid admin rows so
+  // later ticket updates do not fail on the assigned_to foreign key.
+  await query(`
+    UPDATE public.support_tickets
+    SET assigned_to = NULL
+    WHERE assigned_to IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.admin_users au
+        WHERE au.id::text = public.support_tickets.assigned_to::text
+      )
+  `).catch(() => {});
 }
 
 export async function ensureSupportSchema() {
@@ -232,7 +245,14 @@ export async function markTicketHandoff(ticketId, agentId) {
       `
         UPDATE public.support_tickets
         SET assistant_state = 'HANDOFF',
-            assigned_to = COALESCE(assigned_to, $2),
+            assigned_to = CASE
+              WHEN assigned_to IS NULL THEN $2
+              WHEN EXISTS (
+                SELECT 1 FROM public.admin_users au
+                WHERE au.id::text = public.support_tickets.assigned_to::text
+              ) THEN assigned_to
+              ELSE $2
+            END,
             first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
             last_agent_at = NOW(),
             updated_at = NOW()
@@ -247,7 +267,14 @@ export async function markTicketHandoff(ticketId, agentId) {
     return queryOne(
       `
         UPDATE public.support_tickets
-        SET assigned_to = COALESCE(assigned_to, $2),
+        SET assigned_to = CASE
+              WHEN assigned_to IS NULL THEN $2
+              WHEN EXISTS (
+                SELECT 1 FROM public.admin_users au
+                WHERE au.id::text = public.support_tickets.assigned_to::text
+              ) THEN assigned_to
+              ELSE $2
+            END,
             last_agent_at = NOW(),
             updated_at = NOW()
         WHERE id = $1

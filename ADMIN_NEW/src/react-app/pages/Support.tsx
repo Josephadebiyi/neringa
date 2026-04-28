@@ -296,8 +296,8 @@ export default function Support() {
   const changeAssignee = async (val: string) => {
     if (!sel) return;
     setAssignee(val);
-    try { await updateTicketStatus(sel._id, sel.status, val || null); setTickets(p => p.map(t => t._id === sel._id ? { ...t, assignedTo: val } : t)); setSel(p => p ? { ...p, assignedTo: val } : p); }
-    catch { setAssignee(sel.assignedTo || ""); push("Failed to assign.", false); }
+    try { await updateTicketStatus(sel._id, undefined, val || null); setTickets(p => p.map(t => t._id === sel._id ? { ...t, assignedTo: val } : t)); setSel(p => p ? { ...p, assignedTo: val } : p); }
+    catch (e: any) { setAssignee(sel.assignedTo || ""); push(e?.message || "Failed to assign.", false); }
   };
 
   const saveNote = async () => {

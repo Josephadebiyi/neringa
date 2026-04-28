@@ -147,11 +147,19 @@ export const messageController = (io) => {
           `UPDATE public.support_tickets
            SET messages = $1,
                assistant_state = 'HANDOFF',
+               assigned_to = CASE
+                 WHEN assigned_to IS NULL THEN $3
+                 WHEN EXISTS (
+                   SELECT 1 FROM public.admin_users au
+                   WHERE au.id::text = public.support_tickets.assigned_to::text
+                 ) THEN assigned_to
+                 ELSE $3
+               END,
                first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
                last_agent_at = NOW(),
                updated_at = NOW()
            WHERE id = $2`,
-          [JSON.stringify(messages), ticketId]
+          [JSON.stringify(messages), ticketId, safeAgentId]
         );
 
         const payload = { ticketId, message: newMsg, senderName: agentName };

@@ -96,15 +96,22 @@ export const getTicketById = async (req, res) => {
 export const updateTicketStatus = async (req, res) => {
   try {
     await ensureSupportSchema();
-    if (!ensurePermission(req, res, 'support.status.update')) return;
     const { status, priority, assignedTo, assigned_to, internalNotes } = req.body;
+    const requestedAssignedTo = assignedTo !== undefined ? assignedTo : assigned_to;
+    const isAssignmentUpdate = requestedAssignedTo !== undefined;
+    const isStatusUpdate = status !== undefined || priority !== undefined;
+    const isNotesUpdate = internalNotes !== undefined;
+
+    if (isStatusUpdate && !ensurePermission(req, res, 'support.status.update')) return;
+    if (isAssignmentUpdate && !ensurePermission(req, res, 'support.assign')) return;
+    if (isNotesUpdate && !ensurePermission(req, res, 'support.notes.manage')) return;
+
     const fields = [];
     const values = [];
     let idx = 1;
 
     if (status) { fields.push(`status = $${idx++}`); values.push(status); }
     if (priority) { fields.push(`priority = $${idx++}`); values.push(priority); }
-    const requestedAssignedTo = assignedTo !== undefined ? assignedTo : assigned_to;
     const normalizedAssignedTo = requestedAssignedTo === undefined
       ? undefined
       : await resolveSupportAdminId(requestedAssignedTo);
@@ -168,9 +175,8 @@ export const addTicketMessage = async (req, res) => {
     };
     messages.push(newMsg);
 
-    // Do NOT update status (it's a support_status enum — text params fail).
-    // Do NOT update assigned_to (FK constraint to a table admin IDs don't satisfy).
-    // Both are managed via the dedicated updateTicketStatus endpoint.
+    // Do NOT update status here; the dedicated updateTicketStatus endpoint owns it.
+    // We only repair/seed assigned_to when the current value is invalid or empty.
     const newAssistantState = sender === 'ADMIN' ? 'HANDOFF' : (ticket.assistant_state || 'ACTIVE');
 
     let updated;
@@ -179,11 +185,19 @@ export const addTicketMessage = async (req, res) => {
         `UPDATE public.support_tickets
          SET messages = $1,
              assistant_state = $3,
+             assigned_to = CASE
+               WHEN assigned_to IS NULL THEN $4
+               WHEN EXISTS (
+                 SELECT 1 FROM public.admin_users au
+                 WHERE au.id::text = public.support_tickets.assigned_to::text
+               ) THEN assigned_to
+               ELSE $4
+             END,
              first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
              last_agent_at = NOW(),
              updated_at = NOW()
          WHERE id = $2 RETURNING *`,
-        [JSON.stringify(messages), req.params.id, newAssistantState]
+        [JSON.stringify(messages), req.params.id, newAssistantState, req.admin?.id || null]
       );
     } catch (schemaErr) {
       if (!isSchemaCompatibilityError(schemaErr)) throw schemaErr;

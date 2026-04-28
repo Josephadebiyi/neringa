@@ -248,11 +248,11 @@ export async function getTicketById(id: string) {
   return apiCall(`${ADMIN_API}/tickets/${id}`);
 }
 
-export async function updateTicketStatus(id: string, status: string, assignedTo?: string | null) {
+export async function updateTicketStatus(id: string, status?: string, assignedTo?: string | null) {
   return apiCall(`${ADMIN_API}/tickets/${id}/status`, {
     method: 'PUT',
     body: JSON.stringify({
-      status,
+      ...(status !== undefined ? { status } : {}),
       // always include assigned_to when caller passes it so "" clears the assignee
       ...(assignedTo !== undefined ? { assigned_to: assignedTo || null } : {}),
     }),
