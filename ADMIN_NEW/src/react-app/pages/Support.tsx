@@ -239,7 +239,7 @@ export default function Support() {
     setSel(p => p ? { ...p, messages: [...msgs(p), opt], status: "IN_PROGRESS" } : p);
     setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: [...msgs(t), opt], status: "IN_PROGRESS" } : t));
     try { await replyToTicket(sel._id, txt, me); }
-    catch { setSel(p => p ? { ...p, messages: prev } : p); setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: prev } : t)); push("Failed to send.", false); }
+    catch (e: any) { setSel(p => p ? { ...p, messages: prev } : p); setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: prev } : t)); push(e?.message || "Failed to send.", false); }
     finally { setSending(false); }
   };
 
