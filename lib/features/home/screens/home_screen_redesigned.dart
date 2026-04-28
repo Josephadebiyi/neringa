@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/app_snackbar.dart';
+import '../widgets/banner_slider.dart';
 
 class HomeScreenRedesigned extends ConsumerStatefulWidget {
   const HomeScreenRedesigned({super.key});
@@ -16,7 +17,6 @@ class HomeScreenRedesigned extends ConsumerStatefulWidget {
 
 class _HomeScreenRedesignedState extends ConsumerState<HomeScreenRedesigned> {
   String _selectedRole = 'traveller'; // 'traveller' or 'sender'
-  bool _isLoadingBanners = false;
 
   @override
   Widget build(BuildContext context) {
@@ -131,8 +131,8 @@ class _HomeScreenRedesignedState extends ConsumerState<HomeScreenRedesigned> {
                     _buildSearchCard(context),
                     SizedBox(height: 24),
 
-                    // Promo Banner
-                    _buildPromoBanner(),
+                    // Dynamic banner slider (managed from admin)
+                    const BannerSlider(),
                     SizedBox(height: 24),
 
                     // Action Cards (Post trip / Send item)
@@ -346,52 +346,6 @@ class _HomeScreenRedesignedState extends ConsumerState<HomeScreenRedesigned> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPromoBanner() {
-    return Container(
-      height: 140,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primaryDark, AppColors.accentAmber],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '🎉 Limited Offer',
-                style: AppTextStyles.caption.copyWith(
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'Get 20% off on your first trip!',
-                style: AppTextStyles.h3.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            'Use code: FIRST20',
-            style: AppTextStyles.labelMd.copyWith(
-              color: Colors.white,
-            ),
-          ),
-        ],
       ),
     );
   }

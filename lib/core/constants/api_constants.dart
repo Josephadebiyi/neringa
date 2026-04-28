@@ -164,4 +164,5 @@ class ApiConstants {
   // Support / CRM
   // ---------------------------------------------------------------------------
   static const String supportTickets  = '/api/bago/support/tickets';
+  static const String banners         = '/api/bago/banners';
 }
