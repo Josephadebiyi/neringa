@@ -53,6 +53,12 @@ async function bootstrapSupportSchema() {
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `);
 
+  // Drop the FK on assigned_to — it references profiles but we store admin_user IDs there
+  await query(`
+    ALTER TABLE public.support_tickets
+    DROP CONSTRAINT IF EXISTS support_tickets_assigned_to_fkey
+  `).catch(() => {});
+
   await query(`
     CREATE INDEX IF NOT EXISTS support_tickets_user_idx
     ON public.support_tickets(user_id)
