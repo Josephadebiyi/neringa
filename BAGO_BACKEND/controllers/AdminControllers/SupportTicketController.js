@@ -168,10 +168,9 @@ export const addTicketMessage = async (req, res) => {
     };
     messages.push(newMsg);
 
-    // Compute derived values in JS — each param used once to avoid enum type conflicts.
-    // assigned_to is intentionally NOT updated here: it has a FK constraint and
-    // auto-assigning on reply causes violations. Use the assignee dropdown instead.
-    const newStatus = sender === 'ADMIN' ? 'IN_PROGRESS' : ticket.status;
+    // Do NOT update status (it's a support_status enum — text params fail).
+    // Do NOT update assigned_to (FK constraint to a table admin IDs don't satisfy).
+    // Both are managed via the dedicated updateTicketStatus endpoint.
     const newAssistantState = sender === 'ADMIN' ? 'HANDOFF' : (ticket.assistant_state || 'ACTIVE');
 
     let updated;
@@ -179,21 +178,20 @@ export const addTicketMessage = async (req, res) => {
       updated = await queryOne(
         `UPDATE public.support_tickets
          SET messages = $1,
-             status = $2,
-             assistant_state = $4,
+             assistant_state = $3,
              first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
              last_agent_at = NOW(),
              updated_at = NOW()
-         WHERE id = $3 RETURNING *`,
-        [JSON.stringify(messages), newStatus, req.params.id, newAssistantState]
+         WHERE id = $2 RETURNING *`,
+        [JSON.stringify(messages), req.params.id, newAssistantState]
       );
     } catch (schemaErr) {
       if (!isSchemaCompatibilityError(schemaErr)) throw schemaErr;
       updated = await queryOne(
         `UPDATE public.support_tickets
-         SET messages = $1, status = $2, updated_at = NOW()
-         WHERE id = $3 RETURNING *`,
-        [JSON.stringify(messages), newStatus, req.params.id]
+         SET messages = $1, updated_at = NOW()
+         WHERE id = $2 RETURNING *`,
+        [JSON.stringify(messages), req.params.id]
       );
     }
 

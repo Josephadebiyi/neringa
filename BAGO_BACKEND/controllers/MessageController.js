@@ -146,14 +146,12 @@ export const messageController = (io) => {
         await pgq(
           `UPDATE public.support_tickets
            SET messages = $1,
-               status = 'IN_PROGRESS',
                assistant_state = 'HANDOFF',
-               assigned_to = COALESCE(assigned_to, $3),
                first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
                last_agent_at = NOW(),
                updated_at = NOW()
            WHERE id = $2`,
-          [JSON.stringify(messages), ticketId, safeAgentId]
+          [JSON.stringify(messages), ticketId]
         );
 
         const payload = { ticketId, message: newMsg, senderName: agentName };
@@ -170,18 +168,15 @@ export const messageController = (io) => {
     });
 
     // Agent joined ticket notification
-    socket.on('support_agent_joined', async ({ ticketId, agentId, agentName }) => {
+    socket.on('support_agent_joined', async ({ ticketId, agentName }) => {
       try {
         if (ticketId) {
           const { query: pgq } = await import('../lib/postgres/db.js');
-          const safeAgentId = await resolveSupportAdminId(agentId || null);
           await pgq(
             `UPDATE public.support_tickets
-             SET assistant_state = 'HANDOFF',
-                 assigned_to = COALESCE(assigned_to, $2),
-                 updated_at = NOW()
+             SET assistant_state = 'HANDOFF', updated_at = NOW()
              WHERE id = $1`,
-            [ticketId, safeAgentId]
+            [ticketId]
           );
         }
       } catch (err) {
