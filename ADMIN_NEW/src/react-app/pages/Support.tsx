@@ -216,7 +216,11 @@ export default function Support() {
       setNewIds(p => new Set(p).add(ticket._id || ticket.id || ""));
     });
     s.on("support_message", ({ ticketId, message }: { ticketId: string; message: TicketMessage }) => {
-      const dup = (ms: TicketMessage[]) => (Array.isArray(ms) ? ms : []).some(m => m.timestamp === message.timestamp && m.content === message.content);
+      // Dedup by content+sender within 10 s to handle optimistic-vs-server timestamp mismatch
+      const dup = (ms: TicketMessage[]) => (Array.isArray(ms) ? ms : []).some(m =>
+        m.content === message.content && m.sender === message.sender &&
+        Math.abs(new Date(m.timestamp).getTime() - new Date(message.timestamp).getTime()) < 10_000
+      );
       setTickets(p => p.map(t => t._id !== ticketId || dup(msgs(t)) ? t : { ...t, messages: [...msgs(t), message] }));
       if (selRef.current?._id === ticketId)
         setSel(p => !p || dup(msgs(p)) ? p : { ...p, messages: [...msgs(p), message] });
@@ -258,13 +262,17 @@ export default function Support() {
   // Actions
   const sendReply = async () => {
     if (!sel || !reply.trim()) return;
-    const txt = reply.trim(), prev = msgs(sel);
+    const txt = reply.trim();
     setSending(true); setReply("");
-    const opt: TicketMessage = { sender: "ADMIN", senderId: user?.id ?? "", senderName: me, content: txt, timestamp: new Date().toISOString() };
-    setSel(p => p ? { ...p, messages: [...msgs(p), opt], status: "IN_PROGRESS" } : p);
-    setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: [...msgs(t), opt], status: "IN_PROGRESS" } : t));
-    try { await replyToTicket(sel._id, txt, me); }
-    catch (e: any) { setSel(p => p ? { ...p, messages: prev } : p); setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: prev } : t)); push(e?.message || "Failed to send.", false); }
+    try {
+      const d = await replyToTicket(sel._id, txt, me);
+      // Use authoritative messages from API response — avoids optimistic/socket timestamp mismatch
+      if (d?.success && d?.data?.messages) {
+        setSel(p => p ? { ...p, messages: d.data.messages } : p);
+        setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: d.data.messages } : t));
+      }
+    }
+    catch (e: any) { push(e?.message || "Failed to send.", false); }
     finally { setSending(false); }
   };
 
