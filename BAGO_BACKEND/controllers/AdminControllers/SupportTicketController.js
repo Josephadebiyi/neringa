@@ -158,22 +158,21 @@ export const addTicketMessage = async (req, res) => {
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
 
     const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
-    const resolvedSenderId = await resolveSupportAdminId(senderId || req.admin?.id || null);
     const resolvedSenderName = senderName || req.admin?.full_name || req.admin?.username || 'Agent';
     const newMsg = {
       sender,
-      senderId: resolvedSenderId,
+      senderId: senderId || req.admin?.id || null,
       senderName: resolvedSenderName,
       content,
       timestamp: new Date(),
     };
     messages.push(newMsg);
 
-    // Compute derived values in JS so each SQL param is used only once,
-    // avoiding Postgres type-inference conflicts with enum columns.
+    // Compute derived values in JS — each param used once to avoid enum type conflicts.
+    // assigned_to is intentionally NOT updated here: it has a FK constraint and
+    // auto-assigning on reply causes violations. Use the assignee dropdown instead.
     const newStatus = sender === 'ADMIN' ? 'IN_PROGRESS' : ticket.status;
     const newAssistantState = sender === 'ADMIN' ? 'HANDOFF' : (ticket.assistant_state || 'ACTIVE');
-    const assignedTo = resolvedSenderId;
 
     let updated;
     try {
@@ -181,13 +180,12 @@ export const addTicketMessage = async (req, res) => {
         `UPDATE public.support_tickets
          SET messages = $1,
              status = $2,
-             assistant_state = $5,
-             assigned_to = COALESCE(assigned_to, $4),
+             assistant_state = $4,
              first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
              last_agent_at = NOW(),
              updated_at = NOW()
          WHERE id = $3 RETURNING *`,
-        [JSON.stringify(messages), newStatus, req.params.id, assignedTo, newAssistantState]
+        [JSON.stringify(messages), newStatus, req.params.id, newAssistantState]
       );
     } catch (schemaErr) {
       if (!isSchemaCompatibilityError(schemaErr)) throw schemaErr;
