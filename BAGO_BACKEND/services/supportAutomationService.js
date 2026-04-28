@@ -219,6 +219,14 @@ export function createAssistantPayload(content) {
 
 export async function markTicketHandoff(ticketId, agentId) {
   await ensureSupportSchema();
+  let safeAgentId = null;
+  if (agentId) {
+    const admin = await queryOne(
+      `SELECT id FROM public.admin_users WHERE id = $1`,
+      [agentId],
+    ).catch(() => null);
+    safeAgentId = admin?.id || null;
+  }
   try {
     return await queryOne(
       `
@@ -231,7 +239,7 @@ export async function markTicketHandoff(ticketId, agentId) {
         WHERE id = $1
         RETURNING *
       `,
-      [ticketId, agentId || null],
+      [ticketId, safeAgentId],
     );
   } catch (error) {
     if (!isSchemaCompatibilityError(error)) throw error;
@@ -245,9 +253,18 @@ export async function markTicketHandoff(ticketId, agentId) {
         WHERE id = $1
         RETURNING *
       `,
-      [ticketId, agentId || null],
+      [ticketId, safeAgentId],
     );
   }
+}
+
+export async function resolveSupportAdminId(candidateId) {
+  if (!candidateId) return null;
+  const admin = await queryOne(
+    `SELECT id FROM public.admin_users WHERE id = $1`,
+    [candidateId],
+  ).catch(() => null);
+  return admin?.id || null;
 }
 
 export async function updateSupportPresence(adminId, presence) {

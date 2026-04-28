@@ -4,6 +4,7 @@ import {
   adminHasPermission,
   ensureSupportSchema,
   listSavedReplies,
+  resolveSupportAdminId,
 } from '../../services/supportAutomationService.js';
 
 // support_tickets table: id, user_id, subject, status, priority, assigned_to,
@@ -103,7 +104,10 @@ export const updateTicketStatus = async (req, res) => {
 
     if (status) { fields.push(`status = $${idx++}`); values.push(status); }
     if (priority) { fields.push(`priority = $${idx++}`); values.push(priority); }
-    const normalizedAssignedTo = assignedTo !== undefined ? assignedTo : assigned_to;
+    const requestedAssignedTo = assignedTo !== undefined ? assignedTo : assigned_to;
+    const normalizedAssignedTo = requestedAssignedTo === undefined
+      ? undefined
+      : await resolveSupportAdminId(requestedAssignedTo);
     if (normalizedAssignedTo !== undefined) { fields.push(`assigned_to = $${idx++}`); values.push(normalizedAssignedTo || null); }
     if (internalNotes !== undefined) { fields.push(`internal_notes = $${idx++}`); values.push(JSON.stringify(internalNotes)); }
 
@@ -154,14 +158,22 @@ export const addTicketMessage = async (req, res) => {
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
 
     const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
-    const newMsg = { sender, senderId, senderName, content, timestamp: new Date() };
+    const resolvedSenderId = await resolveSupportAdminId(senderId || req.admin?.id || null);
+    const resolvedSenderName = senderName || req.admin?.full_name || req.admin?.username || 'Agent';
+    const newMsg = {
+      sender,
+      senderId: resolvedSenderId,
+      senderName: resolvedSenderName,
+      content,
+      timestamp: new Date(),
+    };
     messages.push(newMsg);
 
     // Compute derived values in JS so each SQL param is used only once,
     // avoiding Postgres type-inference conflicts with enum columns.
-    const newStatus        = sender === 'ADMIN' ? 'IN_PROGRESS' : ticket.status;
+    const newStatus = sender === 'ADMIN' ? 'IN_PROGRESS' : ticket.status;
     const newAssistantState = sender === 'ADMIN' ? 'HANDOFF' : (ticket.assistant_state || 'ACTIVE');
-    const assignedTo       = senderId || req.admin?.id || null;
+    const assignedTo = resolvedSenderId;
 
     let updated;
     try {
@@ -190,14 +202,14 @@ export const addTicketMessage = async (req, res) => {
     // Real-time: push to ticket room (user is in it) + agents room
     const io = req.app.get('io');
     if (io) {
-      const payload = { ticketId: req.params.id, message: newMsg, senderName: senderName ?? 'Agent' };
+      const payload = { ticketId: req.params.id, message: newMsg, senderName: resolvedSenderName };
       io.to(`support:${req.params.id}`).emit('support_message', payload);
       io.to('support:agents').emit('support_message', payload);
       // Push notification covers users not actively in the chat screen
       if (ticket.user_id) {
         await sendPushNotification(
           ticket.user_id,
-          `💬 Support reply from ${senderName ?? 'Agent'}`,
+          `💬 Support reply from ${resolvedSenderName}`,
           content.length > 60 ? content.slice(0, 57) + '...' : content,
           { ticketId: req.params.id, type: 'support_message' }
         ).catch(() => {});

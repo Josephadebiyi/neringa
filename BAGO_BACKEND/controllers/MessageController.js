@@ -10,6 +10,7 @@ import {
 } from '../lib/postgres/messaging.js';
 import cloudinary from 'cloudinary';
 import { sendPushNotification } from '../services/pushNotificationService.js';
+import { resolveSupportAdminId } from '../services/supportAutomationService.js';
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -127,12 +128,19 @@ export const messageController = (io) => {
       try {
         if (!ticketId || !content?.trim()) return;
         const { query: pgq, queryOne: pgone } = await import('../lib/postgres/db.js');
+        const safeAgentId = await resolveSupportAdminId(agentId || null);
 
         const ticket = await pgone(`SELECT * FROM public.support_tickets WHERE id = $1`, [ticketId]);
         if (!ticket) return;
 
         const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
-        const newMsg = { sender: 'ADMIN', senderId: agentId, senderName: agentName, content: content.trim(), timestamp: new Date() };
+        const newMsg = {
+          sender: 'ADMIN',
+          senderId: safeAgentId,
+          senderName: agentName,
+          content: content.trim(),
+          timestamp: new Date(),
+        };
         messages.push(newMsg);
 
         await pgq(
@@ -145,7 +153,7 @@ export const messageController = (io) => {
                last_agent_at = NOW(),
                updated_at = NOW()
            WHERE id = $2`,
-          [JSON.stringify(messages), ticketId, agentId || null]
+          [JSON.stringify(messages), ticketId, safeAgentId]
         );
 
         const payload = { ticketId, message: newMsg, senderName: agentName };
@@ -166,13 +174,14 @@ export const messageController = (io) => {
       try {
         if (ticketId) {
           const { query: pgq } = await import('../lib/postgres/db.js');
+          const safeAgentId = await resolveSupportAdminId(agentId || null);
           await pgq(
             `UPDATE public.support_tickets
              SET assistant_state = 'HANDOFF',
                  assigned_to = COALESCE(assigned_to, $2),
                  updated_at = NOW()
              WHERE id = $1`,
-            [ticketId, agentId || null]
+            [ticketId, safeAgentId]
           );
         }
       } catch (err) {
