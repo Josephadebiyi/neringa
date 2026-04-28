@@ -199,8 +199,8 @@ export const addTicketMessage = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       const payload = { ticketId: req.params.id, message: newMsg, senderName: resolvedSenderName };
-      io.to(`support:${req.params.id}`).emit('support_message', payload);
-      io.to('support:agents').emit('support_message', payload);
+      // Chained .to() deduplicates: sockets in both rooms receive it only once
+      io.to(`support:${req.params.id}`).to('support:agents').emit('support_message', payload);
       // Push notification covers users not actively in the chat screen
       if (ticket.user_id) {
         await sendPushNotification(

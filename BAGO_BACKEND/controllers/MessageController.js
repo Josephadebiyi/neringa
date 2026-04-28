@@ -155,9 +155,7 @@ export const messageController = (io) => {
         );
 
         const payload = { ticketId, message: newMsg, senderName: agentName };
-        // Broadcast to ticket room (user + agents in that ticket) and global agents room
-        io.to(`support:${ticketId}`).emit('support_message', payload);
-        io.to('support:agents').emit('support_message', payload);
+        io.to(`support:${ticketId}`).to('support:agents').emit('support_message', payload);
         // Push notification to ticket owner
         await import('../services/pushNotificationService.js').then(({ sendPushNotification }) =>
           sendPushNotification(ticket.user_id, `💬 Support reply from ${agentName || 'Agent'}`, content.length > 60 ? content.slice(0, 57) + '...' : content, { ticketId, type: 'support_message' }).catch(() => {})

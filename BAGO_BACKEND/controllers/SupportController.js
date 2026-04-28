@@ -198,8 +198,7 @@ export async function sendUserMessage(req, res) {
         message: newMsg,
         senderName: `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim(),
       };
-      io.to(`support:${req.params.id}`).emit('support_message', payload);
-      io.to('support:agents').emit('support_message', payload);
+      io.to(`support:${req.params.id}`).to('support:agents').emit('support_message', payload);
 
       if (assistantMsg) {
         const assistantPayload = {
@@ -207,8 +206,7 @@ export async function sendUserMessage(req, res) {
           message: assistantMsg,
           senderName: assistantMsg.senderName,
         };
-        io.to(`support:${req.params.id}`).emit('support_message', assistantPayload);
-        io.to('support:agents').emit('support_message', assistantPayload);
+        io.to(`support:${req.params.id}`).to('support:agents').emit('support_message', assistantPayload);
       }
     }
 
