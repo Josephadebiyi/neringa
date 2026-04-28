@@ -5,11 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
+import '../widgets/banner_slider.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shipments/models/package_model.dart';
@@ -37,23 +36,6 @@ String _flagEmoji(String code) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Static data
-// ─────────────────────────────────────────────────────────────────────────────
-const _kRoutes = [
-  _RouteItem(
-      from: 'London',
-      to: 'Lagos',
-      tag: 'Popular',
-      image: 'assets/images/london-lagos-route.svg'),
-  _RouteItem(
-      from: 'Paris',
-      to: 'Toronto',
-      tag: 'Fast-Moving',
-      image:
-          'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=800&auto=format&fit=crop'),
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Home Screen
 // ─────────────────────────────────────────────────────────────────────────────
 class HomeScreen extends ConsumerStatefulWidget {
@@ -67,8 +49,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _from = '';
   String _to = '';
   String _date = '';
-  List<_RouteItem> _popularRoutes = _kRoutes;
-
   @override
   void initState() {
     super.initState();
@@ -412,21 +392,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: 16),
                 ],
 
-                // ── Top Destinations ─────────────────────────────────────
-                Text(l10n.topDestination,
-                    style: AppTextStyles.h3.copyWith(
-                        fontWeight: FontWeight.w800, color: AppColors.black)),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 160,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _popularRoutes.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 14),
-                    itemBuilder: (context, i) =>
-                        _DestinationCard(route: _popularRoutes[i]),
-                  ),
-                ),
+                // ── Banner Slider ─────────────────────────────────────────
+                const BannerSlider(),
               ],
             ),
           ),
@@ -1273,82 +1240,6 @@ class _ServiceCardState extends State<_ServiceCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Destination Card
-// ─────────────────────────────────────────────────────────────────────────────
-class _DestinationCard extends StatelessWidget {
-  const _DestinationCard({required this.route});
-  final _RouteItem route;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 220,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            route.image.startsWith('assets/')
-                ? SvgPicture.asset(
-                    route.image,
-                    fit: BoxFit.cover,
-                  )
-                : CachedNetworkImage(
-                    imageUrl: route.image,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Container(
-                      color: AppColors.gray100,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.public_rounded,
-                          color: AppColors.gray500, size: 32),
-                    ),
-                  ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.05),
-                    Colors.black.withOpacity(0.65)
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${route.from} → ${route.to}',
-                        style: AppTextStyles.h3.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8FF38),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(route.tag,
-                          style: AppTextStyles.labelXs.copyWith(
-                              color: AppColors.black,
-                              fontWeight: FontWeight.w800)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Recent Activity List — bank-transaction style, each row opens shipment
 // ─────────────────────────────────────────────────────────────────────────────
 class _RecentActivityList extends StatelessWidget {
@@ -1785,11 +1676,3 @@ class _ServiceItem {
   final bool isPrimary;
 }
 
-class _RouteItem {
-  const _RouteItem(
-      {required this.from,
-      required this.to,
-      required this.tag,
-      required this.image});
-  final String from, to, tag, image;
-}
