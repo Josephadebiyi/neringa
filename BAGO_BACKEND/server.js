@@ -27,6 +27,19 @@ import { sendPushNotification, sendPushNotificationToToken } from './services/pu
 
 dotenv.config();
 
+// Fail fast if critical secrets are missing or misconfigured
+const _requiredSecrets = ['JWT_SECRET', 'ADMIN_SECRET_KEY'];
+for (const key of _requiredSecrets) {
+  if (!process.env[key]) {
+    console.error(`FATAL: Environment variable ${key} is not set. Refusing to start.`);
+    process.exit(1);
+  }
+}
+if (process.env.ADMIN_SECRET_KEY === process.env.JWT_SECRET) {
+  console.error('FATAL: ADMIN_SECRET_KEY must differ from JWT_SECRET. Refusing to start.');
+  process.exit(1);
+}
+
 const app = express();
 const httpServer = createServer(app);
 app.disable('x-powered-by');
@@ -317,12 +330,20 @@ const globalLimiter = rateLimit({
 });
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Increased slightly for mobile auth retries
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many attempts. Please try again in 15 minutes.' },
-  skipSuccessfulRequests: true, // only count failed attempts
+  skipSuccessfulRequests: true,
+});
+
+const sensitiveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many attempts on a sensitive operation. Please try again in 1 hour.' },
 });
 
 // Apply global limiter to all routes
@@ -350,6 +371,15 @@ const authRoutes = [
   '/api/Adminbaggo/AdminSignup',
 ];
 authRoutes.forEach(route => app.use(route, authLimiter));
+
+// Stricter limits on sensitive financial/identity operations
+[
+  '/api/bago/withdrawFunds',
+  '/api/bago/KycVerifications',
+  '/api/bago/kyc/create-session',
+  '/api/bago/paystack/initialize',
+  '/api/bago/paystack/add-bank',
+].forEach(route => app.use(route, sensitiveLimiter));
 
 // ✅ Make io accessible to routers
 app.set('io', io);
@@ -504,7 +534,6 @@ app.post('/api/payment/create-intent', async (req, res) => {
   const { amount, travellerName, travellerEmail, currency = 'usd' } = req.body;
   const paymentCurrency = String(currency || 'usd').toLowerCase();
 
-  console.log('💡 /create-intent called with:', { amount, travellerName, travellerEmail, currency: paymentCurrency });
 
   try {
     if (!amount) {
@@ -513,7 +542,6 @@ app.post('/api/payment/create-intent', async (req, res) => {
     }
 
     const stripeAmount = Math.round(Number(amount) * 100);
-    console.log('💡 Calculated stripeAmount (in cents):', stripeAmount);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: stripeAmount,
@@ -1031,7 +1059,6 @@ app.get("/banks", async (req, res) => {
 // server.js (or wherever your route is)
 app.post("/create-recipient", async (req, res) => {
   try {
-    console.log('[server] /create-recipient called with body:', req.body);
 
     const { userId, name, account_number, bank_code } = req.body;
     if (!userId || !name || !account_number || !bank_code) {
@@ -1053,7 +1080,6 @@ app.post("/create-recipient", async (req, res) => {
       currency: "NGN",
     };
 
-    console.log('[server] sending to paystack:', paystackBody);
 
     // ensure headers include your Paystack secret
     const paystackHeaders = {
@@ -1068,8 +1094,6 @@ app.post("/create-recipient", async (req, res) => {
     });
 
     const raw = await resp.text();
-    console.log('[server] paystack HTTP status:', resp.status);
-    console.log('[server] paystack raw response:', raw);
 
     let data;
     try {
@@ -1482,8 +1506,6 @@ app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
       email: user.email
     });
 
-    console.log("📝 Creating DIDIT session for user:", user._id.toString(), "email:", user.email);
-    console.log("📝 Callback URL:", callbackUrl);
 
     const response = await fetch('https://verification.didit.me/v3/session/', {
       method: 'POST',
@@ -1500,7 +1522,6 @@ app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
     });
 
     const data = await response.json();
-    console.log("📥 DIDIT Response:", data);
 
     if (response.ok && data.session_id) {
       // Store session ID in user record

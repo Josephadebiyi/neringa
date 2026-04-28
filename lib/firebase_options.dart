@@ -1,5 +1,7 @@
 // Generated FirebaseOptions from GoogleService-Info.plist (bago-broadcast project)
 // To regenerate: run `flutterfire configure` with the FlutterFire CLI
+// IMPORTANT: Restrict the API key in Google Cloud Console to this app's bundle ID
+// (com.bago.app) to prevent abuse. See: https://console.cloud.google.com/apis/credentials
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'

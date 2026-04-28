@@ -1,30 +1,14 @@
 import { API_BASE_URL as ADMIN_API, API_ROOT, MAIN_API_URL as MAIN_API } from '../config/api';
 
 const API_BASE = API_ROOT;
-const ADMIN_TOKEN_KEY = 'bago_admin_token';
 
-function getAdminToken() {
-  return window.localStorage.getItem(ADMIN_TOKEN_KEY);
-}
-
-function setAdminToken(token: string) {
-  window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
-}
-
-function clearAdminToken() {
-  window.localStorage.removeItem(ADMIN_TOKEN_KEY);
-}
-
+// Auth relies on HttpOnly cookies set by the backend — no token in localStorage.
 export function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
-  const token = getAdminToken();
-  return {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...extraHeaders,
-  };
+  return { ...extraHeaders };
 }
 
 async function apiCall(url: string, options: RequestInit = {}) {
-  const headers = getAdminAuthHeaders(options.headers as Record<string, string>);
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
 
   if (options.body && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
@@ -34,7 +18,7 @@ async function apiCall(url: string, options: RequestInit = {}) {
   try {
     response = await fetch(url.trim(), {
       ...options,
-      credentials: 'omit',
+      credentials: 'include', // send HttpOnly adminToken cookie automatically
       headers,
     });
   } catch {
@@ -43,7 +27,6 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: `Server error (HTTP ${response.status})` }));
-    if (response.status === 401) clearAdminToken();
     throw new Error(error.error || error.message || 'Request failed');
   }
 
@@ -56,8 +39,8 @@ export async function adminLogin(credentials: any) {
   try {
     response = await fetch(`${ADMIN_API}/AdminLogin`, {
       method: 'POST',
-      credentials: 'omit',
-      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include', // backend sets HttpOnly adminToken cookie in response
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
     });
   } catch {
@@ -69,7 +52,6 @@ export async function adminLogin(credentials: any) {
   if (!response.ok) {
     throw new Error(data.error || data.message || 'Invalid credentials');
   }
-  if (data.token) setAdminToken(data.token);
   return data;
 }
 
@@ -78,11 +60,8 @@ export async function checkAdminAuth() {
 }
 
 export async function adminLogout() {
-  try {
-    return await apiCall(`${ADMIN_API}/Adminlogout`);
-  } finally {
-    clearAdminToken();
-  }
+  return apiCall(`${ADMIN_API}/Adminlogout`);
+  // HttpOnly cookie is cleared by the backend on logout
 }
 
 // Dashboard
@@ -415,11 +394,9 @@ export async function getBanners() {
 }
 
 export async function createBanner(formData: FormData) {
-  const token = getAdminToken();
   const response = await fetch(`${ADMIN_API}/banners`, {
     method: 'POST',
-    credentials: 'omit',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
     body: formData,
   });
   if (!response.ok) {
@@ -443,11 +420,9 @@ export async function getAdminProfile() {
 }
 
 export async function updateAdminProfile(formData: FormData) {
-  const token = getAdminToken();
   const response = await fetch(`${ADMIN_API}/profile`, {
     method: 'PUT',
-    credentials: 'omit',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
     body: formData,
   });
   if (!response.ok) {

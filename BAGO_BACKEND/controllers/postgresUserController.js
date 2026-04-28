@@ -354,7 +354,7 @@ export async function verifyOtp(req, res) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
 
-    const token = jwt.sign({ email: user.email }, process.env.JWT_SECRET, { expiresIn: '10m' });
+    const token = jwt.sign({ email: user.email, id: user.id }, process.env.JWT_SECRET, { expiresIn: '10m' });
     res.status(200).json({ message: 'OTP verified', token });
   } catch (error) {
     console.error('verifyOtp error:', error);
@@ -406,6 +406,11 @@ export async function resetPassword(req, res) {
 
     const user = await findProfileByEmail(email.toLowerCase());
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Verify token is bound to this specific user
+    if (decoded.id && decoded.id !== user.id) {
+      return res.status(401).json({ message: 'Unauthorized, token user mismatch' });
+    }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await clearOtpAndUpdatePassword(email.toLowerCase(), passwordHash);

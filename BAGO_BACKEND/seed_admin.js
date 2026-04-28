@@ -19,8 +19,12 @@ const seedAdmin = async () => {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('Connected to MongoDB');
 
-        const email = 'taiwojos2@yahoo.com';
-        const password = 'Passw0rd@1';
+        const email = process.env.SEED_ADMIN_EMAIL;
+        const password = process.env.SEED_ADMIN_PASSWORD;
+        if (!email || !password) {
+            console.error('SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD must be set as environment variables');
+            process.exit(1);
+        }
 
         // Check if admin exists
         const existingAdmin = await Admin.findOne({ email });
