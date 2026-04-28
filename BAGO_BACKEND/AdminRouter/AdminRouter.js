@@ -55,6 +55,13 @@ import {
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
 import { upload } from '../utils/multer.js';
 import {
+  getBanners,
+  createBanner,
+  updateBanner,
+  toggleBanner,
+  deleteBanner,
+} from '../controllers/AdminControllers/BannerController.js';
+import {
   getAllUsersKYC,
   getUserKYCDetails,
   getKYCStatistics,
@@ -135,6 +142,13 @@ AdminRouter.delete("/admin-trips/:id", adminAuthenticated, deleteTrip);
 
 // General Admin Asset Upload (for promo emails etc)
 AdminRouter.post("/upload", adminAuthenticated, upload.single('file'), adminUploadFile);
+
+// Promotional Banners
+AdminRouter.get("/banners", adminAuthenticated, getBanners);
+AdminRouter.post("/banners", adminAuthenticated, upload.single('image'), createBanner);
+AdminRouter.put("/banners/:id", adminAuthenticated, upload.single('image'), updateBanner);
+AdminRouter.put("/banners/:id/toggle", adminAuthenticated, toggleBanner);
+AdminRouter.delete("/banners/:id", adminAuthenticated, deleteBanner);
 
 // ✅ KYC Data Management (Admin view of user KYC information)
 AdminRouter.get("/kyc/users", adminAuthenticated, getAllUsersKYC);

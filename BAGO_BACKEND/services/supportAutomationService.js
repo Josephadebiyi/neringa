@@ -131,6 +131,8 @@ function hasKeyword(text = '', keywords = []) {
   return keywords.some((keyword) => normalized.includes(keyword));
 }
 
+const SUPER_ADMIN_ROLES = new Set(['admin', 'ADMIN', 'SUPER_ADMIN', 'superadmin', 'super_admin']);
+
 export function buildPermissionSet(admin) {
   const explicit = Array.isArray(admin?.permissions)
     ? admin.permissions
@@ -139,10 +141,12 @@ export function buildPermissionSet(admin) {
       : [];
 
   if (explicit.length) return explicit;
+  if (SUPER_ADMIN_ROLES.has(admin?.role)) return STAFF_PERMISSION_PRESETS['SUPER_ADMIN'];
   return STAFF_PERMISSION_PRESETS[admin?.role] || [];
 }
 
 export function adminHasPermission(admin, permission) {
+  if (SUPER_ADMIN_ROLES.has(admin?.role)) return true;
   const permissions = buildPermissionSet(admin);
   return permissions.includes(permission) || permissions.includes('support.*');
 }

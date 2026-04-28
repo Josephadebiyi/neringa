@@ -29,6 +29,7 @@ import {
   ShieldAlert,
   PanelLeftClose,
   PanelLeftOpen,
+  ImagePlay,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -57,6 +58,7 @@ const navItems: NavItem[] = [
   { icon: RotateCcw,       label: "Refunds",            path: "/refund" },
   { icon: CreditCard,      label: "Withdrawals",        path: "/withdrawals" },
   { icon: Send,            label: "Broadcast Center",   path: "/push-notification" },
+  { icon: ImagePlay,       label: "Promo Banners",      path: "/banners" },
   { icon: BarChart,        label: "Analytics",          path: "/analytics" },
   { icon: Settings,        label: "System Settings",    path: "/settings" },
 ];

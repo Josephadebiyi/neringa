@@ -409,4 +409,52 @@ export async function updateInsuranceSettings(data: any) {
   });
 }
 
+// Promotional Banners
+export async function getBanners() {
+  return apiCall(`${ADMIN_API}/banners`);
+}
+
+export async function createBanner(formData: FormData) {
+  const token = getAdminToken();
+  const response = await fetch(`${ADMIN_API}/banners`, {
+    method: 'POST',
+    credentials: 'omit',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: `Server error (${response.status})` }));
+    throw new Error(err.error || err.message || 'Upload failed');
+  }
+  return response.json();
+}
+
+export async function toggleBanner(id: string) {
+  return apiCall(`${ADMIN_API}/banners/${id}/toggle`, { method: 'PUT' });
+}
+
+export async function deleteBanner(id: string) {
+  return apiCall(`${ADMIN_API}/banners/${id}`, { method: 'DELETE' });
+}
+
+// Admin Profile
+export async function getAdminProfile() {
+  return apiCall(`${ADMIN_API}/profile`);
+}
+
+export async function updateAdminProfile(formData: FormData) {
+  const token = getAdminToken();
+  const response = await fetch(`${ADMIN_API}/profile`, {
+    method: 'PUT',
+    credentials: 'omit',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: `Server error (${response.status})` }));
+    throw new Error(err.error || err.message || 'Update failed');
+  }
+  return response.json();
+}
+
 export { API_BASE, ADMIN_API, MAIN_API };

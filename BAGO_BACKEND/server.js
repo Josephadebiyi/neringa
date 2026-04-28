@@ -2050,6 +2050,12 @@ app.get("/api/currency/rates", async (req, res) => {
 });
 
 // Update user's preferred currency - PROTECTED ROUTE
+// Public: active promotional banners for the app
+app.get("/api/bago/banners", async (req, res) => {
+  const { getActiveBanners } = await import('./controllers/AdminControllers/BannerController.js');
+  return getActiveBanners(req, res);
+});
+
 app.post("/api/bago/user/currency", isAuthenticated, async (req, res) => {
   try {
     const { currency } = req.body;

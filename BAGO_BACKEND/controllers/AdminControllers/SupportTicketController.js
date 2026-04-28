@@ -173,11 +173,10 @@ export const addTicketMessage = async (req, res) => {
         [JSON.stringify(messages), newStatus, req.params.id, senderId || req.admin?.id || null]
       );
     } catch (schemaErr) {
-      // Fallback: columns assistant_state / first_agent_response_at may not exist yet
       if (!isSchemaCompatibilityError(schemaErr)) throw schemaErr;
       updated = await queryOne(
         `UPDATE public.support_tickets
-         SET messages = $1, status = $2, last_agent_at = NOW(), updated_at = NOW()
+         SET messages = $1, status = $2, updated_at = NOW()
          WHERE id = $3 RETURNING *`,
         [JSON.stringify(messages), newStatus, req.params.id]
       );
