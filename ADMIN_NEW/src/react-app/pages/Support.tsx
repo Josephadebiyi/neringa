@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Flag,
+  Inbox,
   Loader2,
   MessageSquare,
   Plus,
@@ -14,6 +16,7 @@ import {
   Wifi,
   WifiOff,
   X,
+  Zap,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 
@@ -83,18 +86,20 @@ type QueueFilter = "ALL" | "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const msgs   = (t: Ticket) => Array.isArray(t.messages) ? t.messages : [];
 const uName  = (t: Ticket) => t.user ? `${t.user.firstName} ${t.user.lastName}`.trim() : `${t.userFirstName ?? ""} ${t.userLastName ?? ""}`.trim() || "User";
 const uEmail = (t: Ticket) => t.user?.email || t.userEmail || "";
 const uInit  = (t: Ticket) => uName(t)[0]?.toUpperCase() || "?";
-const msgs   = (t: Ticket) => Array.isArray(t.messages) ? t.messages : [];
 const lastTs = (t: Ticket) => { const m = msgs(t); return m[m.length - 1]?.timestamp || t.createdAt; };
 
-function ago(v: string) {
+function ago(v?: string | null) {
+  if (!v) return "—";
   const d = Date.now() - new Date(v).getTime();
+  if (isNaN(d)) return "—";
   if (d < 60_000)      return "now";
-  if (d < 3_600_000)   return `${Math.floor(d / 60_000)}m`;
-  if (d < 86_400_000)  return `${Math.floor(d / 3_600_000)}h`;
-  if (d < 604_800_000) return `${Math.floor(d / 86_400_000)}d`;
+  if (d < 3_600_000)   return `${Math.floor(d / 60_000)}m ago`;
+  if (d < 86_400_000)  return `${Math.floor(d / 3_600_000)}h ago`;
+  if (d < 604_800_000) return `${Math.floor(d / 86_400_000)}d ago`;
   return new Date(v).toLocaleDateString();
 }
 
@@ -102,6 +107,13 @@ function fmtDate(v?: string | null) {
   if (!v) return "—";
   const d = new Date(v);
   return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function fmtTime(v?: string | null) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return "";
+  return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} at ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function slaInfo(dueAt: string): { label: string; hot: boolean } {
@@ -112,14 +124,20 @@ function slaInfo(dueAt: string): { label: string; hot: boolean } {
 }
 
 const STATUS_LABEL: Record<string, string> = { OPEN: "Open", IN_PROGRESS: "In Progress", RESOLVED: "Resolved", CLOSED: "Closed" };
-const STATUS_CLS: Record<string, string>   = {
-  OPEN:        "bg-amber-50  text-amber-700  ring-1 ring-amber-200",
-  IN_PROGRESS: "bg-blue-50   text-blue-700   ring-1 ring-blue-200",
-  RESOLVED:    "bg-green-50  text-green-700  ring-1 ring-green-200",
-  CLOSED:      "bg-gray-100  text-gray-500   ring-1 ring-gray-200",
+
+const STATUS_PILL: Record<string, string> = {
+  OPEN:        "bg-amber-100 text-amber-700",
+  IN_PROGRESS: "bg-blue-100  text-blue-700",
+  RESOLVED:    "bg-green-100 text-green-700",
+  CLOSED:      "bg-gray-100  text-gray-500",
 };
-const STATUS_DOT: Record<string, string> = { OPEN: "bg-amber-400", IN_PROGRESS: "bg-blue-500", RESOLVED: "bg-green-500", CLOSED: "bg-gray-300" };
-const PRI_CLS: Record<string, string> = { URGENT: "text-red-600 font-semibold", HIGH: "text-orange-500 font-semibold", MEDIUM: "text-slate-600", LOW: "text-slate-400" };
+
+const PRI_PILL: Record<string, string> = {
+  URGENT: "bg-red-100 text-red-700",
+  HIGH:   "bg-orange-100 text-orange-700",
+  MEDIUM: "bg-gray-100 text-gray-600",
+  LOW:    "bg-gray-50 text-gray-400",
+};
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -143,15 +161,15 @@ export default function Support() {
   const [saving,   setSaving]    = useState(false);
   const [presence, setPresence]  = useState<"AVAILABLE"|"AWAY">("AVAILABLE");
   const [toasts,   setToasts]    = useState<Toast[]>([]);
-  const [showNotes,setShowNotes] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const [srOpen,   setSrOpen]    = useState(false);
   const [srTitle,  setSrTitle]   = useState("");
   const [srBody,   setSrBody]    = useState("");
-  const [, setTick] = useState(0);
+  const [,         setTick]      = useState(0);
 
-  const sockRef  = useRef<Socket | null>(null);
-  const endRef   = useRef<HTMLDivElement>(null);
-  const selRef   = useRef<Ticket | null>(null);
+  const sockRef = useRef<Socket | null>(null);
+  const endRef  = useRef<HTMLDivElement>(null);
+  const selRef  = useRef<Ticket | null>(null);
   selRef.current = sel;
 
   useEffect(() => { const id = setInterval(() => setTick(n => n + 1), 60_000); return () => clearInterval(id); }, []);
@@ -164,7 +182,7 @@ export default function Support() {
 
   // Socket
   useEffect(() => {
-    const s = io(API_ROOT.replace("/api", ""), { transports: ["websocket","polling"], reconnection: true });
+    const s = io(API_ROOT.replace("/api", ""), { transports: ["websocket", "polling"], reconnection: true });
     sockRef.current = s;
     s.on("connect",    () => { setLive(true); s.emit("join_support_agents"); });
     s.on("disconnect", () => setLive(false));
@@ -183,15 +201,15 @@ export default function Support() {
 
   // Presence
   useEffect(() => {
-    const sync = (p: "AVAILABLE"|"AWAY"|"OFFLINE") => updateSupportPresence(p).catch(() => {});
+    const sync = (p: "AVAILABLE" | "AWAY" | "OFFLINE") => updateSupportPresence(p).catch(() => {});
     sync("AVAILABLE");
-    const id = setInterval(() => { if (presence === "AVAILABLE") sync("AVAILABLE"); }, 30_000);
+    const ivl = setInterval(() => { if (presence === "AVAILABLE") sync("AVAILABLE"); }, 30_000);
     const onVis = () => { const p = document.hidden ? "AWAY" : "AVAILABLE"; setPresence(p); sync(p); };
     document.addEventListener("visibilitychange", onVis);
-    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); sync("OFFLINE"); };
+    return () => { clearInterval(ivl); document.removeEventListener("visibilitychange", onVis); sync("OFFLINE"); };
   }, [presence]);
 
-  // On select
+  // On ticket select
   useEffect(() => {
     if (!sel) return;
     sockRef.current?.emit("join_support_ticket", sel._id);
@@ -230,7 +248,7 @@ export default function Support() {
     setTickets(p => p.map(t => t._id === id ? { ...t, status } : t));
     if (sel?._id === id) setSel(p => p ? { ...p, status } : p);
     try { await updateTicketStatus(id, status); }
-    catch { if (prev) { setTickets(p => p.map(t => t._id === id ? { ...t, status: prev } : t)); if (sel?._id === id) setSel(p => p ? { ...p, status: prev } : p); } push("Failed to update status.", false); }
+    catch { if (prev) { setTickets(p => p.map(t => t._id === id ? { ...t, status: prev as Ticket["status"] } : t)); if (sel?._id === id) setSel(p => p ? { ...p, status: prev as Ticket["status"] } : p); } push("Failed to update status.", false); }
   };
 
   const changeAssignee = async (val: string) => {
@@ -253,15 +271,21 @@ export default function Support() {
     catch { push("Failed.", false); }
   };
 
-  const supportStaff = staff.filter(m => ["SUPPORT_ADMIN","SUPER_ADMIN","SAFETY_ADMIN"].includes(m.role));
-  const assignedName = supportStaff.find(m => String(m._id) === String(assignee));
+  const supportStaff = staff.filter(m => ["SUPPORT_ADMIN", "SUPER_ADMIN", "SAFETY_ADMIN"].includes(m.role));
+  const assignedMember = supportStaff.find(m => String(m._id) === String(assignee));
+  const assignedName = assignedMember ? (assignedMember.fullName || `${assignedMember.first_name || ""} ${assignedMember.last_name || ""}`.trim() || assignedMember.email).trim() : "";
   const sla = sel?.firstAgentResponseDueAt && !sel.firstAgentResponseAt ? slaInfo(sel.firstAgentResponseDueAt) : null;
 
-  const counts = { open: tickets.filter(t => t.status === "OPEN").length, active: tickets.filter(t => t.status === "IN_PROGRESS").length, resolved: tickets.filter(t => t.status === "RESOLVED").length };
+  const counts = {
+    open:    tickets.filter(t => t.status === "OPEN").length,
+    active:  tickets.filter(t => t.status === "IN_PROGRESS").length,
+    resolved:tickets.filter(t => t.status === "RESOLVED").length,
+    urgent:  tickets.filter(t => t.priority === "URGENT").length,
+  };
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="-m-6 flex h-[calc(100vh-80px)] overflow-hidden bg-gray-50 font-sans text-gray-900">
+    <div className="-m-6 flex flex-col overflow-hidden font-sans text-gray-900" style={{ height: "calc(100vh - 80px)" }}>
 
       {/* Toasts */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
@@ -274,323 +298,484 @@ export default function Support() {
         ))}
       </div>
 
-      {/* ── LEFT: Queue ─────────────────────────────────────────────────── */}
-      <div className="flex w-72 shrink-0 flex-col border-r border-gray-200 bg-white">
+      {/* ── HERO BANNER ─────────────────────────────────────────────────── */}
+      <div className="shrink-0 border-b border-indigo-100 bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50 px-8 py-5">
+        <div className="flex items-start justify-between gap-6">
 
-        {/* Header */}
-        <div className="border-b border-gray-100 px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-[13px] font-semibold text-gray-900">Support</h1>
-            <div className="flex items-center gap-3 text-[11px] text-gray-400">
-              <span className={`flex items-center gap-1 ${live ? "text-green-600" : "text-gray-400"}`}>
-                {live ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {live ? "Live" : "Offline"}
-              </span>
+          {/* Left: branding */}
+          <div className="min-w-0">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-400">
+              Bago Conversation Desk
+            </p>
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white/70 px-3 py-1 text-[11px] font-semibold text-indigo-600">
+              <Zap className="h-3 w-3" /> Intercom-style support workspace
             </div>
+            <h1 className="mb-1 text-[26px] font-bold leading-tight text-gray-900">
+              Support inbox for teammates
+            </h1>
+            <p className="max-w-lg text-[13px] leading-5 text-gray-500">
+              Keep every conversation in one operator workspace, move fast on urgent tickets, and make the queue feel like a real support messenger.
+            </p>
           </div>
 
-          {/* Stats row */}
-          <div className="mb-3 flex gap-3 text-[11px]">
-            {[{ l: "Open", v: counts.open, c: "text-amber-600" }, { l: "Active", v: counts.active, c: "text-blue-600" }, { l: "Done", v: counts.resolved, c: "text-green-600" }].map(s => (
-              <div key={s.l} className="flex items-center gap-1">
-                <span className={`font-bold ${s.c}`}>{s.v}</span>
-                <span className="text-gray-400">{s.l}</span>
+          {/* Right: metric cards */}
+          <div className="flex shrink-0 gap-3">
+            {[
+              { label: "OPEN",     value: counts.open,     icon: Inbox,          color: "text-amber-500" },
+              { label: "ACTIVE",   value: counts.active,   icon: Clock,          color: "text-blue-500"  },
+              { label: "RESOLVED", value: counts.resolved, icon: CheckCircle2,   color: "text-green-500" },
+              { label: "URGENT",   value: counts.urgent,   icon: Flag,           color: "text-red-500"   },
+            ].map(c => (
+              <div key={c.label} className="flex flex-col items-center rounded-xl border border-white/80 bg-white/80 px-5 py-3 shadow-sm backdrop-blur-sm">
+                <c.icon className={`mb-1.5 h-5 w-5 ${c.color}`} />
+                <span className="text-[22px] font-bold text-gray-900 leading-none">{c.value}</span>
+                <span className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-gray-400">{c.label}</span>
               </div>
             ))}
           </div>
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
-              className="w-full rounded-md border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-[13px] outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100" />
-          </div>
-        </div>
-
-        {/* Filter tabs */}
-        <div className="flex border-b border-gray-100">
-          {(["ALL","OPEN","IN_PROGRESS","RESOLVED"] as QueueFilter[]).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wide transition-colors ${filter === f ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-400 hover:text-gray-600"}`}>
-              {f === "IN_PROGRESS" ? "Active" : f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
-            </button>
-          ))}
-        </div>
-
-        {/* List */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div>
-          ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-[13px] text-gray-400">No conversations</div>
-          ) : filtered.map(ticket => {
-            const active = sel?._id === ticket._id;
-            return (
-              <button key={ticket._id} onClick={() => setSel(ticket)}
-                className={`relative w-full border-b border-gray-50 px-4 py-3 text-left transition-colors ${active ? "bg-indigo-50 border-l-2 border-l-indigo-500" : "hover:bg-gray-50"}`}>
-                {newIds.has(ticket._id) && <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-400" />}
-                <div className="flex items-start gap-2.5">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${active ? "bg-indigo-500 text-white" : "bg-gray-100 text-gray-600"}`}>
-                    {uInit(ticket)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-1">
-                      <span className="truncate text-[13px] font-medium text-gray-900">{uName(ticket)}</span>
-                      <span className="shrink-0 text-[11px] text-gray-400">{ago(lastTs(ticket))}</span>
-                    </div>
-                    <p className="truncate text-[12px] text-gray-500">{ticket.subject}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[ticket.status] || "bg-gray-300"}`} />
-                      <span className="text-[11px] text-gray-400">{STATUS_LABEL[ticket.status]}</span>
-                      <span className={`ml-auto text-[10px] ${PRI_CLS[ticket.priority] || ""}`}>{ticket.priority}</span>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Presence */}
-        <div className="border-t border-gray-100 px-4 py-2.5">
-          <button onClick={() => { const n = presence === "AVAILABLE" ? "AWAY" : "AVAILABLE"; setPresence(n); updateSupportPresence(n).catch(() => {}); }}
-            className="flex items-center gap-2 text-[12px] text-gray-500 hover:text-gray-700 transition-colors">
-            <span className={`h-2 w-2 rounded-full ${presence === "AVAILABLE" ? "bg-green-400" : "bg-amber-400"}`} />
-            <span>{me}</span>
-            <span className="text-gray-400">·</span>
-            <span>{presence === "AVAILABLE" ? "Online" : "Away"}</span>
-          </button>
         </div>
       </div>
 
-      {/* ── CENTER: Chat ─────────────────────────────────────────────────── */}
-      {sel ? (
-        <div className="flex min-w-0 flex-1 flex-col">
+      {/* ── 3-COLUMN LAYOUT ─────────────────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
 
-          {/* Chat header */}
-          <div className="shrink-0 border-b border-gray-200 bg-white px-6 py-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-[15px] font-semibold text-gray-900 truncate">{sel.subject}</h2>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_CLS[sel.status] || ""}`}>
-                    {STATUS_LABEL[sel.status]}
-                  </span>
-                  {sel.assistantState === "ACTIVE" && (
-                    <span className="flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-200">
-                      <Bot className="h-3 w-3" /> Bot
-                    </span>
-                  )}
-                  {sla && (
-                    <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${sla.hot ? "bg-red-50 text-red-700 ring-1 ring-red-200" : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"}`}>
-                      <Clock className="h-3 w-3" /> {sla.label}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-[12px] text-gray-400">{uName(sel)} · {uEmail(sel)}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <select value={assignee} onChange={e => changeAssignee(e.target.value)}
-                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] text-gray-700 outline-none focus:border-indigo-400">
-                  <option value="">Unassigned</option>
-                  {supportStaff.map(m => (
-                    <option key={m._id} value={m._id}>
-                      {(m.fullName || `${m.first_name||""} ${m.last_name||""}`.trim() || m.email).trim()}
-                    </option>
-                  ))}
-                </select>
-                <select value={sel.status} onChange={e => changeStatus(sel._id, e.target.value as Ticket["status"])}
-                  className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] text-gray-700 outline-none focus:border-indigo-400">
-                  <option value="OPEN">Open</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="RESOLVED">Resolved</option>
-                  <option value="CLOSED">Closed</option>
-                </select>
-              </div>
+        {/* LEFT: Queue ─────────────────────────────────────────────── */}
+        <div className="flex w-80 shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white">
+
+          {/* Queue header */}
+          <div className="border-b border-gray-100 px-5 py-4">
+            <div className="mb-0.5 flex items-center justify-between">
+              <h2 className="text-[15px] font-bold text-gray-900">Queue</h2>
+              <span className={`flex items-center gap-1 text-[11px] font-medium ${live ? "text-green-600" : "text-gray-400"}`}>
+                {live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                {live ? "Online" : "Offline"}
+              </span>
+            </div>
+            <p className="text-[12px] text-gray-400">{filtered.length} conversation{filtered.length !== 1 ? "s" : ""}</p>
+          </div>
+
+          {/* Search */}
+          <div className="border-b border-gray-100 px-4 py-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search people, subjects, or messages"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-[12px] outline-none focus:border-indigo-300 focus:bg-white focus:ring-1 focus:ring-indigo-100 placeholder:text-gray-400"
+              />
             </div>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-5 space-y-3">
+          {/* Filter pills */}
+          <div className="flex gap-1.5 border-b border-gray-100 px-4 py-2.5">
+            {(["ALL", "OPEN", "IN_PROGRESS", "RESOLVED"] as QueueFilter[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                  filter === f
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                }`}
+              >
+                {f === "IN_PROGRESS" ? "IN PROGRESS" : f === "ALL" ? "ALL" : f === "RESOLVED" ? "RES" : f}
+              </button>
+            ))}
+          </div>
 
-            {/* Original request */}
-            <div className="flex justify-start">
-              <div className="max-w-[66%]">
-                <div className="mb-1 flex items-center gap-1.5 text-[11px] text-gray-400">
-                  <span className="font-medium text-gray-600">{uName(sel)}</span>
-                  <span>·</span>
-                  <span>Original request</span>
-                </div>
-                <div className="rounded-lg rounded-tl-sm border border-gray-200 bg-white px-4 py-3 text-[14px] leading-6 text-gray-700 shadow-sm">
-                  {sel.description}
-                </div>
+          {/* Ticket list */}
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
               </div>
-            </div>
+            ) : filtered.length === 0 ? (
+              <div className="py-16 text-center text-[13px] text-gray-400">No conversations</div>
+            ) : (
+              filtered.map(ticket => {
+                const active = sel?._id === ticket._id;
+                const lastMsg = msgs(ticket).slice(-1)[0];
+                return (
+                  <button
+                    key={ticket._id}
+                    onClick={() => setSel(ticket)}
+                    className={`relative w-full border-b border-gray-100 px-4 py-4 text-left transition-colors ${
+                      active ? "border-l-[3px] border-l-indigo-500 bg-indigo-50/60 pl-[13px]" : "hover:bg-gray-50/80"
+                    }`}
+                  >
+                    {newIds.has(ticket._id) && (
+                      <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-400" />
+                    )}
 
-            {msgs(sel).map((msg, i) => {
-              const isAdmin = msg.sender === "ADMIN";
-              const isBot   = msg.sender === "ASSISTANT";
-              return (
-                <div key={`${msg.timestamp}-${i}`} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
-                  <div className="max-w-[66%]">
-                    <div className={`mb-1 flex items-center gap-1.5 text-[11px] text-gray-400 ${isAdmin ? "flex-row-reverse" : ""}`}>
-                      <span className="font-medium text-gray-600">
-                        {isAdmin ? (msg.senderName || me) : isBot ? "Bago Assistant" : uName(sel)}
-                      </span>
-                      <span>·</span>
-                      <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    {/* Row 1: Avatar + name + email + time */}
+                    <div className="mb-2 flex items-start gap-3">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${active ? "bg-indigo-500 text-white" : "bg-indigo-100 text-indigo-700"}`}>
+                        {uInit(ticket)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="truncate text-[13px] font-semibold text-gray-900">{uName(ticket)}</span>
+                          <span className="shrink-0 text-[11px] text-gray-400">{ago(lastTs(ticket))}</span>
+                        </div>
+                        <p className="truncate text-[11px] text-gray-400">{uEmail(ticket)}</p>
+                      </div>
                     </div>
-                    <div className={`rounded-lg px-4 py-3 text-[14px] leading-6 ${
-                      isAdmin ? "rounded-tr-sm bg-indigo-600 text-white"
-                      : isBot  ? "rounded-tl-sm border border-violet-200 bg-violet-50 text-violet-900"
-                      : "rounded-tl-sm border border-gray-200 bg-white text-gray-800 shadow-sm"
-                    }`}>
-                      {msg.content}
+
+                    {/* Subject */}
+                    <p className="mb-1.5 truncate text-[13px] font-semibold text-gray-800">{ticket.subject}</p>
+
+                    {/* Message preview */}
+                    {lastMsg && (
+                      <p className="mb-2.5 line-clamp-2 text-[12px] leading-5 text-gray-500">{lastMsg.content}</p>
+                    )}
+
+                    {/* Pills */}
+                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${STATUS_PILL[ticket.status] || "bg-gray-100 text-gray-500"}`}>
+                        {STATUS_LABEL[ticket.status] || ticket.status}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${PRI_PILL[ticket.priority] || "bg-gray-100 text-gray-500"}`}>
+                        {ticket.priority}
+                      </span>
+                      <span className="text-[11px] text-gray-400 uppercase tracking-wide">{ticket.category}</span>
+                    </div>
+
+                    {/* Footer: assistant status + assignee */}
+                    <div className="flex items-center justify-between">
+                      {ticket.assistantState === "ACTIVE" ? (
+                        <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                          <Bot className="h-3 w-3" /> Assistant currently covering
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">Agent handling</span>
+                      )}
+                      <span className="text-[11px] text-gray-400">
+                        {ticket.assignedTo ? "Assigned" : "Unassigned"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Presence toggle */}
+          <div className="border-t border-gray-100 px-4 py-3">
+            <button
+              onClick={() => { const n = presence === "AVAILABLE" ? "AWAY" : "AVAILABLE"; setPresence(n); updateSupportPresence(n).catch(() => {}); }}
+              className="flex items-center gap-2 text-[12px] text-gray-500 transition-colors hover:text-gray-700"
+            >
+              <span className={`h-2 w-2 rounded-full ${presence === "AVAILABLE" ? "bg-green-400" : "bg-amber-400"}`} />
+              <span className="font-medium">{me}</span>
+              <span className="text-gray-300">·</span>
+              <span>{presence === "AVAILABLE" ? "Online" : "Away"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* CENTER: Chat ─────────────────────────────────────────────── */}
+        {sel ? (
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
+
+            {/* Chat header */}
+            <div className="shrink-0 border-b border-gray-200 px-6 py-4">
+              <div className="flex items-start justify-between gap-4">
+
+                {/* Left: category + status + description */}
+                <div className="min-w-0">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                      {sel.category}
+                    </span>
+                    <span className={`rounded px-2.5 py-0.5 text-[11px] font-bold uppercase ${STATUS_PILL[sel.status] || ""}`}>
+                      {STATUS_LABEL[sel.status]}
+                    </span>
+                    {sel.assistantState === "ACTIVE" && (
+                      <span className="flex items-center gap-1 rounded bg-violet-100 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">
+                        <Bot className="h-3 w-3" /> Bot active
+                      </span>
+                    )}
+                    {sla && (
+                      <span className={`flex items-center gap-1 rounded px-2.5 py-0.5 text-[11px] font-semibold ${sla.hot ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                        <Clock className="h-3 w-3" /> {sla.label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[13px] text-gray-400">
+                    Talking with <span className="font-medium text-gray-700">{uName(sel)}</span>. Last activity {ago(lastTs(sel))}.
+                  </p>
+                </div>
+
+                {/* Right: replying-as + assignee + status */}
+                <div className="flex shrink-0 items-end gap-4">
+                  <div>
+                    <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-gray-400">Replying as</p>
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] font-semibold text-gray-800">
+                      {me}
                     </div>
                   </div>
+                  <div>
+                    <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-gray-400">Assignee</p>
+                    <select
+                      value={assignee}
+                      onChange={e => changeAssignee(e.target.value)}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12px] text-gray-700 outline-none focus:border-indigo-300"
+                    >
+                      <option value="">Unassigned</option>
+                      {supportStaff.map(m => (
+                        <option key={m._id} value={m._id}>
+                          {(m.fullName || `${m.first_name || ""} ${m.last_name || ""}`.trim() || m.email).trim()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-gray-400">Status</p>
+                    <select
+                      value={sel.status}
+                      onChange={e => changeStatus(sel._id, e.target.value as Ticket["status"])}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12px] text-gray-700 outline-none focus:border-indigo-300"
+                    >
+                      <option value="OPEN">Open</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="RESOLVED">Resolved</option>
+                      <option value="CLOSED">Closed</option>
+                    </select>
+                  </div>
                 </div>
-              );
-            })}
-            <div ref={endRef} />
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto bg-gray-50/50 px-6 py-5 space-y-5">
+
+              {/* Original description */}
+              <MessageBlock
+                label="Customer"
+                labelCls="bg-indigo-100 text-indigo-700"
+                name={uName(sel)}
+                time={fmtTime(sel.createdAt)}
+                initial={uInit(sel)}
+                avatarCls="bg-indigo-200 text-indigo-800"
+                bubbleCls="bg-white border border-gray-200 text-gray-800 shadow-sm"
+                content={sel.description}
+              />
+
+              {msgs(sel).map((msg, i) => {
+                const isAdmin = msg.sender === "ADMIN";
+                const isBot   = msg.sender === "ASSISTANT";
+                return (
+                  <MessageBlock
+                    key={`${msg.timestamp}-${i}`}
+                    label={isAdmin ? "Admin" : isBot ? "Assistant" : "Customer"}
+                    labelCls={isAdmin ? "bg-green-100 text-green-700" : isBot ? "bg-violet-100 text-violet-700" : "bg-indigo-100 text-indigo-700"}
+                    name={isAdmin ? (msg.senderName || me) : isBot ? "Bago Assistant" : uName(sel)}
+                    time={fmtTime(msg.timestamp)}
+                    initial={(isAdmin ? (msg.senderName || me) : isBot ? "B" : uName(sel))[0]?.toUpperCase() || "?"}
+                    avatarCls={isAdmin ? "bg-green-500 text-white" : isBot ? "bg-violet-500 text-white" : "bg-indigo-200 text-indigo-800"}
+                    bubbleCls={isAdmin ? "bg-indigo-600 text-white shadow-sm" : isBot ? "bg-violet-50 border border-violet-200 text-violet-900" : "bg-white border border-gray-200 text-gray-800 shadow-sm"}
+                    content={msg.content}
+                  />
+                );
+              })}
+              <div ref={endRef} />
+            </div>
+
+            {/* Reply box */}
+            {sel.status !== "CLOSED" ? (
+              <div className="shrink-0 border-t border-gray-200 bg-white p-4">
+                {replies.length > 0 && (
+                  <div className="mb-2.5 flex flex-wrap gap-1.5">
+                    {replies.map(r => (
+                      <button
+                        key={r.id}
+                        onClick={() => setReply(p => p.trim() ? `${p}\n\n${r.body}` : r.body)}
+                        className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-medium text-gray-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                      >
+                        {r.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-end gap-3">
+                  <textarea
+                    value={reply}
+                    onChange={e => setReply(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+                    placeholder="Write a reply… (Enter to send, Shift+Enter for new line)"
+                    rows={3}
+                    className="flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] leading-6 text-gray-900 outline-none placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white focus:ring-1 focus:ring-indigo-100 transition-all"
+                  />
+                  <button
+                    onClick={sendReply}
+                    disabled={sending || !reply.trim()}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
+                  >
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="shrink-0 border-t border-gray-100 bg-gray-50 px-5 py-3 text-center text-[13px] text-gray-400">
+                This conversation is closed.
+              </div>
+            )}
           </div>
 
-          {/* Reply box */}
-          {sel.status !== "CLOSED" ? (
-            <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-4">
-              {/* Saved reply chips */}
-              {replies.length > 0 && (
-                <div className="mb-2.5 flex flex-wrap gap-1.5">
-                  {replies.map(r => (
-                    <button key={r.id} onClick={() => setReply(p => p.trim() ? `${p}\n\n${r.body}` : r.body)}
-                      className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-medium text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
-                      {r.title}
-                    </button>
+        ) : (
+          <div className="flex flex-1 items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <MessageSquare className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+              <p className="text-[14px] font-semibold text-gray-500">Select a conversation</p>
+              <p className="mt-1 text-[13px] text-gray-400">Choose one from the queue to open it here.</p>
+            </div>
+          </div>
+        )}
+
+        {/* RIGHT: Context panel ─────────────────────────────────────── */}
+        {sel && (
+          <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-l border-gray-200 bg-white">
+
+            {/* Requester */}
+            <div className="border-b border-gray-100 px-5 py-5">
+              <p className="mb-3 text-[9px] font-bold uppercase tracking-widest text-gray-400">Requester</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[14px] font-bold text-white">
+                  {uInit(sel)}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-gray-900">{uName(sel)}</p>
+                  <p className="truncate text-[11px] text-gray-400">{uEmail(sel)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ticket fields */}
+            <div className="border-b border-gray-100 px-5 py-4 space-y-4">
+              <FieldBlock label="Category"    value={sel.category} />
+              <FieldBlock label="Priority"    value={sel.priority} vClass={sel.priority === "URGENT" || sel.priority === "HIGH" ? "text-red-600 font-semibold" : ""} />
+              <FieldBlock label="Assistant"   value={sel.assistantState === "HANDOFF" ? "Handed off" : sel.assistantState === "ACTIVE" ? "Active" : sel.assistantState || "—"} />
+              <FieldBlock label="Assigned to" value={assignedName || "Unassigned"} />
+              <FieldBlock label="Created"     value={fmtDate(sel.createdAt)} />
+              {sel.firstAgentResponseAt && <FieldBlock label="First reply" value="Sent ✓" vClass="text-green-600" />}
+              {sla && <FieldBlock label="SLA" value={sla.label} vClass={sla.hot ? "text-red-600 font-semibold" : "text-amber-600"} />}
+            </div>
+
+            {/* Internal notes */}
+            <div className="border-b border-gray-100">
+              <button
+                onClick={() => setShowNotes(p => !p)}
+                className="flex w-full items-center justify-between px-5 py-3.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 transition-colors hover:text-gray-600"
+              >
+                <span className="flex items-center gap-1.5">
+                  <StickyNote className="h-3 w-3" />
+                  Notes {(sel.internalNotes?.length ?? 0) > 0 && `(${sel.internalNotes!.length})`}
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showNotes ? "rotate-180" : ""}`} />
+              </button>
+              {showNotes && (
+                <div className="px-5 pb-4 space-y-3">
+                  {(sel.internalNotes ?? []).map(n => (
+                    <div key={n.id} className="rounded-lg border border-amber-100 bg-amber-50 p-3">
+                      <p className="text-[12px] leading-5 text-gray-700">{n.content}</p>
+                      <p className="mt-1 text-[10px] text-gray-400">{n.authorName || "Team"} · {ago(n.createdAt)}</p>
+                    </div>
                   ))}
+                  <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder="Add a note…"
+                    rows={2}
+                    className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12px] outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+                  />
+                  <button
+                    onClick={saveNote}
+                    disabled={saving || !note.trim()}
+                    className="w-full rounded-lg bg-gray-800 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-gray-900 disabled:opacity-40"
+                  >
+                    {saving ? "Saving…" : "Save note"}
+                  </button>
                 </div>
               )}
-              <div className="flex items-end gap-3">
-                <textarea
-                  value={reply}
-                  onChange={e => setReply(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
-                  placeholder="Write a reply… (Enter to send)"
-                  rows={3}
-                  className="flex-1 resize-none rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-3 text-[14px] leading-6 text-gray-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-1 focus:ring-indigo-100 placeholder:text-gray-400 transition-all"
-                />
-                <button onClick={sendReply} disabled={sending || !reply.trim()}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-40">
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </button>
-              </div>
             </div>
-          ) : (
-            <div className="shrink-0 border-t border-gray-100 bg-gray-50 px-5 py-3 text-center text-[13px] text-gray-400">
-              This conversation is closed.
-            </div>
-          )}
-        </div>
 
-      ) : (
-        <div className="flex flex-1 items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <MessageSquare className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-            <p className="text-[14px] font-medium text-gray-500">Select a conversation</p>
-            <p className="mt-1 text-[12px] text-gray-400">Choose one from the list to open it here.</p>
-          </div>
-        </div>
-      )}
-
-      {/* ── RIGHT: Context panel ─────────────────────────────────────────── */}
-      {sel && (
-        <div className="flex w-60 shrink-0 flex-col overflow-y-auto border-l border-gray-200 bg-white">
-
-          {/* Customer */}
-          <div className="border-b border-gray-100 px-4 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-bold text-gray-600">
-                {uInit(sel)}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold text-gray-900">{uName(sel)}</p>
-                <p className="truncate text-[11px] text-gray-400">{uEmail(sel)}</p>
-              </div>
+            {/* Saved replies manager */}
+            <div className="px-5 py-4">
+              <button
+                onClick={() => setSrOpen(p => !p)}
+                className="flex w-full items-center justify-between text-[9px] font-bold uppercase tracking-widest text-gray-400 transition-colors hover:text-gray-600"
+              >
+                <span>Saved replies</span>
+                <Plus className={`h-3.5 w-3.5 transition-transform ${srOpen ? "rotate-45" : ""}`} />
+              </button>
+              {srOpen && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    value={srTitle}
+                    onChange={e => setSrTitle(e.target.value)}
+                    placeholder="Title"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-[12px] outline-none focus:border-indigo-300"
+                  />
+                  <textarea
+                    value={srBody}
+                    onChange={e => setSrBody(e.target.value)}
+                    placeholder="Reply text"
+                    rows={3}
+                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-1.5 text-[12px] outline-none focus:border-indigo-300"
+                  />
+                  <button
+                    onClick={createSR}
+                    disabled={!srTitle.trim() || !srBody.trim()}
+                    className="w-full rounded-lg bg-indigo-600 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
+                  >
+                    Create
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Ticket details */}
-          <div className="border-b border-gray-100 px-4 py-4 space-y-2.5">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Details</p>
-            <Row label="Status"   value={STATUS_LABEL[sel.status] || sel.status} />
-            <Row label="Priority" value={sel.priority} vClass={PRI_CLS[sel.priority]} />
-            <Row label="Category" value={sel.category} />
-            <Row label="Assigned" value={assignedName ? (assignedName.fullName || `${assignedName.first_name||""} ${assignedName.last_name||""}`.trim() || assignedName.email).trim() : "Unassigned"} />
-            <Row label="Created"  value={fmtDate(sel.createdAt)} />
-            <Row label="Bot"      value={sel.assistantState === "HANDOFF" ? "Handed off" : sel.assistantState === "ACTIVE" ? "Active" : sel.assistantState || "—"} />
-            {sel.firstAgentResponseAt && <Row label="1st reply" value="Sent ✓" vClass="text-green-600" />}
-            {sla && <Row label="SLA" value={sla.label} vClass={sla.hot ? "text-red-600 font-semibold" : "text-amber-600"} />}
-          </div>
-
-          {/* Internal notes */}
-          <div className="border-b border-gray-100">
-            <button onClick={() => setShowNotes(p => !p)}
-              className="flex w-full items-center justify-between px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">
-              <div className="flex items-center gap-1.5">
-                <StickyNote className="h-3 w-3" />
-                Notes {(sel.internalNotes?.length ?? 0) > 0 && `(${sel.internalNotes!.length})`}
-              </div>
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showNotes ? "rotate-180" : ""}`} />
-            </button>
-            {showNotes && (
-              <div className="px-4 pb-4 space-y-3">
-                {(sel.internalNotes ?? []).map(n => (
-                  <div key={n.id} className="rounded-md border border-gray-100 bg-gray-50 p-2.5">
-                    <p className="text-[12px] leading-5 text-gray-700">{n.content}</p>
-                    <p className="mt-1 text-[10px] text-gray-400">{n.authorName || "Team"} · {ago(n.createdAt)}</p>
-                  </div>
-                ))}
-                <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" rows={2}
-                  className="w-full resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-[12px] outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100" />
-                <button onClick={saveNote} disabled={saving || !note.trim()}
-                  className="w-full rounded-md bg-gray-800 py-1.5 text-[11px] font-semibold text-white hover:bg-gray-900 disabled:opacity-40 transition-colors">
-                  {saving ? "Saving…" : "Save note"}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Saved replies */}
-          <div className="px-4 py-3">
-            <button onClick={() => setSrOpen(p => !p)}
-              className="flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">
-              <span>Saved replies</span>
-              <Plus className={`h-3.5 w-3.5 transition-transform ${srOpen ? "rotate-45" : ""}`} />
-            </button>
-            {srOpen && (
-              <div className="mt-3 space-y-2">
-                <input value={srTitle} onChange={e => setSrTitle(e.target.value)} placeholder="Title"
-                  className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[12px] outline-none focus:border-indigo-400" />
-                <textarea value={srBody} onChange={e => setSrBody(e.target.value)} placeholder="Reply text" rows={3}
-                  className="w-full resize-none rounded-md border border-gray-200 px-3 py-1.5 text-[12px] outline-none focus:border-indigo-400" />
-                <button onClick={createSR} disabled={!srTitle.trim() || !srBody.trim()}
-                  className="w-full rounded-md bg-indigo-600 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-40">
-                  Create
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Row({ label, value, vClass = "" }: { label: string; value: string; vClass?: string }) {
+function MessageBlock({
+  label, labelCls, name, time, initial, avatarCls, bubbleCls, content,
+}: {
+  label: string; labelCls: string; name: string; time: string;
+  initial: string; avatarCls: string; bubbleCls: string; content: string;
+}) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="shrink-0 text-[11px] text-gray-400">{label}</span>
-      <span className={`truncate text-right text-[12px] text-gray-800 ${vClass}`}>{value}</span>
+    <div>
+      <div className="mb-2 flex items-center gap-2.5">
+        <span className={`rounded px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${labelCls}`}>
+          {label}
+        </span>
+        <span className="text-[11px] text-gray-400">
+          {name} {time ? `· ${time}` : ""}
+        </span>
+      </div>
+      <div className="flex items-start gap-3">
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${avatarCls}`}>
+          {initial}
+        </div>
+        <div className={`max-w-xl rounded-xl px-4 py-3 text-[14px] leading-6 ${bubbleCls}`}>
+          {content}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldBlock({ label, value, vClass = "" }: { label: string; value: string; vClass?: string }) {
+  return (
+    <div>
+      <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+      <p className={`text-[13px] font-semibold text-gray-900 ${vClass}`}>{value}</p>
     </div>
   );
 }
