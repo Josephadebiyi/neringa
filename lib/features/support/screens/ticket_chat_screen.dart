@@ -18,10 +18,27 @@ class TicketChatScreen extends ConsumerStatefulWidget {
 class _TicketChatScreenState extends ConsumerState<TicketChatScreen> {
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  ProviderSubscription<SupportState>? _supportSubscription;
 
   @override
   void initState() {
     super.initState();
+    _supportSubscription = ref.listenManual<SupportState>(
+      supportProvider,
+      (prev, next) {
+        final prevCount = prev?.activeTicket?.messages.length ?? 0;
+        final nextCount = next.activeTicket?.messages.length ?? 0;
+        if (nextCount > prevCount) _scrollToBottom();
+        if (!mounted) return;
+        if (next.agentJoinedMessage != null &&
+            next.agentJoinedMessage != prev?.agentJoinedMessage) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next.agentJoinedMessage!)),
+          );
+          ref.read(supportProvider.notifier).clearAgentJoinedMessage();
+        }
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(supportProvider.notifier).openTicket(widget.ticketId);
       _scrollToBottom();
@@ -30,6 +47,7 @@ class _TicketChatScreenState extends ConsumerState<TicketChatScreen> {
 
   @override
   void dispose() {
+    _supportSubscription?.close();
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     ref.read(supportProvider.notifier).closeActiveTicket();
@@ -60,20 +78,6 @@ class _TicketChatScreenState extends ConsumerState<TicketChatScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(supportProvider);
     final ticket = state.activeTicket;
-
-    // Scroll when new messages arrive
-    ref.listen(supportProvider, (prev, next) {
-      final prevCount = prev?.activeTicket?.messages.length ?? 0;
-      final nextCount = next.activeTicket?.messages.length ?? 0;
-      if (nextCount > prevCount) _scrollToBottom();
-      if (next.agentJoinedMessage != null &&
-          next.agentJoinedMessage != prev?.agentJoinedMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.agentJoinedMessage!)),
-        );
-        ref.read(supportProvider.notifier).clearAgentJoinedMessage();
-      }
-    });
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,

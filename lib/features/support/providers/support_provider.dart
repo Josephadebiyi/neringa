@@ -55,7 +55,7 @@ class SupportState {
 class SupportNotifier extends Notifier<SupportState> {
   final _service = SupportService.instance;
   late final _socket = SocketService.instance;
-  bool _listeningToSocket = false;
+  bool _isListeningToSocket = false;
 
   String _formatError(Object error) {
     if (error is DioException) {
@@ -65,12 +65,15 @@ class SupportNotifier extends Notifier<SupportState> {
   }
 
   @override
-  SupportState build() => const SupportState();
+  SupportState build() {
+    _listenSocket();
+    return const SupportState();
+  }
 
   void _listenSocket() {
-    if (_listeningToSocket) return;
-    _listeningToSocket = true;
+    if (_isListeningToSocket) return;
     _socket.addSupportListener(_onSupportMessage);
+    _isListeningToSocket = true;
   }
 
   void _onSupportMessage(Map<String, dynamic> data) {
@@ -78,11 +81,26 @@ class SupportNotifier extends Notifier<SupportState> {
       final ticketId = data['ticketId'] as String?;
       if (ticketId != null && state.activeTicket?.id == ticketId) {
         final agentName = (data['agentName'] as String?)?.trim();
+        final active = state.activeTicket;
         state = state.copyWith(
+          activeTicket: active?.copyWith(
+            status: 'IN_PROGRESS',
+            assistantState: 'HANDOFF',
+          ),
           agentJoinedMessage: agentName?.isNotEmpty == true
               ? '$agentName joined the chat'
               : 'A support agent joined the chat',
         );
+      }
+      if (ticketId != null) {
+        final tickets = state.tickets.map((t) {
+          if (t.id != ticketId) return t;
+          return t.copyWith(
+            status: 'IN_PROGRESS',
+            assistantState: 'HANDOFF',
+          );
+        }).toList();
+        state = state.copyWith(tickets: tickets);
       }
       return;
     }
@@ -105,16 +123,24 @@ class SupportNotifier extends Notifier<SupportState> {
 
     // Append to active ticket if open
     final active = state.activeTicket;
-    if (active != null && active.id == ticketId && !isDuplicate(active.messages)) {
-      state = state.copyWith(
-        activeTicket: active.copyWith(messages: [...active.messages, msg]),
+    if (active != null && active.id == ticketId) {
+      if (isDuplicate(active.messages)) return;
+      final updated = active.copyWith(
+        messages: [...active.messages, msg],
+        status: msg.sender == 'ADMIN' ? 'IN_PROGRESS' : active.status,
+        assistantState: msg.sender == 'ADMIN' ? 'HANDOFF' : active.assistantState,
       );
+      state = state.copyWith(activeTicket: updated);
     }
 
     // Update ticket list preview
     final tickets = state.tickets.map((t) {
       if (t.id != ticketId || isDuplicate(t.messages)) return t;
-      return t.copyWith(messages: [...t.messages, msg]);
+      return t.copyWith(
+        messages: [...t.messages, msg],
+        status: msg.sender == 'ADMIN' ? 'IN_PROGRESS' : t.status,
+        assistantState: msg.sender == 'ADMIN' ? 'HANDOFF' : t.assistantState,
+      );
     }).toList();
     state = state.copyWith(tickets: tickets);
   }
@@ -124,7 +150,6 @@ class SupportNotifier extends Notifier<SupportState> {
     try {
       final tickets = await _service.listTickets();
       state = state.copyWith(tickets: tickets, isLoading: false);
-      _listenSocket();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _formatError(e));
     }
@@ -134,8 +159,8 @@ class SupportNotifier extends Notifier<SupportState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final ticket = await _service.getTicket(id);
-      _socket.joinSupportTicket(id);
-      _listenSocket(); // ensure listener is registered even without loadTickets()
+      _listenSocket();
+      await _socket.joinSupportTicket(id);
       state = state.copyWith(activeTicket: ticket, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _formatError(e));
@@ -144,8 +169,11 @@ class SupportNotifier extends Notifier<SupportState> {
 
   void closeActiveTicket() {
     state = state.copyWith(clearActive: true);
-    _socket.removeSupportListener(_onSupportMessage);
-    _listeningToSocket = false;
+    _socket.leaveSupportTicket();
+    if (_isListeningToSocket) {
+      _socket.removeSupportListener(_onSupportMessage);
+      _isListeningToSocket = false;
+    }
   }
 
   void clearAgentJoinedMessage() {
@@ -159,13 +187,13 @@ class SupportNotifier extends Notifier<SupportState> {
   }) async {
     state = state.copyWith(isSending: true, clearError: true);
     try {
+      _listenSocket();
       final ticket = await _service.createTicket(
         subject: subject,
         description: description,
         category: category,
       );
-      _socket.joinSupportTicket(ticket.id);
-      _listenSocket(); // register listener immediately after ticket creation
+      await _socket.joinSupportTicket(ticket.id);
       state = state.copyWith(
         tickets: [ticket, ...state.tickets],
         activeTicket: ticket,

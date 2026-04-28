@@ -1,9 +1,11 @@
 // ignore_for_file: prefer_const_constructors
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -335,6 +337,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
         return _StepEmail(
           ctrl: _emailCtrl,
           onGoogleSignIn: _handleGoogleSignIn,
+          onAppleSignIn: Platform.isIOS ? _handleAppleSignIn : null,
           isCheckingEmail: _isCheckingEmail,
           emailFeedback: _emailFeedback,
           emailAvailable: _emailAvailable,
@@ -379,6 +382,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
   Future<void> _handleGoogleSignIn() async {
     try {
       await ref.read(authProvider.notifier).googleSignIn();
+      if (mounted) {
+        final isKycApproved = ref.read(authProvider).user?.isKycApproved ?? false;
+        context.go(isKycApproved ? '/home' : '/kyc?from=onboarding');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      }
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    try {
+      await ref.read(authProvider.notifier).appleSignIn();
       if (mounted) {
         final isKycApproved = ref.read(authProvider).user?.isKycApproved ?? false;
         context.go(isKycApproved ? '/home' : '/kyc?from=onboarding');
@@ -436,16 +453,27 @@ class _StepInput extends StatelessWidget {
       );
 }
 
+const _kGoogleGSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+</svg>
+''';
+
 class _StepEmail extends ConsumerWidget {
   const _StepEmail({
     required this.ctrl,
     required this.onGoogleSignIn,
+    this.onAppleSignIn,
     required this.isCheckingEmail,
     required this.emailFeedback,
     required this.emailAvailable,
   });
   final TextEditingController ctrl;
   final VoidCallback onGoogleSignIn;
+  final VoidCallback? onAppleSignIn;
   final bool isCheckingEmail;
   final String? emailFeedback;
   final bool emailAvailable;
@@ -454,7 +482,7 @@ class _StepEmail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final isLoading = ref.watch(authProvider).isLoading;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -471,21 +499,13 @@ class _StepEmail extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
         if (isCheckingEmail)
-          Text(
-            l10n.checkingEmail,
-            style: AppTextStyles.bodySm.copyWith(
-              color: AppColors.gray500,
-              fontWeight: FontWeight.w600,
-            ),
-          )
+          Text(l10n.checkingEmail,
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w600))
         else if (emailFeedback != null)
-          Text(
-            emailFeedback!,
-            style: AppTextStyles.bodySm.copyWith(
-              color: emailAvailable ? AppColors.success : AppColors.error,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text(emailFeedback!,
+              style: AppTextStyles.bodySm.copyWith(
+                  color: emailAvailable ? AppColors.success : AppColors.error,
+                  fontWeight: FontWeight.w700)),
         const SizedBox(height: 24),
         Row(children: [
           const Expanded(child: Divider()),
@@ -496,33 +516,66 @@ class _StepEmail extends ConsumerWidget {
           const Expanded(child: Divider()),
         ]),
         const SizedBox(height: 16),
-        Container(
+
+        // Google sign-up button
+        SizedBox(
           width: double.infinity,
-          height: 60,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFEEEEF0), width: 2),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: TextButton(
+          height: 56,
+          child: ElevatedButton(
             onPressed: isLoading ? null : onGoogleSignIn,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isLoading)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.black)),
-                  )
-                else
-                  const Icon(Icons.g_mobiledata_rounded, size: 22, color: Colors.black),
-                const SizedBox(width: 12),
-                Text(l10n.continueWithGoogle,
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.black)),
-              ],
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1F1F1F),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+                side: const BorderSide(color: Color(0xFFDDDEE2), width: 1.5),
+              ),
+              elevation: 0,
             ),
+            child: isLoading
+                ? const SizedBox(width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1F1F1F)))
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.string(_kGoogleGSvg, width: 22, height: 22),
+                      const SizedBox(width: 12),
+                      Text(l10n.continueWithGoogle,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1F1F1F))),
+                    ],
+                  ),
           ),
         ),
+
+        // Apple sign-up button (iOS only)
+        if (onAppleSignIn != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: isLoading ? null : onAppleSignIn,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+                elevation: 0,
+              ),
+              child: isLoading
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.apple, size: 22, color: Colors.white),
+                        SizedBox(width: 12),
+                        Text('Continue with Apple',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ],
+                    ),
+            ),
+          ),
+        ],
       ],
     );
   }

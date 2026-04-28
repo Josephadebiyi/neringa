@@ -13,6 +13,7 @@ import 'l10n/app_localizations.dart';
 import 'shared/providers/app_lock_provider.dart';
 import 'shared/providers/locale_provider.dart';
 import 'shared/services/push_notification_service.dart';
+import 'shared/services/socket_service.dart';
 
 class BagoApp extends ConsumerWidget {
   const BagoApp({super.key});
@@ -117,6 +118,8 @@ class _NotificationPromptHostState
   String? _lastPromptedUserId;
   bool _notificationPromptOpen = false;
   StreamSubscription<String>? _chatTapSub;
+  StreamSubscription<String>? _supportTapSub;
+  bool _supportListenerAttached = false;
 
   @override
   void initState() {
@@ -127,11 +130,23 @@ class _NotificationPromptHostState
       final router = ref.read(routerProvider);
       router.go('/messages/$conversationId');
     });
+    _supportTapSub = PushNotificationService.onSupportTap.listen((ticketId) {
+      final auth = ref.read(authProvider);
+      if (!auth.isLoggedIn) return;
+      final router = ref.read(routerProvider);
+      router.go('/profile/support/ticket/$ticketId');
+    });
+    _attachSupportBannerListener();
   }
 
   @override
   void dispose() {
     _chatTapSub?.cancel();
+    _supportTapSub?.cancel();
+    if (_supportListenerAttached) {
+      SocketService.instance.removeSupportListener(_handleForegroundSupportEvent);
+      _supportListenerAttached = false;
+    }
     super.dispose();
   }
 
@@ -152,6 +167,64 @@ class _NotificationPromptHostState
     });
 
     return widget.child;
+  }
+
+  void _attachSupportBannerListener() {
+    if (_supportListenerAttached) return;
+    SocketService.instance.addSupportListener(_handleForegroundSupportEvent);
+    _supportListenerAttached = true;
+  }
+
+  void _handleForegroundSupportEvent(Map<String, dynamic> data) {
+    if (!mounted) return;
+    if (data['_event'] == 'agent_joined') return;
+
+    final ticketId = data['ticketId']?.toString() ?? '';
+    final rawMessage = data['message'];
+    if (ticketId.isEmpty || rawMessage is! Map) return;
+
+    final sender = rawMessage['sender']?.toString() ?? '';
+    if (sender != 'ADMIN') return;
+
+    final auth = ref.read(authProvider);
+    if (!auth.isLoggedIn) return;
+
+    final router = ref.read(routerProvider);
+    final currentLocation =
+        router.routerDelegate.currentConfiguration.uri.toString();
+    if (currentLocation == '/profile/support/ticket/$ticketId') return;
+
+    final senderName =
+        rawMessage['senderName']?.toString().trim().isNotEmpty == true
+            ? rawMessage['senderName'].toString().trim()
+            : data['senderName']?.toString().trim().isNotEmpty == true
+                ? data['senderName'].toString().trim()
+                : 'Bago support';
+    final content = rawMessage['content']?.toString().trim() ?? '';
+
+    final bannerContext = router.routerDelegate.navigatorKey.currentContext;
+    final messenger =
+        bannerContext == null ? null : ScaffoldMessenger.maybeOf(bannerContext);
+    if (messenger == null) return;
+
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            content.isEmpty
+                ? '$senderName sent a support reply'
+                : '$senderName: $content',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          action: SnackBarAction(
+            label: 'Open',
+            onPressed: () => router.go('/profile/support/ticket/$ticketId'),
+          ),
+        ),
+      );
   }
 
   void _scheduleNotificationPrompt(UserModel user) {

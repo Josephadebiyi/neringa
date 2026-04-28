@@ -141,6 +141,31 @@ const PRI_PILL: Record<string, string> = {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+function formatAbsoluteTime(value: string) {
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function messageSpeakerLabel(message: TicketMessage, ticket: Ticket, agentName: string) {
+  if (message.sender === "ADMIN") {
+    return message.senderName?.trim() || agentName;
+  }
+  if (message.sender === "ASSISTANT") {
+    return message.senderName?.trim() || "Bago Assistant";
+  }
+  return uName(ticket);
+}
+
+function messageRoleLabel(message: TicketMessage) {
+  if (message.sender === "ADMIN") return "Teammate";
+  if (message.sender === "ASSISTANT") return "Assistant";
+  return "Customer";
+}
+
 export default function Support() {
   const { user } = useAuth();
   const me = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || "Agent" : "Agent";

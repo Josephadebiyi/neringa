@@ -21,9 +21,11 @@ class PushNotificationService {
   String? _pendingToken;
 
   static final _tapController = StreamController<String>.broadcast();
+  static final _supportTapController = StreamController<String>.broadcast();
 
   /// Emits a conversationId whenever the user taps a chat push notification.
   static Stream<String> get onChatTap => _tapController.stream;
+  static Stream<String> get onSupportTap => _supportTapController.stream;
 
   void startListening() {
     if (_listening) return;
@@ -129,9 +131,15 @@ class PushNotificationService {
         final args = call.arguments as Map?;
         final type = args?['type']?.toString() ?? '';
         final conversationId = args?['conversationId']?.toString() ?? '';
-        debugPrint('🔔 Notification tapped — type: $type conversationId: $conversationId');
+        final ticketId = args?['ticketId']?.toString() ?? '';
+        debugPrint(
+          '🔔 Notification tapped — type: $type conversationId: $conversationId ticketId: $ticketId',
+        );
         if (type == 'chat_message' && conversationId.isNotEmpty) {
           _tapController.add(conversationId);
+        }
+        if (type == 'support_message' && ticketId.isNotEmpty) {
+          _supportTapController.add(ticketId);
         }
         break;
       default:

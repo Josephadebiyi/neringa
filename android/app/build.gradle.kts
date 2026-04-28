@@ -72,6 +72,14 @@ android {
     }
 }
 
+// Some local Android SDK installs fail on the native debug-symbol stripping
+// step. Disabling that task keeps the release bundle buildable for Play upload.
+tasks.configureEach {
+    if (name == "stripReleaseDebugSymbols") {
+        enabled = false
+    }
+}
+
 flutter {
     source = "../.."
 }

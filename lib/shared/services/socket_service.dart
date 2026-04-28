@@ -18,6 +18,7 @@ class SocketService {
   bool _connected = false;
   String? _currentUserId;
   String? _activeConversationId;
+  String? _activeSupportTicketId;
 
   final List<OnNewMessage> _messageListeners = [];
   final List<OnConversationUpdate> _conversationListeners = [];
@@ -65,6 +66,11 @@ class SocketService {
         _socket!.emit('join_conversation', _activeConversationId);
         debugPrint(
             'SocketService: Rejoined conversation $_activeConversationId');
+      }
+      if (_activeSupportTicketId != null) {
+        _socket!.emit('join_support_ticket', _activeSupportTicketId);
+        debugPrint(
+            'SocketService: Rejoined support ticket $_activeSupportTicketId');
       }
     });
 
@@ -207,10 +213,19 @@ class SocketService {
     _tripUpdateListeners.remove(listener);
   }
 
-  void joinSupportTicket(String ticketId) {
+  Future<void> joinSupportTicket(String ticketId) async {
+    _activeSupportTicketId = ticketId;
+    if (!_connected || _socket == null) {
+      await connect();
+    }
     if (_connected && _socket != null) {
       _socket!.emit('join_support_ticket', ticketId);
+      debugPrint('SocketService: Joined support ticket $ticketId');
     }
+  }
+
+  void leaveSupportTicket() {
+    _activeSupportTicketId = null;
   }
 
   void addSupportListener(OnSupportMessage listener) {
@@ -229,6 +244,7 @@ class SocketService {
     _connected = false;
     _currentUserId = null;
     _activeConversationId = null;
+    _activeSupportTicketId = null;
     _messageListeners.clear();
     _conversationListeners.clear();
     _tripUpdateListeners.clear();
