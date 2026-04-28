@@ -163,8 +163,8 @@ export const addTicketMessage = async (req, res) => {
       updated = await queryOne(
         `UPDATE public.support_tickets
          SET messages = $1,
-             status = $2,
-             assistant_state = CASE WHEN $2 = 'IN_PROGRESS' THEN 'HANDOFF' ELSE assistant_state END,
+             status = $2::text,
+             assistant_state = CASE WHEN $2::text = 'IN_PROGRESS' THEN 'HANDOFF' ELSE assistant_state END,
              assigned_to = COALESCE(assigned_to, $4),
              first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
              last_agent_at = NOW(),
