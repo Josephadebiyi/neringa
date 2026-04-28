@@ -42,9 +42,20 @@ export const dashboard = async (req, res, next) => {
       safeQueryOne(`select count(*)::int as total from public.packages`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.shipment_requests`, [], { total: 0 }),
       safeQueryOne(`
-        select coalesce(sum(insurance_cost), 0) as total_income
-        from public.shipment_requests
-        where status in ('accepted', 'intransit', 'delivering', 'completed')
+        SELECT COALESCE(
+          SUM(
+            CASE
+              WHEN sr.currency IS NULL OR sr.currency = 'USD'
+                THEN COALESCE(sr.amount, sr.insurance_cost, 0)
+              ELSE
+                COALESCE(sr.amount, sr.insurance_cost, 0)
+                / NULLIF((er.rates->>sr.currency)::numeric, 0)
+            END
+          ), 0
+        ) AS total_income
+        FROM public.shipment_requests sr
+        LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
+        WHERE sr.status IN ('accepted', 'intransit', 'delivering', 'completed')
       `, [], { total_income: 0 }),
       safeQuery(`
         select status as name, count(*)::int as count
