@@ -157,20 +157,25 @@ export const addTicketMessage = async (req, res) => {
     const newMsg = { sender, senderId, senderName, content, timestamp: new Date() };
     messages.push(newMsg);
 
-    const newStatus = sender === 'ADMIN' ? 'IN_PROGRESS' : ticket.status;
+    // Compute derived values in JS so each SQL param is used only once,
+    // avoiding Postgres type-inference conflicts with enum columns.
+    const newStatus        = sender === 'ADMIN' ? 'IN_PROGRESS' : ticket.status;
+    const newAssistantState = sender === 'ADMIN' ? 'HANDOFF' : (ticket.assistant_state || 'ACTIVE');
+    const assignedTo       = senderId || req.admin?.id || null;
+
     let updated;
     try {
       updated = await queryOne(
         `UPDATE public.support_tickets
          SET messages = $1,
-             status = $2::text,
-             assistant_state = CASE WHEN $2::text = 'IN_PROGRESS' THEN 'HANDOFF' ELSE assistant_state END,
+             status = $2,
+             assistant_state = $5,
              assigned_to = COALESCE(assigned_to, $4),
              first_agent_response_at = COALESCE(first_agent_response_at, NOW()),
              last_agent_at = NOW(),
              updated_at = NOW()
          WHERE id = $3 RETURNING *`,
-        [JSON.stringify(messages), newStatus, req.params.id, senderId || req.admin?.id || null]
+        [JSON.stringify(messages), newStatus, req.params.id, assignedTo, newAssistantState]
       );
     } catch (schemaErr) {
       if (!isSchemaCompatibilityError(schemaErr)) throw schemaErr;
