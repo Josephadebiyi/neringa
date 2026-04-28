@@ -53,6 +53,7 @@ import {
   deleteTrip
 } from '../controllers/AdminControllers/TripManagement.js';
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
+import { getAdminProfile, updateAdminProfile } from '../controllers/AdminControllers/AdminProfileController.js';
 import { upload } from '../utils/multer.js';
 import {
   getBanners,
@@ -142,6 +143,10 @@ AdminRouter.delete("/admin-trips/:id", adminAuthenticated, deleteTrip);
 
 // General Admin Asset Upload (for promo emails etc)
 AdminRouter.post("/upload", adminAuthenticated, upload.single('file'), adminUploadFile);
+
+// Admin Profile
+AdminRouter.get("/profile", adminAuthenticated, getAdminProfile);
+AdminRouter.put("/profile", adminAuthenticated, upload.single('profileImage'), updateAdminProfile);
 
 // Promotional Banners
 AdminRouter.get("/banners", adminAuthenticated, getBanners);

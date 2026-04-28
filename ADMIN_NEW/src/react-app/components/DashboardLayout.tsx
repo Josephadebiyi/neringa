@@ -59,6 +59,7 @@ const navItems: NavItem[] = [
   { icon: CreditCard,      label: "Withdrawals",        path: "/withdrawals" },
   { icon: Send,            label: "Broadcast Center",   path: "/push-notification" },
   { icon: ImagePlay,       label: "Promo Banners",      path: "/banners" },
+  { icon: User,            label: "My Profile",         path: "/profile" },
   { icon: BarChart,        label: "Analytics",          path: "/analytics" },
   { icon: Settings,        label: "System Settings",    path: "/settings" },
 ];

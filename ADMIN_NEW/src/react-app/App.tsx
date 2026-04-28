@@ -26,6 +26,7 @@ import TripsPage from "./pages/Trips"
 import PromoCodesPage from "./pages/PromoCodes"
 import OrdersPage from "./pages/Orders"
 import BannersPage from "./pages/Banners"
+import ProfilePage from "./pages/Profile"
 
 export default function App() {
   return (
@@ -171,6 +172,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <BannersPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <ProfilePage />
                 </DashboardLayout>
               </ProtectedRoute>
             }
