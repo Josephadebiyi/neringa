@@ -209,12 +209,30 @@ class SupportNotifier extends Notifier<SupportState> {
   Future<void> sendMessage(String content) async {
     final ticket = state.activeTicket;
     if (ticket == null) return;
-    state = state.copyWith(isSending: true);
+
+    // Optimistic update — show the message immediately
+    final optimistic = SupportMessage(
+      sender: 'USER',
+      senderId: '',
+      content: content,
+      timestamp: DateTime.now(),
+    );
+    state = state.copyWith(
+      isSending: true,
+      activeTicket: ticket.copyWith(messages: [...ticket.messages, optimistic]),
+    );
+
     try {
       final updated = await _service.sendMessage(ticket.id, content);
+      // Replace with authoritative server state (includes assistant reply if any)
       state = state.copyWith(activeTicket: updated, isSending: false);
     } catch (e) {
-      state = state.copyWith(isSending: false, error: _formatError(e));
+      // Revert optimistic message and surface the error
+      state = state.copyWith(
+        isSending: false,
+        error: _formatError(e),
+        activeTicket: ticket,
+      );
     }
   }
 }

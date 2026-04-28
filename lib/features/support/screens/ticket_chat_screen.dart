@@ -37,6 +37,14 @@ class _TicketChatScreenState extends ConsumerState<TicketChatScreen> {
           );
           ref.read(supportProvider.notifier).clearAgentJoinedMessage();
         }
+        if (next.error != null && next.error != prev?.error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.error!),
+              backgroundColor: Colors.red.shade700,
+            ),
+          );
+        }
       },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {

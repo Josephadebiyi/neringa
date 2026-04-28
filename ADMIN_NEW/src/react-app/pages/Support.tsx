@@ -266,10 +266,19 @@ export default function Support() {
     setSending(true); setReply("");
     try {
       const d = await replyToTicket(sel._id, txt, me);
-      // Use authoritative messages from API response — avoids optimistic/socket timestamp mismatch
-      if (d?.success && d?.data?.messages) {
-        setSel(p => p ? { ...p, messages: d.data.messages } : p);
-        setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: d.data.messages } : t));
+      if (d?.success && d?.data?.messages?.length) {
+        // Append only the new admin message (last item) — don't replace the whole array,
+        // otherwise user messages that arrived via socket during the in-flight request get wiped.
+        const newMsg: TicketMessage = d.data.messages[d.data.messages.length - 1];
+        const appendIfNew = (ms: TicketMessage[]) => {
+          const already = ms.some(m =>
+            m.content === newMsg.content && m.sender === newMsg.sender &&
+            Math.abs(new Date(m.timestamp).getTime() - new Date(newMsg.timestamp).getTime()) < 10_000
+          );
+          return already ? ms : [...ms, newMsg];
+        };
+        setSel(p => p ? { ...p, messages: appendIfNew(msgs(p)) } : p);
+        setTickets(p => p.map(t => t._id === sel._id ? { ...t, messages: appendIfNew(msgs(t)) } : t));
       }
     }
     catch (e: any) { push(e?.message || "Failed to send.", false); }
