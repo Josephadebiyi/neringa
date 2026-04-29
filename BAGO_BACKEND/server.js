@@ -18,6 +18,7 @@ import AdminRouter from './AdminRouter/AdminRouter.js';
 import Stripe from 'stripe';
 import priceRoutes from "./AdminRouter/priceperkgRoute.js";
 import { query as pgQuery, queryOne } from './lib/postgres/db.js';
+import { markKycApproved } from './lib/postgres/accounts.js';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
@@ -1814,10 +1815,9 @@ app.get("/api/bago/kyc/status", isAuthenticated, async (req, res) => {
 
           // Sync DIDIT status to our database
           if (diditStatus === 'approved') {
-            await queryOne(
-              `UPDATE public.profiles SET kyc_status = 'approved', kyc_verified_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id`,
-              [user.id]
-            );
+            await markKycApproved(user.id, {
+              kycVerifiedData: diditData,
+            });
             user.kycStatus = 'approved'; // update local object so response is correct
             console.log(`✅ User ${user.email} KYC auto-approved from DIDIT`);
 
@@ -1834,6 +1834,14 @@ app.get("/api/bago/kyc/status", isAuthenticated, async (req, res) => {
               `UPDATE public.profiles SET kyc_status = 'declined', updated_at = NOW() WHERE id = $1 RETURNING id`,
               [user.id]
             );
+            await pgQuery(
+              `UPDATE public.kyc_verifications
+               SET status = 'declined',
+                   review_notes = 'Declined via DIDIT polling sync',
+                   updated_at = timezone('utc', now())
+               WHERE user_id = $1`,
+              [user.id]
+            ).catch(() => {});
             user.kycStatus = 'declined';
             console.log(`❌ User ${user.email} KYC declined from DIDIT`);
 

@@ -6,20 +6,118 @@ import cloudinary from "cloudinary";
 import fs from "fs";
 import path from "path";
 import dotenv from 'dotenv';
+import { markKycApproved } from "../lib/postgres/accounts.js";
 dotenv.config();
+
+async function fetchDiditSessionStatus(sessionId) {
+  if (!sessionId) {
+    throw new Error('No DIDIT session ID found for this user');
+  }
+  if (!DIDIT_API_KEY) {
+    throw new Error('DIDIT_API_KEY is not configured');
+  }
+
+  const response = await fetch(`https://verification.didit.me/v3/session/${sessionId}`, {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      'x-api-key': DIDIT_API_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Didit session lookup failed (${response.status}): ${body || response.statusText}`);
+  }
+
+  return response.json();
+}
 
 // Admin can only decline KYC — approvals come exclusively from DIDIT webhook
 export const Verifykyc = async (req, res, next) => {
   const { userId, status } = req.body;
 
-  if (status === "verify" || status === "approved") {
-    return res.status(403).json({
-      success: false,
-      message: "Manual KYC approval is disabled. Approvals are processed automatically by Didit.",
-    });
-  }
-
   try {
+    if (status === 'sync' || status === 'resync') {
+      const profile = await queryOne(
+        `SELECT id, email, didit_session_id as "diditSessionId", kyc_status as "kycStatus"
+         FROM public.profiles
+         WHERE id = $1`,
+        [userId],
+      );
+
+      if (!profile) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+
+      const diditData = await fetchDiditSessionStatus(profile.diditSessionId);
+      const diditStatus = String(diditData?.status || '').toLowerCase();
+
+      if (diditStatus === 'approved') {
+        await markKycApproved(profile.id, {
+          kycVerifiedData: diditData,
+        });
+
+        const syncedUser = await queryOne(
+          `SELECT id, email, kyc_status as "kycStatus", status
+           FROM public.profiles
+           WHERE id = $1`,
+          [profile.id],
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: "KYC synced from Didit and approved",
+          diditStatus,
+          data: syncedUser,
+        });
+      }
+
+      if (diditStatus === 'declined' || diditStatus === 'rejected') {
+        await query(
+          `
+            UPDATE public.profiles
+            SET kyc_status = 'declined',
+                kyc_failure_reason = 'Document verification was declined by the verification provider',
+                updated_at = NOW()
+            WHERE id = $1
+          `,
+          [profile.id],
+        );
+
+        await query(
+          `
+            UPDATE public.kyc_verifications
+            SET status = 'declined',
+                review_notes = 'Declined via Didit sync',
+                updated_at = timezone('utc', now())
+            WHERE user_id = $1
+          `,
+          [profile.id],
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: "KYC synced from Didit and remains declined",
+          diditStatus,
+          data: { id: profile.id, email: profile.email, kycStatus: 'declined' },
+        });
+      }
+
+      return res.status(409).json({
+        success: false,
+        message: `Didit session is still ${diditStatus || 'pending'}. No approval was applied.`,
+        diditStatus: diditStatus || 'pending',
+      });
+    }
+
+    if (status === "verify" || status === "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Manual KYC approval is disabled. Use sync/resync to confirm the latest Didit decision.",
+      });
+    }
+
     const fields = [];
     const values = [];
     let idx = 1;
