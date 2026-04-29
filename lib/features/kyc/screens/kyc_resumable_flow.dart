@@ -58,6 +58,17 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
     try {
       final response = await ApiService.instance.post(ApiConstants.kycSession, data: {});
       final data = _extractMap(response.data);
+
+      // Backend returns {status:'approved'} when already verified — navigate out immediately
+      final statusField = _extractFirstString(data, const ['status', 'kycStatus']);
+      if (statusField == 'approved') {
+        _hasCompleted = true;
+        await ref.read(authProvider.notifier).refreshProfile();
+        if (!mounted) return;
+        context.go('/profile');
+        return;
+      }
+
       final url = _extractFirstString(
         data,
         const ['sessionUrl', 'url', 'link', 'redirectUrl', 'verificationUrl'],
