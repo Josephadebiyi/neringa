@@ -1,5 +1,6 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { findProfileById, getWalletByUserId } from './profiles.js';
+import { convertCurrency } from '../../services/currencyConverter.js';
 
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
@@ -339,14 +340,21 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
     const walletResult = await client.query(`select id, currency from public.wallet_accounts where user_id = $1 for update`, [request.traveler_id]);
     const wallet = walletResult.rows[0];
     if (wallet) {
+      const requestCurrency = (request.currency || 'USD').toUpperCase();
+      const walletCurrency = (wallet.currency || 'USD').toUpperCase();
+      const rawAmount = toNumber(request.amount);
+      const escrowAmount = requestCurrency !== walletCurrency
+        ? await convertCurrency(rawAmount, requestCurrency, walletCurrency)
+        : rawAmount;
+
       await client.query(
         `update public.wallet_accounts set escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
-        [request.traveler_id, request.amount],
+        [request.traveler_id, escrowAmount],
       );
       await client.query(
         `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
          values ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
-        [wallet.id, request.traveler_id, request.id, request.trip_id, request.amount, request.currency || wallet.currency || 'USD', `Escrow hold for Request ${request.tracking_number || request.id}`, { providerReference, provider }],
+        [wallet.id, request.traveler_id, request.id, request.trip_id, escrowAmount, walletCurrency, `Escrow hold for Request ${request.tracking_number || request.id}`, { providerReference, provider, originalAmount: rawAmount, originalCurrency: requestCurrency }],
       );
     }
 

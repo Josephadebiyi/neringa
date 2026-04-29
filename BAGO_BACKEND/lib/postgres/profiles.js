@@ -41,6 +41,7 @@ function normalizeProfileRow(row) {
     balance: row.available_balance ?? 0,
     escrowBalance: row.escrow_balance ?? 0,
     walletBalance: row.available_balance ?? 0,
+    walletCurrency: row.wallet_currency || row.preferred_currency || 'USD',
     failed_login_attempts: row.failed_login_attempts ?? 0,
     locked_until: row.locked_until ?? null,
   };

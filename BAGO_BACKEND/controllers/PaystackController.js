@@ -75,29 +75,32 @@ export const verifyPaystackPayment = async (req, res) => {
     if (result.success && result.data.metadata?.requestId) {
       const requestId = result.data.metadata.requestId;
 
-      // Update request payment status in Postgres
       const updatedRequest = await queryOne(
         `UPDATE public.shipment_requests
-         SET payment_method = 'paystack',
-             payment_status = 'paid',
-             payment_reference = $2,
+         SET payment_info = $2,
              updated_at = NOW()
          WHERE id = $1
-         RETURNING id, traveler_id, trip_id, amount`,
-        [requestId, reference]
+         RETURNING id, traveler_id, trip_id, amount, currency`,
+        [requestId, { method: 'paystack', status: 'paid', gateway: 'paystack', requestId: reference }]
       );
 
       if (updatedRequest) {
-        // Add to traveler's escrow balance (wallet_accounts is the source of truth)
-        await pgQuery(
-          `UPDATE public.wallet_accounts
-           SET escrow_balance = escrow_balance + $2,
-               updated_at = NOW()
-           WHERE user_id = $1`,
-          [updatedRequest.traveler_id, updatedRequest.amount || 0]
+        const wallet = await queryOne(
+          `SELECT currency FROM public.wallet_accounts WHERE user_id = $1`,
+          [updatedRequest.traveler_id]
         );
-        console.log(`🔒 Escrowed ${updatedRequest.amount} for traveler via Paystack verify`);
+        const walletCurrency = wallet?.currency || 'USD';
+        const requestCurrency = updatedRequest.currency || 'NGN';
+        const rawAmount = Number(updatedRequest.amount || 0);
+        const escrowAmount = requestCurrency !== walletCurrency
+          ? await convertCurrency(rawAmount, requestCurrency, walletCurrency)
+          : rawAmount;
 
+        await pgQuery(
+          `UPDATE public.wallet_accounts SET escrow_balance = escrow_balance + $2, updated_at = NOW() WHERE user_id = $1`,
+          [updatedRequest.traveler_id, escrowAmount]
+        );
+        console.log(`🔒 Escrowed ${escrowAmount} ${walletCurrency} (from ${rawAmount} ${requestCurrency}) for traveler via Paystack verify`);
       }
     }
 
@@ -456,29 +459,34 @@ export const paystackWebhook = async (req, res) => {
 
 async function handleSuccessfulPayment(data) {
   try {
-    const { reference, amount, metadata } = data;
+    const { reference, metadata } = data;
 
     if (metadata?.requestId) {
       const updatedRequest = await queryOne(
         `UPDATE public.shipment_requests
-         SET payment_method = 'paystack',
-             payment_status = 'paid',
-             payment_reference = $2,
-             updated_at = NOW()
+         SET payment_info = $2, updated_at = NOW()
          WHERE id = $1
-         RETURNING traveler_id, trip_id, amount`,
-        [metadata.requestId, reference]
+         RETURNING id, traveler_id, trip_id, amount, currency`,
+        [metadata.requestId, { method: 'paystack', status: 'paid', gateway: 'paystack', requestId: reference }]
       );
 
       if (updatedRequest) {
-        await pgQuery(
-          `UPDATE public.wallet_accounts
-           SET escrow_balance = escrow_balance + $2, updated_at = NOW()
-           WHERE user_id = $1`,
-          [updatedRequest.traveler_id, updatedRequest.amount || 0]
+        const wallet = await queryOne(
+          `SELECT currency FROM public.wallet_accounts WHERE user_id = $1`,
+          [updatedRequest.traveler_id]
         );
-        console.log(`🔒 Escrowed $${updatedRequest.amount} via Paystack webhook`);
+        const walletCurrency = wallet?.currency || 'USD';
+        const requestCurrency = updatedRequest.currency || 'NGN';
+        const rawAmount = Number(updatedRequest.amount || 0);
+        const escrowAmount = requestCurrency !== walletCurrency
+          ? await convertCurrency(rawAmount, requestCurrency, walletCurrency)
+          : rawAmount;
 
+        await pgQuery(
+          `UPDATE public.wallet_accounts SET escrow_balance = escrow_balance + $2, updated_at = NOW() WHERE user_id = $1`,
+          [updatedRequest.traveler_id, escrowAmount]
+        );
+        console.log(`🔒 Escrowed ${escrowAmount} ${walletCurrency} (from ${rawAmount} ${requestCurrency}) via Paystack webhook`);
       }
 
       console.log(`✅ Payment confirmed for request ${metadata.requestId}`);

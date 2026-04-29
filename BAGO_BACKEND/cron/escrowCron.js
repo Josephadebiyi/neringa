@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { query as pgQuery } from "../lib/postgres/db.js";
+import { convertCurrency } from "../services/currencyConverter.js";
 
 export const startEscrowAutoRelease = () => {
   // Run every hour
@@ -10,7 +11,7 @@ export const startEscrowAutoRelease = () => {
       // Find completed requests with proof, sender hasn't confirmed, not yet auto-released
       // Note: DB enum uses 'completed' (not 'delivered') for delivered shipments
       const eligible = await pgQuery(
-        `SELECT id, traveler_id, sender_id, amount, updated_at
+        `SELECT id, traveler_id, sender_id, amount, currency, updated_at
          FROM public.shipment_requests
          WHERE sender_proof_url IS NOT NULL
            AND (sender_received IS NULL OR sender_received = false)
@@ -32,7 +33,22 @@ export const startEscrowAutoRelease = () => {
         // Wait at least 48 hours since last update
         if (hoursPassed < 48) continue;
 
-        const amount = parseFloat(req.amount) || 0;
+        // Use the actual escrowed amount from wallet_transactions (already in wallet currency)
+        const escrowTx = await pgQuery(
+          `SELECT wt.amount, wt.currency FROM public.wallet_transactions wt
+           WHERE wt.request_id = $1 AND wt.user_id = $2 AND wt.type = 'escrow_hold'
+           ORDER BY wt.created_at DESC LIMIT 1`,
+          [req.id, req.traveler_id]
+        );
+        let amount = escrowTx.rows[0] ? parseFloat(escrowTx.rows[0].amount) : 0;
+        if (!amount) {
+          // Fallback: convert request amount to wallet currency
+          const walletRow = await pgQuery(`SELECT currency FROM public.wallet_accounts WHERE user_id=$1`, [req.traveler_id]);
+          const walletCurrency = walletRow.rows[0]?.currency || 'USD';
+          const reqCurrency = (req.currency || 'USD').toUpperCase();
+          const raw = parseFloat(req.amount) || 0;
+          amount = reqCurrency !== walletCurrency ? await convertCurrency(raw, reqCurrency, walletCurrency) : raw;
+        }
         if (amount <= 0) continue;
 
         // Transfer escrow → traveler available balance (wallet_accounts is source of truth)

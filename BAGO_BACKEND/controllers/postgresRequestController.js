@@ -143,12 +143,11 @@ export async function RequestPackage(req, res) {
       const provider = (paymentProvider || 'paystack').toLowerCase();
       if (provider === 'paystack') {
         const verification = await verifyPaystackPaymentRef(paymentReference);
-        if (!verification.success || verification.data?.status !== 'success') {
+        if (!verification.success) {
           return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
         }
-        // Ensure the verified amount matches what was agreed
-        const verifiedAmountKobo = verification.data?.amount || 0;
-        const verifiedAmount = verifiedAmountKobo / 100;
+        // verifyPayment already converts kobo→naira — compare directly to agreed amount
+        const verifiedAmount = Number(verification.data?.amount || 0);
         const agreedAmount = Number(amount);
         if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });

@@ -1,4 +1,5 @@
 import { query, queryOne, withTransaction } from './db.js';
+import { convertCurrency } from '../../services/currencyConverter.js';
 import {
   buildTripCapacitySnapshot,
   ensureTripCapacityColumns,
@@ -712,14 +713,20 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
 
       // Hold sender's funds in escrow
-      const amount = toNumber(request.amount);
-      if (amount > 0 && request.sender_id) {
+      const rawAmount = toNumber(request.amount);
+      if (rawAmount > 0 && request.sender_id) {
         const senderWallet = await client.query(
           `SELECT id, available_balance, escrow_balance, currency FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
           [request.sender_id],
         );
         const sw = senderWallet.rows[0];
         if (sw) {
+          const requestCurrency = (request.currency || 'USD').toUpperCase();
+          const swCurrency = (sw.currency || 'USD').toUpperCase();
+          const amount = requestCurrency !== swCurrency
+            ? await convertCurrency(rawAmount, requestCurrency, swCurrency)
+            : rawAmount;
+
           await client.query(
             `UPDATE public.wallet_accounts
              SET available_balance = greatest(0, available_balance - $2),
@@ -732,14 +739,10 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
             `INSERT INTO public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
              VALUES ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
             [
-              sw.id,
-              request.sender_id,
-              request.id,
-              request.trip_id,
-              amount,
-              request.currency || sw.currency || 'USD',
+              sw.id, request.sender_id, request.id, request.trip_id,
+              amount, swCurrency,
               `Funds held in escrow for shipment ${request.tracking_number || request.id}`,
-              JSON.stringify({ requestId: request.id }),
+              JSON.stringify({ requestId: request.id, originalAmount: rawAmount, originalCurrency: requestCurrency }),
             ],
           );
         }
@@ -811,65 +814,67 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
       [requestId],
     );
 
-    const amount = toNumber(request.amount);
-    if (amount > 0) {
-      // Deduct from sender's escrow (where the hold was placed on accept)
+    const rawAmount = toNumber(request.amount);
+    const requestCurrency = (request.currency || 'USD').toUpperCase();
+    if (rawAmount > 0) {
+      // Deduct from sender's escrow — use the wallet_transaction escrow_hold amount (already in wallet currency)
       const senderWalletResult = await client.query(
         `select id, escrow_balance, currency from public.wallet_accounts where user_id = $1 for update`,
         [request.sender_id],
       );
       const senderWallet = senderWalletResult.rows[0];
       if (senderWallet) {
+        const swCurrency = (senderWallet.currency || 'USD').toUpperCase();
+        // Look up what was actually escrowed (already converted to wallet currency at hold time)
+        const escrowTxResult = await client.query(
+          `SELECT amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' ORDER BY created_at DESC LIMIT 1`,
+          [request.id, request.sender_id],
+        );
+        const senderEscrowAmount = escrowTxResult.rows[0]
+          ? toNumber(escrowTxResult.rows[0].amount)
+          : (swCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, swCurrency) : rawAmount);
+
         await client.query(
-          `update public.wallet_accounts
-           set escrow_balance = greatest(0, escrow_balance - $2),
-               updated_at = timezone('utc', now())
-           where user_id = $1`,
-          [request.sender_id, amount],
+          `update public.wallet_accounts set escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
+          [request.sender_id, senderEscrowAmount],
         );
         await client.query(
           `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
            values ($1,$2,$3,$4,'escrow_release',$5,$6,'completed',$7,$8)`,
-          [
-            senderWallet.id,
-            request.sender_id,
-            request.id,
-            request.trip_id,
-            amount,
-            request.currency || senderWallet.currency || 'USD',
-            `Escrow released — payment for ${request.tracking_number || request.id}`,
-            JSON.stringify({ requestId: request.id }),
-          ],
+          [senderWallet.id, request.sender_id, request.id, request.trip_id,
+           senderEscrowAmount, swCurrency,
+           `Escrow released — payment for ${request.tracking_number || request.id}`,
+           JSON.stringify({ requestId: request.id })],
         );
       }
 
-      // Credit traveler's available balance
+      // Credit traveler's available balance — look up what was escrowed for traveler
       const travelerWalletResult = await client.query(
         `select id, currency from public.wallet_accounts where user_id = $1 for update`,
         [request.traveler_id],
       );
       const travelerWallet = travelerWalletResult.rows[0];
       if (travelerWallet) {
+        const twCurrency = (travelerWallet.currency || 'USD').toUpperCase();
+        const escrowTxResult = await client.query(
+          `SELECT amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' ORDER BY created_at DESC LIMIT 1`,
+          [request.id, request.traveler_id],
+        );
+        const travelerCreditAmount = escrowTxResult.rows[0]
+          ? toNumber(escrowTxResult.rows[0].amount)
+          : (twCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, twCurrency) : rawAmount);
+
         await client.query(
-          `update public.wallet_accounts
-           set available_balance = available_balance + $2,
-               updated_at = timezone('utc', now())
-           where user_id = $1`,
-          [request.traveler_id, amount],
+          `update public.wallet_accounts set available_balance = available_balance + $2, escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
+          [request.traveler_id, travelerCreditAmount],
         );
         await client.query(
           `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
            values ($1,$2,$3,$4,'earning',$5,$6,'completed',$7,$8)`,
-          [
-            travelerWallet.id,
-            request.traveler_id,
-            request.id,
-            request.trip_id,
-            amount,
-            request.currency || travelerWallet.currency || 'USD',
-            `Earned for delivering ${request.tracking_number || request.id}`,
-            JSON.stringify({ requestId: request.id }),
-          ],
+          [travelerWallet.id, request.traveler_id, request.id, request.trip_id,
+           travelerCreditAmount, twCurrency,
+           `Earned for delivering ${request.tracking_number || request.id}`,
+           JSON.stringify({ requestId: request.id })],
         );
       }
     }
