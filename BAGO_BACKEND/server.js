@@ -372,11 +372,9 @@ const authRoutes = [
 ];
 authRoutes.forEach(route => app.use(route, authLimiter));
 
-// Stricter limits on sensitive financial/identity operations
+// Stricter limits on sensitive financial operations (not KYC — users need to retry)
 [
   '/api/bago/withdrawFunds',
-  '/api/bago/KycVerifications',
-  '/api/bago/kyc/create-session',
   '/api/bago/paystack/initialize',
   '/api/bago/paystack/add-bank',
 ].forEach(route => app.use(route, sensitiveLimiter));
@@ -947,11 +945,45 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+
+  // Keep-alive ping — prevents Render free tier from sleeping (every 13 min)
+  const selfUrl = process.env.BASE_URL || 'https://neringa.onrender.com';
+  setInterval(() => {
+    fetch(`${selfUrl}/api/health`).catch(() => {});
+  }, 13 * 60 * 1000);
+
+  // KYC sweep — sync all pending sessions with DIDIT every 30 min
+  setInterval(async () => {
+    if (!DIDIT_API_KEY) return;
+    try {
+      const pending = await pgQuery(
+        `SELECT id, email, didit_session_id FROM public.profiles WHERE kyc_status = 'pending' AND didit_session_id IS NOT NULL`
+      );
+      for (const user of (pending.rows || [])) {
+        try {
+          const r = await fetch(`https://verification.didit.me/v3/session/${user.didit_session_id}`, {
+            headers: { 'accept': 'application/json', 'x-api-key': DIDIT_API_KEY },
+          });
+          if (!r.ok) continue;
+          const d = await r.json();
+          const s = d.status?.toLowerCase();
+          if (s === 'approved') {
+            await pgQuery(`UPDATE public.profiles SET kyc_status='approved', kyc_verified_at=NOW(), updated_at=NOW() WHERE id=$1`, [user.id]);
+            await sendPushNotification(user.id, 'Identity Verified!', 'Your identity has been verified.').catch(() => {});
+          } else if (s === 'declined' || s === 'rejected') {
+            await pgQuery(`UPDATE public.profiles SET kyc_status='declined', updated_at=NOW() WHERE id=$1`, [user.id]);
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }, 30 * 60 * 1000);
 });
 
 
 
 
+
+app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 // ✅ Register Token (legacy endpoint — also accepts userId in body for unauthenticated calls)
 app.post('/api/bago/register-token', async (req, res) => {
