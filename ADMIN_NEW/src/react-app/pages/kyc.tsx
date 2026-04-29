@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash } from "lucide-react";
-import { getAllKyc, verifyKyc } from "../services/api";
+import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash, RefreshCw } from "lucide-react";
+import { getAllKyc, syncKycFromDidit, verifyKyc } from "../services/api";
 
 interface KycVerifiedData {
   fullName?: string;
@@ -76,6 +76,26 @@ export default function KYCVerificationManager() {
     } catch (error) {
       console.error("Failed to verify KYC:", error);
       alert("An error occurred while updating verification status");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDiditSync = async (userId: string) => {
+    try {
+      setProcessing(true);
+      const result = await syncKycFromDidit(userId);
+
+      if (result.success) {
+        await fetchKYCData();
+        setPreviewKYC(null);
+        alert(result.message || "KYC synced from Didit successfully");
+      } else {
+        alert(result.message || "Failed to sync KYC from Didit");
+      }
+    } catch (error) {
+      console.error("Failed to sync KYC from Didit:", error);
+      alert(error instanceof Error ? error.message : "An error occurred while syncing KYC from Didit");
     } finally {
       setProcessing(false);
     }
@@ -331,6 +351,16 @@ export default function KYCVerificationManager() {
               )}
 
               <div className="flex gap-3">
+                {previewKYC.user.kycStatus === "pending" && (
+                  <button
+                    onClick={() => handleDiditSync(previewKYC.user._id)}
+                    disabled={processing}
+                    className="bg-[#5845D8] hover:bg-[#4937c6] disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${processing ? "animate-spin" : ""}`} />
+                    <span>{processing ? "Syncing..." : "Sync from Didit"}</span>
+                  </button>
+                )}
                 {previewKYC.user.kycStatus === "pending" && (
                   <button
                     onClick={() => handleVerification(previewKYC.user._id, "declined")}

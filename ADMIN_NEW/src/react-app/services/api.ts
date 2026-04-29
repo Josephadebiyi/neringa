@@ -108,6 +108,13 @@ export async function verifyKyc(userId: string, status: string) {
   });
 }
 
+export async function syncKycFromDidit(userId: string) {
+  return apiCall(`${ADMIN_API}/Verifykyc`, {
+    method: 'PUT',
+    body: JSON.stringify({ userId, status: 'sync' }),
+  });
+}
+
 // Tracking
 export async function getTracking() {
   return apiCall(`${ADMIN_API}/tracking`);
