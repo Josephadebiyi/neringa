@@ -8,23 +8,27 @@ function toNumber(value, fallback = 0) {
 }
 
 async function ensurePaymentEventsInfrastructure(client) {
-  await client.query(`
-    create table if not exists public.payment_events (
-      id bigserial primary key,
-      provider text not null,
-      event_type text not null,
-      provider_reference text not null,
-      request_id uuid null references public.shipment_requests(id) on delete set null,
-      payload jsonb not null default '{}'::jsonb,
-      created_at timestamptz not null default timezone('utc', now()),
-      updated_at timestamptz not null default timezone('utc', now())
-    )
-  `);
+  try {
+    await client.query(`
+      create table if not exists public.payment_events (
+        id bigserial primary key,
+        provider text not null,
+        event_type text not null,
+        provider_reference text not null,
+        request_id uuid null references public.shipment_requests(id) on delete set null,
+        payload jsonb not null default '{}'::jsonb,
+        created_at timestamptz not null default timezone('utc', now()),
+        updated_at timestamptz not null default timezone('utc', now())
+      )
+    `);
 
-  await client.query(`
-    create unique index if not exists payment_events_provider_event_reference_key
-      on public.payment_events (provider, event_type, provider_reference)
-  `);
+    await client.query(`
+      create unique index if not exists payment_events_provider_event_reference_key
+        on public.payment_events (provider, event_type, provider_reference)
+    `);
+  } catch (error) {
+    console.warn('Payment events infrastructure unavailable, continuing without it:', error.message);
+  }
 }
 
 export async function getAccountProfile(userId) {
@@ -325,16 +329,6 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
   return withTransaction(async (client) => {
     await ensurePaymentEventsInfrastructure(client);
 
-    const paymentEvent = await client.query(
-      `
-        insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
-        values ($1, $2, $3, $4, $5)
-        on conflict (provider, event_type, provider_reference) do nothing
-        returning id
-      `,
-      [provider, 'payment_confirmed', providerReference, requestId, { requestId, providerReference }],
-    );
-
     // Fetch request with package weight
     const requestResult = await client.query(
       `
@@ -350,8 +344,32 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
     const request = requestResult.rows[0];
     if (!request) return null;
 
-    if (!paymentEvent.rows[0]?.id || request.payment_info?.status === 'paid') {
+    const existingEscrowTransaction = await client.query(
+      `
+        select id
+        from public.wallet_transactions
+        where request_id = $1
+          and type = 'escrow_hold'
+        limit 1
+      `,
+      [requestId],
+    );
+
+    if (existingEscrowTransaction.rows[0]?.id) {
       return request;
+    }
+
+    try {
+      await client.query(
+        `
+          insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
+          values ($1, $2, $3, $4, $5)
+          on conflict (provider, event_type, provider_reference) do nothing
+        `,
+        [provider, 'payment_confirmed', providerReference, requestId, { requestId, providerReference }],
+      );
+    } catch (error) {
+      console.warn('Payment confirmation event logging failed, continuing:', error.message);
     }
 
     await client.query(
