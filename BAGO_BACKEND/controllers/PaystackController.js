@@ -30,22 +30,42 @@ function normalizeBankPayload(body = {}) {
  */
 export const initializePaystackPayment = async (req, res) => {
   try {
-    const { amount, currency, requestId, metadata } = req.body;
+    const { amount, currency, requestId, packageId, tripId, customerEmail, expiresAt, metadata } = req.body;
     const user = req.user; // already a Postgres profile from isAuthenticated
 
     // Generate unique reference
     const reference = `BAGO-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+
+    const paymentMetadata = {
+      userId: user.id,
+      requestId,
+      packageId: packageId || null,
+      tripId: tripId || null,
+      customerEmail: customerEmail || user.email || null,
+      expiresAt: expiresAt || null,
+      amount: Number(amount),
+      currency: currency || user.preferredCurrency || 'NGN',
+      ...metadata,
+    };
 
     const result = await initializePayment({
       email: user.email,
       amount,
       currency: currency || user.preferredCurrency || 'NGN',
       reference,
-      metadata: {
-        userId: user.id,
-        requestId,
-        ...metadata,
-      },
+      metadata: paymentMetadata,
+    });
+
+    await pgQuery(
+      `
+        insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
+        values ($1, $2, $3, $4, $5)
+        on conflict (provider, event_type, provider_reference) do update
+        set payload = excluded.payload
+      `,
+      ['paystack', 'payment_initialized', reference, requestId || null, paymentMetadata],
+    ).catch((eventError) => {
+      console.error('Failed to persist payment initialization event:', eventError);
     });
 
     return res.status(200).json({
@@ -71,6 +91,18 @@ export const verifyPaystackPayment = async (req, res) => {
     const { reference } = req.params;
 
     const result = await verifyPayment(reference);
+
+    await pgQuery(
+      `
+        insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
+        values ($1, $2, $3, $4, $5)
+        on conflict (provider, event_type, provider_reference) do update
+        set payload = excluded.payload
+      `,
+      ['paystack', 'payment_verified', reference, result.data?.metadata?.requestId || null, result.data || {}],
+    ).catch((eventError) => {
+      console.error('Failed to persist payment verification event:', eventError);
+    });
 
     if (result.success && result.data.metadata?.requestId) {
       const requestId = result.data.metadata.requestId;

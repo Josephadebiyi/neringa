@@ -236,56 +236,59 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _isProcessingPayment = true;
       _processingMessage = 'Preparing your secure payment...';
     });
+    final provider = draft['provider']?.toString().toLowerCase() ?? 'stripe';
+    bool paymentCompleted = draft['paymentCompleted'] == true;
+    String? paymentReference = draft['paymentReference']?.toString();
     try {
-      final provider = draft['provider']?.toString().toLowerCase() ?? 'stripe';
       final amount = _asDouble(draft['totalAmount']);
       final currency = draft['currency']?.toString().trim() ?? '';
       if (currency.isEmpty) {
         throw StateError('Shipment currency is missing. Please restart the shipment flow from the traveler details page.');
       }
 
-      final init = await PaymentService.instance.initializePayment(
-        packageId: draft['packageId'].toString(),
-        tripId: draft['tripId'].toString(),
-        provider: provider,
-        currency: currency,
-        amount: amount,
-        customerEmail: draft['customerEmail']?.toString() ?? '',
-        expiresAt: DateTime.parse(draft['expiresAt'].toString()),
-      );
-
-      bool paymentCompleted = false;
-      String? paymentReference = init.reference;
-
-      if (provider == 'stripe') {
-        _updateProcessingMessage('Contacting your bank...');
-        final clientSecret = init.clientSecret;
-        if (clientSecret == null || clientSecret.isEmpty) {
-          throw StateError('Stripe checkout could not start.');
-        }
-        final selectedCardId = _selectedCardId;
-        if (selectedCardId == null || selectedCardId.isEmpty) {
-          throw StateError('Add a saved card before paying.');
-        }
-        paymentCompleted = await _payWithSavedStripeCard(
-          clientSecret,
-          paymentMethodId: selectedCardId,
+      if (!paymentCompleted) {
+        final init = await PaymentService.instance.initializePayment(
+          packageId: draft['packageId'].toString(),
+          tripId: draft['tripId'].toString(),
+          provider: provider,
+          currency: currency,
+          amount: amount,
+          customerEmail: draft['customerEmail']?.toString() ?? '',
+          expiresAt: DateTime.parse(draft['expiresAt'].toString()),
         );
-      } else {
-        _updateProcessingMessage('Opening secure checkout...');
-        final authorizationUrl = init.authorizationUrl;
-        final reference = init.reference;
-        if (authorizationUrl == null || authorizationUrl.isEmpty || reference == null || reference.isEmpty) {
-          throw StateError('Paystack checkout could not start.');
-        }
-        paymentCompleted = await _presentPaystackCheckout(authorizationUrl);
-        if (paymentCompleted) {
-          final verify = await PaymentService.instance.verifyPaystackPayment(reference);
-          paymentCompleted = verify.success;
-          if (!paymentCompleted) {
-            throw StateError(verify.message ?? 'Payment verification failed.');
+
+        paymentReference = init.reference;
+
+        if (provider == 'stripe') {
+          _updateProcessingMessage('Contacting your bank...');
+          final clientSecret = init.clientSecret;
+          if (clientSecret == null || clientSecret.isEmpty) {
+            throw StateError('Stripe checkout could not start.');
           }
-          paymentReference = verify.reference ?? reference;
+          final selectedCardId = _selectedCardId;
+          if (selectedCardId == null || selectedCardId.isEmpty) {
+            throw StateError('Add a saved card before paying.');
+          }
+          paymentCompleted = await _payWithSavedStripeCard(
+            clientSecret,
+            paymentMethodId: selectedCardId,
+          );
+        } else {
+          _updateProcessingMessage('Opening secure checkout...');
+          final authorizationUrl = init.authorizationUrl;
+          final reference = init.reference;
+          if (authorizationUrl == null || authorizationUrl.isEmpty || reference == null || reference.isEmpty) {
+            throw StateError('Paystack checkout could not start.');
+          }
+          paymentCompleted = await _presentPaystackCheckout(authorizationUrl);
+          if (paymentCompleted) {
+            final verify = await PaymentService.instance.verifyPaystackPayment(reference);
+            paymentCompleted = verify.success;
+            if (!paymentCompleted) {
+              throw StateError(verify.message ?? 'Payment verification failed.');
+            }
+            paymentReference = verify.reference ?? reference;
+          }
         }
       }
 
@@ -309,6 +312,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         final updatedDraft = {
           ...draft,
           'requestSent': true,
+          'paymentCompleted': true,
           if (paymentReference != null) 'paymentReference': paymentReference,
         };
         await _checkoutService.saveDraft(updatedDraft);
@@ -327,6 +331,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       } else {
         final updatedDraft = {
           ...draft,
+          'paymentCompleted': paymentCompleted,
+          if (paymentReference != null) 'paymentReference': paymentReference,
+          'paymentProvider': provider,
           'lastPaymentError': 'Your payment was not completed. Please try again.',
         };
         await _ensureProcessingStateVisible(processingStartedAt);
@@ -337,6 +344,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } on StripeException catch (e) {
       final updatedDraft = {
         ...draft,
+        'paymentCompleted': paymentCompleted,
+        if (paymentReference != null) 'paymentReference': paymentReference,
+        'paymentProvider': provider,
         'lastPaymentError': _buildPaymentFailureMessage(e),
       };
       await _ensureProcessingStateVisible(processingStartedAt);
@@ -346,6 +356,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       final updatedDraft = {
         ...draft,
+        'paymentCompleted': paymentCompleted,
+        if (paymentReference != null) 'paymentReference': paymentReference,
+        'paymentProvider': provider,
         'lastPaymentError': _buildPaymentFailureMessage(e),
       };
       await _ensureProcessingStateVisible(processingStartedAt);
