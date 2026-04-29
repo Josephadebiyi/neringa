@@ -50,12 +50,17 @@ class AuthState {
 class AuthNotifier extends Notifier<AuthState> {
   late final AuthService _service;
   late final StorageService _storage;
+  StreamSubscription<void>? _kycSub;
 
   @override
   AuthState build() {
     _service = AuthService.instance;
     _storage = StorageService.instance;
     _init();
+    _kycSub = PushNotificationService.onKycApproved.listen((_) {
+      refreshProfile().catchError((_) {});
+    });
+    ref.onDispose(() => _kycSub?.cancel());
     return const AuthState();
   }
 
@@ -101,6 +106,7 @@ class AuthNotifier extends Notifier<AuthState> {
             .catchError((e) {
           debugPrint('Push notification prep failed: $e');
         });
+        _applyIpCurrencyIfNeeded(user).catchError((_) {});
       }
     } catch (e) {
       debugPrint('Auth init failed, continuing to app shell: $e');
@@ -121,6 +127,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .catchError((e) {
         debugPrint('Auth login: push notification prep failed: $e');
       });
+      _applyIpCurrencyIfNeeded(result.user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -184,6 +191,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .catchError((e) {
         debugPrint('Auth verifyOtp: push notification prep failed: $e');
       });
+      _applyIpCurrencyIfNeeded(user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -224,6 +232,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .catchError((e) {
         debugPrint('Auth googleSignIn: push notification prep failed: $e');
       });
+      _applyIpCurrencyIfNeeded(user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -243,6 +252,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .catchError((e) {
         debugPrint('Auth appleSignIn: push notification prep failed: $e');
       });
+      _applyIpCurrencyIfNeeded(user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -287,6 +297,15 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
     }
+  }
+
+  // Auto-detect currency from IP and save it — only runs if user has no preferred currency set
+  Future<void> _applyIpCurrencyIfNeeded(UserModel user) async {
+    if (user.preferredCurrency.trim().isNotEmpty) return;
+    try {
+      final detected = await _service.detectCurrency();
+      if (detected.isNotEmpty) await updateCurrency(detected);
+    } catch (_) {}
   }
 
   Future<void> updateCurrency(String currency) async {

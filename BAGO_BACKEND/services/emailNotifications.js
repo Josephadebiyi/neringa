@@ -692,3 +692,40 @@ export async function sendShippingStatusEmail(request, status, location = null) 
     return false;
   }
 }
+
+export async function sendKycApprovedEmail(userEmail, userName) {
+  if (!resend) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Great news! Your identity has been <strong>successfully verified</strong> by Didit. You now have full access to all Bago features.
+      </p>
+      <div style="background:#f0fdf4; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #22c55e;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">You can now:</p>
+        <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
+          <li>Send packages with verified senders</li>
+          <li>Accept shipments as a traveler and earn money</li>
+          <li>Access all premium Bago marketplace features</li>
+        </ul>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Open the Bago app to get started. If you have any questions, our support team is here to help.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: '✅ Identity Verified – You\'re all set on Bago!',
+      html: generateEmailTemplate('Identity Verified', content, 'Open Bago App', FRONTEND_URL),
+    });
+    console.log(`✅ Sent KYC approved email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send KYC approved email:', err);
+    return false;
+  }
+}

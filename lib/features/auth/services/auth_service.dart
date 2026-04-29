@@ -481,6 +481,16 @@ class AuthService {
     }
   }
 
+  Future<String> detectCurrency() async {
+    try {
+      final res = await _api.get(ApiConstants.detectCurrency);
+      final data = res.data as Map<String, dynamic>;
+      return (data['currency'] as String? ?? 'USD').toUpperCase();
+    } catch (_) {
+      return 'USD';
+    }
+  }
+
   Future<void> requestEmailChange(String newEmail) async {
     try {
       await _api.post(ApiConstants.requestEmailChange,

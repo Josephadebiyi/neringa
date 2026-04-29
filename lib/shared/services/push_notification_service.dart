@@ -22,10 +22,13 @@ class PushNotificationService {
 
   static final _tapController = StreamController<String>.broadcast();
   static final _supportTapController = StreamController<String>.broadcast();
+  static final _kycApprovedController = StreamController<void>.broadcast();
 
   /// Emits a conversationId whenever the user taps a chat push notification.
   static Stream<String> get onChatTap => _tapController.stream;
   static Stream<String> get onSupportTap => _supportTapController.stream;
+  /// Emits when user taps a KYC-approved push notification.
+  static Stream<void> get onKycApproved => _kycApprovedController.stream;
 
   void startListening() {
     if (_listening) return;
@@ -140,6 +143,9 @@ class PushNotificationService {
         }
         if (type == 'support_message' && ticketId.isNotEmpty) {
           _supportTapController.add(ticketId);
+        }
+        if (type == 'kyc' || type == 'kyc_approved') {
+          _kycApprovedController.add(null);
         }
         break;
       default:

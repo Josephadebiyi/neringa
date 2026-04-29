@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { User, Eye, Calendar, CheckCircle, XCircle, Clock, ShieldCheck, FileText, Globe, Hash } from "lucide-react";
+import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash } from "lucide-react";
 import { getAllKyc, verifyKyc } from "../services/api";
 
 interface KycVerifiedData {
@@ -58,8 +58,8 @@ export default function KYCVerificationManager() {
     }
   };
 
-  const handleVerification = async (userId: string, status: "verify" | "declined") => {
-    if (!confirm(`Are you sure you want to ${status === "verify" ? "verify" : "reject"} this KYC?`)) {
+  const handleVerification = async (userId: string, status: "declined") => {
+    if (!confirm(`Are you sure you want to reject this KYC?`)) {
       return;
     }
 
@@ -91,7 +91,7 @@ export default function KYCVerificationManager() {
     };
 
     const statusIcons: Record<string, React.ReactElement> = {
-      approved: <CheckCircle className="w-4 h-4" />,
+      approved: <ShieldCheck className="w-4 h-4" />,
       pending: <Clock className="w-4 h-4" />,
       declined: <XCircle className="w-4 h-4" />,
       failed_verification: <XCircle className="w-4 h-4" />,
@@ -206,23 +206,13 @@ export default function KYCVerificationManager() {
                   </button>
 
                   {item.user.kycStatus === "pending" && (
-                    <>
-                      <button
-                        onClick={() => handleVerification(item.user._id, "verify")}
-                        disabled={processing}
-                        className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50"
-                      >
-                        <CheckCircle className="w-3 h-3" />
-                      </button>
-
-                      <button
-                        onClick={() => handleVerification(item.user._id, "declined")}
-                        disabled={processing}
-                        className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50"
-                      >
-                        <XCircle className="w-3 h-3" />
-                      </button>
-                    </>
+                    <button
+                      onClick={() => handleVerification(item.user._id, "declined")}
+                      disabled={processing}
+                      className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      <XCircle className="w-3 h-3" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -342,24 +332,14 @@ export default function KYCVerificationManager() {
 
               <div className="flex gap-3">
                 {previewKYC.user.kycStatus === "pending" && (
-                  <>
-                    <button
-                      onClick={() => handleVerification(previewKYC.user._id, "verify")}
-                      disabled={processing}
-                      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>{processing ? "Processing..." : "Verify KYC"}</span>
-                    </button>
-                    <button
-                      onClick={() => handleVerification(previewKYC.user._id, "declined")}
-                      disabled={processing}
-                      className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      <span>{processing ? "Processing..." : "Reject KYC"}</span>
-                    </button>
-                  </>
+                  <button
+                    onClick={() => handleVerification(previewKYC.user._id, "declined")}
+                    disabled={processing}
+                    className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>{processing ? "Processing..." : "Reject KYC"}</span>
+                  </button>
                 )}
                 <button
                   onClick={() => setPreviewKYC(null)}

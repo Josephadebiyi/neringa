@@ -23,6 +23,7 @@ import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
+import { sendKycApprovedEmail } from './services/emailNotifications.js';
 
 
 dotenv.config();
@@ -968,8 +969,18 @@ httpServer.listen(PORT, () => {
           const d = await r.json();
           const s = d.status?.toLowerCase();
           if (s === 'approved') {
-            await pgQuery(`UPDATE public.profiles SET kyc_status='approved', kyc_verified_at=NOW(), updated_at=NOW() WHERE id=$1`, [user.id]);
+            const docData = d.document_data || d.extracted_data || d.verification_data || d.kyc?.document || {};
+            const firstName = docData.first_name || docData.firstName || docData.given_name || '';
+            const lastName = docData.last_name || docData.lastName || docData.family_name || docData.surname || '';
+            const dob = docData.date_of_birth || docData.dateOfBirth || docData.dob || null;
+            const setParts = [`kyc_status='approved'`, `kyc_verified_at=NOW()`, `updated_at=NOW()`];
+            const vals = [user.id];
+            if (firstName) { setParts.push(`first_name=$${vals.length + 1}`); vals.push(firstName); }
+            if (lastName)  { setParts.push(`last_name=$${vals.length + 1}`); vals.push(lastName); }
+            if (dob)       { setParts.push(`date_of_birth=$${vals.length + 1}`); vals.push(new Date(dob)); }
+            await pgQuery(`UPDATE public.profiles SET ${setParts.join(', ')} WHERE id=$1`, vals);
             await sendPushNotification(user.id, 'Identity Verified!', 'Your identity has been verified.').catch(() => {});
+            await sendKycApprovedEmail(user.email, `${firstName} ${lastName}`.trim() || user.email).catch(() => {});
           } else if (s === 'declined' || s === 'rejected') {
             await pgQuery(`UPDATE public.profiles SET kyc_status='declined', updated_at=NOW() WHERE id=$1`, [user.id]);
           }
@@ -984,6 +995,23 @@ httpServer.listen(PORT, () => {
 
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
+
+// IP-based currency detection — no auth required, called on app startup
+app.get('/api/detect-currency', async (req, res) => {
+  try {
+    const { default: geoip } = await import('geoip-lite');
+    const ip =
+      (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+      req.socket.remoteAddress ||
+      '';
+    const geo = geoip.lookup(ip);
+    const countryCode = geo?.country || '';
+    const currency = countryCode ? (getCurrencyForCountry(countryCode) || 'USD') : 'USD';
+    res.json({ currency, countryCode, ip });
+  } catch {
+    res.json({ currency: 'USD', countryCode: '', ip: '' });
+  }
+});
 
 // ✅ Register Token (legacy endpoint — also accepts userId in body for unauthenticated calls)
 app.post('/api/bago/register-token', async (req, res) => {
@@ -1614,54 +1642,6 @@ function generateIdentityFingerprint(documentNumber, issuingCountry, dateOfBirth
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 
-/**
- * Compare names with fuzzy matching tolerance
- * Returns true if names match closely enough
- */
-function compareNames(name1, name2) {
-  if (!name1 || !name2) return false;
-
-  // Normalize: lowercase, trim, remove extra spaces
-  const normalize = (str) => str.toLowerCase().trim().replace(/\s+/g, ' ');
-  const n1 = normalize(name1);
-  const n2 = normalize(name2);
-
-  // Exact match
-  if (n1 === n2) return true;
-
-  // Check if one contains the other (for partial names)
-  if (n1.includes(n2) || n2.includes(n1)) return true;
-
-  // Compare individual words (at least 2 words should match for full names)
-  const words1 = n1.split(' ');
-  const words2 = n2.split(' ');
-  const matchingWords = words1.filter(w => words2.includes(w));
-
-  // If at least 2 words match, consider it a match
-  if (matchingWords.length >= 2) return true;
-
-  // If it's a short name (1 word), require exact match
-  if (words1.length === 1 || words2.length === 1) {
-    return words1[0] === words2[0];
-  }
-
-  return false;
-}
-
-/**
- * Compare dates with tolerance for timezone differences
- */
-function compareDates(date1, date2) {
-  if (!date1 || !date2) return false;
-
-  const d1 = new Date(date1);
-  const d2 = new Date(date2);
-
-  // Compare year, month, day only (ignore time)
-  return d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate();
-}
 
 app.get("/api/didit/webhook", (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
@@ -1674,6 +1654,9 @@ app.post("/api/didit/webhook", async (req, res) => {
     console.log("📥 DIDIT WEBHOOK RECEIVED");
 
     const { session_id, status, vendor_data, document_data, extracted_data, verification_data, kyc_data } = req.body;
+    // DIDIT v3 may nest document fields under kyc.document or data.document
+    const _kycBlock = req.body.kyc || req.body.data || {};
+    const _docBlock = _kycBlock.document || _kycBlock.extracted_data || {};
 
     if (!session_id) {
       return res.status(200).json({ success: false, message: "No session_id" });
@@ -1728,7 +1711,7 @@ app.post("/api/didit/webhook", async (req, res) => {
     };
 
     if (normalizedStatus === 'approved') {
-      const docData = document_data || extracted_data || verification_data || kyc_data || {};
+      const docData = document_data || extracted_data || verification_data || kyc_data || _docBlock || {};
       const verifiedFullName = (docData.full_name || docData.name || docData.fullName ||
         `${docData.first_name || docData.firstName || ''} ${docData.last_name || docData.lastName || ''}`.trim()) || '';
       const verifiedFirstName = docData.first_name || docData.firstName || docData.given_name || verifiedFullName.split(' ')[0] || '';
@@ -1738,33 +1721,7 @@ app.post("/api/didit/webhook", async (req, res) => {
       const documentType = docData.document_type || docData.documentType || docData.doc_type || 'ID';
       const issuingCountry = docData.issuing_country || docData.issuingCountry || docData.country || docData.nationality || null;
 
-      // STEP 1: Name & DOB matching
-      const isGoogleUser = user.signup_method === 'google';
-      const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-      let nameMatches = true, dobMatches = true, matchFailureReason = null;
-
-      if (!isGoogleUser && verifiedFullName && userFullName) {
-        nameMatches = compareNames(verifiedFullName, userFullName);
-        if (!nameMatches) matchFailureReason = `Name mismatch: Document shows "${verifiedFullName}" but signup name is "${userFullName}"`;
-      }
-      if (verifiedDOB && user.date_of_birth) {
-        dobMatches = compareDates(verifiedDOB, user.date_of_birth);
-        if (!dobMatches) matchFailureReason = (matchFailureReason ? matchFailureReason + '. ' : '') + 'Date of birth mismatch';
-      }
-
-      if (!nameMatches || !dobMatches) {
-        console.log("❌ KYC REJECTED - data mismatch");
-        await saveKyc({
-          kyc_status: 'failed_verification',
-          kyc_failure_reason: matchFailureReason || 'Document data does not match signup information',
-          kyc_verified_data: JSON.stringify({ verificationStatus: 'mismatch', verifiedFullName }),
-        });
-        await sendPushNotification(pgUserId, 'Verification Issue', 'Your identity document does not match your signup information. Please update your profile and try again.').catch(() => {});
-        await saveNotification('Verification Failed - Data Mismatch', 'Your identity document information does not match your profile. Please ensure your name and date of birth are correct, then try again.');
-        return res.status(200).json({ success: true, message: "KYC rejected - data mismatch", kycStatus: 'failed_verification' });
-      }
-
-      // STEP 2: Duplicate identity check
+      // STEP 1: Duplicate identity check
       if (documentNumber && issuingCountry && verifiedDOB) {
         const fingerprint = generateIdentityFingerprint(documentNumber, issuingCountry, verifiedDOB);
         const duplicate = await queryOne(
@@ -1798,13 +1755,17 @@ app.post("/api/didit/webhook", async (req, res) => {
           verificationStatus: 'approved',
         }),
       };
+      // Always overwrite name/DOB from document — this is the verified legal identity
+      // Critical for Google/Apple sign-ups where the signup name may be an email or display name
       if (verifiedFirstName) updateFields.first_name = verifiedFirstName;
-      if (verifiedLastName) updateFields.last_name = verifiedLastName;
-      if (verifiedDOB) updateFields.date_of_birth = new Date(verifiedDOB);
+      if (verifiedLastName)  updateFields.last_name  = verifiedLastName;
+      if (verifiedDOB)       updateFields.date_of_birth = new Date(verifiedDOB);
       await saveKyc(updateFields);
 
+      const displayName = `${verifiedFirstName || user.first_name || ''} ${verifiedLastName || user.last_name || ''}`.trim();
       await sendPushNotification(pgUserId, 'Identity Verified!', 'Your identity has been verified. You now have full access to all Bago features.').catch(() => {});
       await saveNotification('Identity Verified', 'Your identity has been successfully verified. You now have full access to send packages and earn as a traveler!');
+      await sendKycApprovedEmail(user.email, displayName || user.email).catch(() => {});
 
       return res.status(200).json({ success: true, message: "KYC approved successfully", kycStatus: 'approved' });
 

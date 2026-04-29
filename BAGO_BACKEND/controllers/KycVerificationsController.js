@@ -8,29 +8,28 @@ import path from "path";
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ✅ Verify KYC status manually (admin)
+// Admin can only decline KYC — approvals come exclusively from DIDIT webhook
 export const Verifykyc = async (req, res, next) => {
   const { userId, status } = req.body;
+
+  if (status === "verify" || status === "approved") {
+    return res.status(403).json({
+      success: false,
+      message: "Manual KYC approval is disabled. Approvals are processed automatically by Didit.",
+    });
+  }
 
   try {
     const fields = [];
     const values = [];
     let idx = 1;
 
-    if (status === "verify") {
-      fields.push(`kyc_status = $${idx++}`); values.push('approved');
-      fields.push(`kyc_verified_at = NOW()`);
-      fields.push(`kyc_failure_reason = NULL`);
-    } else if (status === "approved") {
-      fields.push(`kyc_status = $${idx++}`); values.push('approved');
-      fields.push(`kyc_verified_at = NOW()`);
-      fields.push(`kyc_failure_reason = NULL`);
-    } else if (status === "declined") {
+    if (status === "declined") {
       fields.push(`kyc_status = $${idx++}`); values.push('declined');
-    } else if (status === "auto" || status === "pending") {
+    } else if (status === "pending") {
       fields.push(`kyc_status = $${idx++}`); values.push('pending');
     } else {
-      fields.push(`kyc_status = $${idx++}`); values.push(status);
+      return res.status(400).json({ success: false, message: "Invalid status. Only 'declined' is allowed." });
     }
 
     values.push(userId);
@@ -114,89 +113,31 @@ export const createDiditSession = async (req, res, next) => {
   }
 };
 
-// Handle Fetching Result after verification success
+// Poll KYC status from local DB — webhook keeps this up to date so no DIDIT API call needed
 export const fetchDiditResult = async (req, res, next) => {
   try {
-    const { sessionId } = req.params;
-    const user = req.user;
+    const userId = req.user?.id || req.user?._id;
+    const row = await queryOne(
+      `SELECT kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt", kyc_failure_reason as "kycFailureReason"
+       FROM public.profiles WHERE id = $1`,
+      [userId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: "User not found" });
 
-    const response = await axios.get(`https://verification.didit.me/v3/session/${sessionId}/`, {
-      headers: {
-        'accept': 'application/json',
-        'x-api-key': DIDIT_API_KEY,
-      }
-    });
-
-    const data = response.data;
-    console.log("📥 DIDIT Result data:", data);
-
-    if (data.status === 'approved') {
-      const extracted = data.extracted_data || data.document_data || {};
-      const fullName = extracted.full_name || extracted.fullName || `${extracted.first_name || ''} ${extracted.last_name || ''}`.trim();
-      const dob = extracted.date_of_birth || extracted.dateOfBirth;
-
-      // Automatically store in user profile
-      const updateData = {
-        kycStatus: 'approved',
-        status: 'verified',
-        isVerified: true,
-        kycVerifiedAt: new Date(),
-        kycVerifiedData: {
-          fullName,
-          dateOfBirth: dob ? new Date(dob) : null,
-          documentNumber: extracted.document_number,
-          issuingCountry: extracted.issuing_country,
-          verificationStatus: 'approved'
-        }
-      };
-
-      const userId = user.id || user._id;
-      const setParts = [
-        `kyc_status = 'approved'`,
-        `kyc_verified_at = NOW()`,
-        `kyc_failure_reason = NULL`,
-        `kyc_verified_data = $1`,
-        `updated_at = NOW()`,
-      ];
-      const pgValues = [JSON.stringify({
-        fullName,
-        dateOfBirth: dob || null,
-        documentNumber: extracted.document_number,
-        issuingCountry: extracted.issuing_country,
-        verificationStatus: 'approved'
-      })];
-      let pidx = 2;
-
-      if (fullName) {
-        const parts = fullName.split(' ');
-        setParts.push(`first_name = $${pidx++}`); pgValues.push(parts[0]);
-        if (parts.length >= 2) { setParts.push(`last_name = $${pidx++}`); pgValues.push(parts.slice(1).join(' ')); }
-      }
-      if (dob) { setParts.push(`date_of_birth = $${pidx++}`); pgValues.push(new Date(dob)); }
-
-      pgValues.push(userId);
-      await queryOne(
-        `UPDATE public.profiles SET ${setParts.join(', ')} WHERE id = $${pidx}`,
-        pgValues
-      );
-
-      return res.json({
-        success: true,
-        message: "KYC approved and profile updated",
-        fullName,
-        dateOfBirth: dob,
-        kycStatus: 'approved'
-      });
-    }
-
-    res.json({
-      success: false,
-      message: "KYC is not yet approved",
-      status: data.status
+    const status = row.kycStatus || 'pending';
+    return res.json({
+      success: status === 'approved',
+      status,
+      kycStatus: status,
+      message: status === 'approved'
+        ? 'KYC approved'
+        : status === 'declined'
+          ? 'KYC declined'
+          : 'Verification in progress',
     });
   } catch (err) {
-    console.error("❌ Fetch DIDIT Result Error:", err.response?.data || err.message);
-    res.status(500).json({ success: false, message: "Error fetching KYC result" });
+    console.error("❌ fetchDiditResult Error:", err.message);
+    res.status(500).json({ success: false, message: "Error fetching KYC status" });
   }
 };
 
