@@ -36,6 +36,20 @@ const FALLBACK_GOOGLE_WEB_CLIENT_ID =
   '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com';
 const FALLBACK_GOOGLE_IOS_CLIENT_ID =
   '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com';
+const FALLBACK_APPLE_AUDIENCE = 'com.deracali.boltexponativewind';
+
+function getAllowedAppleAudiences() {
+  return [
+    process.env.APPLE_CLIENT_ID,
+    process.env.APPLE_SERVICE_ID,
+    process.env.APPLE_BUNDLE_ID,
+    process.env.APPLE_AUDIENCE,
+    FALLBACK_APPLE_AUDIENCE,
+  ]
+    .flatMap((value) => (value || '').split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
 
 function buildUserResponse(user) {
   return {
@@ -628,7 +642,21 @@ async function verifyAppleIdentityToken(identityToken) {
 
   const pubKey = crypto.createPublicKey({ key: jwk, format: 'jwk' });
   const pem = pubKey.export({ type: 'spki', format: 'pem' });
-  return jwt.verify(identityToken, pem, { algorithms: ['RS256'] });
+  const decoded = jwt.verify(identityToken, pem, { algorithms: ['RS256'] });
+  const allowedAudiences = getAllowedAppleAudiences();
+  const tokenAudiences = Array.isArray(decoded?.aud)
+    ? decoded.aud
+    : [decoded?.aud].filter(Boolean);
+
+  if (decoded?.iss !== 'https://appleid.apple.com') {
+    throw new Error('Invalid Apple token issuer');
+  }
+
+  if (!tokenAudiences.some((audience) => allowedAudiences.includes(audience))) {
+    throw new Error(`Invalid Apple token audience: ${tokenAudiences.join(', ') || 'missing'}`);
+  }
+
+  return decoded;
 }
 
 export async function appleAuth(req, res) {
