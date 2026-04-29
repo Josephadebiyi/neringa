@@ -100,7 +100,7 @@ export async function verifyPayment(reference) {
     };
   } catch (error) {
     console.error('❌ Paystack verification error:', error.response?.data || error.message);
-    throw error;
+    return { success: false, message: error.response?.data?.message || error.message || 'Verification request failed' };
   }
 }
 

@@ -171,7 +171,7 @@ export const AddAtrip = async (req, res, next) => {
     }
 
     res.status(201).json({
-      message: "Trip created successfully",
+      message: "Trip submitted for review. It will be visible to senders once an admin approves it.",
       trip: activeTrip,
     });
   } catch (error) {

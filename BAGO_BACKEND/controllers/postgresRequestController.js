@@ -139,6 +139,26 @@ export async function RequestPackage(req, res) {
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
       }
+      if (provider === 'stripe') {
+        try {
+          const stripeKey = process.env.STRIPE_SECRET_KEY;
+          if (stripeKey && stripeKey.startsWith('sk_')) {
+            const { default: Stripe } = await import('stripe');
+            const stripeClient = new Stripe(stripeKey);
+            const intent = await stripeClient.paymentIntents.retrieve(paymentReference);
+            if (intent.status !== 'succeeded') {
+              return res.status(402).json({ message: 'Stripe payment has not been completed.', success: false });
+            }
+            const intentAmount = intent.amount / 100;
+            if (intentAmount < Number(amount) * 0.98) {
+              return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
+            }
+          }
+        } catch (stripeErr) {
+          console.error('Stripe verification error:', stripeErr.message);
+          return res.status(402).json({ message: 'Could not verify Stripe payment.', success: false });
+        }
+      }
     }
 
     const newRequest = existingRequest
@@ -154,13 +174,10 @@ export async function RequestPackage(req, res) {
           insurance: insurance === 'yes' || insurance === true,
           insuranceCost: (() => {
             if (!(insurance === 'yes' || insurance === true)) return 0;
-            // Recompute server-side to prevent client manipulation
             const settings = global._appSettingsCache || {};
-            const packageValue = Number(0); // value used in insurance calc
             if (settings.insuranceType === 'fixed') return Number(settings.insuranceFixedAmount) || 0;
             const pct = Number(settings.insurancePercentage) || 3;
             const clientCost = Number(insuranceCost) || 0;
-            // Accept client value if within 5% of server-computed; otherwise use server value
             const serverCost = (Number(amount) * pct) / 100;
             return Math.abs(clientCost - serverCost) / Math.max(serverCost, 1) < 0.05 ? clientCost : serverCost;
           })(),
@@ -178,7 +195,6 @@ export async function RequestPackage(req, res) {
         });
 
     if (paymentReference) {
-      // For Stripe, the intent was already confirmed client-side; server verifies via webhook separately
       await holdEscrowForPaidRequest({
         requestId: newRequest.id,
         providerReference: paymentReference,
