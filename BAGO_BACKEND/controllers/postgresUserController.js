@@ -73,6 +73,7 @@ function buildUserResponse(user) {
     wallet_balance: Number(user.balance || 0),
     escrowBalance: Number(user.escrowBalance || 0),
     escrow_balance: Number(user.escrowBalance || 0),
+    walletCurrency: user.walletCurrency || user.preferredCurrency || 'USD',
     bankAccountLinked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
     bank_account_linked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
   };
@@ -452,7 +453,7 @@ export async function signIn(req, res) {
     }
 
     const user = await findProfileByEmail(email.toLowerCase());
-    if (!user || !user.password) {
+    if (!user || !user.password_hash) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
@@ -469,7 +470,7 @@ export async function signIn(req, res) {
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       const attempts = (user.failed_login_attempts || 0) + 1;
       const lockedUntil = attempts >= MAX_LOGIN_ATTEMPTS

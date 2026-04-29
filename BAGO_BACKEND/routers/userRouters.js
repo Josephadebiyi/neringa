@@ -192,7 +192,7 @@ userRouter.get("/GetDetails/:requestId", isAuthenticated, requireKycVerification
 userRouter.put("/markAllNotificationsAsRead", isAuthenticated, markAllNotificationsAsRead)
 // userRouter.get("/processPayment", isAuthenticated,  processPayment)
 userRouter.put("/updateRequestDates/:requestId", isAuthenticated, requireKycVerification, updateRequestDates)
-userRouter.get('/user-stats', getUserStats);
+userRouter.get('/user-stats', isAuthenticated, getUserStats);
 userRouter.put('/edit-currency', isAuthenticated, editCurrency);
 userRouter.post('/push-token', isAuthenticated, savePushTokenPg);
 userRouter.delete('/push-token', isAuthenticated, removePushTokenPg);

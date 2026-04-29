@@ -8,20 +8,16 @@ const DEFAULT_SETTINGS = {
   europe: { fixedPrice: 6, maxCoverageAmount: 10000, commissionPercentage: 15, currency: 'USD', enabled: true },
 };
 
-const ensureTable = () => pgQuery(`
-  CREATE TABLE IF NOT EXISTS public.insurance_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    settings JSONB NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-  )
-`).catch(() => {});
-
 async function getSettings() {
-  await ensureTable();
-  const row = await queryOne(`SELECT settings FROM public.insurance_settings LIMIT 1`);
-  if (row) return row.settings;
-  // Seed defaults
-  await pgQuery(`INSERT INTO public.insurance_settings (settings) VALUES ($1)`, [JSON.stringify(DEFAULT_SETTINGS)]).catch(() => {});
+  const row = await queryOne(`SELECT global_config, africa_config, europe_config, enabled FROM public.insurance_settings LIMIT 1`);
+  if (row) {
+    return {
+      enabled: row.enabled !== false,
+      global: row.global_config || DEFAULT_SETTINGS.global,
+      africa: row.africa_config || DEFAULT_SETTINGS.africa,
+      europe: row.europe_config || DEFAULT_SETTINGS.europe,
+    };
+  }
   return DEFAULT_SETTINGS;
 }
 
@@ -107,9 +103,15 @@ export const updateInsuranceSettings = async (req, res) => {
 
     const row = await queryOne(`SELECT id FROM public.insurance_settings LIMIT 1`);
     if (row) {
-      await pgQuery(`UPDATE public.insurance_settings SET settings = $1, updated_at = NOW() WHERE id = $2`, [JSON.stringify(updated), row.id]);
+      await pgQuery(
+        `UPDATE public.insurance_settings SET global_config=$1, africa_config=$2, europe_config=$3, enabled=$4, updated_at=NOW() WHERE id=$5`,
+        [JSON.stringify(updated.global), JSON.stringify(updated.africa), JSON.stringify(updated.europe), updated.enabled !== false, row.id]
+      );
     } else {
-      await pgQuery(`INSERT INTO public.insurance_settings (settings) VALUES ($1)`, [JSON.stringify(updated)]);
+      await pgQuery(
+        `INSERT INTO public.insurance_settings (global_config, africa_config, europe_config, enabled) VALUES ($1,$2,$3,$4)`,
+        [JSON.stringify(updated.global), JSON.stringify(updated.africa), JSON.stringify(updated.europe), updated.enabled !== false]
+      );
     }
 
     return res.status(200).json({ success: true, message: 'Insurance settings updated successfully', data: updated });
