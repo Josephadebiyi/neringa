@@ -212,6 +212,9 @@ export async function signUp(req, res) {
     const activationOtp = Math.floor(100000 + Math.random() * 900000).toString();
     // Hash the password before embedding in the JWT — never store plaintext in tokens
     const hashedPasswordForToken = await bcrypt.hash(password, 10);
+    const platform = req.headers['x-platform'] || 'app';
+    const signupSource = ['ios', 'android', 'web'].includes(platform) ? platform : 'app';
+
     const signupToken = jwt.sign(
       {
         firstName,
@@ -223,6 +226,7 @@ export async function signUp(req, res) {
         promoCode: promoCode ? promoCode.toUpperCase() : null,
         dateOfBirth,
         country,
+        signupSource,
         otp: activationOtp,
       },
       process.env.JWT_SECRET,
@@ -290,6 +294,7 @@ export async function verifySignupOtp(req, res) {
       paymentGateway,
       preferredCurrency,
       signupMethod: 'email',
+      signupSource: decoded.signupSource || 'app',
       emailVerified: true,
     });
 
@@ -572,6 +577,7 @@ export async function googleAuth(req, res) {
       });
     }
 
+    const googlePlatform = req.headers['x-platform'] || 'app';
     const { user, isNewUser } = await createOrUpdateGoogleProfile({
       email: email.toLowerCase(),
       firstName: givenName || 'User',
@@ -580,6 +586,7 @@ export async function googleAuth(req, res) {
       referralCode: referralCode || null,
       promoCode: promoCode || null,
       country: country || 'United States',
+      signupSource: ['ios', 'android', 'web'].includes(googlePlatform) ? googlePlatform : 'app',
     });
 
     if (user.banned) {
@@ -677,11 +684,13 @@ export async function appleAuth(req, res) {
     const appleSub = decoded.sub;
     const resolvedEmail = email || decoded.email || null;
 
+    const applePlatform = req.headers['x-platform'] || 'ios';
     const { user, isNewUser } = await createOrUpdateAppleProfile({
       appleSub,
       email: resolvedEmail,
       firstName: firstName || null,
       lastName: lastName || null,
+      signupSource: ['ios', 'android', 'web'].includes(applePlatform) ? applePlatform : 'ios',
     });
 
     if (user.banned) {

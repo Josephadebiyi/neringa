@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash, RefreshCw } from "lucide-react";
-import { getAllKyc, syncKycFromDidit, verifyKyc } from "../services/api";
+import { getAllKyc, verifyKyc, runKycSweep } from "../services/api";
 
 interface KycVerifiedData {
   fullName?: string;
@@ -35,6 +35,8 @@ export default function KYCVerificationManager() {
   const [kycItems, setKycItems] = useState<KYCItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepResult, setSweepResult] = useState<{ approved: any[]; declined: any[]; unchanged: any[]; errors: any[] } | null>(null);
   const [previewKYC, setPreviewKYC] = useState<KYCItem | null>(null);
 
   useEffect(() => {
@@ -73,31 +75,27 @@ export default function KYCVerificationManager() {
       } else {
         alert(result.message || "Failed to update verification status");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to verify KYC:", error);
-      alert("An error occurred while updating verification status");
+      alert(error?.message || "An error occurred while updating verification status");
     } finally {
       setProcessing(false);
     }
   };
 
-  const handleDiditSync = async (userId: string) => {
+  const handleSweep = async () => {
+    if (!confirm("Sync all pending KYC users with Didit? This will approve/decline based on Didit's current records.")) return;
     try {
-      setProcessing(true);
-      const result = await syncKycFromDidit(userId);
-
-      if (result.success) {
-        await fetchKYCData();
-        setPreviewKYC(null);
-        alert(result.message || "KYC synced from Didit successfully");
-      } else {
-        alert(result.message || "Failed to sync KYC from Didit");
-      }
-    } catch (error) {
-      console.error("Failed to sync KYC from Didit:", error);
-      alert(error instanceof Error ? error.message : "An error occurred while syncing KYC from Didit");
+      setSweeping(true);
+      setSweepResult(null);
+      const result = await runKycSweep();
+      setSweepResult(result.results);
+      await fetchKYCData();
+      alert(`Sync complete: ${result.results.approved.length} approved, ${result.results.declined.length} declined, ${result.results.unchanged.length} unchanged, ${result.results.errors.length} errors.`);
+    } catch (error: any) {
+      alert(error?.message || "Sweep failed");
     } finally {
-      setProcessing(false);
+      setSweeping(false);
     }
   };
 
@@ -150,6 +148,14 @@ export default function KYCVerificationManager() {
           <h1 className="text-3xl font-bold text-gray-900">KYC Verification Manager</h1>
           <p className="text-gray-600">Review identity verifications processed by Didit</p>
         </div>
+        <button
+          onClick={handleSweep}
+          disabled={sweeping}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${sweeping ? 'animate-spin' : ''}`} />
+          {sweeping ? "Syncing..." : "Sync with Didit"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -353,7 +359,7 @@ export default function KYCVerificationManager() {
               <div className="flex gap-3">
                 {previewKYC.user.kycStatus === "pending" && (
                   <button
-                    onClick={() => handleDiditSync(previewKYC.user._id)}
+                    onClick={() => handleSweep()}
                     disabled={processing}
                     className="bg-[#5845D8] hover:bg-[#4937c6] disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
                   >

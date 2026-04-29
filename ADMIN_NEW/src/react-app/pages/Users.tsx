@@ -29,7 +29,9 @@ interface User {
   createdAt: string;
   banned: boolean;
   escrowBalance: number;
-  signupMethod?: 'email' | 'google';
+  country?: string;
+  signupMethod?: 'email' | 'google' | 'apple';
+  signupSource?: 'ios' | 'android' | 'web' | 'app';
   kycStatus?: string;
   kycData?: any;
 }
@@ -112,13 +114,14 @@ export default function Users() {
     }
   };
   const exportToCSV = () => {
-    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Status', 'Signup Method', 'KYC Status', 'Joined Date'];
+    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Country', 'Source', 'Auth Method', 'KYC Status', 'Joined Date'];
     const csvData = users.map(user => [
       user.firstName || '',
       user.lastName || '',
       user.email || '',
       user.phone || '',
-      user.status || '',
+      user.country || '',
+      user.signupSource || 'app',
       user.signupMethod || 'email',
       user.kycStatus || 'pending',
       user.createdAt ? new Date(user.createdAt).toLocaleDateString() : ''
@@ -207,8 +210,10 @@ export default function Users() {
               <thead>
                 <tr className="bg-gray-50/50">
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Identity</th>
-                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Auth Method</th>
-                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">KYC Status</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Country</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Source</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Auth</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">KYC</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Escrow</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Actions</th>
                 </tr>

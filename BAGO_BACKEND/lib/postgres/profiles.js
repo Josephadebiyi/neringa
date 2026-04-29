@@ -13,6 +13,7 @@ function normalizeProfileRow(row) {
     lastName: row.last_name,
     image: row.image_url,
     signupMethod: row.signup_method,
+    signupSource: row.signup_source,
     dateOfBirth: row.date_of_birth,
     emailVerified: row.email_verified,
     kycStatus: row.kyc_status,
@@ -56,6 +57,7 @@ const baseSelect = `
     p.selected_avatar,
     p.role,
     p.signup_method,
+    p.signup_source,
     p.status,
     p.country,
     p.date_of_birth,
@@ -153,6 +155,7 @@ export async function createProfileWithWallet({
   paymentGateway,
   preferredCurrency,
   signupMethod = 'email',
+  signupSource = 'app',
   emailVerified = true,
   imageUrl = null,
 }) {
@@ -171,11 +174,12 @@ export async function createProfileWithWallet({
           payment_gateway,
           preferred_currency,
           signup_method,
+          signup_source,
           email_verified,
           image_url,
           status
         )
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'verified')
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'verified')
         returning id
       `,
       [
@@ -190,6 +194,7 @@ export async function createProfileWithWallet({
         paymentGateway,
         preferredCurrency,
         signupMethod,
+        signupSource,
         emailVerified,
         imageUrl,
       ],
@@ -521,6 +526,7 @@ export async function createOrUpdateAppleProfile({
   firstName,
   lastName,
   country = 'United States',
+  signupSource = 'ios',
 }) {
   // Lookup by Apple sub first (handles subsequent sign-ins where email is absent)
   const existingBySub = await findProfileByAppleSub(appleSub);
@@ -577,6 +583,7 @@ export async function createOrUpdateAppleProfile({
     paymentGateway,
     preferredCurrency,
     signupMethod: 'apple',
+    signupSource,
     emailVerified: true,
   });
 
@@ -596,6 +603,7 @@ export async function createOrUpdateGoogleProfile({
   country = 'United States',
   referralCode = null,
   promoCode = null,
+  signupSource = 'app',
 }) {
   const existing = await findProfileByEmail(email);
   if (existing) {
@@ -654,6 +662,7 @@ export async function createOrUpdateGoogleProfile({
     paymentGateway,
     preferredCurrency,
     signupMethod: 'google',
+    signupSource,
     emailVerified: true,
     imageUrl,
   });

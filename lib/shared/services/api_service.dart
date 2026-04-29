@@ -25,6 +25,7 @@ class ApiService {
         sendTimeout: const Duration(seconds: 30),
         headers: {
           'Accept': 'application/json',
+          'X-Platform': Platform.isIOS ? 'ios' : 'android',
         },
       ),
     );
