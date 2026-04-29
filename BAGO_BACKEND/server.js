@@ -1645,9 +1645,68 @@ function generateIdentityFingerprint(documentNumber, issuingCountry, dateOfBirth
 
 
 app.get("/api/didit/webhook", (req, res) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://sendwithbago.com';
-  // Redirect back to dashboard, optionally with a check flag
-  res.redirect(`${frontendUrl}/dashboard?kyc_check=true`);
+  res.status(200).type('html').send(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bago Verification</title>
+        <style>
+          body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f7f7fb;
+            color: #111827;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+          }
+          .card {
+            width: 100%;
+            max-width: 420px;
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 32px 24px;
+            box-shadow: 0 20px 60px rgba(17, 24, 39, 0.08);
+            text-align: center;
+          }
+          .badge {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 16px;
+            border-radius: 999px;
+            background: #ede9fe;
+            color: #5845d8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 700;
+          }
+          h1 {
+            margin: 0 0 10px;
+            font-size: 22px;
+          }
+          p {
+            margin: 0;
+            color: #6b7280;
+            line-height: 1.5;
+            font-size: 15px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="badge">✓</div>
+          <h1>Verification submitted</h1>
+          <p>You can return to the Bago app now. This page will not redirect you to the website.</p>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
 app.post("/api/didit/webhook", async (req, res) => {
