@@ -27,6 +27,7 @@ import {
   updateTravelerProof,
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
+import { queryOne } from '../lib/postgres/db.js';
 import { verifyPayment as verifyPaystackPaymentRef } from '../services/paystackService.js';
 import { getAppSettings } from './AdminControllers/setting.js';
 
@@ -95,6 +96,24 @@ export async function RequestPackage(req, res) {
       return res.status(400).json({ message: 'A valid positive amount must be provided' });
     }
 
+    let existingRequest = null;
+    if (paymentReference) {
+      existingRequest = await queryOne(
+        `
+          select id
+          from public.shipment_requests
+          where sender_id = $1
+            and traveler_id = $2
+            and package_id = $3
+            and trip_id = $4
+            and payment_info ->> 'requestId' = $5
+          order by created_at desc
+          limit 1
+        `,
+        [senderId, travelerId, packageId, tripId, paymentReference],
+      );
+    }
+
     const packageDoc = await getPackageById(packageId);
     if (!packageDoc || packageDoc.userId !== senderId) {
       return res.status(404).json({ message: 'Package not found or not owned by sender' });
@@ -104,39 +123,6 @@ export async function RequestPackage(req, res) {
     if (!tripDoc || tripDoc.userId !== travelerId) {
       return res.status(404).json({ message: 'Trip not found or not owned by traveler' });
     }
-    const newRequest = await createShipmentRequestRecord({
-      senderId,
-      travelerId,
-      packageId,
-      tripId,
-      amount: Number(amount),
-      currency: currency || 'USD',
-      imageUrl: typeof image === 'string' ? image : null,
-      insurance: insurance === 'yes' || insurance === true,
-      insuranceCost: (() => {
-        if (!(insurance === 'yes' || insurance === true)) return 0;
-        // Recompute server-side to prevent client manipulation
-        const settings = global._appSettingsCache || {};
-        const packageValue = Number(0); // value used in insurance calc
-        if (settings.insuranceType === 'fixed') return Number(settings.insuranceFixedAmount) || 0;
-        const pct = Number(settings.insurancePercentage) || 3;
-        const clientCost = Number(insuranceCost) || 0;
-        // Accept client value if within 5% of server-computed; otherwise use server value
-        const serverCost = (Number(amount) * pct) / 100;
-        return Math.abs(clientCost - serverCost) / Math.max(serverCost, 1) < 0.05 ? clientCost : serverCost;
-      })(),
-      estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
-      estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : null,
-      termsAccepted: true,
-      paymentInfo: paymentReference
-        ? {
-            method: paymentProvider || 'paystack',
-            gateway: paymentProvider || 'paystack',
-            status: paymentStatus || 'paid',
-            requestId: paymentReference,
-          }
-        : {},
-    });
 
     if (paymentReference) {
       // Verify payment server-side before holding escrow
@@ -153,6 +139,45 @@ export async function RequestPackage(req, res) {
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
       }
+    }
+
+    const newRequest = existingRequest
+      ? await getShipmentRequestById(existingRequest.id)
+      : await createShipmentRequestRecord({
+          senderId,
+          travelerId,
+          packageId,
+          tripId,
+          amount: Number(amount),
+          currency: currency || 'USD',
+          imageUrl: typeof image === 'string' ? image : null,
+          insurance: insurance === 'yes' || insurance === true,
+          insuranceCost: (() => {
+            if (!(insurance === 'yes' || insurance === true)) return 0;
+            // Recompute server-side to prevent client manipulation
+            const settings = global._appSettingsCache || {};
+            const packageValue = Number(0); // value used in insurance calc
+            if (settings.insuranceType === 'fixed') return Number(settings.insuranceFixedAmount) || 0;
+            const pct = Number(settings.insurancePercentage) || 3;
+            const clientCost = Number(insuranceCost) || 0;
+            // Accept client value if within 5% of server-computed; otherwise use server value
+            const serverCost = (Number(amount) * pct) / 100;
+            return Math.abs(clientCost - serverCost) / Math.max(serverCost, 1) < 0.05 ? clientCost : serverCost;
+          })(),
+          estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
+          estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : null,
+          termsAccepted: true,
+          paymentInfo: paymentReference
+            ? {
+                method: paymentProvider || 'paystack',
+                gateway: paymentProvider || 'paystack',
+                status: paymentStatus || 'paid',
+                requestId: paymentReference,
+              }
+            : {},
+        });
+
+    if (paymentReference) {
       // For Stripe, the intent was already confirmed client-side; server verifies via webhook separately
       await holdEscrowForPaidRequest({
         requestId: newRequest.id,
@@ -165,30 +190,32 @@ export async function RequestPackage(req, res) {
       const updatedTrip = await getTripById(tripId);
       emitTripUpdate(req, updatedTrip, [travelerId, senderId]);
 
-      if (newRequest?.travelerId) {
-        await createNotification({
-          userId: newRequest.travelerId,
-          title: 'New shipping request',
-          body: `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`,
-          type: 'shipment_request',
-          payload: { requestId: newRequest.id, tripId },
-        });
-        await sendPushNotification(newRequest.travelerId, '📦 New Shipping Request!', `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`);
-      }
-      if (newRequest?.traveler?.email) {
-        await sendNewRequestToTravelerEmail(
-          newRequest.traveler.email,
-          newRequest.travelerName || 'Traveler',
-          newRequest.senderName || 'Sender',
-          `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
-          tripDoc,
-        );
+      if (!existingRequest) {
+        if (newRequest?.travelerId) {
+          await createNotification({
+            userId: newRequest.travelerId,
+            title: 'New shipping request',
+            body: `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`,
+            type: 'shipment_request',
+            payload: { requestId: newRequest.id, tripId },
+          });
+          await sendPushNotification(newRequest.travelerId, '📦 New Shipping Request!', `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`);
+        }
+        if (newRequest?.traveler?.email) {
+          await sendNewRequestToTravelerEmail(
+            newRequest.traveler.email,
+            newRequest.travelerName || 'Traveler',
+            newRequest.senderName || 'Sender',
+            `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
+            tripDoc,
+          );
+        }
       }
     } catch (notifError) {
       console.error('Failed to notify traveler:', notifError);
     }
 
-    return res.status(201).json({ message: 'You have successfully sent the request', request: newRequest });
+    return res.status(existingRequest ? 200 : 201).json({ message: 'You have successfully sent the request', request: newRequest });
   } catch (error) {
     console.error('Error creating request:', error);
     if ([

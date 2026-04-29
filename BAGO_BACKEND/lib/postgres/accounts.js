@@ -7,6 +7,26 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(numericValue) ? numericValue : fallback;
 }
 
+async function ensurePaymentEventsInfrastructure(client) {
+  await client.query(`
+    create table if not exists public.payment_events (
+      id bigserial primary key,
+      provider text not null,
+      event_type text not null,
+      provider_reference text not null,
+      request_id uuid null references public.shipment_requests(id) on delete set null,
+      payload jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default timezone('utc', now()),
+      updated_at timestamptz not null default timezone('utc', now())
+    )
+  `);
+
+  await client.query(`
+    create unique index if not exists payment_events_provider_event_reference_key
+      on public.payment_events (provider, event_type, provider_reference)
+  `);
+}
+
 export async function getAccountProfile(userId) {
   return findProfileById(userId);
 }
@@ -303,6 +323,8 @@ export async function updateWithdrawalTransactionStatus({ transactionId, status,
 
 export async function holdEscrowForPaidRequest({ requestId, providerReference, provider = 'paystack' }) {
   return withTransaction(async (client) => {
+    await ensurePaymentEventsInfrastructure(client);
+
     const paymentEvent = await client.query(
       `
         insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
