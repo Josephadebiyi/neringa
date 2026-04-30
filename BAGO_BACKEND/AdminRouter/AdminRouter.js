@@ -7,6 +7,7 @@ import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
 import { getAllkyc, Verifykyc } from '../controllers/KycVerificationsController.js';
 import { getCurrentSetting, updateSettings } from '../controllers/AdminControllers/setting.js';
+import { getAppSettings } from '../controllers/AdminControllers/setting.js';
 import { sendNotification, getPushHistory } from '../controllers/AdminControllers/NotificationController.js';
 import { Adminlogout } from '../controllers/AdminControllers/AdminLogin.js';
 import { sendPromoEmail } from '../controllers/AdminControllers/PromoEmailController.js';
@@ -76,6 +77,7 @@ import {
   requestAdminCredentialChange,
   verifyAdminCredentialChange,
 } from '../controllers/AdminControllers/AdminCredentialsController.js';
+import { approveRefund, getAllRefunds, rejectRefund } from '../controllers/refundController.js';
 
 const AdminRouter = express.Router();
 
@@ -104,6 +106,15 @@ AdminRouter.get("/analystic", adminAuthenticated, analystic)
 AdminRouter.get("/getAllkyc", adminAuthenticated, getAllkyc)
 AdminRouter.put("/Verifykyc", adminAuthenticated, Verifykyc)
 AdminRouter.put("/update-settings", adminAuthenticated, updateSettings);
+AdminRouter.put("/toggleAutoVerification", adminAuthenticated, async (req, res, next) => {
+  try {
+    const settings = await getAppSettings();
+    req.body = { autoVerification: !Boolean(settings.autoVerification) };
+    return updateSettings(req, res, next);
+  } catch (error) {
+    return next(error);
+  }
+});
 AdminRouter.post("/send-notification", adminAuthenticated, sendNotification);
 AdminRouter.get("/push-notifications/history", adminAuthenticated, getPushHistory);
 AdminRouter.get("/Adminlogout", adminAuthenticated, Adminlogout);
@@ -112,6 +123,9 @@ AdminRouter.put("/banUser/:userId", adminAuthenticated, validateUuidParam('userI
 AdminRouter.put("/updateUser/:userId", adminAuthenticated, validateUuidParam('userId'), updateUser);
 AdminRouter.delete("/deleteUser/:userId", adminAuthenticated, validateUuidParam('userId'), deleteUser);
 AdminRouter.post("/send-promo", adminAuthenticated, sendPromoEmail);
+AdminRouter.get("/refunds", adminAuthenticated, getAllRefunds);
+AdminRouter.put("/refunds/:id/approve", adminAuthenticated, validateUuidParam('id'), approveRefund);
+AdminRouter.put("/refunds/:id/reject", adminAuthenticated, validateUuidParam('id'), rejectRefund);
 
 // Route Management (Admin Pricing System)
 AdminRouter.post("/routes", adminAuthenticated, createRoute);

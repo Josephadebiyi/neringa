@@ -366,11 +366,11 @@ export async function updateDisputeStatus(id: string, data: any) {
 
 // Refunds
 export async function getRefunds() {
-  return apiCall(`${MAIN_API}/get-refund`);
+  return apiCall(`${ADMIN_API}/refunds`);
 }
 
 export async function processRefund(id: string, action: 'approve' | 'reject') {
-  return apiCall(`${MAIN_API}/${action}/${id}`, { method: 'PUT' });
+  return apiCall(`${ADMIN_API}/refunds/${id}/${action}`, { method: 'PUT' });
 }
 
 export async function sendPromoEmail(data: any) {

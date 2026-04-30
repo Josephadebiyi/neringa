@@ -118,7 +118,7 @@ export default function Settings({ user, checkAuthStatus }) {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/api/bago/email/request-change', { newEmail });
+            await api.post('/api/bago/user/request-email-change', { newEmail });
             setShowEmailOtp(true);
             setSuccessMessage(t('otpSentEmail'));
         } catch (err) {

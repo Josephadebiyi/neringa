@@ -157,6 +157,7 @@ userRouter.put("/updatePackage/:id", isAuthenticated, requireKycVerification, up
 userRouter.delete("/package/:id", isAuthenticated, requireKycVerification, deletePackage)
 userRouter.post("/RequestPackage", isAuthenticated, requireKycVerification, RequestPackage)
 userRouter.get("/recentOrder", isAuthenticated, recentOrder)
+userRouter.get("/getRequests", isAuthenticated, requireKycVerification, getRequests)
 userRouter.get("/getRequests/:tripId", isAuthenticated, requireKycVerification, getRequests)
 userRouter.get("/incoming-requests", isAuthenticated, requireKycVerification, getIncomingRequests)
 userRouter.get("/disputes", isAuthenticated, requireKycVerification, getDisputes);
