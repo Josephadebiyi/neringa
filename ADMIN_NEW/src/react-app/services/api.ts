@@ -57,6 +57,11 @@ async function apiCall(url: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: `Server error (HTTP ${response.status})` }));
+    if (response.status === 401) {
+      clearStoredAdminToken();
+      window.location.hash = '#/';
+      return;
+    }
     throw new Error(error.error || error.message || 'Request failed');
   }
 
