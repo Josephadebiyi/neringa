@@ -83,8 +83,6 @@ export default function SendPackage() {
     const [insuranceCost, setInsuranceCost] = useState(0);
     const [exchangeRates, setExchangeRates] = useState(null);
     const [quote, setQuote] = useState(null);
-    const [walletBalance, setWalletBalance] = useState(0);
-    const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
 
     // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
@@ -175,20 +173,8 @@ export default function SendPackage() {
         } else {
             checkKycStatus();
             loadExchangeRates();
-            fetchWalletBalance();
         }
     }, [isAuthenticated, navigate]);
-
-    const fetchWalletBalance = async () => {
-        try {
-            const res = await api.get('/api/bago/getWallet');
-            if (res.data.success) {
-                setWalletBalance(res.data.balance || 0);
-            }
-        } catch (err) {
-            console.error('Failed to fetch wallet balance:', err);
-        }
-    };
 
     const loadExchangeRates = async () => {
         try {
@@ -285,11 +271,6 @@ export default function SendPackage() {
     const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
     const totalCost = (shippingCost + insuranceCost).toFixed(2);
 
-    // Removed wallet balance check to allow Stripe/Paystack payment
-    useEffect(() => {
-        setIsInsufficientBalance(false);
-    }, [totalCost, walletBalance]);
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -341,15 +322,6 @@ export default function SendPackage() {
             return;
         }
 
-        // Removed mandatory wallet balance check to allow Stripe/Paystack payment
-        /*
-        if (parseFloat(totalCost) > walletBalance) {
-            setError(`Insufficient balance. Your current balance is ${currency} ${walletBalance.toFixed(2)}, but this request requires ${currency} ${totalCost}. Please top up your wallet first.`);
-            setLoading(false);
-            return;
-        }
-        */
-
         // Check terms
         if (!formData.termsAccepted) {
             setError('You must agree to the Terms and Conditions.');
@@ -358,83 +330,132 @@ export default function SendPackage() {
         }
 
         try {
-            // Check if user came from trip selection or needs to search for travelers
-            if (selectedTrip) {
-                console.log('✅ TRIP SELECTED - VALIDATING FIELDS...');
-
-                // Validation Guard
-                if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) {
-                    const errorMsg = 'Validation Error: Missing or incomplete location data. Please ensure cities and countries are correctly filled.';
-                    console.error('❌ PRE-SUBMISSION FAILED:', errorMsg);
-                    setError(errorMsg);
-                    setLoading(false);
-                    return;
-                }
-
-                console.log('✅ ALL FIELDS VALIDATED - PREPARING PAYLOAD');
-
-                // Construct structured payload according to System Architecture
-                const payload = {
-                    from_city: formData.fromCity.trim(),
-                    from_country: formData.fromCountry.trim(),
-                    to_city: formData.toCity.trim(),
-                    to_country: formData.toCountry.trim(),
-                    package_details: {
-                        package_name: formData.packageName.trim(),
-                        package_description: formData.packageDescription.trim(),
-                        package_weight: parseFloat(formData.packageWeight) || 1,
-                        package_value: formData.packageValue || 0,
-                        package_image: formData.packageImage,
-                        category: formData.category.trim()
-                    },
-                    recipient_details: {
-                        receiver_name: formData.receiverName.trim(),
-                        receiver_phone: formData.receiverPhone.trim(),
-                        receiver_email: formData.receiverEmail.trim()
-                    }
-                };
-
-                console.log('🚀 FINAL PAYLOAD:', JSON.stringify(payload, null, 2));
-
-                // Create package with structured data
-                const packageResponse = await api.post('/api/bago/createPackage', payload);
-
-                console.log('✅ PACKAGE CREATED:', packageResponse.data);
-
-                if (packageResponse.status === 201) {
-                    const packageId = packageResponse.data.package._id;
-
-                    console.log('✅ CREATING SHIPPING REQUEST...');
-
-                    const requestResponse = await api.post('/api/bago/RequestPackage', {
-                        travelerId: selectedTrip.user,
-                        packageId: packageId,
-                        tripId: selectedTrip._id,
-                        amount: Number(totalCost),
-                        currency: currency,
-                        estimatedDeparture: selectedTrip.departureDate,
-                        insurance: formData.insuranceProtection,
-                        insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
-                        termsAccepted: true
-                    });
-
-                    console.log('✅ SHIPPING REQUEST CREATED:', requestResponse.data);
-
-                    if (requestResponse.status === 201) {
-                        navigate('/dashboard', { state: { message: t('requestSentSuccess') } });
-                    }
-                }
-            } else {
-                // No trip selected, redirect to search
-                console.log('⚠️ NO TRIP SELECTED - REDIRECTING TO SEARCH...');
+            if (!selectedTrip) {
                 navigate(`/search?origin=${formData.fromCity}&destination=${formData.toCity}`, {
                     state: { packageDetails: formData }
                 });
+                return;
+            }
+
+            if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) {
+                setError('Missing location data. Please ensure cities and countries are filled.');
+                setLoading(false);
+                return;
+            }
+
+            // Build package payload
+            const payload = {
+                from_city: formData.fromCity.trim(),
+                from_country: formData.fromCountry.trim(),
+                to_city: formData.toCity.trim(),
+                to_country: formData.toCountry.trim(),
+                package_details: {
+                    package_name: formData.packageName.trim(),
+                    package_description: formData.packageDescription.trim(),
+                    package_weight: parseFloat(formData.packageWeight) || 1,
+                    package_value: formData.packageValue || 0,
+                    package_image: formData.packageImage,
+                    category: formData.category.trim()
+                },
+                recipient_details: {
+                    receiver_name: formData.receiverName.trim(),
+                    receiver_phone: formData.receiverPhone.trim(),
+                    receiver_email: formData.receiverEmail.trim()
+                }
+            };
+
+            // Create package
+            const packageResponse = await api.post('/api/bago/createPackage', payload);
+            if (packageResponse.status !== 201) throw new Error('Failed to create package');
+            const packageId = packageResponse.data.package._id;
+
+            const travelerId = selectedTrip.user || selectedTrip.userId;
+            const tripId = selectedTrip._id;
+            const amount = Number(totalCost);
+            const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'UGX', 'TZS'];
+            const usePaystack = africanCurrencies.includes(currency.toUpperCase());
+
+            if (usePaystack) {
+                // Store pending shipment data for after Paystack redirect
+                sessionStorage.setItem('bagoPendingShipment', JSON.stringify({
+                    packageId,
+                    travelerId,
+                    tripId,
+                    amount,
+                    currency,
+                    estimatedDeparture: selectedTrip.departureDate,
+                    insurance: formData.insuranceProtection,
+                    insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                }));
+
+                // Initialize Paystack payment
+                const initRes = await api.post('/api/bago/paystack/initialize', {
+                    amount,
+                    currency,
+                    metadata: { packageId, travelerId, tripId }
+                });
+
+                if (initRes.data?.authorizationUrl) {
+                    window.location.href = initRes.data.authorizationUrl;
+                } else {
+                    throw new Error('Failed to initialize payment. Please try again.');
+                }
+            } else {
+                // Non-African currency: create Stripe payment intent first
+                try {
+                    const intentRes = await api.post('/api/bago/payment-methods/payment-intent', {
+                        amount,
+                        currency: currency.toLowerCase(),
+                        packageId,
+                        tripId
+                    });
+                    if (intentRes.data?.success) {
+                        // Store pending shipment data
+                        sessionStorage.setItem('bagoPendingShipment', JSON.stringify({
+                            packageId, travelerId, tripId, amount, currency,
+                            estimatedDeparture: selectedTrip.departureDate,
+                            insurance: formData.insuranceProtection,
+                            insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                            paymentProvider: 'stripe',
+                        }));
+                        // Navigate to payment page with client secret
+                        navigate('/payment/checkout', {
+                            state: {
+                                clientSecret: intentRes.data.data.clientSecret,
+                                amount, currency
+                            }
+                        });
+                        return;
+                    }
+                } catch (_) {}
+
+                // Fallback: create request without upfront payment (pay on delivery/wallet)
+                const requestResponse = await api.post('/api/bago/RequestPackage', {
+                    travelerId,
+                    packageId,
+                    tripId,
+                    amount,
+                    currency,
+                    estimatedDeparture: selectedTrip.departureDate,
+                    insurance: formData.insuranceProtection,
+                    insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                    termsAccepted: true
+                });
+
+                if (requestResponse.status === 201) {
+                    const req = requestResponse.data.request;
+                    navigate('/shipping-success', {
+                        state: {
+                            requestId: req?.id || req?._id,
+                            trackingNumber: req?.trackingNumber,
+                            amount: totalCost,
+                            currency,
+                        }
+                    });
+                }
             }
         } catch (err) {
-            console.error('❌ SUBMISSION ERROR:', err);
-            console.error('❌ ERROR RESPONSE:', err.response?.data);
-            setError(err.response?.data?.message || 'Failed to process request. Please try again.');
+            setError(err.response?.data?.message || err.message || 'Failed to process request. Please try again.');
         } finally {
             setLoading(false);
         }

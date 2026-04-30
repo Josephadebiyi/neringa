@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            await api.post('/api/bago/logout');
+            await api.get('/api/bago/logout');
         } catch (error) {
             console.error('Logout request failed:', error);
         } finally {

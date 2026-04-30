@@ -138,6 +138,7 @@ userRouter.get("/track/:trackingNumber", getPublicTracking);
 userRouter.post("/KycVerifications", isAuthenticated, KycVerifications)
 userRouter.get("/getKyc", isAuthenticated, getKyc)
 userRouter.post('/kyc/create-session', isAuthenticated, createDiditSession);
+userRouter.get('/kyc/status', isAuthenticated, fetchDiditResult);
 userRouter.get('/kyc/fetch-result/:sessionId', isAuthenticated, fetchDiditResult);
 userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => {
   // Flutter polls via POST with sessionId in body — bridge to the GET handler

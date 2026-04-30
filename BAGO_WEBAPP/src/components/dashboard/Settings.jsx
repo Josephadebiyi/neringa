@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
-import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function Settings({ user, checkAuthStatus }) {
-    const { currency, setCurrency, t } = useLanguage();
+    const { setCurrency, t } = useLanguage();
     const [firstName, setFirstName] = useState(user?.firstName || '');
     const [lastName, setLastName] = useState(user?.lastName || '');
     const [dateOfBirth, setDateOfBirth] = useState(() => {
-        if (user?.dateOfBirth) {
-            return new Date(user.dateOfBirth).toISOString().split('T')[0];
-        }
+        if (user?.dateOfBirth) return new Date(user.dateOfBirth).toISOString().split('T')[0];
         return '';
     });
     const [email, setEmail] = useState(user?.email || '');
     const [newEmail, setNewEmail] = useState('');
     const [showEmailOtp, setShowEmailOtp] = useState(false);
     const [emailOtp, setEmailOtp] = useState('');
+
+    // Phone change state
+    const [phone, setPhone] = useState(user?.phone || '');
+    const [newPhone, setNewPhone] = useState('');
+    const [showPhoneOtp, setShowPhoneOtp] = useState(false);
+    const [phoneOtp, setPhoneOtp] = useState('');
+    const [phoneLoading, setPhoneLoading] = useState(false);
+
     const [preferredCurrency, setPreferredCurrency] = useState(user?.preferredCurrency || 'USD');
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -29,42 +35,29 @@ export default function Settings({ user, checkAuthStatus }) {
     const [stripeLoading, setStripeLoading] = useState(false);
 
     useEffect(() => {
-        if (user?._id) {
-            checkStripeStatus();
-        }
-        if (user?.preferredCurrency) {
-            setPreferredCurrency(user.preferredCurrency);
-        }
-    }, [user?._id, user?.preferredCurrency]);
+        if (user?._id || user?.id) checkStripeStatus();
+        if (user?.preferredCurrency) setPreferredCurrency(user.preferredCurrency);
+        if (user?.phone) setPhone(user.phone);
+    }, [user?._id, user?.id, user?.preferredCurrency, user?.phone]);
 
     const checkStripeStatus = async () => {
         try {
             const res = await api.get(`/api/stripe/connect/status/${user?._id || user?.id}`);
-            if (res.data.success) {
-                setStripeVerified(res.data.verified);
-            }
-        } catch (err) {
-        }
+            if (res.data.success) setStripeVerified(res.data.verified);
+        } catch (_) {}
     };
 
     const handleStripeConnect = async () => {
         setStripeLoading(true);
         try {
-            const res = await api.post('/api/stripe/connect/onboard', {
-                userId: user?._id || user?.id,
-                email: user?.email
-            });
-            if (res.data.success && res.data.url) {
-                window.location.href = res.data.url;
-            }
+            const res = await api.post('/api/stripe/connect/onboard', { userId: user?._id || user?.id, email: user?.email });
+            if (res.data.success && res.data.url) window.location.href = res.data.url;
         } catch (err) {
-            const msg = err.response?.data?.message || t('failStripeOnboarding');
-            setError(msg);
+            setError(err.response?.data?.message || t('failStripeOnboarding'));
         } finally {
             setStripeLoading(false);
         }
     };
-
 
     const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS', 'UGX', 'TZS', 'RWF'];
     const isAfricanCurrency = africanCurrencies.includes(preferredCurrency?.toUpperCase());
@@ -72,7 +65,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const showStripeOption = !isAfricanCurrency;
 
     const handleUpdateProfile = async (e) => {
-        e.preventDefault();
+        if (e?.preventDefault) e.preventDefault();
         setLoading(true);
         setError('');
         try {
@@ -81,11 +74,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 lastName,
                 dateOfBirth,
                 preferredCurrency,
-                bankDetails: {
-                    bankName,
-                    accountNumber,
-                    accountHolderName
-                }
+                bankDetails: { bankName, accountNumber, accountHolderName }
             });
             if (res.data.status === 'success') {
                 setCurrency(preferredCurrency);
@@ -100,18 +89,73 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-
+    // ── Email change ──────────────────────────────────────────────
     const handleRequestEmailChange = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setError('');
         try {
-            await api.post('/api/bago/email/request-change', { newEmail });
+            await api.post('/api/bago/user/request-email-change', { newEmail });
             setShowEmailOtp(true);
-            setSuccessMessage(t('otpSentEmail'));
+            setSuccessMessage('OTP sent to your new email address');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to request email change');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleVerifyEmailOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            await api.post('/api/bago/user/verify-email-change', { otp: emailOtp });
+            setShowEmailOtp(false);
+            setEmail(newEmail);
+            setNewEmail('');
+            setEmailOtp('');
+            setSuccessMessage('Email updated successfully');
+            await checkAuthStatus();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Invalid or expired code');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ── Phone change ──────────────────────────────────────────────
+    const handleRequestPhoneChange = async (e) => {
+        e.preventDefault();
+        setPhoneLoading(true);
+        setError('');
+        try {
+            await api.post('/api/bago/user/request-phone-change', { newPhone });
+            setShowPhoneOtp(true);
+            setSuccessMessage('OTP sent to your new phone number');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to request phone change');
+        } finally {
+            setPhoneLoading(false);
+        }
+    };
+
+    const handleVerifyPhoneOtp = async (e) => {
+        e.preventDefault();
+        setPhoneLoading(true);
+        setError('');
+        try {
+            await api.post('/api/bago/user/verify-phone-change', { otp: phoneOtp });
+            setShowPhoneOtp(false);
+            setPhone(newPhone);
+            setNewPhone('');
+            setPhoneOtp('');
+            setSuccessMessage('Phone number updated successfully');
+            await checkAuthStatus();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Invalid or expired code');
+        } finally {
+            setPhoneLoading(false);
         }
     };
 
@@ -210,14 +254,15 @@ export default function Settings({ user, checkAuthStatus }) {
                     </form>
                 </div>
 
-                {/* Account Settings */}
-                <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
-                    <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
-                        <Mail className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
-                    </div>
+                {/* Account Settings — Email & Phone */}
+                <div className="space-y-4">
+                    {/* Email Change */}
+                    <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-4">
+                        <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
+                            <Mail className="text-[#5845D8]" size={16} />
+                            <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
+                        </div>
 
-                    <div className="space-y-4">
                         <div>
                             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('currentEmail')}</label>
                             <input
@@ -229,7 +274,7 @@ export default function Settings({ user, checkAuthStatus }) {
                         </div>
 
                         {!showEmailOtp ? (
-                            <form onSubmit={handleRequestEmailChange} className="space-y-4 pt-4 border-t border-gray-50">
+                            <form onSubmit={handleRequestEmailChange} className="space-y-3 pt-3 border-t border-gray-50">
                                 <div>
                                     <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('newEmailLabel')}</label>
                                     <input
@@ -245,11 +290,11 @@ export default function Settings({ user, checkAuthStatus }) {
                                     disabled={!newEmail || loading}
                                     className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50"
                                 >
-                                    {t('updateAddress')}
+                                    {loading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : t('updateAddress')}
                                 </button>
                             </form>
                         ) : (
-                            <div className="space-y-4 pt-4 border-t border-gray-50 animate-in fade-in duration-300">
+                            <form onSubmit={handleVerifyEmailOtp} className="space-y-3 pt-3 border-t border-gray-50 animate-in fade-in duration-300">
                                 <div>
                                     <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{t('verificationCode')}</label>
                                     <input
@@ -262,10 +307,73 @@ export default function Settings({ user, checkAuthStatus }) {
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest">{t('verify')}</button>
-                                    <button onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">{t('cancel')}</button>
+                                    <button type="submit" disabled={!emailOtp || loading} className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50">
+                                        {loading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : t('verify')}
+                                    </button>
+                                    <button type="button" onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">{t('cancel')}</button>
                                 </div>
-                            </div>
+                            </form>
+                        )}
+                    </div>
+
+                    {/* Phone Change */}
+                    <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-4">
+                        <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
+                            <Phone className="text-[#5845D8]" size={16} />
+                            <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Phone Number</h3>
+                        </div>
+
+                        <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Current Phone</label>
+                            <input
+                                type="tel"
+                                value={phone}
+                                disabled
+                                placeholder="No phone number set"
+                                className="w-full px-4 py-2 bg-gray-100 rounded-xl border border-transparent font-black text-[11px] text-gray-400 cursor-not-allowed opacity-70"
+                            />
+                        </div>
+
+                        {!showPhoneOtp ? (
+                            <form onSubmit={handleRequestPhoneChange} className="space-y-3 pt-3 border-t border-gray-50">
+                                <div>
+                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Phone Number</label>
+                                    <input
+                                        type="tel"
+                                        value={newPhone}
+                                        onChange={(e) => setNewPhone(e.target.value)}
+                                        placeholder="+1 234 567 8900"
+                                        className="w-full px-4 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[11px] transition-all"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={!newPhone || phoneLoading}
+                                    className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50"
+                                >
+                                    {phoneLoading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : 'Update Phone'}
+                                </button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleVerifyPhoneOtp} className="space-y-3 pt-3 border-t border-gray-50 animate-in fade-in duration-300">
+                                <div>
+                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Verification Code</label>
+                                    <input
+                                        type="text"
+                                        maxLength={6}
+                                        value={phoneOtp}
+                                        onChange={(e) => setPhoneOtp(e.target.value)}
+                                        placeholder="000000"
+                                        className="w-full px-4 py-2.5 bg-[#5845D8]/5 rounded-xl border border-[#5845D8]/20 outline-none focus:border-[#5845D8] font-black text-center text-sm tracking-[8px]"
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button type="submit" disabled={!phoneOtp || phoneLoading} className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50">
+                                        {phoneLoading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : 'Verify'}
+                                    </button>
+                                    <button type="button" onClick={() => setShowPhoneOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">Cancel</button>
+                                </div>
+                            </form>
                         )}
                     </div>
                 </div>
@@ -294,7 +402,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                 </div>
 
                                 {stripeVerified ? (
-                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all">
+                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
                                             <Check size={14} strokeWidth={4} />
                                         </div>
@@ -365,8 +473,6 @@ export default function Settings({ user, checkAuthStatus }) {
                 </div>
             </div>
 
-
-            {/* Status Messages */}
             {successMessage && (
                 <div className="fixed bottom-10 right-10 bg-[#012126] text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50 border border-white/20 backdrop-blur-md">
                     <CheckCircle className="text-green-400" size={18} />
@@ -384,35 +490,3 @@ export default function Settings({ user, checkAuthStatus }) {
         </div>
     );
 }
-
-const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountNumber, accountHolderName, setAccountHolderName }) => (
-    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-        <h4 className="flex items-center gap-2 text-sm font-black text-[#012126] mb-4">
-            <span className="w-6 h-6 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[10px]">2</span>
-            Nigerian Bank Transfer (NGN)
-        </h4>
-        <div className="space-y-3">
-            <input
-                type="text"
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="Bank Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
-            />
-            <input
-                type="text"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                placeholder="Account Number"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
-            />
-            <input
-                type="text"
-                value={accountHolderName}
-                onChange={(e) => setAccountHolderName(e.target.value)}
-                placeholder="Account Holder Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-100 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
-            />
-        </div>
-    </div>
-);
