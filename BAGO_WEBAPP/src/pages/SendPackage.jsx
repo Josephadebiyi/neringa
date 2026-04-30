@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -11,7 +11,9 @@ import {
     User,
     Check,
     ArrowRight,
-    MapPin
+    MapPin,
+    CreditCard,
+    RefreshCw
 } from 'lucide-react';
 import api from '../api';
 import { locations } from '../utils/countries';
@@ -42,6 +44,33 @@ const parseLocationData = (locationStr) => {
     // Fallback if no comma is present
     return { city: locationStr.trim(), country: '' };
 };
+
+const AFRICAN_PAYOUT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'];
+
+const providerForCurrency = (value) => (
+    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'stripe'
+);
+
+const loadStripeJs = () => new Promise((resolve, reject) => {
+    if (window.Stripe) {
+        resolve(window.Stripe);
+        return;
+    }
+
+    const existing = document.querySelector('script[src="https://js.stripe.com/v3/"]');
+    if (existing) {
+        existing.addEventListener('load', () => resolve(window.Stripe));
+        existing.addEventListener('error', reject);
+        return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://js.stripe.com/v3/';
+    script.async = true;
+    script.onload = () => resolve(window.Stripe);
+    script.onerror = reject;
+    document.body.appendChild(script);
+});
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -83,6 +112,14 @@ export default function SendPackage() {
     const [insuranceCost, setInsuranceCost] = useState(0);
     const [exchangeRates, setExchangeRates] = useState(null);
     const [quote, setQuote] = useState(null);
+    const [walletBalance, setWalletBalance] = useState(0);
+    const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
+    const [pendingPayment, setPendingPayment] = useState(null);
+    const [stripeReady, setStripeReady] = useState(false);
+    const [paymentProcessing, setPaymentProcessing] = useState(false);
+    const stripeRef = useRef(null);
+    const elementsRef = useRef(null);
+    const paymentElementRef = useRef(null);
 
     // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
@@ -109,6 +146,7 @@ export default function SendPackage() {
     // Populate location fields from selectedTrip with intelligent extraction
     useEffect(() => {
         if (selectedTrip) {
+            console.log('🎯 RAW TRIP DATA:', selectedTrip);
 
             // 1. Try to get structured city/country data first
             let fromCity = selectedTrip.fromCity || '';
@@ -137,6 +175,8 @@ export default function SendPackage() {
             if (!toCountry && toCity) toCountry = getCountryFromCity(toCity);
 
             const deadline = selectedTrip.departureDate || '';
+
+            console.log('✅ FINAL STRUCTURED DATA:', { fromCity, fromCountry, toCity, toCountry });
 
             setFormData(prev => ({
                 ...prev,
@@ -170,8 +210,20 @@ export default function SendPackage() {
         } else {
             checkKycStatus();
             loadExchangeRates();
+            fetchWalletBalance();
         }
     }, [isAuthenticated, navigate]);
+
+    const fetchWalletBalance = async () => {
+        try {
+            const res = await api.get('/api/bago/getWallet');
+            if (res.data.success) {
+                setWalletBalance(res.data.balance || 0);
+            }
+        } catch (err) {
+            console.error('Failed to fetch wallet balance:', err);
+        }
+    };
 
     const loadExchangeRates = async () => {
         try {
@@ -267,11 +319,162 @@ export default function SendPackage() {
 
     const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
     const totalCost = (shippingCost + insuranceCost).toFixed(2);
+    const paymentProvider = providerForCurrency(currency);
+
+    // Removed wallet balance check to allow Stripe/Paystack payment
+    useEffect(() => {
+        setIsInsufficientBalance(false);
+    }, [totalCost, walletBalance]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const mountStripePaymentElement = async () => {
+            if (!pendingPayment || pendingPayment.provider !== 'stripe' || !pendingPayment.clientSecret || !paymentElementRef.current) return;
+            setStripeReady(false);
+
+            try {
+                const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+                if (!publishableKey) {
+                    setError('Stripe publishable key is missing. Add VITE_STRIPE_PUBLISHABLE_KEY to the web app environment.');
+                    return;
+                }
+
+                const Stripe = await loadStripeJs();
+                if (cancelled) return;
+
+                const stripe = Stripe(publishableKey);
+                const elements = stripe.elements({
+                    clientSecret: pendingPayment.clientSecret,
+                    appearance: {
+                        theme: 'stripe',
+                        variables: {
+                            colorPrimary: '#5845D8',
+                            borderRadius: '12px',
+                            fontFamily: 'Inter, system-ui, sans-serif',
+                        },
+                    },
+                });
+                const paymentElement = elements.create('payment');
+                paymentElement.mount(paymentElementRef.current);
+
+                stripeRef.current = stripe;
+                elementsRef.current = elements;
+                setStripeReady(true);
+            } catch (err) {
+                if (!cancelled) setError('Unable to load secure Stripe checkout. Please try again.');
+            }
+        };
+
+        mountStripePaymentElement();
+
+        return () => {
+            cancelled = true;
+            if (paymentElementRef.current) {
+                paymentElementRef.current.innerHTML = '';
+            }
+            stripeRef.current = null;
+            elementsRef.current = null;
+            setStripeReady(false);
+        };
+    }, [pendingPayment]);
+
+    const createShipmentRequestAfterPayment = async ({ packageId, paymentReference, provider }) => {
+        const requestResponse = await api.post('/api/bago/RequestPackage', {
+            travelerId: selectedTrip.user,
+            packageId,
+            tripId: selectedTrip._id,
+            amount: Number(totalCost),
+            currency,
+            estimatedDeparture: selectedTrip.departureDate,
+            insurance: formData.insuranceProtection,
+            insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+            termsAccepted: true,
+            paymentReference,
+            paymentProvider: provider,
+            paymentStatus: 'paid'
+        });
+
+        if (requestResponse.status === 201) {
+            setPendingPayment(null);
+            navigate('/dashboard', { state: { message: t('requestSentSuccess') } });
+        }
+    };
+
+    const handleConfirmStripePayment = async () => {
+        if (!pendingPayment || !stripeRef.current || !elementsRef.current) return;
+        setPaymentProcessing(true);
+        setError('');
+        try {
+            const { error: stripeError, paymentIntent } = await stripeRef.current.confirmPayment({
+                elements: elementsRef.current,
+                redirect: 'if_required',
+                confirmParams: {
+                    return_url: `${window.location.origin}/shipping-success`,
+                },
+            });
+
+            if (stripeError) {
+                setError(stripeError.message || 'Payment could not be completed.');
+                return;
+            }
+
+            if (!['succeeded', 'processing'].includes(paymentIntent?.status)) {
+                setError('Payment was not completed. Please try again.');
+                return;
+            }
+
+            await createShipmentRequestAfterPayment({
+                packageId: pendingPayment.packageId,
+                paymentReference: paymentIntent.id,
+                provider: 'stripe',
+            });
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Failed to complete payment.');
+        } finally {
+            setPaymentProcessing(false);
+        }
+    };
+
+    const handleVerifyPaystackPayment = async () => {
+        if (!pendingPayment?.reference) return;
+        setPaymentProcessing(true);
+        setError('');
+        try {
+            const verify = await api.get(`/api/bago/paystack/verify/${pendingPayment.reference}`);
+            if (!verify.data?.success) {
+                setError(verify.data?.message || 'Payment has not been verified yet.');
+                return;
+            }
+
+            await createShipmentRequestAfterPayment({
+                packageId: pendingPayment.packageId,
+                paymentReference: pendingPayment.reference,
+                provider: 'paystack',
+            });
+        } catch (err) {
+            setError(err.response?.data?.message || 'Payment verification failed. Please try again.');
+        } finally {
+            setPaymentProcessing(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
+
+        console.log('🚀 FORM SUBMISSION STARTED');
+        console.log('📦 FORM DATA:', {
+            fromCity: formData.fromCity,
+            fromCountry: formData.fromCountry,
+            toCity: formData.toCity,
+            toCountry: formData.toCountry,
+            category: formData.category,
+            receiverName: formData.receiverName,
+            receiverPhone: formData.receiverPhone,
+            packageWeight: formData.packageWeight
+        });
 
         // Check KYC status
         if (kycStatus !== 'approved') {
@@ -307,6 +510,15 @@ export default function SendPackage() {
             return;
         }
 
+        // Removed mandatory wallet balance check to allow Stripe/Paystack payment
+        /*
+        if (parseFloat(totalCost) > walletBalance) {
+            setError(`Insufficient balance. Your current balance is ${currency} ${walletBalance.toFixed(2)}, but this request requires ${currency} ${totalCost}. Please top up your wallet first.`);
+            setLoading(false);
+            return;
+        }
+        */
+
         // Check terms
         if (!formData.termsAccepted) {
             setError('You must agree to the Terms and Conditions.');
@@ -315,104 +527,119 @@ export default function SendPackage() {
         }
 
         try {
-            if (!selectedTrip) {
+            // Check if user came from trip selection or needs to search for travelers
+            if (selectedTrip) {
+                console.log('✅ TRIP SELECTED - VALIDATING FIELDS...');
+
+                // Validation Guard
+                if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) {
+                    const errorMsg = 'Validation Error: Missing or incomplete location data. Please ensure cities and countries are correctly filled.';
+                    console.error('❌ PRE-SUBMISSION FAILED:', errorMsg);
+                    setError(errorMsg);
+                    setLoading(false);
+                    return;
+                }
+
+                console.log('✅ ALL FIELDS VALIDATED - PREPARING PAYLOAD');
+
+                // Construct structured payload according to System Architecture
+                const payload = {
+                    from_city: formData.fromCity.trim(),
+                    from_country: formData.fromCountry.trim(),
+                    to_city: formData.toCity.trim(),
+                    to_country: formData.toCountry.trim(),
+                    package_details: {
+                        package_name: formData.packageName.trim(),
+                        package_description: formData.packageDescription.trim(),
+                        package_weight: parseFloat(formData.packageWeight) || 1,
+                        package_value: formData.packageValue || 0,
+                        package_image: formData.packageImage,
+                        category: formData.category.trim()
+                    },
+                    recipient_details: {
+                        receiver_name: formData.receiverName.trim(),
+                        receiver_phone: formData.receiverPhone.trim(),
+                        receiver_email: formData.receiverEmail.trim()
+                    }
+                };
+
+                console.log('🚀 FINAL PAYLOAD:', JSON.stringify(payload, null, 2));
+
+                // Create package with structured data
+                const packageResponse = await api.post('/api/bago/createPackage', payload);
+
+                console.log('✅ PACKAGE CREATED:', packageResponse.data);
+
+                if (packageResponse.status === 201) {
+                    const packageId = packageResponse.data.package._id;
+
+                    if (paymentProvider === 'stripe') {
+                        const paymentResponse = await api.post('/api/bago/payment-methods/payment-intent', {
+                            packageId,
+                            tripId: selectedTrip._id,
+                            amount: Number(totalCost),
+                            currency,
+                            customerEmail: user?.email || '',
+                            travellerEmail: user?.email || '',
+                            travellerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || '',
+                            insurance: formData.insuranceProtection,
+                            insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                            estimatedDeparture: selectedTrip.departureDate,
+                            estimatedArrival: selectedTrip.arrivalDate,
+                        });
+
+                        const paymentData = paymentResponse.data?.data || {};
+                        setPendingPayment({
+                            provider: 'stripe',
+                            packageId,
+                            clientSecret: paymentData.clientSecret,
+                            paymentIntentId: paymentData.paymentIntentId,
+                        });
+                        return;
+                    }
+
+                    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                    const paystackResponse = await api.post('/api/bago/paystack/initialize', {
+                        packageId,
+                        tripId: selectedTrip._id,
+                        amount: Number(totalCost),
+                        currency,
+                        customerEmail: user?.email || '',
+                        expiresAt,
+                        metadata: {
+                            insurance: formData.insuranceProtection,
+                            insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                            estimatedDeparture: selectedTrip.departureDate,
+                            estimatedArrival: selectedTrip.arrivalDate,
+                        }
+                    });
+
+                    const authorizationUrl = paystackResponse.data?.authorization_url || paystackResponse.data?.data?.authorization_url;
+                    const reference = paystackResponse.data?.reference || paystackResponse.data?.data?.reference;
+                    if (!authorizationUrl || !reference) {
+                        throw new Error('Paystack checkout could not start.');
+                    }
+
+                    window.open(authorizationUrl, '_blank', 'noopener,noreferrer');
+                    setPendingPayment({
+                        provider: 'paystack',
+                        packageId,
+                        reference,
+                        authorizationUrl,
+                    });
+                    return;
+                }
+            } else {
+                // No trip selected, redirect to search
+                console.log('⚠️ NO TRIP SELECTED - REDIRECTING TO SEARCH...');
                 navigate(`/search?origin=${formData.fromCity}&destination=${formData.toCity}`, {
                     state: { packageDetails: formData }
                 });
-                return;
-            }
-
-            if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) {
-                setError('Missing location data. Please ensure cities and countries are filled.');
-                setLoading(false);
-                return;
-            }
-
-            // Build package payload
-            const payload = {
-                from_city: formData.fromCity.trim(),
-                from_country: formData.fromCountry.trim(),
-                to_city: formData.toCity.trim(),
-                to_country: formData.toCountry.trim(),
-                package_details: {
-                    package_name: formData.packageName.trim(),
-                    package_description: formData.packageDescription.trim(),
-                    package_weight: parseFloat(formData.packageWeight) || 1,
-                    package_value: formData.packageValue || 0,
-                    package_image: formData.packageImage,
-                    category: formData.category.trim()
-                },
-                recipient_details: {
-                    receiver_name: formData.receiverName.trim(),
-                    receiver_phone: formData.receiverPhone.trim(),
-                    receiver_email: formData.receiverEmail.trim()
-                }
-            };
-
-            // Create package
-            const packageResponse = await api.post('/api/bago/createPackage', payload);
-            if (packageResponse.status !== 201) throw new Error('Failed to create package');
-            const packageId = packageResponse.data.package._id;
-
-            const travelerId = selectedTrip.user || selectedTrip.userId;
-            const tripId = selectedTrip._id;
-            const amount = Number(totalCost);
-            const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'UGX', 'TZS'];
-            const usePaystack = africanCurrencies.includes(currency.toUpperCase());
-
-            if (usePaystack) {
-                // Store pending shipment data for after Paystack redirect
-                sessionStorage.setItem('bagoPendingShipment', JSON.stringify({
-                    packageId,
-                    travelerId,
-                    tripId,
-                    amount,
-                    currency,
-                    estimatedDeparture: selectedTrip.departureDate,
-                    insurance: formData.insuranceProtection,
-                    insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
-                }));
-
-                // Initialize Paystack payment
-                const initRes = await api.post('/api/bago/paystack/initialize', {
-                    amount,
-                    currency,
-                    metadata: { packageId, travelerId, tripId }
-                });
-
-                if (initRes.data?.authorizationUrl) {
-                    window.location.href = initRes.data.authorizationUrl;
-                } else {
-                    throw new Error('Failed to initialize payment. Please try again.');
-                }
-            } else {
-                // Non-African currency: create request (payment settled via wallet/bank)
-                const requestResponse = await api.post('/api/bago/RequestPackage', {
-                    travelerId,
-                    packageId,
-                    tripId,
-                    amount,
-                    currency,
-                    estimatedDeparture: selectedTrip.departureDate,
-                    insurance: formData.insuranceProtection,
-                    insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
-                    termsAccepted: true
-                });
-
-                if (requestResponse.status === 201) {
-                    const req = requestResponse.data.request;
-                    navigate('/shipping-success', {
-                        state: {
-                            requestId: req?.id || req?._id,
-                            trackingNumber: req?.trackingNumber,
-                            amount: totalCost,
-                            currency,
-                        }
-                    });
-                }
             }
         } catch (err) {
-            setError(err.response?.data?.message || err.message || 'Failed to process request. Please try again.');
+            console.error('❌ SUBMISSION ERROR:', err);
+            console.error('❌ ERROR RESPONSE:', err.response?.data);
+            setError(err.response?.data?.message || 'Failed to process request. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -428,6 +655,71 @@ export default function SendPackage() {
                     <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
                 </div>
 
+                {/* Debug info showing extracted route */}
+                {selectedTrip && formData.fromCity && formData.toCity && (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+                        <p className="text-xs font-bold text-green-900 mb-2">✅ Route Extracted Successfully:</p>
+                        <p className="text-sm font-mono text-green-700">
+                            <strong>From:</strong> {formData.fromCity}, {formData.fromCountry || '(Country Missing)'} →
+                            <strong> To:</strong> {formData.toCity}, {formData.toCountry || '(Country Missing)'}
+                        </p>
+                    </div>
+                )}
+
+                {pendingPayment && (
+                    <div className="bg-white border border-[#5845D8]/15 rounded-[28px] p-6 md:p-8 mb-8 shadow-[0_18px_45px_rgba(88,69,216,0.08)]">
+                        <div className="flex items-start gap-4 mb-6">
+                            <div className="w-11 h-11 bg-[#5845D8]/10 text-[#5845D8] rounded-2xl flex items-center justify-center shrink-0">
+                                <CreditCard size={22} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-[#012126] tracking-tight">Complete secure payment</h2>
+                                <p className="text-sm text-[#6B7280] font-medium mt-1">
+                                    Pay {currency} {Number(totalCost).toFixed(2)} before the shipment request is sent to the traveler.
+                                </p>
+                            </div>
+                        </div>
+
+                        {pendingPayment.provider === 'stripe' ? (
+                            <div className="space-y-5">
+                                <div ref={paymentElementRef} className="min-h-[120px]" />
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmStripePayment}
+                                    disabled={!stripeReady || paymentProcessing}
+                                    className="w-full md:w-auto px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {paymentProcessing ? <RefreshCw className="animate-spin" size={16} /> : <CreditCard size={16} />}
+                                    Pay and send request
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <p className="text-sm text-[#6B7280] font-medium">
+                                    Paystack opened in a new tab. Complete checkout there, then return here to verify payment and send the request.
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <a
+                                        href={pendingPayment.authorizationUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center justify-center px-8 py-4 bg-white border border-gray-100 text-[#012126] rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-all"
+                                    >
+                                        Reopen checkout
+                                    </a>
+                                    <button
+                                        type="button"
+                                        onClick={handleVerifyPaystackPayment}
+                                        disabled={paymentProcessing}
+                                        className="inline-flex items-center justify-center px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all disabled:opacity-50"
+                                    >
+                                        {paymentProcessing ? 'Checking...' : 'Verify and send request'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                     <div className="lg:col-span-2 space-y-8">
@@ -743,10 +1035,10 @@ export default function SendPackage() {
 
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || Boolean(pendingPayment)}
                                 className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {loading ? 'Processing...' : t('requestShipping')} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                {pendingPayment ? 'Complete payment above' : loading ? 'Processing...' : t('requestShipping')} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                             </button>
 
                             <p className="mt-6 text-[8px] font-bold text-white/30 text-center uppercase tracking-widest leading-relaxed">

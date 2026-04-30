@@ -107,6 +107,7 @@ class PaymentService {
     required double amount,
     required String customerEmail,
     required DateTime expiresAt,
+    Map<String, dynamic> metadata = const {},
   }) async {
     final normalizedProvider = provider.toLowerCase().trim();
     if (normalizedProvider == 'stripe') {
@@ -116,6 +117,7 @@ class PaymentService {
         currency: currency,
         amount: amount,
         customerEmail: customerEmail,
+        metadata: metadata,
       );
     }
 
@@ -126,6 +128,7 @@ class PaymentService {
       amount: amount,
       customerEmail: customerEmail,
       expiresAt: expiresAt,
+      metadata: metadata,
     );
   }
 
@@ -135,6 +138,7 @@ class PaymentService {
     required String currency,
     required double amount,
     required String customerEmail,
+    Map<String, dynamic> metadata = const {},
   }) async {
     try {
       final response = await _api.post(
@@ -146,6 +150,8 @@ class PaymentService {
           'currency': currency,
           'travellerName': customerEmail,
           'travellerEmail': customerEmail,
+          'customerEmail': customerEmail,
+          ...metadata,
         },
       );
       final data = _extractMap(response.data);
@@ -268,6 +274,7 @@ class PaymentService {
     required double amount,
     required String customerEmail,
     required DateTime expiresAt,
+    Map<String, dynamic> metadata = const {},
   }) async {
     try {
       final response = await _api.post(
@@ -280,6 +287,7 @@ class PaymentService {
           'amount': amount,
           'customerEmail': customerEmail,
           'expiresAt': expiresAt.toIso8601String(),
+          'metadata': metadata,
         },
       );
       final data = _extractMap(response.data);

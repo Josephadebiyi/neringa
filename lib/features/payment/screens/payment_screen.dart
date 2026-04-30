@@ -1,8 +1,10 @@
-import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
@@ -34,6 +36,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoadingCards = false;
   List<SavedPaymentMethod> _savedCards = const [];
   String? _selectedCardId;
+  bool _isCheckingApplePay = false;
+  bool _isApplePayAvailable = false;
 
   static const _supportedBrands = {'visa', 'mastercard'};
 
@@ -51,6 +55,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _isLoadingDraft = false;
     });
     await _refreshStripeCards();
+    await _refreshApplePayAvailability();
   }
 
   Future<void> _refreshStripeCards() async {
@@ -84,6 +89,37 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _savedCards = const [];
         _selectedCardId = null;
         _isLoadingCards = false;
+      });
+    }
+  }
+
+  Future<void> _refreshApplePayAvailability() async {
+    final draft = _draft;
+    if (!_supportsApplePayForDraft(draft)) {
+      if (!mounted) return;
+      setState(() {
+        _isCheckingApplePay = false;
+        _isApplePayAvailable = false;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _isCheckingApplePay = true);
+    }
+
+    try {
+      final isSupported = await Stripe.instance.isPlatformPaySupported();
+      if (!mounted) return;
+      setState(() {
+        _isApplePayAvailable = isSupported;
+        _isCheckingApplePay = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isApplePayAvailable = false;
+        _isCheckingApplePay = false;
       });
     }
   }
@@ -213,7 +249,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return latestCards;
   }
 
-  Future<void> _pay() async {
+  bool _supportsApplePayForDraft(Map<String, dynamic>? draft) {
+    if (draft == null || kIsWeb) return false;
+    if (defaultTargetPlatform != TargetPlatform.iOS) return false;
+    final provider = draft['provider']?.toString().toLowerCase() ?? 'stripe';
+    if (provider != 'stripe') return false;
+    return ApiConstants.stripeApplePayMerchantIdentifier.isNotEmpty;
+  }
+
+  Future<void> _pay({bool useApplePay = false}) async {
     final draft = _draft;
     if (draft == null) return;
 
@@ -255,6 +299,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
           amount: amount,
           customerEmail: draft['customerEmail']?.toString() ?? '',
           expiresAt: DateTime.parse(draft['expiresAt'].toString()),
+          metadata: {
+            'insurance': draft['insurance'] == true,
+            'insuranceCost': _asDouble(draft['insuranceAmount']),
+            if (draft['estimatedDeparture'] != null)
+              'estimatedDeparture': draft['estimatedDeparture'].toString(),
+            if (draft['estimatedArrival'] != null)
+              'estimatedArrival': draft['estimatedArrival'].toString(),
+          },
         );
 
         paymentReference = init.reference;
@@ -265,14 +317,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
           if (clientSecret == null || clientSecret.isEmpty) {
             throw StateError('Stripe checkout could not start.');
           }
-          final selectedCardId = _selectedCardId;
-          if (selectedCardId == null || selectedCardId.isEmpty) {
-            throw StateError('Add a saved card before paying.');
+          if (useApplePay) {
+            paymentCompleted = await _payWithApplePay(
+              clientSecret,
+              currency: currency,
+              totalAmount: amount,
+              shippingAmount: _asDouble(draft['shippingAmount']),
+              insuranceAmount: _asDouble(draft['insuranceAmount']),
+            );
+          } else {
+            final selectedCardId = _selectedCardId;
+            if (selectedCardId == null || selectedCardId.isEmpty) {
+              throw StateError('Add a saved card before paying.');
+            }
+            paymentCompleted = await _payWithSavedStripeCard(
+              clientSecret,
+              paymentMethodId: selectedCardId,
+            );
           }
-          paymentCompleted = await _payWithSavedStripeCard(
-            clientSecret,
-            paymentMethodId: selectedCardId,
-          );
         } else {
           _updateProcessingMessage('Opening secure checkout...');
           final authorizationUrl = init.authorizationUrl;
@@ -406,6 +468,47 @@ class _PaymentScreenState extends State<PaymentScreen> {
         paymentIntent.status == PaymentIntentsStatus.Processing;
   }
 
+  Future<bool> _payWithApplePay(
+    String clientSecret, {
+    required String currency,
+    required double totalAmount,
+    required double shippingAmount,
+    required double insuranceAmount,
+  }) async {
+    if (!_isApplePayAvailable) {
+      throw StateError('Apple Pay is not available on this device yet.');
+    }
+
+    final paymentIntent = await Stripe.instance.confirmPlatformPayPaymentIntent(
+      clientSecret: clientSecret,
+      confirmParams: PlatformPayConfirmParams.applePay(
+        applePay: ApplePayParams(
+          merchantCountryCode:
+              ApiConstants.stripeApplePayMerchantCountryCode,
+          currencyCode: currency.toUpperCase(),
+          cartItems: [
+            ApplePayCartSummaryItem.immediate(
+              label: 'Shipping',
+              amount: shippingAmount.toStringAsFixed(2),
+            ),
+            if (insuranceAmount > 0)
+              ApplePayCartSummaryItem.immediate(
+                label: 'Insurance',
+                amount: insuranceAmount.toStringAsFixed(2),
+              ),
+            ApplePayCartSummaryItem.immediate(
+              label: 'Bago',
+              amount: totalAmount.toStringAsFixed(2),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return paymentIntent.status == PaymentIntentsStatus.Succeeded ||
+        paymentIntent.status == PaymentIntentsStatus.Processing;
+  }
+
   bool _isSupportedBrand(String brand) =>
       _supportedBrands.contains(brand.trim().toLowerCase());
 
@@ -530,6 +633,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     final provider = draft['provider']?.toString() ?? 'stripe';
     final isStripe = provider.toLowerCase() == 'stripe';
+    final supportsApplePay = _supportsApplePayForDraft(draft);
+    final canUseApplePay = supportsApplePay && _isApplePayAvailable;
     final totalAmount = _asDouble(draft['totalAmount']);
     final shippingAmount = _asDouble(draft['shippingAmount']);
     final insuranceAmount = _asDouble(draft['insuranceAmount']);
@@ -629,6 +734,46 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               if (isStripe) ...[
                 const SizedBox(height: 20),
+                if (supportsApplePay)
+                  AppCard(
+                    padding: const EdgeInsets.all(18),
+                    borderRadius: 20,
+                    showBorder: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Apple Pay',
+                          style: AppTextStyles.labelMd.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          canUseApplePay
+                              ? 'Pay in one tap with your iPhone wallet.'
+                              : (_isCheckingApplePay
+                                  ? 'Checking Apple Pay availability...'
+                                  : 'Configure your Apple Pay merchant ID and supported device wallet to enable this option.'),
+                          style: AppTextStyles.muted(AppTextStyles.bodySm),
+                        ),
+                        const SizedBox(height: 14),
+                        if (_isCheckingApplePay)
+                          const Center(child: AppLoading())
+                        else if (canUseApplePay)
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: PlatformPayButton(
+                              type: PlatformButtonType.buy,
+                              appearance: PlatformButtonStyle.black,
+                              onPressed: () => _pay(useApplePay: true),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                if (supportsApplePay) const SizedBox(height: 20),
                 AppCard(
                   padding: const EdgeInsets.all(18),
                   borderRadius: 20,

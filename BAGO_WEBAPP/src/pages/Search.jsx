@@ -18,8 +18,101 @@ import {
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
-import Select from 'react-select';
-import { locations } from '../utils/countries';
+import CreatableSelect from 'react-select/creatable';
+import { countries, locations } from '../utils/countries';
+
+const normalizeText = (value = '') => value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const countryAliases = {
+    'usa': 'united states',
+    'us': 'united states',
+    'u s a': 'united states',
+    'uk': 'united kingdom',
+    'u k': 'united kingdom',
+    'england': 'united kingdom',
+    'uae': 'united arab emirates',
+    'u a e': 'united arab emirates',
+    'drc': 'democratic republic of congo',
+    'congo kinshasa': 'democratic republic of congo',
+    'ivory coast': "cote d ivoire",
+};
+
+const normalizeCountry = (value = '') => {
+    const normalized = normalizeText(value);
+    return countryAliases[normalized] || normalized;
+};
+
+const splitLocationInput = (value = '') => {
+    const parts = value.split(',').map((part) => part.trim()).filter(Boolean);
+    const city = parts[0] || value.trim();
+    const country = parts.slice(1).join(', ');
+    return { city, country };
+};
+
+const makeCustomLocation = (inputValue) => {
+    const { city, country } = splitLocationInput(inputValue);
+    return {
+        value: inputValue,
+        label: inputValue,
+        city,
+        country,
+        flag: '📍',
+        isCustom: true,
+        searchText: normalizeText(inputValue),
+    };
+};
+
+const getTripSide = (trip, side) => {
+    const isOrigin = side === 'origin';
+    const city = isOrigin ? (trip.origin || trip.fromLocation || '') : (trip.destination || trip.toLocation || '');
+    const country = isOrigin ? (trip.fromCountry || '') : (trip.toCountry || '');
+    return {
+        city,
+        country,
+        combined: `${city} ${country}`,
+        cityNorm: normalizeText(city),
+        countryNorm: normalizeCountry(country),
+        combinedNorm: normalizeText(`${city} ${country}`),
+    };
+};
+
+const locationMatches = (trip, selected, side) => {
+    if (!selected) return { matches: true, score: 0 };
+
+    const tripSide = getTripSide(trip, side);
+    const selectedCity = normalizeText(selected.city || selected.value || '');
+    const selectedCountry = normalizeCountry(selected.country || '');
+    const selectedCombined = normalizeText(`${selected.city || selected.value || ''} ${selected.country || ''}`);
+    const isCountryWideSearch = selected.type === 'country' || (!selected.city && selected.country);
+    const isBusTrip = normalizeText(trip.transportMode || trip.travelMeans || '').includes('bus');
+
+    const countryMatch = selectedCountry
+        ? tripSide.countryNorm === selectedCountry || tripSide.combinedNorm.includes(selectedCountry)
+        : false;
+    const cityMatch = selectedCity
+        ? tripSide.cityNorm.includes(selectedCity) || selectedCity.includes(tripSide.cityNorm) || tripSide.combinedNorm.includes(selectedCity)
+        : false;
+    const customTextMatch = selectedCombined
+        ? tripSide.combinedNorm.includes(selectedCombined) || selectedCombined.includes(tripSide.combinedNorm)
+        : false;
+
+    if (isCountryWideSearch) {
+        return { matches: countryMatch || customTextMatch, score: countryMatch ? 40 : 10 };
+    }
+
+    if (selectedCountry) {
+        if (!countryMatch) return { matches: false, score: 0 };
+        return { matches: true, score: (cityMatch ? 60 : 0) + (isBusTrip ? 20 : 8) + 40 };
+    }
+
+    return { matches: cityMatch || customTextMatch, score: cityMatch ? 35 : 10 };
+};
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -50,6 +143,10 @@ const TripCard = ({ trip, weight }) => {
     const navigate = useNavigate();
     const { isAuthenticated } = useAuth();
     const { t } = useLanguage();
+    const isVerified = trip.isVerified === true ||
+        trip.kycStatus === 'approved' ||
+        trip.isKycCompleted === true ||
+        trip.kyc === true;
 
     const handleBookingClick = async (e) => {
         e.stopPropagation();
@@ -75,23 +172,37 @@ const TripCard = ({ trip, weight }) => {
     };
 
     return (
-        <div className="bg-white rounded-[24px] p-5 border border-gray-100 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group shadow-sm">
+        <div className="bg-white rounded-[24px] p-5 border border-gray-100 hover:border-[#5845D8]/20 hover:shadow-[0_18px_45px_rgba(1,33,38,0.08)] hover:-translate-y-0.5 transition-all cursor-pointer group shadow-sm">
             <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold text-base shadow-sm border-2 border-white">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5845D8] to-[#7C65FF] text-white flex items-center justify-center font-black text-base shadow-sm border-2 border-white">
                             {trip.firstName?.charAt(0) || 'T'}
                         </div>
                         <div>
                             <h3 className="font-bold text-[#012126] text-sm tracking-tight">{trip.firstName || t('traveler')}</h3>
-                            <div className="flex items-center gap-1 text-[10px] text-amber-500 font-black">
-                                <Star size={10} fill="currentColor" />
-                                <span>{trip.rating || '4.9'}</span>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <div className="flex items-center gap-1 text-[10px] text-amber-500 font-black">
+                                    <Star size={10} fill="currentColor" />
+                                    <span>{trip.rating || '4.9'}</span>
+                                </div>
+                                <span
+                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${
+                                        isVerified
+                                            ? 'bg-emerald-50 text-emerald-600'
+                                            : 'bg-gray-100 text-gray-400'
+                                    }`}
+                                >
+                                    <ShieldCheck size={9} />
+                                    {isVerified
+                                        ? (t('verified') || 'Verified')
+                                        : (t('unverified') || 'Unverified')}
+                                </span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-2.5 mb-5 px-1">
+                    <div className="space-y-3 mb-5 rounded-2xl bg-[#F8F6F3]/70 p-3">
                         <div className="flex items-center gap-2">
                             <MapPin size={14} className="text-[#5845D8]" />
                             <span className="font-bold text-[#012126] text-xs leading-tight">{trip.origin || trip.originCity}</span>
@@ -111,8 +222,8 @@ const TripCard = ({ trip, weight }) => {
                                 <span>{trip.departureDate ? new Date(trip.departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'TBD'}</span>
                             </div>
                             {trip.transportMode && (
-                                <div className="flex items-center gap-1.5">
-                                    <Plane size={12} className="text-gray-400" />
+                                <div className="flex items-center gap-1.5 rounded-full bg-white px-2 py-1 shadow-sm">
+                                    <Plane size={12} className="text-[#5845D8]" />
                                     <span>{t(trip.transportMode.toLowerCase())}</span>
                                 </div>
                             )}
@@ -136,7 +247,7 @@ const TripCard = ({ trip, weight }) => {
 
             <button
                 onClick={handleBookingClick}
-                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10"
+                className="w-full bg-[#5845D8] text-white py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-[#4838B5] transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/15"
             >
                 {t('sendRequestBtn')}
                 <Package size={14} />
@@ -217,25 +328,55 @@ export default function Search() {
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    const locationOptions = locations.map(loc => ({
-        value: loc.city,
-        label: (
-            <div className="flex items-center gap-2">
-                <span>{loc.flag}</span>
-                <span>{loc.label}</span>
-            </div>
-        ),
-        city: loc.city,
-        country: loc.country,
-        flag: loc.flag
-    }));
+    const locationOptions = [
+        ...countries.map(country => ({
+            value: country.label,
+            label: (
+                <div className="flex items-center gap-2">
+                    <span>{country.flag}</span>
+                    <span>All cities in {country.label}</span>
+                </div>
+            ),
+            city: '',
+            country: country.label,
+            flag: country.flag,
+            type: 'country',
+            searchText: normalizeText(`${country.label} ${country.value}`)
+        })),
+        ...locations.map(loc => ({
+            value: loc.city,
+            label: (
+                <div className="flex items-center gap-2">
+                    <span>{loc.flag}</span>
+                    <span>{loc.label}</span>
+                </div>
+            ),
+            city: loc.city,
+            country: loc.country,
+            flag: loc.flag,
+            type: 'city',
+            searchText: normalizeText(`${loc.city} ${loc.country} ${loc.label}`)
+        }))
+    ];
 
-    const initialOrigin = searchParams.get('origin')
-        ? locationOptions.find(o => o.city === searchParams.get('origin')) || { value: searchParams.get('origin'), label: searchParams.get('origin'), city: searchParams.get('origin') }
+    const findInitialLocation = (cityParam, countryParam) => {
+        if (!cityParam && !countryParam) return null;
+        const cityNorm = normalizeText(cityParam || '');
+        const countryNorm = normalizeCountry(countryParam || '');
+        return locationOptions.find(option => (
+            cityNorm && normalizeText(option.city) === cityNorm &&
+            (!countryNorm || normalizeCountry(option.country) === countryNorm)
+        )) || locationOptions.find(option => (
+            !cityNorm && countryNorm && option.type === 'country' && normalizeCountry(option.country) === countryNorm
+        )) || makeCustomLocation(countryParam ? `${cityParam || ''}, ${countryParam}`.replace(/^,\s*/, '') : cityParam);
+    };
+
+    const initialOrigin = searchParams.get('origin') || searchParams.get('originCountry')
+        ? findInitialLocation(searchParams.get('origin'), searchParams.get('originCountry'))
         : null;
 
-    const initialDestination = searchParams.get('destination')
-        ? locationOptions.find(o => o.city === searchParams.get('destination')) || { value: searchParams.get('destination'), label: searchParams.get('destination'), city: searchParams.get('destination') }
+    const initialDestination = searchParams.get('destination') || searchParams.get('destinationCountry')
+        ? findInitialLocation(searchParams.get('destination'), searchParams.get('destinationCountry'))
         : null;
 
     const [filters, setFilters] = useState({
@@ -265,6 +406,7 @@ export default function Search() {
                         .filter(trip => trip.user !== currentUserId) // Filter out own trips
                         .map(trip => {
                             const traveler = Array.isArray(findUsers) ? findUsers.find(u => u._id === trip.user) : null;
+                            const kycStatus = traveler?.kycStatus || traveler?.kyc_status || trip.kycStatus || trip.kyc_status;
                             return {
                                 ...trip,
                                 firstName: traveler?.name || traveler?.firstName || t('traveler'),
@@ -278,67 +420,53 @@ export default function Search() {
                                 landmark: trip.landmark,
                                 fromCountry: trip.fromCountry,
                                 toCountry: trip.toCountry,
+                                kycStatus,
+                                isKycCompleted: Boolean(
+                                    traveler?.isKycCompleted ||
+                                    traveler?.is_kyc_completed ||
+                                    traveler?.kycApproved ||
+                                    traveler?.kyc ||
+                                    trip.isKycCompleted ||
+                                    trip.kyc
+                                ),
+                                isVerified: kycStatus === 'approved' ||
+                                    traveler?.isKycCompleted === true ||
+                                    traveler?.is_kyc_completed === true ||
+                                    traveler?.kycApproved === true ||
+                                    traveler?.kyc === true ||
+                                    trip.isKycCompleted === true ||
+                                    trip.kyc === true,
                                 rating: traveler?.rating || (4.5 + Math.random() * 0.5).toFixed(1) // Fallback rating
                             };
                         });
 
-                    // Filter based on search params
-                    // Smart Filtering & Sorting Logic
                     let filtered = joinedTrips;
-                    
+
                     if (filters.origin && filters.destination) {
-                        const searchOriginCity = (filters.origin.city || '').toLowerCase();
-                        const searchOriginCountry = (filters.origin.country || '').toLowerCase();
-                        const searchDestCity = (filters.destination.city || '').toLowerCase();
-                        const searchDestCountry = (filters.destination.country || '').toLowerCase();
-
-                        filtered = filtered.filter(t => {
-                            const tripOrigin = (t.origin || t.fromLocation || '').toLowerCase();
-                            const tripOriginCountry = (t.fromCountry || '').toLowerCase();
-                            const tripDest = (t.destination || t.toLocation || '').toLowerCase();
-                            const tripDestCountry = (t.toCountry || '').toLowerCase();
-
-                            // 1. Check for Country Match (Strict baseline for "Similar Routes")
-                            // Check explicit country field OR if the location string contains the country name
-                            const originCountryMatch = 
-                                (tripOriginCountry && tripOriginCountry === searchOriginCountry) || 
-                                (tripOrigin.includes(searchOriginCountry));
-
-                            const destCountryMatch = 
-                                (tripDestCountry && tripDestCountry === searchDestCountry) || 
-                                (tripDest.includes(searchDestCountry));
-
-                            return originCountryMatch && destCountryMatch;
-                        });
-
-                        // 2. Rank: Exact city-to-city matches first, then partials
-                        filtered.sort((a, b) => {
-                            const aOrigin = (a.origin || a.fromLocation || '').toLowerCase();
-                            const aDest = (a.destination || a.toLocation || '').toLowerCase();
-                            const bOrigin = (b.origin || b.fromLocation || '').toLowerCase();
-                            const bDest = (b.destination || b.toLocation || '').toLowerCase();
-
-                            const aCityMatch = (aOrigin.includes(searchOriginCity) ? 1 : 0) + (aDest.includes(searchDestCity) ? 1 : 0);
-                            const bCityMatch = (bOrigin.includes(searchOriginCity) ? 1 : 0) + (bDest.includes(searchDestCity) ? 1 : 0);
-
-                            return bCityMatch - aCityMatch; // Higher match score comes first
-                        });
+                        filtered = filtered
+                            .map(t => {
+                                const originMatch = locationMatches(t, filters.origin, 'origin');
+                                const destinationMatch = locationMatches(t, filters.destination, 'destination');
+                                return { ...t, routeMatchScore: originMatch.score + destinationMatch.score, routeMatches: originMatch.matches && destinationMatch.matches };
+                            })
+                            .filter(t => t.routeMatches)
+                            .sort((a, b) => (b.routeMatchScore || 0) - (a.routeMatchScore || 0));
                     } else if (filters.origin) {
-                        // If only origin is selected
-                        const searchCity = (filters.origin.city || '').toLowerCase();
-                        const searchCountry = (filters.origin.country || '').toLowerCase();
-                        filtered = filtered.filter(t => 
-                            (t.fromCountry || '').toLowerCase() === searchCountry || 
-                            (t.origin || t.fromLocation || '').toLowerCase().includes(searchCountry)
-                        );
+                        filtered = filtered
+                            .map(t => {
+                                const originMatch = locationMatches(t, filters.origin, 'origin');
+                                return { ...t, routeMatchScore: originMatch.score, routeMatches: originMatch.matches };
+                            })
+                            .filter(t => t.routeMatches)
+                            .sort((a, b) => (b.routeMatchScore || 0) - (a.routeMatchScore || 0));
                     } else if (filters.destination) {
-                        // If only destination is selected
-                        const searchCity = (filters.destination.city || '').toLowerCase();
-                        const searchCountry = (filters.destination.country || '').toLowerCase();
-                        filtered = filtered.filter(t => 
-                            (t.toCountry || '').toLowerCase() === searchCountry || 
-                            (t.destination || t.toLocation || '').toLowerCase().includes(searchCountry)
-                        );
+                        filtered = filtered
+                            .map(t => {
+                                const destinationMatch = locationMatches(t, filters.destination, 'destination');
+                                return { ...t, routeMatchScore: destinationMatch.score, routeMatches: destinationMatch.matches };
+                            })
+                            .filter(t => t.routeMatches)
+                            .sort((a, b) => (b.routeMatchScore || 0) - (a.routeMatchScore || 0));
                     }
 
                     if (filters.weight) {
@@ -362,89 +490,125 @@ export default function Search() {
         fetchTrips();
     };
 
+    const searchSelectStyles = {
+        control: (base) => ({
+            ...base,
+            border: 'none',
+            boxShadow: 'none',
+            backgroundColor: 'transparent',
+            minHeight: '28px'
+        }),
+        valueContainer: (base) => ({ ...base, padding: 0 }),
+        input: (base) => ({ ...base, margin: 0, padding: 0 }),
+        placeholder: (base) => ({
+            ...base,
+            color: '#9CA3AF',
+            fontSize: '15px',
+            fontWeight: 500
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: '#012126',
+            fontSize: '15px',
+            fontWeight: 700
+        }),
+        indicatorsContainer: (base) => ({ ...base, display: 'none' }),
+        menu: (base) => ({ ...base, zIndex: 9999 }),
+        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    };
+
     return (
         <div className="min-h-screen bg-[#F8F6F3]">
             <Navbar />
 
-            <div className="max-w-[1240px] mx-auto px-6 md:px-12 py-8 font-sans">
+            <div className="max-w-[1240px] mx-auto px-6 md:px-12 py-8 md:py-10 font-sans">
                 {/* Search Header */}
-                <div className="mb-6 px-1">
-                    <h1 className="text-2xl font-black text-[#012126] mb-1 leading-tight tracking-tight uppercase">
+                <div className="mb-6 px-1 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <div>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-[#5845D8]/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#5845D8] mb-3">
+                        <span className="h-2 w-2 rounded-full bg-[#5845D8]" />
+                        Smart route matching
+                    </span>
+                    <h1 className="text-3xl md:text-4xl font-black text-[#012126] mb-1 leading-tight tracking-tight uppercase">
                         {t('availableTravelers')}
                     </h1>
                     <p className="text-[#6B7280] font-bold text-sm">
                         {filters.origin && filters.destination
-                            ? `${filters.origin.city} → ${filters.destination.city}`
+                            ? `${filters.origin.city || filters.origin.country} → ${filters.destination.city || filters.destination.country}`
                             : t('findTravelersDesc')}
                     </p>
+                    </div>
+                    <div className="rounded-2xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#012126] shadow-sm border border-gray-100 w-fit">
+                        {trips.length} {trips.length === 1 ? 'route' : 'routes'} found
+                    </div>
                 </div>
 
                 {/* Search Bar */}
-                <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 md:p-6 mb-8">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-wider px-1">{t('departure')}</label>
-                            <Select
-                                options={locationOptions}
-                                value={filters.origin}
-                                onChange={(val) => setFilters({ ...filters, origin: val })}
-                                placeholder={t('selectCity')}
-                                className="w-full text-xs font-bold"
-                                styles={{
-                                    control: (base) => ({
-                                        ...base,
-                                        borderRadius: '12px',
-                                        borderColor: '#F3F4F6',
-                                        backgroundColor: '#F9FAFB',
-                                        padding: '2px',
-                                        minHeight: '44px',
-                                        '&:hover': { borderColor: '#5845D8' }
-                                    }),
-                                    placeholder: (base) => ({ ...base, color: '#9CA3AF' })
-                                }}
-                            />
+                <div className="bg-white rounded-[28px] shadow-[0_18px_45px_rgba(1,33,38,0.06)] border border-gray-100 overflow-visible mb-8 max-w-[1100px]">
+                    <div className="flex flex-col md:flex-row md:items-center">
+                        <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
+                            <MapPin size={20} className={`${filters.origin ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
+                            <div className="flex-1 min-w-0 ml-4">
+                                <CreatableSelect
+                                    options={locationOptions}
+                                    value={filters.origin}
+                                    onChange={(val) => setFilters({ ...filters, origin: val })}
+                                    onCreateOption={(inputValue) => setFilters({ ...filters, origin: makeCustomLocation(inputValue) })}
+                                    placeholder={t('enterPickupCity') || t('departure') || 'Enter pickup city'}
+                                    styles={searchSelectStyles}
+                                    isClearable
+                                    formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
+                                    filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeText(inputValue))}
+                                    menuPortalTarget={document.body}
+                                    menuPosition="fixed"
+                                />
+                            </div>
+                            {filters.origin && <ShieldCheck size={16} className="text-[#5845D8] ml-3 shrink-0" />}
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-wider px-1">{t('arrival')}</label>
-                            <Select
-                                options={locationOptions}
-                                value={filters.destination}
-                                onChange={(val) => setFilters({ ...filters, destination: val })}
-                                placeholder={t('selectCity')}
-                                className="w-full text-xs font-bold"
-                                styles={{
-                                    control: (base) => ({
-                                        ...base,
-                                        borderRadius: '12px',
-                                        borderColor: '#F3F4F6',
-                                        backgroundColor: '#F9FAFB',
-                                        padding: '2px',
-                                        minHeight: '44px',
-                                        '&:hover': { borderColor: '#5845D8' }
-                                    }),
-                                    placeholder: (base) => ({ ...base, color: '#9CA3AF' })
-                                }}
-                            />
+
+                        <div className="h-px md:h-9 md:w-px bg-gray-100 mx-5 md:mx-0" />
+
+                        <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
+                            <MapPin size={20} className={`${filters.destination ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
+                            <div className="flex-1 min-w-0 ml-4">
+                                <CreatableSelect
+                                    options={locationOptions}
+                                    value={filters.destination}
+                                    onChange={(val) => setFilters({ ...filters, destination: val })}
+                                    onCreateOption={(inputValue) => setFilters({ ...filters, destination: makeCustomLocation(inputValue) })}
+                                    placeholder={t('enterDestination') || t('arrival') || 'Enter destination'}
+                                    styles={searchSelectStyles}
+                                    isClearable
+                                    formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
+                                    filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeText(inputValue))}
+                                    menuPortalTarget={document.body}
+                                    menuPosition="fixed"
+                                />
+                            </div>
+                            {filters.destination && <ShieldCheck size={16} className="text-[#5845D8] ml-3 shrink-0" />}
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-wider px-1">{t('weightKg')}</label>
+
+                        <div className="h-px md:h-9 md:w-px bg-gray-100 mx-5 md:mx-0" />
+
+                        <label className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px] cursor-pointer">
+                            <Calendar size={20} className={`${filters.date ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
                             <input
-                                type="number"
-                                placeholder="e.g. 5"
-                                className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:border-[#5845D8] focus:bg-white outline-none text-xs font-bold h-[44px] transition-all"
-                                value={filters.weight}
-                                onChange={(e) => setFilters({ ...filters, weight: e.target.value })}
+                                type="date"
+                                className={`ml-4 flex-1 min-w-0 bg-transparent outline-none text-[15px] font-bold cursor-pointer ${filters.date ? 'text-[#012126]' : 'text-gray-400'}`}
+                                value={filters.date}
+                                min={new Date().toISOString().split('T')[0]}
+                                onChange={(e) => setFilters({ ...filters, date: e.target.value })}
                             />
-                        </div>
-                        <div className="flex items-end">
-                            <button
-                                onClick={handleApplyFilters}
-                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-[1px] hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/20 h-[44px] flex items-center justify-center gap-2"
-                            >
-                                <SearchIcon size={14} />
-                                {t('findRoutesBtn')}
-                            </button>
-                        </div>
+                            {filters.date && <ShieldCheck size={16} className="text-[#5845D8] ml-3 shrink-0" />}
+                        </label>
+
+                        <button
+                            onClick={handleApplyFilters}
+                            className="h-[56px] md:h-[68px] md:px-9 bg-[#5845D8] text-white font-extrabold rounded-b-[28px] md:rounded-b-none md:rounded-r-[28px] hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 text-sm whitespace-nowrap shadow-lg shadow-[#5845D8]/15"
+                        >
+                            <SearchIcon size={18} strokeWidth={3} />
+                            {t('findTravelerButton') || t('findRoutesBtn') || 'Find traveler'}
+                        </button>
                     </div>
                 </div>
 
@@ -472,18 +636,28 @@ export default function Search() {
                                 ))}
                             </div>
                         ) : (
-                            <div className="bg-white rounded-[40px] p-12 text-center border border-gray-100 shadow-sm">
-                                <Package size={64} strokeWidth={1} className="text-[#5845D8]/20 mx-auto mb-6" />
+                            <div className="bg-white rounded-[36px] p-8 md:p-12 text-center border border-gray-100 shadow-sm">
+                                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-[#5845D8]/8 text-[#5845D8]">
+                                    <Package size={38} strokeWidth={1.6} />
+                                </div>
                                 <h3 className="text-2xl font-black text-[#012126] mb-2 tracking-tight">{t('noTripsFound')}</h3>
-                                <p className="text-[#6B7280] font-bold text-sm mb-10 max-w-sm mx-auto">
-                                    {t('tryAdjusting')}
+                                <p className="text-[#6B7280] font-bold text-sm mb-8 max-w-md mx-auto leading-relaxed">
+                                    {t('tryAdjusting') || 'Try a country-wide search, a nearby major city, or a bus-friendly route inside the same country.'}
                                 </p>
-                                <Link
-                                    to="/post-trip"
-                                    className="inline-block bg-[#5845D8] text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all"
-                                >
-                                    {t('postYourTrip')}
-                                </Link>
+                                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                                    <button
+                                        onClick={() => setFilters({ ...filters, origin: null, destination: null })}
+                                        className="w-full sm:w-auto bg-[#F8F6F3] text-[#012126] px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-gray-100 transition-all"
+                                    >
+                                        Clear route
+                                    </button>
+                                    <Link
+                                        to="/post-trip"
+                                        className="w-full sm:w-auto inline-block bg-[#5845D8] text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all"
+                                    >
+                                        {t('postYourTrip')}
+                                    </Link>
+                                </div>
                             </div>
                         )}
                     </div>

@@ -1,71 +1,91 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
-import { User, Mail, Phone, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle } from 'lucide-react';
+import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function Settings({ user, checkAuthStatus }) {
-    const { setCurrency, t } = useLanguage();
+    const { currency, setCurrency, t } = useLanguage();
     const [firstName, setFirstName] = useState(user?.firstName || '');
     const [lastName, setLastName] = useState(user?.lastName || '');
     const [dateOfBirth, setDateOfBirth] = useState(() => {
-        if (user?.dateOfBirth) return new Date(user.dateOfBirth).toISOString().split('T')[0];
+        if (user?.dateOfBirth) {
+            return new Date(user.dateOfBirth).toISOString().split('T')[0];
+        }
         return '';
     });
     const [email, setEmail] = useState(user?.email || '');
     const [newEmail, setNewEmail] = useState('');
     const [showEmailOtp, setShowEmailOtp] = useState(false);
     const [emailOtp, setEmailOtp] = useState('');
-
-    // Phone change state
-    const [phone, setPhone] = useState(user?.phone || '');
-    const [newPhone, setNewPhone] = useState('');
-    const [showPhoneOtp, setShowPhoneOtp] = useState(false);
-    const [phoneOtp, setPhoneOtp] = useState('');
-    const [phoneLoading, setPhoneLoading] = useState(false);
-
     const [preferredCurrency, setPreferredCurrency] = useState(user?.preferredCurrency || 'USD');
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [error, setError] = useState('');
 
     const [bankName, setBankName] = useState(user?.bankDetails?.bankName || '');
+    const [bankCode, setBankCode] = useState(user?.bankDetails?.bankCode || '');
     const [accountNumber, setAccountNumber] = useState(user?.bankDetails?.accountNumber || '');
     const [accountHolderName, setAccountHolderName] = useState(user?.bankDetails?.accountHolderName || '');
+    const [banks, setBanks] = useState([]);
+    const [bankLoading, setBankLoading] = useState(false);
+    const [showBankOtp, setShowBankOtp] = useState(false);
+    const [bankOtp, setBankOtp] = useState('');
     const [stripeVerified, setStripeVerified] = useState(user?.stripeVerified || false);
     const [stripeLoading, setStripeLoading] = useState(false);
 
     useEffect(() => {
-        if (user?._id || user?.id) checkStripeStatus();
-        if (user?.preferredCurrency) setPreferredCurrency(user.preferredCurrency);
-        if (user?.phone) setPhone(user.phone);
-    }, [user?._id, user?.id, user?.preferredCurrency, user?.phone]);
+        if (user?._id) {
+            checkStripeStatus();
+        }
+        if (user?.preferredCurrency) {
+            setPreferredCurrency(user.preferredCurrency);
+        }
+    }, [user?._id, user?.preferredCurrency]);
 
     const checkStripeStatus = async () => {
         try {
             const res = await api.get(`/api/stripe/connect/status/${user?._id || user?.id}`);
-            if (res.data.success) setStripeVerified(res.data.verified);
-        } catch (_) {}
+            if (res.data.success) {
+                setStripeVerified(res.data.verified);
+            }
+        } catch (err) {
+        }
     };
 
     const handleStripeConnect = async () => {
         setStripeLoading(true);
         try {
-            const res = await api.post('/api/stripe/connect/onboard', { userId: user?._id || user?.id, email: user?.email });
-            if (res.data.success && res.data.url) window.location.href = res.data.url;
+            const res = await api.post('/api/stripe/connect/onboard', {
+                userId: user?._id || user?.id,
+                email: user?.email
+            });
+            if (res.data.success && res.data.url) {
+                window.location.href = res.data.url;
+            }
         } catch (err) {
-            setError(err.response?.data?.message || t('failStripeOnboarding'));
+            const msg = err.response?.data?.message || t('failStripeOnboarding');
+            setError(msg);
         } finally {
             setStripeLoading(false);
         }
     };
 
-    const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS', 'UGX', 'TZS', 'RWF'];
+
+    const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR'];
     const isAfricanCurrency = africanCurrencies.includes(preferredCurrency?.toUpperCase());
-    const showBankOption = isAfricanCurrency || user?.country === 'Nigeria';
+    const showBankOption = isAfricanCurrency;
     const showStripeOption = !isAfricanCurrency;
 
+    useEffect(() => {
+        if (!showBankOption) return;
+        const countryByCurrency = { NGN: 'NG', GHS: 'GH', KES: 'KE', ZAR: 'ZA' };
+        api.get(`/api/bago/paystack/banks?country=${countryByCurrency[preferredCurrency] || 'NG'}&currency=${preferredCurrency}`)
+            .then((res) => setBanks(res.data?.banks || res.data?.data || []))
+            .catch(() => setBanks([]));
+    }, [showBankOption, preferredCurrency]);
+
     const handleUpdateProfile = async (e) => {
-        if (e?.preventDefault) e.preventDefault();
+        e.preventDefault();
         setLoading(true);
         setError('');
         try {
@@ -74,7 +94,11 @@ export default function Settings({ user, checkAuthStatus }) {
                 lastName,
                 dateOfBirth,
                 preferredCurrency,
-                bankDetails: { bankName, accountNumber, accountHolderName }
+                bankDetails: {
+                    bankName,
+                    accountNumber,
+                    accountHolderName
+                }
             });
             if (res.data.status === 'success') {
                 setCurrency(preferredCurrency);
@@ -89,15 +113,14 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    // ── Email change ──────────────────────────────────────────────
+
     const handleRequestEmailChange = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
         try {
-            await api.post('/api/bago/user/request-email-change', { newEmail });
+            await api.post('/api/bago/email/request-change', { newEmail });
             setShowEmailOtp(true);
-            setSuccessMessage('OTP sent to your new email address');
+            setSuccessMessage(t('otpSentEmail'));
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to request email change');
         } finally {
@@ -105,76 +128,55 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    const handleVerifyEmailOtp = async (e) => {
-        e.preventDefault();
-        setLoading(true);
+    const handleStartBankSetup = async () => {
         setError('');
-        try {
-            await api.post('/api/bago/user/verify-email-change', { otp: emailOtp });
-            setShowEmailOtp(false);
-            setEmail(newEmail);
-            setNewEmail('');
-            setEmailOtp('');
-            setSuccessMessage('Email updated successfully');
-            await checkAuthStatus();
-        } catch (err) {
-            setError(err.response?.data?.message || 'Invalid or expired code');
-        } finally {
-            setLoading(false);
+        setSuccessMessage('');
+        if (!accountNumber || !bankCode) {
+            setError('Select a bank and enter your account number.');
+            return;
         }
-    };
-
-    // ── Phone change ──────────────────────────────────────────────
-    const handleRequestPhoneChange = async (e) => {
-        e.preventDefault();
-        setPhoneLoading(true);
-        setError('');
+        setBankLoading(true);
         try {
-            await api.post('/api/bago/user/request-phone-change', { newPhone });
-            setShowPhoneOtp(true);
-            setSuccessMessage('OTP sent to your new phone number');
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to request phone change');
-        } finally {
-            setPhoneLoading(false);
-        }
-    };
-
-    const handleVerifyPhoneOtp = async (e) => {
-        e.preventDefault();
-        setPhoneLoading(true);
-        setError('');
-        try {
-            await api.post('/api/bago/user/verify-phone-change', { otp: phoneOtp });
-            setShowPhoneOtp(false);
-            setPhone(newPhone);
-            setNewPhone('');
-            setPhoneOtp('');
-            setSuccessMessage('Phone number updated successfully');
-            await checkAuthStatus();
-        } catch (err) {
-            setError(err.response?.data?.message || 'Invalid or expired code');
-        } finally {
-            setPhoneLoading(false);
-        }
-    };
-
-    const handlePhotoUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-            try {
-                const res = await api.put('/api/bago/upload-image', { image: ev.target.result });
-                if (res.data?.status === 'success') {
-                    setSuccessMessage(t('profilePhotoUpdated') || 'Profile photo updated');
-                    await checkAuthStatus();
-                }
-            } catch (err) {
-                setError(err.response?.data?.message || 'Failed to update photo');
+            const selectedBank = banks.find(bank => String(bank.code) === String(bankCode));
+            const res = await api.post('/api/bago/paystack/add-bank', {
+                accountNumber,
+                bankCode,
+                bankName: selectedBank?.name || bankName,
+            });
+            if (res.data.success) {
+                setAccountHolderName(res.data.accountName || '');
+                setBankName(selectedBank?.name || bankName);
+                setShowBankOtp(true);
+                setSuccessMessage(res.data.message || 'Confirmation code sent.');
             }
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Could not start bank verification.');
+        } finally {
+            setBankLoading(false);
+        }
+    };
+
+    const handleVerifyBankOtp = async () => {
+        setError('');
+        setSuccessMessage('');
+        if (!bankOtp.trim()) {
+            setError('Enter the bank confirmation code.');
+            return;
+        }
+        setBankLoading(true);
+        try {
+            const res = await api.post('/api/bago/paystack/verify-bank-otp', { otp: bankOtp.trim() });
+            if (res.data.success) {
+                setShowBankOtp(false);
+                setBankOtp('');
+                setSuccessMessage(res.data.message || 'Bank account linked successfully.');
+                await checkAuthStatus();
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Could not verify bank OTP.');
+        } finally {
+            setBankLoading(false);
+        }
     };
 
     return (
@@ -188,15 +190,12 @@ export default function Settings({ user, checkAuthStatus }) {
                     </div>
 
                     <div className="flex justify-center mb-5 relative group">
-                        <input type="file" id="photo-upload" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                        <label htmlFor="photo-upload" className="cursor-pointer">
-                            <div className="w-16 h-16 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-xl font-black border-[3px] border-white shadow-md overflow-hidden relative">
-                                {user?.image ? <img src={user.image} alt="User" className="w-full h-full object-cover" /> : (firstName?.charAt(0) || 'B')}
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Camera className="text-white" size={16} />
-                                </div>
+                        <div className="w-16 h-16 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-xl font-black border-[3px] border-white shadow-md overflow-hidden relative">
+                            {user?.image ? <img src={user.image} alt="User" className="w-full h-full object-cover" /> : (firstName?.charAt(0) || 'B')}
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                <Camera className="text-white" size={16} />
                             </div>
-                        </label>
+                        </div>
                         {user?.isVerified && (
                             <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 text-white p-0.5 rounded-full border-[3px] border-white shadow-sm" title={t('verified')}>
                                 <Check size={12} strokeWidth={4} />
@@ -275,15 +274,14 @@ export default function Settings({ user, checkAuthStatus }) {
                     </form>
                 </div>
 
-                {/* Account Settings — Email & Phone */}
-                <div className="space-y-4">
-                    {/* Email Change */}
-                    <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-4">
-                        <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
-                            <Mail className="text-[#5845D8]" size={16} />
-                            <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
-                        </div>
+                {/* Account Settings */}
+                <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
+                    <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
+                        <Mail className="text-[#5845D8]" size={16} />
+                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
+                    </div>
 
+                    <div className="space-y-4">
                         <div>
                             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('currentEmail')}</label>
                             <input
@@ -295,7 +293,7 @@ export default function Settings({ user, checkAuthStatus }) {
                         </div>
 
                         {!showEmailOtp ? (
-                            <form onSubmit={handleRequestEmailChange} className="space-y-3 pt-3 border-t border-gray-50">
+                            <form onSubmit={handleRequestEmailChange} className="space-y-4 pt-4 border-t border-gray-50">
                                 <div>
                                     <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('newEmailLabel')}</label>
                                     <input
@@ -311,11 +309,11 @@ export default function Settings({ user, checkAuthStatus }) {
                                     disabled={!newEmail || loading}
                                     className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50"
                                 >
-                                    {loading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : t('updateAddress')}
+                                    {t('updateAddress')}
                                 </button>
                             </form>
                         ) : (
-                            <form onSubmit={handleVerifyEmailOtp} className="space-y-3 pt-3 border-t border-gray-50 animate-in fade-in duration-300">
+                            <div className="space-y-4 pt-4 border-t border-gray-50 animate-in fade-in duration-300">
                                 <div>
                                     <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{t('verificationCode')}</label>
                                     <input
@@ -328,73 +326,10 @@ export default function Settings({ user, checkAuthStatus }) {
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <button type="submit" disabled={!emailOtp || loading} className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50">
-                                        {loading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : t('verify')}
-                                    </button>
-                                    <button type="button" onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">{t('cancel')}</button>
+                                    <button className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest">{t('verify')}</button>
+                                    <button onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">{t('cancel')}</button>
                                 </div>
-                            </form>
-                        )}
-                    </div>
-
-                    {/* Phone Change */}
-                    <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-4">
-                        <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
-                            <Phone className="text-[#5845D8]" size={16} />
-                            <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Phone Number</h3>
-                        </div>
-
-                        <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Current Phone</label>
-                            <input
-                                type="tel"
-                                value={phone}
-                                disabled
-                                placeholder="No phone number set"
-                                className="w-full px-4 py-2 bg-gray-100 rounded-xl border border-transparent font-black text-[11px] text-gray-400 cursor-not-allowed opacity-70"
-                            />
-                        </div>
-
-                        {!showPhoneOtp ? (
-                            <form onSubmit={handleRequestPhoneChange} className="space-y-3 pt-3 border-t border-gray-50">
-                                <div>
-                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Phone Number</label>
-                                    <input
-                                        type="tel"
-                                        value={newPhone}
-                                        onChange={(e) => setNewPhone(e.target.value)}
-                                        placeholder="+1 234 567 8900"
-                                        className="w-full px-4 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[11px] transition-all"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={!newPhone || phoneLoading}
-                                    className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50"
-                                >
-                                    {phoneLoading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : 'Update Phone'}
-                                </button>
-                            </form>
-                        ) : (
-                            <form onSubmit={handleVerifyPhoneOtp} className="space-y-3 pt-3 border-t border-gray-50 animate-in fade-in duration-300">
-                                <div>
-                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Verification Code</label>
-                                    <input
-                                        type="text"
-                                        maxLength={6}
-                                        value={phoneOtp}
-                                        onChange={(e) => setPhoneOtp(e.target.value)}
-                                        placeholder="000000"
-                                        className="w-full px-4 py-2.5 bg-[#5845D8]/5 rounded-xl border border-[#5845D8]/20 outline-none focus:border-[#5845D8] font-black text-center text-sm tracking-[8px]"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button type="submit" disabled={!phoneOtp || phoneLoading} className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50">
-                                        {phoneLoading ? <RefreshCw className="animate-spin mx-auto" size={14} /> : 'Verify'}
-                                    </button>
-                                    <button type="button" onClick={() => setShowPhoneOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">Cancel</button>
-                                </div>
-                            </form>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -423,7 +358,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                 </div>
 
                                 {stripeVerified ? (
-                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
+                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
                                             <Check size={14} strokeWidth={4} />
                                         </div>
@@ -453,16 +388,23 @@ export default function Settings({ user, checkAuthStatus }) {
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
                                 <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-4 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
-                                    {t('bankTransferNgn')}
+                                    Bank Transfer ({preferredCurrency})
                                 </h4>
                                 <div className="space-y-2.5">
-                                    <input
-                                        type="text"
-                                        value={bankName}
-                                        onChange={(e) => setBankName(e.target.value)}
-                                        placeholder={t('bankName')}
+                                    <select
+                                        value={bankCode}
+                                        onChange={(e) => {
+                                            setBankCode(e.target.value);
+                                            const selectedBank = banks.find(bank => String(bank.code) === e.target.value);
+                                            setBankName(selectedBank?.name || '');
+                                        }}
                                         className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight"
-                                    />
+                                    >
+                                        <option value="">Select bank</option>
+                                        {banks.map((bank) => (
+                                            <option key={bank.code} value={bank.code}>{bank.name}</option>
+                                        ))}
+                                    </select>
                                     <input
                                         type="text"
                                         value={accountNumber}
@@ -475,8 +417,40 @@ export default function Settings({ user, checkAuthStatus }) {
                                         value={accountHolderName}
                                         onChange={(e) => setAccountHolderName(e.target.value)}
                                         placeholder={t('accountHolderName')}
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight"
+                                        readOnly
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight opacity-70"
                                     />
+                                    {!showBankOtp ? (
+                                        <button
+                                            type="button"
+                                            onClick={handleStartBankSetup}
+                                            disabled={bankLoading}
+                                            className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {bankLoading ? <RefreshCw className="animate-spin" size={14} /> : <ShieldCheck size={14} />}
+                                            Verify bank account
+                                        </button>
+                                    ) : (
+                                        <div className="space-y-2.5 pt-2">
+                                            <input
+                                                type="text"
+                                                maxLength={6}
+                                                value={bankOtp}
+                                                onChange={(e) => setBankOtp(e.target.value)}
+                                                placeholder="000000"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-[#5845D8]/20 outline-none text-center text-sm font-black tracking-[8px] text-[#012126] shadow-sm"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleVerifyBankOtp}
+                                                disabled={bankLoading}
+                                                className="w-full bg-[#012126] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                            >
+                                                {bankLoading ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
+                                                Confirm payout account
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -494,6 +468,8 @@ export default function Settings({ user, checkAuthStatus }) {
                 </div>
             </div>
 
+
+            {/* Status Messages */}
             {successMessage && (
                 <div className="fixed bottom-10 right-10 bg-[#012126] text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50 border border-white/20 backdrop-blur-md">
                     <CheckCircle className="text-green-400" size={18} />
@@ -511,3 +487,35 @@ export default function Settings({ user, checkAuthStatus }) {
         </div>
     );
 }
+
+const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountNumber, accountHolderName, setAccountHolderName }) => (
+    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
+        <h4 className="flex items-center gap-2 text-sm font-black text-[#012126] mb-4">
+            <span className="w-6 h-6 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[10px]">2</span>
+            Nigerian Bank Transfer (NGN)
+        </h4>
+        <div className="space-y-3">
+            <input
+                type="text"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                placeholder="Bank Name"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
+            />
+            <input
+                type="text"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+                placeholder="Account Number"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
+            />
+            <input
+                type="text"
+                value={accountHolderName}
+                onChange={(e) => setAccountHolderName(e.target.value)}
+                placeholder="Account Holder Name"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-100 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
+            />
+        </div>
+    </div>
+);

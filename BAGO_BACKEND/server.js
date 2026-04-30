@@ -25,6 +25,7 @@ import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from '
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 import { sendKycApprovedEmail } from './services/emailNotifications.js';
+import { handleStripeWebhook } from './controllers/postgresPaymentMethodController.js';
 
 
 dotenv.config();
@@ -220,6 +221,8 @@ cloudinary.v2.config({
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
 app.use(express.json({ limit: '10mb', strict: true }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));

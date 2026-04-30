@@ -16,6 +16,14 @@ class ApiConstants {
   // Payment keys – set via --dart-define
   static const String stripePublishableKey =
       String.fromEnvironment('STRIPE_KEY', defaultValue: '');
+  static const String stripeApplePayMerchantIdentifier = String.fromEnvironment(
+    'STRIPE_APPLE_PAY_MERCHANT_ID',
+    defaultValue: '',
+  );
+  static const String stripeApplePayMerchantCountryCode = String.fromEnvironment(
+    'STRIPE_APPLE_PAY_COUNTRY_CODE',
+    defaultValue: 'NG',
+  );
   static const String paystackPublicKey =
       String.fromEnvironment('PAYSTACK_KEY', defaultValue: '');
 

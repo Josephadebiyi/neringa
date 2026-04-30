@@ -2,7 +2,7 @@ import express from 'express';
 import { AdminLogin, AdminSignup } from '../controllers/AdminControllers/AdminloginandSignup.js';
 import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { banUser, GetAllUsers, deleteUser, updateUser } from '../controllers/AdminControllers/GetAllUsers.js';
-import { tracking, updateRequest } from '../controllers/AdminControllers/Tracking.js';
+import { activeShipmentLocations, tracking, updateRequest } from '../controllers/AdminControllers/Tracking.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
 import { getAllkyc, Verifykyc } from '../controllers/KycVerificationsController.js';
@@ -97,6 +97,7 @@ AdminRouter.post("/AdminLogin", AdminLogin)
 AdminRouter.get("/CheckAdmin", adminAuthenticated, CheckAdmin)
 AdminRouter.get("/GetAllUsers", adminAuthenticated, GetAllUsers)
 AdminRouter.get("/tracking", adminAuthenticated, tracking)
+AdminRouter.get("/tracking/active-shipments", adminAuthenticated, activeShipmentLocations)
 AdminRouter.put("/tracking/:id", adminAuthenticated, validateUuidParam('id'), updateRequest)
 AdminRouter.get("/dashboard", adminAuthenticated, dashboard)
 AdminRouter.get("/analystic", adminAuthenticated, analystic)

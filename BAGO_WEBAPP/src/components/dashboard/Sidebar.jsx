@@ -5,6 +5,7 @@ import {
     Plane,
     Package,
     Wallet,
+    MapPinned,
     Settings,
     LogOut,
     X,
@@ -39,6 +40,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
         { id: 'deliveries', label: t('myDeliveries') || 'My Deliveries', icon: CheckCircle },
         { id: 'chats', label: t('chats'), icon: MessageCircle, badge: unreadCount },
         { id: 'earnings', label: t('earnings'), icon: Wallet },
+        { id: 'tracking', label: 'Live Map', icon: MapPinned },
         { id: 'settings', label: t('settings'), icon: Settings },
     ];
 

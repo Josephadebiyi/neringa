@@ -1,5 +1,6 @@
 import { sendNewRequestToTravelerEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail } from '../services/emailNotifications.js';
 import PDFDocument from 'pdfkit';
+import Stripe from 'stripe';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
   confirmShipmentReceived,
@@ -30,6 +31,14 @@ import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { queryOne } from '../lib/postgres/db.js';
 import { verifyPayment as verifyPaystackPaymentRef } from '../services/paystackService.js';
 import { getAppSettings } from './AdminControllers/setting.js';
+
+let stripeClient = null;
+function getStripeClient() {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey || !stripeKey.startsWith('sk_')) return null;
+  if (!stripeClient) stripeClient = new Stripe(stripeKey);
+  return stripeClient;
+}
 
 function buildTripRealtimePayload(trip) {
   if (!trip) return null;
@@ -137,6 +146,26 @@ export async function RequestPackage(req, res) {
         const agreedAmount = Number(amount);
         if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
+        }
+      } else if (provider === 'stripe') {
+        const stripe = getStripeClient();
+        if (!stripe) {
+          return res.status(503).json({ message: 'Stripe is not configured.', success: false });
+        }
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentReference);
+        const statusOk = ['succeeded', 'processing'].includes(paymentIntent.status);
+        const verifiedAmount = Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
+        const agreedAmount = Number(amount);
+        const paymentCurrency = String(paymentIntent.currency || '').toUpperCase();
+        const agreedCurrency = String(currency || 'USD').toUpperCase();
+        if (!statusOk) {
+          return res.status(402).json({ message: 'Stripe payment is not complete.', success: false });
+        }
+        if (paymentCurrency !== agreedCurrency) {
+          return res.status(402).json({ message: 'Stripe payment currency does not match the shipment currency.', success: false });
+        }
+        if (verifiedAmount < agreedAmount * 0.98) {
+          return res.status(402).json({ message: 'Stripe payment amount does not match the agreed amount.', success: false });
         }
       }
       if (provider === 'stripe') {

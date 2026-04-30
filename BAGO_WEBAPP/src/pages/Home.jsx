@@ -4,15 +4,36 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     Search, MapPin, Calendar, Package, Plane, CheckCircle, ChevronDown,
     Globe, PlusCircle, UserCircle, ArrowRight, Bus, ShieldCheck, Check,
-    Smartphone, Menu, X, AlertCircle, Calculator, CreditCard, Headphones,
+    Menu, X, AlertCircle, Calculator, CreditCard, Headphones,
     Plus, Minus, Star
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../AuthContext';
 import api from '../api';
-import Select from 'react-select';
-import { locations } from '../utils/countries';
+import CreatableSelect from 'react-select/creatable';
+import { countries, locations } from '../utils/countries';
 import Footer from '../components/Footer';
+
+const normalizeSearchText = (value = '') => value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const makeCustomSearchLocation = (inputValue) => {
+    const parts = inputValue.split(',').map((part) => part.trim()).filter(Boolean);
+    return {
+        value: inputValue,
+        label: inputValue,
+        city: parts[0] || inputValue.trim(),
+        country: parts.slice(1).join(', '),
+        flag: '📍',
+        isCustom: true,
+        searchText: normalizeSearchText(inputValue),
+    };
+};
 
 /* ─────────────────────────────────────────────
    NAVBAR
@@ -265,18 +286,36 @@ const StickySearch = () => {
     const [destination, setDestination] = useState(null);
     const [date, setDate] = useState('');
 
-    const locationOptions = locations.map(loc => ({
-        value: loc.city,
-        label: (
-            <div className="flex items-center gap-2">
-                <span>{loc.flag}</span>
-                <span>{loc.label}</span>
-            </div>
-        ),
-        city: loc.city,
-        country: loc.country,
-        flag: loc.flag
-    }));
+    const locationOptions = [
+        ...countries.map(country => ({
+            value: country.label,
+            label: (
+                <div className="flex items-center gap-2">
+                    <span>{country.flag}</span>
+                    <span>All cities in {country.label}</span>
+                </div>
+            ),
+            city: '',
+            country: country.label,
+            flag: country.flag,
+            type: 'country',
+            searchText: normalizeSearchText(`${country.label} ${country.value}`)
+        })),
+        ...locations.map(loc => ({
+            value: loc.city,
+            label: (
+                <div className="flex items-center gap-2">
+                    <span>{loc.flag}</span>
+                    <span>{loc.label}</span>
+                </div>
+            ),
+            city: loc.city,
+            country: loc.country,
+            flag: loc.flag,
+            type: 'city',
+            searchText: normalizeSearchText(`${loc.city} ${loc.country} ${loc.label}`)
+        }))
+    ];
 
     useEffect(() => {
         const fetchLocation = async () => {
@@ -300,18 +339,20 @@ const StickySearch = () => {
     const handleSearch = (e) => {
         e.preventDefault();
         const params = new URLSearchParams();
-        if (origin) params.append('origin', origin.city);
-        if (destination) params.append('destination', destination.city);
+        if (origin?.city) params.append('origin', origin.city);
+        if (origin?.country) params.append('originCountry', origin.country);
+        if (destination?.city) params.append('destination', destination.city);
+        if (destination?.country) params.append('destinationCountry', destination.country);
         if (date) params.append('date', date);
         navigate(`/search?${params.toString()}`);
     };
 
     const customStyles = {
-        control: (b) => ({ ...b, border: 'none', boxShadow: 'none', background: 'transparent', minHeight: 'auto' }),
-        valueContainer: (b) => ({ ...b, padding: '0 8px' }),
+        control: (b) => ({ ...b, border: 'none', boxShadow: 'none', background: 'transparent', minHeight: '28px' }),
+        valueContainer: (b) => ({ ...b, padding: 0 }),
         input: (b) => ({ ...b, margin: 0, padding: 0 }),
-        placeholder: (b) => ({ ...b, color: '#9CA3AF', fontSize: '14px', fontWeight: '500' }),
-        singleValue: (b) => ({ ...b, color: '#012126', fontSize: '14px', fontWeight: '600' }),
+        placeholder: (b) => ({ ...b, color: '#9CA3AF', fontSize: '15px', fontWeight: '500' }),
+        singleValue: (b) => ({ ...b, color: '#012126', fontSize: '15px', fontWeight: '700' }),
         indicatorsContainer: (b) => ({ ...b, display: 'none' }),
         menu: (b) => ({ ...b, zIndex: 9999 }),
         menuPortal: (b) => ({ ...b, zIndex: 9999 }),
@@ -319,74 +360,69 @@ const StickySearch = () => {
 
     return (
         <div className="w-full px-6 md:px-12 max-w-[1100px] mx-auto -mt-1 mb-10 relative z-40">
-            <div className="bg-white/80 backdrop-blur-xl rounded-[28px] shadow-[0_15px_60px_-15px_rgba(0,0,0,0.12)] border border-white/40 p-2 md:p-3">
-                <form onSubmit={handleSearch} className="flex flex-col md:flex-row md:items-center md:divide-x md:divide-gray-100">
-                    
-                    {/* Origin */}
-                    <div className="flex-1 flex items-center px-4 py-3 md:py-2 group transition-all rounded-2xl hover:bg-gray-50/80">
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mr-3 shrink-0">
-                            <MapPin size={18} className="text-[#5845D8]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[10px] uppercase tracking-[0.15em] font-black text-gray-400 mb-0.5">{t('leavingFromLabel') || 'Leaving From'}</p>
-                            <Select 
-                                options={locationOptions} 
-                                value={origin} 
+            <div className="bg-white rounded-[24px] shadow-[0_8px_20px_rgba(0,0,0,0.08)] border border-gray-100 overflow-visible">
+                <form onSubmit={handleSearch} className="flex flex-col md:flex-row md:items-center">
+                    <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
+                        <MapPin size={20} className={`${origin ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
+                        <div className="flex-1 min-w-0 ml-4">
+                            <CreatableSelect
+                                options={locationOptions}
+                                value={origin}
                                 onChange={setOrigin}
-                                placeholder={t('pickCityPlaceHolder') || 'Pick a city'}
-                                styles={customStyles} 
-                                isClearable 
-                                menuPortalTarget={document.body} 
-                                menuPosition="fixed" 
+                                onCreateOption={(inputValue) => setOrigin(makeCustomSearchLocation(inputValue))}
+                                placeholder={t('enterPickupCity') || t('leavingFromLabel') || 'Enter pickup city'}
+                                styles={customStyles}
+                                isClearable
+                                formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
+                                filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeSearchText(inputValue))}
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
+                        {origin && <CheckCircle size={16} className="text-[#5845D8] ml-3 shrink-0" />}
                     </div>
 
-                    {/* Date - In the Middle */}
-                    <div className="flex-1 flex items-center px-4 py-3 md:py-2 group transition-all rounded-2xl hover:bg-gray-50/80">
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mr-3 shrink-0">
-                            <Calendar size={18} className="text-[#5845D8]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[10px] uppercase tracking-[0.15em] font-black text-gray-400 mb-0.5">{t('departureDateLabel') || 'Departure Date'}</p>
-                            <input 
-                                type="date" 
-                                value={date} 
-                                onChange={(e) => setDate(e.target.value)}
-                                min={new Date().toISOString().split('T')[0]}
-                                className="outline-none text-[15px] font-bold w-full bg-transparent text-[#012126] cursor-pointer placeholder:text-gray-400" 
-                            />
-                        </div>
-                    </div>
-                    
-                    {/* Destination */}
-                    <div className="flex-1 flex items-center px-4 py-3 md:py-2 group transition-all rounded-2xl hover:bg-gray-50/80">
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mr-3 shrink-0">
-                            <MapPin size={18} className="text-[#5845D8]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[10px] uppercase tracking-[0.15em] font-black text-gray-400 mb-0.5">{t('goingToLabel') || 'Going To'}</p>
-                            <Select 
-                                options={locationOptions} 
-                                value={destination} 
+                    <div className="h-px md:h-9 md:w-px bg-gray-100 mx-5 md:mx-0" />
+
+                    <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
+                        <MapPin size={20} className={`${destination ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
+                        <div className="flex-1 min-w-0 ml-4">
+                            <CreatableSelect
+                                options={locationOptions}
+                                value={destination}
                                 onChange={setDestination}
-                                placeholder={t('pickCityPlaceHolder') || 'Pick a city'}
-                                styles={customStyles} 
-                                isClearable 
-                                menuPortalTarget={document.body} 
-                                menuPosition="fixed" 
+                                onCreateOption={(inputValue) => setDestination(makeCustomSearchLocation(inputValue))}
+                                placeholder={t('enterDestination') || t('goingToLabel') || 'Enter destination'}
+                                styles={customStyles}
+                                isClearable
+                                formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
+                                filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeSearchText(inputValue))}
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
+                        {destination && <CheckCircle size={16} className="text-[#5845D8] ml-3 shrink-0" />}
                     </div>
 
-                    {/* Search Button */}
-                    <div className="md:pl-3 w-full md:w-auto mt-2 md:mt-0">
-                        <button type="submit"
-                            className="w-full md:h-[68px] md:px-10 bg-[#5845D8] text-white py-4 md:py-0 font-black rounded-2xl hover:bg-[#4838B5] transition-all flex items-center justify-center gap-3 shadow-xl shadow-[#5845D8]/25 hover:scale-[1.02] active:scale-[0.98] text-sm uppercase tracking-widest">
-                            <Search size={20} strokeWidth={3} />
-                            <span>{t('search') || 'Search'}</span>
-                        </button>
-                    </div>
+                    <div className="h-px md:h-9 md:w-px bg-gray-100 mx-5 md:mx-0" />
+
+                    <label className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px] cursor-pointer">
+                        <Calendar size={20} className={`${date ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
+                        <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            className={`ml-4 flex-1 min-w-0 bg-transparent outline-none text-[15px] font-bold cursor-pointer ${date ? 'text-[#012126]' : 'text-gray-400'}`}
+                        />
+                        {date && <CheckCircle size={16} className="text-[#5845D8] ml-3 shrink-0" />}
+                    </label>
+
+                    <button type="submit"
+                        className="h-[52px] md:h-[68px] md:px-9 bg-[#5845D8] text-white font-extrabold rounded-b-[24px] md:rounded-b-none md:rounded-r-[24px] hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 text-sm whitespace-nowrap">
+                        <Search size={18} strokeWidth={3} />
+                        <span>{t('findTravelerButton') || t('search') || 'Find traveler'}</span>
+                    </button>
                 </form>
             </div>
         </div>
@@ -394,32 +430,69 @@ const StickySearch = () => {
 };
 
 /* ─────────────────────────────────────────────
-   FEATURES SECTION (6 circular icons)
+   TRUST SECTION
 ───────────────────────────────────────────── */
 const FeaturesSection = () => {
     const { t } = useLanguage();
 
     const features = [
-        { icon: ShieldCheck, title: t('featureTitleInsurance') || 'Insurance Online Payments', desc: t('featureDescInsurance') || 'With Bago your money is safe at all times. Secure payment system with guaranteed refund.', color: 'bg-[#5845D8]/10 text-[#5845D8]' },
-        { icon: Package, title: t('featureTitleGuaranteed') || 'Guaranteed delivery', desc: t('featureDescGuaranteed') || 'If a traveler cancels or delivers in poor condition, we process a full refund.', color: 'bg-[#5845D8]/10 text-[#5845D8]' },
-        { icon: CreditCard, title: t('featureTitleOptions') || 'Multiple Payment Options', desc: t('featureDescOptions') || 'We accept Visa, MasterCard, American Express and more options coming soon.', color: 'bg-[#5845D8]/10 text-[#5845D8]' },
-        { icon: Calculator, title: t('featureTitleNoHidden') || 'No Hidden Fees', desc: t('featureDescNoHidden') || 'Machine learning calculates rates and taxes before you post. Know exactly what you pay.', color: 'bg-[#5845D8]/10 text-[#5845D8]' },
-        { icon: UserCircle, title: t('featureTitleCommunity') || 'Community of Verified Senders and Travelers', desc: t('featureDescCommunity') || 'Trust is our highest priority. We ensure our community treats all members with respect.', color: 'bg-[#5845D8]/10 text-[#5845D8]' },
-        { icon: Headphones, title: t('featureTitleSupport') || '24/7 support', desc: t('featureDescSupport') || 'Our customer service professionals are at your disposal to resolve any incident.', color: 'bg-[#fef2f2] text-[#ef4444]' },
+        { icon: ShieldCheck, title: t('featureTitleInsurance') || 'Protected payments', desc: t('featureDescInsurance') || 'Your money stays secured until the shipment is completed or a refund is approved.' },
+        { icon: Package, title: t('featureTitleGuaranteed') || 'Delivery backup', desc: t('featureDescGuaranteed') || 'If a trip falls through, Bago helps resolve the order and find a better route.' },
+        { icon: CreditCard, title: t('featureTitleOptions') || 'Flexible checkout', desc: t('featureDescOptions') || 'Pay with major cards and supported regional payment methods as they become available.' },
+        { icon: Calculator, title: t('featureTitleNoHidden') || 'Upfront pricing', desc: t('featureDescNoHidden') || 'See the route cost, weight, and service fees before you request a traveler.' },
+        { icon: UserCircle, title: t('featureTitleCommunity') || 'Verified people', desc: t('featureDescCommunity') || 'Traveler and sender profiles show verification status so you know who you are dealing with.' },
+        { icon: Headphones, title: t('featureTitleSupport') || 'Real support', desc: t('featureDescSupport') || 'If something feels off, support can review the shipment and help both sides resolve it.' },
     ];
 
     return (
         <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-20">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-16">
-                {features.map((f, i) => (
-                    <div key={i} className="flex flex-col items-center text-center group">
-                        <div className={`w-28 h-28 ${f.color} rounded-full flex items-center justify-center mb-6 transition-transform group-hover:scale-110 duration-500`}>
-                            <f.icon size={52} strokeWidth={1.5} />
+            <div className="rounded-[34px] bg-white border border-gray-100 shadow-[0_18px_55px_rgba(1,33,38,0.05)] overflow-hidden">
+                <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr]">
+                    <div className="p-8 md:p-10 lg:p-12 bg-[#012126] text-white flex flex-col justify-between min-h-[360px]">
+                        <div>
+                            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white/70">
+                                <ShieldCheck size={13} />
+                                Trust built in
+                            </span>
+                            <h2 className="mt-6 text-4xl md:text-5xl font-black leading-[0.95] tracking-tight">
+                                Ship with people, keep the process clear.
+                            </h2>
+                            <p className="mt-5 max-w-sm text-sm md:text-base font-medium leading-relaxed text-white/65">
+                                Bago keeps the important parts visible: who is verified, what the route costs, where the shipment stands, and who to contact when plans change.
+                            </p>
                         </div>
-                        <h3 className="text-[17px] font-bold text-[#012126] mb-3">{f.title}</h3>
-                        <p className="text-[#6B7280] text-sm font-medium leading-relaxed px-2">{f.desc}</p>
+
+                        <div className="mt-10 grid grid-cols-3 gap-3">
+                            {[
+                                ['KYC', 'checks'],
+                                ['Escrow', 'flow'],
+                                ['Live', 'updates'],
+                            ].map(([value, label]) => (
+                                <div key={value} className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
+                                    <p className="text-sm font-black leading-none">{value}</p>
+                                    <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-white/45">{label}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                ))}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2">
+                        {features.map((f, i) => (
+                            <div
+                                key={i}
+                                className={`group p-6 md:p-7 border-gray-100 hover:bg-[#F8F6F3] transition-colors ${
+                                    i % 2 === 0 ? 'sm:border-r' : ''
+                                } ${i < 4 ? 'border-b' : ''}`}
+                            >
+                                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#5845D8]/8 text-[#5845D8] group-hover:bg-[#5845D8] group-hover:text-white transition-colors">
+                                    <f.icon size={21} strokeWidth={2.1} />
+                                </div>
+                                <h3 className="text-base font-black text-[#012126] tracking-tight">{f.title}</h3>
+                                <p className="mt-2 text-sm font-medium leading-relaxed text-[#6B7280]">{f.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         </section>
     );
@@ -445,6 +518,7 @@ const TripTypeSection = () => {
                     );
                 })()}
             </h2>
+            <DiscountPromo inside />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {[
                     { icon: Plane, label: t('byFlight') || 'By flight', desc: t('byFlightDesc') || 'Fly with travelers and send your packages faster.', mode: 'flight' },
@@ -550,22 +624,36 @@ const FAQSection = () => {
 /* ─────────────────────────────────────────────
    FREE APP SECTION
 ───────────────────────────────────────────── */
+const PhoneMockup = ({ className = '' }) => (
+    <div className={`relative mx-auto w-[270px] md:w-[310px] ${className}`}>
+        <div className="absolute inset-x-4 -bottom-8 h-16 rounded-full bg-[#5845D8]/20 blur-3xl" />
+        <div className="absolute -left-1.5 top-28 h-12 w-1 rounded-l-full bg-[#111]" />
+        <div className="absolute -right-1.5 top-36 h-16 w-1 rounded-r-full bg-[#111]" />
+        <div className="relative rounded-[48px] bg-[#050505] p-[10px] shadow-[0_30px_80px_rgba(1,33,38,0.24)] ring-1 ring-black/10">
+            <div className="pointer-events-none absolute inset-[10px] rounded-[38px] ring-1 ring-white/10" />
+            <div className="relative aspect-[9/19.5] overflow-hidden rounded-[37px] bg-white">
+                <img
+                    src="/mobile-mockup.png"
+                    alt="Bago app screen"
+                    className="h-full w-full object-cover object-top"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                />
+                <div className="absolute left-1/2 top-3 h-6 w-24 -translate-x-1/2 rounded-full bg-black md:h-7 md:w-28" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/35 via-transparent to-transparent opacity-45" />
+            </div>
+        </div>
+    </div>
+);
+
 const AppSection = () => {
     const { t } = useLanguage();
 
     return (
-        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-20">
-            <div className="flex flex-col md:flex-row items-center gap-16">
+        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-24">
+            <div className="flex flex-col md:flex-row items-center gap-14 md:gap-20">
                 {/* Phone mockup */}
-                <div className="w-full md:w-5/12 flex justify-center">
-                    <div className="relative">
-                        <img
-                            src="/mobile-mockup.png"
-                            alt="Bago App"
-                            className="w-[260px] md:w-[300px] h-auto drop-shadow-2xl"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                    </div>
+                <div className="w-full md:w-5/12 flex justify-center rounded-[36px] bg-white/55 py-10 shadow-sm ring-1 ring-white">
+                    <PhoneMockup />
                 </div>
                 {/* Text */}
                 <div className="w-full md:w-7/12">
@@ -583,14 +671,14 @@ const AppSection = () => {
                     <p className="text-[#6B7280] text-base font-medium leading-relaxed mb-8 max-w-md">
                         {t('appDescription') || 'One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.'}
                     </p>
-                    <div className="grid grid-cols-2 gap-6 mb-10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
                         {[
                             { label: t('mobileTrackingTitle') || 'Mobile tracking', desc: t('mobileTrackingDesc') || 'Watch your package move in real-time.' },
                             { label: t('globalRoutesTitle') || 'Global routes', desc: t('globalRoutesDesc') || 'Send anywhere from New York to Lagos.' },
                             { label: t('liveUpdatesTitle') || 'Live updates', desc: t('liveUpdatesDesc') || 'Get notified for every hand-off.' },
                             { label: t('supportTitle') || 'Human support', desc: t('supportDesc') || 'Chat with our 24/7 support team.' },
                         ].map((item, i) => (
-                            <div key={i}>
+                            <div key={i} className="rounded-2xl bg-white/75 p-4 shadow-sm ring-1 ring-gray-100">
                                 <p className="font-black text-[#012126] text-sm mb-1">{item.label}</p>
                                 <p className="text-[#6B7280] text-xs font-medium">{item.desc}</p>
                             </div>
@@ -662,16 +750,11 @@ const TrackingSection = () => {
     const { t } = useLanguage();
 
     return (
-        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-20">
-            <div className="flex flex-col md:flex-row items-center gap-16">
+        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-24">
+            <div className="flex flex-col md:flex-row items-center gap-14 md:gap-20">
                 {/* phone */}
-                <div className="w-full md:w-5/12 flex justify-center">
-                    <img
-                        src="/mobile-mockup.png"
-                        alt="Bago App Mockup"
-                        className="w-[260px] md:w-[300px] h-auto drop-shadow-2xl"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                    />
+                <div className="w-full md:w-5/12 flex justify-center rounded-[36px] bg-white/55 py-10 shadow-sm ring-1 ring-white">
+                    <PhoneMockup />
                 </div>
                 {/* text */}
                 <div className="w-full md:w-7/12">
@@ -682,7 +765,7 @@ const TrackingSection = () => {
                         {t('realTimeTrackingDesc') || 'Follow your package every step of the way. From pickup to delivery, you will know exactly where your items are and when they will arrive.'}
                     </p>
                     <Link to="/search"
-                        className="inline-block bg-[#5845D8] text-white px-8 py-3 rounded-full font-bold hover:bg-[#4838B5] transition-colors text-sm shadow-lg shadow-[#5845D8]/20">
+                        className="inline-flex items-center justify-center bg-[#5845D8] text-white px-8 py-3.5 rounded-full font-bold hover:bg-[#4838B5] transition-all hover:-translate-y-0.5 text-sm shadow-lg shadow-[#5845D8]/20">
                         {t('checkLiveStatusBtn') || 'Check live status'}
                     </Link>
                 </div>
@@ -727,34 +810,29 @@ const CarSection = () => {
 /* ─────────────────────────────────────────────
    DISCOUNT PROMO BANNER
 ───────────────────────────────────────────── */
-const DiscountPromo = () => {
-    const { t } = useLanguage();
+const DiscountPromo = ({ inside = false }) => {
+    const content = (
+            <button
+                type="button"
+                onClick={() => window.location.assign('/search')}
+                className="block w-full overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(88,69,216,0.18)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                aria-label="Explore faster shipping"
+            >
+                <img
+                    src="/assets/faster-shipping-banner.png"
+                    alt="Faster shipping. Pay less. Send more."
+                    className="w-full aspect-[3.18/1] object-cover"
+                />
+            </button>
+    );
+
+    if (inside) {
+        return <div className="mb-8">{content}</div>;
+    }
 
     return (
         <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-12 pb-16">
-            <div className="bg-gradient-to-r from-[#5845D8] to-[#8B5CF6] rounded-3xl p-8 md:p-12 shadow-[0_8px_40px_rgba(88,69,216,0.25)] text-white flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                <div className="z-10 text-center md:text-left">
-                    <h2 className="text-3xl md:text-5xl font-black mb-3 flex items-center justify-center md:justify-start gap-3 tracking-tight">
-                        <Smartphone className="text-white/80" size={32} />
-                        {t('firstDeliveryFree') || 'Get Your First Delivery Free!'}
-                    </h2>
-                    <p className="text-white/85 text-sm font-medium max-w-lg leading-relaxed">
-                        {t('discountPromoDesc') || 'Sign up today and get your first package delivered to any destination for free, or a 100% bonus on your first payout as a courier.'}
-                    </p>
-                </div>
-                <div className="z-10 bg-white/10 p-5 rounded-2xl border border-white/20 backdrop-blur-md text-center shrink-0 w-full md:w-auto">
-                    <p className="text-xs font-bold text-white mb-2 uppercase tracking-widest">
-                        {t('usePromoCode') || 'Use Promo Code'}
-                    </p>
-                    <div className="bg-white text-[#5845D8] px-8 py-4 rounded-xl font-black text-3xl tracking-wider shadow-inner">
-                        BAGO10
-                    </div>
-                    <p className="text-white/70 text-xs mt-2">
-                        {t('validNewUsers') || 'Valid for new users only.'}
-                    </p>
-                </div>
-            </div>
+            {content}
         </section>
     );
 };
@@ -810,7 +888,6 @@ export default function Home() {
             <FAQSection />
             <FeaturesSection />
             <CommunityCTA />
-            <DiscountPromo />
             <Footer />
         </div>
     );

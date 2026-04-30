@@ -4,6 +4,7 @@ import { Resend } from 'resend';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { generateOtpEmailHtml } from '../services/emailNotifications.js';
+import { convertCurrency } from '../services/currencyConverter.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -247,6 +248,12 @@ export const addFunds = async (req, res) => {
 };
 
 const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
+const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 5);
+const PAYSTACK_PAYOUT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'];
+
+function payoutMethodForCurrency(currency = 'USD') {
+  return PAYSTACK_PAYOUT_CURRENCIES.includes(String(currency).toUpperCase()) ? 'bank' : 'stripe';
+}
 
 export const withdrawFunds = async (req, res) => {
   try {
@@ -256,32 +263,75 @@ export const withdrawFunds = async (req, res) => {
     if (!amount || amount <= 0) {
       return res.status(400).json({ success: false, message: 'Positive amount required' });
     }
-    if (!method || !['stripe', 'bank'].includes(method)) {
-      return res.status(400).json({ success: false, message: "Specify payout method: 'stripe' or 'bank'" });
-    }
 
-    const profile = await queryOne(
-      `SELECT available_balance, stripe_connect_account_id, bank_details, paystack_recipient_code
-       FROM public.profiles WHERE id = $1`,
+    const account = await queryOne(
+      `SELECT
+          p.stripe_connect_account_id,
+          p.stripe_verified,
+          p.bank_details,
+          p.paystack_recipient_code,
+          wa.id as wallet_id,
+          wa.available_balance,
+          wa.currency
+       FROM public.profiles p
+       JOIN public.wallet_accounts wa ON wa.user_id = p.id
+       WHERE p.id = $1`,
       [userId]
     );
 
-    if (!profile) return res.status(404).json({ success: false, message: 'User not found' });
-    if ((profile.available_balance || 0) < amount) {
+    if (!account) return res.status(404).json({ success: false, message: 'Wallet not found' });
+
+    const walletCurrency = String(account.currency || req.body.currency || 'USD').toUpperCase();
+    const selectedMethod = method || payoutMethodForCurrency(walletCurrency);
+    if (!['stripe', 'bank'].includes(selectedMethod)) {
+      return res.status(400).json({ success: false, message: "Specify payout method: 'stripe' or 'bank'" });
+    }
+    if (selectedMethod !== payoutMethodForCurrency(walletCurrency)) {
+      return res.status(400).json({
+        success: false,
+        message: `${walletCurrency} withdrawals use ${payoutMethodForCurrency(walletCurrency) === 'bank' ? 'bank/Paystack' : 'Stripe Connect'}.`,
+      });
+    }
+
+    const minimumAmount = await convertCurrency(MINIMUM_WITHDRAWAL_USD, 'USD', walletCurrency);
+    if (Number(amount) < minimumAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum withdrawal is ${walletCurrency} ${minimumAmount.toFixed(2)}.`,
+      });
+    }
+
+    if (selectedMethod === 'stripe' && (!account.stripe_connect_account_id || !account.stripe_verified)) {
+      return res.status(400).json({ success: false, message: 'Connect and verify Stripe before withdrawing.' });
+    }
+    if (selectedMethod === 'bank' && !account.paystack_recipient_code) {
+      return res.status(400).json({ success: false, message: 'Add and verify a bank account before withdrawing.' });
+    }
+
+    if ((account.available_balance || 0) < amount) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
+    const amountUsd = walletCurrency === 'USD'
+      ? Number(amount)
+      : await convertCurrency(Number(amount), walletCurrency, 'USD');
+
     // Daily withdrawal limit check
     const dailyTotal = await queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total
-       FROM public.transactions
+      `SELECT COALESCE(SUM(
+          CASE
+            WHEN currency = 'USD' THEN amount
+            ELSE 0
+          END
+        ), 0) AS total
+       FROM public.wallet_transactions
        WHERE user_id = $1
          AND type = 'withdrawal'
          AND created_at >= NOW() - INTERVAL '24 hours'`,
       [userId]
     );
     const spentToday = Number(dailyTotal?.total || 0);
-    if (spentToday + amount > DAILY_WITHDRAWAL_LIMIT_USD) {
+    if (spentToday + amountUsd > DAILY_WITHDRAWAL_LIMIT_USD) {
       const remaining = Math.max(0, DAILY_WITHDRAWAL_LIMIT_USD - spentToday);
       return res.status(429).json({
         success: false,
@@ -291,19 +341,31 @@ export const withdrawFunds = async (req, res) => {
     }
 
     const row = await queryOne(
-      `UPDATE public.profiles
-       SET available_balance = available_balance - $2, updated_at = NOW()
-       WHERE id = $1
+      `UPDATE public.wallet_accounts
+       SET available_balance = available_balance - $2, updated_at = timezone('utc', now())
+       WHERE user_id = $1
        RETURNING available_balance`,
       [userId, amount]
     );
 
-    // Record in transactions table
     await pgQuery(
-      `INSERT INTO public.transactions (user_id, type, amount, status, description, created_at)
-       VALUES ($1, 'withdrawal', $2, 'pending', $3, NOW())`,
-      [userId, amount, `Withdrawal via ${method}`]
-    ).catch(() => {});
+      `INSERT INTO public.wallet_transactions
+        (wallet_id, user_id, type, amount, currency, status, description, metadata)
+       VALUES ($1, $2, 'withdrawal', $3, $4, 'pending', $5, $6)`,
+      [
+        account.wallet_id,
+        userId,
+        amount,
+        walletCurrency,
+        `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}`,
+        {
+          method: selectedMethod,
+          amountUsd,
+          requestedCurrency: walletCurrency,
+          payoutRail: selectedMethod === 'bank' ? 'paystack' : 'stripe',
+        },
+      ]
+    );
 
     res.status(200).json({
       success: true,

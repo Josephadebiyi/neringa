@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../../api';
-import { Wallet, ArrowUpRight, ArrowDownLeft, ArrowRight, Landmark, RefreshCw, CreditCard, AlertCircle, CheckCircle, Shield, X } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Landmark, RefreshCw, CreditCard, AlertCircle, CheckCircle, Shield } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,39 +9,27 @@ export default function Earnings({ user, checkAuthStatus }) {
     const navigate = useNavigate();
     const [balance, setBalance] = useState(user?.balance || 0);
     const [history, setHistory] = useState(user?.balanceHistory || []);
-    const [showAllTx, setShowAllTx] = useState(false);
-
-    useEffect(() => {
-        const fetchWallet = async () => {
-            try {
-                const res = await api.get('/api/bago/getWallet');
-                if (res.data?.success) {
-                    const w = res.data.data;
-                    setBalance(w.balance ?? w.available_balance ?? 0);
-                    setHistory(w.history || w.transactions || []);
-                }
-            } catch (_) {}
-        };
-        fetchWallet();
-    }, []);
+    const [loading, setLoading] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [status, setStatus] = useState({ type: '', message: '' });
     const [showPayoutModal, setShowPayoutModal] = useState(false);
 
-    const africanCurrencies = ['NGN', 'ZAR', 'KES', 'GHS', 'UGX', 'TZS', 'RWF'];
-    const isAfricanCurrency = africanCurrencies.includes(user?.preferredCurrency?.toUpperCase() || currency?.toUpperCase());
+    const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR'];
+    const walletCurrency = (user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
+    const isAfricanCurrency = africanCurrencies.includes(walletCurrency);
 
     const hasStripe = !!user?.stripeConnectAccountId && user?.stripeVerified;
     const hasBank = !!user?.bankDetails?.accountNumber;
 
-    const method = isAfricanCurrency ? 'bank' : 'stripe';
+    // Default method based on logic
+    const [method, setMethod] = useState(isAfricanCurrency ? 'bank' : 'stripe');
 
     const getSymbol = (curr) => {
         const symbols = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
         return symbols[curr] || curr;
     };
-    const currencySymbol = getSymbol(user?.preferredCurrency || 'USD');
+    const currencySymbol = getSymbol(walletCurrency);
 
     const handleWithdraw = async (e) => {
         if (e) e.preventDefault();
@@ -67,7 +55,7 @@ export default function Earnings({ user, checkAuthStatus }) {
             const res = await api.post('/api/bago/withdrawFunds', {
                 amount: Number(withdrawAmount),
                 method: method,
-                currency: user?.preferredCurrency || 'USD',
+                currency: walletCurrency,
                 description: `Withdrawal via ${method === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}`
             });
             if (res.data.success) {
@@ -187,9 +175,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <h3 className="text-sm font-black text-[#012126] tracking-tight uppercase">{t('transactionHistory') || 'Transaction History'}</h3>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setShowAllTx(v => !v)} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#012126] transition-colors">
-                            {showAllTx ? (t('showLess') || 'Show Less') : (t('viewAll') || 'View All')}
-                        </button>
+                        <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#012126] transition-colors">{t('viewAll') || 'View All'}</button>
                     </div>
                 </div>
 
@@ -204,7 +190,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-50">
-                        {(showAllTx ? history.slice().reverse() : history.slice().reverse().slice(0, 5)).map((tx, i) => (
+                        {history.slice().reverse().map((tx, i) => (
                             <div key={i} className="flex items-center justify-between px-8 py-6 hover:bg-gray-50/50 transition-all group">
                                 <div className="flex items-center gap-5">
                                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${tx.type === 'withdraw' ? 'bg-amber-50 text-amber-500 group-hover:bg-amber-100' : 'bg-green-50 text-green-600 group-hover:bg-green-100'}`}>
@@ -300,4 +286,10 @@ export default function Earnings({ user, checkAuthStatus }) {
     );
 }
 
+const X = ({ size }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+);
 
+const ArrowRight = ({ size }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+);

@@ -317,24 +317,34 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
     params.push(currentUserId);
     index += 1;
   }
-  if (fromLocation) {
-    conditions.push(`lower(t.from_location) like lower($${index})`);
+  if (fromCountry) {
+    conditions.push(`(
+      lower(coalesce(t.from_country, '')) like lower($${index})
+      or lower(coalesce(t.from_location, '')) like lower($${index})
+    )`);
+    params.push(`%${fromCountry}%`);
+    index += 1;
+  } else if (fromLocation) {
+    conditions.push(`(
+      lower(t.from_location) like lower($${index})
+      or lower(coalesce(t.from_country, '')) like lower($${index})
+    )`);
     params.push(`%${fromLocation}%`);
     index += 1;
   }
-  if (toLocation) {
-    conditions.push(`lower(t.to_location) like lower($${index})`);
-    params.push(`%${toLocation}%`);
-    index += 1;
-  }
-  if (fromCountry) {
-    conditions.push(`lower(coalesce(t.from_country, '')) like lower($${index})`);
-    params.push(`%${fromCountry}%`);
-    index += 1;
-  }
   if (toCountry) {
-    conditions.push(`lower(coalesce(t.to_country, '')) like lower($${index})`);
+    conditions.push(`(
+      lower(coalesce(t.to_country, '')) like lower($${index})
+      or lower(coalesce(t.to_location, '')) like lower($${index})
+    )`);
     params.push(`%${toCountry}%`);
+    index += 1;
+  } else if (toLocation) {
+    conditions.push(`(
+      lower(t.to_location) like lower($${index})
+      or lower(coalesce(t.to_country, '')) like lower($${index})
+    )`);
+    params.push(`%${toLocation}%`);
     index += 1;
   }
   if (date) {

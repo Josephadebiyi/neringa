@@ -26,6 +26,10 @@ void main() async {
   // Stripe init (only when key is provided)
   if (ApiConstants.stripePublishableKey.isNotEmpty) {
     Stripe.publishableKey = ApiConstants.stripePublishableKey;
+    if (ApiConstants.stripeApplePayMerchantIdentifier.isNotEmpty) {
+      Stripe.merchantIdentifier =
+          ApiConstants.stripeApplePayMerchantIdentifier;
+    }
     await Stripe.instance.applySettings();
   }
 

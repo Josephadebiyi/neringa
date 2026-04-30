@@ -89,6 +89,114 @@ export const tracking = async (req, res, next) => {
   }
 };
 
+export const activeShipmentLocations = async (req, res, next) => {
+  try {
+    const { limit = 100 } = req.query;
+    const result = await query(
+      `SELECT
+          sr.id,
+          sr.sender_id,
+          sr.traveler_id,
+          sr.package_id,
+          sr.trip_id,
+          sr.status,
+          sr.amount,
+          sr.currency,
+          sr.tracking_number,
+          sr.movement_tracking,
+          sr.estimated_departure,
+          sr.estimated_arrival,
+          sr.created_at,
+          sr.updated_at,
+          sender.first_name as sender_first_name,
+          sender.last_name as sender_last_name,
+          sender.email as sender_email,
+          traveler.first_name as traveler_first_name,
+          traveler.last_name as traveler_last_name,
+          traveler.email as traveler_email,
+          traveler.image_url as traveler_image_url,
+          traveler.kyc_status as traveler_kyc_status,
+          pkg.from_city as origin_city,
+          pkg.from_country as origin_country,
+          pkg.to_city as destination_city,
+          pkg.to_country as destination_country,
+          pkg.description as package_description,
+          pkg.package_weight,
+          pkg.image_url as package_image_url
+       FROM public.shipment_requests sr
+       LEFT JOIN public.profiles sender ON sender.id = sr.sender_id
+       LEFT JOIN public.profiles traveler ON traveler.id = sr.traveler_id
+       LEFT JOIN public.packages pkg ON pkg.id = sr.package_id
+       WHERE sr.status IN ('accepted', 'intransit', 'delivering')
+       ORDER BY sr.updated_at DESC, sr.created_at DESC
+       LIMIT $1`,
+      [Number(limit)]
+    );
+
+    const data = result.rows.map((row) => {
+      const movementTracking = Array.isArray(row.movement_tracking) ? row.movement_tracking : [];
+      return {
+        _id: row.id,
+        id: row.id,
+        senderId: row.sender_id,
+        travelerId: row.traveler_id,
+        packageId: row.package_id,
+        tripId: row.trip_id,
+        status: row.status,
+        amount: Number(row.amount || 0),
+        currency: row.currency,
+        trackingNumber: row.tracking_number,
+        movementTracking,
+        estimatedDeparture: row.estimated_departure,
+        estimatedArrival: row.estimated_arrival,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        originCity: row.origin_city,
+        originCountry: row.origin_country,
+        destinationCity: row.destination_city,
+        destinationCountry: row.destination_country,
+        senderName: `${row.sender_first_name || ''} ${row.sender_last_name || ''}`.trim(),
+        senderEmail: row.sender_email,
+        travelerName: `${row.traveler_first_name || ''} ${row.traveler_last_name || ''}`.trim(),
+        travelerEmail: row.traveler_email,
+        travelerKycStatus: row.traveler_kyc_status,
+        travelerVerified: row.traveler_kyc_status === 'approved',
+        traveler: {
+          _id: row.traveler_id,
+          id: row.traveler_id,
+          firstName: row.traveler_first_name,
+          lastName: row.traveler_last_name,
+          email: row.traveler_email,
+          image: row.traveler_image_url,
+          avatar: row.traveler_image_url,
+          kycStatus: row.traveler_kyc_status,
+          isVerified: row.traveler_kyc_status === 'approved',
+        },
+        package: {
+          _id: row.package_id,
+          id: row.package_id,
+          fromCity: row.origin_city,
+          fromCountry: row.origin_country,
+          toCity: row.destination_city,
+          toCountry: row.destination_country,
+          description: row.package_description,
+          packageWeight: Number(row.package_weight || 0),
+          image: row.package_image_url,
+        },
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      error: false,
+      message: data.length ? 'Active shipments retrieved successfully' : 'No active shipments found',
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
