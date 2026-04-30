@@ -215,6 +215,45 @@ export async function sendReceiverShippingStartedEmail(receiverEmail, receiverNa
 }
 
 /**
+ * Send notification to receiver when a traveler accepts the shipment
+ */
+export async function sendReceiverShipmentAcceptedEmail(receiverEmail, receiverName, senderName, travelerName, packageDetails, trackingNumber) {
+  if (!resend || !receiverEmail) return false;
+
+  try {
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${receiverName || 'there'}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        <strong>${senderName || 'A sender'}</strong> is sending you a package with Bago. A verified traveler, <strong>${travelerName || 'your traveler'}</strong>, has accepted the shipment.
+      </p>
+      <div style="background:#f6f3ff; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5240E8;">
+        <p style="margin:0 0 12px; font-size:14px; color:#3721a8; font-weight:600;">Shipment Details</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;">${packageDetails || 'Your package'}</p>
+        <p style="margin:0; font-size:13px; color:#6b7280;">Tracking: <strong style="color:#5240E8;">${trackingNumber}</strong></p>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        You can use the tracking link below to follow the shipment as it moves toward delivery.
+      </p>
+    `;
+
+    await resend.emails.send({
+      from: 'Bago Shipping <no-reply@sendwithbago.com>',
+      to: receiverEmail,
+      subject: `📦 Your Bago shipment is confirmed - ${trackingNumber}`,
+      html: generateEmailTemplate('Shipment Confirmed', content, 'Track Package', `${FRONTEND_URL}/tracking/${trackingNumber}`),
+    });
+
+    console.log(`✅ Sent receiver accepted email to ${receiverEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send receiver accepted email:', error);
+    return false;
+  }
+}
+
+/**
  * Generate HTML email template
  */
 function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {

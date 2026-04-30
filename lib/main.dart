@@ -25,12 +25,16 @@ void main() async {
 
   // Stripe init (only when key is provided)
   if (ApiConstants.stripePublishableKey.isNotEmpty) {
-    Stripe.publishableKey = ApiConstants.stripePublishableKey;
-    if (ApiConstants.stripeApplePayMerchantIdentifier.isNotEmpty) {
-      Stripe.merchantIdentifier =
-          ApiConstants.stripeApplePayMerchantIdentifier;
+    try {
+      Stripe.publishableKey = ApiConstants.stripePublishableKey;
+      if (ApiConstants.stripeApplePayMerchantIdentifier.isNotEmpty) {
+        Stripe.merchantIdentifier =
+            ApiConstants.stripeApplePayMerchantIdentifier;
+      }
+      await Stripe.instance.applySettings();
+    } catch (error) {
+      debugPrint('Stripe init skipped: $error');
     }
-    await Stripe.instance.applySettings();
   }
 
   // Transparent status bar
@@ -62,13 +66,15 @@ void _logRuntimeConfig() {
   const backendUrl = ApiConstants.baseUrl;
   const overrideUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
   const defaultSource = 'default Render URL';
-  final source = overrideUrl.isNotEmpty ? 'API_BASE_URL dart-define' : defaultSource;
+  final source =
+      overrideUrl.isNotEmpty ? 'API_BASE_URL dart-define' : defaultSource;
 
   debugPrint('Bago backend: $backendUrl ($source)');
   if (ApiConstants.supabaseUrl.isNotEmpty) {
     debugPrint('Supabase URL configured for Flutter client.');
   }
   if (kDebugMode) {
-    debugPrint('Tip: run with --dart-define=API_BASE_URL=http://127.0.0.1:9005 for local backend.');
+    debugPrint(
+        'Tip: run with --dart-define=API_BASE_URL=http://127.0.0.1:9005 for local backend.');
   }
 }

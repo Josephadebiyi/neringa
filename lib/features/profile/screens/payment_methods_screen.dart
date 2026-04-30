@@ -4,6 +4,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/constants/api_constants.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_button.dart';
@@ -105,6 +106,16 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   }
 
   Future<bool> _confirmCardSetup() async {
+    if (ApiConstants.stripePublishableKey.isEmpty) {
+      AppSnackBar.show(
+        context,
+        message:
+            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
+        type: SnackBarType.error,
+      );
+      return false;
+    }
+
     final existingIds = _cards.map((card) => card.id).toSet();
     setState(() => _isSaving = true);
 
@@ -176,6 +187,15 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       AppSnackBar.show(
         context,
         message: message,
+        type: SnackBarType.error,
+      );
+      return false;
+    } on StripeConfigException {
+      if (!mounted) return false;
+      AppSnackBar.show(
+        context,
+        message:
+            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
         type: SnackBarType.error,
       );
       return false;

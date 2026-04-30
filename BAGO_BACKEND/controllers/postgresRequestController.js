@@ -1,4 +1,4 @@
-import { sendNewRequestToTravelerEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail } from '../services/emailNotifications.js';
+import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail } from '../services/emailNotifications.js';
 import PDFDocument from 'pdfkit';
 import Stripe from 'stripe';
 import { sendPushNotification } from '../services/pushNotificationService.js';
@@ -335,6 +335,16 @@ export async function updateRequestStatus(req, res) {
       }
 
       await sendShippingStatusEmail(updatedRequest, statusLabel, location);
+      if (statusLabel === 'accepted' && updatedRequest.package?.receiverEmail) {
+        await sendReceiverShipmentAcceptedEmail(
+          updatedRequest.package.receiverEmail,
+          updatedRequest.package.receiverName,
+          updatedRequest.senderName || 'Sender',
+          travelerName,
+          `${updatedRequest.package.description || 'Package'}${updatedRequest.package.packageWeight ? `, ${updatedRequest.package.packageWeight}kg` : ''}`,
+          updatedRequest.trackingNumber,
+        );
+      }
       if (statusLabel === 'intransit' && updatedRequest.package?.receiverEmail) {
         await sendReceiverShippingStartedEmail(
           updatedRequest.package.receiverEmail,

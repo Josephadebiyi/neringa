@@ -74,7 +74,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _isLoadingCards = true);
     try {
       final response = await PaymentService.instance.getSavedPaymentMethods();
-      final cards = response.cards.where((card) => _isSupportedBrand(card.brand)).toList();
+      final cards = response.cards
+          .where((card) => _isSupportedBrand(card.brand))
+          .toList();
       if (!mounted) return;
       setState(() {
         _savedCards = cards;
@@ -148,6 +150,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<bool> _saveCardFromCheckout() async {
+    if (ApiConstants.stripePublishableKey.isEmpty) {
+      AppSnackBar.show(
+        context,
+        message:
+            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
+        type: SnackBarType.error,
+      );
+      return false;
+    }
+
     final existingIds = _savedCards.map((card) => card.id).toSet();
     final billingEmail = _draft?['customerEmail']?.toString().trim() ?? '';
 
@@ -209,6 +221,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
         type: SnackBarType.error,
       );
       return false;
+    } on StripeConfigException {
+      if (!mounted) return false;
+      AppSnackBar.show(
+        context,
+        message:
+            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
+        type: SnackBarType.error,
+      );
+      return false;
     } catch (e) {
       if (!mounted) return false;
       AppSnackBar.show(
@@ -232,12 +253,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     for (var attempt = 0; attempt < 4; attempt += 1) {
       final response = await PaymentService.instance.getSavedPaymentMethods();
-      latestCards = response.cards.where((card) => _isSupportedBrand(card.brand)).toList();
+      latestCards = response.cards
+          .where((card) => _isSupportedBrand(card.brand))
+          .toList();
 
       final foundExpected = expectedPaymentMethodId != null &&
           expectedPaymentMethodId.isNotEmpty &&
           latestCards.any((card) => card.id == expectedPaymentMethodId);
-      final foundNew = latestCards.any((card) => !existingIds.contains(card.id));
+      final foundNew =
+          latestCards.any((card) => !existingIds.contains(card.id));
 
       if (foundExpected || foundNew) {
         return latestCards;
@@ -287,7 +311,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final amount = _asDouble(draft['totalAmount']);
       final currency = draft['currency']?.toString().trim() ?? '';
       if (currency.isEmpty) {
-        throw StateError('Shipment currency is missing. Please restart the shipment flow from the traveler details page.');
+        throw StateError(
+            'Shipment currency is missing. Please restart the shipment flow from the traveler details page.');
       }
 
       if (!paymentCompleted) {
@@ -339,15 +364,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _updateProcessingMessage('Opening secure checkout...');
           final authorizationUrl = init.authorizationUrl;
           final reference = init.reference;
-          if (authorizationUrl == null || authorizationUrl.isEmpty || reference == null || reference.isEmpty) {
+          if (authorizationUrl == null ||
+              authorizationUrl.isEmpty ||
+              reference == null ||
+              reference.isEmpty) {
             throw StateError('Paystack checkout could not start.');
           }
           paymentCompleted = await _presentPaystackCheckout(authorizationUrl);
           if (paymentCompleted) {
-            final verify = await PaymentService.instance.verifyPaystackPayment(reference);
+            final verify =
+                await PaymentService.instance.verifyPaystackPayment(reference);
             paymentCompleted = verify.success;
             if (!paymentCompleted) {
-              throw StateError(verify.message ?? 'Payment verification failed.');
+              throw StateError(
+                  verify.message ?? 'Payment verification failed.');
             }
             paymentReference = verify.reference ?? reference;
           }
@@ -396,7 +426,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'paymentCompleted': paymentCompleted,
           if (paymentReference != null) 'paymentReference': paymentReference,
           'paymentProvider': provider,
-          'lastPaymentError': 'Your payment was not completed. Please try again.',
+          'lastPaymentError':
+              'Your payment was not completed. Please try again.',
         };
         await _ensureProcessingStateVisible(processingStartedAt);
         await _checkoutService.saveDraft(updatedDraft);
@@ -447,7 +478,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     String clientSecret, {
     required String paymentMethodId,
   }) async {
-    debugPrint('[PaymentScreen] Confirming payment with saved card $paymentMethodId');
+    debugPrint(
+        '[PaymentScreen] Confirming payment with saved card $paymentMethodId');
     var paymentIntent = await Stripe.instance.confirmPayment(
       paymentIntentClientSecret: clientSecret,
       data: PaymentMethodParams.cardFromMethodId(
@@ -461,7 +493,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (paymentIntent.status == PaymentIntentsStatus.RequiresAction) {
       _updateProcessingMessage('Waiting for bank verification...');
       paymentIntent = await Stripe.instance.handleNextAction(clientSecret);
-      debugPrint('[PaymentScreen] Next action payment status=${paymentIntent.status}');
+      debugPrint(
+          '[PaymentScreen] Next action payment status=${paymentIntent.status}');
     }
 
     return paymentIntent.status == PaymentIntentsStatus.Succeeded ||
@@ -483,8 +516,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       clientSecret: clientSecret,
       confirmParams: PlatformPayConfirmParams.applePay(
         applePay: ApplePayParams(
-          merchantCountryCode:
-              ApiConstants.stripeApplePayMerchantCountryCode,
+          merchantCountryCode: ApiConstants.stripeApplePayMerchantCountryCode,
           currencyCode: currency.toUpperCase(),
           cartItems: [
             ApplePayCartSummaryItem.immediate(
@@ -517,7 +549,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           context: context,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
-          builder: (_) => _PaystackCheckoutSheet(authorizationUrl: authorizationUrl),
+          builder: (_) =>
+              _PaystackCheckoutSheet(authorizationUrl: authorizationUrl),
         )) ??
         false;
   }
@@ -538,6 +571,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _buildPaymentFailureMessage(Object error) {
     if (error is StateError) {
       return error.message.toString().replaceFirst('Bad state: ', '');
+    }
+
+    if (error is StripeConfigException) {
+      return 'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.';
     }
 
     if (error is StripeException) {
@@ -567,6 +604,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   String? _mapStripeMessage(String raw) {
+    if (raw.contains('stripeconfigexception') ||
+        raw.contains('publishable key is not set')) {
+      return 'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.';
+    }
     if (raw.contains('insufficient_funds')) {
       return 'Your card has insufficient funds. Try another card or contact your bank.';
     }
@@ -674,18 +715,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const SizedBox(height: 20),
                     const Divider(color: AppColors.gray200),
                     const SizedBox(height: 20),
-                    _SummaryRow(label: l10n.shippingFee, value: '$currency ${shippingAmount.toStringAsFixed(2)}'),
+                    _SummaryRow(
+                        label: l10n.shippingFee,
+                        value:
+                            '$currency ${shippingAmount.toStringAsFixed(2)}'),
                     const SizedBox(height: 12),
-                    _SummaryRow(label: l10n.insurance, value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
+                    _SummaryRow(
+                        label: l10n.insurance,
+                        value:
+                            '$currency ${insuranceAmount.toStringAsFixed(2)}'),
                     const SizedBox(height: 12),
                     _SummaryRow(
                       label: l10n.route,
-                      value: '${draft['fromLocation']} → ${draft['toLocation']}',
+                      value:
+                          '${draft['fromLocation']} → ${draft['toLocation']}',
                     ),
                     const SizedBox(height: 12),
                     _SummaryRow(
                       label: l10n.receiver,
-                      value: draft['receiverName']?.toString() ?? l10n.receiverFallback,
+                      value: draft['receiverName']?.toString() ??
+                          l10n.receiverFallback,
                     ),
                   ],
                 ),
@@ -695,19 +744,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 padding: const EdgeInsets.all(18),
                 borderRadius: 20,
                 showBorder: true,
-                borderColor: provider == 'paystack' ? AppColors.success : AppColors.primary,
+                borderColor: provider == 'paystack'
+                    ? AppColors.success
+                    : AppColors.primary,
                 child: Row(
                   children: [
                     Container(
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: provider == 'paystack' ? AppColors.successLight : AppColors.primarySoft,
+                        color: provider == 'paystack'
+                            ? AppColors.successLight
+                            : AppColors.primarySoft,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
-                        provider == 'paystack' ? Icons.account_balance_wallet_outlined : Icons.credit_card_rounded,
-                        color: provider == 'paystack' ? AppColors.success : AppColors.primary,
+                        provider == 'paystack'
+                            ? Icons.account_balance_wallet_outlined
+                            : Icons.credit_card_rounded,
+                        color: provider == 'paystack'
+                            ? AppColors.success
+                            : AppColors.primary,
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -717,7 +774,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         children: [
                           Text(
                             l10n.securePayment,
-                            style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                            style: AppTextStyles.labelMd
+                                .copyWith(fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -785,11 +843,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         children: [
                           Text(
                             l10n.paymentMethod,
-                            style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                            style: AppTextStyles.labelMd
+                                .copyWith(fontWeight: FontWeight.w800),
                           ),
                           const Spacer(),
                           TextButton(
-                            onPressed: _isPaying || _isSavingCard ? null : _addCardFromCheckout,
+                            onPressed: _isPaying || _isSavingCard
+                                ? null
+                                : _addCardFromCheckout,
                             child: Text(l10n.addCardTitle),
                           ),
                         ],
@@ -812,7 +873,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             AppButton(
                               label: l10n.addCardTitle,
                               icon: const Icon(Icons.add_rounded, size: 18),
-                              onPressed: _isPaying || _isSavingCard ? null : _addCardFromCheckout,
+                              onPressed: _isPaying || _isSavingCard
+                                  ? null
+                                  : _addCardFromCheckout,
                             ),
                           ],
                         )
@@ -827,7 +890,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     isSelected: card.id == _selectedCardId,
                                     onTap: _isPaying
                                         ? null
-                                        : () => setState(() => _selectedCardId = card.id),
+                                        : () => setState(
+                                            () => _selectedCardId = card.id),
                                   ),
                                 ),
                               )
@@ -852,7 +916,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               else if (expiresAt != null)
                 BagoInfoBanner(
                   icon: Icons.lock_outline_rounded,
-                  message: l10n.paymentCanBeResumedUntil(_formatExpiry(expiresAt)),
+                  message:
+                      l10n.paymentCanBeResumedUntil(_formatExpiry(expiresAt)),
                 )
               else
                 BagoInfoBanner(
@@ -863,7 +928,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               AppButton(
                 label: l10n.pay,
                 isLoading: _isPaying,
-                isDisabled: isExpired || (isStripe && !_isLoadingCards && _savedCards.isEmpty),
+                isDisabled: isExpired ||
+                    (isStripe && !_isLoadingCards && _savedCards.isEmpty),
                 onPressed: isExpired ? null : _pay,
               ),
             ],
@@ -877,7 +943,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                   child: Center(
                     child: AppCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 28, vertical: 24),
                       borderRadius: 28,
                       showBorder: true,
                       child: Column(
@@ -894,7 +961,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const SizedBox(height: 18),
                           Text(
                             l10n.processingPayment,
-                            style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
+                            style: AppTextStyles.labelLg
+                                .copyWith(fontWeight: FontWeight.w800),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
@@ -998,7 +1066,8 @@ class _CheckoutCardTile extends StatelessWidget {
                 children: [
                   Text(
                     '$brandLabel •••• ${card.last4}',
-                    style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                    style: AppTextStyles.labelMd
+                        .copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1114,9 +1183,12 @@ class _CheckoutAddCardSheetState extends State<_CheckoutAddCardSheet> {
                 ),
                 const SizedBox(height: 20),
                 AppButton(
-                  label: _isSubmitting || widget.isBusy ? l10n.savingCard : l10n.saveCard,
+                  label: _isSubmitting || widget.isBusy
+                      ? l10n.savingCard
+                      : l10n.saveCard,
                   icon: const Icon(Icons.credit_card_rounded, size: 18),
-                  onPressed: _isSubmitting || widget.isBusy ? null : _handleSave,
+                  onPressed:
+                      _isSubmitting || widget.isBusy ? null : _handleSave,
                 ),
                 const SizedBox(height: 12),
                 TextButton(
@@ -1195,7 +1267,8 @@ class _PaystackCheckoutSheetState extends State<_PaystackCheckoutSheet> {
                   Expanded(
                     child: Text(
                       'Complete Paystack Payment',
-                      style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                      style: AppTextStyles.h3
+                          .copyWith(fontWeight: FontWeight.w800),
                     ),
                   ),
                   IconButton(

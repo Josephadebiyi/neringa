@@ -703,7 +703,7 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
     }
 
     let trackingNumber = request.tracking_number;
-    if (status === 'intransit' && !trackingNumber) {
+    if ((status === 'accepted' || status === 'intransit') && !trackingNumber) {
       trackingNumber = `BAGO-${String(Date.now( )).toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     }
 
