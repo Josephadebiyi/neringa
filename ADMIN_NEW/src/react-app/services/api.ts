@@ -1,10 +1,40 @@
 import { API_BASE_URL as ADMIN_API, API_ROOT, MAIN_API_URL as MAIN_API } from '../config/api';
 
 const API_BASE = API_ROOT;
+const ADMIN_TOKEN_KEY = 'bago_admin_token';
 
-// Auth relies on HttpOnly cookies set by the backend — no token in localStorage.
+function getStoredAdminToken() {
+  try {
+    return window.localStorage.getItem(ADMIN_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeAdminToken(token?: string) {
+  if (!token) return;
+  try {
+    window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
+  } catch {
+    // HttpOnly cookie auth still works when storage is unavailable.
+  }
+}
+
+function clearStoredAdminToken() {
+  try {
+    window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+  } catch {
+    // No-op.
+  }
+}
+
+// Admin auth prefers the HttpOnly cookie and falls back to the login token for browsers that block cross-site cookies.
 export function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
-  return { ...extraHeaders };
+  const token = getStoredAdminToken();
+  return {
+    ...extraHeaders,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
 async function apiCall(url: string, options: RequestInit = {}) {
@@ -19,7 +49,7 @@ async function apiCall(url: string, options: RequestInit = {}) {
     response = await fetch(url.trim(), {
       ...options,
       credentials: 'include', // send HttpOnly adminToken cookie automatically
-      headers,
+      headers: getAdminAuthHeaders(headers),
     });
   } catch {
     throw new Error('Unable to reach the server. Please check your connection and try again.');
@@ -52,6 +82,7 @@ export async function adminLogin(credentials: any) {
   if (!response.ok) {
     throw new Error(data.error || data.message || 'Invalid credentials');
   }
+  storeAdminToken(data.token);
   return data;
 }
 
@@ -60,8 +91,11 @@ export async function checkAdminAuth() {
 }
 
 export async function adminLogout() {
-  return apiCall(`${ADMIN_API}/Adminlogout`);
-  // HttpOnly cookie is cleared by the backend on logout
+  try {
+    return await apiCall(`${ADMIN_API}/Adminlogout`);
+  } finally {
+    clearStoredAdminToken();
+  }
 }
 
 // Dashboard
