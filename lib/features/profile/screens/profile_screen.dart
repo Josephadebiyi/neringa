@@ -43,7 +43,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.watch(authProvider).user;
     final currentRole = user?.isCarrier == true ? 'carrier' : 'sender';
     final isCarrier = currentRole == 'carrier';
-    final fullName = user?.fullName.trim().isNotEmpty == true ? user!.fullName : l10n.profileFallbackUser;
+    final fullName = user?.fullName.trim().isNotEmpty == true
+        ? user!.fullName
+        : l10n.profileFallbackUser;
     final initials = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U';
     final isVerified = user?.hasPassedKyc == true;
     final currentCode =
@@ -113,7 +115,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
-                                          Navigator.of(dialogContext).pop(false),
+                                          Navigator.of(dialogContext)
+                                              .pop(false),
                                       child: Text(l10n.cancel),
                                     ),
                                     TextButton(
@@ -284,7 +287,8 @@ class _AboutTab extends StatelessWidget {
                         color: AppColors.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.edit_rounded, size: 14, color: AppColors.white),
+                      child: const Icon(Icons.edit_rounded,
+                          size: 14, color: AppColors.white),
                     ),
                   ),
                 ),
@@ -307,9 +311,12 @@ class _AboutTab extends StatelessWidget {
                     onTap: isVerified ? null : () => context.push('/kyc'),
                     borderRadius: BorderRadius.circular(999),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 7),
                       decoration: BoxDecoration(
-                        color: isVerified ? AppColors.primarySoft : AppColors.gray100,
+                        color: isVerified
+                            ? AppColors.primarySoft
+                            : AppColors.gray100,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
@@ -318,13 +325,17 @@ class _AboutTab extends StatelessWidget {
                           Icon(
                             Icons.verified_rounded,
                             size: 15,
-                            color: isVerified ? AppColors.primary : AppColors.gray400,
+                            color: isVerified
+                                ? AppColors.primary
+                                : AppColors.gray400,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             formatKycStatusLabel(kycStatus),
                             style: AppTextStyles.labelSm.copyWith(
-                              color: isVerified ? AppColors.primary : AppColors.gray500,
+                              color: isVerified
+                                  ? AppColors.primary
+                                  : AppColors.gray500,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -356,22 +367,27 @@ class _AboutTab extends StatelessWidget {
             if (!isVerified)
               BagoMenuItem(
                 label: l10n.identityVerification,
-                leading: const Icon(Icons.shield_outlined, color: AppColors.gray500),
+                leading:
+                    const Icon(Icons.shield_outlined, color: AppColors.gray500),
                 onTap: () => context.push('/kyc'),
               )
             else
               BagoMenuItem(
                 label: l10n.kycPassed,
-                leading: const Icon(Icons.verified_rounded, color: AppColors.success),
+                leading: const Icon(Icons.verified_rounded,
+                    color: AppColors.success),
               ),
             BagoMenuItem(
               label: '${l10n.emailLabel}: $email',
-              leading: const Icon(Icons.mail_outline_rounded, color: AppColors.gray600),
+              leading: const Icon(Icons.mail_outline_rounded,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/change-email'),
             ),
             BagoMenuItem(
               label: '${l10n.phoneLabel}: ${phone ?? l10n.notSet}',
-              leading: const Icon(Icons.phone_outlined, color: AppColors.gray600),
+              leading:
+                  const Icon(Icons.phone_outlined, color: AppColors.gray600),
+              onTap: () => context.push('/profile/change-phone'),
               showDivider: false,
             ),
           ],
@@ -387,11 +403,13 @@ class _AboutTab extends StatelessWidget {
             ),
             BagoMenuItem(
               label: l10n.highlyResponsiveReliable,
-              leading: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.gray600),
+              leading: const Icon(Icons.chat_bubble_outline_rounded,
+                  color: AppColors.gray600),
             ),
             BagoMenuItem(
               label: l10n.language,
-              leading: const Icon(Icons.language_rounded, color: AppColors.gray600),
+              leading:
+                  const Icon(Icons.language_rounded, color: AppColors.gray600),
               trailing: Text(
                 currentLanguageLabel,
                 style: AppTextStyles.labelSm.copyWith(
@@ -403,7 +421,8 @@ class _AboutTab extends StatelessWidget {
             ),
             BagoMenuItem(
               label: l10n.highlyRatedCommunity,
-              leading: const Icon(Icons.thumb_up_alt_outlined, color: AppColors.gray600),
+              leading: const Icon(Icons.thumb_up_alt_outlined,
+                  color: AppColors.gray600),
               showDivider: false,
             ),
           ],
@@ -437,12 +456,14 @@ class _AccountTab extends StatelessWidget {
           children: [
             BagoMenuItem(
               label: l10n.ratingsLeft,
-              leading: const Icon(Icons.star_border_rounded, color: AppColors.gray600),
+              leading: const Icon(Icons.star_border_rounded,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/ratings'),
             ),
             BagoMenuItem(
               label: l10n.savedRoutes,
-              leading: const Icon(Icons.route_outlined, color: AppColors.gray600),
+              leading:
+                  const Icon(Icons.route_outlined, color: AppColors.gray600),
               onTap: () => context.push('/profile/saved-routes'),
               showDivider: false,
             ),
@@ -454,32 +475,39 @@ class _AccountTab extends StatelessWidget {
           children: [
             BagoMenuItem(
               label: l10n.preferredCurrency(currency),
-              leading: const Icon(Icons.attach_money_rounded, color: AppColors.gray600),
+              leading: const Icon(Icons.attach_money_rounded,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/currency'),
             ),
             BagoMenuItem(
               label: l10n.paymentMethods,
-              leading: const Icon(Icons.credit_card_rounded, color: AppColors.gray600),
+              leading: const Icon(Icons.credit_card_rounded,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/payment-methods'),
             ),
             BagoMenuItem(
               label: l10n.changePassword,
-              leading: const Icon(Icons.lock_outline_rounded, color: AppColors.gray600),
-              onTap: () => context.push('/profile/change-password?email=${Uri.encodeComponent(email)}'),
+              leading: const Icon(Icons.lock_outline_rounded,
+                  color: AppColors.gray600),
+              onTap: () => context.push(
+                  '/profile/change-password?email=${Uri.encodeComponent(email)}'),
             ),
             BagoMenuItem(
               label: l10n.payoutMethods,
-              leading: const Icon(Icons.account_balance_outlined, color: AppColors.gray600),
+              leading: const Icon(Icons.account_balance_outlined,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/payout-methods'),
             ),
             BagoMenuItem(
               label: 'Withdraw Earnings',
-              leading: const Icon(Icons.savings_outlined, color: AppColors.gray600),
+              leading:
+                  const Icon(Icons.savings_outlined, color: AppColors.gray600),
               onTap: () => context.push('/profile/withdraw'),
             ),
             BagoMenuItem(
               label: l10n.paymentsRefunds,
-              leading: const Icon(Icons.receipt_long_outlined, color: AppColors.gray600),
+              leading: const Icon(Icons.receipt_long_outlined,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/payments-refunds'),
               showDivider: false,
             ),
@@ -491,22 +519,26 @@ class _AccountTab extends StatelessWidget {
           children: [
             BagoMenuItem(
               label: l10n.communicationPreferences,
-              leading: const Icon(Icons.notifications_outlined, color: AppColors.gray600),
+              leading: const Icon(Icons.notifications_outlined,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/communication-prefs'),
             ),
             BagoMenuItem(
               label: l10n.helpSupport,
-              leading: const Icon(Icons.help_outline_rounded, color: AppColors.gray600),
+              leading: const Icon(Icons.help_outline_rounded,
+                  color: AppColors.gray600),
               onTap: () => context.push('/profile/support'),
             ),
             BagoMenuItem(
               label: l10n.termsOfService,
-              leading: const Icon(Icons.description_outlined, color: AppColors.gray600),
+              leading: const Icon(Icons.description_outlined,
+                  color: AppColors.gray600),
               onTap: () => context.push('/legal/terms'),
             ),
             BagoMenuItem(
               label: l10n.privacyPolicy,
-              leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.gray600),
+              leading: const Icon(Icons.privacy_tip_outlined,
+                  color: AppColors.gray600),
               onTap: () => context.push('/legal/privacy'),
               showDivider: false,
             ),
