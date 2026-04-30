@@ -17,7 +17,8 @@ class PaymentMethodsScreen extends ConsumerStatefulWidget {
   const PaymentMethodsScreen({super.key});
 
   @override
-  ConsumerState<PaymentMethodsScreen> createState() => _PaymentMethodsScreenState();
+  ConsumerState<PaymentMethodsScreen> createState() =>
+      _PaymentMethodsScreenState();
 }
 
 class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
@@ -27,7 +28,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
 
   static const _supportedBrands = {'visa', 'mastercard'};
 
-  String get _currency => UserCurrencyHelper.resolve(ref.read(authProvider).user);
+  String get _currency =>
+      UserCurrencyHelper.resolve(ref.read(authProvider).user);
   bool get _supportsSavedCards =>
       CurrencyConversionHelper.providerForCurrency(_currency) == 'stripe';
   String get _billingName => ref.read(authProvider).user?.fullName.trim() ?? '';
@@ -57,7 +59,9 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       final response = await PaymentService.instance.getSavedPaymentMethods();
       if (!mounted) return;
       setState(() {
-        _cards = response.cards.where((card) => _isSupportedBrand(card.brand)).toList();
+        _cards = response.cards
+            .where((card) => _isSupportedBrand(card.brand))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -65,7 +69,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       setState(() => _isLoading = false);
       AppSnackBar.show(
         context,
-        message: e.toString(),
+        message: _friendlyPaymentMethodsError(e),
         type: SnackBarType.error,
       );
     }
@@ -147,7 +151,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
           );
 
       if (addedCard == null) {
-        throw StateError('Card was verified but is not visible yet. Pull to refresh and try again.');
+        throw StateError(
+            'Card was verified but is not visible yet. Pull to refresh and try again.');
       }
 
       if (!_isSupportedBrand(addedCard.brand)) {
@@ -157,7 +162,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
 
       if (!mounted) return false;
       setState(() {
-        _cards = allCards.where((card) => _isSupportedBrand(card.brand)).toList();
+        _cards =
+            allCards.where((card) => _isSupportedBrand(card.brand)).toList();
       });
       debugPrint('[PaymentMethods] Card saved successfully');
       return true;
@@ -197,12 +203,15 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
 
     for (var attempt = 0; attempt < 4; attempt += 1) {
       final response = await PaymentService.instance.getSavedPaymentMethods();
-      latestCards = response.cards.where((card) => _isSupportedBrand(card.brand)).toList();
+      latestCards = response.cards
+          .where((card) => _isSupportedBrand(card.brand))
+          .toList();
 
       final foundExpected = expectedPaymentMethodId != null &&
           expectedPaymentMethodId.isNotEmpty &&
           latestCards.any((card) => card.id == expectedPaymentMethodId);
-      final foundNew = latestCards.any((card) => !existingIds.contains(card.id));
+      final foundNew =
+          latestCards.any((card) => !existingIds.contains(card.id));
 
       if (foundExpected || foundNew) {
         return latestCards;
@@ -250,7 +259,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: e.toString(),
+        message: _friendlyPaymentMethodsError(e),
         type: SnackBarType.error,
       );
     } finally {
@@ -260,7 +269,25 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     }
   }
 
-  bool _isSupportedBrand(String brand) => _supportedBrands.contains(brand.trim().toLowerCase());
+  bool _isSupportedBrand(String brand) =>
+      _supportedBrands.contains(brand.trim().toLowerCase());
+
+  String _friendlyPaymentMethodsError(Object error) {
+    final raw = error.toString();
+    final normalized = raw.toLowerCase();
+    if (normalized.contains('dioexception') ||
+        normalized.contains('unexpected error') ||
+        normalized.contains('status code of 502') ||
+        normalized.contains('status code of 503') ||
+        normalized.contains('status code of 504') ||
+        normalized.contains('service unavailable') ||
+        normalized.contains('service suspended') ||
+        normalized.contains('bad gateway') ||
+        normalized.contains('gateway timeout')) {
+      return 'Payment methods are temporarily unavailable. Please try again in a few minutes.';
+    }
+    return raw.replaceFirst('Exception: ', '').replaceFirst('Bad state: ', '');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -269,7 +296,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context).paymentMethods, style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).paymentMethods,
+            style: AppTextStyles.h3),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -280,18 +308,22 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: _supportsSavedCards ? AppColors.primary : AppColors.gray300,
+                color:
+                    _supportsSavedCards ? AppColors.primary : AppColors.gray300,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: (_supportsSavedCards ? AppColors.primary : AppColors.gray300)
+                    color: (_supportsSavedCards
+                            ? AppColors.primary
+                            : AppColors.gray300)
                         .withValues(alpha: 0.22),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
                 ],
               ),
-              child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+              child:
+                  const Icon(Icons.add_rounded, color: Colors.white, size: 22),
             ),
             onPressed: _isSaving ? null : _addCard,
           ),
@@ -308,7 +340,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
               decoration: BoxDecoration(
                 color: AppColors.primarySoft,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.14)),
+                border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.14)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +477,8 @@ class _AddCardSheetState extends State<_AddCardSheet> {
                   children: [
                     Text(
                       'Add Card',
-                      style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900),
+                      style: AppTextStyles.h3
+                          .copyWith(fontWeight: FontWeight.w900),
                     ),
                     const Spacer(),
                     const _VisaLogoBadge(size: 42),
@@ -485,9 +519,12 @@ class _AddCardSheetState extends State<_AddCardSheet> {
                 ),
                 const SizedBox(height: 20),
                 AppButton(
-                  label: _isSubmitting || widget.isBusy ? 'Saving Card...' : 'Save Card',
+                  label: _isSubmitting || widget.isBusy
+                      ? 'Saving Card...'
+                      : 'Save Card',
                   icon: const Icon(Icons.credit_card_rounded, size: 18),
-                  onPressed: _isSubmitting || widget.isBusy ? null : _handleSave,
+                  onPressed:
+                      _isSubmitting || widget.isBusy ? null : _handleSave,
                 ),
               ],
             ),
@@ -518,7 +555,8 @@ class _EmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 28),
         child: Column(
           children: [
-            const Icon(Icons.credit_card_off_rounded, size: 52, color: AppColors.gray300),
+            const Icon(Icons.credit_card_off_rounded,
+                size: 52, color: AppColors.gray300),
             const SizedBox(height: 14),
             Text(
               title,
@@ -531,12 +569,15 @@ class _EmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.45),
+              style: AppTextStyles.bodyMd
+                  .copyWith(color: AppColors.gray500, height: 1.45),
             ),
             const SizedBox(height: 20),
             AppButton(
               label: buttonLabel,
-              icon: onPressed == null ? null : const Icon(Icons.add_rounded, size: 18),
+              icon: onPressed == null
+                  ? null
+                  : const Icon(Icons.add_rounded, size: 18),
               onPressed: onPressed,
             ),
           ],
@@ -583,19 +624,22 @@ class _SavedCardTile extends StatelessWidget {
               children: [
                 Text(
                   card.label,
-                  style: AppTextStyles.bodyLg.copyWith(fontWeight: FontWeight.w800),
+                  style: AppTextStyles.bodyLg
+                      .copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Expires ${card.expMonth.toString().padLeft(2, '0')}/${card.expYear}',
-                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
                 ),
               ],
             ),
           ),
           IconButton(
             onPressed: isBusy ? null : onDelete,
-            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+            icon: const Icon(Icons.delete_outline_rounded,
+                color: AppColors.error),
           ),
         ],
       ),

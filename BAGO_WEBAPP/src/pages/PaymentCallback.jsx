@@ -48,16 +48,19 @@ export default function PaymentCallback() {
 
             if (res.status === 201 || res.data?.success) {
                 const req = res.data.request;
-                navigate('/shipping-success', {
-                    replace: true,
-                    state: {
-                        requestId: req?.id || req?._id,
-                        trackingNumber: req?.trackingNumber,
-                        amount: pending.amount,
-                        currency: pending.currency,
-                        paymentMethod: 'paystack',
-                    },
-                });
+                setStatus('success');
+                setTimeout(() => {
+                    navigate('/shipping-success', {
+                        replace: true,
+                        state: {
+                            requestId: req?.id || req?._id,
+                            trackingNumber: req?.trackingNumber,
+                            amount: pending.amount,
+                            currency: pending.currency,
+                            paymentMethod: 'paystack',
+                        },
+                    });
+                }, 1500);
             } else {
                 setStatus('error');
                 setMessage(res.data?.message || 'Failed to create shipment request.');
@@ -78,6 +81,16 @@ export default function PaymentCallback() {
                         </div>
                         <h1 className="text-2xl font-black text-gray-900 mb-2">Processing Payment</h1>
                         <p className="text-gray-500 text-sm">{message}</p>
+                    </>
+                )}
+
+                {status === 'success' && (
+                    <>
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
+                            <CheckCircle size={40} className="text-green-500" />
+                        </div>
+                        <h1 className="text-2xl font-black text-gray-900 mb-2">Payment Confirmed!</h1>
+                        <p className="text-gray-500 text-sm">Redirecting to your shipment details...</p>
                     </>
                 )}
 

@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
 import Home from './pages/Home';
-import HomeSimple from './pages/HomeSimple';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import SignupTest from './pages/SignupTest';

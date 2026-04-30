@@ -63,7 +63,8 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) =>
-      dio.post<T>(path, data: data, queryParameters: queryParameters, options: options);
+      dio.post<T>(path,
+          data: data, queryParameters: queryParameters, options: options);
 
   Future<Response<T>> put<T>(
     String path, {
@@ -107,6 +108,9 @@ class ApiService {
 
   static String parseError(DioException e) {
     final statusCode = e.response?.statusCode;
+    if (statusCode == 502 || statusCode == 503 || statusCode == 504) {
+      return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+    }
     if (statusCode == 401) {
       return 'Session expired. Please sign in again.';
     }
@@ -123,6 +127,15 @@ class ApiService {
         return data['message']?.toString() ??
             data['error']?.toString() ??
             'An error occurred';
+      }
+      if (data is String && data.trim().isNotEmpty) {
+        final value = data.trim().toLowerCase();
+        if (value.contains('<html') ||
+            value.contains('service unavailable') ||
+            value.contains('bad gateway') ||
+            value.contains('gateway timeout')) {
+          return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+        }
       }
     }
     if (e.type == DioExceptionType.connectionTimeout ||

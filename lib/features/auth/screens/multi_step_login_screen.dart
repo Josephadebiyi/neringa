@@ -46,7 +46,11 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
       if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(
+          context,
+          message: _friendlyAuthError(e),
+          type: SnackBarType.error,
+        );
         setState(() => _isLoading = false);
       }
     }
@@ -90,10 +94,34 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
       if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(
+          context,
+          message: _friendlyAuthError(e),
+          type: SnackBarType.error,
+        );
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  String _friendlyAuthError(Object error) {
+    final raw = error.toString();
+    final normalized = raw.toLowerCase();
+
+    if (normalized.contains('dioexception') ||
+        normalized.contains('status code of 502') ||
+        normalized.contains('status code of 503') ||
+        normalized.contains('status code of 504') ||
+        normalized.contains('service unavailable') ||
+        normalized.contains('bad gateway') ||
+        normalized.contains('gateway timeout')) {
+      return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+    }
+
+    if (raw.startsWith('Exception: ')) {
+      return raw.substring('Exception: '.length);
+    }
+    return raw;
   }
 
   void _handleBack() {
@@ -144,9 +172,11 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_currentStep == 0) _buildMethodSelection(context, l10n),
+                        if (_currentStep == 0)
+                          _buildMethodSelection(context, l10n),
                         if (_currentStep == 1) _buildEmailStep(context, l10n),
-                        if (_currentStep == 2) _buildPasswordStep(context, l10n),
+                        if (_currentStep == 2)
+                          _buildPasswordStep(context, l10n),
                       ],
                     ),
                   ),

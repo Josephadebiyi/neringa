@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
-import { Package, MapPin, Calendar, Clock, ChevronRight, AlertTriangle, ShieldCheck, CheckCircle, RefreshCw, X, MessageSquare, User } from 'lucide-react';
+import { Package, Clock, ChevronRight, AlertTriangle, ShieldCheck, RefreshCw, X, MessageSquare, User } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function Shipments({ user, onNavigateToChat }) {
+export default function Shipments({ onNavigateToChat }) {
     const { t } = useLanguage();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -25,6 +25,7 @@ export default function Shipments({ user, onNavigateToChat }) {
             const myShipments = (res.data?.data || []).filter(req => req.role === 'sender');
             setRequests(myShipments);
         } catch (err) {
+            console.error('Failed to load shipments:', err);
         } finally {
             setLoading(false);
         }
@@ -125,9 +126,9 @@ export default function Shipments({ user, onNavigateToChat }) {
 
                             <div className="flex-1 text-center md:text-left">
                                 <div className="flex items-center justify-center md:justify-start gap-1.5 mb-1.5">
-                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.originCity || 'Dubai'}</span>
+                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.originCity || req.from_city || '—'}</span>
                                     <ChevronRight size={12} className="text-gray-300" />
-                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.destinationCity || 'Lagos'}</span>
+                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.destinationCity || req.to_city || '—'}</span>
                                 </div>
                                 <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-2">
                                     <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
@@ -161,9 +162,10 @@ export default function Shipments({ user, onNavigateToChat }) {
                                 )}
                                 <div className="flex gap-2">
                                     <button 
-                                        onClick={() => onNavigateToChat(req.conversationId)}
-                                        className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm"
-                                        title="Chat with Traveler"
+                                        onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}
+                                        disabled={!req.conversationId}
+                                        className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title={req.conversationId ? 'Chat with Traveler' : 'Chat available once traveler accepts'}
                                     >
                                         <MessageSquare size={14} />
                                     </button>

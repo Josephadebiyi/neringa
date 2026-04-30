@@ -509,15 +509,6 @@ app.get('/api/location/detect', async (req, res) => {
   }
 });
 
-// ✅ Simple KYC Test Route (for testing connection)
-app.post('/kyc/start-verification', (req, res) => {
-  console.log("KYC request received from app");
-  res.json({
-    success: true,
-    message: "Verification session created",
-    sessionId: "KYC" + Date.now()
-  });
-});
 
 // ✅ Health check route
 app.get('/health', (req, res) => {

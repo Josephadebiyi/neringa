@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard,
     MessageCircle,
@@ -7,24 +7,37 @@ import {
     Wallet,
     Settings,
     LogOut,
-    Menu,
     X,
     Shield,
     CheckCircle
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import api from '../../api';
 
 export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen }) {
     const { t } = useLanguage();
-    const location = useLocation();
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+        const fetchUnread = async () => {
+            try {
+                const res = await api.get('/api/bago/conversations/unread');
+                setUnreadCount(res.data?.data?.count || 0);
+            } catch (_) {}
+        };
+        fetchUnread();
+        const interval = setInterval(fetchUnread, 30000);
+        return () => clearInterval(interval);
+    }, [user]);
 
     const menuItems = [
         { id: 'overview', label: t('overview'), icon: LayoutDashboard },
         { id: 'trips', label: t('myTrips'), icon: Plane },
         { id: 'shipments', label: t('myShipments'), icon: Package },
         { id: 'deliveries', label: t('myDeliveries') || 'My Deliveries', icon: CheckCircle },
-        { id: 'chats', label: t('chats'), icon: MessageCircle, badge: 3 }, // Placeholder badge
+        { id: 'chats', label: t('chats'), icon: MessageCircle, badge: unreadCount },
         { id: 'earnings', label: t('earnings'), icon: Wallet },
         { id: 'settings', label: t('settings'), icon: Settings },
     ];

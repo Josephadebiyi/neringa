@@ -65,11 +65,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       return;
     }
     try {
-      await ref.read(authProvider.notifier).login(email: email, password: password);
+      await ref
+          .read(authProvider.notifier)
+          .login(email: email, password: password);
       // Router redirect handles navigation when isLoggedIn changes
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(
+          context,
+          message: _friendlyAuthError(e),
+          type: SnackBarType.error,
+        );
       }
     }
   }
@@ -79,7 +85,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       await ref.read(authProvider.notifier).googleSignIn();
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(
+          context,
+          message: _friendlyAuthError(e),
+          type: SnackBarType.error,
+        );
       }
     }
   }
@@ -89,9 +99,33 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       await ref.read(authProvider.notifier).appleSignIn();
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(
+          context,
+          message: _friendlyAuthError(e),
+          type: SnackBarType.error,
+        );
       }
     }
+  }
+
+  String _friendlyAuthError(Object error) {
+    final raw = error.toString();
+    final normalized = raw.toLowerCase();
+
+    if (normalized.contains('dioexception') ||
+        normalized.contains('status code of 502') ||
+        normalized.contains('status code of 503') ||
+        normalized.contains('status code of 504') ||
+        normalized.contains('service unavailable') ||
+        normalized.contains('bad gateway') ||
+        normalized.contains('gateway timeout')) {
+      return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+    }
+
+    if (raw.startsWith('Exception: ')) {
+      return raw.substring('Exception: '.length);
+    }
+    return raw;
   }
 
   Future<void> _biometricSignIn() async {
@@ -158,20 +192,20 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        Image.asset(
-                          'assets/images/bago-logo-white.png',
-                          height: 32,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => Text('Bago',
-                              style: AppTextStyles.h2.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900)),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(l10n.signInToYourAccount,
-                            style: AppTextStyles.displaySm.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800)),
+                            Image.asset(
+                              'assets/images/bago-logo-white.png',
+                              height: 32,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Text('Bago',
+                                  style: AppTextStyles.h2.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900)),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(l10n.signInToYourAccount,
+                                style: AppTextStyles.displaySm.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800)),
                           ],
                         ),
                       ],
@@ -186,8 +220,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -271,7 +304,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     const SizedBox(height: 10),
                     Text(
                       'Google Sign-In can be unreliable on the iPhone simulator. If it hangs, use email login here and test Google on a real device.',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                   ],
 
@@ -306,7 +340,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       GestureDetector(
                         onTap: () => context.push('/auth/signup'),
                         child: Text(l10n.signUp,
-                            style: AppTextStyles.primary(AppTextStyles.labelMd)),
+                            style:
+                                AppTextStyles.primary(AppTextStyles.labelMd)),
                       ),
                     ],
                   ),
@@ -337,7 +372,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 }
 
 class _PrimaryBtn extends StatelessWidget {
-  const _PrimaryBtn({required this.label, required this.onPressed, this.isLoading = false});
+  const _PrimaryBtn(
+      {required this.label, required this.onPressed, this.isLoading = false});
   final String? label;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -356,7 +392,8 @@ class _PrimaryBtn extends StatelessWidget {
           ),
           child: isLoading
               ? const SizedBox(
-                  width: 22, height: 22,
+                  width: 22,
+                  height: 22,
                   child: CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2.5),
                 )
@@ -377,7 +414,8 @@ const _kGoogleGSvg = '''
 ''';
 
 class _GoogleBtn extends StatelessWidget {
-  const _GoogleBtn({required this.label, required this.onPressed, this.isLoading = false});
+  const _GoogleBtn(
+      {required this.label, required this.onPressed, this.isLoading = false});
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -398,15 +436,20 @@ class _GoogleBtn extends StatelessWidget {
             elevation: 0,
           ),
           child: isLoading
-              ? const SizedBox(width: 22, height: 22,
-                  child: CircularProgressIndicator(color: Color(0xFF1F1F1F), strokeWidth: 2.5))
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF1F1F1F), strokeWidth: 2.5))
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SvgPicture.string(_kGoogleGSvg, width: 22, height: 22),
                     const SizedBox(width: 10),
-                    Text(label, style: AppTextStyles.labelLg.copyWith(
-                        color: const Color(0xFF1F1F1F), fontWeight: FontWeight.w700)),
+                    Text(label,
+                        style: AppTextStyles.labelLg.copyWith(
+                            color: const Color(0xFF1F1F1F),
+                            fontWeight: FontWeight.w700)),
                   ],
                 ),
         ),
@@ -414,7 +457,8 @@ class _GoogleBtn extends StatelessWidget {
 }
 
 class _AppleBtn extends StatelessWidget {
-  const _AppleBtn({required this.label, required this.onPressed, this.isLoading = false});
+  const _AppleBtn(
+      {required this.label, required this.onPressed, this.isLoading = false});
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -432,15 +476,19 @@ class _AppleBtn extends StatelessWidget {
             elevation: 0,
           ),
           child: isLoading
-              ? const SizedBox(width: 22, height: 22,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.5))
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.apple, size: 22, color: Colors.white),
                     const SizedBox(width: 10),
-                    Text(label, style: AppTextStyles.labelLg.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(label,
+                        style: AppTextStyles.labelLg.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.w700)),
                   ],
                 ),
         ),

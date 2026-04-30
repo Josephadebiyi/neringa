@@ -53,7 +53,8 @@ class SavedPaymentMethod {
         expYear: _parseInt(json['expYear'] ?? json['exp_year']),
       );
 
-  static int _parseInt(dynamic value) => int.tryParse(value?.toString() ?? '') ?? 0;
+  static int _parseInt(dynamic value) =>
+      int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 class SavedPaymentMethodsResponse {
@@ -86,6 +87,10 @@ class PaymentService {
 
   String _parsePaymentMethodsError(DioException e) {
     final path = e.requestOptions.path;
+    final statusCode = e.response?.statusCode;
+    if (statusCode == 502 || statusCode == 503 || statusCode == 504) {
+      return 'Payment methods are temporarily unavailable. Please try again in a few minutes.';
+    }
     final message = ApiService.parseError(e);
     if (e.response?.statusCode == 404 &&
         path.startsWith(ApiConstants.paymentMethods)) {
@@ -182,7 +187,8 @@ class PaymentService {
       final cards = cardsRaw is List
           ? cardsRaw
               .whereType<Map>()
-              .map((item) => SavedPaymentMethod.fromJson(Map<String, dynamic>.from(item)))
+              .map((item) =>
+                  SavedPaymentMethod.fromJson(Map<String, dynamic>.from(item)))
               .where((item) => item.id.isNotEmpty)
               .toList()
           : <SavedPaymentMethod>[];
@@ -198,13 +204,15 @@ class PaymentService {
 
   Future<CardSetupSession> createCardSetupSession() async {
     try {
-      final response = await _api.post('${ApiConstants.paymentMethods}/setup-intent');
+      final response =
+          await _api.post('${ApiConstants.paymentMethods}/setup-intent');
       final data = _extractMap(response.data);
       final setupIntentClientSecret = _firstString(
         data,
         const ['setupIntentClientSecret', 'setup_intent_client_secret'],
       );
-      final customerId = _firstString(data, const ['customerId', 'customer_id']);
+      final customerId =
+          _firstString(data, const ['customerId', 'customer_id']);
       final customerEphemeralKeySecret = _firstString(
         data,
         const ['customerEphemeralKeySecret', 'customer_ephemeral_key_secret'],
@@ -285,7 +293,11 @@ class PaymentService {
         ),
         authorizationUrl: _firstString(
           data,
-          const ['authorizationUrl', 'authorization_url', 'data.authorization_url'],
+          const [
+            'authorizationUrl',
+            'authorization_url',
+            'data.authorization_url'
+          ],
         ),
         raw: data,
       );
@@ -296,13 +308,15 @@ class PaymentService {
 
   Future<PaymentResult> verifyPaystackPayment(String reference) async {
     try {
-      final response = await _api.get('${ApiConstants.paystackVerify}/$reference');
+      final response =
+          await _api.get('${ApiConstants.paystackVerify}/$reference');
       final raw = response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>
           : <String, dynamic>{};
       final data = _extractMap(raw);
       final successValue = raw['success'] ?? data['success'];
-      final status = (data['status'] ?? raw['status'])?.toString().toLowerCase();
+      final status =
+          (data['status'] ?? raw['status'])?.toString().toLowerCase();
       final success = successValue == true ||
           status == 'success' ||
           status == 'paid' ||

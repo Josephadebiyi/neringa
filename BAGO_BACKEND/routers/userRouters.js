@@ -181,11 +181,11 @@ userRouter.post("/remove-cancelled-escrow", isAuthenticated, requireKycVerificat
 
 
 userRouter.get('/conversations', isAuthenticated, requireKycVerification, getConversations);
+userRouter.get('/conversations/unread', isAuthenticated, requireKycVerification, getUnreadCount);
 userRouter.post('/conversations/resolve', isAuthenticated, requireKycVerification, resolveConversation);
+userRouter.post('/conversations/mark-read', isAuthenticated, requireKycVerification, markMessagesRead);
 userRouter.get('/conversations/:conversationId/messages', isAuthenticated, requireKycVerification, getMessages);
 userRouter.post('/conversations/:conversationId/send', isAuthenticated, requireKycVerification, sendMessage);
-userRouter.post('/conversations/mark-read', isAuthenticated, requireKycVerification, markMessagesRead);
-userRouter.get('/conversations/unread', isAuthenticated, requireKycVerification, getUnreadCount);
 userRouter.delete('/conversations/:conversationId', isAuthenticated, requireKycVerification, deleteConversation);
 userRouter.get("/getNotifications", isAuthenticated, getNotifications)
 userRouter.put("/markNotificationAsRead/:notificationId", isAuthenticated, markNotificationAsRead)

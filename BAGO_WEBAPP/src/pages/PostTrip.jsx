@@ -17,8 +17,6 @@ import {
     Wallet,
     ArrowRight,
     ChevronRight,
-    DollarSign,
-    CreditCard,
     Shield,
     Loader2,
     FileText,
@@ -26,18 +24,13 @@ import {
     Ticket
 } from 'lucide-react';
 import api from '../api';
-import { countries, locations } from '../utils/countries';
+import { locations } from '../utils/countries';
 import Select from 'react-select';
-
-const COUNTRY_OPTIONS = countries;
-
-const getCitiesForCountry = (countryLabel) =>
-    locations.filter(loc => loc.country === countryLabel);
 
 const Navbar = ({ step }) => {
     const navigate = useNavigate();
     const { t } = useLanguage();
-    const steps = [t('routeDetailsTitle'), t('reviewTitle'), t('paymentTitle'), t('doneTitle')];
+    const steps = [t('routeDetailsTitle'), t('reviewTitle'), t('doneTitle')];
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8]">
@@ -48,7 +41,7 @@ const Navbar = ({ step }) => {
                 <img src="/bago_logo.png" alt="Bago" className="h-7 w-auto" />
             </Link>
             <div className="hidden md:flex items-center gap-1 font-black text-[8px] uppercase tracking-[0.2em] opacity-60">
-                {steps.map((s, i) => (
+                {steps.map((_s, i) => (
                     <React.Fragment key={i}>
                         <span className={`px-2 py-0.5 rounded-full transition-all duration-300 ${i + 1 === step ? 'bg-[#5845D8] text-white shadow-xl shadow-[#5845D8]/20' : i + 1 < step ? 'text-green-600' : 'text-gray-300'}`}>
                             {i + 1 < step ? '✓' : i + 1}
@@ -293,7 +286,7 @@ export default function PostTrip() {
             });
             if (res.status === 201 || res.data?.trip || res.data?.message?.toLowerCase().includes('created')) {
                 localStorage.removeItem('pending_trip_post');
-                setStep(4);
+                setStep(3);
                 window.scrollTo(0, 0);
             } else {
                 setError(res.data?.message || 'Failed to post trip.');
@@ -352,7 +345,7 @@ export default function PostTrip() {
         </div>
     );
 
-    if (step === 4) {
+    if (step === 3) {
         return (
             <div className="min-h-screen bg-[#F8F6F3]">
                 <Navbar step={step} />

@@ -139,6 +139,13 @@ export default function Dashboard() {
                 case 'chats': return <Chats user={user} selectedConv={chatConv} setSelectedConv={setChatConv} onTabChange={setActiveTab} />;
                 case 'earnings': return <Earnings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'settings': return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
+                case 'insurance': return (
+                    <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100 shadow-sm">
+                        <Shield size={48} className="text-[#5845D8]/30 mx-auto mb-5" />
+                        <h3 className="text-lg font-black text-[#012126] mb-2 uppercase tracking-tight">{t('insuranceComing')}</h3>
+                        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest opacity-70">{t('insuranceComingDesc') || 'Insurance management is coming soon.'}</p>
+                    </div>
+                );
                 default: return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} />;
             }
         } catch (err) {

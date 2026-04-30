@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
-import { Package, MapPin, Calendar, Clock, ChevronRight, CheckCircle, RefreshCw, X, MessageSquare, User, Camera, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Package, Clock, ChevronRight, CheckCircle, RefreshCw, X, MessageSquare, User, Camera, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function Deliveries({ user, onNavigateToChat }) {
+export default function Deliveries({ onNavigateToChat }) {
     const { t } = useLanguage();
     const [deliveries, setDeliveries] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -22,6 +22,18 @@ export default function Deliveries({ user, onNavigateToChat }) {
     useEffect(() => {
         fetchMyDeliveries();
     }, []);
+
+    // Reset terms checkbox whenever a new modal opens
+    useEffect(() => {
+        setAcceptedTerms(false);
+    }, [viewingDetails]);
+
+    // Auto-dismiss notifications after 4 seconds
+    useEffect(() => {
+        if (!notification.show) return;
+        const timer = setTimeout(() => setNotification({ show: false, message: '', type: '' }), 4000);
+        return () => clearTimeout(timer);
+    }, [notification.show]);
 
     const fetchMyDeliveries = async () => {
         setLoading(true);

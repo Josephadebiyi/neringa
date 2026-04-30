@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
-import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, ShieldCheck, Package, Clock, Calendar, ChevronRight, ArrowLeft, Trash2 } from 'lucide-react';
+import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, Clock, ArrowLeft, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 const BANNED_KEYWORDS = ['phone', 'whatsapp', 'number', 'call', 'telegram', 'instagram', 'facebook', 'email', '+', 'gmail', 'yahoo', 'dm', 'contact me', 'text me'];
@@ -28,6 +28,13 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             fetchMessages(selectedConv._id);
         }
     }, [selectedConv]);
+
+    // Poll for new messages every 8 seconds when a conversation is open
+    useEffect(() => {
+        if (!selectedConv) return;
+        const interval = setInterval(() => fetchMessages(selectedConv._id), 8000);
+        return () => clearInterval(interval);
+    }, [selectedConv?._id]);
 
     const fetchConversations = async () => {
         try {
@@ -67,42 +74,24 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     const handleDownloadPDF = async (requestId, tracking) => {
         setDownloading(requestId);
         try {
-            console.log('📄 Starting PDF download for request:', requestId);
-            console.log('📄 Tracking number:', tracking);
-            console.log('📄 Request ID type:', typeof requestId);
-            console.log('📄 Request ID value:', requestId);
-            console.log('📄 Full URL:', `/api/bago/request/${requestId}/pdf`);
-
-            // Validate requestId before making the call
             if (!requestId || requestId === 'undefined' || requestId === 'null') {
-                throw new Error('Invalid request ID: Request ID is missing or undefined');
+                throw new Error('Invalid request ID');
             }
 
             const response = await api.get(`/api/bago/request/${requestId}/pdf`, {
                 responseType: 'blob'
             });
 
-            console.log('📄 Response received:', {
-                status: response.status,
-                contentType: response.headers['content-type'],
-                dataType: response.data.type,
-                dataSize: response.data.size
-            });
-
-            // Check if response is actually JSON error disguised as blob
             if (response.data.type === 'application/json') {
                 const text = await response.data.text();
                 const errorData = JSON.parse(text);
-                console.error('❌ Server returned JSON error:', errorData);
                 throw new Error(errorData.message || 'Server failed to generate PDF');
             }
 
-            // Verify we got a valid PDF blob
             if (!response.data || response.data.size === 0) {
                 throw new Error('Received empty PDF file');
             }
 
-            console.log('✅ PDF received successfully, creating download...');
             const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
             const link = document.createElement('a');
             link.href = url;
@@ -111,12 +100,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-            console.log('✅ Download completed successfully');
         } catch (err) {
-            console.error('❌ Download failed:', err);
-            console.error('❌ Error response:', err.response);
-            console.error('❌ Error status:', err.response?.status);
-            console.error('❌ Error data:', err.response?.data);
 
             let errorMessage = 'Failed to download PDF. Please try again or contact support.';
 
@@ -451,7 +435,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                             
                                             <div className="flex items-center justify-end gap-1 mt-1 opacity-60">
                                                 <p className={`text-[7px] font-black uppercase tracking-widest ${isMe ? 'text-white/80' : 'text-gray-400'}`}>
-                                                    {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:41 AM'}
+                                                    {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                                 </p>
                                                 {isMe && <div className="flex -space-x-1"><div className="w-2 h-2 text-white/80 text-[10px]">✓</div><div className="w-2 h-2 text-white/80 text-[10px]">✓</div></div>}
                                             </div>

@@ -159,6 +159,24 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            try {
+                const res = await api.put('/api/bago/upload-image', { image: ev.target.result });
+                if (res.data?.status === 'success') {
+                    setSuccessMessage(t('profilePhotoUpdated') || 'Profile photo updated');
+                    await checkAuthStatus();
+                }
+            } catch (err) {
+                setError(err.response?.data?.message || 'Failed to update photo');
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
     return (
         <div className="space-y-6 max-w-[1200px] pb-10 font-sans text-[#012126]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -170,12 +188,15 @@ export default function Settings({ user, checkAuthStatus }) {
                     </div>
 
                     <div className="flex justify-center mb-5 relative group">
-                        <div className="w-16 h-16 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-xl font-black border-[3px] border-white shadow-md overflow-hidden relative">
-                            {user?.image ? <img src={user.image} alt="User" className="w-full h-full object-cover" /> : (firstName?.charAt(0) || 'B')}
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                <Camera className="text-white" size={16} />
+                        <input type="file" id="photo-upload" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                        <label htmlFor="photo-upload" className="cursor-pointer">
+                            <div className="w-16 h-16 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-xl font-black border-[3px] border-white shadow-md overflow-hidden relative">
+                                {user?.image ? <img src={user.image} alt="User" className="w-full h-full object-cover" /> : (firstName?.charAt(0) || 'B')}
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Camera className="text-white" size={16} />
+                                </div>
                             </div>
-                        </div>
+                        </label>
                         {user?.isVerified && (
                             <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 text-white p-0.5 rounded-full border-[3px] border-white shadow-sm" title={t('verified')}>
                                 <Check size={12} strokeWidth={4} />

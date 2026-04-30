@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { Plane, Calendar, MapPin, Trash2, Edit3, Plus, ChevronRight, Weight, RefreshCw, X } from 'lucide-react';
-import { locations } from '../../utils/countries';
+import { Plane, Calendar, Trash2, Edit3, Plus, ChevronRight, Weight, RefreshCw, X } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
-import Select from 'react-select';
 
-export default function Trips({ user }) {
+export default function Trips() {
     const { t } = useLanguage();
+    const navigate = useNavigate();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingTrip, setEditingTrip] = useState(null);
@@ -45,8 +45,6 @@ export default function Trips({ user }) {
                 // Update UI immediately on success
                 setTrips(prev => prev.filter(t => t.id !== id && t._id !== id));
                 setDeleteConfirmId(null);
-                // Optional: Show success message
-                console.log('Trip deleted successfully');
             }
         } catch (err) {
             console.error('Delete trip error:', err);
@@ -97,12 +95,6 @@ export default function Trips({ user }) {
         }
     };
 
-    const locationOptions = locations.map(loc => ({
-        value: loc.city,
-        label: `${loc.flag} ${loc.label}`,
-        city: loc.city,
-        country: loc.country
-    }));
 
     if (loading) return <div className="flex justify-center p-20"><RefreshCw className="animate-spin text-[#5845D8]" size={40} /></div>;
 
@@ -114,7 +106,7 @@ export default function Trips({ user }) {
                     <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">{t('manageFlightBusRoutes')}</p>
                 </div>
                 <button
-                    onClick={() => window.location.href = '/post-trip'}
+                    onClick={() => navigate('/post-trip')}
                     className="flex items-center gap-2 bg-[#5845D8] text-white px-4 py-2.5 rounded-xl font-black hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/20 text-[10px] uppercase tracking-widest"
                 >
                     <Plus size={14} />
@@ -133,7 +125,7 @@ export default function Trips({ user }) {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {trips.map(trip => (
-                        <div key={trip.id} className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                        <div key={trip._id || trip.id} className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-20 h-20 bg-[#5845D8]/5 rounded-bl-[50px] -mr-5 -mt-5 group-hover:bg-[#5845D8]/10 transition-colors"></div>
 
                             <div className="flex items-center gap-4 mb-5 relative z-10">
@@ -170,11 +162,11 @@ export default function Trips({ user }) {
                             </div>
 
                             {/* Delete Confirmation */}
-                            {deleteConfirmId === trip.id ? (
+                            {deleteConfirmId === (trip._id || trip.id) ? (
                                 <div className="flex gap-2 relative z-10 mt-2 bg-red-50 rounded-xl p-3 border border-red-100 animate-in fade-in duration-150">
                                     <p className="text-[9px] font-black text-red-600 uppercase tracking-wider flex-1">Delete this trip?</p>
                                     <button
-                                        onClick={() => handleDeleteTrip(trip.id)}
+                                        onClick={() => handleDeleteTrip(trip._id || trip.id)}
                                         className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider"
                                     >
                                         Yes, Delete
@@ -196,7 +188,7 @@ export default function Trips({ user }) {
                                         {t('edit')}
                                     </button>
                                     <button
-                                        onClick={() => setDeleteConfirmId(trip.id)}
+                                        onClick={() => setDeleteConfirmId(trip._id || trip.id)}
                                         className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-red-50 rounded-xl text-[10px] font-black text-red-500 uppercase tracking-widest hover:bg-red-50 transition-all"
                                     >
                                         <Trash2 size={14} />

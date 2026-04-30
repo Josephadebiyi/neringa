@@ -44,16 +44,10 @@ export default function SignInScreen() {
           await googleLogin({ idToken: result.idToken, accessToken: result.accessToken });
           router.replace('/(tabs)');
         } catch (backendError: any) {
-          // If backend google auth isn't setup perfectly yet (404/400), mock the sign in for testing
-          if (backendError.response?.status === 404 || backendError.response?.status === 400 || String(backendError).includes('400') || String(backendError).includes('404')) {
-             console.log('Mocking Google Login...');
-             router.replace('/(tabs)');
-          } else {
-             Alert.alert(
-              'Authentication Error',
-              backendError.message || 'Failed to authenticate with backend. Please try again.'
-             );
-          }
+          Alert.alert(
+            'Authentication Error',
+            backendError.response?.data?.message || backendError.message || 'Failed to authenticate. Please try again.'
+          );
         }
       } else if (result.error && result.error !== 'User cancelled the authentication') {
         Alert.alert('Google Sign In', result.error);

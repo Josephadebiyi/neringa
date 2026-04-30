@@ -109,7 +109,6 @@ export default function SendPackage() {
     // Populate location fields from selectedTrip with intelligent extraction
     useEffect(() => {
         if (selectedTrip) {
-            console.log('🎯 RAW TRIP DATA:', selectedTrip);
 
             // 1. Try to get structured city/country data first
             let fromCity = selectedTrip.fromCity || '';
@@ -138,8 +137,6 @@ export default function SendPackage() {
             if (!toCountry && toCity) toCountry = getCountryFromCity(toCity);
 
             const deadline = selectedTrip.departureDate || '';
-
-            console.log('✅ FINAL STRUCTURED DATA:', { fromCity, fromCountry, toCity, toCountry });
 
             setFormData(prev => ({
                 ...prev,
@@ -276,18 +273,6 @@ export default function SendPackage() {
         setError('');
         setLoading(true);
 
-        console.log('🚀 FORM SUBMISSION STARTED');
-        console.log('📦 FORM DATA:', {
-            fromCity: formData.fromCity,
-            fromCountry: formData.fromCountry,
-            toCity: formData.toCity,
-            toCountry: formData.toCountry,
-            category: formData.category,
-            receiverName: formData.receiverName,
-            receiverPhone: formData.receiverPhone,
-            packageWeight: formData.packageWeight
-        });
-
         // Check KYC status
         if (kycStatus !== 'approved') {
             setError('Please verify your identity to send a package.');
@@ -401,35 +386,7 @@ export default function SendPackage() {
                     throw new Error('Failed to initialize payment. Please try again.');
                 }
             } else {
-                // Non-African currency: create Stripe payment intent first
-                try {
-                    const intentRes = await api.post('/api/bago/payment-methods/payment-intent', {
-                        amount,
-                        currency: currency.toLowerCase(),
-                        packageId,
-                        tripId
-                    });
-                    if (intentRes.data?.success) {
-                        // Store pending shipment data
-                        sessionStorage.setItem('bagoPendingShipment', JSON.stringify({
-                            packageId, travelerId, tripId, amount, currency,
-                            estimatedDeparture: selectedTrip.departureDate,
-                            insurance: formData.insuranceProtection,
-                            insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
-                            paymentProvider: 'stripe',
-                        }));
-                        // Navigate to payment page with client secret
-                        navigate('/payment/checkout', {
-                            state: {
-                                clientSecret: intentRes.data.data.clientSecret,
-                                amount, currency
-                            }
-                        });
-                        return;
-                    }
-                } catch (_) {}
-
-                // Fallback: create request without upfront payment (pay on delivery/wallet)
+                // Non-African currency: create request (payment settled via wallet/bank)
                 const requestResponse = await api.post('/api/bago/RequestPackage', {
                     travelerId,
                     packageId,
@@ -471,16 +428,6 @@ export default function SendPackage() {
                     <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
                 </div>
 
-                {/* Debug info showing extracted route */}
-                {selectedTrip && formData.fromCity && formData.toCity && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-                        <p className="text-xs font-bold text-green-900 mb-2">✅ Route Extracted Successfully:</p>
-                        <p className="text-sm font-mono text-green-700">
-                            <strong>From:</strong> {formData.fromCity}, {formData.fromCountry || '(Country Missing)'} →
-                            <strong> To:</strong> {formData.toCity}, {formData.toCountry || '(Country Missing)'}
-                        </p>
-                    </div>
-                )}
 
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                     <div className="lg:col-span-2 space-y-8">
