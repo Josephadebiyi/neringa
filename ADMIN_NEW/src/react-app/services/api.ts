@@ -354,11 +354,11 @@ export async function getPushHistory() {
 
 // Disputes
 export async function getDisputes() {
-  return apiCall(`${MAIN_API}/disputes`);
+  return apiCall(`${ADMIN_API}/disputes`);
 }
 
 export async function updateDisputeStatus(id: string, data: any) {
-  return apiCall(`${MAIN_API}/disputes/${id}`, {
+  return apiCall(`${ADMIN_API}/disputes/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });

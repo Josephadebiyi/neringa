@@ -3,6 +3,7 @@ import { AdminLogin, AdminSignup } from '../controllers/AdminControllers/Adminlo
 import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { banUser, GetAllUsers, deleteUser, updateUser } from '../controllers/AdminControllers/GetAllUsers.js';
 import { activeShipmentLocations, tracking, updateRequest } from '../controllers/AdminControllers/Tracking.js';
+import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
 import { getAllkyc, Verifykyc } from '../controllers/KycVerificationsController.js';
@@ -126,6 +127,8 @@ AdminRouter.post("/send-promo", adminAuthenticated, sendPromoEmail);
 AdminRouter.get("/refunds", adminAuthenticated, getAllRefunds);
 AdminRouter.put("/refunds/:id/approve", adminAuthenticated, validateUuidParam('id'), approveRefund);
 AdminRouter.put("/refunds/:id/reject", adminAuthenticated, validateUuidParam('id'), rejectRefund);
+AdminRouter.get("/disputes", adminAuthenticated, getDisputes);
+AdminRouter.put("/disputes/:id", adminAuthenticated, validateUuidParam('id'), updateDispute);
 
 // Route Management (Admin Pricing System)
 AdminRouter.post("/routes", adminAuthenticated, createRoute);
