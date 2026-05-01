@@ -295,7 +295,9 @@ export async function confirmPendingPhoneChange(userId, phone) {
       set phone = $2,
           pending_phone = null,
           phone_change_otp_code = null,
-          phone_change_otp_expires_at = null
+          phone_change_otp_expires_at = null,
+          phone_verified = true,
+          phone_verified_at = timezone('utc', now())
       where id = $1
     `,
     [userId, phone],

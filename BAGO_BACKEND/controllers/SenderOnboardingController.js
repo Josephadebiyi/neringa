@@ -1,8 +1,24 @@
 import { query, queryOne } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
+import twilio from 'twilio';
 
 const CURRENT_TERMS_VERSION = '1.0';
+
+function getTwilioClient() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+
+  if (!accountSid || !authToken || !fromNumber) {
+    return null;
+  }
+
+  return {
+    client: twilio(accountSid, authToken),
+    fromNumber,
+  };
+}
 
 // ─── Shipment Terms ──────────────────────────────────────────────────────────
 
@@ -59,7 +75,7 @@ export async function getTermsStatus(req, res) {
   }
 }
 
-// ─── Phone Verification (required for all users before sending) ─────────────
+// ─── Phone Verification (required for new users before sending) ─────────────
 
 export async function sendPhoneVerificationOtp(req, res) {
   try {
@@ -91,36 +107,21 @@ export async function sendPhoneVerificationOtp(req, res) {
       [userId, phone.trim(), otp, expiresAt]
     );
 
-    // Send via Twilio if configured, otherwise fall back to email
-    const twilioSid    = process.env.TWILIO_ACCOUNT_SID;
-    const twilioToken  = process.env.TWILIO_AUTH_TOKEN;
-    const twilioFrom   = process.env.TWILIO_FROM_NUMBER;
-
-    if (twilioSid && twilioToken && twilioFrom) {
-      const { default: twilio } = await import('twilio');
-      const client = twilio(twilioSid, twilioToken);
-      await client.messages.create({
-        body: `Your Bago verification code is: ${otp}. Expires in 15 minutes.`,
-        from: twilioFrom,
-        to: phone.trim(),
-      });
-      return res.status(200).json({ success: true, message: 'OTP sent via SMS.' });
-    }
-
-    // Email fallback
-    const { resend } = await import('../lib/resend.js').catch(() => ({ resend: null }));
-    if (resend) {
-      await resend.emails.send({
-        from: 'Bago <no-reply@sendwithbago.com>',
-        to: user.email,
-        subject: 'Verify your phone number',
-        html: `<p>Hi ${user.firstName || 'there'},</p>
-               <p>Your Bago phone verification code is: <strong style="font-size:24px;letter-spacing:4px">${otp}</strong></p>
-               <p>This code expires in 15 minutes.</p>`,
+    const sms = getTwilioClient();
+    if (!sms) {
+      return res.status(500).json({
+        success: false,
+        message: 'SMS verification is not configured. Please set Twilio credentials.',
       });
     }
 
-    return res.status(200).json({ success: true, message: 'OTP sent to your email.' });
+    await sms.client.messages.create({
+      body: `Your Bago verification code is: ${otp}. Expires in 15 minutes.`,
+      from: sms.fromNumber,
+      to: phone.trim(),
+    });
+
+    return res.status(200).json({ success: true, message: 'OTP sent via SMS.' });
   } catch (err) {
     console.error('sendPhoneVerificationOtp error:', err);
     return res.status(500).json({ success: false, message: err.message });
