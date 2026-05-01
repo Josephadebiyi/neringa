@@ -141,7 +141,7 @@ const Navbar = () => {
 
 const TripCard = ({ trip, weight }) => {
     const navigate = useNavigate();
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const { t } = useLanguage();
     const isVerified = trip.isVerified === true ||
         trip.kycStatus === 'approved' ||
@@ -159,12 +159,18 @@ const TripCard = ({ trip, weight }) => {
         try {
             const response = await api.get('/api/bago/kyc/status');
             const status = response.data?.kycStatus;
+            const phoneVerified = response.data?.phoneVerified === true || user?.phoneVerified === true;
 
-            if (status === 'approved') {
-                navigate(`/send-package`, { state: { trip, weight } });
-            } else {
+            if (status !== 'approved') {
                 localStorage.setItem('pending_booking', JSON.stringify({ trip }));
                 navigate('/verify');
+            } else if (!phoneVerified) {
+                localStorage.setItem('pending_booking', JSON.stringify({ trip }));
+                navigate('/dashboard?tab=settings', {
+                    state: { message: 'Please verify your phone number to continue.' }
+                });
+            } else {
+                navigate(`/send-package`, { state: { trip, weight } });
             }
         } catch (error) {
             navigate('/dashboard');

@@ -437,6 +437,13 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         );
         return;
       }
+      if (user?.phoneVerified != true) {
+        AppSnackBar.show(context,
+            message: 'Please verify your phone number before posting a trip.',
+            type: SnackBarType.error);
+        context.push('/profile/change-phone');
+        return;
+      }
       try {
         setState(() => _loading = true);
         await ApiService.instance.post(ApiConstants.acceptTerms, data: {});
@@ -611,9 +618,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       });
     } catch (e) {
       setState(() => _loading = false);
-      if (mounted)
+      if (mounted) {
         AppSnackBar.show(context,
             message: e.toString(), type: SnackBarType.error);
+      }
     }
   }
 
@@ -670,9 +678,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     try {
       return await TripService.instance.getTripById(widget.tripId!);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         AppSnackBar.show(context,
             message: e.toString(), type: SnackBarType.error);
+      }
       return null;
     }
   }
@@ -1498,11 +1507,12 @@ class _LocationStepState extends State<_LocationStep> {
         }
         if (list.length >= 8) break;
       }
-      if (mounted)
+      if (mounted) {
         setState(() {
           _suggestions = list;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -1865,8 +1875,9 @@ class _TimeStep extends StatelessWidget {
                   hint: 'HH',
                   onChanged: (v) {
                     final n = int.tryParse(v);
-                    if (n == null || (n >= 1 && n <= 12))
+                    if (n == null || (n >= 1 && n <= 12)) {
                       onHourChanged(v.padLeft(2, '0'));
+                    }
                   },
                 ),
                 Padding(
@@ -1880,8 +1891,9 @@ class _TimeStep extends StatelessWidget {
                   hint: 'MM',
                   onChanged: (v) {
                     final n = int.tryParse(v);
-                    if (n == null || (n >= 0 && n <= 59))
+                    if (n == null || (n >= 0 && n <= 59)) {
                       onMinuteChanged(v.padLeft(2, '0'));
+                    }
                   },
                 ),
                 const SizedBox(width: 16),

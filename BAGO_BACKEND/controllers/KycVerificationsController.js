@@ -215,18 +215,47 @@ export const createDiditSession = async (req, res, next) => {
 export const fetchDiditResult = async (req, res, next) => {
   try {
     const userId = req.user?.id || req.user?._id;
-    const row = await queryOne(
-      `SELECT kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt", kyc_failure_reason as "kycFailureReason"
+    let row = await queryOne(
+      `SELECT kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt", kyc_failure_reason as "kycFailureReason",
+              didit_session_id as "diditSessionId"
        FROM public.profiles WHERE id = $1`,
       [userId]
     );
     if (!row) return res.status(404).json({ success: false, message: "User not found" });
 
-    const status = row.kycStatus || 'pending';
+    let status = row.kycStatus || 'pending';
+
+    if (status === 'pending' && row.diditSessionId) {
+      try {
+        const diditData = await fetchDiditSessionStatus(row.diditSessionId);
+        const diditStatus = String(diditData?.status || '').toLowerCase();
+
+        if (diditStatus === 'approved') {
+          await markKycApproved(userId, { kycVerifiedData: diditData });
+          status = 'approved';
+          row = { ...row, kycStatus: status, kycVerifiedAt: new Date() };
+        } else if (diditStatus === 'declined' || diditStatus === 'rejected') {
+          await query(
+            `UPDATE public.profiles
+             SET kyc_status = 'declined',
+                 kyc_failure_reason = 'Document verification was declined by the verification provider',
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [userId],
+          );
+          status = 'declined';
+        }
+      } catch (diditErr) {
+        console.warn('Could not sync DIDIT status:', diditErr.message);
+      }
+    }
+
     return res.json({
       success: status === 'approved',
       status,
       kycStatus: status,
+      kycVerifiedAt: row.kycVerifiedAt || null,
+      phoneVerified: req.user?.phoneVerified === true,
       message: status === 'approved'
         ? 'KYC approved'
         : status === 'declined'

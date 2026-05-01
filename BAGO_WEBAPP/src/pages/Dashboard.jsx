@@ -11,7 +11,6 @@ import Deliveries from '../components/dashboard/Deliveries';
 import Chats from '../components/dashboard/Chats';
 import Earnings from '../components/dashboard/Earnings';
 import Settings from '../components/dashboard/Settings';
-import LiveTracking from '../components/dashboard/LiveTracking';
 import {
     LayoutDashboard,
     MessageCircle,
@@ -47,7 +46,7 @@ export default function Dashboard() {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
-        if (tab && ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'earnings', 'tracking', 'settings', 'insurance'].includes(tab)) {
+        if (tab && ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'earnings', 'settings', 'insurance'].includes(tab)) {
             setActiveTab(tab);
         }
     }, [location.search]);
@@ -103,7 +102,11 @@ export default function Dashboard() {
             // Try the correct KYC status endpoint first
             try {
                 const res = await api.get('/api/bago/kyc/status');
-                setKycStatus(res.data?.kycStatus || 'not_started');
+                const status = res.data?.kycStatus || 'not_started';
+                setKycStatus(status);
+                if (status === 'approved') {
+                    checkAuthStatus();
+                }
             } catch {
                 // Fallback to old endpoint
                 const response = await api.get('/api/bago/getKyc');
@@ -139,7 +142,6 @@ export default function Dashboard() {
                     return <Deliveries user={user} onNavigateToChat={(convId) => { setChatConv({ _id: convId }); setActiveTab('chats'); }} />;
                 case 'chats': return <Chats user={user} selectedConv={chatConv} setSelectedConv={setChatConv} onTabChange={setActiveTab} />;
                 case 'earnings': return <Earnings user={user} checkAuthStatus={checkAuthStatus} />;
-                case 'tracking': return <LiveTracking user={user} />;
                 case 'settings': return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'insurance': return (
                     <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100 shadow-sm">

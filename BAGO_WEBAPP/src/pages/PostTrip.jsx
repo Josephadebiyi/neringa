@@ -122,6 +122,7 @@ export default function PostTrip() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [kycStatus, setKycStatus] = useState('');
+    const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
 
     const [formData, setFormData] = useState({
         originCountry: '',
@@ -166,6 +167,7 @@ export default function PostTrip() {
         try {
             const res = await api.get('/api/bago/kyc/status');
             setKycStatus(res.data?.kycStatus || 'not_started');
+            setPhoneVerified(res.data?.phoneVerified === true || user?.phoneVerified === true);
         } catch {
             setKycStatus('not_started');
         }
@@ -217,6 +219,13 @@ export default function PostTrip() {
         if (kycStatus !== 'approved') {
             localStorage.setItem('pending_trip_post', JSON.stringify(formData));
             navigate('/verify');
+            return;
+        }
+        if (!phoneVerified) {
+            localStorage.setItem('pending_trip_post', JSON.stringify(formData));
+            navigate('/dashboard?tab=settings', {
+                state: { message: 'Please verify your phone number before posting a trip.' }
+            });
             return;
         }
 

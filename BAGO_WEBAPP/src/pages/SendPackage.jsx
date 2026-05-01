@@ -108,6 +108,7 @@ export default function SendPackage() {
     const [error, setError] = useState('');
     const [platformRate, setPlatformRate] = useState(0);
     const [currency, setCurrency] = useState('USD');
+    const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
     const [insuranceCost, setInsuranceCost] = useState(0);
     const [exchangeRates, setExchangeRates] = useState(null);
     const [quote, setQuote] = useState(null);
@@ -206,7 +207,7 @@ export default function SendPackage() {
         if (!isAuthenticated) {
             navigate('/login');
         } else {
-            checkKycStatus();
+            checkVerificationStatus();
             loadExchangeRates();
             fetchWalletBalance();
         }
@@ -258,6 +259,17 @@ export default function SendPackage() {
             // Fallback to simple calculation if quote fails
             setPlatformRate(selectedTrip?.pricePerKg || 15);
             setCurrency('USD');
+        }
+    };
+
+    const checkVerificationStatus = async () => {
+        try {
+            const response = await api.get('/api/bago/kyc/status');
+            if (response.data.success) {
+                setPhoneVerified(response.data.phoneVerified === true || user?.phoneVerified === true);
+            }
+        } catch (error) {
+            setPhoneVerified(user?.phoneVerified === true);
         }
     };
 
@@ -459,11 +471,14 @@ export default function SendPackage() {
         });
 
         // Senders need phone verification, not KYC
-        if (!user?.phoneVerified) {
+        if (!phoneVerified && user?.phoneVerified !== true) {
             setError('Please verify your phone number to send a package.');
             setLoading(false);
-            navigate('/settings', {
-                state: { message: 'Please verify your phone number before sending a package.' }
+            navigate('/dashboard?tab=settings', {
+                state: {
+                    message: 'Please verify your phone number to send a package.',
+                    from: '/send-package'
+                }
             });
             return;
         }

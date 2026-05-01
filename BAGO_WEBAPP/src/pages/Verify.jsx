@@ -39,6 +39,11 @@ export default function Verify() {
             setActionLoading(true);
             setError('');
             const response = await api.post('/api/bago/kyc/create-session');
+            const returnedStatus = response.data?.status || response.data?.kycStatus;
+            if (returnedStatus === 'approved') {
+                setKycStatus('approved');
+                return;
+            }
             const url = response.data.sessionUrl || response.data.diditSessionUrl;
 
             if (url) {
