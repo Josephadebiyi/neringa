@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../shared/utils/country_currency_helper.dart';
+import '../../../shared/utils/phone_country_data.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -24,7 +24,7 @@ class _PhoneVerificationSheetState extends ConsumerState<PhoneVerificationSheet>
   int _step = 0;
   bool _isLoading = false;
 
-  CountryCurrencyData _country = CurrencyConversionHelper.countryByCode('NG')!;
+  PhoneCountry _country = allPhoneCountries.firstWhere((c) => c.code == 'NG');
   final _phoneCtrl = TextEditingController();
   final _otpCtrl   = TextEditingController();
 
@@ -66,31 +66,87 @@ class _PhoneVerificationSheetState extends ConsumerState<PhoneVerificationSheet>
   }
 
   Future<void> _showCountryPicker() async {
-    final selected = await showModalBottomSheet<CountryCurrencyData>(
+    final search = ValueNotifier('');
+    await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => SafeArea(
-        child: ListView.separated(
-          shrinkWrap: true,
-          padding: const EdgeInsets.all(20),
-          itemCount: CurrencyConversionHelper.supportedCountries.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
-          itemBuilder: (_, i) {
-            final c = CurrencyConversionHelper.supportedCountries[i];
-            return ListTile(
-              leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
-              title: Text(c.name, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
-              subtitle: Text(c.dialCode, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
-              onTap: () => Navigator.of(context).pop(c),
-            );
-          },
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.92,
+        builder: (_, scrollCtrl) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search country…',
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.gray400),
+                  filled: true,
+                  fillColor: AppColors.gray100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                onChanged: (v) => search.value = v.toLowerCase(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ValueListenableBuilder<String>(
+                valueListenable: search,
+                builder: (_, query, __) {
+                  final filtered = query.isEmpty
+                      ? allPhoneCountries
+                      : allPhoneCountries.where((c) =>
+                          c.name.toLowerCase().contains(query) ||
+                          c.dialCode.contains(query)).toList();
+                  return ListView.separated(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+                    itemBuilder: (_, i) {
+                      final c = filtered[i];
+                      final sel = c.code == _country.code;
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
+                        title: Text(c.name, style: AppTextStyles.labelMd.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: sel ? AppColors.primary : AppColors.black,
+                        )),
+                        trailing: Text(c.dialCode, style: AppTextStyles.bodySm.copyWith(
+                          color: sel ? AppColors.primary : AppColors.gray500,
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                        )),
+                        onTap: () {
+                          setState(() => _country = c);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
-    if (selected != null && mounted) setState(() => _country = selected);
   }
 
   @override
