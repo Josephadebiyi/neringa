@@ -1531,7 +1531,7 @@ app.get("/api/payment/verify/:reference", async (req, res) => {
 // DIDIT.ME KYC VERIFICATION ROUTES
 // ============================================
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY;
-const DIDIT_WORKFLOW_ID = '701347c6-bd51-4ab7-8a35-8a442db4b63c';
+const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '701347c6-bd51-4ab7-8a35-8a442db4b63c';
 const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET;
 
 // Create DIDIT verification session - PROTECTED ROUTE
@@ -1550,6 +1550,12 @@ app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
         success: true,
         message: "KYC already approved",
         status: 'approved'
+      });
+    }
+    if (!DIDIT_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        message: "DIDIT_API_KEY is not configured on the server",
       });
     }
 
@@ -1573,12 +1579,23 @@ app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
         workflow_id: DIDIT_WORKFLOW_ID,
         vendor_data: vendorData,
         callback: callbackUrl,
+        callback_method: 'both',
+        contact_details: {
+          email: user.email,
+          send_notification_emails: false,
+        },
+        expected_details: {
+          first_name: user.firstName || undefined,
+          last_name: user.lastName || undefined,
+          date_of_birth: user.dateOfBirth || undefined,
+        },
       }),
     });
 
     const data = await response.json();
+    const sessionUrl = data.url || data.verification_url || data.verificationUrl;
 
-    if (response.ok && data.session_id) {
+    if (response.ok && data.session_id && sessionUrl) {
       // Store session ID in user record
       await pgQuery(
         `UPDATE public.profiles
@@ -1592,8 +1609,12 @@ app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
       return res.json({
         success: true,
         sessionId: data.session_id,
+        session_id: data.session_id,
         sessionToken: data.session_token,
-        sessionUrl: data.url,
+        session_token: data.session_token,
+        sessionUrl,
+        url: sessionUrl,
+        verification_url: sessionUrl,
         message: "Verification session created"
       });
     }

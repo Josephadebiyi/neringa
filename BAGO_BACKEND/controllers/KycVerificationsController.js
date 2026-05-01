@@ -6,7 +6,7 @@ import cloudinary from "cloudinary";
 import fs from "fs";
 import path from "path";
 import dotenv from 'dotenv';
-import { markKycApproved } from "../lib/postgres/accounts.js";
+import { markKycApproved, upsertKycSession } from "../lib/postgres/accounts.js";
 import { findProfileById } from "../lib/postgres/profiles.js";
 dotenv.config();
 
@@ -147,7 +147,7 @@ export const Verifykyc = async (req, res, next) => {
 
 
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY;
-const DIDIT_WORKFLOW_ID = '701347c6-bd51-4ab7-8a35-8a442db4b63c';
+const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '701347c6-bd51-4ab7-8a35-8a442db4b63c';
 
 // ✅ Generate DIDIT Session for the user (The fix for "Could not start")
 export const createDiditSession = async (req, res, next) => {
@@ -171,10 +171,17 @@ export const createDiditSession = async (req, res, next) => {
         message: "DIDIT_API_KEY is not configured on the server",
       });
     }
+    if (!DIDIT_WORKFLOW_ID) {
+      return res.status(503).json({
+        success: false,
+        message: "DIDIT_WORKFLOW_ID is not configured on the server",
+      });
+    }
 
     // Build the request URL and payload. 
     // FIXED: Use correct endpoint and ensure headers match DIDIT requirements
     const vendorData = JSON.stringify({ userId: userId.toString(), email: user.email });
+    const callbackUrl = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`;
 
     const config = {
       headers: {
@@ -187,23 +194,39 @@ export const createDiditSession = async (req, res, next) => {
     const payload = {
       workflow_id: DIDIT_WORKFLOW_ID,
       vendor_data: vendorData,
-      callback: `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`,
+      callback: callbackUrl,
+      callback_method: 'both',
+      contact_details: {
+        email: user.email,
+        send_notification_emails: false,
+      },
+      expected_details: {
+        first_name: user.firstName || undefined,
+        last_name: user.lastName || undefined,
+        date_of_birth: user.dateOfBirth || undefined,
+      },
     };
 
     console.log("📝 Sending request to DIDIT for user:", userId);
     const response = await axios.post('https://verification.didit.me/v3/session/', payload, config);
+    const sessionUrl = response.data?.url || response.data?.verification_url || response.data?.verificationUrl;
 
-    if (response.data && response.data.session_id) {
-      await queryOne(
-        `UPDATE public.profiles SET didit_session_id = $1, kyc_status = 'pending', updated_at = NOW() WHERE id = $2`,
-        [response.data.session_id, userId]
-      );
+    if (response.data && response.data.session_id && sessionUrl) {
+      await upsertKycSession(userId, {
+        sessionId: response.data.session_id,
+        sessionToken: response.data.session_token || null,
+        status: 'pending',
+      });
 
       return res.json({
         success: true,
         sessionId: response.data.session_id,
+        session_id: response.data.session_id,
         sessionToken: response.data.session_token,
-        sessionUrl: response.data.url,
+        session_token: response.data.session_token,
+        sessionUrl,
+        url: sessionUrl,
+        verification_url: sessionUrl,
         message: "Verification session created"
       });
     } else {
