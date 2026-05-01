@@ -130,7 +130,6 @@ export default function PostTrip() {
         destinationCountry: '',
         destinationCity: '',
         departureDate: '',
-        arrivalDate: '',
         transportMode: 'airplane',
         availableWeight: '',
         pricePerKg: '',
@@ -238,12 +237,8 @@ export default function PostTrip() {
             setError('Please complete the route details.');
             return;
         }
-        if (!formData.departureDate || !formData.arrivalDate) {
-            setError('Please select departure and arrival dates.');
-            return;
-        }
-        if (new Date(formData.arrivalDate) < new Date(formData.departureDate)) {
-            setError('Arrival date cannot be before departure date.');
+        if (!formData.departureDate) {
+            setError('Please select a departure date.');
             return;
         }
         if (formData.originCountry === formData.destinationCountry && formData.originCity === formData.destinationCity) {
@@ -284,7 +279,6 @@ export default function PostTrip() {
                 toLocation: `${formData.destinationCity}, ${formData.destinationCountry}`,
                 toCountry: formData.destinationCountry,
                 departureDate: formData.departureDate,
-                arrivalDate: formData.arrivalDate,
                 availableKg: parseFloat(formData.availableWeight),
                 travelMeans: formData.transportMode,
                 pricePerKg: parseFloat(formData.pricePerKg),
@@ -420,27 +414,15 @@ export default function PostTrip() {
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                        <div>
-                                            <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('departureLabel')}</label>
-                                            <input
-                                                type="date"
-                                                name="departureDate"
-                                                value={formData.departureDate}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('arrivalLabel')}</label>
-                                            <input
-                                                type="date"
-                                                name="arrivalDate"
-                                                value={formData.arrivalDate}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-                                            />
-                                        </div>
+                                                    <div className="mb-8">
+                                        <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('departureLabel')}</label>
+                                        <input
+                                            type="date"
+                                            name="departureDate"
+                                            value={formData.departureDate}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                        />
                                     </div>
                                 </div>
 
@@ -677,10 +659,6 @@ export default function PostTrip() {
                                         <p className="text-xs font-black text-[#5845D8] uppercase tracking-[3px] mb-3">{t('destination')}</p>
                                         <h3 className="text-xl font-black text-[#012126] uppercase mb-1">{formData.destinationCity || 'Any City'}</h3>
                                         <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter">{formData.destinationCountry}</p>
-                                        <div className="mt-4 flex items-center justify-center md:justify-end gap-2 text-[10px] font-black text-gray-400">
-                                            <Calendar size={14} className="text-[#5845D8]/50" />
-                                            {t('arrival')}: {formData.arrivalDate}
-                                        </div>
                                     </div>
                                 </div>
 
