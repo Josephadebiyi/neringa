@@ -13,7 +13,9 @@ class UserModel {
   final String role; // 'sender' | 'carrier'
   final bool isVerified;
   final bool emailVerified;
-  final String? kycStatus; // 'pending' | 'approved' | 'rejected'
+  final bool phoneVerified;
+  // KYC statuses: not_started | pending | approved | rejected | expired | manual_review
+  final String? kycStatus;
   final double walletBalance;
   final double escrowBalance;
   final String currency;
@@ -26,7 +28,8 @@ class UserModel {
   final bool bankAccountLinked;
   final String? stripeConnectAccountId;
   final bool stripeVerified;
-  final String? signupMethod; // 'email' | 'google'
+  final String? signupMethod; // 'email' | 'google' | 'apple'
+  final DateTime? termsAcceptedAt;
 
   const UserModel({
     required this.id,
@@ -39,6 +42,7 @@ class UserModel {
     this.role = 'sender',
     this.isVerified = false,
     this.emailVerified = false,
+    this.phoneVerified = false,
     this.kycStatus,
     this.walletBalance = 0.0,
     this.escrowBalance = 0.0,
@@ -53,17 +57,53 @@ class UserModel {
     this.stripeConnectAccountId,
     this.stripeVerified = false,
     this.signupMethod,
+    this.termsAcceptedAt,
   });
 
   bool get isCarrier => _normalizeRole(role) == 'carrier';
   bool get isSender => _normalizeRole(role) == 'sender';
   bool get isKycApproved => hasPassedKyc;
   bool get isGoogleUser => signupMethod == 'google';
+  bool get isAppleUser => signupMethod == 'apple';
+  bool get isSocialSignup => signupMethod == 'google' || signupMethod == 'apple';
+
   bool get hasPassedKyc {
     final normalized = kycStatus?.trim().toLowerCase() ?? '';
     return normalized == 'approved' ||
         normalized == 'verified' ||
         normalized == 'completed';
+  }
+
+  /// Whether this sender can create a shipment (all verification gates passed).
+  bool get canSendShipment {
+    if (isSocialSignup) return phoneVerified;
+    return emailVerified;
+  }
+
+  /// Whether this traveler can post a trip.
+  bool get canPostTrip => hasPassedKyc;
+
+  /// Whether this user can withdraw funds.
+  bool get canWithdraw => hasPassedKyc;
+
+  String get kycDisplayStatus {
+    switch (kycStatus?.toLowerCase()) {
+      case 'approved':
+      case 'verified':
+      case 'completed':
+        return 'Verified';
+      case 'pending':
+        return 'Pending Review';
+      case 'rejected':
+      case 'declined':
+        return 'Rejected';
+      case 'expired':
+        return 'Expired';
+      case 'manual_review':
+        return 'Under Review';
+      default:
+        return 'Not Started';
+    }
   }
 
   UserModel copyWith({
@@ -77,6 +117,7 @@ class UserModel {
     String? role,
     bool? isVerified,
     bool? emailVerified,
+    bool? phoneVerified,
     String? kycStatus,
     double? walletBalance,
     double? escrowBalance,
@@ -91,16 +132,8 @@ class UserModel {
     String? stripeConnectAccountId,
     bool? stripeVerified,
     String? signupMethod,
+    DateTime? termsAcceptedAt,
   }) {
-    final resolvedIsVerified = isVerified ?? this.isVerified;
-    final resolvedEmailVerified = emailVerified ?? this.emailVerified;
-    final resolvedBiometricEnabled =
-        biometricEnabled ?? this.biometricEnabled;
-    final resolvedAcceptedTerms = acceptedTerms ?? this.acceptedTerms;
-    final resolvedBankAccountLinked =
-        bankAccountLinked ?? this.bankAccountLinked;
-    final resolvedStripeVerified = stripeVerified ?? this.stripeVerified;
-
     return UserModel(
       id: id ?? this.id,
       email: email ?? this.email,
@@ -110,8 +143,9 @@ class UserModel {
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       profilePicture: profilePicture ?? this.profilePicture,
       role: _normalizeRole(role ?? this.role),
-      isVerified: resolvedIsVerified,
-      emailVerified: resolvedEmailVerified,
+      isVerified: isVerified ?? this.isVerified,
+      emailVerified: emailVerified ?? this.emailVerified,
+      phoneVerified: phoneVerified ?? this.phoneVerified,
       kycStatus: kycStatus ?? this.kycStatus,
       walletBalance: walletBalance ?? this.walletBalance,
       escrowBalance: escrowBalance ?? this.escrowBalance,
@@ -120,13 +154,13 @@ class UserModel {
       bio: bio ?? this.bio,
       rating: rating ?? this.rating,
       ratingCount: ratingCount ?? this.ratingCount,
-      biometricEnabled: resolvedBiometricEnabled,
-      acceptedTerms: resolvedAcceptedTerms,
-      bankAccountLinked: resolvedBankAccountLinked,
-      stripeConnectAccountId:
-          stripeConnectAccountId ?? this.stripeConnectAccountId,
-      stripeVerified: resolvedStripeVerified,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      acceptedTerms: acceptedTerms ?? this.acceptedTerms,
+      bankAccountLinked: bankAccountLinked ?? this.bankAccountLinked,
+      stripeConnectAccountId: stripeConnectAccountId ?? this.stripeConnectAccountId,
+      stripeVerified: stripeVerified ?? this.stripeVerified,
       signupMethod: signupMethod ?? this.signupMethod,
+      termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
     );
   }
 
@@ -145,10 +179,9 @@ class UserModel {
             json['profilePicture']?.toString() ??
             json['image']?.toString(),
         role: _normalizeRole(json['role']?.toString() ?? 'sender'),
-        isVerified:
-            json['is_verified'] == true || json['isVerified'] == true,
-        emailVerified: json['emailVerified'] == true ||
-            json['email_verified'] == true,
+        isVerified: json['is_verified'] == true || json['isVerified'] == true,
+        emailVerified: json['emailVerified'] == true || json['email_verified'] == true,
+        phoneVerified: json['phoneVerified'] == true || json['phone_verified'] == true,
         kycStatus: json['kyc_status']?.toString() ?? json['kycStatus']?.toString(),
         walletBalance: JsonParser.parseDoubleFirst(json, ['wallet_balance', 'walletBalance']),
         escrowBalance: JsonParser.parseDoubleFirst(json, ['escrow_balance', 'escrowBalance']),
@@ -163,13 +196,15 @@ class UserModel {
         bankAccountLinked: json['bank_account_linked'] == true || json['bankAccountLinked'] == true,
         stripeConnectAccountId: json['stripeConnectAccountId']?.toString() ??
             json['stripe_connect_account_id']?.toString(),
-        stripeVerified:
-            json['stripeVerified'] == true || json['stripe_verified'] == true,
+        stripeVerified: json['stripeVerified'] == true || json['stripe_verified'] == true,
         signupMethod: json['signupMethod']?.toString() ?? json['signup_method']?.toString(),
         preferredCurrency: json['preferredCurrency']?.toString() ??
             json['preferred_currency']?.toString() ??
             json['currency']?.toString() ??
             '',
+        termsAcceptedAt: json['termsAcceptedAt'] != null
+            ? DateTime.tryParse(json['termsAcceptedAt'].toString())
+            : null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -183,6 +218,7 @@ class UserModel {
         'role': _normalizeRole(role),
         'is_verified': isVerified,
         'emailVerified': emailVerified,
+        'phoneVerified': phoneVerified,
         'kyc_status': kycStatus,
         'wallet_balance': walletBalance,
         'escrow_balance': escrowBalance,
@@ -193,6 +229,7 @@ class UserModel {
         'rating_count': ratingCount,
         'stripeConnectAccountId': stripeConnectAccountId,
         'stripeVerified': stripeVerified,
+        'signupMethod': signupMethod,
       };
 
   String toJsonString() => jsonEncode(toJson());

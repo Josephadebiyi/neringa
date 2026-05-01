@@ -30,6 +30,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ImagePlay,
+  Package,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
   { icon: CreditCard,      label: "Withdrawals",        path: "/withdrawals" },
   { icon: Send,            label: "Broadcast Center",   path: "/push-notification" },
   { icon: ImagePlay,       label: "Promo Banners",      path: "/banners" },
+  { icon: Package,         label: "Item Categories",    path: "/item-categories" },
   { icon: User,            label: "My Profile",         path: "/profile" },
   { icon: BarChart,        label: "Analytics",          path: "/analytics" },
   { icon: Settings,        label: "System Settings",    path: "/settings" },

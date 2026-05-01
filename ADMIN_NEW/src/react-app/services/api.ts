@@ -475,4 +475,38 @@ export async function updateAdminProfile(formData: FormData) {
   return response.json();
 }
 
+// Item Categories
+export async function getItemCategories() {
+  return apiCall(`${ADMIN_API}/item-categories`);
+}
+
+export async function createItemCategory(data: {
+  name: string;
+  slug: string;
+  description?: string;
+  risk_level: 'allowed' | 'medium' | 'prohibited';
+  is_active?: boolean;
+}) {
+  return apiCall(`${ADMIN_API}/item-categories`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateItemCategory(id: string, data: Partial<{
+  name: string;
+  description: string;
+  risk_level: 'allowed' | 'medium' | 'prohibited';
+  is_active: boolean;
+}>) {
+  return apiCall(`${ADMIN_API}/item-categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteItemCategory(id: string) {
+  return apiCall(`${ADMIN_API}/item-categories/${id}`, { method: 'DELETE' });
+}
+
 export { API_BASE, ADMIN_API, MAIN_API };

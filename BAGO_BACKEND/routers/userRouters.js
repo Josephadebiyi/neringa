@@ -22,6 +22,13 @@ import {
 } from '../controllers/postgresPaymentMethodController.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
+import {
+  acceptShipmentTerms,
+  getTermsStatus,
+  sendPhoneVerificationOtp,
+  verifyPhoneOtp,
+  getItemCategories,
+} from '../controllers/SenderOnboardingController.js';
 import fileUpload from 'express-fileupload';
 
 
@@ -224,6 +231,17 @@ userRouter.post('/support/tickets', isAuthenticated, createTicket);
 userRouter.get('/support/tickets', isAuthenticated, listMyTickets);
 userRouter.get('/support/tickets/:id', isAuthenticated, getMyTicket);
 userRouter.post('/support/tickets/:id/message', isAuthenticated, sendUserMessage);
+
+// 📋 Shipment Terms
+userRouter.post('/shipment-terms/accept', isAuthenticated, acceptShipmentTerms);
+userRouter.get('/shipment-terms/status', isAuthenticated, getTermsStatus);
+
+// 📱 Phone Verification (for Google/Apple signup users)
+userRouter.post('/phone/send-otp', isAuthenticated, sendPhoneVerificationOtp);
+userRouter.post('/phone/verify', isAuthenticated, verifyPhoneOtp);
+
+// 📦 Item Categories (public)
+userRouter.get('/item-categories', getItemCategories);
 
 // 🌍 Public Routes (No Auth)
 userRouter.get('/public/track/:trackingNumber', getPublicTrackingByNumber);

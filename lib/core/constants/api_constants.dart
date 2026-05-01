@@ -184,4 +184,13 @@ class ApiConstants {
   // ---------------------------------------------------------------------------
   static const String supportTickets = '/api/bago/support/tickets';
   static const String banners = '/api/bago/banners';
+
+  // ---------------------------------------------------------------------------
+  // Sender onboarding
+  // ---------------------------------------------------------------------------
+  static const String shipmentTermsAccept = '/api/bago/shipment-terms/accept';
+  static const String shipmentTermsStatus = '/api/bago/shipment-terms/status';
+  static const String phoneSendOtp = '/api/bago/phone/send-otp';
+  static const String phoneVerifyOtp = '/api/bago/phone/verify';
+  static const String itemCategories = '/api/bago/item-categories';
 }

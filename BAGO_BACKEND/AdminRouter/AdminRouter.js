@@ -79,6 +79,12 @@ import {
   verifyAdminCredentialChange,
 } from '../controllers/AdminControllers/AdminCredentialsController.js';
 import { approveRefund, getAllRefunds, rejectRefund } from '../controllers/refundController.js';
+import {
+  adminListItemCategories,
+  adminCreateItemCategory,
+  adminUpdateItemCategory,
+  adminDeleteItemCategory,
+} from '../controllers/SenderOnboardingController.js';
 
 const AdminRouter = express.Router();
 
@@ -204,5 +210,11 @@ AdminRouter.post("/credentials/verify-change", adminAuthenticated, verifyAdminCr
 // KYC sweep — force-check all pending DIDIT sessions right now
 import { runKycSweep } from '../controllers/AdminControllers/KycSweepController.js';
 AdminRouter.post("/kyc/sweep", adminAuthenticated, runKycSweep);
+
+// Item Categories Management
+AdminRouter.get("/item-categories", adminAuthenticated, adminListItemCategories);
+AdminRouter.post("/item-categories", adminAuthenticated, adminCreateItemCategory);
+AdminRouter.put("/item-categories/:id", adminAuthenticated, validateUuidParam('id'), adminUpdateItemCategory);
+AdminRouter.delete("/item-categories/:id", adminAuthenticated, validateUuidParam('id'), adminDeleteItemCategory);
 
 export default AdminRouter

@@ -361,6 +361,11 @@ class _AboutTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
+        // ── Carrier KYC banner ────────────────────────────────────────────
+        if (isCarrier && !isVerified) ...[
+          _CarrierKycBanner(kycStatus: kycStatus),
+          const SizedBox(height: 24),
+        ],
         BagoSectionLabel(l10n.verificationStatus),
         BagoMenuGroup(
           children: [
@@ -612,6 +617,163 @@ class _RoleButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CarrierKycBanner extends StatelessWidget {
+  const _CarrierKycBanner({required this.kycStatus});
+  final String? kycStatus;
+
+  Color get _statusColor {
+    switch (kycStatus?.toLowerCase()) {
+      case 'pending':
+      case 'manual_review':
+        return AppColors.warning;
+      case 'rejected':
+      case 'declined':
+      case 'expired':
+        return AppColors.error;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  String get _statusLabel {
+    switch (kycStatus?.toLowerCase()) {
+      case 'pending':
+        return 'Pending Review';
+      case 'manual_review':
+        return 'Under Review';
+      case 'rejected':
+      case 'declined':
+        return 'Rejected — try again';
+      case 'expired':
+        return 'Expired — re-verify';
+      default:
+        return 'Not started';
+    }
+  }
+
+  String get _bodyText {
+    switch (kycStatus?.toLowerCase()) {
+      case 'pending':
+      case 'manual_review':
+        return 'Your identity verification is under review. You\'ll be notified once it\'s approved.';
+      case 'rejected':
+      case 'declined':
+        return 'Your verification was rejected. Re-submit your documents to start accepting shipments.';
+      case 'expired':
+        return 'Your verification has expired. Re-verify your identity to continue earning.';
+      default:
+        return 'Verify your identity with Didit KYC to post trips, accept shipments, and withdraw earnings.';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isPending = kycStatus?.toLowerCase() == 'pending' ||
+        kycStatus?.toLowerCase() == 'manual_review';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _statusColor.withValues(alpha: 0.12),
+            _statusColor.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _statusColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              isPending ? Icons.hourglass_top_rounded : Icons.shield_outlined,
+              color: _statusColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Identity Verification',
+                        style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _statusLabel,
+                        style: AppTextStyles.labelXs.copyWith(
+                          color: _statusColor,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _bodyText,
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.gray600,
+                    height: 1.5,
+                  ),
+                ),
+                if (!isPending) ...[
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => context.push('/kyc'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _statusColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.fingerprint_rounded, color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Verify Identity',
+                            style: AppTextStyles.labelSm.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

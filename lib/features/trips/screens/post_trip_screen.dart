@@ -403,9 +403,38 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       }
       final user = ref.read(authProvider).user;
       if (user?.hasPassedKyc != true) {
-        AppSnackBar.show(context,
-            message: l10n.identityVerificationRequiredTrip,
-            type: SnackBarType.error);
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Identity Verification Required'),
+            content: Text(
+              user?.kycStatus == 'pending' || user?.kycStatus == 'manual_review'
+                  ? 'Your identity verification is still under review. You\'ll be able to post trips once approved.'
+                  : 'Travelers must verify their identity before posting trips. Complete your Didit KYC to start earning.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              if (user?.kycStatus != 'pending' && user?.kycStatus != 'manual_review')
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    context.push('/kyc');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5C4BFD),
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: const Text('Verify Identity'),
+                ),
+            ],
+          ),
+        );
         return;
       }
       try {

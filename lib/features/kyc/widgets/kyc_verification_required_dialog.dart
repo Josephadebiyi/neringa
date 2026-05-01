@@ -91,7 +91,7 @@ class KycVerificationRequiredDialog extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'This is a secure process that takes just a few minutes. We'll verify your identity and activate your account.',
+            "This is a secure process that takes just a few minutes. We'll verify your identity and activate your account.",
             style: AppTextStyles.muted(AppTextStyles.bodySm),
           ),
         ],
@@ -104,17 +104,15 @@ class KycVerificationRequiredDialog extends StatelessWidget {
         AppButton(
           label: 'Start Verification',
           onPressed: () async {
-            context.pop(); // Close dialog
-            // Navigate to KYC screen; return true if verified
+            context.pop();
             final verified = await context.push<bool?>(
               '/kyc',
               extra: {'fromOnboarding': fromOnboarding},
             );
             if (context.mounted && verified == true) {
-              context.pop(true); // Return success to caller
+              context.pop(true);
             }
           },
-          isCompact: true,
         ),
       ],
     );
@@ -131,7 +129,7 @@ class KycVerificationRequiredDialog extends StatelessWidget {
     if (normalized == 'declined' ||
         normalized == 'failed_verification' ||
         normalized == 'blocked_duplicate') {
-      return AppColors.danger;
+      return AppColors.error;
     }
     return AppColors.warning;
   }

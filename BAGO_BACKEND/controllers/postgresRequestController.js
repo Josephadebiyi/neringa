@@ -31,6 +31,9 @@ import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { queryOne } from '../lib/postgres/db.js';
 import { verifyPayment as verifyPaystackPaymentRef } from '../services/paystackService.js';
 import { getAppSettings } from './AdminControllers/setting.js';
+import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingController.js';
+import { findProfileById } from '../lib/postgres/profiles.js';
+import { createAuditLog } from '../lib/postgres/audit.js';
 
 let stripeClient = null;
 function getStripeClient() {
@@ -98,11 +101,100 @@ export async function RequestPackage(req, res) {
     if (!senderId || !travelerId || !packageId || !tripId) {
       return res.status(400).json({ message: 'All required fields must be provided' });
     }
-    if (!termsAccepted) {
-      return res.status(400).json({ message: 'You must accept the terms and conditions to proceed', code: 'TERMS_NOT_ACCEPTED' });
-    }
     if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
       return res.status(400).json({ message: 'A valid positive amount must be provided' });
+    }
+
+    // ── Sender verification gates ───────────────────────────────────────────
+    const senderProfile = await findProfileById(senderId);
+    if (!senderProfile) {
+      return res.status(404).json({ message: 'Sender profile not found.' });
+    }
+
+    const signupMethod = senderProfile.signupMethod || 'email';
+
+    if (signupMethod === 'email' && !senderProfile.emailVerified) {
+      return res.status(403).json({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email address before sending a shipment.',
+      });
+    }
+
+    if (['google', 'apple'].includes(signupMethod) && !senderProfile.phoneVerified) {
+      return res.status(403).json({
+        code: 'PHONE_NOT_VERIFIED',
+        message: 'Please verify your mobile number before sending a shipment.',
+      });
+    }
+
+    const hasAcceptedTerms = await checkTermsAccepted(senderId);
+    if (!hasAcceptedTerms) {
+      return res.status(403).json({
+        code: 'TERMS_NOT_ACCEPTED',
+        message: 'Please read and accept the Bago shipment rules before continuing.',
+      });
+    }
+
+    // ── Item category validation ────────────────────────────────────────────
+    const packageDoc = await getPackageById(packageId);
+    if (!packageDoc || packageDoc.userId !== senderId) {
+      return res.status(404).json({ message: 'Package not found or not owned by sender' });
+    }
+
+    if (packageDoc.category) {
+      const cat = await getItemCategoryBySlug(packageDoc.category);
+      if (cat && cat.risk_level === 'prohibited') {
+        await createAuditLog({
+          actorUserId: senderId,
+          action: 'prohibited_item_blocked',
+          targetType: 'package',
+          targetId: packageId,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          metadata: { category: packageDoc.category, categoryName: cat.name },
+        });
+        return res.status(403).json({
+          code: 'PROHIBITED_ITEM',
+          message: `"${cat.name}" is a prohibited item on Bago. Shipment cannot be created.`,
+          category: cat,
+        });
+      }
+      if (cat && cat.risk_level === 'medium') {
+        await createAuditLog({
+          actorUserId: senderId,
+          action: 'medium_risk_item_flagged',
+          targetType: 'package',
+          targetId: packageId,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          metadata: { category: packageDoc.category, declaredValue: packageDoc.declaredValue },
+        });
+      }
+
+      // High-value sender KYC risk trigger
+      const settings = await getAppSettings().catch(() => ({}));
+      const kycValueThreshold = Number(settings?.kycDeclaredValueThreshold ?? 5000);
+      const declaredValue = Number(packageDoc.declaredValue ?? packageDoc.value ?? 0);
+      if (declaredValue >= kycValueThreshold && senderProfile.kycStatus !== 'approved') {
+        await createAuditLog({
+          actorUserId: senderId,
+          action: 'sender_kyc_triggered',
+          targetType: 'package',
+          targetId: packageId,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          metadata: { declaredValue, threshold: kycValueThreshold, reason: 'high_value' },
+        });
+        return res.status(403).json({
+          code: 'SENDER_KYC_REQUIRED',
+          message: `Items declared above $${kycValueThreshold} require identity verification. Please complete KYC in your profile.`,
+          kycRequired: true,
+        });
+      }
+    }
+
+    if (!termsAccepted) {
+      return res.status(400).json({ message: 'You must accept the terms and conditions to proceed', code: 'TERMS_NOT_ACCEPTED' });
     }
 
     let existingRequest = null;
@@ -121,11 +213,6 @@ export async function RequestPackage(req, res) {
         `,
         [senderId, travelerId, packageId, tripId, paymentReference],
       );
-    }
-
-    const packageDoc = await getPackageById(packageId);
-    if (!packageDoc || packageDoc.userId !== senderId) {
-      return res.status(404).json({ message: 'Package not found or not owned by sender' });
     }
 
     const tripDoc = await getTripById(tripId);

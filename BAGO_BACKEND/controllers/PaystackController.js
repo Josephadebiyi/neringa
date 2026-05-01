@@ -331,9 +331,17 @@ export const withdrawFundsPaystack = async (req, res) => {
     }
 
     const profile = await queryOne(
-      `SELECT available_balance, paystack_recipient_code FROM public.profiles WHERE id = $1`,
+      `SELECT available_balance, paystack_recipient_code, kyc_status FROM public.profiles WHERE id = $1`,
       [user.id]
     );
+
+    if (!profile || profile.kyc_status !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        code: 'KYC_REQUIRED',
+        message: 'Identity verification is required before withdrawing funds. Please complete Didit KYC in your profile.',
+      });
+    }
 
     if (!profile || !profile.paystack_recipient_code) {
       return res.status(400).json({ success: false, message: 'No bank account linked. Please add a bank account first.' });

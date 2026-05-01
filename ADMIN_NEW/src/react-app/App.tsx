@@ -27,6 +27,7 @@ import PromoCodesPage from "./pages/PromoCodes"
 import OrdersPage from "./pages/Orders"
 import BannersPage from "./pages/Banners"
 import ProfilePage from "./pages/Profile"
+import ItemCategoriesPage from "./pages/ItemCategories"
 
 export default function App() {
   return (
@@ -262,6 +263,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <LocationsPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/item-categories"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <ItemCategoriesPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

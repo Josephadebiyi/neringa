@@ -15,7 +15,6 @@ import {
 import { getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { getExchangeRate, convertCurrency } from '../services/currencyConverter.js';
 import { sendNewTripAdminNotification } from '../services/emailNotifications.js';
-import { query } from '../lib/postgres/db.js';
 
 // Upload base64 travel document to Cloudinary and return the secure URL
 async function uploadTravelDocument(base64DataUri, userId) {
@@ -73,6 +72,15 @@ export const AddAtrip = async (req, res, next) => {
       return res.status(403).json({
         message: "Please set your wallet receiving currency in your profile settings before posting a trip.",
         errorType: "WALLET_CURRENCY_REQUIRED"
+      });
+    }
+
+    // ── Traveler must have approved KYC before posting trips ──
+    if (user.kycStatus !== 'approved') {
+      return res.status(403).json({
+        message: "Identity verification is required before you can post trips. Please complete Didit KYC in your profile.",
+        errorType: "KYC_REQUIRED",
+        kycStatus: user.kycStatus || 'not_started',
       });
     }
 

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -242,6 +242,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/request-shipment/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
+          if (state.extra is Map<String, dynamic>) {
+            final extra = state.extra as Map<String, dynamic>;
+            final trip = extra['trip'] as TripModel?;
+            final itemData = extra['itemData'] as Map<String, dynamic>?;
+            return RequestShipmentScreen(tripId: id, initialTrip: trip, preFilledData: itemData);
+          }
           final trip = state.extra is TripModel ? state.extra as TripModel : null;
           return RequestShipmentScreen(tripId: id, initialTrip: trip);
         },
