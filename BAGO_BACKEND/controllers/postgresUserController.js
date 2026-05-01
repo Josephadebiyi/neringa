@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
+import twilio from 'twilio';
 
 import { Resend } from 'resend';
 import {
@@ -37,6 +38,21 @@ const FALLBACK_GOOGLE_WEB_CLIENT_ID =
 const FALLBACK_GOOGLE_IOS_CLIENT_ID =
   '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com';
 const FALLBACK_APPLE_AUDIENCE = 'com.deracali.boltexponativewind';
+
+function getTwilioClient() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+
+  if (!accountSid || !authToken || !fromNumber) {
+    return null;
+  }
+
+  return {
+    client: twilio(accountSid, authToken),
+    fromNumber,
+  };
+}
 
 function getAllowedAppleAudiences() {
   return [
@@ -828,16 +844,21 @@ export async function requestPhoneChange(req, res) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await setPendingPhoneChange(user.id, newPhone.trim(), otp, new Date(Date.now() + 15 * 60 * 1000));
 
-    if (resend) {
-      await resend.emails.send({
-        from: 'Bago <no-reply@sendwithbago.com>',
-        to: user.email,
-        subject: 'Verify your new phone number',
-        html: generateOtpEmailHtml({ firstName: user.firstName || 'there', otp, subtitle: 'Use this code to verify your new phone number.', expiryNote: 'This code expires in 15 minutes.' }),
-      }).catch(() => {});
+    const sms = getTwilioClient();
+    if (!sms) {
+      return res.status(500).json({
+        success: false,
+        message: 'SMS verification is not configured. Please set Twilio credentials.',
+      });
     }
 
-    res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
+    await sms.client.messages.create({
+      body: `Your Bago verification code is: ${otp}. Expires in 15 minutes.`,
+      from: sms.fromNumber,
+      to: newPhone.trim(),
+    });
+
+    res.status(200).json({ success: true, message: 'Verification code sent by SMS.' });
   } catch (error) {
     console.error('requestPhoneChange error:', error);
     res.status(500).json({ message: error.message });
