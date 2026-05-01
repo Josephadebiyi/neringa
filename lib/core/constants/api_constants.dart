@@ -76,6 +76,8 @@ class ApiConstants {
   static const String requestPhoneChange =
       '/api/bago/user/request-phone-change';
   static const String verifyPhoneChange = '/api/bago/user/verify-phone-change';
+  static const String sendPhoneVerificationOtp = '/api/bago/phone/send-otp';
+  static const String verifyPhoneVerificationOtp = '/api/bago/phone/verify';
 
   // ---------------------------------------------------------------------------
   // KYC

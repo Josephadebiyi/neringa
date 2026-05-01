@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api, { removeToken } from './api';
+import api, { removeToken, saveToken } from './api';
 
 const AuthContext = createContext({});
 
@@ -32,7 +32,8 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     };
 
-    const login = (userData) => {
+    const login = (userData, token, refreshToken) => {
+        saveToken(token, refreshToken);
         setUser(userData);
         setIsAuthenticated(true);
     };
