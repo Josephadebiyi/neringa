@@ -91,6 +91,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         email: user?.email ?? '',
                         phone: user?.phone,
                         isVerified: isVerified,
+                        phoneVerified: user?.phoneVerified ?? false,
                         kycStatus: user?.kycStatus,
                         profilePicture: user?.profilePicture,
                         isCarrier: isCarrier,
@@ -188,6 +189,7 @@ class _AboutTab extends StatelessWidget {
     required this.email,
     required this.phone,
     required this.isVerified,
+    required this.phoneVerified,
     required this.kycStatus,
     required this.profilePicture,
     required this.isCarrier,
@@ -200,6 +202,7 @@ class _AboutTab extends StatelessWidget {
   final String email;
   final String? phone;
   final bool isVerified;
+  final bool phoneVerified;
   final String? kycStatus;
   final String? profilePicture;
   final bool isCarrier;
@@ -390,10 +393,27 @@ class _AboutTab extends StatelessWidget {
             ),
             BagoMenuItem(
               label: '${l10n.phoneLabel}: ${phone ?? l10n.notSet}',
-              leading:
-                  const Icon(Icons.phone_outlined, color: AppColors.gray600),
+              leading: const Icon(Icons.phone_outlined, color: AppColors.gray600),
               onTap: () => context.push('/profile/change-phone'),
               showDivider: false,
+              trailing: phone != null && !phoneVerified
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3CD),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFFD600)),
+                      ),
+                      child: const Text(
+                        'Unverified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF856404),
+                        ),
+                      ),
+                    )
+                  : null,
             ),
           ],
         ),

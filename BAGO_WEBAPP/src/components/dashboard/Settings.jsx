@@ -33,6 +33,14 @@ export default function Settings({ user, checkAuthStatus }) {
     const [stripeVerified, setStripeVerified] = useState(user?.stripeVerified || false);
     const [stripeLoading, setStripeLoading] = useState(false);
 
+    // Phone verification state
+    const [phone, setPhone] = useState(user?.phone || '');
+    const [phoneVerified] = useState(user?.phoneVerified || false);
+    const [showPhoneOtp, setShowPhoneOtp] = useState(false);
+    const [phoneOtp, setPhoneOtp] = useState('');
+    const [phoneLoading, setPhoneLoading] = useState(false);
+    const [phoneSuccess, setPhoneSuccess] = useState(false);
+
     useEffect(() => {
         if (user?._id) {
             checkStripeStatus();
@@ -70,6 +78,38 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
+
+    const handleSendPhoneOtp = async (e) => {
+        e.preventDefault();
+        if (!phone || phone.length < 7) return;
+        setPhoneLoading(true);
+        setError('');
+        try {
+            await api.post('/api/bago/user/request-phone-change', { newPhone: phone });
+            setShowPhoneOtp(true);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to send verification code.');
+        } finally {
+            setPhoneLoading(false);
+        }
+    };
+
+    const handleVerifyPhoneOtp = async () => {
+        if (!phoneOtp || phoneOtp.length < 4) return;
+        setPhoneLoading(true);
+        setError('');
+        try {
+            await api.post('/api/bago/user/verify-phone-change', { otp: phoneOtp });
+            setShowPhoneOtp(false);
+            setPhoneOtp('');
+            setPhoneSuccess(true);
+            if (checkAuthStatus) checkAuthStatus();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Invalid verification code.');
+        } finally {
+            setPhoneLoading(false);
+        }
+    };
 
     const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR'];
     const isAfricanCurrency = africanCurrencies.includes(preferredCurrency?.toUpperCase());
@@ -333,6 +373,84 @@ export default function Settings({ user, checkAuthStatus }) {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* Phone Verification */}
+            <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-50 pb-3 mb-4">
+                    <div className="flex items-center gap-2">
+                        <Shield className="text-[#5845D8]" size={16} />
+                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Phone Number</h3>
+                    </div>
+                    {phoneVerified || phoneSuccess ? (
+                        <span className="flex items-center gap-1 text-green-600 font-black text-[8px] uppercase tracking-widest">
+                            <CheckCircle size={12} /> Verified
+                        </span>
+                    ) : (
+                        <span className="flex items-center gap-1 text-amber-600 font-black text-[8px] uppercase tracking-widest">
+                            <AlertCircle size={12} /> Unverified
+                        </span>
+                    )}
+                </div>
+
+                {phoneVerified || phoneSuccess ? (
+                    <div className="flex items-center gap-3 bg-green-50/50 rounded-xl p-3 border border-green-100">
+                        <CheckCircle className="text-green-600 shrink-0" size={16} />
+                        <div>
+                            <p className="font-black text-[10px] text-green-700 uppercase tracking-widest">Phone Verified</p>
+                            <p className="text-[9px] text-gray-400 font-bold mt-0.5">{phone || user?.phone}</p>
+                        </div>
+                    </div>
+                ) : !showPhoneOtp ? (
+                    <form onSubmit={handleSendPhoneOtp} className="space-y-4">
+                        <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
+                                {user?.phone ? 'Current Phone' : 'Phone Number'}
+                            </label>
+                            <input
+                                type="tel"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                placeholder="+2348012345678"
+                                className="w-full px-4 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[11px] transition-all"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={!phone || phoneLoading}
+                            className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {phoneLoading ? <RefreshCw className="animate-spin" size={12} /> : null}
+                            {user?.phone ? 'Send Code to Verify' : 'Add & Verify Phone'}
+                        </button>
+                    </form>
+                ) : (
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                        <p className="text-[9px] text-gray-500 font-bold">We sent a 6-digit code to <strong>{phone}</strong> via SMS.</p>
+                        <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Verification Code</label>
+                            <input
+                                type="text"
+                                maxLength={6}
+                                value={phoneOtp}
+                                onChange={(e) => setPhoneOtp(e.target.value)}
+                                placeholder="000000"
+                                className="w-full px-4 py-2.5 bg-[#5845D8]/5 rounded-xl border border-[#5845D8]/20 outline-none focus:border-[#5845D8] font-black text-center text-sm tracking-[8px]"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleVerifyPhoneOtp}
+                                disabled={phoneLoading || phoneOtp.length < 4}
+                                className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {phoneLoading ? <RefreshCw className="animate-spin" size={12} /> : null}
+                                Verify
+                            </button>
+                            <button onClick={() => { setShowPhoneOtp(false); setPhoneOtp(''); }} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">Cancel</button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Payout Settings */}

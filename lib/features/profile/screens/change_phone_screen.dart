@@ -23,6 +23,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
   final _otpCtrl = TextEditingController();
   int _step = 1; // 1 = enter phone, 2 = enter OTP, 3 = success
   bool _loading = false;
+  bool _isVerifyMode = false; // true when user has a phone but it's not verified
   PhoneCountry _country = allPhoneCountries.firstWhere(
     (c) => c.code == 'NG',
     orElse: () => allPhoneCountries.first,
@@ -31,8 +32,31 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
   @override
   void initState() {
     super.initState();
-    final existing = ref.read(authProvider).user?.phone ?? '';
-    _phoneCtrl.text = existing.startsWith('+') ? '' : existing;
+    final user = ref.read(authProvider).user;
+    final existing = user?.phone ?? '';
+    final isVerified = user?.phoneVerified ?? true;
+
+    if (existing.isNotEmpty && !isVerified) {
+      _isVerifyMode = true;
+      _prefillFromPhone(existing);
+    }
+  }
+
+  void _prefillFromPhone(String phone) {
+    if (!phone.startsWith('+')) {
+      _phoneCtrl.text = phone;
+      return;
+    }
+    final sorted = List<PhoneCountry>.from(allPhoneCountries)
+      ..sort((a, b) => b.dialCode.length.compareTo(a.dialCode.length));
+    for (final c in sorted) {
+      if (phone.startsWith(c.dialCode)) {
+        _country = c;
+        _phoneCtrl.text = phone.substring(c.dialCode.length);
+        return;
+      }
+    }
+    _phoneCtrl.text = phone.substring(1);
   }
 
   @override
@@ -152,10 +176,9 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       await AuthService.instance.requestPhoneChange(phone);
       if (!mounted) return;
       setState(() => _step = 2);
-      final email = ref.read(authProvider).user?.email ?? 'your email';
       AppSnackBar.show(
         context,
-        message: l10n.verificationCodeSentTo(email),
+        message: 'Verification code sent via SMS.',
         type: SnackBarType.success,
       );
     } catch (e) {
@@ -211,7 +234,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
           ),
         ),
         title: Text(
-          l10n.changePhoneNumberTitle,
+          _isVerifyMode ? 'Verify Phone Number' : l10n.changePhoneNumberTitle,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -237,13 +260,15 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       ),
       const SizedBox(height: 24),
       Text(
-        l10n.updateYourPhoneNumber,
+        _isVerifyMode ? 'Verify Your Phone Number' : l10n.updateYourPhoneNumber,
         style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black),
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 10),
       Text(
-        l10n.changePhoneDescription(email),
+        _isVerifyMode
+            ? 'Confirm your existing number with a one-time code sent via SMS.'
+            : 'Enter your new phone number. A code will be sent via SMS to confirm the change.',
         style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.5),
         textAlign: TextAlign.center,
       ),
@@ -272,7 +297,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
         Expanded(
           child: AppTextField(
             controller: _phoneCtrl,
-            label: l10n.newPhoneNumberLabel,
+            label: _isVerifyMode ? 'Your Phone Number' : l10n.newPhoneNumberLabel,
             hint: '800 000 0000',
             keyboardType: TextInputType.phone,
           ),
@@ -297,28 +322,19 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
           color: AppColors.primarySoft,
           borderRadius: BorderRadius.circular(40),
         ),
-        child: const Icon(Icons.mark_email_read_outlined, color: AppColors.primary, size: 36),
+        child: const Icon(Icons.sms_outlined, color: AppColors.primary, size: 36),
       ),
       const SizedBox(height: 24),
       Text(
-        l10n.confirmFromYourEmail,
+        'Enter the Code',
         style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900, color: AppColors.black),
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 10),
-      RichText(
+      Text(
+        'We sent a 6-digit code to ${_country.dialCode}${_phoneCtrl.text.trim()} via SMS. Enter it below.',
+        style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.5),
         textAlign: TextAlign.center,
-        text: TextSpan(
-          style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.5),
-          children: [
-            TextSpan(text: l10n.weSentVerificationCodeToPrefix),
-            TextSpan(
-              text: email,
-              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.black),
-            ),
-            TextSpan(text: l10n.weSentVerificationCodeToSuffix),
-          ],
-        ),
       ),
       const SizedBox(height: 40),
       AppTextField(
@@ -331,7 +347,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       ),
       const SizedBox(height: 32),
       _PrimaryBtn(
-        label: _loading ? null : l10n.updatePhoneNumber,
+        label: _loading ? null : (_isVerifyMode ? 'Verify Phone Number' : l10n.updatePhoneNumber),
         isLoading: _loading,
         onPressed: _verify,
       ),

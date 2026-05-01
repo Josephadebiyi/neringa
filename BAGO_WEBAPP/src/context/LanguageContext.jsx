@@ -581,7 +581,7 @@ const translations = {
         verifyAgain: 'Verify Again',
         blocked: 'Blocked',
         duplicateIdDesc: 'Duplicate ID usage.',
-        completeVerificationToPost: 'Complete verification to post trips or request secure deliveries.',
+        completeVerificationToPost: 'Complete verification to post trips and earn money.',
         postATrip: 'Post a Trip',
         monetizeLuggageDesc: 'Monetize luggage space & earn on the go.',
         getStarted: 'Get Started',

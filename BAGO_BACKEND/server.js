@@ -1557,7 +1557,7 @@ app.post("/api/bago/kyc/create-session", isAuthenticated, async (req, res) => {
 
     // Create session with DIDIT API - include userId in vendor_data as JSON
     const vendorData = JSON.stringify({
-      userId: user._id.toString(),
+      userId: (user.id || user._id).toString(),
       email: user.email
     });
 
