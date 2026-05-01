@@ -102,16 +102,12 @@ export default function Dashboard() {
     const fetchKycStatus = async () => {
         try {
             setKycLoading(true);
-            // Try the correct KYC status endpoint first
             try {
                 const res = await api.get('/api/bago/kyc/status');
                 const status = user?.kycStatus === 'approved' || user?.isKycCompleted
                     ? 'approved'
                     : res.data?.kycStatus || 'not_started';
                 setKycStatus(status);
-                if (status === 'approved') {
-                    checkAuthStatus();
-                }
             } catch {
                 // Fallback to old endpoint
                 const response = await api.get('/api/bago/getKyc');
