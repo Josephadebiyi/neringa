@@ -1,5 +1,6 @@
 import { query } from '../../lib/postgres/db.js';
 import { resend } from '../../server.js';
+import fetch from 'node-fetch';
 
 export const sendPromoEmail = async (req, res, next) => {
   const { subject, body, targetGroup, images, fileAttachments } = req.body;
@@ -35,14 +36,24 @@ export const sendPromoEmail = async (req, res, next) => {
 
     const resendAttachments = [];
     if (fileAttachments && Array.isArray(fileAttachments)) {
-      fileAttachments.forEach(file => {
+      for (const file of fileAttachments) {
         if (file.url.startsWith('data:')) {
           const matches = file.url.match(/^data:([a-zA-Z0-9\/+.-]+);base64,(.+)$/);
           if (matches && matches.length === 3) {
             resendAttachments.push({ filename: file.name, content: Buffer.from(matches[2], 'base64') });
           }
+        } else {
+          try {
+            const response = await fetch(file.url);
+            if (response.ok) {
+              const buffer = await response.buffer();
+              resendAttachments.push({ filename: file.name, content: buffer });
+            }
+          } catch (e) {
+            console.error('Failed to fetch attachment:', file.url, e.message);
+          }
         }
-      });
+      }
     }
 
     const htmlTemplate = `<!DOCTYPE html><html><head><style>

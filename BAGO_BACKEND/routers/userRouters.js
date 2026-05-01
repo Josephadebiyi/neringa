@@ -85,7 +85,7 @@ userRouter.post('/refresh-token', async (req, res) => {
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, kycStatus: user.kycStatus },
       process.env.JWT_SECRET,
-      { expiresIn: '15m' },
+      { expiresIn: '7d' },
     );
     const newRefreshToken = jwt.sign(
       { id: user.id, email: user.email },
