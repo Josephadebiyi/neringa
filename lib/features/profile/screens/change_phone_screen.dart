@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -22,11 +23,15 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
   final _otpCtrl = TextEditingController();
   int _step = 1;
   bool _loading = false;
+  CountryCurrencyData _country = CurrencyConversionHelper.countryByCode('NG')
+      ?? CurrencyConversionHelper.supportedCountries.first;
 
   @override
   void initState() {
     super.initState();
-    _phoneCtrl.text = ref.read(authProvider).user?.phone ?? '';
+    // Pre-fill digits only (strip any leading dial code if present)
+    final existing = ref.read(authProvider).user?.phone ?? '';
+    _phoneCtrl.text = existing.startsWith('+') ? '' : existing;
   }
 
   @override
@@ -36,10 +41,38 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
     super.dispose();
   }
 
+  Future<void> _showCountryPicker() async {
+    final selected = await showModalBottomSheet<CountryCurrencyData>(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: ListView.separated(
+          shrinkWrap: true,
+          padding: const EdgeInsets.all(20),
+          itemCount: CurrencyConversionHelper.supportedCountries.length,
+          separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+          itemBuilder: (_, i) {
+            final c = CurrencyConversionHelper.supportedCountries[i];
+            return ListTile(
+              leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
+              title: Text(c.name, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+              subtitle: Text(c.dialCode, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+              onTap: () => Navigator.of(context).pop(c),
+            );
+          },
+        ),
+      ),
+    );
+    if (selected != null && mounted) setState(() => _country = selected);
+  }
+
   Future<void> _sendCode() async {
     final l10n = AppLocalizations.of(context);
-    final phone = _phoneCtrl.text.trim();
-    if (phone.length < 7) {
+    final digits = _phoneCtrl.text.trim();
+    if (digits.length < 5) {
       AppSnackBar.show(
         context,
         message: l10n.enterValidPhoneNumber,
@@ -47,6 +80,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       );
       return;
     }
+    final phone = '${_country.dialCode}$digits';
     setState(() => _loading = true);
     try {
       await AuthService.instance.requestPhoneChange(phone);
@@ -169,12 +203,36 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
-          AppTextField(
-            controller: _phoneCtrl,
-            label: l10n.newPhoneNumberLabel,
-            hint: '+234 800 000 0000',
-            keyboardType: TextInputType.phone,
-          ),
+          Row(children: [
+            GestureDetector(
+              onTap: _showCountryPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F7F8),
+                  border: Border.all(color: AppColors.border, width: 1.5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_country.flag, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 6),
+                  Text(_country.dialCode,
+                      style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.gray400),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: AppTextField(
+                controller: _phoneCtrl,
+                label: l10n.newPhoneNumberLabel,
+                hint: '800 000 0000',
+                keyboardType: TextInputType.phone,
+              ),
+            ),
+          ]),
           const SizedBox(height: 32),
           _PrimaryBtn(
             label: _loading ? null : l10n.sendVerificationCode,
