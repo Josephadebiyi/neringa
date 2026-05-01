@@ -18,101 +18,17 @@ import {
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
-import CreatableSelect from 'react-select/creatable';
-import { countries, locations } from '../utils/countries';
+import AsyncCreatableSelect from 'react-select/async-creatable';
+import {
+    normalizeText,
+    normalizeCountry,
+    locationOptions,
+    loadCityOptions,
+    formatCityOptionLabel,
+    makeCustomLocation,
+    locationMatches,
+} from '../utils/citySearch.jsx';
 
-const normalizeText = (value = '') => value
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-
-const countryAliases = {
-    'usa': 'united states',
-    'us': 'united states',
-    'u s a': 'united states',
-    'uk': 'united kingdom',
-    'u k': 'united kingdom',
-    'england': 'united kingdom',
-    'uae': 'united arab emirates',
-    'u a e': 'united arab emirates',
-    'drc': 'democratic republic of congo',
-    'congo kinshasa': 'democratic republic of congo',
-    'ivory coast': "cote d ivoire",
-};
-
-const normalizeCountry = (value = '') => {
-    const normalized = normalizeText(value);
-    return countryAliases[normalized] || normalized;
-};
-
-const splitLocationInput = (value = '') => {
-    const parts = value.split(',').map((part) => part.trim()).filter(Boolean);
-    const city = parts[0] || value.trim();
-    const country = parts.slice(1).join(', ');
-    return { city, country };
-};
-
-const makeCustomLocation = (inputValue) => {
-    const { city, country } = splitLocationInput(inputValue);
-    return {
-        value: inputValue,
-        label: inputValue,
-        city,
-        country,
-        flag: '📍',
-        isCustom: true,
-        searchText: normalizeText(inputValue),
-    };
-};
-
-const getTripSide = (trip, side) => {
-    const isOrigin = side === 'origin';
-    const city = isOrigin ? (trip.origin || trip.fromLocation || '') : (trip.destination || trip.toLocation || '');
-    const country = isOrigin ? (trip.fromCountry || '') : (trip.toCountry || '');
-    return {
-        city,
-        country,
-        combined: `${city} ${country}`,
-        cityNorm: normalizeText(city),
-        countryNorm: normalizeCountry(country),
-        combinedNorm: normalizeText(`${city} ${country}`),
-    };
-};
-
-const locationMatches = (trip, selected, side) => {
-    if (!selected) return { matches: true, score: 0 };
-
-    const tripSide = getTripSide(trip, side);
-    const selectedCity = normalizeText(selected.city || selected.value || '');
-    const selectedCountry = normalizeCountry(selected.country || '');
-    const selectedCombined = normalizeText(`${selected.city || selected.value || ''} ${selected.country || ''}`);
-    const isCountryWideSearch = selected.type === 'country' || (!selected.city && selected.country);
-    const isBusTrip = normalizeText(trip.transportMode || trip.travelMeans || '').includes('bus');
-
-    const countryMatch = selectedCountry
-        ? tripSide.countryNorm === selectedCountry || tripSide.combinedNorm.includes(selectedCountry)
-        : false;
-    const cityMatch = selectedCity
-        ? tripSide.cityNorm.includes(selectedCity) || selectedCity.includes(tripSide.cityNorm) || tripSide.combinedNorm.includes(selectedCity)
-        : false;
-    const customTextMatch = selectedCombined
-        ? tripSide.combinedNorm.includes(selectedCombined) || selectedCombined.includes(tripSide.combinedNorm)
-        : false;
-
-    if (isCountryWideSearch) {
-        return { matches: countryMatch || customTextMatch, score: countryMatch ? 40 : 10 };
-    }
-
-    if (selectedCountry) {
-        if (!countryMatch) return { matches: false, score: 0 };
-        return { matches: true, score: (cityMatch ? 60 : 0) + (isBusTrip ? 20 : 8) + 40 };
-    }
-
-    return { matches: cityMatch || customTextMatch, score: cityMatch ? 35 : 10 };
-};
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -141,7 +57,7 @@ const Navbar = () => {
 
 const TripCard = ({ trip, weight }) => {
     const navigate = useNavigate();
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const { t } = useLanguage();
     const isVerified = trip.isVerified === true ||
         trip.kycStatus === 'approved' ||
@@ -159,12 +75,18 @@ const TripCard = ({ trip, weight }) => {
         try {
             const response = await api.get('/api/bago/kyc/status');
             const status = response.data?.kycStatus;
+            const phoneVerified = response.data?.phoneVerified === true || user?.phoneVerified === true;
 
-            if (status === 'approved') {
-                navigate(`/send-package`, { state: { trip, weight } });
-            } else {
+            if (status !== 'approved') {
                 localStorage.setItem('pending_booking', JSON.stringify({ trip }));
                 navigate('/verify');
+            } else if (!phoneVerified) {
+                localStorage.setItem('pending_booking', JSON.stringify({ trip }));
+                navigate('/dashboard?tab=settings', {
+                    state: { message: 'Please verify your phone number to continue.' }
+                });
+            } else {
+                navigate(`/send-package`, { state: { trip, weight } });
             }
         } catch (error) {
             navigate('/dashboard');
@@ -328,46 +250,15 @@ export default function Search() {
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    const locationOptions = [
-        ...countries.map(country => ({
-            value: country.label,
-            label: (
-                <div className="flex items-center gap-2">
-                    <span>{country.flag}</span>
-                    <span>All cities in {country.label}</span>
-                </div>
-            ),
-            city: '',
-            country: country.label,
-            flag: country.flag,
-            type: 'country',
-            searchText: normalizeText(`${country.label} ${country.value}`)
-        })),
-        ...locations.map(loc => ({
-            value: loc.city,
-            label: (
-                <div className="flex items-center gap-2">
-                    <span>{loc.flag}</span>
-                    <span>{loc.label}</span>
-                </div>
-            ),
-            city: loc.city,
-            country: loc.country,
-            flag: loc.flag,
-            type: 'city',
-            searchText: normalizeText(`${loc.city} ${loc.country} ${loc.label}`)
-        }))
-    ];
-
     const findInitialLocation = (cityParam, countryParam) => {
         if (!cityParam && !countryParam) return null;
         const cityNorm = normalizeText(cityParam || '');
         const countryNorm = normalizeCountry(countryParam || '');
-        return locationOptions.find(option => (
-            cityNorm && normalizeText(option.city) === cityNorm &&
-            (!countryNorm || normalizeCountry(option.country) === countryNorm)
-        )) || locationOptions.find(option => (
-            !cityNorm && countryNorm && option.type === 'country' && normalizeCountry(option.country) === countryNorm
+        return locationOptions.find(o => (
+            cityNorm && normalizeText(o.city) === cityNorm &&
+            (!countryNorm || normalizeCountry(o.country) === countryNorm)
+        )) || locationOptions.find(o => (
+            !cityNorm && countryNorm && o.type === 'country' && normalizeCountry(o.country) === countryNorm
         )) || makeCustomLocation(countryParam ? `${cityParam || ''}, ${countryParam}`.replace(/^,\s*/, '') : cityParam);
     };
 
@@ -549,16 +440,17 @@ export default function Search() {
                         <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
                             <MapPin size={20} className={`${filters.origin ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
                             <div className="flex-1 min-w-0 ml-4">
-                                <CreatableSelect
-                                    options={locationOptions}
+                                <AsyncCreatableSelect
+                                    loadOptions={loadCityOptions}
+                                    defaultOptions={locationOptions.slice(0, 30)}
                                     value={filters.origin}
                                     onChange={(val) => setFilters({ ...filters, origin: val })}
                                     onCreateOption={(inputValue) => setFilters({ ...filters, origin: makeCustomLocation(inputValue) })}
-                                    placeholder={t('enterPickupCity') || t('departure') || 'Enter pickup city'}
+                                    placeholder={t('enterPickupCity') || 'Departure city or country'}
                                     styles={searchSelectStyles}
+                                    formatOptionLabel={formatCityOptionLabel}
                                     isClearable
                                     formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
-                                    filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeText(inputValue))}
                                     menuPortalTarget={document.body}
                                     menuPosition="fixed"
                                 />
@@ -571,16 +463,17 @@ export default function Search() {
                         <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
                             <MapPin size={20} className={`${filters.destination ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
                             <div className="flex-1 min-w-0 ml-4">
-                                <CreatableSelect
-                                    options={locationOptions}
+                                <AsyncCreatableSelect
+                                    loadOptions={loadCityOptions}
+                                    defaultOptions={locationOptions.slice(0, 30)}
                                     value={filters.destination}
                                     onChange={(val) => setFilters({ ...filters, destination: val })}
                                     onCreateOption={(inputValue) => setFilters({ ...filters, destination: makeCustomLocation(inputValue) })}
-                                    placeholder={t('enterDestination') || t('arrival') || 'Enter destination'}
+                                    placeholder={t('enterDestination') || 'Destination city or country'}
                                     styles={searchSelectStyles}
+                                    formatOptionLabel={formatCityOptionLabel}
                                     isClearable
                                     formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
-                                    filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeText(inputValue))}
                                     menuPortalTarget={document.body}
                                     menuPosition="fixed"
                                 />

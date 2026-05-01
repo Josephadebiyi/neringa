@@ -895,7 +895,10 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
 
 export async function getPublicTrackingByNumber(trackingNumber) {
   const row = await queryOne(`${requestSelect} where sr.tracking_number = $1`, [trackingNumber]);
-  return normalizeRequest(row);
+  const request = normalizeRequest(row);
+  if (!request) return null;
+  const { movementTracking, ...publicRequest } = request;
+  return publicRequest;
 }
 
 export async function listRecentOrdersForUser(userId) {
@@ -910,8 +913,9 @@ export async function listRecentOrdersForUser(userId) {
 
   return result.rows.map((row) => {
     const request = normalizeRequest(row);
+    const { movementTracking, ...safeRequest } = request;
     return {
-      ...request,
+      ...safeRequest,
       originCity: request.package?.fromCity || null,
       originCountry: request.package?.fromCountry || null,
       destinationCity: request.package?.toCity || null,

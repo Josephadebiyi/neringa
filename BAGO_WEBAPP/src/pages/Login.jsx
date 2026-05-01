@@ -23,7 +23,7 @@ export default function Login() {
         try {
             const response = await api.post('/api/bago/signin', { email, password });
             if (response.data.success) {
-                login(response.data.user);
+                login(response.data.user, response.data.token, response.data.refreshToken);
                 navigate('/dashboard');
             } else {
                 setError(response.data.message || 'Login failed');
@@ -49,7 +49,7 @@ export default function Login() {
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
                 if (response.data.success) {
-                        login(response.data.user);
+                    login(response.data.user, response.data.token, response.data.refreshToken);
                     navigate('/dashboard');
                 } else {
                     setError(response.data.message || t('googleSignupFailed') || 'Unable to sign in with Google');

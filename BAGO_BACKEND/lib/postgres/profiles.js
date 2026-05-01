@@ -66,6 +66,7 @@ const baseSelect = `
     p.date_of_birth,
     p.banned,
     p.email_verified,
+    COALESCE(p.phone_verified, false) AS phone_verified,
     p.push_tokens,
     p.communication_prefs,
     p.referral_code,

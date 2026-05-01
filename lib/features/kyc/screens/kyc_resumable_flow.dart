@@ -60,8 +60,8 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
       final data = _extractMap(response.data);
 
       // Backend returns {status:'approved'} when already verified — navigate out immediately
-      final statusField = _extractFirstString(data, const ['status', 'kycStatus']);
-      if (statusField == 'approved') {
+      final statusField = _extractFirstString(data, const ['status', 'kycStatus'])?.toLowerCase();
+      if (statusField == 'approved' || statusField == 'verified' || statusField == 'completed') {
         _hasCompleted = true;
         await ref.read(authProvider.notifier).refreshProfile();
         if (!mounted) return;
@@ -71,7 +71,7 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
 
       final url = _extractFirstString(
         data,
-        const ['sessionUrl', 'url', 'link', 'redirectUrl', 'verificationUrl'],
+        const ['sessionUrl', 'url', 'verification_url', 'link', 'redirectUrl', 'verificationUrl'],
       );
       final id = _extractFirstString(
         data,

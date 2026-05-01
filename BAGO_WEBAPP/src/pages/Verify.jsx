@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Shield, ChevronLeft, CheckCircle, Clock, AlertCircle, ArrowRight, Loader2, Lock, Globe } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -26,9 +26,12 @@ export default function Verify() {
         try {
             setLoading(true);
             const res = await api.get('/api/bago/kyc/status');
-            setKycStatus(res.data?.kycStatus || 'not_started');
+            const status = user?.kycStatus === 'approved' || user?.isKycCompleted
+                ? 'approved'
+                : res.data?.kycStatus || 'not_started';
+            setKycStatus(status);
         } catch (err) {
-            setKycStatus('not_started');
+            setKycStatus(user?.kycStatus === 'approved' || user?.isKycCompleted ? 'approved' : 'not_started');
         } finally {
             setLoading(false);
         }
@@ -39,6 +42,11 @@ export default function Verify() {
             setActionLoading(true);
             setError('');
             const response = await api.post('/api/bago/kyc/create-session');
+            const returnedStatus = response.data?.status || response.data?.kycStatus;
+            if (returnedStatus === 'approved') {
+                setKycStatus('approved');
+                return;
+            }
             const url = response.data.sessionUrl || response.data.diditSessionUrl;
 
             if (url) {
@@ -48,7 +56,7 @@ export default function Verify() {
                 setError('Could not create verification session. Please try again or contact support.');
             }
         } catch (err) {
-            setError('Failed to start verification. Please try again later.');
+            setError(err.response?.data?.message || 'Failed to start verification. Please try again later.');
         } finally {
             setActionLoading(false);
         }

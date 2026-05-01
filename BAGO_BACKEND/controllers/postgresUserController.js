@@ -865,6 +865,46 @@ export async function requestPhoneChange(req, res) {
   }
 }
 
+export async function sendPhoneVerificationOtp(req, res) {
+  try {
+    const { phone } = req.body;
+    const user = await findProfileById(req.user.id || req.user._id);
+
+    if (!phone) return res.status(400).json({ message: 'Phone number is required' });
+
+    const normalizedPhone = phone.trim();
+    if (user.phone?.trim() && normalizedPhone !== user.phone.trim()) {
+      return res.status(400).json({ message: 'Use change phone to verify a different phone number.' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await setPendingPhoneChange(user.id, normalizedPhone, otp, new Date(Date.now() + 15 * 60 * 1000));
+
+    const sms = getTwilioClient();
+    if (!sms) {
+      return res.status(500).json({
+        success: false,
+        message: 'SMS verification is not configured. Please set Twilio credentials.',
+      });
+    }
+
+    await sms.client.messages.create({
+      body: `Your Bago verification code is: ${otp}. Expires in 15 minutes.`,
+      from: sms.fromNumber,
+      to: normalizedPhone,
+    });
+
+    res.status(200).json({ success: true, message: 'Verification code sent by SMS.' });
+  } catch (error) {
+    console.error('sendPhoneVerificationOtp error:', error);
+    res.status(500).json({ message: error.message });
+  }
+}
+
+export async function verifyPhoneVerificationOtp(req, res) {
+  return verifyPhoneChange(req, res);
+}
+
 export async function verifyPhoneChange(req, res) {
   try {
     const { otp } = req.body;

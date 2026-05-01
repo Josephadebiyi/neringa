@@ -108,10 +108,10 @@ export default function SendPackage() {
     const [error, setError] = useState('');
     const [platformRate, setPlatformRate] = useState(0);
     const [currency, setCurrency] = useState('USD');
+    const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
     const [insuranceCost, setInsuranceCost] = useState(0);
     const [exchangeRates, setExchangeRates] = useState(null);
     const [quote, setQuote] = useState(null);
-    const [walletBalance, setWalletBalance] = useState(0);
     const [pendingPayment, setPendingPayment] = useState(null);
     const [stripeReady, setStripeReady] = useState(false);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -141,18 +141,13 @@ export default function SendPackage() {
         termsAccepted: false
     });
 
-    // Populate location fields from selectedTrip with intelligent extraction
     useEffect(() => {
         if (selectedTrip) {
-            console.log('🎯 RAW TRIP DATA:', selectedTrip);
-
-            // 1. Try to get structured city/country data first
             let fromCity = selectedTrip.fromCity || '';
             let fromCountry = selectedTrip.fromCountry || '';
             let toCity = selectedTrip.toCity || '';
             let toCountry = selectedTrip.toCountry || '';
 
-            // 2. If structured data is missing, parse the location strings
             const fromLocation = selectedTrip.origin || selectedTrip.fromLocation || '';
             const toLocation = selectedTrip.destination || selectedTrip.toLocation || '';
 
@@ -168,13 +163,8 @@ export default function SendPackage() {
                 if (!toCountry) toCountry = parsedTo.country;
             }
 
-            // 3. Last resort: derive country from city if still missing
             if (!fromCountry && fromCity) fromCountry = getCountryFromCity(fromCity);
             if (!toCountry && toCity) toCountry = getCountryFromCity(toCity);
-
-            const deadline = selectedTrip.departureDate || '';
-
-            console.log('✅ FINAL STRUCTURED DATA:', { fromCity, fromCountry, toCity, toCountry });
 
             setFormData(prev => ({
                 ...prev,
@@ -182,7 +172,7 @@ export default function SendPackage() {
                 fromCountry,
                 toCity,
                 toCountry,
-                deliveryDeadline: deadline
+                deliveryDeadline: selectedTrip.departureDate || ''
             }));
         }
     }, [selectedTrip]);
@@ -206,22 +196,10 @@ export default function SendPackage() {
         if (!isAuthenticated) {
             navigate('/login');
         } else {
-            checkKycStatus();
+            checkVerificationStatus();
             loadExchangeRates();
-            fetchWalletBalance();
         }
     }, [isAuthenticated, navigate]);
-
-    const fetchWalletBalance = async () => {
-        try {
-            const res = await api.get('/api/bago/getWallet');
-            if (res.data.success) {
-                setWalletBalance(res.data.balance || 0);
-            }
-        } catch (err) {
-            console.error('Failed to fetch wallet balance:', err);
-        }
-    };
 
     const loadExchangeRates = async () => {
         try {
@@ -258,6 +236,17 @@ export default function SendPackage() {
             // Fallback to simple calculation if quote fails
             setPlatformRate(selectedTrip?.pricePerKg || 15);
             setCurrency('USD');
+        }
+    };
+
+    const checkVerificationStatus = async () => {
+        try {
+            const response = await api.get('/api/bago/kyc/status');
+            if (response.data.success) {
+                setPhoneVerified(response.data.phoneVerified === true || user?.phoneVerified === true);
+            }
+        } catch (error) {
+            setPhoneVerified(user?.phoneVerified === true);
         }
     };
 
@@ -446,59 +435,33 @@ export default function SendPackage() {
         setError('');
         setLoading(true);
 
-        console.log('🚀 FORM SUBMISSION STARTED');
-        console.log('📦 FORM DATA:', {
-            fromCity: formData.fromCity,
-            fromCountry: formData.fromCountry,
-            toCity: formData.toCity,
-            toCountry: formData.toCountry,
-            category: formData.category,
-            receiverName: formData.receiverName,
-            receiverPhone: formData.receiverPhone,
-            packageWeight: formData.packageWeight
-        });
-
-        // Senders need phone verification, not KYC
-        if (!user?.phoneVerified) {
+        if (!phoneVerified && user?.phoneVerified !== true) {
             setError('Please verify your phone number to send a package.');
             setLoading(false);
-            navigate('/settings', {
-                state: { message: 'Please verify your phone number before sending a package.' }
+            navigate('/dashboard?tab=settings', {
+                state: { message: 'Please verify your phone number to send a package.', from: '/send-package' }
             });
             return;
         }
 
-        // Check image upload
         if (!formData.packageImage) {
             setError('Please upload an image of the item.');
             setLoading(false);
             return;
         }
 
-        // Check insurance value
-        if (formData.insuranceProtection && !formData.packageValue) {
-            setError('Please enter the package value to enable insurance protection.');
+        if (!formData.packageValue || parseFloat(formData.packageValue) <= 0) {
+            setError('Please enter the item value.');
             setLoading(false);
             return;
         }
 
-        // Check weight
         if (parseFloat(formData.packageWeight) <= 0 || parseFloat(formData.packageWeight) > 50) {
             setError(t('packageWeightError') || 'Package weight must be between 0.1 and 50 kg.');
             setLoading(false);
             return;
         }
 
-        // Removed mandatory wallet balance check to allow Stripe/Paystack payment
-        /*
-        if (parseFloat(totalCost) > walletBalance) {
-            setError(`Insufficient balance. Your current balance is ${currency} ${walletBalance.toFixed(2)}, but this request requires ${currency} ${totalCost}. Please top up your wallet first.`);
-            setLoading(false);
-            return;
-        }
-        */
-
-        // Check terms
         if (!formData.termsAccepted) {
             setError('You must agree to the Terms and Conditions.');
             setLoading(false);
@@ -506,23 +469,14 @@ export default function SendPackage() {
         }
 
         try {
-            // Check if user came from trip selection or needs to search for travelers
             if (selectedTrip) {
-                console.log('✅ TRIP SELECTED - VALIDATING FIELDS...');
-
-                // Validation Guard
                 if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) {
-                    const errorMsg = 'Validation Error: Missing or incomplete location data. Please ensure cities and countries are correctly filled.';
-                    console.error('❌ PRE-SUBMISSION FAILED:', errorMsg);
-                    setError(errorMsg);
+                    setError('Missing or incomplete location data. Please ensure cities and countries are correctly filled.');
                     setLoading(false);
                     return;
                 }
 
-                console.log('✅ ALL FIELDS VALIDATED - PREPARING PAYLOAD');
-
-                // Construct structured payload according to System Architecture
-                const payload = {
+                const packageResponse = await api.post('/api/bago/createPackage', {
                     from_city: formData.fromCity.trim(),
                     from_country: formData.fromCountry.trim(),
                     to_city: formData.toCity.trim(),
@@ -540,14 +494,7 @@ export default function SendPackage() {
                         receiver_phone: formData.receiverPhone.trim(),
                         receiver_email: formData.receiverEmail.trim()
                     }
-                };
-
-                console.log('🚀 FINAL PAYLOAD:', JSON.stringify(payload, null, 2));
-
-                // Create package with structured data
-                const packageResponse = await api.post('/api/bago/createPackage', payload);
-
-                console.log('✅ PACKAGE CREATED:', packageResponse.data);
+                });
 
                 if (packageResponse.status === 201) {
                     const packageId = packageResponse.data.package._id;
@@ -600,24 +547,15 @@ export default function SendPackage() {
                     }
 
                     window.open(authorizationUrl, '_blank', 'noopener,noreferrer');
-                    setPendingPayment({
-                        provider: 'paystack',
-                        packageId,
-                        reference,
-                        authorizationUrl,
-                    });
+                    setPendingPayment({ provider: 'paystack', packageId, reference, authorizationUrl });
                     return;
                 }
             } else {
-                // No trip selected, redirect to search
-                console.log('⚠️ NO TRIP SELECTED - REDIRECTING TO SEARCH...');
                 navigate(`/search?origin=${formData.fromCity}&destination=${formData.toCity}`, {
                     state: { packageDetails: formData }
                 });
             }
         } catch (err) {
-            console.error('❌ SUBMISSION ERROR:', err);
-            console.error('❌ ERROR RESPONSE:', err.response?.data);
             setError(err.response?.data?.message || 'Failed to process request. Please try again.');
         } finally {
             setLoading(false);
@@ -634,16 +572,6 @@ export default function SendPackage() {
                     <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
                 </div>
 
-                {/* Debug info showing extracted route */}
-                {selectedTrip && formData.fromCity && formData.toCity && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-                        <p className="text-xs font-bold text-green-900 mb-2">✅ Route Extracted Successfully:</p>
-                        <p className="text-sm font-mono text-green-700">
-                            <strong>From:</strong> {formData.fromCity}, {formData.fromCountry || '(Country Missing)'} →
-                            <strong> To:</strong> {formData.toCity}, {formData.toCountry || '(Country Missing)'}
-                        </p>
-                    </div>
-                )}
 
                 {pendingPayment && (
                     <div className="bg-white border border-[#5845D8]/15 rounded-[28px] p-6 md:p-8 mb-8 shadow-[0_18px_45px_rgba(88,69,216,0.08)]">
@@ -802,19 +730,20 @@ export default function SendPackage() {
                                         </div>
                                         <div>
                                             <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">
-                                                {t('declarationLabel')} {formData.insuranceProtection ? '(Required for Insurance)' : '(Optional)'}
+                                                {t('declarationLabel')} <span className="text-red-500">*</span>
                                             </label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
                                                     name="packageValue"
                                                     placeholder="Estimated Value"
-                                                    required={formData.insuranceProtection}
+                                                    required
+                                                    min="1"
                                                     className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
                                                     value={formData.packageValue}
                                                     onChange={handleChange}
                                                 />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">USD</div>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">{currency}</div>
                                             </div>
                                         </div>
                                     </div>

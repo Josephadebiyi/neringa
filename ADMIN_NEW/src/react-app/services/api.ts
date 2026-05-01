@@ -440,6 +440,7 @@ export async function createBanner(formData: FormData) {
   const response = await fetch(`${ADMIN_API}/banners`, {
     method: 'POST',
     credentials: 'include',
+    headers: getAdminAuthHeaders(),
     body: formData,
   });
   if (!response.ok) {
@@ -466,6 +467,7 @@ export async function updateAdminProfile(formData: FormData) {
   const response = await fetch(`${ADMIN_API}/profile`, {
     method: 'PUT',
     credentials: 'include',
+    headers: getAdminAuthHeaders(),
     body: formData,
   });
   if (!response.ok) {

@@ -11,7 +11,6 @@ import Deliveries from '../components/dashboard/Deliveries';
 import Chats from '../components/dashboard/Chats';
 import Earnings from '../components/dashboard/Earnings';
 import Settings from '../components/dashboard/Settings';
-import LiveTracking from '../components/dashboard/LiveTracking';
 import {
     LayoutDashboard,
     MessageCircle,
@@ -43,11 +42,14 @@ export default function Dashboard() {
     const [chatConv, setChatConv] = useState(null); // Persist chat across tab switches
     const location = useLocation();
     const [msg, setMsg] = useState(location.state?.message || '');
+    const effectiveKycStatus = user?.kycStatus === 'approved' || user?.isKycCompleted
+        ? 'approved'
+        : kycStatus;
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
-        if (tab && ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'earnings', 'tracking', 'settings', 'insurance'].includes(tab)) {
+        if (tab && ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'earnings', 'settings', 'insurance'].includes(tab)) {
             setActiveTab(tab);
         }
     }, [location.search]);
@@ -100,10 +102,12 @@ export default function Dashboard() {
     const fetchKycStatus = async () => {
         try {
             setKycLoading(true);
-            // Try the correct KYC status endpoint first
             try {
                 const res = await api.get('/api/bago/kyc/status');
-                setKycStatus(res.data?.kycStatus || 'not_started');
+                const status = user?.kycStatus === 'approved' || user?.isKycCompleted
+                    ? 'approved'
+                    : res.data?.kycStatus || 'not_started';
+                setKycStatus(status);
             } catch {
                 // Fallback to old endpoint
                 const response = await api.get('/api/bago/getKyc');
@@ -131,7 +135,7 @@ export default function Dashboard() {
     const renderTabContent = () => {
         try {
             switch (activeTab) {
-                case 'overview': return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
+                case 'overview': return <Overview user={user} kycStatus={effectiveKycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
                 case 'trips': return <Trips user={user} />;
                 case 'shipments':
                     return <Shipments user={user} onNavigateToChat={(convId) => { setChatConv({ _id: convId }); setActiveTab('chats'); }} />;
@@ -139,7 +143,6 @@ export default function Dashboard() {
                     return <Deliveries user={user} onNavigateToChat={(convId) => { setChatConv({ _id: convId }); setActiveTab('chats'); }} />;
                 case 'chats': return <Chats user={user} selectedConv={chatConv} setSelectedConv={setChatConv} onTabChange={setActiveTab} />;
                 case 'earnings': return <Earnings user={user} checkAuthStatus={checkAuthStatus} />;
-                case 'tracking': return <LiveTracking user={user} />;
                 case 'settings': return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'insurance': return (
                     <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100 shadow-sm">
@@ -148,7 +151,7 @@ export default function Dashboard() {
                         <p className="text-gray-400 text-xs font-bold uppercase tracking-widest opacity-70">{t('insuranceComingDesc') || 'Insurance management is coming soon.'}</p>
                     </div>
                 );
-                default: return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} />;
+                default: return <Overview user={user} kycStatus={effectiveKycStatus} handleStartKyc={handleStartKyc} />;
             }
         } catch (err) {
             return renderError(err);

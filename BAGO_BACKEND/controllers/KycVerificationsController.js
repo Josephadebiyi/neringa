@@ -6,7 +6,8 @@ import cloudinary from "cloudinary";
 import fs from "fs";
 import path from "path";
 import dotenv from 'dotenv';
-import { markKycApproved } from "../lib/postgres/accounts.js";
+import { markKycApproved, upsertKycSession } from "../lib/postgres/accounts.js";
+import { findProfileById } from "../lib/postgres/profiles.js";
 dotenv.config();
 
 async function fetchDiditSessionStatus(sessionId) {
@@ -146,12 +147,13 @@ export const Verifykyc = async (req, res, next) => {
 
 
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY;
-const DIDIT_WORKFLOW_ID = '701347c6-bd51-4ab7-8a35-8a442db4b63c';
+const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '701347c6-bd51-4ab7-8a35-8a442db4b63c';
 
 // ✅ Generate DIDIT Session for the user (The fix for "Could not start")
 export const createDiditSession = async (req, res, next) => {
   try {
-    const user = req.user;
+    const userId = req.user?.id || req.user?._id;
+    const user = userId ? await findProfileById(userId) : null;
     if (!user) return res.status(401).json({ success: false, message: "User not authenticated" });
 
     // Reuse existing approved state
@@ -163,10 +165,23 @@ export const createDiditSession = async (req, res, next) => {
       });
     }
 
+    if (!DIDIT_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        message: "DIDIT_API_KEY is not configured on the server",
+      });
+    }
+    if (!DIDIT_WORKFLOW_ID) {
+      return res.status(503).json({
+        success: false,
+        message: "DIDIT_WORKFLOW_ID is not configured on the server",
+      });
+    }
+
     // Build the request URL and payload. 
     // FIXED: Use correct endpoint and ensure headers match DIDIT requirements
-    const userId = user.id || user._id;
     const vendorData = JSON.stringify({ userId: userId.toString(), email: user.email });
+    const callbackUrl = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`;
 
     const config = {
       headers: {
@@ -179,23 +194,39 @@ export const createDiditSession = async (req, res, next) => {
     const payload = {
       workflow_id: DIDIT_WORKFLOW_ID,
       vendor_data: vendorData,
-      callback: `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`,
+      callback: callbackUrl,
+      callback_method: 'both',
+      contact_details: {
+        email: user.email,
+        send_notification_emails: false,
+      },
+      expected_details: {
+        first_name: user.firstName || undefined,
+        last_name: user.lastName || undefined,
+        date_of_birth: user.dateOfBirth || undefined,
+      },
     };
 
     console.log("📝 Sending request to DIDIT for user:", userId);
     const response = await axios.post('https://verification.didit.me/v3/session/', payload, config);
+    const sessionUrl = response.data?.url || response.data?.verification_url || response.data?.verificationUrl;
 
-    if (response.data && response.data.session_id) {
-      await queryOne(
-        `UPDATE public.profiles SET didit_session_id = $1, kyc_status = 'pending', updated_at = NOW() WHERE id = $2`,
-        [response.data.session_id, userId]
-      );
+    if (response.data && response.data.session_id && sessionUrl) {
+      await upsertKycSession(userId, {
+        sessionId: response.data.session_id,
+        sessionToken: response.data.session_token || null,
+        status: 'pending',
+      });
 
       return res.json({
         success: true,
         sessionId: response.data.session_id,
+        session_id: response.data.session_id,
         sessionToken: response.data.session_token,
-        sessionUrl: response.data.url,
+        session_token: response.data.session_token,
+        sessionUrl,
+        url: sessionUrl,
+        verification_url: sessionUrl,
         message: "Verification session created"
       });
     } else {
@@ -215,18 +246,48 @@ export const createDiditSession = async (req, res, next) => {
 export const fetchDiditResult = async (req, res, next) => {
   try {
     const userId = req.user?.id || req.user?._id;
-    const row = await queryOne(
-      `SELECT kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt", kyc_failure_reason as "kycFailureReason"
+    let row = await queryOne(
+      `SELECT kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt", kyc_failure_reason as "kycFailureReason",
+              didit_session_id as "diditSessionId",
+              COALESCE(phone_verified, false) as "phoneVerified"
        FROM public.profiles WHERE id = $1`,
       [userId]
     );
     if (!row) return res.status(404).json({ success: false, message: "User not found" });
 
-    const status = row.kycStatus || 'pending';
+    let status = row.kycStatus || 'pending';
+
+    if (status === 'pending' && row.diditSessionId) {
+      try {
+        const diditData = await fetchDiditSessionStatus(row.diditSessionId);
+        const diditStatus = String(diditData?.status || '').toLowerCase();
+
+        if (diditStatus === 'approved') {
+          await markKycApproved(userId, { kycVerifiedData: diditData });
+          status = 'approved';
+          row = { ...row, kycStatus: status, kycVerifiedAt: new Date() };
+        } else if (diditStatus === 'declined' || diditStatus === 'rejected') {
+          await query(
+            `UPDATE public.profiles
+             SET kyc_status = 'declined',
+                 kyc_failure_reason = 'Document verification was declined by the verification provider',
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [userId],
+          );
+          status = 'declined';
+        }
+      } catch (diditErr) {
+        console.warn('Could not sync DIDIT status:', diditErr.message);
+      }
+    }
+
     return res.json({
       success: status === 'approved',
       status,
       kycStatus: status,
+      kycVerifiedAt: row.kycVerifiedAt || null,
+      phoneVerified: row.phoneVerified === true,
       message: status === 'approved'
         ? 'KYC approved'
         : status === 'declined'

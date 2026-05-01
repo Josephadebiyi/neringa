@@ -11,7 +11,7 @@ import {
     Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ADMIN_API, sendPromoEmail } from '../services/api';
+import { ADMIN_API, sendPromoEmail, getAdminAuthHeaders } from '../services/api';
 
 export default function PromoEmail() {
     const [subject, setSubject] = useState('');
@@ -40,6 +40,7 @@ export default function PromoEmail() {
             const response = await fetch(`${ADMIN_API}/upload`, {
                 method: 'POST',
                 credentials: 'include',
+                headers: getAdminAuthHeaders(),
                 body: formData
             });
 

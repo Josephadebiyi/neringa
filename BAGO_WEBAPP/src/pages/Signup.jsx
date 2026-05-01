@@ -41,7 +41,7 @@ export default function Signup() {
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
                 if (response.data.success) {
-                    login(response.data.user);
+                    login(response.data.user, response.data.token, response.data.refreshToken);
                     navigate('/dashboard');
                 } else {
                     setError(response.data.message || 'Google signup failed');
@@ -135,8 +135,8 @@ export default function Signup() {
         try {
             const response = await api.post('/api/bago/verify-signup-otp', { signupToken, otp });
             if (response.data.success) {
-                setSuccess(t('accountVerifiedRedirect'));
-                setTimeout(() => navigate('/login'), 2000);
+                login(response.data.user, response.data.token, response.data.refreshToken);
+                navigate('/dashboard');
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Verification failed. Please check your code and try again.');

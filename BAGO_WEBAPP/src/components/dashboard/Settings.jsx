@@ -1,7 +1,172 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
-import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle } from 'lucide-react';
+import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle, ChevronDown, Search } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+
+const COUNTRY_CODES = [
+    { code: 'NG', name: 'Nigeria', dial: '+234', flag: '🇳🇬' },
+    { code: 'GH', name: 'Ghana', dial: '+233', flag: '🇬🇭' },
+    { code: 'KE', name: 'Kenya', dial: '+254', flag: '🇰🇪' },
+    { code: 'ZA', name: 'South Africa', dial: '+27', flag: '🇿🇦' },
+    { code: 'ET', name: 'Ethiopia', dial: '+251', flag: '🇪🇹' },
+    { code: 'TZ', name: 'Tanzania', dial: '+255', flag: '🇹🇿' },
+    { code: 'UG', name: 'Uganda', dial: '+256', flag: '🇺🇬' },
+    { code: 'CM', name: 'Cameroon', dial: '+237', flag: '🇨🇲' },
+    { code: 'CI', name: "Côte d'Ivoire", dial: '+225', flag: '🇨🇮' },
+    { code: 'SN', name: 'Senegal', dial: '+221', flag: '🇸🇳' },
+    { code: 'US', name: 'United States', dial: '+1', flag: '🇺🇸' },
+    { code: 'CA', name: 'Canada', dial: '+1', flag: '🇨🇦' },
+    { code: 'GB', name: 'United Kingdom', dial: '+44', flag: '🇬🇧' },
+    { code: 'FR', name: 'France', dial: '+33', flag: '🇫🇷' },
+    { code: 'DE', name: 'Germany', dial: '+49', flag: '🇩🇪' },
+    { code: 'IT', name: 'Italy', dial: '+39', flag: '🇮🇹' },
+    { code: 'ES', name: 'Spain', dial: '+34', flag: '🇪🇸' },
+    { code: 'PT', name: 'Portugal', dial: '+351', flag: '🇵🇹' },
+    { code: 'NL', name: 'Netherlands', dial: '+31', flag: '🇳🇱' },
+    { code: 'BE', name: 'Belgium', dial: '+32', flag: '🇧🇪' },
+    { code: 'CH', name: 'Switzerland', dial: '+41', flag: '🇨🇭' },
+    { code: 'SE', name: 'Sweden', dial: '+46', flag: '🇸🇪' },
+    { code: 'NO', name: 'Norway', dial: '+47', flag: '🇳🇴' },
+    { code: 'DK', name: 'Denmark', dial: '+45', flag: '🇩🇰' },
+    { code: 'FI', name: 'Finland', dial: '+358', flag: '🇫🇮' },
+    { code: 'PL', name: 'Poland', dial: '+48', flag: '🇵🇱' },
+    { code: 'UA', name: 'Ukraine', dial: '+380', flag: '🇺🇦' },
+    { code: 'RU', name: 'Russia', dial: '+7', flag: '🇷🇺' },
+    { code: 'AE', name: 'UAE', dial: '+971', flag: '🇦🇪' },
+    { code: 'SA', name: 'Saudi Arabia', dial: '+966', flag: '🇸🇦' },
+    { code: 'QA', name: 'Qatar', dial: '+974', flag: '🇶🇦' },
+    { code: 'KW', name: 'Kuwait', dial: '+965', flag: '🇰🇼' },
+    { code: 'TR', name: 'Turkey', dial: '+90', flag: '🇹🇷' },
+    { code: 'IN', name: 'India', dial: '+91', flag: '🇮🇳' },
+    { code: 'CN', name: 'China', dial: '+86', flag: '🇨🇳' },
+    { code: 'JP', name: 'Japan', dial: '+81', flag: '🇯🇵' },
+    { code: 'KR', name: 'South Korea', dial: '+82', flag: '🇰🇷' },
+    { code: 'SG', name: 'Singapore', dial: '+65', flag: '🇸🇬' },
+    { code: 'MY', name: 'Malaysia', dial: '+60', flag: '🇲🇾' },
+    { code: 'PH', name: 'Philippines', dial: '+63', flag: '🇵🇭' },
+    { code: 'ID', name: 'Indonesia', dial: '+62', flag: '🇮🇩' },
+    { code: 'TH', name: 'Thailand', dial: '+66', flag: '🇹🇭' },
+    { code: 'VN', name: 'Vietnam', dial: '+84', flag: '🇻🇳' },
+    { code: 'AU', name: 'Australia', dial: '+61', flag: '🇦🇺' },
+    { code: 'NZ', name: 'New Zealand', dial: '+64', flag: '🇳🇿' },
+    { code: 'BR', name: 'Brazil', dial: '+55', flag: '🇧🇷' },
+    { code: 'MX', name: 'Mexico', dial: '+52', flag: '🇲🇽' },
+    { code: 'AR', name: 'Argentina', dial: '+54', flag: '🇦🇷' },
+    { code: 'CO', name: 'Colombia', dial: '+57', flag: '🇨🇴' },
+    { code: 'EG', name: 'Egypt', dial: '+20', flag: '🇪🇬' },
+    { code: 'MA', name: 'Morocco', dial: '+212', flag: '🇲🇦' },
+];
+
+function parsePhone(fullPhone) {
+    if (!fullPhone) return { dial: '+1', local: '' };
+    const sorted = [...COUNTRY_CODES].sort((a, b) => b.dial.length - a.dial.length);
+    for (const c of sorted) {
+        if (fullPhone.startsWith(c.dial)) {
+            return { dial: c.dial, local: fullPhone.slice(c.dial.length) };
+        }
+    }
+    if (fullPhone.startsWith('+')) return { dial: '+1', local: fullPhone.slice(1) };
+    return { dial: '+1', local: fullPhone };
+}
+
+function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disabled = false, className = '' }) {
+    const parsed = parsePhone(value);
+    const [dialCode, setDialCode] = useState(parsed.dial);
+    const [localNumber, setLocalNumber] = useState(parsed.local);
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const p = parsePhone(value);
+        setDialCode(p.dial);
+        setLocalNumber(p.local);
+    }, [value]);
+
+    useEffect(() => {
+        const handleClick = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    const handleLocal = (e) => {
+        const v = e.target.value.replace(/[^\d\s\-()]/g, '');
+        setLocalNumber(v);
+        onChange(dialCode + v);
+    };
+
+    const handleDial = (dial) => {
+        setDialCode(dial);
+        setOpen(false);
+        setSearch('');
+        onChange(dial + localNumber);
+    };
+
+    const filtered = COUNTRY_CODES.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.dial.includes(search)
+    );
+
+    const selected = COUNTRY_CODES.find(c => c.dial === dialCode) || COUNTRY_CODES[0];
+
+    return (
+        <div className={`flex gap-1.5 ${className}`} ref={dropdownRef}>
+            <div className="relative shrink-0">
+                <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setOpen(o => !o)}
+                    className="h-full flex items-center gap-1 px-2.5 py-2 bg-gray-50 border border-transparent rounded-xl text-[10px] font-black text-[#012126] hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                    <span className="text-sm">{selected.flag}</span>
+                    <span>{dialCode}</span>
+                    <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                </button>
+                {open && (
+                    <div className="absolute left-0 top-full mt-1 z-50 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                        <div className="p-2 border-b border-gray-50">
+                            <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded-xl">
+                                <Search size={11} className="text-gray-400 shrink-0" />
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    placeholder="Search country..."
+                                    className="flex-1 bg-transparent outline-none text-[10px] font-bold text-[#012126] placeholder:text-gray-400"
+                                />
+                            </div>
+                        </div>
+                        <div className="max-h-52 overflow-y-auto">
+                            {filtered.map(c => (
+                                <button
+                                    key={c.code}
+                                    type="button"
+                                    onClick={() => handleDial(c.dial)}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#5845D8]/5 transition-all ${dialCode === c.dial ? 'bg-[#5845D8]/10' : ''}`}
+                                >
+                                    <span className="text-base">{c.flag}</span>
+                                    <span className="flex-1 text-[10px] font-bold text-[#012126] truncate">{c.name}</span>
+                                    <span className="text-[10px] font-black text-[#5845D8]">{c.dial}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+            <input
+                type="tel"
+                value={localNumber}
+                onChange={handleLocal}
+                disabled={disabled}
+                placeholder={placeholder}
+                className="min-w-0 flex-1 px-3 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[10px] text-[#012126] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+        </div>
+    );
+}
 
 export default function Settings({ user, checkAuthStatus }) {
     const { currency, setCurrency, t } = useLanguage();
@@ -14,6 +179,9 @@ export default function Settings({ user, checkAuthStatus }) {
         return '';
     });
     const [email, setEmail] = useState(user?.email || '');
+    const [phone, setPhone] = useState(user?.phone || '');
+    const [showPhoneOtp, setShowPhoneOtp] = useState(false);
+    const [phoneOtp, setPhoneOtp] = useState('');
     const [newEmail, setNewEmail] = useState('');
     const [showEmailOtp, setShowEmailOtp] = useState(false);
     const [emailOtp, setEmailOtp] = useState('');
@@ -33,11 +201,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const [stripeVerified, setStripeVerified] = useState(user?.stripeVerified || false);
     const [stripeLoading, setStripeLoading] = useState(false);
 
-    // Phone verification state
-    const [phone, setPhone] = useState(user?.phone || '');
-    const [phoneVerified] = useState(user?.phoneVerified || false);
-    const [showPhoneOtp, setShowPhoneOtp] = useState(false);
-    const [phoneOtp, setPhoneOtp] = useState('');
+    const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
     const [phoneSuccess, setPhoneSuccess] = useState(false);
 
@@ -48,7 +212,10 @@ export default function Settings({ user, checkAuthStatus }) {
         if (user?.preferredCurrency) {
             setPreferredCurrency(user.preferredCurrency);
         }
-    }, [user?._id, user?.preferredCurrency]);
+        if (user?.phone) {
+            setPhone(user.phone);
+        }
+    }, [user?._id, user?.preferredCurrency, user?.phone]);
 
     const checkStripeStatus = async () => {
         try {
@@ -407,12 +574,10 @@ export default function Settings({ user, checkAuthStatus }) {
                             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
                                 {user?.phone ? 'Current Phone' : 'Phone Number'}
                             </label>
-                            <input
-                                type="tel"
+                            <CountryPhoneInput
                                 value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder="+2348012345678"
-                                className="w-full px-4 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[11px] transition-all"
+                                onChange={setPhone}
+                                placeholder="Phone number"
                             />
                         </div>
                         <button

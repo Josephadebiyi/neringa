@@ -342,7 +342,8 @@ class AuthService {
             'email': credential.email,
           if (credential.givenName != null && credential.givenName!.isNotEmpty)
             'firstName': credential.givenName,
-          if (credential.familyName != null && credential.familyName!.isNotEmpty)
+          if (credential.familyName != null &&
+              credential.familyName!.isNotEmpty)
             'lastName': credential.familyName,
         },
       );
@@ -365,7 +366,9 @@ class AuthService {
       throw ApiService.parseError(e);
     } catch (e) {
       if (e is SignInWithAppleAuthorizationException) {
-        if (e.code == AuthorizationErrorCode.canceled) throw 'Apple sign-in was cancelled';
+        if (e.code == AuthorizationErrorCode.canceled) {
+          throw 'Apple sign-in was cancelled';
+        }
         throw 'Apple sign-in failed: ${e.message}';
       }
       rethrow;
@@ -514,6 +517,28 @@ class AuthService {
       await _api.post(
         ApiConstants.requestPhoneChange,
         data: {'newPhone': newPhone.trim()},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> sendPhoneVerificationOtp(String phone) async {
+    try {
+      await _api.post(
+        ApiConstants.sendPhoneVerificationOtp,
+        data: {'phone': phone.trim()},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> verifyPhoneVerificationOtp(String otp) async {
+    try {
+      await _api.post(
+        ApiConstants.verifyPhoneVerificationOtp,
+        data: {'otp': otp.trim()},
       );
     } on DioException catch (e) {
       throw ApiService.parseError(e);

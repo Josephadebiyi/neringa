@@ -10,30 +10,17 @@ import {
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../AuthContext';
 import api from '../api';
-import CreatableSelect from 'react-select/creatable';
-import { countries, locations } from '../utils/countries';
+import AsyncCreatableSelect from 'react-select/async-creatable';
+import {
+    normalizeText as normalizeSearchText,
+    locationOptions,
+    loadCityOptions,
+    formatCityOptionLabel,
+    makeCustomLocation as makeCustomSearchLocation,
+} from '../utils/citySearch.jsx';
 import Footer from '../components/Footer';
 
-const normalizeSearchText = (value = '') => value
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
 
-const makeCustomSearchLocation = (inputValue) => {
-    const parts = inputValue.split(',').map((part) => part.trim()).filter(Boolean);
-    return {
-        value: inputValue,
-        label: inputValue,
-        city: parts[0] || inputValue.trim(),
-        country: parts.slice(1).join(', '),
-        flag: '📍',
-        isCustom: true,
-        searchText: normalizeSearchText(inputValue),
-    };
-};
 
 /* ─────────────────────────────────────────────
    NAVBAR
@@ -286,37 +273,6 @@ const StickySearch = () => {
     const [destination, setDestination] = useState(null);
     const [date, setDate] = useState('');
 
-    const locationOptions = [
-        ...countries.map(country => ({
-            value: country.label,
-            label: (
-                <div className="flex items-center gap-2">
-                    <span>{country.flag}</span>
-                    <span>All cities in {country.label}</span>
-                </div>
-            ),
-            city: '',
-            country: country.label,
-            flag: country.flag,
-            type: 'country',
-            searchText: normalizeSearchText(`${country.label} ${country.value}`)
-        })),
-        ...locations.map(loc => ({
-            value: loc.city,
-            label: (
-                <div className="flex items-center gap-2">
-                    <span>{loc.flag}</span>
-                    <span>{loc.label}</span>
-                </div>
-            ),
-            city: loc.city,
-            country: loc.country,
-            flag: loc.flag,
-            type: 'city',
-            searchText: normalizeSearchText(`${loc.city} ${loc.country} ${loc.label}`)
-        }))
-    ];
-
     useEffect(() => {
         const fetchLocation = async () => {
             try {
@@ -365,16 +321,17 @@ const StickySearch = () => {
                     <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
                         <MapPin size={20} className={`${origin ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
                         <div className="flex-1 min-w-0 ml-4">
-                            <CreatableSelect
-                                options={locationOptions}
+                            <AsyncCreatableSelect
+                                loadOptions={loadCityOptions}
+                                defaultOptions={locationOptions.slice(0, 30)}
                                 value={origin}
                                 onChange={setOrigin}
                                 onCreateOption={(inputValue) => setOrigin(makeCustomSearchLocation(inputValue))}
-                                placeholder={t('enterPickupCity') || t('leavingFromLabel') || 'Enter pickup city'}
+                                placeholder={t('enterPickupCity') || 'Departure city or country'}
                                 styles={customStyles}
+                                formatOptionLabel={formatCityOptionLabel}
                                 isClearable
                                 formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
-                                filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeSearchText(inputValue))}
                                 menuPortalTarget={document.body}
                                 menuPosition="fixed"
                             />
@@ -387,16 +344,17 @@ const StickySearch = () => {
                     <div className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px]">
                         <MapPin size={20} className={`${destination ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
                         <div className="flex-1 min-w-0 ml-4">
-                            <CreatableSelect
-                                options={locationOptions}
+                            <AsyncCreatableSelect
+                                loadOptions={loadCityOptions}
+                                defaultOptions={locationOptions.slice(0, 30)}
                                 value={destination}
                                 onChange={setDestination}
                                 onCreateOption={(inputValue) => setDestination(makeCustomSearchLocation(inputValue))}
-                                placeholder={t('enterDestination') || t('goingToLabel') || 'Enter destination'}
+                                placeholder={t('enterDestination') || 'Destination city or country'}
                                 styles={customStyles}
+                                formatOptionLabel={formatCityOptionLabel}
                                 isClearable
                                 formatCreateLabel={(inputValue) => `Search "${inputValue}"`}
-                                filterOption={(option, inputValue) => option.data.searchText?.includes(normalizeSearchText(inputValue))}
                                 menuPortalTarget={document.body}
                                 menuPosition="fixed"
                             />
