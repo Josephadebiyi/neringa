@@ -5,8 +5,11 @@ import { useLanguage } from '../../context/LanguageContext';
 
 export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStatus, userStats }) {
     const { t } = useLanguage();
+    const effectiveKycStatus = user?.kycStatus === 'approved' || user?.isKycCompleted
+        ? 'approved'
+        : kycStatus;
     const renderKycContent = () => {
-        switch (kycStatus) {
+        switch (effectiveKycStatus) {
             case 'approved':
                 return (
                     <div className="flex items-center gap-3 text-green-600 bg-green-50/30 p-4 rounded-2xl border border-green-100/30 font-sans">
@@ -92,7 +95,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
         <div className="space-y-6 animate-in fade-in duration-500 font-sans text-[#012126]">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {/* KYC Card */}
-                {kycStatus !== 'approved' && (
+                {effectiveKycStatus !== 'approved' && (
                     <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-20 h-20 bg-[#5845D8]/5 rounded-bl-[50px] -mr-8 -mt-8 group-hover:bg-[#5845D8]/10 transition-all"></div>
                         <div className="flex items-center justify-between mb-4 relative z-10">
@@ -108,7 +111,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                 )}
 
                 {/* Quick Actions */}
-                <div className={`${kycStatus === 'approved' ? 'md:col-span-3' : 'md:col-span-2'} grid grid-cols-1 sm:grid-cols-2 gap-5`}>
+                <div className={`${effectiveKycStatus === 'approved' ? 'md:col-span-3' : 'md:col-span-2'} grid grid-cols-1 sm:grid-cols-2 gap-5`}>
                     <Link to="/post-trip" className="bg-[#5845D8] p-5 rounded-[24px] text-white shadow-lg shadow-[#5845D8]/15 relative overflow-hidden group cursor-pointer hover:shadow-xl transition-all h-full flex flex-col justify-between border border-[#5845D8]">
                         <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
                         <div>

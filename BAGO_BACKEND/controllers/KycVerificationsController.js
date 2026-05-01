@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import dotenv from 'dotenv';
 import { markKycApproved } from "../lib/postgres/accounts.js";
+import { findProfileById } from "../lib/postgres/profiles.js";
 dotenv.config();
 
 async function fetchDiditSessionStatus(sessionId) {
@@ -151,7 +152,8 @@ const DIDIT_WORKFLOW_ID = '701347c6-bd51-4ab7-8a35-8a442db4b63c';
 // ✅ Generate DIDIT Session for the user (The fix for "Could not start")
 export const createDiditSession = async (req, res, next) => {
   try {
-    const user = req.user;
+    const userId = req.user?.id || req.user?._id;
+    const user = userId ? await findProfileById(userId) : null;
     if (!user) return res.status(401).json({ success: false, message: "User not authenticated" });
 
     // Reuse existing approved state
@@ -163,9 +165,15 @@ export const createDiditSession = async (req, res, next) => {
       });
     }
 
+    if (!DIDIT_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        message: "DIDIT_API_KEY is not configured on the server",
+      });
+    }
+
     // Build the request URL and payload. 
     // FIXED: Use correct endpoint and ensure headers match DIDIT requirements
-    const userId = user.id || user._id;
     const vendorData = JSON.stringify({ userId: userId.toString(), email: user.email });
 
     const config = {
@@ -217,7 +225,8 @@ export const fetchDiditResult = async (req, res, next) => {
     const userId = req.user?.id || req.user?._id;
     let row = await queryOne(
       `SELECT kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt", kyc_failure_reason as "kycFailureReason",
-              didit_session_id as "diditSessionId"
+              didit_session_id as "diditSessionId",
+              COALESCE(phone_verified, false) as "phoneVerified"
        FROM public.profiles WHERE id = $1`,
       [userId]
     );
@@ -255,7 +264,7 @@ export const fetchDiditResult = async (req, res, next) => {
       status,
       kycStatus: status,
       kycVerifiedAt: row.kycVerifiedAt || null,
-      phoneVerified: req.user?.phoneVerified === true,
+      phoneVerified: row.phoneVerified === true,
       message: status === 'approved'
         ? 'KYC approved'
         : status === 'declined'

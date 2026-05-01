@@ -42,6 +42,9 @@ export default function Dashboard() {
     const [chatConv, setChatConv] = useState(null); // Persist chat across tab switches
     const location = useLocation();
     const [msg, setMsg] = useState(location.state?.message || '');
+    const effectiveKycStatus = user?.kycStatus === 'approved' || user?.isKycCompleted
+        ? 'approved'
+        : kycStatus;
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -102,7 +105,9 @@ export default function Dashboard() {
             // Try the correct KYC status endpoint first
             try {
                 const res = await api.get('/api/bago/kyc/status');
-                const status = res.data?.kycStatus || 'not_started';
+                const status = user?.kycStatus === 'approved' || user?.isKycCompleted
+                    ? 'approved'
+                    : res.data?.kycStatus || 'not_started';
                 setKycStatus(status);
                 if (status === 'approved') {
                     checkAuthStatus();
@@ -134,7 +139,7 @@ export default function Dashboard() {
     const renderTabContent = () => {
         try {
             switch (activeTab) {
-                case 'overview': return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
+                case 'overview': return <Overview user={user} kycStatus={effectiveKycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
                 case 'trips': return <Trips user={user} />;
                 case 'shipments':
                     return <Shipments user={user} onNavigateToChat={(convId) => { setChatConv({ _id: convId }); setActiveTab('chats'); }} />;
@@ -150,7 +155,7 @@ export default function Dashboard() {
                         <p className="text-gray-400 text-xs font-bold uppercase tracking-widest opacity-70">{t('insuranceComingDesc') || 'Insurance management is coming soon.'}</p>
                     </div>
                 );
-                default: return <Overview user={user} kycStatus={kycStatus} handleStartKyc={handleStartKyc} />;
+                default: return <Overview user={user} kycStatus={effectiveKycStatus} handleStartKyc={handleStartKyc} />;
             }
         } catch (err) {
             return renderError(err);
