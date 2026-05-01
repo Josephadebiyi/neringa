@@ -113,14 +113,7 @@ export async function RequestPackage(req, res) {
 
     const signupMethod = senderProfile.signupMethod || 'email';
 
-    if (signupMethod === 'email' && !senderProfile.emailVerified) {
-      return res.status(403).json({
-        code: 'EMAIL_NOT_VERIFIED',
-        message: 'Please verify your email address before sending a shipment.',
-      });
-    }
-
-    if (['google', 'apple'].includes(signupMethod) && !senderProfile.phoneVerified) {
+    if (!senderProfile.phoneVerified) {
       return res.status(403).json({
         code: 'PHONE_NOT_VERIFIED',
         message: 'Please verify your mobile number before sending a shipment.',

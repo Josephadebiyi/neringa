@@ -146,7 +146,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
       if (mounted) {
         setState(() {
           _gateChecking = false;
-          _gateBlock = user.isSocialSignup ? 'phone' : 'email';
+          _gateBlock = 'phone';
         });
       }
       return;
@@ -301,14 +301,6 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
         backgroundColor: AppColors.backgroundOff,
         appBar: _buildAppBar(showStep: false),
         body: const Center(child: AppLoading()),
-      );
-    }
-
-    if (_gateBlock == 'email') {
-      return Scaffold(
-        backgroundColor: AppColors.backgroundOff,
-        appBar: _buildAppBar(showStep: false),
-        body: _EmailGate(onBack: () => context.pop()),
       );
     }
 

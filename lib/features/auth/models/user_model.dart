@@ -74,11 +74,8 @@ class UserModel {
         normalized == 'completed';
   }
 
-  /// Whether this sender can create a shipment (all verification gates passed).
-  bool get canSendShipment {
-    if (isSocialSignup) return phoneVerified;
-    return emailVerified;
-  }
+  /// Whether this sender can create a shipment — all users must verify phone.
+  bool get canSendShipment => phoneVerified;
 
   /// Whether this traveler can post a trip.
   bool get canPostTrip => hasPassedKyc;

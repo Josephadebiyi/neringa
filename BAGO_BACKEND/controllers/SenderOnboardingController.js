@@ -59,7 +59,7 @@ export async function getTermsStatus(req, res) {
   }
 }
 
-// ─── Phone Verification (for Google/Apple signup users) ─────────────────────
+// ─── Phone Verification (required for all users before sending) ─────────────
 
 export async function sendPhoneVerificationOtp(req, res) {
   try {
@@ -216,7 +216,7 @@ export async function getItemCategories(req, res) {
 
 // ─── Admin: CRUD for item categories ────────────────────────────────────────
 
-export async function adminListItemCategories(req, res) {
+export async function adminListItemCategories(_req, res) {
   try {
     const rows = await query(
       `SELECT * FROM public.item_categories ORDER BY display_order ASC, risk_level, name`
