@@ -67,6 +67,7 @@ function buildUserResponse(user) {
     paymentGateway: user.paymentGateway,
     preferredCurrency: user.preferredCurrency,
     emailVerified: user.emailVerified,
+    phoneVerified: user.phoneVerified ?? false,
     selectedAvatar: user.selectedAvatar,
     pushTokens: user.pushTokens,
     walletBalance: Number(user.balance || 0),

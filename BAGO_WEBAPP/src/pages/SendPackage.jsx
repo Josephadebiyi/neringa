@@ -108,12 +108,10 @@ export default function SendPackage() {
     const [error, setError] = useState('');
     const [platformRate, setPlatformRate] = useState(0);
     const [currency, setCurrency] = useState('USD');
-    const [kycStatus, setKycStatus] = useState('');
     const [insuranceCost, setInsuranceCost] = useState(0);
     const [exchangeRates, setExchangeRates] = useState(null);
     const [quote, setQuote] = useState(null);
     const [walletBalance, setWalletBalance] = useState(0);
-    const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
     const [pendingPayment, setPendingPayment] = useState(null);
     const [stripeReady, setStripeReady] = useState(false);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -263,17 +261,6 @@ export default function SendPackage() {
         }
     };
 
-    const checkKycStatus = async () => {
-        try {
-            const response = await api.get('/api/bago/kyc/status');
-            if (response.data.success) {
-                setKycStatus(response.data.kycStatus || 'not_started');
-            }
-        } catch (error) {
-            setKycStatus('not_started');
-        }
-    };
-
     useEffect(() => {
         const calculateInsuranceCost = () => {
             if (!formData.insuranceProtection) {
@@ -320,11 +307,6 @@ export default function SendPackage() {
     const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
     const totalCost = (shippingCost + insuranceCost).toFixed(2);
     const paymentProvider = providerForCurrency(currency);
-
-    // Removed wallet balance check to allow Stripe/Paystack payment
-    useEffect(() => {
-        setIsInsufficientBalance(false);
-    }, [totalCost, walletBalance]);
 
     useEffect(() => {
         let cancelled = false;
@@ -476,15 +458,12 @@ export default function SendPackage() {
             packageWeight: formData.packageWeight
         });
 
-        // Check KYC status
-        if (kycStatus !== 'approved') {
-            setError('Please verify your identity to send a package.');
+        // Senders need phone verification, not KYC
+        if (!user?.phoneVerified) {
+            setError('Please verify your phone number to send a package.');
             setLoading(false);
-            navigate('/verify', {
-                state: {
-                    message: 'Please complete identity verification to send a package.',
-                    from: '/send-package'
-                }
+            navigate('/settings', {
+                state: { message: 'Please verify your phone number before sending a package.' }
             });
             return;
         }
