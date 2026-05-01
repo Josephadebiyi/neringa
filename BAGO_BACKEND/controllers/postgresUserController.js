@@ -100,7 +100,7 @@ function signUserToken(user) {
   const accessToken = jwt.sign(
     { id: user.id, email: user.email, kycStatus: user.kycStatus },
     process.env.JWT_SECRET,
-    { expiresIn: '15m' },
+    { expiresIn: '7d' },
   );
   const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
   const refreshToken = jwt.sign(

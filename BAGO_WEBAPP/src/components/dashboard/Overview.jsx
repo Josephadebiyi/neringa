@@ -1,14 +1,33 @@
 import React from 'react';
-import { Shield, Plane, Package, CheckCircle, Clock, AlertCircle, Wallet } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Shield, Plane, Package, CheckCircle, Clock, AlertCircle, Wallet, Phone } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStatus, userStats }) {
     const { t } = useLanguage();
+    const navigate = useNavigate();
     const effectiveKycStatus = user?.kycStatus === 'approved' || user?.isKycCompleted
         ? 'approved'
         : kycStatus;
+    const phoneVerified = user?.phoneVerified === true;
+
     const renderKycContent = () => {
+        // If phone is not verified yet, show phone verification prompt only
+        if (effectiveKycStatus !== 'approved' && !phoneVerified) {
+            return (
+                <div className="space-y-4 font-sans">
+                    <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-relaxed opacity-80">{t('verifyPhoneToAccess') || 'Verify your phone number to continue.'}</p>
+                    <button
+                        onClick={() => navigate('/dashboard?tab=settings')}
+                        className="w-full bg-[#5845D8] text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest shadow-md shadow-[#5845D8]/15 hover:scale-[1.02] transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        <Phone size={12} />
+                        {t('verifyPhone') || 'Verify Phone'}
+                    </button>
+                </div>
+            );
+        }
+
         switch (effectiveKycStatus) {
             case 'approved':
                 return (
@@ -100,7 +119,10 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                         <div className="absolute top-0 right-0 w-20 h-20 bg-[#5845D8]/5 rounded-bl-[50px] -mr-8 -mt-8 group-hover:bg-[#5845D8]/10 transition-all"></div>
                         <div className="flex items-center justify-between mb-4 relative z-10">
                             <h3 className="font-black text-[#012126] flex items-center gap-2 text-[9px] uppercase tracking-widest">
-                                <Shield size={14} className="text-[#5845D8]" /> {t('verification')}
+                                {effectiveKycStatus !== 'approved' && !phoneVerified
+                                    ? <><Phone size={14} className="text-[#5845D8]" /> {t('phoneVerification') || 'Phone'}</>
+                                    : <><Shield size={14} className="text-[#5845D8]" /> {t('verification')}</>
+                                }
                             </h3>
                         </div>
 
