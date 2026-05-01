@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
-import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle, Phone, ChevronDown, Search } from 'lucide-react';
+import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle, ChevronDown, Search } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 const COUNTRY_CODES = [
@@ -335,40 +335,6 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    const handleRequestPhoneVerification = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        setSuccessMessage('');
-        try {
-            await api.post('/api/bago/phone/send-otp', { phone });
-            setShowPhoneOtp(true);
-            setSuccessMessage('Phone verification code sent to your email.');
-        } catch (err) {
-            setError(err.response?.data?.message || 'Could not send phone verification code.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleVerifyPhone = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        setSuccessMessage('');
-        try {
-            await api.post('/api/bago/phone/verify', { otp: phoneOtp });
-            setPhoneOtp('');
-            setShowPhoneOtp(false);
-            setSuccessMessage('Phone number verified.');
-            await checkAuthStatus();
-        } catch (err) {
-            setError(err.response?.data?.message || 'Could not verify phone number.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleStartBankSetup = async () => {
         setError('');
         setSuccessMessage('');
@@ -523,57 +489,6 @@ export default function Settings({ user, checkAuthStatus }) {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <Phone size={14} className={user?.phoneVerified ? 'text-green-500' : 'text-[#5845D8]'} />
-                                    <div className="min-w-0">
-                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Phone</p>
-                                        <p className="truncate text-[10px] font-black text-[#012126] uppercase tracking-tight">{phone || 'No phone number'}</p>
-                                    </div>
-                                </div>
-                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-widest ${user?.phoneVerified ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                                    {user?.phoneVerified ? 'Verified' : 'Unverified'}
-                                </span>
-                            </div>
-                            {!user?.phoneVerified && (
-                                !showPhoneOtp ? (
-                                    <form onSubmit={handleRequestPhoneVerification} className="mt-3 flex gap-2">
-                                        <CountryPhoneInput
-                                            value={phone}
-                                            onChange={setPhone}
-                                            placeholder="Phone number"
-                                            className="flex-1"
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={!phone || loading}
-                                            className="rounded-xl bg-[#5845D8] px-4 py-2 text-[8px] font-black uppercase tracking-widest text-white disabled:opacity-50"
-                                        >
-                                            Verify
-                                        </button>
-                                    </form>
-                                ) : (
-                                    <form onSubmit={handleVerifyPhone} className="mt-3 flex gap-2">
-                                        <input
-                                            type="text"
-                                            maxLength={6}
-                                            value={phoneOtp}
-                                            onChange={(e) => setPhoneOtp(e.target.value)}
-                                            placeholder="000000"
-                                            className="min-w-0 flex-1 rounded-xl border border-[#5845D8]/20 bg-white px-3 py-2 text-center text-[11px] font-black tracking-[5px] text-[#012126] outline-none"
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={phoneOtp.length < 4 || loading}
-                                            className="rounded-xl bg-[#012126] px-4 py-2 text-[8px] font-black uppercase tracking-widest text-white disabled:opacity-50"
-                                        >
-                                            Confirm
-                                        </button>
-                                    </form>
-                                )
-                            )}
-                        </div>
                         <div>
                             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('currentEmail')}</label>
                             <input
