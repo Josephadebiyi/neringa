@@ -822,11 +822,7 @@ class _ValueField extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(children: [
-        Text(
-          CurrencyConversionHelper.symbolForCurrency(currency.isEmpty ? 'USD' : currency),
-          style: AppTextStyles.labelMd.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 4),
         Expanded(
           child: TextField(
             controller: controller,
@@ -847,9 +843,10 @@ class _ValueField extends StatelessWidget {
             color: const Color(0xFFF0F0F0),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(currency.isEmpty ? 'USD' : currency, style: AppTextStyles.labelSm.copyWith(
-            color: AppColors.gray500, fontWeight: FontWeight.w800,
-          )),
+          child: Text(
+            CurrencyConversionHelper.symbolForCurrency(currency.isEmpty ? 'USD' : currency),
+            style: AppTextStyles.labelSm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w800),
+          ),
         ),
       ]),
     );
