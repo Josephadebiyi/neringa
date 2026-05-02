@@ -186,7 +186,7 @@ function normalizeRequest(row) {
       arrivalDate: row.trip_arrival_date,
     } : null,
     trackingNumber: row.tracking_number,
-    image: row.image_url,
+    image: row.image_url || row.package_image_url || null,
     senderProof: row.sender_proof_url,
     travelerProof: row.traveler_proof_url,
     senderReceived: row.sender_received,

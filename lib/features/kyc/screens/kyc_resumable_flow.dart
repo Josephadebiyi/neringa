@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/api_constants.dart';
@@ -35,6 +37,7 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
   String? _error;
   String? _status;
   WebViewController? _webViewController;
+  String? _pendingUrl; // For web fallback
   Timer? _pollTimer;
 
   @override
@@ -78,23 +81,40 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
         const ['sessionId', 'session_id', 'id', 'reference'],
       );
 
-      if (url == null || url.isEmpty) {
-        throw 'Could not open Didit verification right now.';
-      }
+       if (url == null || url.isEmpty) {
+         throw 'Could not open Didit verification right now.';
+       }
 
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..loadRequest(Uri.parse(url));
+       _sessionId = id;
+       _status = 'pending';
 
-      _sessionId = id;
-      _webViewController = controller;
-      _status = 'pending';
+       // Web: open external browser; Mobile: use WebView
+       if (kIsWeb) {
+         try {
+           final success = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+           if (!success) {
+             throw 'Could not open verification link in browser.';
+           }
+           _pendingUrl = url;
+         } catch (e) {
+           setState(() {
+             _error = e.toString();
+             _isLoading = false;
+           });
+           return;
+         }
+       } else {
+         final controller = WebViewController()
+           ..setJavaScriptMode(JavaScriptMode.unrestricted)
+           ..loadRequest(Uri.parse(url));
+         _webViewController = controller;
+       }
 
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+       if (mounted) {
+         setState(() => _isLoading = false);
+       }
 
-      _startPolling();
+       _startPolling();
     } on DioException catch (e) {
       setState(() {
         _error = ApiService.parseError(e);
@@ -190,7 +210,7 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
       );
     }
 
-    if (_error != null || _webViewController == null) {
+    if (_error != null) {
       return Scaffold(
         backgroundColor: AppColors.backgroundOff,
         appBar: AppBar(
@@ -214,6 +234,94 @@ class _KYCResumableFlowState extends ConsumerState<KYCResumableFlow> {
                 const SizedBox(height: 8),
                 Text(
                   _error ?? 'Please try again in a moment.',
+                  style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                AppButton(label: 'Try Again', onPressed: _startDiditSession),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (kIsWeb) {
+      // Web platform: verification happens in external browser
+      return Scaffold(
+        backgroundColor: AppColors.backgroundOff,
+        appBar: AppBar(
+          backgroundColor: AppColors.white,
+          elevation: 0,
+          title: const Text('Verify With Didit'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.open_in_browser, size: 52, color: AppColors.primary),
+                const SizedBox(height: 16),
+                Text(
+                  'Complete verification in browser',
+                  style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'We\'ve opened the Didit verification page in a new tab. Complete it there, then return here. We\'ll automatically update once verified.',
+                  style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                if (_pendingUrl != null)
+                  AppButton(
+                    label: 'Reopen Verification Page',
+                    onPressed: () async {
+                      final uri = Uri.parse(_pendingUrl!);
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                  ),
+                const SizedBox(height: 16),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 12),
+                Text(
+                  'Waiting for verification...',
+                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Mobile: WebView must be available
+    if (_webViewController == null) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundOff,
+        appBar: AppBar(
+          backgroundColor: AppColors.white,
+          elevation: 0,
+          title: const Text('Identity Verification'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.shield_outlined, size: 52, color: AppColors.gray400),
+                const SizedBox(height: 16),
+                Text(
+                  'Could not start Didit verification',
+                  style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w800),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please try again in a moment.',
                   style: AppTextStyles.muted(AppTextStyles.bodyMd),
                   textAlign: TextAlign.center,
                 ),

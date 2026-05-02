@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -174,12 +175,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
         // Details
         Text(l10n.shipmentDetailsTitle, style: AppTextStyles.h4),
         const SizedBox(height: 12),
-        _buildDetailRow(l10n.fromLabel, sender),
-        _buildDetailRow(l10n.toLabel, receiver),
-        _buildDetailRow(l10n.originLabel, origin),
-        _buildDetailRow(l10n.destinationLabel, destination),
-        _buildDetailRow(l10n.currentLocationLabel, currentLocation),
-        _buildDetailRow(l10n.estimatedDeliveryLabel, estimatedDelivery),
+         _buildDetailRow(l10n.fromLabel, sender),
+         _buildDetailRow(l10n.toLabel, receiver),
+         _buildDetailRow(l10n.originLabel, origin),
+         _buildDetailRow(l10n.destinationLabel, destination),
+         if (!kIsWeb) _buildDetailRow(l10n.currentLocationLabel, currentLocation),
+         _buildDetailRow(l10n.estimatedDeliveryLabel, estimatedDelivery),
       ],
     );
   }

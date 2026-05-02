@@ -318,28 +318,18 @@ class _TripCard extends ConsumerWidget {
       decimals: 0,
     );
     final rating = trip.averageRating;
-    Future<void> startShipment() async {
-      final user = ref.read(authProvider).user;
+     Future<void> startShipment() async {
+       final user = ref.read(authProvider).user;
 
-      if (!context.mounted) return;
+       if (!context.mounted) return;
 
-      if (user == null) {
-        showAuthRequiredModal(context);
-        return;
-      }
+       if (user == null) {
+         showAuthRequiredModal(context);
+         return;
+       }
 
-      if (user.hasPassedKyc != true) {
-        AppSnackBar.show(
-          context,
-          message: l10n.passKycBeforeShipment,
-          type: SnackBarType.error,
-        );
-        context.push('/kyc');
-        return;
-      }
-
-      context.push('/request-shipment/${trip.id}', extra: trip);
-    }
+       context.push('/request-shipment/${trip.id}', extra: trip);
+     }
 
     return GestureDetector(
       onTap: startShipment,

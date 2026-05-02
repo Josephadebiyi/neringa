@@ -339,7 +339,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             const SizedBox(height: 14),
 
             if (widget.preFilledData != null)
-              _PrefilledItemCard(data: widget.preFilledData!)
+              _PrefilledItemCard(data: widget.preFilledData!, currency: currency)
             else ...[
               Row(children: [
                 Expanded(child: _WeightField(controller: _weightCtrl, onChanged: () => setState(() {}))),
@@ -976,8 +976,9 @@ class _ImagePickerTile extends StatelessWidget {
 // ── Pre-filled item card (from wizard) ────────────────────────────────────────
 
 class _PrefilledItemCard extends StatelessWidget {
-  const _PrefilledItemCard({required this.data});
+  const _PrefilledItemCard({required this.data, required this.currency});
   final Map<String, dynamic> data;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
@@ -1018,12 +1019,12 @@ class _PrefilledItemCard extends StatelessWidget {
             ),
             if (declaredValue != null) ...[
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(8)),
-                child: Text('Value: \$${declaredValue.toStringAsFixed(0)}',
-                    style: AppTextStyles.labelXs.copyWith(color: AppColors.gray500)),
-              ),
+               Container(
+                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                 decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(8)),
+                 child: Text('Value: $currency ${declaredValue.toStringAsFixed(0)}',
+                     style: AppTextStyles.labelXs.copyWith(color: AppColors.gray500)),
+               ),
             ],
           ]),
           if (description.isNotEmpty) ...[

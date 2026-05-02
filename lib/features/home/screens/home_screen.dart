@@ -257,14 +257,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 16),
 
                 // ── Hero ────────────────────────────────────────────────
-                isCarrier
-                    ? _CarrierHero(
-                        balance: user?.walletBalance ?? 0,
-                        pendingEarnings: carrierEarnings,
-                        currency: UserCurrencyHelper.resolve(user),
-                        onPostTrip: () => context.push('/post-trip'),
-                        onWithdraw: () => context.push('/profile/withdraw'),
-                      )
+isCarrier
+                     ? _CarrierHero(
+                         balance: UserCurrencyHelper.convertWalletBalance(
+                           balance: user?.walletBalance ?? 0,
+                           walletCurrency: user?.walletCurrency ?? 'USD',
+                           viewerCurrency: UserCurrencyHelper.resolve(user),
+                         ),
+                         pendingEarnings: carrierEarnings,
+                         currency: UserCurrencyHelper.resolve(user),
+                         onPostTrip: () => context.push('/post-trip'),
+                         onWithdraw: () => context.push('/profile/withdraw'),
+                       )
                     : _SenderHero(
                         from: _from,
                         to: _to,
