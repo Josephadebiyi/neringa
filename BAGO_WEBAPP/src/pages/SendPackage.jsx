@@ -138,7 +138,7 @@ export default function SendPackage() {
         receiverEmail: '',
         imagePreview: null,
         height: '',
-        termsAccepted: false
+        termsAccepted: [false, false, false]
     });
 
     useEffect(() => {
@@ -467,8 +467,8 @@ export default function SendPackage() {
             return;
         }
 
-        if (!formData.termsAccepted) {
-            setError('You must agree to the Terms and Conditions.');
+        if (!formData.termsAccepted.every(Boolean)) {
+            setError('You must confirm all shipping agreement items.');
             setLoading(false);
             return;
         }
@@ -937,13 +937,28 @@ export default function SendPackage() {
                                 </div>
                             )}
 
-                            <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10 mb-6 cursor-pointer group" onClick={() => setFormData(prev => ({ ...prev, termsAccepted: !prev.termsAccepted }))}>
-                                <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${formData.termsAccepted ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/20' : 'bg-white/10 text-transparent border border-white/20 group-hover:bg-white/20'}`}>
-                                    <Check size={12} />
-                                </div>
-                                <p className="text-[9px] font-black uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">
-                                    I AGREE TO THE <Link to="/terms" className="text-white underline" onClick={(e) => e.stopPropagation()}>TERMS & CONDITIONS</Link>
-                                </p>
+                            <div className="mb-6 space-y-2">
+                                <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-3">Agreement & Shipping Confirmation</p>
+                                {[
+                                    'My shipment does not contain any prohibited or restricted items.',
+                                    'I understand the traveler may inspect the contents for safety and compliance.',
+                                    'I agree to follow Bago\'s guidelines and take responsibility for my shipment.',
+                                ].map((label, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-start gap-3 p-3 bg-white/5 rounded-2xl border border-white/10 cursor-pointer group"
+                                        onClick={() => setFormData(prev => {
+                                            const next = [...prev.termsAccepted];
+                                            next[i] = !next[i];
+                                            return { ...prev, termsAccepted: next };
+                                        })}
+                                    >
+                                        <div className={`w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center transition-all mt-0.5 ${formData.termsAccepted[i] ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/20' : 'bg-white/10 text-transparent border border-white/20 group-hover:bg-white/20'}`}>
+                                            <Check size={12} />
+                                        </div>
+                                        <p className="text-[9px] font-bold text-white/60 group-hover:text-white transition-colors leading-relaxed">{label}</p>
+                                    </div>
+                                ))}
                             </div>
 
                             <button

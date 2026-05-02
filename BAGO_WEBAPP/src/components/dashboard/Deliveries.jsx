@@ -16,7 +16,7 @@ export default function Deliveries({ onNavigateToChat }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [proofImage, setProofImage] = useState(null);
     const [downloading, setDownloading] = useState(null);
-    const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState([false, false, false]);
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
     useEffect(() => {
@@ -25,7 +25,7 @@ export default function Deliveries({ onNavigateToChat }) {
 
     // Reset terms checkbox whenever a new modal opens
     useEffect(() => {
-        setAcceptedTerms(false);
+        setAcceptedTerms([false, false, false]);
     }, [viewingDetails]);
 
     // Auto-dismiss notifications after 4 seconds
@@ -506,20 +506,30 @@ export default function Deliveries({ onNavigateToChat }) {
                             <div className="bg-amber-50 rounded-[24px] p-6 border border-amber-100 border-dashed">
                                 <div className="flex gap-3">
                                     <ShieldCheck className="text-amber-500 flex-shrink-0" size={20} />
-                                    <div>
-                                        <p className="text-[10px] font-black text-amber-900 uppercase tracking-tight mb-1">Safety Agreement</p>
-                                        <p className="text-[9px] text-amber-700/80 font-medium leading-normal">
-                                            By accepting this package, you confirm that you have reviewed the contents and they comply with airline safety and legal regulations. You are responsible for the safe delivery of these items.
-                                        </p>
-                                        <label className="flex items-center gap-2 mt-4 cursor-pointer group/terms">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={acceptedTerms}
-                                                onChange={(e) => setAcceptedTerms(e.target.checked)}
-                                                className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-                                            />
-                                            <span className="text-[10px] font-black text-amber-900 uppercase tracking-widest group-hover/terms:text-[#5845D8] transition-colors">I accept the Terms & Conditions</span>
-                                        </label>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-black text-amber-900 uppercase tracking-tight mb-1">Agreement & Shipping Confirmation</p>
+                                        <p className="text-[9px] text-amber-700/80 font-medium leading-normal mb-4">By continuing, I confirm that:</p>
+                                        <div className="space-y-2">
+                                            {[
+                                                'My shipment does not contain any prohibited or restricted items.',
+                                                'I understand the traveler may inspect the contents for safety and compliance.',
+                                                'I agree to follow Bago\'s guidelines and take responsibility for my shipment.',
+                                            ].map((label, i) => (
+                                                <label key={i} className="flex items-start gap-2 cursor-pointer group/terms">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={acceptedTerms[i]}
+                                                        onChange={(e) => setAcceptedTerms(prev => {
+                                                            const next = [...prev];
+                                                            next[i] = e.target.checked;
+                                                            return next;
+                                                        })}
+                                                        className="w-4 h-4 mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer flex-shrink-0"
+                                                    />
+                                                    <span className="text-[9px] font-semibold text-amber-800 group-hover/terms:text-[#5845D8] transition-colors leading-relaxed">{label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -533,10 +543,10 @@ export default function Deliveries({ onNavigateToChat }) {
                                         setDetailsViewed(prev => ({ ...prev, [viewingDetails._id]: true }));
                                         setViewingDetails(null);
                                     }}
-                                    disabled={!acceptedTerms}
+                                    disabled={!acceptedTerms.every(Boolean)}
                                     className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
-                                        acceptedTerms 
-                                            ? 'bg-[#5845D8] text-white hover:bg-[#4838B5] shadow-indigo-500/20' 
+                                        acceptedTerms.every(Boolean)
+                                            ? 'bg-[#5845D8] text-white hover:bg-[#4838B5] shadow-indigo-500/20'
                                             : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                                     }`}
                                 >
