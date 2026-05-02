@@ -70,7 +70,33 @@ export async function fetchAndCacheRates() {
   }
 }
 
+async function getAdminRates() {
+  try {
+    const row = await queryOne(
+      `SELECT value FROM public.bago_config WHERE key = 'app_settings'`,
+    );
+    if (row?.value) {
+      const settings = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      const rates = settings?.exchangeRates;
+      if (rates && typeof rates === 'object') {
+        const entries = Object.entries(rates).filter(([, v]) => typeof v === 'number' && v > 0);
+        if (entries.length > 0) {
+          return Object.fromEntries(entries);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Could not read admin rates from bago_config:', e.message);
+  }
+  return null;
+}
+
 async function getCachedRates() {
+  // Admin-configured rates take priority — lets the platform control exchange rates.
+  const adminRates = await getAdminRates();
+  if (adminRates) return adminRates;
+
+  // No admin rates set — fall back to live API rates cached in exchange_rates table.
   try {
     const cached = await queryOne(
       `
