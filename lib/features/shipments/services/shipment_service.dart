@@ -95,13 +95,12 @@ class ShipmentService {
       };
 
       if (images != null && images.isNotEmpty) {
-        final imageFiles = await Future.wait(
-          images.map((f) => MultipartFile.fromFile(f.path,
-              filename: f.path.split('/').last)),
+        // Backend checks req.files.image (singular) first via express-fileupload.
+        // Sending bracket notation (images[0]) is not parsed without parseNestedFiles.
+        fields['image'] = await MultipartFile.fromFile(
+          images.first.path,
+          filename: images.first.path.split('/').last,
         );
-        for (var i = 0; i < imageFiles.length; i++) {
-          fields['images[$i]'] = imageFiles[i];
-        }
       }
 
       final res = await _api.post(
