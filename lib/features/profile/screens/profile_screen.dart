@@ -502,29 +502,6 @@ class _AccountTab extends StatelessWidget {
         BagoMenuGroup(
           children: [
             BagoMenuItem(
-              label: l10n.preferredCurrency(currency),
-              leading: const Icon(Icons.attach_money_rounded,
-                  color: AppColors.gray600),
-              trailing: earningCurrencyLocked
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.lock_rounded, size: 10, color: AppColors.primary),
-                          const SizedBox(width: 3),
-                          Text('Locked', style: AppTextStyles.labelSm.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 9)),
-                        ],
-                      ),
-                    )
-                  : null,
-              onTap: earningCurrencyLocked ? null : () => context.push('/profile/currency'),
-            ),
-            BagoMenuItem(
               label: l10n.paymentMethods,
               leading: const Icon(Icons.credit_card_rounded,
                   color: AppColors.gray600),
