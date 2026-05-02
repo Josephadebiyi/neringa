@@ -68,6 +68,7 @@ class ApiConstants {
   static const String updateProfile = '/api/bago/edit';
   static const String uploadAvatar = '/api/bago/user/avatar';
   static const String changeCurrency = '/api/bago/edit-currency';
+  static const String activateEarning = '/api/bago/activate-earning';
   static const String detectCurrency = '/api/detect-currency';
   static const String changePassword = '/api/bago/reset-password';
   static const String requestEmailChange =

@@ -20,12 +20,14 @@ class CurrencySettingsScreen extends ConsumerStatefulWidget {
 
 class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen> {
   bool _isSaving = false;
+  String? _selectedCurrency;
 
-  Future<void> _selectCurrency(String currency) async {
-    if (_isSaving) return;
+  Future<void> _confirmEarningCurrency() async {
+    final currency = _selectedCurrency;
+    if (currency == null || _isSaving) return;
     setState(() => _isSaving = true);
     try {
-      await ref.read(authProvider.notifier).updateCurrency(currency);
+      await ref.read(authProvider.notifier).activateEarning(currency);
       if (!mounted) return;
       AppSnackBar.show(
         context,
@@ -48,7 +50,9 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final current = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+    final user = ref.watch(authProvider).user;
+    final locked = user?.earningCurrencyLocked ?? false;
+    final current = UserCurrencyHelper.resolve(user);
     final currencies = CurrencyConversionHelper.supportedCurrencyCodes;
 
     return Scaffold(
@@ -63,166 +67,174 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
         ),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Text(
-                l10n.currencyScreenInfo,
-                style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.45),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_isSaving)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: AppLoading()),
-              )
-            else
-              ...currencies.map((currency) {
-              final selected = current.toUpperCase() == currency.toUpperCase();
-              final symbol = CurrencyConversionHelper.symbolForCurrency(currency);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: selected ? null : () => _selectCurrency(currency),
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: selected ? AppColors.primarySoft : AppColors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: selected ? AppColors.primary : AppColors.border,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: selected ? AppColors.primary : AppColors.gray100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Center(
-                            child: Text(
-                              symbol,
-                              style: AppTextStyles.labelMd.copyWith(
-                                color: selected ? AppColors.white : AppColors.black,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(currency, style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800)),
-                            ],
-                          ),
-                        ),
-                        if (selected)
-                          const Icon(Icons.check_circle_rounded, color: AppColors.primary),
-                      ],
+        child: locked
+            ? _buildLockedView(context, current)
+            : _buildSelectorView(context, l10n, current, currencies),
+      ),
+    );
+  }
+
+  Widget _buildLockedView(BuildContext context, String currency) {
+    final symbol = CurrencyConversionHelper.symbolForCurrency(currency);
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Text(
+            'Your earning currency is locked. Contact support if you need to change it.',
+            style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.45),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.primary),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    symbol,
+                    style: AppTextStyles.labelMd.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-              );
-            }),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.border),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.referenceRates,
-                    style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.referenceRatesInfo,
-                    style: AppTextStyles.bodySm.copyWith(
-                      color: AppColors.gray500,
-                      height: 1.45,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(currency, style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock_rounded, size: 12, color: Colors.white),
+                    const SizedBox(width: 4),
+                    Text('Locked', style: AppTextStyles.bodySm.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectorView(BuildContext context, AppLocalizations l10n, String current, List<String> currencies) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Text(
+            'Choose your earning currency. This will be locked once confirmed and can only be changed by support.',
+            style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.45),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_isSaving)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: AppLoading()),
+          )
+        else ...[
+          ...currencies.map((currency) {
+            final selected = (_selectedCurrency ?? current).toUpperCase() == currency.toUpperCase();
+            final symbol = CurrencyConversionHelper.symbolForCurrency(currency);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InkWell(
+                onTap: () => setState(() => _selectedCurrency = currency),
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primarySoft : AppColors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: selected ? AppColors.primary : AppColors.border,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  ...currencies.map((currency) {
-                    if (currency == current) {
-                      return const SizedBox.shrink();
-                    }
-
-                    final forward = CurrencyConversionHelper.convert(
-                      amount: 1,
-                      fromCurrency: current,
-                      toCurrency: currency,
-                    );
-                    final reverse = CurrencyConversionHelper.convert(
-                      amount: 1,
-                      fromCurrency: currency,
-                      toCurrency: current,
-                    );
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: AppColors.backgroundOff,
-                          borderRadius: BorderRadius.circular(14),
+                          color: selected ? AppColors.primary : AppColors.gray100,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '$current / $currency',
-                              style: AppTextStyles.labelMd.copyWith(
-                                color: AppColors.black,
-                                fontWeight: FontWeight.w800,
-                              ),
+                        child: Center(
+                          child: Text(
+                            symbol,
+                            style: AppTextStyles.labelMd.copyWith(
+                              color: selected ? AppColors.white : AppColors.black,
+                              fontWeight: FontWeight.w800,
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '1 $current = ${forward.toStringAsFixed(2)} $currency',
-                              style: AppTextStyles.bodySm.copyWith(
-                                color: AppColors.gray600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '1 $currency = ${reverse.toStringAsFixed(4)} $current',
-                              style: AppTextStyles.bodySm.copyWith(
-                                color: AppColors.gray600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    );
-                  }),
-                ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(currency, style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800)),
+                      ),
+                      if (selected)
+                        const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (_selectedCurrency == null && current.isEmpty) ? null : _confirmEarningCurrency,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: Text(
+                l10n.confirmCurrency,
+                style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 }

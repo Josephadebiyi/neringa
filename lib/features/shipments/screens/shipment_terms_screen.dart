@@ -16,7 +16,7 @@ class ShipmentTermsScreen extends ConsumerStatefulWidget {
 }
 
 class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
-  final _checked = [false, false, false, false];
+  final _checked = [false, false, false];
   bool _isAccepting = false;
 
   bool get _allChecked => _checked.every((v) => v);
@@ -26,25 +26,19 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
       icon: Icons.block_rounded,
       color: AppColors.error,
       title: 'No prohibited items',
-      body: 'My item does not appear on the Bago prohibited items list (weapons, drugs, counterfeit goods, hazardous materials, and other restricted items).',
-    ),
-    (
-      icon: Icons.verified_rounded,
-      color: AppColors.success,
-      title: 'Legal and safe',
-      body: 'My item is legal, safe, and does not require special permits, export licences, or regulatory approval.',
+      body: 'My shipment does not contain any prohibited or restricted items.',
     ),
     (
       icon: Icons.search_rounded,
       color: AppColors.primary,
-      title: 'Open-box policy',
-      body: 'I understand the traveler may inspect my item before accepting the shipment to verify its contents.',
+      title: 'Open to inspection',
+      body: 'I understand the traveler may inspect the contents for safety and compliance.',
     ),
     (
       icon: Icons.gavel_rounded,
       color: AppColors.warning,
-      title: 'Bago enforcement',
-      body: 'I accept that Bago may cancel or suspend my shipment — and my account — if these terms are found to be violated.',
+      title: 'Bago guidelines',
+      body: 'I agree to follow Bago\'s guidelines and take responsibility for my shipment.',
     ),
   ];
 
@@ -76,7 +70,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
           onPressed: () => Navigator.of(context).pop(false),
         ),
         title: Text(
-          'Shipment Rules',
+          'Agreement & Shipping Confirmation',
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -115,7 +109,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'Before you send with Bago',
+                          'By continuing, I confirm that:',
                           style: AppTextStyles.h3.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
@@ -123,7 +117,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'To keep every shipment safe and compliant, please read and agree to the following rules.',
+                          'Please read and confirm each statement before sending your shipment.',
                           style: AppTextStyles.bodyMd.copyWith(
                             color: Colors.white.withValues(alpha: 0.85),
                             height: 1.5,
@@ -154,9 +148,9 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                   const SizedBox(height: 8),
                   // ── Progress indicator ──────────────────────────────────
                   Row(
-                    children: List.generate(4, (i) => Expanded(
+                    children: List.generate(3, (i) => Expanded(
                       child: Container(
-                        margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
+                        margin: EdgeInsets.only(right: i < 2 ? 4 : 0),
                         height: 4,
                         decoration: BoxDecoration(
                           color: _checked[i] ? AppColors.success : AppColors.gray200,
@@ -167,7 +161,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${_checked.where((v) => v).length} of 4 confirmed',
+                    '${_checked.where((v) => v).length} of 3 confirmed',
                     style: AppTextStyles.labelSm.copyWith(color: AppColors.gray500),
                   ),
                   const SizedBox(height: 24),

@@ -299,8 +299,9 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  // Auto-detect currency from IP and save it — only runs if user has no preferred currency set
+  // Auto-detect currency from IP and save it — only runs if user has no earning currency locked
   Future<void> _applyIpCurrencyIfNeeded(UserModel user) async {
+    if (user.earningCurrencyLocked) return;
     if (user.preferredCurrency.trim().isNotEmpty) return;
     try {
       final detected = await _service.detectCurrency();
@@ -312,7 +313,18 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final updated = await _service.updateCurrency(currency);
       state = state.copyWith(user: updated);
-      // Don't await - fire and forget to not block currency update
+      PushNotificationService.instance
+          .refreshAfterAuthChange()
+          .catchError((_) {});
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> activateEarning(String currency) async {
+    try {
+      final updated = await _service.activateEarning(currency);
+      state = state.copyWith(user: updated);
       PushNotificationService.instance
           .refreshAfterAuthChange()
           .catchError((_) {});

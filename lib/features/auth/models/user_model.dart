@@ -20,6 +20,7 @@ class UserModel {
   final double escrowBalance;
   final String currency;
   final String preferredCurrency;
+  final String walletCurrency;
   final String? bio;
   final double rating;
   final int ratingCount;
@@ -30,6 +31,8 @@ class UserModel {
   final bool stripeVerified;
   final String? signupMethod; // 'email' | 'google' | 'apple'
   final DateTime? termsAcceptedAt;
+  final String? earningCurrency;
+  final bool earningCurrencyLocked;
 
   const UserModel({
     required this.id,
@@ -48,6 +51,7 @@ class UserModel {
     this.escrowBalance = 0.0,
     this.currency = '',
     this.preferredCurrency = '',
+    this.walletCurrency = 'USD',
     this.bio,
     this.rating = 0.0,
     this.ratingCount = 0,
@@ -58,6 +62,8 @@ class UserModel {
     this.stripeVerified = false,
     this.signupMethod,
     this.termsAcceptedAt,
+    this.earningCurrency,
+    this.earningCurrencyLocked = false,
   });
 
   bool get isCarrier => _normalizeRole(role) == 'carrier';
@@ -130,6 +136,9 @@ class UserModel {
     bool? stripeVerified,
     String? signupMethod,
     DateTime? termsAcceptedAt,
+    String? walletCurrency,
+    String? earningCurrency,
+    bool? earningCurrencyLocked,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -148,6 +157,7 @@ class UserModel {
       escrowBalance: escrowBalance ?? this.escrowBalance,
       currency: currency ?? this.currency,
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+      walletCurrency: walletCurrency ?? this.walletCurrency,
       bio: bio ?? this.bio,
       rating: rating ?? this.rating,
       ratingCount: ratingCount ?? this.ratingCount,
@@ -158,6 +168,8 @@ class UserModel {
       stripeVerified: stripeVerified ?? this.stripeVerified,
       signupMethod: signupMethod ?? this.signupMethod,
       termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
+      earningCurrency: earningCurrency ?? this.earningCurrency,
+      earningCurrencyLocked: earningCurrencyLocked ?? this.earningCurrencyLocked,
     );
   }
 
@@ -186,6 +198,9 @@ class UserModel {
             json['preferredCurrency']?.toString() ??
             json['preferred_currency']?.toString() ??
             '',
+        walletCurrency: json['walletCurrency']?.toString() ??
+            json['wallet_currency']?.toString() ??
+            'USD',
         bio: json['bio']?.toString(),
         rating: JsonParser.parseDouble(json, 'rating'),
         ratingCount: JsonParser.parseInt(json, 'rating_count', altKey: 'ratingCount'),
@@ -202,6 +217,11 @@ class UserModel {
         termsAcceptedAt: json['termsAcceptedAt'] != null
             ? DateTime.tryParse(json['termsAcceptedAt'].toString())
             : null,
+        earningCurrency: json['earningCurrency']?.toString() ??
+            json['earning_currency']?.toString(),
+        earningCurrencyLocked:
+            json['earningCurrencyLocked'] == true ||
+            json['earning_currency_locked'] == true,
       );
 
   Map<String, dynamic> toJson() => {
@@ -227,6 +247,8 @@ class UserModel {
         'stripeConnectAccountId': stripeConnectAccountId,
         'stripeVerified': stripeVerified,
         'signupMethod': signupMethod,
+        'earning_currency': earningCurrency,
+        'earning_currency_locked': earningCurrencyLocked,
       };
 
   String toJsonString() => jsonEncode(toJson());

@@ -102,6 +102,9 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   }
 
   String _strictUserCurrency(UserModel? user) {
+    final earning = user?.earningCurrency?.trim() ?? '';
+    if (earning.isNotEmpty) return earning.toUpperCase();
+
     final preferred = user?.preferredCurrency.trim() ?? '';
     if (preferred.isNotEmpty) return preferred.toUpperCase();
 
@@ -187,6 +190,12 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
 
   Future<void> _promptForCurrency() async {
     if (_currencyPromptShown || !mounted || _currencyLoading) return;
+    // Don't prompt if earning currency is already locked
+    final authUser = ref.read(authProvider).user;
+    if (authUser?.earningCurrencyLocked == true) {
+      _currencyPromptShown = false;
+      return;
+    }
     _currencyPromptShown = true;
 
     final currencies = CurrencyConversionHelper.supportedCurrencyCodes;
@@ -342,7 +351,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     }
 
     try {
-      await ref.read(authProvider.notifier).updateCurrency(selected);
+      await ref.read(authProvider.notifier).activateEarning(selected);
       if (!mounted) return;
       setState(() => _lockedCurrency = selected.toUpperCase());
     } catch (e) {

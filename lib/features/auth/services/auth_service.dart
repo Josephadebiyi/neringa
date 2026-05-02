@@ -484,6 +484,33 @@ class AuthService {
     }
   }
 
+  Future<UserModel> activateEarning(String currency) async {
+    try {
+      final res = await _api
+          .post(ApiConstants.activateEarning, data: {'currency': currency});
+      final data = res.data as Map<String, dynamic>;
+      final returned =
+          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>);
+      final stored = await _storage.getUser();
+      final existing = stored == null ? null : UserModel.fromJsonString(stored);
+      final user = (existing == null)
+          ? returned
+          : existing.copyWith(
+              earningCurrency: returned.earningCurrency ?? currency,
+              earningCurrencyLocked: true,
+              preferredCurrency: currency,
+              currency: currency,
+              walletCurrency: returned.walletCurrency.isNotEmpty
+                  ? returned.walletCurrency
+                  : currency,
+            );
+      await _storage.saveUser(user.toJsonString());
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<String> detectCurrency() async {
     try {
       final res = await _api.get(ApiConstants.detectCurrency);
