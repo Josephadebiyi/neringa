@@ -346,6 +346,9 @@ class CurrencyConversionHelper {
     for (final country in supportedCountries) {
       if (country.currency == upper) return country.symbol;
     }
+    for (final country in allCountries) {
+      if (country.currency == upper) return country.symbol;
+    }
     return upper;
   }
 

@@ -822,7 +822,10 @@ class _ValueField extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(children: [
-        const Icon(Icons.attach_money_rounded, size: 20, color: AppColors.gray400),
+        Text(
+          CurrencyConversionHelper.symbolForCurrency(currency.isEmpty ? 'USD' : currency),
+          style: AppTextStyles.labelMd.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: TextField(
