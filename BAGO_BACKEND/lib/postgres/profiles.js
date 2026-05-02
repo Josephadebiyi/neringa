@@ -338,7 +338,7 @@ export async function addPushToken(userId, token) {
   return result.rows[0] || null;
 }
 
-export async function updatePreferredCurrency(userId, currency, paymentGateway) {
+export async function updatePreferredCurrency(userId, currency, paymentGateway, oldCurrency = null) {
   await query(
     `
       update public.profiles
@@ -355,7 +355,10 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway) 
     [userId],
   );
 
-  if (wallet && wallet.currency && wallet.currency !== currency) {
+  // Use wallet.currency first; fall back to oldCurrency for accounts where wallet.currency was never set
+  const fromCurrency = wallet?.currency || oldCurrency;
+
+  if (wallet && fromCurrency && fromCurrency.toUpperCase() !== currency.toUpperCase()) {
     const ratesRow = await queryOne(
       `select value from public.bago_config where key = 'app_settings'`,
     );
@@ -363,8 +366,8 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway) 
       ? (typeof ratesRow.value === 'string' ? JSON.parse(ratesRow.value) : ratesRow.value)
       : {};
     const rates = settings.exchangeRates || { USD: 1 };
-    const oldRate = rates[wallet.currency] ?? 1;
-    const newRate = rates[currency] ?? 1;
+    const oldRate = rates[fromCurrency.toUpperCase()] ?? 1;
+    const newRate = rates[currency.toUpperCase()] ?? 1;
     const factor = newRate / oldRate;
     const newAvailable = Number((Number(wallet.available_balance || 0) * factor).toFixed(2));
     const newEscrow = Number((Number(wallet.escrow_balance || 0) * factor).toFixed(2));

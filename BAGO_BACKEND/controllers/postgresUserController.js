@@ -81,7 +81,7 @@ function buildUserResponse(user) {
     kycStatus: user.kycStatus,
     isKycCompleted: user.kycStatus === 'approved',
     paymentGateway: user.paymentGateway,
-    preferredCurrency: user.preferredCurrency,
+    preferredCurrency: user.preferredCurrency || user.walletCurrency || 'USD',
     emailVerified: user.emailVerified,
     phoneVerified: user.phoneVerified ?? false,
     selectedAvatar: user.selectedAvatar,
@@ -91,6 +91,7 @@ function buildUserResponse(user) {
     escrowBalance: Number(user.escrowBalance || 0),
     escrow_balance: Number(user.escrowBalance || 0),
     walletCurrency: user.walletCurrency || user.preferredCurrency || 'USD',
+    wallet_currency: user.walletCurrency || user.preferredCurrency || 'USD',
     bankAccountLinked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
     bank_account_linked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
   };

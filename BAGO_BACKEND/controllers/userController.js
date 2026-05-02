@@ -5,6 +5,7 @@ import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { convertCurrency } from '../services/currencyConverter.js';
+import { updatePreferredCurrency } from '../lib/postgres/profiles.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -146,6 +147,15 @@ export const edit = async (req, res, next) => {
       return res.status(400).json({ message: 'No valid update fields provided' });
     }
 
+    // Read old preferred currency BEFORE the update so wallet conversion has a fallback
+    let oldPreferredCurrency = null;
+    if (updateKeys.includes('preferredCurrency')) {
+      const current = await queryOne(
+        `SELECT preferred_currency FROM public.profiles WHERE id = $1`, [userId]
+      );
+      oldPreferredCurrency = current?.preferred_currency || null;
+    }
+
     const sets = [];
     const params = [userId];
 
@@ -172,6 +182,13 @@ export const edit = async (req, res, next) => {
                  preferred_currency, country, bank_details, image_url, selected_avatar`,
       params
     );
+
+    // Convert wallet balance when currency changes
+    if (updateKeys.includes('preferredCurrency') && updates.preferredCurrency) {
+      const newCurrency = updates.preferredCurrency.toUpperCase();
+      const paymentGateway = ['NGN', 'GHS', 'KES'].includes(newCurrency) ? 'paystack' : 'stripe';
+      await updatePreferredCurrency(userId, newCurrency, paymentGateway, oldPreferredCurrency);
+    }
 
     return res.status(200).json({
       status: 'success',
