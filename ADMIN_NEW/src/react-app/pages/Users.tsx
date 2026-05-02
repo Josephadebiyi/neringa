@@ -132,8 +132,17 @@ export default function Users() {
         headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
         body: JSON.stringify({ newCurrency, settleBalance, adminNote }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed');
+      if (!res.ok) {
+        let message = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          message = data.message || message;
+        } catch {
+          const text = await res.text().catch(() => '');
+          if (text) message = text;
+        }
+        throw new Error(message);
+      }
       setCurrencyModalOpen(false);
       fetchUsers();
     } catch (err: any) {
