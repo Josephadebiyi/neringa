@@ -5,7 +5,7 @@ import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { convertCurrency } from '../services/currencyConverter.js';
-import { updatePreferredCurrency } from '../lib/postgres/profiles.js';
+import { updatePreferredCurrency, findProfileById } from '../lib/postgres/profiles.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -190,6 +190,9 @@ export const edit = async (req, res, next) => {
       await updatePreferredCurrency(userId, newCurrency, paymentGateway, oldPreferredCurrency);
     }
 
+    // Re-fetch full profile so wallet balance/currency reflect the conversion
+    const updatedProfile = await findProfileById(userId);
+
     return res.status(200).json({
       status: 'success',
       data: {
@@ -205,6 +208,10 @@ export const edit = async (req, res, next) => {
         bankDetails: row.bank_details,
         image: row.image_url,
         selectedAvatar: row.selected_avatar,
+        walletBalance: updatedProfile?.walletBalance ?? updatedProfile?.balance ?? 0,
+        wallet_balance: updatedProfile?.walletBalance ?? updatedProfile?.balance ?? 0,
+        walletCurrency: updatedProfile?.walletCurrency || row.preferred_currency,
+        wallet_currency: updatedProfile?.walletCurrency || row.preferred_currency,
       },
     });
   } catch (error) {

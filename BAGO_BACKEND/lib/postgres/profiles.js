@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 
 import { query, queryOne, withTransaction } from './db.js';
+import { convertCurrency } from '../../services/currencyConverter.js';
 
 function normalizeProfileRow(row) {
   if (!row) return null;
@@ -349,7 +350,7 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
     [userId, currency, paymentGateway],
   );
 
-  // Convert balance from old currency to new currency using stored exchange rates
+  // Convert balance from old currency to new currency using live exchange rates
   const wallet = await queryOne(
     `select available_balance, escrow_balance, currency from public.wallet_accounts where user_id = $1`,
     [userId],
@@ -359,18 +360,12 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
   const fromCurrency = wallet?.currency || oldCurrency;
 
   if (wallet && fromCurrency && fromCurrency.toUpperCase() !== currency.toUpperCase()) {
-    const ratesRow = await queryOne(
-      `select value from public.bago_config where key = 'app_settings'`,
+    const newAvailable = Number(
+      (await convertCurrency(Number(wallet.available_balance || 0), fromCurrency, currency)).toFixed(2),
     );
-    const settings = ratesRow?.value
-      ? (typeof ratesRow.value === 'string' ? JSON.parse(ratesRow.value) : ratesRow.value)
-      : {};
-    const rates = settings.exchangeRates || { USD: 1 };
-    const oldRate = rates[fromCurrency.toUpperCase()] ?? 1;
-    const newRate = rates[currency.toUpperCase()] ?? 1;
-    const factor = newRate / oldRate;
-    const newAvailable = Number((Number(wallet.available_balance || 0) * factor).toFixed(2));
-    const newEscrow = Number((Number(wallet.escrow_balance || 0) * factor).toFixed(2));
+    const newEscrow = Number(
+      (await convertCurrency(Number(wallet.escrow_balance || 0), fromCurrency, currency)).toFixed(2),
+    );
     await query(
       `update public.wallet_accounts set currency = $2, available_balance = $3, escrow_balance = $4 where user_id = $1`,
       [userId, currency, newAvailable, newEscrow],
