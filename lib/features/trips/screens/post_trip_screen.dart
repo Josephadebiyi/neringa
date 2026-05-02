@@ -45,8 +45,6 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   bool _loading = false;
   bool _showSuccess = false;
   bool _isEditMode = false;
-  bool _currencyPromptShown = false;
-
   // Compliance
   bool _termsAccepted = false;
 
@@ -180,188 +178,12 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       return;
     }
 
-    // No valid wallet currency was found.
+    // Fall back to USD — user can set earning currency in profile settings
     if (!mounted) return;
     setState(() {
-      _lockedCurrency = '';
+      _lockedCurrency = 'USD';
       _currencyLoading = false;
     });
-  }
-
-  Future<void> _promptForCurrency() async {
-    if (_currencyPromptShown || !mounted || _currencyLoading) return;
-    // Don't prompt if earning currency is already locked
-    final authUser = ref.read(authProvider).user;
-    if (authUser?.earningCurrencyLocked == true) {
-      _currencyPromptShown = false;
-      return;
-    }
-    _currencyPromptShown = true;
-
-    final currencies = CurrencyConversionHelper.supportedCurrencyCodes;
-
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        String? tempSelection;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.82,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.gray200,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        AppLocalizations.of(context).setWalletCurrencyTitle,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.h3
-                            .copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppLocalizations.of(context)
-                            .chooseWalletCurrencyDescription,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMd
-                            .copyWith(color: AppColors.gray500),
-                      ),
-                      const SizedBox(height: 18),
-                      Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: currencies.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (_, index) {
-                            final currency = currencies[index];
-                            final symbol =
-                                CurrencyConversionHelper.symbolForCurrency(
-                                    currency);
-                            final selectedRow = tempSelection == currency;
-                            return InkWell(
-                              onTap: () =>
-                                  setSheetState(() => tempSelection = currency),
-                              borderRadius: BorderRadius.circular(18),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: selectedRow
-                                      ? AppColors.primarySoft
-                                      : AppColors.white,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: selectedRow
-                                        ? AppColors.primary
-                                        : AppColors.border,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        color: selectedRow
-                                            ? AppColors.primary
-                                            : AppColors.gray100,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        symbol,
-                                        style: AppTextStyles.labelMd.copyWith(
-                                          color: selectedRow
-                                              ? AppColors.white
-                                              : AppColors.black,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        currency,
-                                        style: AppTextStyles.labelLg.copyWith(
-                                            fontWeight: FontWeight.w800),
-                                      ),
-                                    ),
-                                    if (selectedRow)
-                                      const Icon(Icons.check_circle_rounded,
-                                          color: AppColors.primary),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: tempSelection == null
-                              ? null
-                              : () =>
-                                  Navigator.pop(sheetContext, tempSelection),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: const StadiumBorder(),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                              AppLocalizations.of(context).confirmCurrency),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (!mounted) return;
-    if (selected == null || selected.trim().isEmpty) {
-      _currencyPromptShown = false;
-      return;
-    }
-
-    try {
-      await ref.read(authProvider.notifier).activateEarning(selected);
-      if (!mounted) return;
-      setState(() => _lockedCurrency = selected.toUpperCase());
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
-      }
-    } finally {
-      _currencyPromptShown = false;
-    }
   }
 
   // Returns lowercase values matching the backend Mongoose enum:
@@ -831,18 +653,6 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         candidate: _strictUserCurrency(ref.watch(authProvider).user));
 
     if (_currencyLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.white,
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
-    }
-
-    if (currentCurrency.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _promptForCurrency();
-      });
       return const Scaffold(
         backgroundColor: AppColors.white,
         body: Center(
