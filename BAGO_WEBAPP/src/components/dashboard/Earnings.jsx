@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 export default function Earnings({ user, checkAuthStatus }) {
     const { currency, t } = useLanguage();
     const navigate = useNavigate();
-    const [balance, setBalance] = useState(user?.balance || 0);
+    const [balance, setBalance] = useState(user?.walletBalance ?? user?.balance ?? 0);
     const [history, setHistory] = useState(user?.balanceHistory || []);
     const [loading, setLoading] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState('');

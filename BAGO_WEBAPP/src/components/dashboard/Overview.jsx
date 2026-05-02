@@ -167,7 +167,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                     { label: t('inTransit'), value: userStats?.activePackages || '0', icon: Clock, color: 'text-blue-500' },
                     {
                         label: t('totalEarned'),
-                        value: `${user?.balance?.toFixed(2) || '0.00'} ${user?.preferredCurrency || 'USD'}`,
+                        value: `${(user?.walletBalance ?? user?.balance ?? 0).toFixed(2)} ${user?.walletCurrency || user?.preferredCurrency || 'USD'}`,
                         icon: Wallet,
                         color: 'text-[#5845D8]'
                     },

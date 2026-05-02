@@ -107,7 +107,7 @@ export default function SendPackage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [platformRate, setPlatformRate] = useState(0);
-    const [currency, setCurrency] = useState('USD');
+    const [currency, setCurrency] = useState(user?.preferredCurrency || 'USD');
     const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
     const [insuranceCost, setInsuranceCost] = useState(0);
     const [exchangeRates, setExchangeRates] = useState(null);
@@ -201,6 +201,12 @@ export default function SendPackage() {
         }
     }, [isAuthenticated, navigate]);
 
+    useEffect(() => {
+        if (user?.preferredCurrency && !selectedTrip) {
+            setCurrency(user.preferredCurrency);
+        }
+    }, [user?.preferredCurrency]);
+
     const loadExchangeRates = async () => {
         try {
             const rates = await fetchExchangeRates('USD');
@@ -233,9 +239,8 @@ export default function SendPackage() {
                 setPlatformRate(quoteRes.data.quote.senderAmount / (parseFloat(formData.packageWeight) || 1));
             }
         } catch (error) {
-            // Fallback to simple calculation if quote fails
             setPlatformRate(selectedTrip?.pricePerKg || 15);
-            setCurrency('USD');
+            setCurrency(user?.preferredCurrency || 'USD');
         }
     };
 
