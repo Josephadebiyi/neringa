@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
 
-// Ensure earning_currency columns exist (lazy migration)
+// Ensure earning_currency columns exist — runs once at startup, not lazily
 let _earningCurrencyEnsured = false;
 async function ensureEarningCurrencyColumns() {
   if (_earningCurrencyEnsured) return;
@@ -12,7 +12,6 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS earning_currency TEXT,
       ADD COLUMN IF NOT EXISTS earning_currency_locked BOOLEAN NOT NULL DEFAULT FALSE
   `);
-  // Back-fill existing rows: earning_currency from preferred_currency
   await query(`
     UPDATE public.profiles
     SET earning_currency = preferred_currency
@@ -20,6 +19,11 @@ async function ensureEarningCurrencyColumns() {
   `);
   _earningCurrencyEnsured = true;
 }
+
+// Run migration immediately when this module is imported
+ensureEarningCurrencyColumns().catch((err) =>
+  console.error('[profiles] earning_currency migration failed:', err.message)
+);
 
 function normalizeProfileRow(row) {
   if (!row) return null;
@@ -135,16 +139,19 @@ const baseSelect = `
 `;
 
 export async function findProfileById(id) {
+  await ensureEarningCurrencyColumns();
   const row = await queryOne(`${baseSelect} where p.id = $1`, [id]);
   return normalizeProfileRow(row);
 }
 
 export async function findProfileByEmail(email) {
+  await ensureEarningCurrencyColumns();
   const row = await queryOne(`${baseSelect} where lower(p.email::text) = lower($1)`, [email]);
   return normalizeProfileRow(row);
 }
 
 export async function findProfileByReferralCode(referralCode) {
+  await ensureEarningCurrencyColumns();
   const row = await queryOne(`${baseSelect} where p.referral_code = $1`, [referralCode]);
   return normalizeProfileRow(row);
 }
