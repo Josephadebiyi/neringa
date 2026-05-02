@@ -335,12 +335,31 @@ export async function updateTripRecord(tripId, userId, updates) {
 }
 
 export async function deleteTripRecord(tripId, userId) {
+  // Block deletion if any non-cancelled/non-rejected requests exist for this trip
+  const activeRequest = await queryOne(
+    `SELECT id FROM public.shipment_requests
+     WHERE trip_id = $1
+       AND status NOT IN ('cancelled', 'rejected', 'completed', 'delivered')
+     LIMIT 1`,
+    [tripId],
+  );
+  if (activeRequest) {
+    throw Object.assign(new Error('Cannot delete a trip that has active bookings. Cancel all bookings first.'), { code: 'TRIP_HAS_BOOKINGS' });
+  }
+
+  // Also block deletion if departure date has already passed — archive instead
+  const trip = await queryOne(
+    `SELECT departure_date FROM public.trips WHERE id = $1 AND user_id = $2`,
+    [tripId, userId],
+  );
+  if (!trip) return false;
+
+  if (trip.departure_date && new Date(trip.departure_date) < new Date()) {
+    throw Object.assign(new Error('Past trips cannot be deleted. They are kept for history.'), { code: 'TRIP_ALREADY_DEPARTED' });
+  }
+
   const deleted = await queryOne(
-    `
-      delete from public.trips
-      where id = $1 and user_id = $2
-      returning id
-    `,
+    `DELETE FROM public.trips WHERE id = $1 AND user_id = $2 RETURNING id`,
     [tripId, userId],
   );
 

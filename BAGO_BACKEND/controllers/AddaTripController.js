@@ -432,11 +432,14 @@ export const DeleteTrip = async (req, res, next) => {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    res.status(200).json({
-      message: "Trip deleted successfully",
-      tripId,
-    });
+    res.status(200).json({ message: "Trip deleted successfully", tripId });
   } catch (error) {
+    if (error.code === 'TRIP_HAS_BOOKINGS') {
+      return res.status(409).json({ message: error.message, code: error.code });
+    }
+    if (error.code === 'TRIP_ALREADY_DEPARTED') {
+      return res.status(409).json({ message: error.message, code: error.code });
+    }
     console.error("Delete trip error:", error);
     next(error);
   }
