@@ -120,27 +120,11 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final selected = await showModalBottomSheet<CountryCurrencyData>(
       context: context,
       backgroundColor: AppColors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => SafeArea(
-        child: ListView.separated(
-          shrinkWrap: true,
-          padding: const EdgeInsets.all(20),
-          itemCount: CurrencyConversionHelper.supportedCountries.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
-          itemBuilder: (_, index) {
-            final country = CurrencyConversionHelper.supportedCountries[index];
-            return ListTile(
-              leading: Text(country.flag, style: const TextStyle(fontSize: 22)),
-              title: Text(country.name, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
-              subtitle: Text('${country.dialCode} • ${country.currency}',
-                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
-              onTap: () => Navigator.of(context).pop(country),
-            );
-          },
-        ),
-      ),
+      builder: (_) => _CountryPickerSheet(),
     );
     if (selected == null || !mounted) return;
     setState(() => _receiverPhoneCountry = selected);
@@ -1222,5 +1206,96 @@ class _Row extends StatelessWidget {
       Expanded(child: Text(label, style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w600))),
       Text(value, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
     ]);
+  }
+}
+
+// ── Country picker sheet (all countries with search) ──────────────────────────
+
+class _CountryPickerSheet extends StatefulWidget {
+  @override
+  State<_CountryPickerSheet> createState() => _CountryPickerSheetState();
+}
+
+class _CountryPickerSheetState extends State<_CountryPickerSheet> {
+  final _search = TextEditingController();
+  List<CountryCurrencyData> _filtered = CurrencyConversionHelper.allCountries;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onSearch(String query) {
+    final q = query.trim().toLowerCase();
+    setState(() {
+      _filtered = q.isEmpty
+          ? CurrencyConversionHelper.allCountries
+          : CurrencyConversionHelper.allCountries
+              .where((c) =>
+                  c.name.toLowerCase().contains(q) ||
+                  c.dialCode.contains(q) ||
+                  c.code.toLowerCase().contains(q))
+              .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, scrollController) => SafeArea(
+        child: Column(children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.gray200,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: TextField(
+              controller: _search,
+              onChanged: _onSearch,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search country or dial code…',
+                prefixIcon: const Icon(Icons.search, color: AppColors.gray400),
+                filled: true,
+                fillColor: const Color(0xFFF7F7F8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              controller: scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              itemCount: _filtered.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+              itemBuilder: (_, index) {
+                final country = _filtered[index];
+                return ListTile(
+                  leading: Text(country.flag, style: const TextStyle(fontSize: 22)),
+                  title: Text(country.name, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+                  subtitle: Text(country.dialCode, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+                  onTap: () => Navigator.of(context).pop(country),
+                );
+              },
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 }
