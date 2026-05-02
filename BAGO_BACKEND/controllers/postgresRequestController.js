@@ -232,36 +232,21 @@ export async function RequestPackage(req, res) {
         if (!stripe) {
           return res.status(503).json({ message: 'Stripe is not configured.', success: false });
         }
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentReference);
-        const statusOk = ['succeeded', 'processing'].includes(paymentIntent.status);
-        const verifiedAmount = Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
-        const agreedAmount = Number(amount);
-        const paymentCurrency = String(paymentIntent.currency || '').toUpperCase();
-        const agreedCurrency = String(currency || 'USD').toUpperCase();
-        if (!statusOk) {
-          return res.status(402).json({ message: 'Stripe payment is not complete.', success: false });
-        }
-        if (paymentCurrency !== agreedCurrency) {
-          return res.status(402).json({ message: 'Stripe payment currency does not match the shipment currency.', success: false });
-        }
-        if (verifiedAmount < agreedAmount * 0.98) {
-          return res.status(402).json({ message: 'Stripe payment amount does not match the agreed amount.', success: false });
-        }
-      }
-      if (provider === 'stripe') {
         try {
-          const stripeKey = process.env.STRIPE_SECRET_KEY;
-          if (stripeKey && stripeKey.startsWith('sk_')) {
-            const { default: Stripe } = await import('stripe');
-            const stripeClient = new Stripe(stripeKey);
-            const intent = await stripeClient.paymentIntents.retrieve(paymentReference);
-            if (intent.status !== 'succeeded') {
-              return res.status(402).json({ message: 'Stripe payment has not been completed.', success: false });
-            }
-            const intentAmount = intent.amount / 100;
-            if (intentAmount < Number(amount) * 0.98) {
-              return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
-            }
+          const paymentIntent = await stripe.paymentIntents.retrieve(paymentReference);
+          const statusOk = ['succeeded', 'processing'].includes(paymentIntent.status);
+          const verifiedAmount = Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
+          const agreedAmount = Number(amount);
+          const paymentCurrency = String(paymentIntent.currency || '').toUpperCase();
+          const agreedCurrency = String(currency || 'USD').toUpperCase();
+          if (!statusOk) {
+            return res.status(402).json({ message: 'Stripe payment is not complete.', success: false });
+          }
+          if (paymentCurrency !== agreedCurrency) {
+            return res.status(402).json({ message: 'Stripe payment currency does not match the shipment currency.', success: false });
+          }
+          if (verifiedAmount < agreedAmount * 0.98) {
+            return res.status(402).json({ message: 'Stripe payment amount does not match the agreed amount.', success: false });
           }
         } catch (stripeErr) {
           console.error('Stripe verification error:', stripeErr.message);
