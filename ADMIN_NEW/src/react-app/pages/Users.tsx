@@ -13,9 +13,11 @@ import {
   Target,
   Ban,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Coins,
 } from 'lucide-react';
-import { getUsers, banUser as toggleBan, deleteUser, updateUser } from '../services/api';
+import { getUsers, banUser as toggleBan, deleteUser, updateUser, getAdminAuthHeaders } from '../services/api';
+import { API_BASE_URL as ADMIN_API } from '../config/api';
 
 interface User {
   _id: string;
@@ -34,6 +36,9 @@ interface User {
   signupSource?: 'ios' | 'android' | 'web' | 'app';
   kycStatus?: string;
   kycData?: any;
+  earningCurrency?: string;
+  earningCurrencyLocked?: boolean;
+  walletBalance?: number;
 }
 
 interface UsersResponse {
@@ -56,6 +61,13 @@ export default function Users() {
   const [activeTab, setActiveTab] = useState<'active' | 'banned'>('active');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [currencyUser, setCurrencyUser] = useState<User | null>(null);
+  const [currencyModalOpen, setCurrencyModalOpen] = useState(false);
+  const [newCurrency, setNewCurrency] = useState('');
+  const [settleBalance, setSettleBalance] = useState(false);
+  const [adminNote, setAdminNote] = useState('');
+  const [currencyLoading, setCurrencyLoading] = useState(false);
+  const [currencyError, setCurrencyError] = useState('');
 
   const limit = 20;
 
@@ -97,6 +109,37 @@ export default function Users() {
       if (res.success) fetchUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);
+    }
+  };
+
+  const handleOpenCurrencyModal = (user: User) => {
+    setCurrencyUser(user);
+    setNewCurrency(user.earningCurrency || '');
+    setSettleBalance(false);
+    setAdminNote('');
+    setCurrencyError('');
+    setCurrencyModalOpen(true);
+  };
+
+  const handleChangeCurrency = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currencyUser || !newCurrency) return;
+    setCurrencyLoading(true);
+    setCurrencyError('');
+    try {
+      const res = await fetch(`${ADMIN_API}/users/${currencyUser._id}/earning-currency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
+        body: JSON.stringify({ newCurrency, settleBalance, adminNote }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed');
+      setCurrencyModalOpen(false);
+      fetchUsers();
+    } catch (err: any) {
+      setCurrencyError(err.message);
+    } finally {
+      setCurrencyLoading(false);
     }
   };
 
@@ -294,6 +337,14 @@ export default function Users() {
                           </button>
 
                           <button
+                            onClick={() => handleOpenCurrencyModal(user)}
+                            className="p-2 bg-indigo-50 text-indigo-500 hover:bg-indigo-100 rounded-xl transition-all"
+                            title="Change Earning Currency"
+                          >
+                            <Coins className="w-4 h-4" />
+                          </button>
+
+                          <button
                             onClick={() => handleDeleteUser(user._id)}
                             className="p-2 bg-red-50 text-red-400 hover:text-red-700 hover:bg-red-100 rounded-xl transition-all"
                             title="Delete User"
@@ -333,6 +384,69 @@ export default function Users() {
           </div>
         </div>
       </div>
+
+      {/* Earning Currency Modal */}
+      {currencyModalOpen && currencyUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCurrencyModalOpen(false)} />
+          <div className="relative w-full max-w-md bg-white rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-8 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-[#1e2749]">Change Earning Currency</h3>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">
+                  {currencyUser.firstName} {currencyUser.lastName} · current: <span className="text-indigo-600">{currencyUser.earningCurrency || '—'}</span>
+                  {currencyUser.walletBalance != null && <span className="ml-2">· balance: {currencyUser.walletBalance}</span>}
+                </p>
+              </div>
+              <button onClick={() => setCurrencyModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 hover:text-red-500 rounded-xl transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleChangeCurrency} className="p-8 space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">New Earning Currency</label>
+                <select
+                  value={newCurrency}
+                  onChange={e => setNewCurrency(e.target.value)}
+                  required
+                  className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-indigo-400 outline-none font-bold text-sm"
+                >
+                  <option value="">— select —</option>
+                  {['USD','EUR','GBP','CAD','AUD','NGN','GHS','KES','ZAR'].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer p-4 rounded-2xl border border-orange-100 bg-orange-50/50">
+                <input type="checkbox" checked={settleBalance} onChange={e => setSettleBalance(e.target.checked)} className="w-4 h-4 accent-orange-500" />
+                <div>
+                  <p className="font-black text-[11px] text-orange-700 uppercase tracking-widest">Settle &amp; zero current balance</p>
+                  <p className="text-[9px] text-orange-500 mt-0.5">Records a settlement transaction and resets balance to 0 before switching currency.</p>
+                </div>
+              </label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Admin Note (optional)</label>
+                <input
+                  type="text"
+                  value={adminNote}
+                  onChange={e => setAdminNote(e.target.value)}
+                  placeholder="Reason for change…"
+                  className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-indigo-400 outline-none font-bold text-sm"
+                />
+              </div>
+              {currencyError && <p className="text-xs font-bold text-red-500 bg-red-50 px-4 py-2 rounded-xl">{currencyError}</p>}
+              <div className="flex gap-4 pt-2">
+                <button type="button" onClick={() => setCurrencyModalOpen(false)} className="flex-1 py-4 bg-gray-50 text-gray-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">
+                  Cancel
+                </button>
+                <button type="submit" disabled={currencyLoading} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2">
+                  {currencyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Change'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {isEditModalOpen && editingUser && (

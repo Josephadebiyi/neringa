@@ -185,7 +185,8 @@ export default function Settings({ user, checkAuthStatus }) {
     const [newEmail, setNewEmail] = useState('');
     const [showEmailOtp, setShowEmailOtp] = useState(false);
     const [emailOtp, setEmailOtp] = useState('');
-    const [preferredCurrency, setPreferredCurrency] = useState(user?.preferredCurrency || 'USD');
+    const [preferredCurrency, setPreferredCurrency] = useState(user?.earningCurrency || user?.preferredCurrency || '');
+    const earningLocked = user?.earningCurrencyLocked ?? false;
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [error, setError] = useState('');
@@ -209,8 +210,8 @@ export default function Settings({ user, checkAuthStatus }) {
         if (user?._id) {
             checkStripeStatus();
         }
-        if (user?.preferredCurrency) {
-            setPreferredCurrency(user.preferredCurrency);
+        if (user?.earningCurrency || user?.preferredCurrency) {
+            setPreferredCurrency(user.earningCurrency || user.preferredCurrency);
         }
         if (user?.phone) {
             setPhone(user.phone);
@@ -296,11 +297,14 @@ export default function Settings({ user, checkAuthStatus }) {
         setLoading(true);
         setError('');
         try {
+            // Lock earning currency on first save if not yet locked
+            if (!earningLocked && preferredCurrency) {
+                await api.post('/api/bago/activate-earning', { currency: preferredCurrency });
+            }
             const res = await api.put('/api/bago/edit', {
                 firstName,
                 lastName,
                 dateOfBirth,
-                preferredCurrency,
                 bankDetails: {
                     bankName,
                     accountNumber,
@@ -454,19 +458,29 @@ export default function Settings({ user, checkAuthStatus }) {
                         <div className="pt-2 border-t border-gray-50 mt-2">
                             <div className="bg-[#5845D8]/5 p-3 rounded-2xl border border-[#5845D8]/10 mb-2">
                                 <label className="block text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1.5 ml-1">
-                                    {t('walletReceivingCurrency') || 'Wallet Receiving Currency'}
+                                    {t('walletReceivingCurrency') || 'Earning Currency'}
                                 </label>
-                                <select
-                                    value={preferredCurrency}
-                                    onChange={(e) => setPreferredCurrency(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-xl border border-transparent font-black text-[11px] transition-all uppercase tracking-tight bg-white focus:border-[#5845D8]/20 outline-none appearance-none"
-                                >
-                                    {['USD', 'NGN', 'ZAR', 'KES', 'GHS', 'EUR', 'GBP'].map(curr => (
-                                        <option key={curr} value={curr}>{curr}</option>
-                                    ))}
-                                </select>
+                                {earningLocked ? (
+                                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#5845D8]/10">
+                                        <span className="font-black text-[13px] text-[#012126] uppercase tracking-tight">{preferredCurrency}</span>
+                                        <span className="ml-auto text-[7px] font-black text-[#5845D8]/60 uppercase tracking-widest bg-[#5845D8]/10 px-2 py-0.5 rounded-full">Locked</span>
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={preferredCurrency}
+                                        onChange={(e) => setPreferredCurrency(e.target.value)}
+                                        className="w-full px-4 py-2 rounded-xl border border-transparent font-black text-[11px] transition-all uppercase tracking-tight bg-white focus:border-[#5845D8]/20 outline-none appearance-none"
+                                    >
+                                        <option value="">— select your earning currency —</option>
+                                        {['USD', 'NGN', 'ZAR', 'KES', 'GHS', 'EUR', 'GBP', 'CAD', 'AUD'].map(curr => (
+                                            <option key={curr} value={curr}>{curr}</option>
+                                        ))}
+                                    </select>
+                                )}
                                 <p className="text-[7px] text-[#5845D8]/60 font-medium mt-1 uppercase tracking-wider ml-1">
-                                    * This is the currency you will receive for your trip bookings.
+                                    {earningLocked
+                                        ? '* Earning currency is locked. Contact support to change it.'
+                                        : '* Set once — this is the currency you will receive for trip bookings.'}
                                 </p>
                             </div>
                         </div>
