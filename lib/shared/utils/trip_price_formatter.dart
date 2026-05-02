@@ -21,7 +21,9 @@ TripPriceDisplay formatTripPriceForViewer(
 }) {
   final baseCurrency = trip.currency.trim().toUpperCase();
   final preferredCurrency = viewerCurrency.trim().toUpperCase();
-  final resolvedBaseCurrency = baseCurrency.isNotEmpty ? baseCurrency : preferredCurrency;
+  // If trip has no currency, fall back to USD rather than the viewer's currency.
+  // Using the viewer's currency as base would show the raw amount in the wrong unit.
+  final resolvedBaseCurrency = baseCurrency.isNotEmpty ? baseCurrency : 'USD';
 
   if (resolvedBaseCurrency.isEmpty) {
     return TripPriceDisplay(
