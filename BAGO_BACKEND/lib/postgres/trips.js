@@ -276,6 +276,17 @@ export async function createTripRecord({
 
 export async function listTripsByUserId(userId) {
   await ensureTripCapacityColumns({ query });
+
+  // Auto-archive trips whose departure date has passed and are still active/verified
+  await query(
+    `UPDATE public.trips
+     SET status = 'completed', updated_at = NOW()
+     WHERE user_id = $1
+       AND departure_date < NOW()
+       AND status IN ('active', 'verified', 'pending_admin_review')`,
+    [userId],
+  );
+
   const result = await query(
     `${baseTripSelect}
       where t.user_id = $1
@@ -335,27 +346,29 @@ export async function updateTripRecord(tripId, userId, updates) {
 }
 
 export async function deleteTripRecord(tripId, userId) {
-  // Block deletion if any non-cancelled/non-rejected requests exist for this trip
-  const activeRequest = await queryOne(
-    `SELECT id FROM public.shipment_requests
-     WHERE trip_id = $1
-       AND status NOT IN ('cancelled', 'rejected', 'completed', 'delivered')
-     LIMIT 1`,
-    [tripId],
-  );
-  if (activeRequest) {
-    throw Object.assign(new Error('Cannot delete a trip that has active bookings. Cancel all bookings first.'), { code: 'TRIP_HAS_BOOKINGS' });
-  }
-
-  // Also block deletion if departure date has already passed — archive instead
   const trip = await queryOne(
     `SELECT departure_date FROM public.trips WHERE id = $1 AND user_id = $2`,
     [tripId, userId],
   );
   if (!trip) return false;
 
+  // Block deletion if departure date has passed — move to history instead
   if (trip.departure_date && new Date(trip.departure_date) < new Date()) {
-    throw Object.assign(new Error('Past trips cannot be deleted. They are kept for history.'), { code: 'TRIP_ALREADY_DEPARTED' });
+    // Auto-archive: mark as completed so it appears in history
+    await query(
+      `UPDATE public.trips SET status = 'completed', updated_at = NOW() WHERE id = $1`,
+      [tripId],
+    );
+    throw Object.assign(new Error('This trip has already departed and has been moved to your history.'), { code: 'TRIP_ALREADY_DEPARTED' });
+  }
+
+  // Block deletion if the trip was ever booked (even once, even if cancelled/completed)
+  const anyRequest = await queryOne(
+    `SELECT id FROM public.shipment_requests WHERE trip_id = $1 LIMIT 1`,
+    [tripId],
+  );
+  if (anyRequest) {
+    throw Object.assign(new Error('Cannot delete a trip that has been booked. Trips with any bookings are kept for history.'), { code: 'TRIP_HAS_BOOKINGS' });
   }
 
   const deleted = await queryOne(
