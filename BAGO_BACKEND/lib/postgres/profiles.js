@@ -3,6 +3,24 @@ import bcrypt from 'bcrypt';
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
 
+// Ensure earning_currency columns exist (lazy migration)
+let _earningCurrencyEnsured = false;
+async function ensureEarningCurrencyColumns() {
+  if (_earningCurrencyEnsured) return;
+  await query(`
+    ALTER TABLE public.profiles
+      ADD COLUMN IF NOT EXISTS earning_currency TEXT,
+      ADD COLUMN IF NOT EXISTS earning_currency_locked BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  // Back-fill existing rows: earning_currency from preferred_currency
+  await query(`
+    UPDATE public.profiles
+    SET earning_currency = preferred_currency
+    WHERE earning_currency IS NULL AND preferred_currency IS NOT NULL
+  `);
+  _earningCurrencyEnsured = true;
+}
+
 function normalizeProfileRow(row) {
   if (!row) return null;
 
@@ -22,6 +40,8 @@ function normalizeProfileRow(row) {
     kycStatus: row.kyc_status,
     paymentGateway: row.payment_gateway,
     preferredCurrency: row.preferred_currency,
+    earningCurrency: row.earning_currency || row.preferred_currency || null,
+    earningCurrencyLocked: row.earning_currency_locked ?? false,
     stripeAccountId: row.stripe_account_id,
     stripeConnectAccountId: row.stripe_connect_account_id,
     stripeVerified: row.stripe_verified,
@@ -88,6 +108,8 @@ const baseSelect = `
     p.payout_method,
     p.payment_gateway,
     p.preferred_currency,
+    p.earning_currency,
+    p.earning_currency_locked,
     p.completed_trips,
     p.cancellations,
     p.rating,
@@ -166,6 +188,7 @@ export async function createProfileWithWallet({
   emailVerified = true,
   imageUrl = null,
 }) {
+  await ensureEarningCurrencyColumns();
   return withTransaction(async (client) => {
     const profileResult = await client.query(
       `
@@ -180,13 +203,14 @@ export async function createProfileWithWallet({
           date_of_birth,
           payment_gateway,
           preferred_currency,
+          earning_currency,
           signup_method,
           signup_source,
           email_verified,
           image_url,
           status
         )
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'verified')
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,'verified')
         returning id
       `,
       [
@@ -376,6 +400,70 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
       [userId, currency],
     );
   }
+}
+
+// One-time earner activation: sets earning_currency and locks it
+export async function activateEarningCurrency(userId, currency) {
+  await ensureEarningCurrencyColumns();
+  const profile = await queryOne(
+    `SELECT earning_currency_locked FROM public.profiles WHERE id = $1`,
+    [userId],
+  );
+  if (profile?.earning_currency_locked) {
+    throw Object.assign(new Error('Earning currency is already locked and cannot be changed.'), { code: 'CURRENCY_LOCKED' });
+  }
+  const upper = currency.toUpperCase();
+  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'stripe';
+  await query(
+    `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = TRUE,
+     preferred_currency = $2, payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
+    [userId, upper, paymentGateway],
+  );
+  await query(
+    `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
+    [userId, upper],
+  );
+  return findProfileById(userId);
+}
+
+// Admin-only: settle old balance and set new earning currency
+export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote) {
+  await ensureEarningCurrencyColumns();
+  const upper = newCurrency.toUpperCase();
+  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'stripe';
+
+  await withTransaction(async (client) => {
+    if (settleBalance) {
+      const wallet = await client.query(
+        `SELECT available_balance, currency FROM public.wallet_accounts WHERE user_id = $1`,
+        [userId],
+      );
+      const w = wallet.rows[0];
+      if (w && Number(w.available_balance) > 0) {
+        await client.query(
+          `INSERT INTO public.wallet_transactions
+           (wallet_id, user_id, type, amount, currency, status, description, metadata)
+           SELECT id, user_id, 'admin_settlement', available_balance, currency, 'completed', $2, $3
+           FROM public.wallet_accounts WHERE user_id = $1`,
+          [userId, adminNote || 'Admin settlement before earning currency change', JSON.stringify({ adminAction: true })],
+        );
+        await client.query(
+          `UPDATE public.wallet_accounts SET available_balance = 0, updated_at = NOW() WHERE user_id = $1`,
+          [userId],
+        );
+      }
+    }
+    await client.query(
+      `UPDATE public.profiles SET earning_currency = $2, preferred_currency = $2,
+       payment_gateway = $3, earning_currency_locked = TRUE, updated_at = NOW() WHERE id = $1`,
+      [userId, upper, paymentGateway],
+    );
+    await client.query(
+      `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
+      [userId, upper],
+    );
+  });
+  return findProfileById(userId);
 }
 
 export async function getWalletByUserId(userId) {

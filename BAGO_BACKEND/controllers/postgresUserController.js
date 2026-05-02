@@ -23,7 +23,8 @@ import {
   setPendingEmailChange,
   setPendingPhoneChange,
   updatePasswordOtp,
-  updatePreferredCurrency,
+  activateEarningCurrency,
+  adminChangeEarningCurrency,
   clearOtpAndUpdatePassword,
 } from '../lib/postgres/profiles.js';
 import { queryOne } from '../lib/postgres/db.js';
@@ -82,6 +83,10 @@ function buildUserResponse(user) {
     isKycCompleted: user.kycStatus === 'approved',
     paymentGateway: user.paymentGateway,
     preferredCurrency: user.preferredCurrency || user.walletCurrency || 'USD',
+    earningCurrency: user.earningCurrency || user.preferredCurrency || user.walletCurrency || null,
+    earning_currency: user.earningCurrency || user.preferredCurrency || user.walletCurrency || null,
+    earningCurrencyLocked: user.earningCurrencyLocked ?? false,
+    earning_currency_locked: user.earningCurrencyLocked ?? false,
     emailVerified: user.emailVerified,
     phoneVerified: user.phoneVerified ?? false,
     selectedAvatar: user.selectedAvatar,
@@ -1050,23 +1055,47 @@ export async function updateCommunicationPrefs(req, res) {
   }
 }
 
-export async function editCurrency(req, res, next) {
+// Blocked — earning currency is set once via /activate-earning
+export async function editCurrency(_req, res) {
+  return res.status(403).json({
+    message: 'Earning currency cannot be changed by users. Contact support if you need to change it.',
+    code: 'CURRENCY_LOCKED',
+  });
+}
+
+// One-time earning currency activation (sets & locks earning currency)
+export async function activateEarning(req, res, next) {
   const { currency } = req.body;
   if (!currency) return res.status(400).json({ message: 'Currency is required' });
-
   try {
-    const normalized = currency.toUpperCase();
-    const paymentGateway = ['NGN', 'GHS', 'KES'].includes(normalized) ? 'paystack' : 'stripe';
-    await updatePreferredCurrency(req.user.id || req.user._id, normalized, paymentGateway);
-
+    const userId = req.user.id || req.user._id;
+    const updatedProfile = await activateEarningCurrency(userId, currency);
     res.status(200).json({
-      message: 'Currency updated successfully',
+      message: 'Earning currency set and locked.',
       success: true,
-      user: {
-        id: req.user.id || req.user._id,
-        preferredCurrency: normalized,
-        paymentGateway,
-      },
+      user: buildUserResponse(updatedProfile),
+    });
+  } catch (error) {
+    if (error.code === 'CURRENCY_LOCKED') {
+      return res.status(409).json({ message: error.message, code: error.code });
+    }
+    next(error);
+  }
+}
+
+// Admin-only: settle balance and change earning currency
+export async function adminSetEarningCurrency(req, res, next) {
+  const { userId } = req.params;
+  const { newCurrency, settleBalance = false, adminNote } = req.body;
+  if (!userId || !newCurrency) {
+    return res.status(400).json({ message: 'userId and newCurrency are required' });
+  }
+  try {
+    const updatedProfile = await adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote);
+    res.status(200).json({
+      message: `Earning currency changed to ${newCurrency.toUpperCase()}${settleBalance ? ' (balance settled)' : ''}.`,
+      success: true,
+      user: buildUserResponse(updatedProfile),
     });
   } catch (error) {
     next(error);
