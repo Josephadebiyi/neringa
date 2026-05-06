@@ -1001,7 +1001,8 @@ app.get('/api/detect-currency', async (req, res) => {
       '';
     const geo = geoip.lookup(ip);
     const countryCode = geo?.country || '';
-    const currency = countryCode ? (getCurrencyForCountry(countryCode) || 'USD') : 'USD';
+    const currencyInfo = countryCode ? getCurrencyForCountry(countryCode) : null;
+    const currency = (typeof currencyInfo === 'string' ? currencyInfo : currencyInfo?.currency) || 'USD';
     res.json({ currency, countryCode, ip });
   } catch {
     res.json({ currency: 'USD', countryCode: '', ip: '' });
