@@ -511,4 +511,11 @@ export async function deleteItemCategory(id: string) {
   return apiCall(`${ADMIN_API}/item-categories/${id}`, { method: 'DELETE' });
 }
 
+export async function adminSetWalletCurrency(userId: string, newCurrency: string, settleBalance = false, adminNote?: string) {
+  return apiCall(`${ADMIN_API}/users/${userId}/earning-currency`, {
+    method: 'POST',
+    body: JSON.stringify({ newCurrency, settleBalance, adminNote }),
+  });
+}
+
 export { API_BASE, ADMIN_API, MAIN_API };

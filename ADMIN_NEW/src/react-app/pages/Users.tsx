@@ -17,6 +17,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { getUsers, banUser as toggleBan, deleteUser, updateUser, getAdminAuthHeaders } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { API_BASE_URL as ADMIN_API } from '../config/api';
 
 interface User {
@@ -52,6 +53,8 @@ interface UsersResponse {
 }
 
 export default function Users() {
+  const { user: adminUser } = useAuth();
+  const isSuperAdmin = adminUser?.role === 'SUPER_ADMIN';
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -345,13 +348,15 @@ export default function Users() {
                             )}
                           </button>
 
-                          <button
-                            onClick={() => handleOpenCurrencyModal(user)}
-                            className="p-2 bg-indigo-50 text-indigo-500 hover:bg-indigo-100 rounded-xl transition-all"
-                            title="Change Earning Currency"
-                          >
-                            <Coins className="w-4 h-4" />
-                          </button>
+                          {isSuperAdmin && user.earningCurrencyLocked && (
+                            <button
+                              onClick={() => handleOpenCurrencyModal(user)}
+                              className="p-2 bg-indigo-50 text-indigo-500 hover:bg-indigo-100 rounded-xl transition-all"
+                              title="Change Wallet Currency (Activated Traveler)"
+                            >
+                              <Coins className="w-4 h-4" />
+                            </button>
+                          )}
 
                           <button
                             onClick={() => handleDeleteUser(user._id)}

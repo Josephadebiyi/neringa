@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: adminData.email || '',
           firstName: adminData.firstName || adminData.first_name || adminData.fullName || adminData.full_name || '',
           lastName: adminData.lastName || adminData.last_name || '',
-          role: 'admin',
+          role: adminData.role || 'SUPER_ADMIN',
         });
       } else {
         setUser(null);
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: adminData.email || '',
           firstName: adminData.firstName || '',
           lastName: adminData.lastName || '',
-          role: 'admin',
+          role: adminData.role || 'SUPER_ADMIN',
         });
       }
     } else {

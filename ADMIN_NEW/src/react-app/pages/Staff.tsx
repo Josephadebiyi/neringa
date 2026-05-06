@@ -428,8 +428,8 @@ export default function Staff() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B1020]/45 p-4 backdrop-blur-sm">
-          <div className="grid w-full max-w-5xl overflow-hidden rounded-[34px] border border-white/60 bg-white shadow-[0_30px_80px_rgba(11,16,32,0.25)] lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0B1020]/45 p-4 backdrop-blur-sm sm:items-center">
+          <div className="grid w-full max-w-5xl my-auto overflow-hidden rounded-[34px] border border-white/60 bg-white shadow-[0_30px_80px_rgba(11,16,32,0.25)] lg:grid-cols-[1.15fr_0.85fr]">
             <div className="bg-[linear-gradient(180deg,#ffffff_0%,#fafbff_100%)] p-6 md:p-8">
               <div className="mb-8 flex items-start justify-between gap-4">
                 <div>

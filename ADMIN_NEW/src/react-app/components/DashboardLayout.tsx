@@ -6,7 +6,6 @@ import { useAdminSocket } from "../hooks/useAdminSocket";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BAGO_BRAND } from "../config/brand";
 import {
-  Home,
   CreditCard,
   MessageCircle,
   User,
@@ -44,26 +43,30 @@ interface NavItem {
   action?: () => void;
 }
 
-const navItems: NavItem[] = [
+interface NavItemDef extends NavItem {
+  roles?: string[]; // if omitted, visible to all roles
+}
+
+const allNavItems: NavItemDef[] = [
   { icon: LayoutDashboard, label: "Dashboard",         path: "/dashboard" },
-  { icon: User,            label: "Users",              path: "/users" },
-  { icon: Users,           label: "Staff / Sub-Admins", path: "/staff" },
-  { icon: Plane,           label: "Listed Trips",       path: "/trips" },
-  { icon: IdCard,          label: "KYC Management",     path: "/kyc" },
-  { icon: ClipboardList,   label: "Orders",             path: "/orders" },
-  { icon: MapPin,          label: "Tracking",           path: "/tracking" },
-  { icon: Bell,            label: "Promo Engine",       path: "/promo-email" },
-  { icon: Ticket,          label: "Promo Codes",        path: "/promo-codes" },
-  { icon: MessageCircle,   label: "Support Tickets",    path: "/support" },
-  { icon: ShieldAlert,     label: "Disputes",           path: "/disputes" },
-  { icon: RotateCcw,       label: "Refunds",            path: "/refund" },
-  { icon: CreditCard,      label: "Withdrawals",        path: "/withdrawals" },
-  { icon: Send,            label: "Broadcast Center",   path: "/push-notification" },
-  { icon: ImagePlay,       label: "Promo Banners",      path: "/banners" },
-  { icon: Package,         label: "Item Categories",    path: "/item-categories" },
+  { icon: User,            label: "Users",              path: "/users",            roles: ["SUPER_ADMIN"] },
+  { icon: Users,           label: "Staff / Sub-Admins", path: "/staff",           roles: ["SUPER_ADMIN"] },
+  { icon: Plane,           label: "Listed Trips",       path: "/trips",            roles: ["SUPER_ADMIN"] },
+  { icon: IdCard,          label: "KYC Management",     path: "/kyc",              roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
+  { icon: ClipboardList,   label: "Orders",             path: "/orders",           roles: ["SUPER_ADMIN", "SUPPORT_ADMIN"] },
+  { icon: MapPin,          label: "Tracking",           path: "/tracking",         roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
+  { icon: Bell,            label: "Promo Engine",       path: "/promo-email",      roles: ["SUPER_ADMIN"] },
+  { icon: Ticket,          label: "Promo Codes",        path: "/promo-codes",      roles: ["SUPER_ADMIN"] },
+  { icon: MessageCircle,   label: "Support Tickets",    path: "/support",          roles: ["SUPER_ADMIN", "SUPPORT_ADMIN"] },
+  { icon: ShieldAlert,     label: "Disputes",           path: "/disputes",         roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
+  { icon: RotateCcw,       label: "Refunds",            path: "/refund",           roles: ["SUPER_ADMIN"] },
+  { icon: CreditCard,      label: "Withdrawals",        path: "/withdrawals",      roles: ["SUPER_ADMIN"] },
+  { icon: Send,            label: "Broadcast Center",   path: "/push-notification", roles: ["SUPER_ADMIN"] },
+  { icon: ImagePlay,       label: "Promo Banners",      path: "/banners",          roles: ["SUPER_ADMIN"] },
+  { icon: Package,         label: "Item Categories",    path: "/item-categories",  roles: ["SUPER_ADMIN"] },
   { icon: User,            label: "My Profile",         path: "/profile" },
-  { icon: BarChart,        label: "Analytics",          path: "/analytics" },
-  { icon: Settings,        label: "System Settings",    path: "/settings" },
+  { icon: BarChart,        label: "Analytics",          path: "/analytics",        roles: ["SUPER_ADMIN"] },
+  { icon: Settings,        label: "System Settings",    path: "/settings",         roles: ["SUPER_ADMIN"] },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -82,6 +85,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const sidebarW = collapsed ? "w-16" : "w-64";
+  const userRole = user?.role || 'SUPER_ADMIN';
+  const navItems = allNavItems.filter(item =>
+    !item.roles || item.roles.includes(userRole)
+  );
 
   return (
     <div className="flex h-screen bg-[#F4F6FB]">
