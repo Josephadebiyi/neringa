@@ -107,12 +107,10 @@ class StorageService {
     return value != null && value.isNotEmpty;
   }
 
-  Future<void> clearAppPasscode() => _storage.delete(key: _appPasscodeKey);
+  Future<void> clearAppPasscode() => _safeWrite(_appPasscodeKey, null);
 
-  Future<void> saveLastUnlockAt(DateTime timestamp) => _storage.write(
-        key: _lastUnlockAtKey,
-        value: timestamp.toUtc().toIso8601String(),
-      );
+  Future<void> saveLastUnlockAt(DateTime timestamp) =>
+      _safeWrite(_lastUnlockAtKey, timestamp.toUtc().toIso8601String());
 
   Future<DateTime?> getLastUnlockAt() async {
     final raw = await _safeRead(_lastUnlockAtKey);
@@ -120,11 +118,10 @@ class StorageService {
     return DateTime.tryParse(raw)?.toUtc();
   }
 
-  Future<void> clearLastUnlockAt() => _storage.delete(key: _lastUnlockAtKey);
+  Future<void> clearLastUnlockAt() => _safeWrite(_lastUnlockAtKey, null);
 
   // ---------- Role ----------------------------------------------------
-  Future<void> saveRole(String role) =>
-      _storage.write(key: _selectedRoleKey, value: role);
+  Future<void> saveRole(String role) => _safeWrite(_selectedRoleKey, role);
 
   Future<String?> getRole() => _safeRead(_selectedRoleKey);
 
@@ -170,27 +167,31 @@ class StorageService {
   }
 
   // ---------- Backend context ---------------------------------------
-  Future<void> saveBackendUrl(String url) =>
-      _storage.write(key: _backendUrlKey, value: url);
+  Future<void> saveBackendUrl(String url) => _safeWrite(_backendUrlKey, url);
 
   Future<String?> getBackendUrl() => _safeRead(_backendUrlKey);
 
   // ---------- Language ---------------------------------------------
   Future<void> saveLanguageCode(String code) =>
-      _storage.write(key: _languageCodeKey, value: code);
+      _safeWrite(_languageCodeKey, code);
 
   Future<String?> getLanguageCode() => _safeRead(_languageCodeKey);
 
-  Future<void> deleteLanguageCode() => _storage.delete(key: _languageCodeKey);
+  Future<void> deleteLanguageCode() => _safeWrite(_languageCodeKey, null);
 
   // ---------- Clear all -----------------------------------------------
-  Future<void> clearAll() => _storage.deleteAll();
+  Future<void> clearAll() async {
+    try {
+      await _storage.deleteAll();
+    } on PlatformException catch (e) {
+      debugPrint('StorageService clearAll failed: $e');
+    }
+  }
 
   // ---------- Generic -------------------------------------------------
-  Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
+  Future<void> write(String key, String value) => _safeWrite(key, value);
 
   Future<String?> read(String key) => _safeRead(key);
 
-  Future<void> delete(String key) => _storage.delete(key: key);
+  Future<void> delete(String key) => _safeWrite(key, null);
 }
