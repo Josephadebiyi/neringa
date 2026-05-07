@@ -90,33 +90,59 @@ class _BannerSliderState extends State<BannerSlider> {
   }
 }
 
-class _BannerCard extends StatelessWidget {
+class _BannerCard extends StatefulWidget {
   const _BannerCard({required this.banner});
   final PromoBanner banner;
 
   @override
+  State<_BannerCard> createState() => _BannerCardState();
+}
+
+class _BannerCardState extends State<_BannerCard> {
+  bool _timedOut = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.banner.imageUrl.isNotEmpty) {
+      _timer = Timer(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _timedOut = true);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final url = widget.banner.imageUrl;
+    if (url.isEmpty || _timedOut) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: _FallbackBanner(title: widget.banner.title),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: CachedNetworkImage(
-          imageUrl: banner.imageUrl,
+          imageUrl: url,
           fit: BoxFit.cover,
           width: double.infinity,
-          placeholder: (_, __) => Container(
-            decoration: BoxDecoration(
-              color: AppColors.gray100,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          errorWidget: (_, __, ___) => _FallbackBanner(title: banner.title),
+          placeholder: (_, __) => const SizedBox.shrink(),
+          errorWidget: (_, __, ___) {
+            _timer?.cancel();
+            return _FallbackBanner(title: widget.banner.title);
+          },
         ),
       ),
     );
