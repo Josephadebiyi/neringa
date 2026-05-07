@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -67,6 +68,9 @@ class AuthService {
       return (user: user, token: token);
     } on DioException catch (e) {
       throw ApiService.parseError(e);
+    } on PlatformException catch (e) {
+      debugPrint('Login: platform/keychain error (non-fatal): $e');
+      throw Exception('A system error occurred. Please restart the app and try again.');
     }
   }
 
@@ -141,6 +145,9 @@ class AuthService {
       return user;
     } on DioException catch (e) {
       throw ApiService.parseError(e);
+    } on PlatformException catch (e) {
+      debugPrint('verifyOtp: platform/keychain error (non-fatal): $e');
+      throw Exception('A system error occurred. Please restart the app and try again.');
     }
   }
 
@@ -364,6 +371,9 @@ class AuthService {
       return user;
     } on DioException catch (e) {
       throw ApiService.parseError(e);
+    } on PlatformException catch (e) {
+      debugPrint('appleSignIn: platform/keychain error (non-fatal): $e');
+      throw Exception('A system error occurred. Please restart the app and try again.');
     } catch (e) {
       if (e is SignInWithAppleAuthorizationException) {
         if (e.code == AuthorizationErrorCode.canceled) {

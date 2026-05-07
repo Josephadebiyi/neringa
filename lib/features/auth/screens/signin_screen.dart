@@ -114,6 +114,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final raw = error.toString();
     final normalized = raw.toLowerCase();
 
+    if (normalized.contains('platformexception') ||
+        normalized.contains('-34018') ||
+        normalized.contains('missing entitlement') ||
+        normalized.contains('keychain')) {
+      return 'A system error occurred. Please do a clean rebuild of the app and try again.';
+    }
+
     if (normalized.contains('dioexception') ||
         normalized.contains('status code of 502') ||
         normalized.contains('status code of 503') ||
