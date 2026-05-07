@@ -1,14 +1,13 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { Globe, ChevronDown, Check } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 export default function Footer() {
-    const navigate = useNavigate();
-    const { t, currentLanguage, setLanguage, languages, currentLangData, currency, setCurrency, currencies, currentCurrencyData } = useLanguage();
+    const { t, currentLanguage, setLanguage, languages } = useLanguage();
 
     return (
-        <footer className="bg-white text-[#012126] pt-24 pb-12 mt-20 relative overflow-hidden border-t border-gray-100">
+        <footer className="bg-white text-[#012126] pt-16 pb-12 relative overflow-hidden border-t border-gray-100">
             <div className="absolute top-0 right-0 w-96 h-96 bg-[#5845D8]/5 rounded-full blur-[120px] -mr-32 -mt-32"></div>
             <div className="px-6 md:px-12 max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-16 mb-24 relative z-10">
                 <div className="lg:col-span-1">
@@ -34,7 +33,7 @@ export default function Footer() {
                     <div className="flex flex-col gap-4 text-[15px] font-bold text-gray-600">
                         <Link to="/search" className="hover:text-[#5845D8] transition-colors">{t('home')}</Link>
                         <Link to="/track" className="hover:text-[#5845D8] transition-colors">{t('track')}</Link>
-                        <Link to="/send-package" className="hover:text-[#5845D8] transition-colors">{t('sendPackageTitle')}</Link>
+                        <Link to="/search" className="hover:text-[#5845D8] transition-colors">{t('sendPackageTitle')}</Link>
                     </div>
                 </div>
                 <div className="flex flex-col gap-6">
@@ -70,18 +69,6 @@ export default function Footer() {
                             <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         </div>
 
-                        <div className="relative inline-block w-full">
-                            <select
-                                value={currency}
-                                onChange={(e) => setCurrency(e.target.value)}
-                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold text-[#012126] appearance-none outline-none focus:border-[#5845D8] transition-all cursor-pointer"
-                            >
-                                {currencies.map(c => (
-                                    <option key={c.code} value={c.code} className="bg-white text-[#012126]">{c.flag} {c.code} ({c.symbol})</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        </div>
                     </div>
                 </div>
             </div>

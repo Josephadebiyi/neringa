@@ -195,6 +195,9 @@ export default function SendPackage() {
     useEffect(() => {
         if (!isAuthenticated) {
             navigate('/login');
+        } else if (!selectedTrip) {
+            // Require traveler selection from search results before opening this form
+            navigate('/search', { replace: true });
         } else {
             checkVerificationStatus();
             loadExchangeRates();
