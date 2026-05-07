@@ -48,16 +48,18 @@ export const AdminLogin = async (req, res, next) => {
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({
-      message: "Login successful",
-      token,
-      admin: {
-        id: admin.id,
-        username: admin.username,
-        email: admin.email,
-        role: admin.role,
-      },
-    });
+res.status(200).json({
+       message: "Login successful",
+       token,
+       admin: {
+         id: admin.id,
+         userName: admin.username,
+         username: admin.username,
+         email: admin.email,
+         fullName: admin.full_name,
+         role: admin.role,
+       },
+     });
   } catch (error) {
     next(error);
   }

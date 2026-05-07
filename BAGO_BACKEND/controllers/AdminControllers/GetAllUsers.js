@@ -1,6 +1,7 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 function normalizeUser(row) {
+  const isTraveler = row.earning_currency_locked === true;
   return {
     _id: row.id,
     id: row.id,
@@ -11,6 +12,7 @@ function normalizeUser(row) {
     country: row.country,
     banned: row.banned,
     kycStatus: row.kyc_status,
+    phoneVerified: row.phone_verified ?? false,
     signupMethod: row.signup_method,
     signupSource: row.signup_source,
     status: row.status,
@@ -18,7 +20,15 @@ function normalizeUser(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     balance: Number(row.available_balance || 0),
+    walletBalance: Number(row.available_balance || 0),
     escrowBalance: Number(row.escrow_balance || 0),
+    earningCurrency: row.earning_currency || null,
+    earningCurrencyLocked: row.earning_currency_locked ?? false,
+    // Derived: senders need phone verification, travelers need full KYC
+    userType: isTraveler ? 'traveler' : 'sender',
+    isVerified: isTraveler
+      ? (row.kyc_status === 'approved' || row.kyc_status === 'verified' || row.kyc_status === 'completed')
+      : (row.phone_verified === true),
   };
 }
 
@@ -71,12 +81,15 @@ export const GetAllUsers = async (req, res, next) => {
           p.country,
           p.banned,
           p.kyc_status,
+          p.phone_verified,
           p.signup_method,
           p.signup_source,
           p.status,
           p.image_url,
           p.created_at,
           p.updated_at,
+          p.earning_currency,
+          p.earning_currency_locked,
           w.available_balance,
           w.escrow_balance
         from public.profiles p

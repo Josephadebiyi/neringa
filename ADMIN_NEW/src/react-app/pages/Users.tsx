@@ -40,6 +40,9 @@ interface User {
   earningCurrency?: string;
   earningCurrencyLocked?: boolean;
   walletBalance?: number;
+  phoneVerified?: boolean;
+  userType?: 'sender' | 'traveler';
+  isVerified?: boolean;
 }
 
 interface UsersResponse {
@@ -266,9 +269,9 @@ export default function Users() {
                 <tr className="bg-gray-50/50">
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Identity</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Country</th>
-                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Source</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Role</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Auth</th>
-                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">KYC</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Verified</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Escrow</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Actions</th>
                 </tr>
@@ -281,6 +284,7 @@ export default function Users() {
                 ) : (
                   filteredUsers.map((user) => (
                     <tr key={user._id} className="group hover:bg-gray-50/30 transition-colors">
+                      {/* Identity */}
                       <td className="py-5 px-8">
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black border ${user.banned ? 'bg-red-50 text-red-400 border-red-100' : 'bg-gradient-to-br from-[#5240E8]/10 to-[#5240E8]/5 border-[#5240E8]/10 text-[#5240E8]'
@@ -290,34 +294,52 @@ export default function Users() {
                           <div>
                             <div className="font-bold text-[#1e2749] text-sm flex items-center gap-2">
                               {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'Anonymous User'}
-                              {user.signupMethod === 'google' && (
-                                <div className="p-1 bg-white border border-gray-100 shadow-sm rounded-lg" title="Signed up with Google">
-                                  <Target className="w-3 h-3 text-blue-500 fill-blue-500" />
-                                </div>
-                              )}
                             </div>
                             <div className="text-[10px] font-bold text-gray-400 mt-0.5">{user.email}</div>
                           </div>
                         </div>
                       </td>
+                      {/* Country */}
+                      <td className="py-5 px-8">
+                        <span className="text-[10px] font-black px-2 py-1 rounded-lg border bg-gray-50 text-gray-500 border-gray-100 uppercase">
+                          {user.country || '—'}
+                        </span>
+                      </td>
+                      {/* Role: Traveler (activated) vs Sender */}
+                      <td className="py-5 px-8">
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border uppercase ${user.earningCurrencyLocked ? 'bg-violet-50 text-violet-600 border-violet-100' : 'bg-sky-50 text-sky-600 border-sky-100'}`}>
+                          {user.earningCurrencyLocked ? 'Traveler' : 'Sender'}
+                        </span>
+                      </td>
+                      {/* Auth method */}
                       <td className="py-5 px-8 uppercase">
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${user.signupMethod === 'google' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-gray-50 text-gray-500 border-gray-100'}`}>
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border flex items-center gap-1 w-fit ${user.signupMethod === 'google' ? 'bg-blue-50 text-blue-600 border-blue-100' : user.signupMethod === 'apple' ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-gray-50 text-gray-500 border-gray-100'}`}>
+                          {user.signupMethod === 'google' && <Target className="w-3 h-3 fill-blue-500" />}
                           {user.signupMethod || 'email'}
                         </span>
                       </td>
+                      {/* Verified: phone for senders, KYC for travelers */}
                       <td className="py-5 px-8">
-                        <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${user.kycStatus === 'approved' ? 'bg-green-50 text-green-600 border-green-100' :
-                          user.kycStatus === 'rejected' ? 'bg-red-50 text-red-600 border-red-100' :
-                            'bg-amber-50 text-amber-600 border-amber-100'
-                          }`}>
-                          {user.kycStatus === 'approved' ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-                          {user.kycStatus || 'pending'}
-                        </span>
+                        {user.earningCurrencyLocked ? (
+                          <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${user.kycStatus === 'approved' || user.kycStatus === 'verified' ? 'bg-green-50 text-green-600 border-green-100' :
+                            user.kycStatus === 'rejected' ? 'bg-red-50 text-red-600 border-red-100' :
+                              'bg-amber-50 text-amber-600 border-amber-100'
+                            }`}>
+                            {user.kycStatus === 'approved' || user.kycStatus === 'verified' ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                            KYC: {user.kycStatus || 'none'}
+                          </span>
+                        ) : (
+                          <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${user.phoneVerified ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                            {user.phoneVerified ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                            {user.phoneVerified ? 'Phone ✓' : 'Phone pending'}
+                          </span>
+                        )}
                       </td>
+                      {/* Escrow */}
                       <td className="py-5 px-8">
                         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-xl font-black text-xs border border-slate-100">
                           <CreditCard className="w-3 h-3 opacity-30" />
-                          €{(+( user.escrowBalance ?? 0)).toFixed(2)}
+                          €{(+(user.escrowBalance ?? 0)).toFixed(2)}
                         </div>
                       </td>
                       <td className="py-5 px-8 text-right">
