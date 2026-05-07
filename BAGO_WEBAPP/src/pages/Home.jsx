@@ -388,6 +388,96 @@ const StickySearch = () => {
 };
 
 /* ─────────────────────────────────────────────
+   COUNTRY SLIDER
+───────────────────────────────────────────── */
+const COUNTRIES = [
+    { code: 'gb', name: 'United Kingdom' },
+    { code: 'ng', name: 'Nigeria' },
+    { code: 'us', name: 'United States' },
+    { code: 'fr', name: 'France' },
+    { code: 'de', name: 'Germany' },
+    { code: 'ca', name: 'Canada' },
+    { code: 'za', name: 'South Africa' },
+    { code: 'gh', name: 'Ghana' },
+    { code: 'ke', name: 'Kenya' },
+    { code: 'it', name: 'Italy' },
+    { code: 'es', name: 'Spain' },
+    { code: 'nl', name: 'Netherlands' },
+    { code: 'be', name: 'Belgium' },
+    { code: 'se', name: 'Sweden' },
+    { code: 'ch', name: 'Switzerland' },
+    { code: 'ae', name: 'UAE' },
+    { code: 'cm', name: 'Cameroon' },
+    { code: 'sn', name: 'Senegal' },
+    { code: 'ci', name: "Côte d'Ivoire" },
+    { code: 'br', name: 'Brazil' },
+    { code: 'au', name: 'Australia' },
+    { code: 'pt', name: 'Portugal' },
+];
+
+const CountrySlider = () => {
+    const doubled = [...COUNTRIES, ...COUNTRIES];
+    return (
+        <section className="py-10 overflow-hidden bg-[#F8F6F3] border-y border-gray-200">
+            <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-7">
+                Our Countries
+            </p>
+            <div className="relative">
+                <div
+                    className="flex gap-3 animate-marquee"
+                    style={{ width: 'max-content' }}
+                >
+                    {doubled.map((c, i) => (
+                        <div
+                            key={i}
+                            className="flex items-center gap-3 cursor-default select-none"
+                            style={{
+                                background: '#ffffff',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '999px',
+                                padding: '10px 20px 10px 10px',
+                                minWidth: 'max-content',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            }}
+                        >
+                            <img
+                                src={`https://flagcdn.com/w40/${c.code}.png`}
+                                alt={c.name}
+                                style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                    flexShrink: 0,
+                                }}
+                                loading="lazy"
+                            />
+                            <span style={{ color: '#1a1a2e', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                                {c.name}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-20" style={{ background: 'linear-gradient(to right, #F8F6F3, transparent)' }} />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-20" style={{ background: 'linear-gradient(to left, #F8F6F3, transparent)' }} />
+            </div>
+            <style>{`
+                @keyframes marquee {
+                    from { transform: translateX(0); }
+                    to   { transform: translateX(-50%); }
+                }
+                .animate-marquee {
+                    animation: marquee 35s linear infinite;
+                }
+                .animate-marquee:hover {
+                    animation-play-state: paused;
+                }
+            `}</style>
+        </section>
+    );
+};
+
+/* ─────────────────────────────────────────────
    TRUST SECTION
 ───────────────────────────────────────────── */
 const FeaturesSection = () => {
@@ -838,6 +928,7 @@ export default function Home() {
             <Navbar />
             <HeroSection />
             <StickySearch />
+            <CountrySlider />
             <div className="h-6" />
             {/* Recent Trips Section removed */}
             <PromoBar />

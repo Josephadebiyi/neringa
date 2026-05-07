@@ -22,6 +22,7 @@ import {
 } from '../controllers/postgresPaymentMethodController.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
+import { getKycProvider, startDojahSession, dojahWebhook } from '../controllers/DojahController.js';
 import {
   acceptShipmentTerms,
   getTermsStatus,
@@ -148,10 +149,13 @@ userRouter.post('/kyc/create-session', isAuthenticated, createDiditSession);
 userRouter.get('/kyc/status', isAuthenticated, fetchDiditResult);
 userRouter.get('/kyc/fetch-result/:sessionId', isAuthenticated, fetchDiditResult);
 userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => {
-  // Flutter polls via POST with sessionId in body — bridge to the GET handler
   req.params = { ...req.params, sessionId: req.body?.sessionId || req.query?.sessionId };
   return fetchDiditResult(req, res, next);
 });
+// KYC provider routing (Dojah vs DiDit)
+userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
+userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
+userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
 userRouter.post('/use-referral-discount', isAuthenticated, useReferralDiscount);
 
 userRouter.post('/request/:requestId/reviews', isAuthenticated, requireKycVerification, AddReviewToRequest);
