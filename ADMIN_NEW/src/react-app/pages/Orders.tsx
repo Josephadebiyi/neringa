@@ -119,8 +119,22 @@ export default function OrdersPage() {
                             <tr key={order._id} className="hover:bg-gray-50">
                                 <td className="py-4 px-4 font-medium text-gray-900 text-sm">#{(order._id ?? '').slice(-6).toUpperCase()}</td>
                                 <td className="py-4 px-4">
-                                    <div className="text-sm text-gray-900">{order.package?.description || 'Package'}</div>
-                                    <div className="text-xs text-gray-500">{order.package?.packageWeight} KG</div>
+                                    <div className="flex items-center gap-3">
+                                      {order.package?.image ? (
+                                        <img
+                                          src={order.package.image}
+                                          alt="item"
+                                          className="w-12 h-12 rounded-lg object-cover border border-gray-100 flex-shrink-0"
+                                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                      ) : (
+                                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-300 text-xs font-bold">IMG</div>
+                                      )}
+                                      <div>
+                                        <div className="text-sm text-gray-900">{order.package?.description || 'Package'}</div>
+                                        <div className="text-xs text-gray-500">{order.package?.packageWeight} KG</div>
+                                      </div>
+                                    </div>
                                 </td>
                                 <td className="py-4 px-4">
                                     <div className="text-sm font-medium text-gray-900">
