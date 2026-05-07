@@ -150,12 +150,12 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: BackButton(
-          color: AppColors.textPrimary,
+          color: AppColors.black,
           onPressed: _step == 1
               ? () => setState(() => _step = 0)
               : () => Navigator.of(context).pop(),
         ),
-        title: Text('Identity Verification', style: AppTextStyles.heading3),
+        title: Text('Identity Verification', style: AppTextStyles.h3),
       ),
       body: _step == 0 ? _buildConsent() : _buildCountryPicker(),
     );
@@ -187,13 +187,13 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Data Protection & Consent',
-                                style: AppTextStyles.bodyMedium.copyWith(
+                                style: AppTextStyles.bodyMd.copyWith(
                                     fontWeight: FontWeight.w700)),
                             const SizedBox(height: 6),
                             Text(
                               'To verify your identity we collect and process your personal data including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.',
-                              style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.textSecondary, height: 1.5),
+                              style: AppTextStyles.bodySm.copyWith(
+                                  color: AppColors.gray500, height: 1.5),
                             ),
                           ],
                         ),
@@ -202,7 +202,7 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                Text('What we collect', style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+                Text('What we collect', style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 for (final item in [
                   'Government-issued photo ID (passport, national ID, driver\'s licence)',
@@ -219,18 +219,18 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(item,
-                              style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.textSecondary, height: 1.5)),
+                              style: AppTextStyles.bodySm.copyWith(
+                                  color: AppColors.gray500, height: 1.5)),
                         ),
                       ],
                     ),
                   ),
                 const SizedBox(height: 24),
-                Text('How we use it', style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+                Text('How we use it', style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 Text(
                   'Your data is processed solely to verify your identity and comply with anti-money-laundering (AML) and know-your-customer (KYC) regulations. It is not sold to third parties.',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, height: 1.5),
+                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, height: 1.5),
                 ),
                 const SizedBox(height: 32),
                 _ConsentCheckbox(
@@ -238,12 +238,12 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                   onChanged: (v) => setState(() => _termsAccepted = v),
                   child: RichText(
                     text: TextSpan(
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
                       children: [
                         const TextSpan(text: 'I have read and agree to the '),
                         TextSpan(
                           text: 'Terms & Conditions',
-                          style: AppTextStyles.bodySmall.copyWith(
+                          style: AppTextStyles.bodySm.copyWith(
                               color: AppColors.primary, fontWeight: FontWeight.w600),
                           recognizer: TapGestureRecognizer()
                             ..onTap = () => launchUrl(Uri.parse('https://bago.app/terms')),
@@ -258,12 +258,12 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                   onChanged: (v) => setState(() => _privacyAccepted = v),
                   child: RichText(
                     text: TextSpan(
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
                       children: [
                         const TextSpan(text: 'I consent to the collection and processing of my personal data as described in the '),
                         TextSpan(
                           text: 'Privacy Policy',
-                          style: AppTextStyles.bodySmall.copyWith(
+                          style: AppTextStyles.bodySm.copyWith(
                               color: AppColors.primary, fontWeight: FontWeight.w600),
                           recognizer: TapGestureRecognizer()
                             ..onTap = () => launchUrl(Uri.parse('https://bago.app/privacy')),
@@ -299,7 +299,7 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Select your country of residence',
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                  style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
               const SizedBox(height: 16),
               TextField(
                 onChanged: (v) => setState(() => _search = v),
@@ -349,9 +349,9 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(name,
-                            style: AppTextStyles.bodyMedium.copyWith(
+                            style: AppTextStyles.bodyMd.copyWith(
                               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                              color: selected ? AppColors.primary : AppColors.textPrimary,
+                              color: selected ? AppColors.primary : AppColors.black,
                             )),
                       ),
                       if (selected)

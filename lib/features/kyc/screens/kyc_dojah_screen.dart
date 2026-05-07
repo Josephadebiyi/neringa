@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -208,10 +207,10 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: AppColors.textPrimary),
+          icon: const Icon(Icons.close, color: AppColors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Identity Verification', style: AppTextStyles.heading3),
+        title: Text('Identity Verification', style: AppTextStyles.h3),
       ),
       body: Stack(
         children: [
