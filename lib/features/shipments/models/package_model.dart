@@ -304,6 +304,7 @@ class PackageModel {
       case 'delivering':
         return PackageStatus.inTransit;
       case 'completed':
+      case 'delivered':
         return PackageStatus.delivered;
       case 'cancelled':
       case 'rejected':

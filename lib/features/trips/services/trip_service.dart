@@ -79,7 +79,7 @@ class TripService {
         ApiConstants.searchTrips,
         queryParameters: queryParameters,
       );
-      return ResponseParser.parseList(res.data, ['trips', 'travelers'])
+      return ResponseParser.parseList(res.data, ['trips', 'travelers', 'findUsers'])
           .map(TripModel.fromJson)
           .toList();
     } on DioException catch (e) {

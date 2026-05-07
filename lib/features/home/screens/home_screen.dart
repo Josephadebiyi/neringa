@@ -94,6 +94,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _showFindTravelerSheet(BuildContext ctx) {
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _FindTravelerSheet(),
+    );
+  }
+
   void _search() {
     final l10n = AppLocalizations.of(context);
     final from = _from.trim();
@@ -159,7 +168,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: const Color(0xFFEEEBFF),
                 icon: Icons.send_rounded,
                 route: '/create-shipment',
-                isPrimary: true),
+                isPrimary: true,
+                onTap: () => _showFindTravelerSheet(context)),
             _ServiceItem(
                 title: l10n.serviceBuyItems,
                 description: l10n.serviceBuyItemsDesc,
@@ -1177,7 +1187,7 @@ class _ServiceCardState extends State<_ServiceCard> {
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
       child: InkWell(
-        onTap: () => context.push(widget.item.route),
+        onTap: widget.item.onTap ?? () => context.push(widget.item.route),
         onTapDown: (_) => _setPressed(true),
         onTapCancel: () => _setPressed(false),
         onTapUp: (_) => _setPressed(false),
@@ -1673,10 +1683,186 @@ class _ServiceItem {
       required this.color,
       required this.icon,
       required this.route,
-      this.isPrimary = false});
+      this.isPrimary = false,
+      this.onTap});
   final String title, description, route;
   final Color color;
   final IconData icon;
   final bool isPrimary;
+  final VoidCallback? onTap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Find Traveler Sheet (from home "Send Package" button)
+// ─────────────────────────────────────────────────────────────────────────────
+class _FindTravelerSheet extends StatefulWidget {
+  const _FindTravelerSheet();
+  @override
+  State<_FindTravelerSheet> createState() => _FindTravelerSheetState();
+}
+
+class _FindTravelerSheetState extends State<_FindTravelerSheet> {
+  String _from = '';
+  String _to = '';
+  String _date = '';
+
+  bool get _canSearch => _from.isNotEmpty && _to.isNotEmpty;
+
+  Future<void> _pickCity(bool isFrom) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LocationPickerSheet(
+        title: isFrom ? 'Departure City' : 'Destination City',
+        hintText: isFrom ? 'Search departure city…' : 'Search destination city…',
+        onSelect: (value) {
+          if (mounted) setState(() { if (isFrom) { _from = value; } else { _to = value; } });
+        },
+      ),
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      setState(() => _date = '${months[picked.month - 1]} ${picked.day}, ${picked.year}');
+    }
+  }
+
+  void _search() {
+    if (!_canSearch) return;
+    final router = GoRouter.of(context);
+    final from = _from;
+    final to = _to;
+    final date = _date;
+    Navigator.of(context).pop();
+    router.push('/trips-list', extra: {
+      'from': from,
+      'to': to,
+      'date': date.isEmpty ? null : date,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Find a Traveler', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          Text('Enter your route to see available travelers.', style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+          const SizedBox(height: 20),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.gray50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                _SheetRouteRow(
+                  icon: Icons.trip_origin_rounded,
+                  label: _from.isEmpty ? 'Departure city' : _from,
+                  hasValue: _from.isNotEmpty,
+                  onTap: () => _pickCity(true),
+                ),
+                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                _SheetRouteRow(
+                  icon: Icons.location_on_rounded,
+                  label: _to.isEmpty ? 'Destination city' : _to,
+                  hasValue: _to.isNotEmpty,
+                  onTap: () => _pickCity(false),
+                ),
+                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                _SheetRouteRow(
+                  icon: Icons.calendar_month_rounded,
+                  label: _date.isEmpty ? 'Any date (optional)' : _date,
+                  hasValue: _date.isNotEmpty,
+                  onTap: _pickDate,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton(
+              onPressed: _canSearch ? _search : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.gray200,
+                shape: const StadiumBorder(),
+                elevation: 0,
+              ),
+              child: Text('Search Travelers', style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetRouteRow extends StatelessWidget {
+  const _SheetRouteRow({required this.icon, required this.label, required this.hasValue, required this.onTap});
+  final IconData icon;
+  final String label;
+  final bool hasValue;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(icon, color: hasValue ? AppColors.primary : AppColors.gray400, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.bodyMd.copyWith(
+                color: hasValue ? AppColors.black : AppColors.gray400,
+                fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.gray300, size: 20),
+        ],
+      ),
+    ),
+  );
 }
 
