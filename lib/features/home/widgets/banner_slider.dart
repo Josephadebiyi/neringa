@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -103,14 +102,13 @@ class _BannerCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: url.isEmpty
             ? _FallbackBanner(title: banner.title)
-            : CachedNetworkImage(
-                imageUrl: url,
+            : Image.network(
+                url,
                 fit: BoxFit.cover,
                 width: double.infinity,
-                // Show the fallback immediately while image loads — no spinner
-                placeholder: (_, __) => _FallbackBanner(title: banner.title),
-                errorWidget: (_, __, ___) =>
-                    _FallbackBanner(title: banner.title),
+                loadingBuilder: (_, child, progress) =>
+                    progress == null ? child : _FallbackBanner(title: banner.title),
+                errorBuilder: (_, __, ___) => _FallbackBanner(title: banner.title),
               ),
       ),
     );

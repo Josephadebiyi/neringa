@@ -439,17 +439,13 @@ class AuthService {
 
   Future<UserModel> uploadAvatar(File file) async {
     try {
-      final res = await _api.uploadFile(
+      await _api.uploadFile(
         ApiConstants.uploadAvatar,
         file: file,
         fieldName: 'image',
       );
-      final data = res.data as Map<String, dynamic>;
-      final user =
-          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>);
-      await _storage.saveUser(user.toJsonString());
-      await _storage.saveBackendUrl(ApiConstants.baseUrl);
-      return user;
+      // Backend returns only {success, image} — fetch fresh profile to get full user
+      return await getProfile();
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
