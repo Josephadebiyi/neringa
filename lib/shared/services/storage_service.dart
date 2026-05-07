@@ -31,17 +31,26 @@ class StorageService {
     }
   }
 
+  Future<void> _safeWrite(String key, String? value) async {
+    try {
+      if (value == null) {
+        await _storage.delete(key: key);
+      } else {
+        await _storage.write(key: key, value: value);
+      }
+    } on PlatformException catch (e) {
+      debugPrint('StorageService write failed for key "$key": $e');
+    }
+  }
+
   // ---------- Tokens --------------------------------------------------
   Future<void> saveTokens({
     required String accessToken,
     String? refreshToken,
   }) async {
     await Future.wait([
-      _storage.write(key: _accessTokenKey, value: accessToken),
-      if (refreshToken != null)
-        _storage.write(key: _refreshTokenKey, value: refreshToken)
-      else
-        _storage.delete(key: _refreshTokenKey),
+      _safeWrite(_accessTokenKey, accessToken),
+      _safeWrite(_refreshTokenKey, refreshToken),
     ]);
   }
 
@@ -59,22 +68,21 @@ class StorageService {
 
   Future<void> clearTokens() async {
     await Future.wait([
-      _storage.delete(key: _accessTokenKey),
-      _storage.delete(key: _refreshTokenKey),
+      _safeWrite(_accessTokenKey, null),
+      _safeWrite(_refreshTokenKey, null),
     ]);
   }
 
   // ---------- User data -----------------------------------------------
-  Future<void> saveUser(String json) =>
-      _storage.write(key: _userKey, value: json);
+  Future<void> saveUser(String json) => _safeWrite(_userKey, json);
 
   Future<String?> getUser() => _safeRead(_userKey);
 
-  Future<void> clearUser() => _storage.delete(key: _userKey);
+  Future<void> clearUser() => _safeWrite(_userKey, null);
 
   // ---------- Biometrics ----------------------------------------------
   Future<void> setBiometricEnabled(bool enabled) =>
-      _storage.write(key: _biometricEnabledKey, value: enabled.toString());
+      _safeWrite(_biometricEnabledKey, enabled.toString());
 
   Future<bool> isBiometricEnabled() async {
     final val = await _safeRead(_biometricEnabledKey);
@@ -82,7 +90,7 @@ class StorageService {
   }
 
   Future<void> setQuickUnlockEnabled(bool enabled) =>
-      _storage.write(key: _quickUnlockEnabledKey, value: enabled.toString());
+      _safeWrite(_quickUnlockEnabledKey, enabled.toString());
 
   Future<bool> isQuickUnlockEnabled() async {
     final val = await _safeRead(_quickUnlockEnabledKey);
@@ -90,7 +98,7 @@ class StorageService {
   }
 
   Future<void> saveAppPasscode(String passcode) =>
-      _storage.write(key: _appPasscodeKey, value: passcode);
+      _safeWrite(_appPasscodeKey, passcode);
 
   Future<String?> getAppPasscode() => _safeRead(_appPasscodeKey);
 

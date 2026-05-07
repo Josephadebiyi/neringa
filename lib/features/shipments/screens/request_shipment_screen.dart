@@ -21,6 +21,7 @@ import '../../payment/services/shipment_checkout_service.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/services/trip_service.dart';
 import '../services/shipment_service.dart';
+import 'shipment_terms_screen.dart';
 
 class RequestShipmentScreen extends ConsumerStatefulWidget {
   const RequestShipmentScreen({super.key, required this.tripId, this.initialTrip, this.preFilledData});
@@ -134,6 +135,21 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     if (!mounted) return;
 
     final user = ref.read(authProvider).user;
+
+    // Show terms agreement AFTER form is filled, before submission
+    if (user?.termsAcceptedAt == null) {
+      final accepted = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => const ShipmentTermsScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+      if (!mounted) return;
+      if (accepted != true) return;
+      await ref.read(authProvider.notifier).refreshProfile();
+      if (!mounted) return;
+    }
+
     final weight = double.tryParse(_weightCtrl.text.trim());
     final currency = UserCurrencyHelper.resolve(user);
 

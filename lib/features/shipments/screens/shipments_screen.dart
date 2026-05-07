@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -135,8 +138,18 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () =>
-            context.go(isCarrier ? '/post-trip' : '/create-shipment'),
+        onPressed: () {
+          if (isCarrier) {
+            context.go('/post-trip');
+          } else {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const _SenderRouteSheet(),
+            );
+          }
+        },
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add_rounded, color: AppColors.white),
       ),
@@ -1399,4 +1412,343 @@ class _PromoBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Sender route search sheet (replaces the 4-step wizard entry point)
+// ---------------------------------------------------------------------------
+class _SenderRouteSheet extends StatefulWidget {
+  const _SenderRouteSheet();
+
+  @override
+  State<_SenderRouteSheet> createState() => _SenderRouteSheetState();
+}
+
+class _SenderRouteSheetState extends State<_SenderRouteSheet> {
+  String _from = '';
+  String _to = '';
+  String _date = '';
+
+  bool get _canSearch => _from.isNotEmpty && _to.isNotEmpty;
+
+  Future<void> _pickCity(bool isFrom) async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CityPickerSheet(
+        title: isFrom ? 'Departure City' : 'Destination City',
+        hint: isFrom ? 'Search departure city…' : 'Search destination city…',
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        if (isFrom) { _from = result; } else { _to = result; }
+      });
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      setState(() => _date = '${months[picked.month - 1]} ${picked.day}, ${picked.year}');
+    }
+  }
+
+  void _search() {
+    if (!_canSearch) return;
+    final router = GoRouter.of(context);
+    final from = _from;
+    final to = _to;
+    final date = _date;
+    Navigator.of(context).pop();
+    router.push('/trips-list', extra: {
+      'from': from,
+      'to': to,
+      'date': date.isEmpty ? null : date,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Find a Traveler', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          Text('Enter your route to see available travelers.', style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+          const SizedBox(height: 20),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.gray50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                _SheetRouteRow(
+                  icon: Icons.trip_origin_rounded,
+                  label: _from.isEmpty ? 'Departure city' : _from,
+                  hasValue: _from.isNotEmpty,
+                  onTap: () => _pickCity(true),
+                ),
+                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                _SheetRouteRow(
+                  icon: Icons.location_on_rounded,
+                  label: _to.isEmpty ? 'Destination city' : _to,
+                  hasValue: _to.isNotEmpty,
+                  onTap: () => _pickCity(false),
+                ),
+                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                _SheetRouteRow(
+                  icon: Icons.calendar_month_rounded,
+                  label: _date.isEmpty ? 'Any date (optional)' : _date,
+                  hasValue: _date.isNotEmpty,
+                  onTap: _pickDate,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _canSearch ? 1.0 : 0.5,
+              child: ElevatedButton.icon(
+                onPressed: _canSearch ? _search : null,
+                icon: const Icon(Icons.search_rounded, size: 20),
+                label: const Text('Search Travelers'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  disabledBackgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: const StadiumBorder(),
+                  elevation: 0,
+                  textStyle: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetRouteRow extends StatelessWidget {
+  const _SheetRouteRow({required this.icon, required this.label, required this.hasValue, required this.onTap});
+  final IconData icon;
+  final String label;
+  final bool hasValue;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, color: hasValue ? AppColors.primary : AppColors.gray400, size: 20),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: hasValue ? AppColors.black : AppColors.gray400,
+                  fontWeight: hasValue ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (hasValue) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// City picker sheet (Nominatim search)
+// ---------------------------------------------------------------------------
+class _CityPickerSheet extends StatefulWidget {
+  const _CityPickerSheet({required this.title, required this.hint});
+  final String title, hint;
+
+  @override
+  State<_CityPickerSheet> createState() => _CityPickerSheetState();
+}
+
+class _CityPickerSheetState extends State<_CityPickerSheet> {
+  final _ctrl = TextEditingController();
+  List<_CityResult> _results = [];
+  bool _loading = false;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _search(String q) async {
+    if (q.length < 2) { setState(() => _results = []); return; }
+    setState(() => _loading = true);
+    try {
+      final res = await Dio().get(
+        'https://nominatim.openstreetmap.org/search',
+        queryParameters: { 'q': q, 'format': 'json', 'addressdetails': 1, 'limit': 15 },
+        options: Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
+      );
+      final seen = <String>{};
+      final list = <_CityResult>[];
+      for (final item in res.data as List) {
+        final addr = item['address'] as Map<String, dynamic>;
+        final city = addr['city'] ?? addr['town'] ?? addr['municipality'] ?? addr['county'] ?? addr['village'] ?? (item['display_name'] as String).split(',').first.trim();
+        final country = addr['country'] as String? ?? '';
+        final code = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
+        final key = '${city.toString().toLowerCase()},$code';
+        if (!seen.contains(key) && city.toString().isNotEmpty && country.isNotEmpty) {
+          seen.add(key);
+          list.add(_CityResult(display: '${city.toString().trim()}, $country', countryCode: code));
+        }
+        if (list.length >= 8) break;
+      }
+      if (mounted) setState(() { _results = list; _loading = false; });
+    } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  String _flag(String code) {
+    if (code.length != 2) return '🌍';
+    final pts = code.toUpperCase().split('').map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0)).toList();
+    return String.fromCharCode(pts[0]) + String.fromCharCode(pts[1]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            width: 36, height: 4,
+            decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            child: Row(
+              children: [
+                Expanded(child: Text(widget.title, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800))),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.close, size: 24),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 50,
+              decoration: BoxDecoration(color: const Color(0xFFF7F7F8), borderRadius: BorderRadius.circular(16)),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, color: AppColors.gray400, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _ctrl,
+                      autofocus: true,
+                      style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        hintText: widget.hint,
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onChanged: (v) {
+                        _debounce?.cancel();
+                        _debounce = Timer(const Duration(milliseconds: 400), () => _search(v));
+                      },
+                    ),
+                  ),
+                  if (_loading)
+                    const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: _results.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text('Search for a city or country',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w500)),
+                    ))
+                : ListView.builder(
+                    itemCount: _results.length,
+                    itemBuilder: (_, i) {
+                      final loc = _results[i];
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                        leading: Text(_flag(loc.countryCode), style: const TextStyle(fontSize: 28)),
+                        title: Text(loc.display, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                        onTap: () => Navigator.pop(context, loc.display),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CityResult {
+  final String display;
+  final String countryCode;
+  const _CityResult({required this.display, required this.countryCode});
 }
