@@ -1,13 +1,17 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/providers/locale_provider.dart';
 import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../../../shared/utils/status_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
@@ -23,6 +27,33 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _aboutTab = true;
   bool _isSwitchingRole = false;
+  bool _uploadingPhoto = false;
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1024,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      await ref.read(authProvider.notifier).uploadAvatar(File(picked.path));
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: 'Profile photo updated', type: SnackBarType.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: 'Failed to upload photo', type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
 
   Future<void> _switchRoleWithSplash() async {
     if (_isSwitchingRole) return;
@@ -95,9 +126,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         kycStatus: user?.kycStatus,
                         profilePicture: user?.profilePicture,
                         isCarrier: isCarrier,
+                        uploadingPhoto: _uploadingPhoto,
                         currentLanguageLabel:
                             '${currentLanguage.flag} ${currentLanguage.nativeName}',
                         onToggleRole: _switchRoleWithSplash,
+                        onChangePhoto: _pickAndUploadPhoto,
                       )
                     : _AccountTab(
                         currency: UserCurrencyHelper.resolve(user),
@@ -196,6 +229,8 @@ class _AboutTab extends StatelessWidget {
     required this.isCarrier,
     required this.currentLanguageLabel,
     required this.onToggleRole,
+    required this.onChangePhoto,
+    required this.uploadingPhoto,
   });
 
   final String fullName;
@@ -209,6 +244,8 @@ class _AboutTab extends StatelessWidget {
   final bool isCarrier;
   final String currentLanguageLabel;
   final VoidCallback onToggleRole;
+  final VoidCallback onChangePhoto;
+  final bool uploadingPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -242,48 +279,54 @@ class _AboutTab extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                Container(
-                  width: 84,
-                  height: 84,
-                  decoration: BoxDecoration(
-                    color: AppColors.gray100,
-                    borderRadius: BorderRadius.circular(42),
-                  ),
-                  child: profilePicture != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(42),
-                          child: CachedNetworkImage(
-                            imageUrl: profilePicture!,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => Center(
-                              child: Text(
-                                initials,
-                                style: AppTextStyles.displaySm.copyWith(
-                                  color: AppColors.black,
-                                  fontWeight: FontWeight.w800,
+            GestureDetector(
+              onTap: uploadingPhoto ? null : onChangePhoto,
+              child: Stack(
+                children: [
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(42),
+                    ),
+                    child: uploadingPhoto
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : profilePicture != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(42),
+                                child: CachedNetworkImage(
+                                  imageUrl: profilePicture!,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => Center(
+                                    child: Text(
+                                      initials,
+                                      style: AppTextStyles.displaySm.copyWith(
+                                        color: AppColors.black,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  initials,
+                                  style: AppTextStyles.displaySm.copyWith(
+                                    color: AppColors.black,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        )
-                      : Center(
-                          child: Text(
-                            initials,
-                            style: AppTextStyles.displaySm.copyWith(
-                              color: AppColors.black,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: InkWell(
-                    onTap: () => context.push('/profile/edit-details'),
-                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
                     child: Container(
                       width: 30,
                       height: 30,
@@ -291,12 +334,12 @@ class _AboutTab extends StatelessWidget {
                         color: AppColors.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.edit_rounded,
-                          size: 14, color: AppColors.white),
+                      child: const Icon(Icons.camera_alt_rounded,
+                          size: 15, color: AppColors.white),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(

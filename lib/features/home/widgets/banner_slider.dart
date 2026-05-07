@@ -28,13 +28,19 @@ class _BannerSliderState extends State<BannerSlider> {
   }
 
   Future<void> _load() async {
-    final banners = await BannerService.instance.fetchActiveBanners();
-    if (!mounted) return;
-    setState(() {
-      _banners = banners;
-      _loading = false;
-    });
-    if (banners.length > 1) _startTimer();
+    try {
+      final banners = await BannerService.instance
+          .fetchActiveBanners()
+          .timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+      setState(() {
+        _banners = banners;
+        _loading = false;
+      });
+      if (banners.length > 1) _startTimer();
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _startTimer() {
