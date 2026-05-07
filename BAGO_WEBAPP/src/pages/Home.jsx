@@ -2,17 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    Search, MapPin, Calendar, Package, Plane, CheckCircle, ChevronDown,
-    Globe, PlusCircle, UserCircle, ArrowRight, Bus, ShieldCheck, Check,
+    Search, MapPin, Calendar, Package, CheckCircle, ChevronDown,
+    Globe, PlusCircle, UserCircle, ArrowRight, ShieldCheck, Check,
     Menu, X, AlertCircle, Calculator, CreditCard, Headphones,
     Plus, Minus, Star
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../AuthContext';
-import api from '../api';
 import AsyncCreatableSelect from 'react-select/async-creatable';
 import {
-    normalizeText as normalizeSearchText,
     locationOptions,
     loadCityOptions,
     formatCityOptionLabel,
@@ -27,12 +25,10 @@ import Footer from '../components/Footer';
 ───────────────────────────────────────────── */
 const Navbar = () => {
     const navigate = useNavigate();
-    const { t, currentLanguage, setLanguage, languages, currentLangData, currency, setCurrency } = useLanguage();
+    const { t, currentLanguage, setLanguage, languages, currentLangData } = useLanguage();
     const { user, isAuthenticated } = useAuth();
     const [showLangDropdown, setShowLangDropdown] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
-
-    const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NGN', 'ZAR', 'KES', 'GHS'];
 
     return (
         <nav className="w-full bg-white border-b border-gray-100 py-3 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0 shadow-sm">
@@ -155,17 +151,6 @@ const Navbar = () => {
                                         ))}
                                     </select>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-4">Currency</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {currencies.map((c) => (
-                                            <button key={c} onClick={() => { setCurrency(c); setShowMobileMenu(false); }}
-                                                className={`px-3 py-2 rounded-xl border text-xs font-black transition-all ${currency === c ? 'border-[#5845D8] bg-[#5845D8] text-white' : 'border-gray-100 bg-gray-50 text-[#012126]'}`}>
-                                                {c}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
                             <div className="p-5 border-t border-gray-100 bg-gray-50/50">
                                 {isAuthenticated ? (
@@ -200,7 +185,6 @@ const Navbar = () => {
    HERO SECTION
 ───────────────────────────────────────────── */
 const HeroSection = () => {
-    const navigate = useNavigate();
     const { t } = useLanguage();
 
     return (
@@ -234,12 +218,27 @@ const HeroSection = () => {
                             </div>
                             <span className="text-[10px] font-black text-[#012126] tracking-widest">4.9/5 RATED</span>
                         </div>
-                        <div className="flex gap-2">
-                            <a href="#" className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-200">
-                                <img src="/app-store.svg" alt="App Store" className="h-8 w-auto" />
+                        <div className="flex flex-wrap gap-2">
+                            <a href="#" className="flex items-center gap-2 bg-[#012126] text-white px-3.5 py-2 rounded-xl hover:opacity-80 transition-opacity">
+                                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white shrink-0" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                                </svg>
+                                <div>
+                                    <div className="text-[9px] text-white/60 font-semibold leading-none">Download on the</div>
+                                    <div className="text-[12px] font-black leading-tight">App Store</div>
+                                </div>
                             </a>
-                            <a href="#" className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-200">
-                                <img src="/google-play.svg" alt="Google Play" className="h-8 w-auto" />
+                            <a href="#" className="flex items-center gap-2 bg-[#012126] text-white px-3.5 py-2 rounded-xl hover:opacity-80 transition-opacity">
+                                <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3.18 23.76c.3.17.65.2.98.09L15.65 12 4.16.15c-.33-.11-.68-.08-.98.09A1.07 1.07 0 002.5 1.1v21.8c0 .41.23.78.68.86z" fill="#00C3F3"/>
+                                    <path d="M19.75 10.19l-2.87-1.64L13.5 12l3.38 3.45 2.87-1.64A1.16 1.16 0 0020.5 12a1.16 1.16 0 00-.75-1.81z" fill="#FFBC00"/>
+                                    <path d="M4.16.15L15.65 12 16.88 10.77 5.5.1A1.12 1.12 0 004.16.15z" fill="#00EE76"/>
+                                    <path d="M15.65 12L4.16 23.85a1.12 1.12 0 001.34.05l11.38-10.67L15.65 12z" fill="#F93448"/>
+                                </svg>
+                                <div>
+                                    <div className="text-[9px] text-white/60 font-semibold leading-none">Get it on</div>
+                                    <div className="text-[12px] font-black leading-tight">Google Play</div>
+                                </div>
                             </a>
                         </div>
                     </div>
@@ -366,20 +365,27 @@ const StickySearch = () => {
 
                     <label className="flex flex-1 items-center px-5 py-4 min-h-[58px] md:min-h-[68px] cursor-pointer">
                         <Calendar size={20} className={`${date ? 'text-[#5845D8]' : 'text-gray-400'} shrink-0`} />
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            min={new Date().toISOString().split('T')[0]}
-                            className={`ml-4 flex-1 min-w-0 bg-transparent outline-none text-[15px] font-bold cursor-pointer ${date ? 'text-[#012126]' : 'text-gray-400'}`}
-                        />
+                        <div className="ml-4 flex-1 min-w-0 relative">
+                            <span className={`text-[15px] font-bold pointer-events-none select-none ${date ? 'text-[#012126]' : 'text-gray-400'}`}>
+                                {date
+                                    ? new Date(date + 'T00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                    : 'Travel date'}
+                            </span>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            />
+                        </div>
                         {date && <CheckCircle size={16} className="text-[#5845D8] ml-3 shrink-0" />}
                     </label>
 
                     <button type="submit"
                         className="h-[52px] md:h-[68px] md:px-9 bg-[#5845D8] text-white font-extrabold rounded-b-[24px] md:rounded-b-none md:rounded-r-[24px] hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 text-sm whitespace-nowrap">
                         <Search size={18} strokeWidth={3} />
-                        <span>{t('findTravelerButton') || t('search') || 'Find traveler'}</span>
+                        <span>Find a traveler</span>
                     </button>
                 </form>
             </div>
@@ -547,50 +553,94 @@ const FeaturesSection = () => {
 };
 
 /* ─────────────────────────────────────────────
-   TRIP TYPE (How are you shipping today?)
+   USER STORIES / TESTIMONIALS
 ───────────────────────────────────────────── */
-const TripTypeSection = () => {
-    const navigate = useNavigate();
-    const { t } = useLanguage();
+const STORIES = [
+    {
+        name: 'Olugbemi Sowemimo',
+        location: 'Nigeria',
+        flag: 'ng',
+        quote: 'Helpful and timely. Intersects the global shipping ecosystem in such a way that individuals get a chance to send packages no matter the country. Helped me settle in a new city with minimal hassle. Thank you Bago.',
+        photo: 'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?w=800&q=80&fit=crop',
+    },
+    {
+        name: 'Bertrand Nkemdirim',
+        location: 'Cameroon',
+        flag: 'cm',
+        quote: 'Easy Peasy! This app is such a breeze to use! Customer service is also highly responsive. Definitely a must have to send packages with.',
+        photo: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80&fit=crop',
+    },
+    {
+        name: 'Adaeze Okonkwo',
+        location: 'Nigeria',
+        flag: 'ng',
+        quote: "Sending and receiving packages to and from Nigeria just got easier. I've used Bago three times now and it keeps getting better.",
+        photo: 'https://images.unsplash.com/photo-1614107151491-6876eecbff89?w=800&q=80&fit=crop',
+    },
+];
 
-    return (
-        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-10 pb-20">
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-[#012126] text-center mb-10 tracking-tighter leading-[0.9]">
-                {(() => {
-                    const title = t('tripTypeTitle') || 'How are you shipping today?';
-                    const words = title.split(' ');
-                    return words.map((word, i) =>
-                        i === words.length - 1
-                            ? <span key={i} className="opacity-20 text-gray-400">{word}</span>
-                            : <React.Fragment key={i}>{word} </React.Fragment>
-                    );
-                })()}
-            </h2>
-            <DiscountPromo inside />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {[
-                    { icon: Plane, label: t('byFlight') || 'By flight', desc: t('byFlightDesc') || 'Fly with travelers and send your packages faster.', mode: 'flight' },
-                    { icon: Bus, label: t('byBus') || 'By bus', desc: t('byBusDesc') || 'Send your packages with bus travelers.', mode: 'bus' },
-                ].map((item) => (
-                    <div key={item.mode}
-                        onClick={() => navigate(`/search?mode=${item.mode}`)}
-                        className="bg-[#f0f4f5] rounded-2xl p-7 flex items-center gap-5 cursor-pointer hover:shadow-lg transition-all hover:scale-[1.015] group">
-                        <div className="bg-white p-3.5 rounded-xl shadow-sm">
-                            <item.icon size={36} className="text-[#5845D8]" />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="text-lg font-black text-[#012126]">{item.label}</h3>
-                            <p className="text-[#6B7280] font-medium text-sm mt-0.5">{item.desc}</p>
-                        </div>
-                        <div className="bg-[#5845D8] rounded-full p-2 group-hover:bg-[#4838B5] transition-colors">
-                            <ArrowRight size={18} className="text-white" />
-                        </div>
-                    </div>
-                ))}
+const StoryCard = ({ story, large = false }) => (
+    <div
+        className="relative rounded-3xl overflow-hidden"
+        style={{ minHeight: large ? 520 : 240 }}
+    >
+        <img
+            src={story.photo}
+            alt={story.name}
+            className="absolute inset-0 w-full h-full object-cover"
+            crossOrigin="anonymous"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+        <div className={`absolute bottom-0 left-0 right-0 ${large ? 'p-8' : 'p-6'}`}>
+            <p className={`text-white/90 font-medium leading-relaxed mb-5 ${large ? 'text-base max-w-xs' : 'text-sm line-clamp-3'}`}>
+                {story.quote}
+            </p>
+            <div className="flex items-center gap-3">
+                <img
+                    src={`https://flagcdn.com/w40/${story.flag}.png`}
+                    alt={story.location}
+                    style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.6)' }}
+                    loading="lazy"
+                />
+                <span className="text-white font-black text-sm">{story.name}, {story.location}</span>
             </div>
-        </section>
-    );
-};
+        </div>
+    </div>
+);
+
+const TestimonialsSection = () => (
+    <section className="bg-black py-24 px-6 md:px-12">
+        <div className="max-w-[1200px] mx-auto">
+            <div className="flex items-start justify-between mb-12">
+                <div>
+                    <h2 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-[0.9] tracking-tighter">
+                        Real people.<br />
+                        <span className="font-black">Real <span className="opacity-25">deliveries.</span></span>
+                    </h2>
+                    <p className="mt-5 text-white/55 text-base font-medium max-w-md leading-relaxed">
+                        From Lagos to London, thousands of senders and travelers trust Bago to get their packages where they need to go — safely and affordably.
+                    </p>
+                </div>
+                <div className="hidden md:flex gap-2 mt-1">
+                    <button className="w-11 h-11 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-colors">
+                        <ArrowRight size={18} className="rotate-180" />
+                    </button>
+                    <button className="w-11 h-11 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-colors">
+                        <ArrowRight size={18} />
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4">
+                <StoryCard story={STORIES[0]} large />
+                <div className="grid grid-rows-2 gap-4">
+                    <StoryCard story={STORIES[1]} />
+                    <StoryCard story={STORIES[2]} />
+                </div>
+            </div>
+        </div>
+    </section>
+);
 
 /* ─────────────────────────────────────────────
    FAQ SECTION (dark bg)
@@ -601,31 +651,26 @@ const FAQSection = () => {
     const [openIndex, setOpenIndex] = useState(0);
 
     const faqs = [
-        { q: t('faqQ1') || 'What types of items can I send through Bago?', a: t('faqA1') || 'You can send almost anything from documents, clothing, electronics and gifts, provided they are not on our prohibited items list.' },
-        { q: t('faqQ2') || 'Are my packages insured?', a: t('faqA2') || 'Yes! Every verified shipment is backed by our secure escrow system and insurance protection policy.' },
-        { q: t('faqQ3') || 'Who can I mail my packages to?', a: t('faqA3') || 'You can send packages to any of the cities available on our platform. Our travelers cover thousands of routes globally.' },
-        { q: t('faqQ4') || 'How are the shipping rates determined?', a: t('faqA4') || 'Rates are based on regional standards set by our platform and travelers, taking into account the route, weight, and speed.' },
+        { q: 'What types of items can I send through Bago?', a: 'You can send almost anything — documents, clothing, electronics, food items, and gifts — as long as they are not on our prohibited items list. When in doubt, check the item categories when creating your package.' },
+        { q: 'Is my money safe?', a: 'Yes. Bago holds your payment in escrow until the package is confirmed delivered. Funds are only released to the traveler once you mark the item as received. If something goes wrong, you can raise a dispute and our team will review it.' },
+        { q: 'How do I know the traveler is trustworthy?', a: 'Every traveler on Bago goes through identity verification (KYC) before they can accept deliveries. You can also see their ratings, completed trips, and reviews from other senders before you request.' },
+        { q: 'How are the shipping rates determined?', a: 'Each traveler sets their own rate per kilogram based on the route. You see the full cost — including any service fee — before confirming your request. No hidden charges.' },
+        { q: 'What happens if my package is lost or damaged?', a: 'You can raise a dispute directly from the app. Bago reviews the case and, where applicable, refunds are processed back to your wallet or original payment method.' },
+        { q: 'How long does delivery take?', a: 'Delivery time depends on the traveler\'s trip date and route. You can filter by departure date when searching, and the traveler\'s expected arrival is shown on their trip listing.' },
+        { q: 'Can I track my package?', a: 'Yes. Every shipment gets a tracking number you can share with the recipient. Both sender and receiver can follow the status — from accepted to in transit to delivered — in real time.' },
     ];
 
     return (
-        <section className="bg-black py-24 px-6 md:px-12">
+        <section className="bg-black pt-24 pb-0 px-6 md:px-12">
             <div className="max-w-[1200px] mx-auto flex flex-col xl:flex-row gap-20">
                 {/* Left */}
                 <div className="flex-1 min-w-0">
                     <span className="inline-block px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-[11px] font-bold uppercase tracking-widest mb-8">
                         FAQs
                     </span>
-                    <h2 className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter mb-0">
-                        {(() => {
-                            const part1 = t('answersHeader') || 'Here are Answers Related to';
-                            const part2 = t('bagoService') || 'Bago Service';
-                            const words = `${part1} ${part2}`.split(' ');
-                            return words.map((word, i) =>
-                                i >= words.length - 2
-                                    ? <span key={i} className="text-[#5845D8]">{word} </span>
-                                    : <React.Fragment key={i}>{word} </React.Fragment>
-                            );
-                        })()}
+                    <h2 className="text-4xl md:text-5xl font-black text-white leading-[1.05] tracking-tight mb-0">
+                        Got questions about<br />
+                        <span className="text-[#5845D8]">Bago?</span>
                     </h2>
 
                     <div className="mt-16 relative w-full h-[380px] rounded-[36px] overflow-hidden">
@@ -693,197 +738,73 @@ const PhoneMockup = ({ className = '' }) => (
     </div>
 );
 
-const AppSection = () => {
-    const { t } = useLanguage();
+const AppStoreBadge = () => (
+    <a href="#" className="flex items-center gap-3 bg-white/10 hover:bg-white/[0.16] border border-white/20 text-white px-5 py-3 rounded-2xl transition-all group">
+        <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white shrink-0" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+        </svg>
+        <div>
+            <div className="text-[10px] text-white/55 font-semibold leading-none mb-0.5">Download on the</div>
+            <div className="text-[15px] font-black leading-tight">App Store</div>
+        </div>
+    </a>
+);
 
-    return (
-        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-24">
-            <div className="flex flex-col md:flex-row items-center gap-14 md:gap-20">
-                {/* Phone mockup */}
-                <div className="w-full md:w-5/12 flex justify-center rounded-[36px] bg-white/55 py-10 shadow-sm ring-1 ring-white">
+const GooglePlayBadge = () => (
+    <a href="#" className="flex items-center gap-3 bg-white/10 hover:bg-white/[0.16] border border-white/20 text-white px-5 py-3 rounded-2xl transition-all group">
+        <svg viewBox="0 0 24 24" className="w-6 h-6 shrink-0" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3.18 23.76c.3.17.65.2.98.09L15.65 12 4.16.15c-.33-.11-.68-.08-.98.09A1.07 1.07 0 002.5 1.1v21.8c0 .41.23.78.68.86z" fill="#00C3F3"/>
+            <path d="M19.75 10.19l-2.87-1.64L13.5 12l3.38 3.45 2.87-1.64A1.16 1.16 0 0020.5 12a1.16 1.16 0 00-.75-1.81z" fill="#FFBC00"/>
+            <path d="M4.16.15L15.65 12 16.88 10.77 5.5.1A1.12 1.12 0 004.16.15z" fill="#00EE76"/>
+            <path d="M15.65 12L4.16 23.85a1.12 1.12 0 001.34.05l11.38-10.67L15.65 12z" fill="#F93448"/>
+        </svg>
+        <div>
+            <div className="text-[10px] text-white/55 font-semibold leading-none mb-0.5">Get it on</div>
+            <div className="text-[15px] font-black leading-tight">Google Play</div>
+        </div>
+    </a>
+);
+
+const AppSection = () => (
+    <section className="px-6 md:px-12 max-w-[1200px] mx-auto pb-16 pt-4">
+        <div className="relative rounded-[36px] overflow-hidden bg-[#07080f]">
+            {/* Arc decoration anchored top-right */}
+            <svg className="absolute -right-16 -top-16 w-[680px] h-[680px] opacity-[0.18] pointer-events-none" viewBox="0 0 680 680" fill="none">
+                {[160, 260, 360, 460, 560].map((r, i) => (
+                    <circle key={i} cx="580" cy="100" r={r} stroke="#4B5EE4" strokeWidth="1.5" />
+                ))}
+            </svg>
+
+            {/* Two-column grid */}
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2">
+                {/* Left: text */}
+                <div className="flex flex-col justify-center px-10 lg:px-16 py-14 lg:py-16">
+                    <h2 className="text-4xl md:text-5xl text-white font-light leading-[1.15] tracking-tight mb-6">
+                        Every delivery is a story.<br />
+                        <strong className="font-black">What is yours?</strong>
+                    </h2>
+                    <p className="text-white/55 text-[14px] leading-relaxed mb-4 max-w-[340px]">
+                        When it comes to international package delivery, every shipment becomes more than a transaction — it is a chance to send care and connection to the people that matter most.
+                    </p>
+                    <p className="text-white/55 text-[14px] leading-relaxed mb-10 max-w-[340px]">
+                        That is why Bago makes cross-border delivery feel as simple as handing something to a neighbour. Verified travelers, transparent pricing, zero hidden fees.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                        <AppStoreBadge />
+                        <GooglePlayBadge />
+                    </div>
+                </div>
+
+                {/* Right: phone anchored at top — overflows naturally */}
+                <div className="hidden lg:flex justify-center items-start pt-8">
                     <PhoneMockup />
                 </div>
-                {/* Text */}
-                <div className="w-full md:w-7/12">
-                    <h2 className="text-5xl md:text-7xl lg:text-8xl font-black text-[#012126] mb-8 leading-[0.9] tracking-tighter">
-                        {(() => {
-                            const title = t('ourFreeAppTitle') || 'Our free app.';
-                            const words = title.split(' ');
-                            return words.map((word, i) =>
-                                i === words.length - 1
-                                    ? <span key={i} className="opacity-20 text-gray-400">{word}</span>
-                                    : <React.Fragment key={i}>{word} </React.Fragment>
-                            );
-                        })()}
-                    </h2>
-                    <p className="text-[#6B7280] text-base font-medium leading-relaxed mb-8 max-w-md">
-                        {t('appDescription') || 'One app for every step of your journey—global package delivery planning has never been easier! Search routes, track shipments, and message travelers on the go.'}
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-                        {[
-                            { label: t('mobileTrackingTitle') || 'Mobile tracking', desc: t('mobileTrackingDesc') || 'Watch your package move in real-time.' },
-                            { label: t('globalRoutesTitle') || 'Global routes', desc: t('globalRoutesDesc') || 'Send anywhere from New York to Lagos.' },
-                            { label: t('liveUpdatesTitle') || 'Live updates', desc: t('liveUpdatesDesc') || 'Get notified for every hand-off.' },
-                            { label: t('supportTitle') || 'Human support', desc: t('supportDesc') || 'Chat with our 24/7 support team.' },
-                        ].map((item, i) => (
-                            <div key={i} className="rounded-2xl bg-white/75 p-4 shadow-sm ring-1 ring-gray-100">
-                                <p className="font-black text-[#012126] text-sm mb-1">{item.label}</p>
-                                <p className="text-[#6B7280] text-xs font-medium">{item.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-3">
-                        <a href="#" className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-200">
-                            <img src="/app-store.svg" alt="App Store" className="h-11 w-auto" />
-                        </a>
-                        <a href="#" className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-200">
-                            <img src="/google-play.svg" alt="Google Play" className="h-11 w-auto" />
-                        </a>
-                    </div>
-                </div>
             </div>
-        </section>
-    );
-};
+        </div>
+    </section>
+);
 
-/* ─────────────────────────────────────────────
-   COMMUNITY CTA (full-width bg image)
-───────────────────────────────────────────── */
-const CommunityCTA = () => {
-    const navigate = useNavigate();
-    const { t } = useLanguage();
 
-    return (
-        <section className="w-full relative py-28 overflow-hidden flex items-center justify-center">
-            <div className="absolute inset-0 z-0">
-                <img
-                    src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=1400"
-                    alt="Global Community"
-                    className="w-full h-full object-cover"
-                    crossOrigin="anonymous"
-                />
-                <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
-            </div>
-            <div className="relative z-10 text-center px-6">
-                <h2 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-10 tracking-tighter leading-[0.9]">
-                    {(() => {
-                        const title = t('joinGlobalCommunity') || 'Join our global community';
-                        const words = title.split(' ');
-                        return words.map((word, i) =>
-                            i === words.length - 1
-                                ? <span key={i} className="opacity-20">{word}</span>
-                                : <React.Fragment key={i}>{word} </React.Fragment>
-                        );
-                    })()}
-                </h2>
-                <div className="flex flex-col md:flex-row gap-5 justify-center">
-                    <button onClick={() => navigate('/search')}
-                        className="px-10 py-4 bg-[#5845D8] text-white font-bold rounded-lg text-base hover:bg-[#4838B5] transition-all min-w-[220px] shadow-lg">
-                        {t('sendWithBago') || 'Send with Bago'}
-                    </button>
-                    <button onClick={() => navigate('/post-trip')}
-                        className="px-10 py-4 bg-[#5845D8] text-white font-bold rounded-lg text-base hover:bg-[#4838B5] transition-all min-w-[220px] shadow-lg">
-                        {t('travelWithBago') || 'Travel with Bago'}
-                    </button>
-                </div>
-            </div>
-        </section>
-    );
-};
-
-/* ─────────────────────────────────────────────
-   TRACKING SECTION (phone mockup left, text right)
-───────────────────────────────────────────── */
-const TrackingSection = () => {
-    const { t } = useLanguage();
-
-    return (
-        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-24">
-            <div className="flex flex-col md:flex-row items-center gap-14 md:gap-20">
-                {/* phone */}
-                <div className="w-full md:w-5/12 flex justify-center rounded-[36px] bg-white/55 py-10 shadow-sm ring-1 ring-white">
-                    <PhoneMockup />
-                </div>
-                {/* text */}
-                <div className="w-full md:w-7/12">
-                    <h2 className="text-4xl md:text-5xl font-bold text-[#012126] leading-tight tracking-tight mb-6">
-                        {t('realTimeTrackingTitle') || <>Real-time tracking.<br />Total peace of<br />mind.</>}
-                    </h2>
-                    <p className="text-[#6B7280] text-base font-medium leading-relaxed mb-8 max-w-md">
-                        {t('realTimeTrackingDesc') || 'Follow your package every step of the way. From pickup to delivery, you will know exactly where your items are and when they will arrive.'}
-                    </p>
-                    <Link to="/search"
-                        className="inline-flex items-center justify-center bg-[#5845D8] text-white px-8 py-3.5 rounded-full font-bold hover:bg-[#4838B5] transition-all hover:-translate-y-0.5 text-sm shadow-lg shadow-[#5845D8]/20">
-                        {t('checkLiveStatusBtn') || 'Check live status'}
-                    </Link>
-                </div>
-            </div>
-        </section>
-    );
-};
-
-/* ─────────────────────────────────────────────
-   CAR / TESTIMONIAL SECTION
-───────────────────────────────────────────── */
-const CarSection = () => {
-    const { t } = useLanguage();
-
-    return (
-        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-16">
-            <div className="flex flex-col-reverse md:flex-row items-center gap-16">
-                <div className="w-full md:w-1/2">
-                    <h2 className="text-4xl md:text-5xl font-black text-[#012126] mb-8">
-                        {t('testimonialTitle') || 'Only on Bago...'}
-                    </h2>
-                    <p className="text-[#012126] text-xl font-medium leading-relaxed mb-6 italic">
-                        {t('testimonialQuote') || '"Perfect for me because I can send packages with courier partners! It is faster and more affordable than traditional couriers."'}
-                    </p>
-                    <p className="text-[#012126] font-bold">
-                        {t('testimonialAuthor') || 'Anna, Bago member since 2024'}
-                    </p>
-                </div>
-                <div className="w-full md:w-1/2">
-                    <img
-                        src="/two_people_car.png"
-                        alt="Friends in car"
-                        className="rounded-3xl w-full h-auto shadow-xl"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                </div>
-            </div>
-        </section>
-    );
-};
-
-/* ─────────────────────────────────────────────
-   DISCOUNT PROMO BANNER
-───────────────────────────────────────────── */
-const DiscountPromo = ({ inside = false }) => {
-    const content = (
-            <button
-                type="button"
-                onClick={() => window.location.assign('/search')}
-                className="block w-full overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(88,69,216,0.18)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
-                aria-label="Explore faster shipping"
-            >
-                <img
-                    src="/assets/faster-shipping-banner.png"
-                    alt="Faster shipping. Pay less. Send more."
-                    className="w-full aspect-[3.18/1] object-cover"
-                />
-            </button>
-    );
-
-    if (inside) {
-        return <div className="mb-8">{content}</div>;
-    }
-
-    return (
-        <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-12 pb-16">
-            {content}
-        </section>
-    );
-};
 
 /* ─────────────────────────────────────────────
    PROMO BAR (earn from travels)
@@ -921,22 +842,16 @@ const PromoBar = () => {
    HOME PAGE (assembled)
 ───────────────────────────────────────────── */
 export default function Home() {
-    const { user } = useAuth();
-
     return (
         <div className="min-h-screen bg-[#F8F6F3] font-sans">
             <Navbar />
             <HeroSection />
             <StickySearch />
             <CountrySlider />
-            <div className="h-6" />
-            {/* Recent Trips Section removed */}
-            <PromoBar />
             <AppSection />
-            <TripTypeSection />
-            <FAQSection />
+            <TestimonialsSection />
             <FeaturesSection />
-            <CommunityCTA />
+            <FAQSection />
             <Footer />
         </div>
     );
