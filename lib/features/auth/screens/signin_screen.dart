@@ -68,7 +68,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       await ref
           .read(authProvider.notifier)
           .login(email: email, password: password);
-      // Router redirect handles navigation when isLoggedIn changes
+      if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(
@@ -83,6 +83,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   Future<void> _googleSignIn() async {
     try {
       await ref.read(authProvider.notifier).googleSignIn();
+      if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(
@@ -97,6 +98,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   Future<void> _appleSignIn() async {
     try {
       await ref.read(authProvider.notifier).appleSignIn();
+      if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(
