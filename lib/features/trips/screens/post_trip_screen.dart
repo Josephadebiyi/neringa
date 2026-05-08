@@ -1802,9 +1802,9 @@ class _DateStep extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 4: Time
+// Step 4: Time — drum/wheel picker
 // ─────────────────────────────────────────────────────────────────────────────
-class _TimeStep extends StatelessWidget {
+class _TimeStep extends StatefulWidget {
   const _TimeStep({
     required this.hour,
     required this.minute,
@@ -1819,6 +1819,34 @@ class _TimeStep extends StatelessWidget {
   final VoidCallback onConfirm;
 
   @override
+  State<_TimeStep> createState() => _TimeStepState();
+}
+
+class _TimeStepState extends State<_TimeStep> {
+  late FixedExtentScrollController _hourCtrl;
+  late FixedExtentScrollController _minuteCtrl;
+  late FixedExtentScrollController _periodCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final h = ((int.tryParse(widget.hour) ?? 8) - 1).clamp(0, 11);
+    final m = (int.tryParse(widget.minute) ?? 0).clamp(0, 59);
+    final p = widget.period == 'PM' ? 1 : 0;
+    _hourCtrl = FixedExtentScrollController(initialItem: h);
+    _minuteCtrl = FixedExtentScrollController(initialItem: m);
+    _periodCtrl = FixedExtentScrollController(initialItem: p);
+  }
+
+  @override
+  void dispose() {
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
+    _periodCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
@@ -1831,70 +1859,71 @@ class _TimeStep extends StatelessWidget {
           const SizedBox(height: 6),
           Text('When does your journey begin?',
               style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
-          const SizedBox(height: 40),
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 32),
+          // Drum picker
+          SizedBox(
+            height: 220,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                _TimeInput(
-                  value: hour,
-                  hint: 'HH',
-                  onChanged: (v) {
-                    final n = int.tryParse(v);
-                    if (n == null || (n >= 1 && n <= 12)) {
-                      onHourChanged(v.padLeft(2, '0'));
-                    }
-                  },
+                // Selection highlight bar
+                IgnorePointer(
+                  child: Container(
+                    height: 56,
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(':',
-                      style: AppTextStyles.displaySm.copyWith(
-                          fontWeight: FontWeight.w900, color: AppColors.black)),
-                ),
-                _TimeInput(
-                  value: minute,
-                  hint: 'MM',
-                  onChanged: (v) {
-                    final n = int.tryParse(v);
-                    if (n == null || (n >= 0 && n <= 59)) {
-                      onMinuteChanged(v.padLeft(2, '0'));
-                    }
-                  },
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  children: ['AM', 'PM']
-                      .map((p) => GestureDetector(
-                            onTap: () => onPeriodChanged(p),
-                            child: Container(
-                              width: 56,
-                              height: 44,
-                              margin: const EdgeInsets.only(bottom: 6),
-                              decoration: BoxDecoration(
-                                color: period == p
-                                    ? AppColors.primary
-                                    : AppColors.gray100,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(p,
-                                  style: AppTextStyles.labelMd.copyWith(
-                                    color: period == p
-                                        ? Colors.white
-                                        : AppColors.gray600,
-                                    fontWeight: FontWeight.w800,
-                                  )),
-                            ),
-                          ))
-                      .toList(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _Drum(
+                      controller: _hourCtrl,
+                      items: List.generate(
+                          12, (i) => (i + 1).toString().padLeft(2, '0')),
+                      onChanged: (i) {
+                        HapticFeedback.selectionClick();
+                        widget.onHourChanged(
+                            (i + 1).toString().padLeft(2, '0'));
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Text(':',
+                          style: AppTextStyles.displayMd.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.black)),
+                    ),
+                    _Drum(
+                      controller: _minuteCtrl,
+                      items: List.generate(
+                          60, (i) => i.toString().padLeft(2, '0')),
+                      onChanged: (i) {
+                        HapticFeedback.selectionClick();
+                        widget.onMinuteChanged(i.toString().padLeft(2, '0'));
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    _Drum(
+                      controller: _periodCtrl,
+                      items: const ['AM', 'PM'],
+                      width: 68,
+                      onChanged: (i) {
+                        HapticFeedback.selectionClick();
+                        widget.onPeriodChanged(i == 0 ? 'AM' : 'PM');
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           Center(
-            child: Text('$hour:$minute $period',
+            child: Text('${widget.hour}:${widget.minute} ${widget.period}',
                 style: AppTextStyles.displaySm.copyWith(
                     color: AppColors.primary, fontWeight: FontWeight.w900)),
           ),
@@ -1904,39 +1933,68 @@ class _TimeStep extends StatelessWidget {
   }
 }
 
-class _TimeInput extends StatelessWidget {
-  const _TimeInput(
-      {required this.value, required this.hint, required this.onChanged});
-  final String value, hint;
-  final void Function(String) onChanged;
+class _Drum extends StatefulWidget {
+  const _Drum({
+    required this.controller,
+    required this.items,
+    required this.onChanged,
+    this.width = 80,
+  });
+  final FixedExtentScrollController controller;
+  final List<String> items;
+  final void Function(int) onChanged;
+  final double width;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7F7F8),
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(16),
+  State<_Drum> createState() => _DrumState();
+}
+
+class _DrumState extends State<_Drum> {
+  late int _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.controller.initialItem;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.width,
+      height: 220,
+      child: ListWheelScrollView.useDelegate(
+        controller: widget.controller,
+        itemExtent: 56,
+        perspective: 0.004,
+        diameterRatio: 1.6,
+        physics: const FixedExtentScrollPhysics(),
+        onSelectedItemChanged: (i) {
+          setState(() => _selected = i);
+          widget.onChanged(i);
+        },
+        childDelegate: ListWheelChildBuilderDelegate(
+          childCount: widget.items.length,
+          builder: (context, index) {
+            final isSelected = _selected == index;
+            return Center(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 150),
+                style: AppTextStyles.displaySm.copyWith(
+                  fontWeight:
+                      isSelected ? FontWeight.w900 : FontWeight.w400,
+                  color:
+                      isSelected ? AppColors.primary : AppColors.gray400,
+                  fontSize: isSelected ? 26 : 20,
+                ),
+                child: Text(widget.items[index]),
+              ),
+            );
+          },
         ),
-        alignment: Alignment.center,
-        child: TextField(
-          controller: TextEditingController(text: value),
-          textAlign: TextAlign.center,
-          keyboardType: TextInputType.number,
-          maxLength: 2,
-          style: AppTextStyles.displaySm.copyWith(fontWeight: FontWeight.w900),
-          decoration: InputDecoration(
-            hintText: hint,
-            counterText: '',
-            border: InputBorder.none,
-            isDense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: onChanged,
-        ),
-      );
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

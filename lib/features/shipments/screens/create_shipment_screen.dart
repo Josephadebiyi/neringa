@@ -228,6 +228,13 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
   Future<void> _onContinue() async {
     if (!_canContinue) return;
 
+    if (_step == 0 && _locationsMatch(_from, _to)) {
+      AppSnackBar.show(context,
+          message: 'Pickup and destination cities must be different.',
+          type: SnackBarType.error);
+      return;
+    }
+
     if (_step == 2) {
       // Advance to step 3 and trigger search simultaneously
       _animateToStep(3);
@@ -235,6 +242,16 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
       return;
     }
     _animateToStep(_step + 1);
+  }
+
+  bool _locationsMatch(String first, String second) {
+    String norm(String s) => s.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    final a = first.split(',').map(norm).toList();
+    final b = second.split(',').map(norm).toList();
+    if (a.isEmpty || b.isEmpty) return false;
+    if (a.first != b.first) return false;
+    if (a.length > 1 && b.length > 1) return a.last == b.last;
+    return true;
   }
 
   void _onBack() {
