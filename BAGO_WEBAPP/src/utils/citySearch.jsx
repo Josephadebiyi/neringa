@@ -28,27 +28,26 @@ const codeToFlag = (code) => {
         .join('');
 };
 
-// Predefined option list (string labels — rendered by formatCityOptionLabel)
-export const locationOptions = [
-    ...countries.map((c) => ({
-        value: `country:${c.label}`,
-        label: `All cities in ${c.label}`,
-        city: '',
-        country: c.label,
-        flag: c.flag,
-        type: 'country',
-        searchText: normalizeText(`${c.label} ${c.value}`),
-    })),
-    ...locations.map((loc) => ({
-        value: `city:${loc.city}`,
-        label: `${loc.city}, ${loc.country}`,
-        city: loc.city,
-        country: loc.country,
-        flag: loc.flag,
-        type: 'city',
-        searchText: normalizeText(`${loc.city} ${loc.country} ${loc.label}`),
-    })),
-];
+// Predefined option list — cities first, countries appended at the end
+const _cityOptions = locations.map((loc) => ({
+    value: `city:${loc.city}`,
+    label: `${loc.city}, ${loc.country}`,
+    city: loc.city,
+    country: loc.country,
+    flag: loc.flag,
+    type: 'city',
+    searchText: normalizeText(`${loc.city} ${loc.country} ${loc.label}`),
+}));
+const _countryOptions = countries.map((c) => ({
+    value: `country:${c.label}`,
+    label: `All cities in ${c.label}`,
+    city: '',
+    country: c.label,
+    flag: c.flag,
+    type: 'country',
+    searchText: normalizeText(`${c.label} ${c.value}`),
+}));
+export const locationOptions = [..._cityOptions, ..._countryOptions];
 
 // Renders each option row inside the dropdown
 export const formatCityOptionLabel = ({ flag, city, country, type }) => (
@@ -92,10 +91,16 @@ export const loadCityOptions = (inputValue) =>
         _debounceTimer = setTimeout(async () => {
             const norm = normalizeText(inputValue);
 
-            // Always include matching predefined entries
-            const local = inputValue
-                ? locationOptions.filter((o) => o.searchText?.includes(norm)).slice(0, 20)
+            // Cities first, country-wide entries only when user explicitly searches a country name
+            const allLocal = inputValue
+                ? locationOptions.filter((o) => o.searchText?.includes(norm))
                 : locationOptions.slice(0, 30);
+            const local = inputValue
+                ? [
+                    ...allLocal.filter((o) => o.type === 'city').slice(0, 15),
+                    ...allLocal.filter((o) => o.type === 'country').slice(0, 5),
+                  ]
+                : allLocal;
 
             if (!inputValue || inputValue.length < 2) {
                 resolve(local);

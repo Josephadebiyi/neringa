@@ -1393,6 +1393,10 @@ const languages = [
 ];
 
 export function LanguageProvider({ children }) {
+    // Capture initial localStorage state BEFORE any effects can write defaults
+    const _hadStoredLanguage = !!localStorage.getItem('baggo_language');
+    const _hadStoredCurrency = !!localStorage.getItem('baggo_currency');
+
     const [currentLanguage, setCurrentLanguage] = useState(() => {
         return localStorage.getItem('baggo_language') || 'en';
     });
@@ -1410,30 +1414,24 @@ export function LanguageProvider({ children }) {
     }, [currency]);
 
     useEffect(() => {
-        const checkLocationSettings = async () => {
-            const hasLang = localStorage.getItem('baggo_language');
-            const hasCurr = localStorage.getItem('baggo_currency');
-
-            if (!hasLang || !hasCurr) {
-                try {
-                    const response = await fetch('https://ipapi.co/json/');
-                    const data = await response.json();
-
-                    if (!hasCurr && data.currency) {
-                        setCurrency(data.currency);
-                    }
-                    if (!hasLang && data.languages) {
-                        const langCode = data.languages.split(',')[0].split('-')[0].toLowerCase();
-                        if (languages.find(l => l.code === langCode)) {
-                            setCurrentLanguage(langCode);
-                        }
-                    }
-                } catch (e) {
+        const detectFromIp = async () => {
+            if (_hadStoredLanguage && _hadStoredCurrency) return;
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                if (!_hadStoredCurrency && data.currency) {
+                    setCurrency(data.currency);
                 }
-            }
+                if (!_hadStoredLanguage && data.languages) {
+                    const langCode = data.languages.split(',')[0].split('-')[0].toLowerCase();
+                    if (languages.find(l => l.code === langCode)) {
+                        setCurrentLanguage(langCode);
+                    }
+                }
+            } catch (e) {}
         };
-
-        checkLocationSettings();
+        detectFromIp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const t = (key) => {
