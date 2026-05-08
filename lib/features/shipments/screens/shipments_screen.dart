@@ -59,14 +59,11 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
   void _load() {
     final isCarrier = ref.read(authProvider).user?.isCarrier ?? false;
     _lastCarrierMode = isCarrier;
-    // Always load packages — carriers can also see their sent-package history
+    // Always load everything — a user can be both a carrier and a sender
     ref.read(shipmentProvider.notifier).loadMyPackages();
-    if (isCarrier) {
-      ref.read(tripProvider.notifier).loadMyTrips();
-      ref.read(shipmentProvider.notifier).loadIncomingRequests();
-    } else {
-      ref.read(shipmentProvider.notifier).loadMyRequestHistory();
-    }
+    ref.read(shipmentProvider.notifier).loadMyRequestHistory();
+    ref.read(tripProvider.notifier).loadMyTrips();
+    ref.read(shipmentProvider.notifier).loadIncomingRequests();
   }
 
   @override
@@ -84,8 +81,11 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final isCarrier = ref.watch(authProvider).user?.isCarrier ?? false;
+    final tripState = ref.watch(tripProvider);
+    // Show carrier view if role is carrier OR if the user has trips (they can be both)
+    final showCarrierView = isCarrier || tripState.myTrips.isNotEmpty;
     final l10n = AppLocalizations.of(context);
-    final title = isCarrier ? l10n.tripsTitle : l10n.shipmentsTitle;
+    final title = showCarrierView ? l10n.tripsTitle : l10n.shipmentsTitle;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -131,7 +131,7 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
               ),
             ),
             Expanded(
-              child: isCarrier
+              child: showCarrierView
                   ? _TripsList(activeTab: _activeTab)
                   : _PackagesList(activeTab: _activeTab),
             ),
@@ -140,8 +140,13 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          if (isCarrier) {
-            context.go('/post-trip');
+          if (showCarrierView) {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const _CarrierOrSenderSheet(),
+            );
           } else {
             showModalBottomSheet(
               context: context,
@@ -541,6 +546,22 @@ class _TripsList extends ConsumerWidget {
     final sentPackageHistory = activeTab ? const <PackageModel>[] : shipmentState.historyPackages;
     final requests = shipmentState.incomingRequests;
     final showRequestSection = activeTab && requests.isNotEmpty;
+    // Sent-package requests for carrier users who also send packages
+    final sentActiveRequests = activeTab
+        ? shipmentState.myRequests
+            .where((r) =>
+                r.status == RequestStatus.pending ||
+                r.status == RequestStatus.accepted)
+            .toList()
+        : const <RequestModel>[];
+    final sentHistoryRequests = !activeTab
+        ? shipmentState.myRequests
+            .where((r) =>
+                r.status == RequestStatus.rejected ||
+                r.status == RequestStatus.completed ||
+                r.status == RequestStatus.cancelled)
+            .toList()
+        : const <RequestModel>[];
     final totalKgSold = items.fold<double>(
         0, (sum, trip) => sum + trip.soldKg + trip.reservedKg);
     final totalKgRemaining =
@@ -550,7 +571,8 @@ class _TripsList extends ConsumerWidget {
     final activeShipmentCount =
         items.fold<int>(0, (sum, trip) => sum + trip.activeShipmentCount);
 
-    if (items.isEmpty && !showRequestSection && sentPackageHistory.isEmpty) {
+    if (items.isEmpty && !showRequestSection && sentPackageHistory.isEmpty &&
+        sentActiveRequests.isEmpty && sentHistoryRequests.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -570,6 +592,7 @@ class _TripsList extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(shipmentProvider.notifier).loadMyPackages();
+        await ref.read(shipmentProvider.notifier).loadMyRequestHistory();
         await ref.read(tripProvider.notifier).loadMyTrips();
         await ref.read(shipmentProvider.notifier).loadIncomingRequests();
       },
@@ -596,6 +619,36 @@ class _TripsList extends ConsumerWidget {
               (req) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RequestCard(request: req),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          // Packages this user sent as a customer (active)
+          if (sentActiveRequests.isNotEmpty) ...[
+            _SectionHeader(
+              title: l10n.requestsSent,
+              subtitle: l10n.requestsSentSubtitle,
+            ),
+            const SizedBox(height: 12),
+            ...sentActiveRequests.map(
+              (req) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _SenderRequestCard(request: req),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          // Completed/cancelled requests this user sent as a customer
+          if (sentHistoryRequests.isNotEmpty) ...[
+            _SectionHeader(
+              title: l10n.requestHistory,
+              subtitle: l10n.requestHistorySubtitle,
+            ),
+            const SizedBox(height: 12),
+            ...sentHistoryRequests.map(
+              (req) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _SenderRequestCard(request: req),
               ),
             ),
             const SizedBox(height: 10),
@@ -1432,6 +1485,92 @@ class _PromoBanner extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Action sheet for users who can both carry and send
+// ---------------------------------------------------------------------------
+class _CarrierOrSenderSheet extends StatelessWidget {
+  const _CarrierOrSenderSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.gray300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'What would you like to do?',
+            style: AppTextStyles.labelLg.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.black,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ListTile(
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/post-trip');
+            },
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.flight_takeoff_rounded, color: AppColors.primary),
+            ),
+            title: Text(l10n.postTripTitle,
+                style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+            subtitle: Text('Earn by carrying packages on your trip',
+                style: AppTextStyles.bodyXs.copyWith(color: AppColors.gray500)),
+            contentPadding: EdgeInsets.zero,
+          ),
+          const Divider(height: 1),
+          ListTile(
+            onTap: () {
+              Navigator.pop(context);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const _SenderRouteSheet(),
+              );
+            },
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.accentCoral.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.inventory_2_outlined, color: AppColors.accentCoral),
+            ),
+            title: Text(l10n.findTraveler,
+                style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+            subtitle: Text('Send a package with a traveler',
+                style: AppTextStyles.bodyXs.copyWith(color: AppColors.gray500)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // Sender route search sheet (replaces the 4-step wizard entry point)
 // ---------------------------------------------------------------------------
 class _SenderRouteSheet extends StatefulWidget {
