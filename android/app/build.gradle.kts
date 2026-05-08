@@ -52,6 +52,8 @@ android {
 
     buildTypes {
         release {
+            isMinifyEnabled = true
+            isShrinkResources = false
             signingConfig =
                 if (keystorePropertiesFile.exists()) {
                     signingConfigs.getByName("release")
@@ -62,15 +64,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-        }
-    }
-}
-
-// Disable debug-symbol stripping — local NDK toolchain doesn't support it.
-afterEvaluate {
-    tasks.configureEach {
-        if (name.startsWith("strip", ignoreCase = true)) {
-            enabled = false
         }
     }
 }

@@ -96,50 +96,19 @@ class _BannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = banner.imageUrl;
+    if (url.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: url.isEmpty
-            ? _FallbackBanner(title: banner.title)
-            : Image.network(
-                url,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                loadingBuilder: (_, child, progress) =>
-                    progress == null ? child : _FallbackBanner(title: banner.title),
-                errorBuilder: (_, __, ___) => _FallbackBanner(title: banner.title),
-              ),
-      ),
-    );
-  }
-}
-
-class _FallbackBanner extends StatelessWidget {
-  const _FallbackBanner({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryDark, AppColors.primary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          loadingBuilder: (_, child, progress) =>
+              progress == null ? child : _Placeholder(),
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
         ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.all(20),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-        ),
-        textAlign: TextAlign.center,
       ),
     );
   }
