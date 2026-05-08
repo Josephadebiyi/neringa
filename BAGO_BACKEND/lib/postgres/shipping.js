@@ -284,7 +284,12 @@ const requestSelect = `
   left join public.wallet_accounts traveler_wallet on traveler_wallet.user_id = sr.traveler_id
   left join public.packages pkg on pkg.id = sr.package_id
   left join public.trips t on t.id = sr.trip_id
-  left join public.conversations c on c.request_id = sr.id
+  left join lateral (
+    select id from public.conversations
+    where request_id = sr.id
+    order by created_at desc
+    limit 1
+  ) c on true
 `;
 
 export async function findProfileWithWallet(userId) {

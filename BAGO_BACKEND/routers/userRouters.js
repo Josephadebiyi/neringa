@@ -168,9 +168,9 @@ userRouter.put("/updatePackage/:id", isAuthenticated, requireKycVerification, up
 userRouter.delete("/package/:id", isAuthenticated, requireKycVerification, deletePackage)
 userRouter.post("/RequestPackage", isAuthenticated, requireKycVerification, RequestPackage)
 userRouter.get("/recentOrder", isAuthenticated, recentOrder)
-userRouter.get("/getRequests", isAuthenticated, requireKycVerification, getRequests)
-userRouter.get("/getRequests/:tripId", isAuthenticated, requireKycVerification, getRequests)
-userRouter.get("/incoming-requests", isAuthenticated, requireKycVerification, getIncomingRequests)
+userRouter.get("/getRequests", isAuthenticated, getRequests)
+userRouter.get("/getRequests/:tripId", isAuthenticated, getRequests)
+userRouter.get("/incoming-requests", isAuthenticated, getIncomingRequests)
 userRouter.get("/disputes", isAuthenticated, requireKycVerification, getDisputes);
 userRouter.put("/disputes/:id", isAuthenticated, requireKycVerification, updateDispute);
 userRouter.get('/completed', isAuthenticated, requireKycVerification, getCompletedRequests);
@@ -192,11 +192,11 @@ userRouter.post("/remove-cancelled-escrow", isAuthenticated, requireKycVerificat
 
 
 
-userRouter.get('/conversations', isAuthenticated, requireKycVerification, getConversations);
-userRouter.get('/conversations/unread', isAuthenticated, requireKycVerification, getUnreadCount);
+userRouter.get('/conversations', isAuthenticated, getConversations);
+userRouter.get('/conversations/unread', isAuthenticated, getUnreadCount);
 userRouter.post('/conversations/resolve', isAuthenticated, requireKycVerification, resolveConversation);
-userRouter.post('/conversations/mark-read', isAuthenticated, requireKycVerification, markMessagesRead);
-userRouter.get('/conversations/:conversationId/messages', isAuthenticated, requireKycVerification, getMessages);
+userRouter.post('/conversations/mark-read', isAuthenticated, markMessagesRead);
+userRouter.get('/conversations/:conversationId/messages', isAuthenticated, getMessages);
 userRouter.post('/conversations/:conversationId/send', isAuthenticated, requireKycVerification, sendMessage);
 userRouter.delete('/conversations/:conversationId', isAuthenticated, requireKycVerification, deleteConversation);
 userRouter.get("/getNotifications", isAuthenticated, getNotifications)
