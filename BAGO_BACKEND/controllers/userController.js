@@ -1,11 +1,19 @@
 import bcrypt from 'bcrypt';
 import cloudinary from 'cloudinary';
+import Stripe from 'stripe';
 import { Resend } from 'resend';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { updatePreferredCurrency, findProfileById } from '../lib/postgres/profiles.js';
+import { initiateTransfer } from '../services/paystackService.js';
+
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key || !key.startsWith('sk_')) return null;
+  return new Stripe(key);
+}
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -284,7 +292,7 @@ export const withdrawFunds = async (req, res) => {
     const { amount, method } = req.body;
     const userId = req.user.id;
 
-    if (!amount || amount <= 0) {
+    if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ success: false, message: 'Positive amount required' });
     }
 
@@ -292,7 +300,6 @@ export const withdrawFunds = async (req, res) => {
       `SELECT
           p.stripe_connect_account_id,
           p.stripe_verified,
-          p.bank_details,
           p.paystack_recipient_code,
           wa.id as wallet_id,
           wa.available_balance,
@@ -305,8 +312,9 @@ export const withdrawFunds = async (req, res) => {
 
     if (!account) return res.status(404).json({ success: false, message: 'Wallet not found' });
 
-    const walletCurrency = String(account.currency || req.body.currency || 'USD').toUpperCase();
+    const walletCurrency = String(account.currency || 'USD').toUpperCase();
     const selectedMethod = method || payoutMethodForCurrency(walletCurrency);
+
     if (!['stripe', 'bank'].includes(selectedMethod)) {
       return res.status(400).json({ success: false, message: "Specify payout method: 'stripe' or 'bank'" });
     }
@@ -332,7 +340,7 @@ export const withdrawFunds = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Add and verify a bank account before withdrawing.' });
     }
 
-    if ((account.available_balance || 0) < amount) {
+    if (Number(account.available_balance || 0) < Number(amount)) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
@@ -340,17 +348,17 @@ export const withdrawFunds = async (req, res) => {
       ? Number(amount)
       : await convertCurrency(Number(amount), walletCurrency, 'USD');
 
-    // Daily withdrawal limit check
+    // Daily limit — sum previous withdrawals using stored amountUsd in metadata
     const dailyTotal = await queryOne(
       `SELECT COALESCE(SUM(
-          CASE
-            WHEN currency = 'USD' THEN amount
-            ELSE 0
+          CASE WHEN currency = 'USD' THEN amount
+               ELSE (metadata->>'amountUsd')::numeric
           END
         ), 0) AS total
        FROM public.wallet_transactions
        WHERE user_id = $1
          AND type = 'withdrawal'
+         AND status != 'failed'
          AND created_at >= NOW() - INTERVAL '24 hours'`,
       [userId]
     );
@@ -364,40 +372,94 @@ export const withdrawFunds = async (req, res) => {
       });
     }
 
-    const row = await queryOne(
+    const reference = `BAGO-WD-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+
+    // Atomically deduct — WHERE available_balance >= amount prevents overdraft race
+    const updatedWallet = await queryOne(
       `UPDATE public.wallet_accounts
-       SET available_balance = available_balance - $2, updated_at = timezone('utc', now())
-       WHERE user_id = $1
+       SET available_balance = available_balance - $2, updated_at = NOW()
+       WHERE user_id = $1 AND available_balance >= $2
        RETURNING available_balance`,
       [userId, amount]
     );
+    if (!updatedWallet) {
+      return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
 
+    // Record as pending
     await pgQuery(
       `INSERT INTO public.wallet_transactions
         (wallet_id, user_id, type, amount, currency, status, description, metadata)
        VALUES ($1, $2, 'withdrawal', $3, $4, 'pending', $5, $6)`,
       [
-        account.wallet_id,
-        userId,
-        amount,
-        walletCurrency,
+        account.wallet_id, userId, amount, walletCurrency,
         `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}`,
-        {
-          method: selectedMethod,
-          amountUsd,
-          requestedCurrency: walletCurrency,
-          payoutRail: selectedMethod === 'bank' ? 'paystack' : 'stripe',
-        },
+        JSON.stringify({ method: selectedMethod, amountUsd, reference }),
       ]
     );
 
-    res.status(200).json({
+    // Trigger the actual payout
+    try {
+      if (selectedMethod === 'bank') {
+        const result = await initiateTransfer({
+          amount: Number(amount),
+          recipientCode: account.paystack_recipient_code,
+          currency: walletCurrency,
+          reason: 'Bago wallet withdrawal',
+          reference,
+        });
+        if (!result.success) throw new Error(result.message || 'Paystack transfer failed');
+        await pgQuery(
+          `UPDATE public.wallet_transactions
+           SET status = 'processing', metadata = metadata || $3::jsonb
+           WHERE user_id = $1 AND metadata->>'reference' = $2`,
+          [userId, reference, JSON.stringify({ transferCode: result.transferCode })]
+        );
+      } else {
+        const stripe = getStripe();
+        if (!stripe) throw new Error('Stripe is not configured on this server.');
+        const transfer = await stripe.transfers.create({
+          amount: Math.round(Number(amount) * 100),
+          currency: walletCurrency.toLowerCase(),
+          destination: account.stripe_connect_account_id,
+          transfer_group: reference,
+          metadata: { userId, reference },
+        });
+        await pgQuery(
+          `UPDATE public.wallet_transactions
+           SET status = 'processing', metadata = metadata || $3::jsonb
+           WHERE user_id = $1 AND metadata->>'reference' = $2`,
+          [userId, reference, JSON.stringify({ stripeTransferId: transfer.id })]
+        );
+      }
+    } catch (payoutError) {
+      // Rollback: restore balance and mark transaction failed
+      await pgQuery(
+        `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
+        [userId, amount]
+      );
+      await pgQuery(
+        `UPDATE public.wallet_transactions SET status = 'failed', metadata = metadata || $3::jsonb
+         WHERE user_id = $1 AND metadata->>'reference' = $2`,
+        [userId, reference, JSON.stringify({ error: payoutError.message })]
+      );
+      console.error(`[withdraw] Payout failed for user ${userId}:`, payoutError.message);
+      return res.status(502).json({
+        success: false,
+        message: 'Your withdrawal could not be processed. Your balance has been restored. Please try again.',
+        code: 'PAYOUT_FAILED',
+      });
+    }
+
+    return res.status(200).json({
       success: true,
-      message: 'Withdrawal request received and is being processed',
-      balance: row?.available_balance || 0,
+      message: 'Withdrawal initiated. Funds will arrive within 1–3 business days.',
+      reference,
+      balance: updatedWallet.available_balance,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('withdrawFunds error:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 

@@ -355,7 +355,7 @@ export const withdrawFundsPaystack = async (req, res) => {
 
     const result = await initiateTransfer({
       amount,
-      recipient: profile.paystack_recipient_code,
+      recipientCode: profile.paystack_recipient_code,
       reference,
       reason: 'Bago wallet withdrawal',
     });
