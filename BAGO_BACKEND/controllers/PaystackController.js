@@ -11,6 +11,8 @@ import {
 } from '../services/paystackService.js';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { convertCurrency } from '../services/currencyConverter.js';
+import { sendPushNotification } from '../services/pushNotificationService.js';
+import { createNotification } from '../lib/postgres/shipping.js';
 import { Resend } from 'resend';
 
 let resend = null;
@@ -506,7 +508,7 @@ async function handleSuccessfulPayment(data) {
     `UPDATE public.shipment_requests
      SET payment_info = $2, updated_at = NOW()
      WHERE id = $1
-     RETURNING id, traveler_id, trip_id, amount, currency`,
+     RETURNING id, sender_id, traveler_id, trip_id, amount, currency, tracking_number`,
     [metadata.requestId, { method: 'paystack', status: 'paid', gateway: 'paystack', requestId: reference }]
   );
 
@@ -547,13 +549,82 @@ async function handleSuccessfulPayment(data) {
      VALUES ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
     [wallet.id, updatedRequest.traveler_id, updatedRequest.id, updatedRequest.trip_id, escrowAmount, walletCurrency, `Escrow hold for Request via webhook`, { providerReference: reference, provider: 'paystack', originalAmount: rawAmount, originalCurrency: requestCurrency }]
   );
-  console.log(`🔒 Escrowed ${escrowAmount} ${walletCurrency} (from ${rawAmount} ${requestCurrency}) via Paystack webhook`);
-  console.log(`✅ Payment confirmed for request ${metadata.requestId}`);
+
+  // Fetch names for notification messages
+  const [sender, traveler] = await Promise.all([
+    queryOne(`SELECT first_name, last_name FROM public.profiles WHERE id = $1`, [updatedRequest.sender_id]),
+    queryOne(`SELECT first_name, last_name FROM public.profiles WHERE id = $1`, [updatedRequest.traveler_id]),
+  ]);
+  const senderName = sender ? `${sender.first_name || ''} ${sender.last_name || ''}`.trim() : 'Sender';
+  const travelerName = traveler ? `${traveler.first_name || ''} ${traveler.last_name || ''}`.trim() : 'Traveler';
+  const tracking = updatedRequest.tracking_number || '';
+
+  // Notify sender: payment confirmed
+  await Promise.allSettled([
+    createNotification({
+      userId: updatedRequest.sender_id,
+      title: 'Payment confirmed!',
+      body: `Your payment was received. ${travelerName} will carry your package. Tracking: ${tracking}`,
+      type: 'payment_confirmed',
+      payload: { requestId: updatedRequest.id },
+    }),
+    sendPushNotification(
+      updatedRequest.sender_id,
+      'Payment confirmed!',
+      `Your payment was received. ${travelerName} will carry your package.`,
+      { requestId: updatedRequest.id, type: 'payment_confirmed' }
+    ),
+    // Notify traveler: new booking paid
+    createNotification({
+      userId: updatedRequest.traveler_id,
+      title: 'New booking received!',
+      body: `${senderName} has paid for a shipment on your trip. Check your incoming requests.`,
+      type: 'shipment_request',
+      payload: { requestId: updatedRequest.id },
+    }),
+    sendPushNotification(
+      updatedRequest.traveler_id,
+      'New booking received!',
+      `${senderName} has paid for a shipment on your trip.`,
+      { requestId: updatedRequest.id, type: 'shipment_request' }
+    ),
+  ]);
+
+  console.log(`✅ Payment confirmed & notifications sent for request ${metadata.requestId}`);
 }
 
 async function handleSuccessfulTransfer(data) {
   try {
-    console.log(`✅ Transfer successful: ${data.reference}`);
+    const { reference } = data;
+    // Find the wallet transaction by reference stored in metadata
+    const tx = await queryOne(
+      `SELECT user_id, amount, currency FROM public.wallet_transactions
+       WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
+      [reference]
+    );
+    if (tx) {
+      await pgQuery(
+        `UPDATE public.wallet_transactions SET status = 'completed' WHERE type = 'withdrawal' AND metadata->>'reference' = $1`,
+        [reference]
+      );
+      const displayAmount = `${tx.currency} ${Number(tx.amount).toFixed(2)}`;
+      await Promise.allSettled([
+        createNotification({
+          userId: tx.user_id,
+          title: 'Withdrawal successful!',
+          body: `Your withdrawal of ${displayAmount} is on its way. Funds arrive within 1–3 business days.`,
+          type: 'withdrawal_success',
+          payload: { reference },
+        }),
+        sendPushNotification(
+          tx.user_id,
+          'Withdrawal successful!',
+          `Your withdrawal of ${displayAmount} is on its way to your bank.`,
+          { type: 'withdrawal_success', reference }
+        ),
+      ]);
+    }
+    console.log(`✅ Transfer successful: ${reference}`);
   } catch (error) {
     console.error('Handle successful transfer error:', error);
   }
@@ -561,7 +632,40 @@ async function handleSuccessfulTransfer(data) {
 
 async function handleFailedTransfer(data) {
   try {
-    console.log(`❌ Transfer failed: ${data.reference}`);
+    const { reference } = data;
+    const tx = await queryOne(
+      `SELECT user_id, amount, currency FROM public.wallet_transactions
+       WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
+      [reference]
+    );
+    if (tx) {
+      // Restore balance and mark failed
+      await pgQuery(
+        `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
+        [tx.user_id, tx.amount]
+      );
+      await pgQuery(
+        `UPDATE public.wallet_transactions SET status = 'failed' WHERE type = 'withdrawal' AND metadata->>'reference' = $1`,
+        [reference]
+      );
+      const displayAmount = `${tx.currency} ${Number(tx.amount).toFixed(2)}`;
+      await Promise.allSettled([
+        createNotification({
+          userId: tx.user_id,
+          title: 'Withdrawal failed',
+          body: `Your withdrawal of ${displayAmount} could not be processed. Your balance has been restored.`,
+          type: 'withdrawal_failed',
+          payload: { reference },
+        }),
+        sendPushNotification(
+          tx.user_id,
+          'Withdrawal failed',
+          `Your withdrawal of ${displayAmount} failed. Your balance has been restored.`,
+          { type: 'withdrawal_failed', reference }
+        ),
+      ]);
+    }
+    console.log(`❌ Transfer failed: ${reference}`);
   } catch (error) {
     console.error('Handle failed transfer error:', error);
   }
@@ -569,7 +673,39 @@ async function handleFailedTransfer(data) {
 
 async function handleReversedTransfer(data) {
   try {
-    console.log(`🔄 Transfer reversed: ${data.reference}`);
+    const { reference } = data;
+    const tx = await queryOne(
+      `SELECT user_id, amount, currency FROM public.wallet_transactions
+       WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
+      [reference]
+    );
+    if (tx) {
+      await pgQuery(
+        `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
+        [tx.user_id, tx.amount]
+      );
+      await pgQuery(
+        `UPDATE public.wallet_transactions SET status = 'failed' WHERE type = 'withdrawal' AND metadata->>'reference' = $1`,
+        [reference]
+      );
+      const displayAmount = `${tx.currency} ${Number(tx.amount).toFixed(2)}`;
+      await Promise.allSettled([
+        createNotification({
+          userId: tx.user_id,
+          title: 'Withdrawal reversed',
+          body: `Your withdrawal of ${displayAmount} was reversed by your bank. Your balance has been restored.`,
+          type: 'withdrawal_failed',
+          payload: { reference },
+        }),
+        sendPushNotification(
+          tx.user_id,
+          'Withdrawal reversed',
+          `Your withdrawal of ${displayAmount} was reversed. Your balance has been restored.`,
+          { type: 'withdrawal_failed', reference }
+        ),
+      ]);
+    }
+    console.log(`🔄 Transfer reversed: ${reference}`);
   } catch (error) {
     console.error('Handle reversed transfer error:', error);
   }
