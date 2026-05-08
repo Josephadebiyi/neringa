@@ -59,11 +59,12 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
   void _load() {
     final isCarrier = ref.read(authProvider).user?.isCarrier ?? false;
     _lastCarrierMode = isCarrier;
+    // Always load packages — carriers can also see their sent-package history
+    ref.read(shipmentProvider.notifier).loadMyPackages();
     if (isCarrier) {
       ref.read(tripProvider.notifier).loadMyTrips();
       ref.read(shipmentProvider.notifier).loadIncomingRequests();
     } else {
-      ref.read(shipmentProvider.notifier).loadMyPackages();
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
     }
   }
@@ -537,6 +538,7 @@ class _TripsList extends ConsumerWidget {
       return const Center(child: AppLoading());
     }
     final items = activeTab ? tripState.activeTrips : tripState.historyTrips;
+    final sentPackageHistory = activeTab ? const <PackageModel>[] : shipmentState.historyPackages;
     final requests = shipmentState.incomingRequests;
     final showRequestSection = activeTab && requests.isNotEmpty;
     final totalKgSold = items.fold<double>(
@@ -548,7 +550,7 @@ class _TripsList extends ConsumerWidget {
     final activeShipmentCount =
         items.fold<int>(0, (sum, trip) => sum + trip.activeShipmentCount);
 
-    if (items.isEmpty && !showRequestSection) {
+    if (items.isEmpty && !showRequestSection && sentPackageHistory.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -567,6 +569,7 @@ class _TripsList extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
+        await ref.read(shipmentProvider.notifier).loadMyPackages();
         await ref.read(tripProvider.notifier).loadMyTrips();
         await ref.read(shipmentProvider.notifier).loadIncomingRequests();
       },
@@ -593,6 +596,20 @@ class _TripsList extends ConsumerWidget {
               (req) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RequestCard(request: req),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (sentPackageHistory.isNotEmpty) ...[
+            _SectionHeader(
+              title: l10n.shipmentHistory,
+              subtitle: l10n.shipmentHistorySubtitle,
+            ),
+            const SizedBox(height: 12),
+            ...sentPackageHistory.map(
+              (package) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PackageCard(package: package),
               ),
             ),
             const SizedBox(height: 10),
