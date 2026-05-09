@@ -154,7 +154,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       AppSnackBar.show(
         context,
         message:
-            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
+            'Card payments are currently unavailable. Please try again later or contact support.',
         type: SnackBarType.error,
       );
       return false;
@@ -226,7 +226,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       AppSnackBar.show(
         context,
         message:
-            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
+            'Card payments are currently unavailable. Please try again later or contact support.',
         type: SnackBarType.error,
       );
       return false;
@@ -574,7 +574,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
 
     if (error is StripeConfigException) {
-      return 'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.';
+      return 'Card payments are currently unavailable. Please try again later or contact support.';
     }
 
     if (error is StripeException) {
@@ -606,7 +606,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _mapStripeMessage(String raw) {
     if (raw.contains('stripeconfigexception') ||
         raw.contains('publishable key is not set')) {
-      return 'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.';
+      return 'Card payments are currently unavailable. Please try again later or contact support.';
     }
     if (raw.contains('insufficient_funds')) {
       return 'Your card has insufficient funds. Try another card or contact your bank.';

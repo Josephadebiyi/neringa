@@ -98,7 +98,12 @@ export const updateSettings = async (req, res, next) => {
 export const getCurrentSetting = async (req, res, next) => {
   try {
     await loadSettings();
-    res.status(200).json({ message: 'success', data: _cached, error: false, success: true });
+    const data = { ..._cached };
+    // Append publishable keys from server env — safe to expose to clients, never the secret keys.
+    if (process.env.STRIPE_PUBLISHABLE_KEY) {
+      data.stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+    }
+    res.status(200).json({ message: 'success', data, error: false, success: true });
   } catch (error) {
     next(error);
   }

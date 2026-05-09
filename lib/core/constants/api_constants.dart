@@ -13,11 +13,14 @@ class ApiConstants {
     defaultValue: '',
   );
 
-  // Payment keys – set via --dart-define.
-  // STRIPE_KEY is kept for older local scripts; prefer STRIPE_PUBLISHABLE_KEY.
+  // Payment keys — baked-in publishable key (safe to ship in client builds).
+  // Override at build time with --dart-define=STRIPE_PUBLISHABLE_KEY=pk_... if needed.
   static const String stripePublishableKey = String.fromEnvironment(
     'STRIPE_PUBLISHABLE_KEY',
-    defaultValue: String.fromEnvironment('STRIPE_KEY', defaultValue: ''),
+    defaultValue: String.fromEnvironment(
+      'STRIPE_KEY',
+      defaultValue: 'pk_live_51SIm5SPvb8NSyluxt0PHddQMCZtzszO7huOR46DEiwX1rS96322QQUkhsTUUOTMeZSK4QVZOPcuP7uyzQG3xuQOW00J76dIWVe',
+    ),
   );
   static const String stripeApplePayMerchantIdentifier = String.fromEnvironment(
     'STRIPE_APPLE_PAY_MERCHANT_ID',

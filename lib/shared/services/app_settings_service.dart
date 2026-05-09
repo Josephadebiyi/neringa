@@ -1,3 +1,5 @@
+import 'package:flutter_stripe/flutter_stripe.dart';
+
 import '../../core/constants/api_constants.dart';
 import 'api_service.dart';
 import '../utils/country_currency_helper.dart';
@@ -11,6 +13,7 @@ class AppSettingsSnapshot {
     required this.baseCurrency,
     required this.supportedCurrencies,
     required this.exchangeRates,
+    this.stripePublishableKey = '',
   });
 
   final String insuranceType;
@@ -20,6 +23,7 @@ class AppSettingsSnapshot {
   final String baseCurrency;
   final List<String> supportedCurrencies;
   final Map<String, double> exchangeRates;
+  final String stripePublishableKey;
 
   bool get usesFixedInsurance =>
       insuranceType.toLowerCase().trim() == 'fixed';
@@ -64,6 +68,7 @@ class AppSettingsSnapshot {
       baseCurrency: baseCurrency?.isNotEmpty == true ? baseCurrency! : 'USD',
       supportedCurrencies: supportedCurrencies,
       exchangeRates: exchangeRates,
+      stripePublishableKey: raw['stripePublishableKey']?.toString() ?? '',
     );
   }
 
@@ -174,6 +179,7 @@ class AppSettingsService {
         usdRates: snapshot.exchangeRates,
       );
       _cached = snapshot;
+      _applyStripeKey(snapshot.stripePublishableKey);
       return snapshot;
     } catch (_) {
       CurrencyConversionHelper.applyRemoteConfig(
@@ -200,5 +206,17 @@ class AppSettingsService {
       baseAmount: baseAmount,
       currency: currency,
     );
+  }
+
+  void _applyStripeKey(String key) {
+    // Prefer compile-time key (--dart-define) so local dev overrides can still work.
+    final effective = ApiConstants.stripePublishableKey.isNotEmpty
+        ? ApiConstants.stripePublishableKey
+        : key;
+    if (effective.isEmpty) return;
+    try {
+      Stripe.publishableKey = effective;
+      Stripe.instance.applySettings().catchError((_) {});
+    } catch (_) {}
   }
 }

@@ -110,7 +110,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       AppSnackBar.show(
         context,
         message:
-            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
+            'Card payments are currently unavailable. Please try again later or contact support.',
         type: SnackBarType.error,
       );
       return false;
@@ -195,7 +195,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       AppSnackBar.show(
         context,
         message:
-            'Card payments are not configured on this build. Please rebuild with STRIPE_PUBLISHABLE_KEY.',
+            'Card payments are currently unavailable. Please try again later or contact support.',
         type: SnackBarType.error,
       );
       return false;
