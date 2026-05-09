@@ -130,6 +130,13 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
                 ],
               ),
             ),
+            if (_activeTab) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: _PendingPaymentDraftCard(),
+              ),
+              const SizedBox(height: 12),
+            ],
             Expanded(
               child: showCarrierView
                   ? _TripsList(activeTab: _activeTab)
@@ -215,10 +222,6 @@ class _PackagesList extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          if (activeTab) ...[
-            const _PendingPaymentDraftCard(),
-            const SizedBox(height: 12),
-          ],
           if (items.isEmpty && requests.isEmpty && activeTab) ...[
             BagoEmptyState(
               icon: Icons.inventory_2_outlined,
