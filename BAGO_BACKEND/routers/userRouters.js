@@ -158,7 +158,8 @@ userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => 
 userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
 userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
-userRouter.post('/insurance/mycover/webhook', myCoverWebhook); // no auth — called by MyCover.ai servers
+userRouter.get('/insurance/mycover/webhook', (_req, res) => res.status(200).json({ success: true })); // URL verification by MyCover.ai
+userRouter.post('/insurance/mycover/webhook', myCoverWebhook); // event delivery by MyCover.ai servers
 userRouter.post('/kyc/manual-submit', isAuthenticated, submitManualKyc);
 userRouter.get('/kyc/manual-status', isAuthenticated, getManualKycStatus);
 userRouter.post('/use-referral-discount', isAuthenticated, useReferralDiscount);
