@@ -124,7 +124,7 @@ function appendPaymentInfo(existing = {}, payment) {
   };
 }
 
-async function mergePaidDuplicateRequest({
+export async function mergePaidDuplicateRequest({
   requestId,
   senderId,
   incomingPackageId,

@@ -107,8 +107,8 @@ class ShipmentService {
         ApiConstants.createPackage,
         data: FormData.fromMap(fields),
       );
-      return PackageModel.fromJson(
-          ResponseParser.parseModel(res.data as Map<String, dynamic>, ['package', 'order']));
+      return PackageModel.fromJson(ResponseParser.parseModel(
+          res.data as Map<String, dynamic>, ['package', 'order']));
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -119,8 +119,8 @@ class ShipmentService {
     try {
       final res =
           await _api.put('${ApiConstants.updatePackage}/$id', data: updates);
-      return PackageModel.fromJson(
-          ResponseParser.parseModel(res.data as Map<String, dynamic>, ['package', 'order']));
+      return PackageModel.fromJson(ResponseParser.parseModel(
+          res.data as Map<String, dynamic>, ['package', 'order']));
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -175,7 +175,8 @@ class ShipmentService {
         final collected = <RequestModel>[];
         for (final tripId in tripIds) {
           try {
-            final tripReqRes = await _api.get('${ApiConstants.myRequests}/$tripId');
+            final tripReqRes =
+                await _api.get('${ApiConstants.myRequests}/$tripId');
             collected.addAll(
               ResponseParser.parseList(tripReqRes.data, ['requests'])
                   .map((e) => RequestModel.fromJson(e)),
@@ -199,7 +200,8 @@ class ShipmentService {
 
   Future<RequestModel> getRequestDetails(String requestId) async {
     try {
-      final res = await _api.get('${ApiConstants.packageDetails}/$requestId/details');
+      final res =
+          await _api.get('${ApiConstants.packageDetails}/$requestId/details');
       return RequestModel.fromJson(
         ResponseParser.parseModel(res.data as Map<String, dynamic>, ['data']),
       );
@@ -223,7 +225,7 @@ class ShipmentService {
     String? message,
   }) async {
     try {
-      await _api.post(ApiConstants.sendPackageRequest, data: {
+      final response = await _api.post(ApiConstants.sendPackageRequest, data: {
         'travelerId': travelerId,
         'packageId': packageId,
         'tripId': tripId,
@@ -232,13 +234,23 @@ class ShipmentService {
         'insurance': insurance,
         'insuranceCost': insuranceCost,
         'termsAccepted': true,
-        if (estimatedDeparture != null) 'estimatedDeparture': estimatedDeparture,
+        if (estimatedDeparture != null)
+          'estimatedDeparture': estimatedDeparture,
         if (estimatedArrival != null) 'estimatedArrival': estimatedArrival,
         if (paymentReference != null) 'paymentReference': paymentReference,
         if (paymentProvider != null) 'paymentProvider': paymentProvider,
         if (paymentReference != null) 'paymentStatus': 'paid',
         if (message != null) 'message': message,
       });
+      final data = response.data;
+      if (data is Map) {
+        final success = data['success'];
+        final request = data['request'];
+        if (success == false || (paymentReference != null && request == null)) {
+          throw StateError(data['message']?.toString() ??
+              'Payment was confirmed, but the shipment could not be started yet.');
+        }
+      }
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -268,7 +280,8 @@ class ShipmentService {
   }
 
   /// Update shipment status (intransit, delivering, delivered, completed)
-  Future<void> updateShipmentStatus(String requestId, {
+  Future<void> updateShipmentStatus(
+    String requestId, {
     required String status,
     String? location,
     String? notes,
@@ -312,7 +325,8 @@ class ShipmentService {
     try {
       final payload = <String, dynamic>{
         'rating': rating,
-        if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+        if (comment != null && comment.trim().isNotEmpty)
+          'comment': comment.trim(),
         if (reviewerRole != null && reviewerRole.trim().isNotEmpty)
           'reviewerRole': reviewerRole.trim(),
         if (targetRole != null && targetRole.trim().isNotEmpty)
@@ -349,7 +363,8 @@ class ShipmentService {
 
   Future<void> confirmReceived(String requestId) async {
     try {
-      await _api.put('${ApiConstants.confirmReceived}/$requestId/confirm-received');
+      await _api
+          .put('${ApiConstants.confirmReceived}/$requestId/confirm-received');
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }

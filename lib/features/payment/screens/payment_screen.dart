@@ -728,7 +728,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         raw.contains('payment could not be verified') ||
         raw.contains('payment is not complete') ||
         raw.contains('payment amount does not match') ||
-        raw.contains('payment currency does not match')) {
+        raw.contains('payment currency does not match') ||
+        raw.contains('shipment could not be started') ||
+        raw.contains('shipment is being finalized')) {
       return 'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
     }
     return null;

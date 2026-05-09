@@ -4,6 +4,7 @@ import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { queryOne } from '../lib/postgres/db.js';
 import { createShipmentRequestRecord, getPackageById, getShipmentRequestById, getTripById } from '../lib/postgres/shipping.js';
 import { findProfileById, updateStripeConnectState } from '../lib/postgres/profiles.js';
+import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 
 let stripeClient = null;
 
@@ -115,8 +116,42 @@ async function finalizeStripeShipmentPayment(paymentIntent) {
     [senderId, tripDoc.userId, packageId, tripId, paymentIntent.id],
   );
 
+  const duplicateRequest = existingRequest
+    ? null
+    : await queryOne(
+        `
+          select sr.id
+          from public.shipment_requests sr
+          where sr.sender_id = $1
+            and sr.traveler_id = $2
+            and sr.trip_id = $3
+            and sr.status in ('pending', 'accepted')
+            and coalesce(sr.payment_info ->> 'requestId', '') <> $4
+            and not exists (
+              select 1
+              from jsonb_array_elements(coalesce(sr.payment_info -> 'payments', '[]'::jsonb)) payment
+              where payment ->> 'requestId' = $4
+            )
+          order by sr.created_at desc
+          limit 1
+        `,
+        [senderId, tripDoc.userId, tripId, paymentIntent.id],
+      );
+
   const request = existingRequest
     ? await getShipmentRequestById(existingRequest.id)
+    : duplicateRequest
+      ? await mergePaidDuplicateRequest({
+          requestId: duplicateRequest.id,
+          senderId,
+          incomingPackageId: packageId,
+          additionalAmount: amount,
+          currency,
+          paymentReference: paymentIntent.id,
+          paymentProvider: 'stripe',
+          insurance: metadata.insurance,
+          insuranceCost: metadata.insuranceCost,
+        })
     : await createShipmentRequestRecord({
         senderId,
         travelerId: tripDoc.userId,
@@ -142,11 +177,13 @@ async function finalizeStripeShipmentPayment(paymentIntent) {
         },
       });
 
-  await holdEscrowForPaidRequest({
-    requestId: request.id,
-    providerReference: paymentIntent.id,
-    provider: 'stripe',
-  });
+  if (!duplicateRequest) {
+    await holdEscrowForPaidRequest({
+      requestId: request.id,
+      providerReference: paymentIntent.id,
+      provider: 'stripe',
+    });
+  }
 
   return request;
 }
