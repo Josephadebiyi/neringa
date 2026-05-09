@@ -24,7 +24,7 @@ class ApiConstants {
   );
   static const String stripeApplePayMerchantIdentifier = String.fromEnvironment(
     'STRIPE_APPLE_PAY_MERCHANT_ID',
-    defaultValue: '',
+    defaultValue: 'merchant.com.deracali.boltexponativewind',
   );
   static const String stripeApplePayMerchantCountryCode =
       String.fromEnvironment(
