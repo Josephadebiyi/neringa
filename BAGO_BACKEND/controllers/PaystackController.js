@@ -20,6 +20,7 @@ import {
   getTripById,
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
+import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 import { Resend } from 'resend';
 
 let resend = null;
@@ -644,8 +645,42 @@ async function finalizePaystackShipmentFromMetadata(data) {
     return null;
   }
 
+  const duplicateRequest = existingRequest
+    ? null
+    : await queryOne(
+        `
+          select sr.id
+          from public.shipment_requests sr
+          where sr.sender_id = $1
+            and sr.traveler_id = $2
+            and sr.trip_id = $3
+            and sr.status in ('pending', 'accepted')
+            and coalesce(sr.payment_info ->> 'requestId', '') <> $4
+            and not exists (
+              select 1
+              from jsonb_array_elements(coalesce(sr.payment_info -> 'payments', '[]'::jsonb)) payment
+              where payment ->> 'requestId' = $4
+            )
+          order by sr.created_at desc
+          limit 1
+        `,
+        [senderId, tripDoc.userId, tripId, reference],
+      );
+
   const request = existingRequest
     ? await getShipmentRequestById(existingRequest.id)
+    : duplicateRequest
+      ? await mergePaidDuplicateRequest({
+          requestId: duplicateRequest.id,
+          senderId,
+          incomingPackageId: packageId,
+          additionalAmount: amount,
+          currency,
+          paymentReference: reference,
+          paymentProvider: 'paystack',
+          insurance: metadata.insurance,
+          insuranceCost: metadata.insuranceCost,
+        })
     : await createShipmentRequestRecord({
         senderId,
         travelerId: tripDoc.userId,
@@ -671,25 +706,31 @@ async function finalizePaystackShipmentFromMetadata(data) {
         },
       });
 
-  await holdEscrowForPaidRequest({
-    requestId: request.id,
-    providerReference: reference,
-    provider: 'paystack',
-  });
+  if (!duplicateRequest) {
+    await holdEscrowForPaidRequest({
+      requestId: request.id,
+      providerReference: reference,
+      provider: 'paystack',
+    });
+  }
 
   await Promise.allSettled([
     createNotification({
       userId: request.travelerId,
-      title: 'New booking received!',
-      body: `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
+      title: duplicateRequest ? 'Shipment request updated' : 'New booking received!',
+      body: duplicateRequest
+        ? `${request.senderName || 'A sender'} added extra kg to an existing request on your trip.`
+        : `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
       type: 'shipment_request',
-      payload: { requestId: request.id, tripId },
+      payload: { requestId: request.id, tripId, merged: Boolean(duplicateRequest) },
     }),
     sendPushNotification(
       request.travelerId,
-      'New booking received!',
-      `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
-      { requestId: request.id, type: 'shipment_request' },
+      duplicateRequest ? 'Shipment request updated' : 'New booking received!',
+      duplicateRequest
+        ? `${request.senderName || 'A sender'} added extra kg to an existing request.`
+        : `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
+      { requestId: request.id, type: 'shipment_request', merged: Boolean(duplicateRequest) },
     ),
   ]);
 
