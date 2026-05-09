@@ -87,8 +87,12 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
         case 'error':
           if (!mounted) return;
-          final msg = payload['message']?.toString() ?? 'Verification failed';
-          AppSnackBar.show(context, message: msg, type: SnackBarType.error);
+          AppSnackBar.show(
+            context,
+            message:
+                'We could not start identity verification right now. Please try again.',
+            type: SnackBarType.error,
+          );
           break;
       }
     } catch (_) {}
@@ -99,9 +103,9 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     required String publicKey,
     required String userId,
   }) {
-    final safeAppId    = appId.replaceAll("'", "\\'");
-    final safeKey      = publicKey.replaceAll("'", "\\'");
-    final safeUserId   = userId.replaceAll("'", "\\'");
+    final safeAppId = appId.replaceAll("'", "\\'");
+    final safeKey = publicKey.replaceAll("'", "\\'");
+    final safeUserId = userId.replaceAll("'", "\\'");
 
     return '''
 <!DOCTYPE html>
@@ -185,7 +189,11 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       };
 
       try {
-        var connect = new DojaEasyOnboard(options);
+        var WidgetCtor = window.DojahEasyOnboard || window.DojaEasyOnboard;
+        if (!WidgetCtor) {
+          throw new Error('verification widget unavailable');
+        }
+        var connect = new WidgetCtor(options);
         connect.setup();
         connect.open();
         document.getElementById('loader').style.display = 'none';
@@ -214,10 +222,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       ),
       body: Stack(
         children: [
-          if (_controller != null)
-            WebViewWidget(controller: _controller!),
-          if (_webLoading)
-            const Center(child: AppLoading()),
+          if (_controller != null) WebViewWidget(controller: _controller!),
+          if (_webLoading) const Center(child: AppLoading()),
         ],
       ),
     );

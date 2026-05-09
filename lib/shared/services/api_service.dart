@@ -114,16 +114,15 @@ class ApiService {
     if (statusCode == 401) {
       return 'Session expired. Please sign in again.';
     }
-    if (statusCode == 100 || statusCode == 403) {
-      // HTTP 100 is KYC verification required or HTTP 403 is permission denied
-      if (statusCode == 100) {
-        return 'You are not allowed to perform this action.';
-      }
-      return 'You are not allowed to perform this action.';
-    }
     if (e.response?.data != null) {
       final data = e.response!.data;
       if (data is Map) {
+        final code = data['code']?.toString();
+        if (code == 'VERIFICATION_REQUIRED' ||
+            code == 'KYC_REQUIRED' ||
+            data['kycRequired'] == true) {
+          return 'Identity verification is required. Please complete KYC to continue.';
+        }
         return data['message']?.toString() ??
             data['error']?.toString() ??
             'An error occurred';
@@ -137,6 +136,9 @@ class ApiService {
           return 'Bago is temporarily unavailable. Please try again in a few minutes.';
         }
       }
+    }
+    if (statusCode == 100 || statusCode == 403) {
+      return 'Identity verification or permission is required to continue.';
     }
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {

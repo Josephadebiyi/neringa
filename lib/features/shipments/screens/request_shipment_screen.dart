@@ -17,6 +17,7 @@ import '../../../shared/utils/trip_price_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/utils/name_formatter.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../kyc/widgets/kyc_verification_required_dialog.dart';
 import '../../payment/services/shipment_checkout_service.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/services/trip_service.dart';
@@ -24,13 +25,15 @@ import '../services/shipment_service.dart';
 import 'shipment_terms_screen.dart';
 
 class RequestShipmentScreen extends ConsumerStatefulWidget {
-  const RequestShipmentScreen({super.key, required this.tripId, this.initialTrip, this.preFilledData});
+  const RequestShipmentScreen(
+      {super.key, required this.tripId, this.initialTrip, this.preFilledData});
   final String tripId;
   final TripModel? initialTrip;
   final Map<String, dynamic>? preFilledData;
 
   @override
-  ConsumerState<RequestShipmentScreen> createState() => _RequestShipmentScreenState();
+  ConsumerState<RequestShipmentScreen> createState() =>
+      _RequestShipmentScreenState();
 }
 
 class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
@@ -75,7 +78,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     if (d != null) {
       if (d['weight'] != null) {
         final w = d['weight'] as double;
-        _weightCtrl.text = w == w.truncateToDouble() ? w.toInt().toString() : w.toStringAsFixed(2);
+        _weightCtrl.text = w == w.truncateToDouble()
+            ? w.toInt().toString()
+            : w.toStringAsFixed(2);
       }
       if (d['category'] != null) _category = d['category'] as String;
       if (d['photo'] != null) _itemImage = d['photo'] as File;
@@ -84,7 +89,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       }
       if (d['declaredValue'] != null) {
         final v = d['declaredValue'] as double;
-        _itemValueCtrl.text = v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
+        _itemValueCtrl.text = v == v.truncateToDouble()
+            ? v.toInt().toString()
+            : v.toStringAsFixed(2);
       }
     }
   }
@@ -92,7 +99,12 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   Future<void> _loadTrip() async {
     try {
       final trip = await TripService.instance.getTripById(widget.tripId);
-      if (mounted) setState(() { _currentTrip = trip; _loadError = null; });
+      if (mounted) {
+        setState(() {
+          _currentTrip = trip;
+          _loadError = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _loadError = e.toString());
     }
@@ -112,7 +124,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   }
 
   Future<void> _pickImage() async {
-    final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final file =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (file == null || !mounted) return;
     setState(() => _itemImage = File(file.path));
   }
@@ -131,7 +144,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     setState(() => _receiverPhoneCountry = selected);
   }
 
-  Future<void> _continueToPayment(TripModel trip, AppSettingsSnapshot settings) async {
+  Future<void> _continueToPayment(
+      TripModel trip, AppSettingsSnapshot settings) async {
     if (!mounted) return;
 
     final user = ref.read(authProvider).user;
@@ -154,12 +168,14 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final currency = UserCurrencyHelper.resolve(user);
 
     if (weight == null || weight <= 0) {
-      AppSnackBar.show(context, message: 'Enter a valid shipment weight.', type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: 'Enter a valid shipment weight.', type: SnackBarType.error);
       return;
     }
     if (currency.isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please set your preferred currency in profile settings before continuing.',
+          message:
+              'Please set your preferred currency in profile settings before continuing.',
           type: SnackBarType.error);
       return;
     }
@@ -167,11 +183,15 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         _receiverPhoneCtrl.text.trim().isEmpty ||
         _receiverEmailCtrl.text.trim().isEmpty ||
         _deliveryAddressCtrl.text.trim().isEmpty) {
-      AppSnackBar.show(context, message: 'Please fill in all receiver details.', type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: 'Please fill in all receiver details.',
+          type: SnackBarType.error);
       return;
     }
     if (_itemImage == null && widget.preFilledData == null) {
-      AppSnackBar.show(context, message: 'Add an item image before continuing.', type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: 'Add an item image before continuing.',
+          type: SnackBarType.error);
       return;
     }
 
@@ -184,7 +204,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
     final insuranceAmount = _insurance ? (declaredValue * 0.04) : 0.0;
     final totalAmount = shippingAmount + insuranceAmount;
-    final provider = ShipmentCheckoutService.instance.providerForCurrency(currency);
+    final provider =
+        ShipmentCheckoutService.instance.providerForCurrency(currency);
     final expiresAt = DateTime.now().add(ShipmentCheckoutService.draftLifetime);
 
     setState(() => _isSubmitting = true);
@@ -201,7 +222,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         pickupAddress: trip.fromLocation,
         deliveryAddress: _deliveryAddressCtrl.text.trim(),
         receiverName: _receiverNameCtrl.text.trim(),
-        receiverPhone: '${_receiverPhoneCountry.dialCode}${_receiverPhoneCtrl.text.trim()}',
+        receiverPhone:
+            '${_receiverPhoneCountry.dialCode}${_receiverPhoneCtrl.text.trim()}',
         receiverEmail: _receiverEmailCtrl.text.trim(),
         description: _messageCtrl.text.trim(),
         images: _itemImage != null ? [_itemImage!] : [],
@@ -241,10 +263,25 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       context.push('/payment', extra: draft);
     } catch (e) {
       if (!mounted) return;
-      AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (_isKycRequiredError(e)) {
+        await KycVerificationRequiredDialog.show(
+          context,
+          kycStatus: ref.read(authProvider).user?.kycStatus,
+        );
+        return;
+      }
+      AppSnackBar.show(context,
+          message: e.toString(), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  bool _isKycRequiredError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('identity verification') ||
+        message.contains('kyc') ||
+        message.contains('verification_required');
   }
 
   Future<void> _refreshSettingsInBackground() async {
@@ -275,11 +312,19 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.gray400),
+                const Icon(Icons.error_outline_rounded,
+                    size: 48, color: AppColors.gray400),
                 const SizedBox(height: 16),
-                Text(_loadError!, style: AppTextStyles.muted(AppTextStyles.bodyMd), textAlign: TextAlign.center),
+                Text(_loadError!,
+                    style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 20),
-                AppButton(label: 'Try again', onPressed: () { setState(() => _loadError = null); _loadTrip(); }),
+                AppButton(
+                    label: 'Try again',
+                    onPressed: () {
+                      setState(() => _loadError = null);
+                      _loadTrip();
+                    }),
               ],
             ),
           ),
@@ -302,15 +347,22 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 64, height: 64,
-                  decoration: BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
-                  child: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary, size: 30),
+                  width: 64,
+                  height: 64,
+                  decoration: const BoxDecoration(
+                      color: AppColors.primarySoft, shape: BoxShape.circle),
+                  child: const Icon(Icons.account_balance_wallet_outlined,
+                      color: AppColors.primary, size: 30),
                 ),
                 const SizedBox(height: 20),
-                Text('Currency Not Set', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+                Text('Currency Not Set',
+                    style:
+                        AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                Text('Please set your preferred currency in profile settings before requesting shipping.',
-                    style: AppTextStyles.muted(AppTextStyles.bodyMd), textAlign: TextAlign.center),
+                Text(
+                    'Please set your preferred currency in profile settings before requesting shipping.',
+                    style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                    textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -344,20 +396,29 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             const SizedBox(height: 20),
 
             // ── Route ─────────────────────────────────────────────────
-            _RouteCard(trip: trip, onChangeRoute: () => context.push('/create-shipment')),
+            _RouteCard(
+                trip: trip,
+                onChangeRoute: () => context.push('/create-shipment')),
             const SizedBox(height: 24),
 
             // ── Shipment details ──────────────────────────────────────
-            _SectionHeader(title: 'Shipment Details', icon: Icons.inventory_2_outlined),
+            const _SectionHeader(
+                title: 'Shipment Details', icon: Icons.inventory_2_outlined),
             const SizedBox(height: 14),
 
             if (widget.preFilledData != null)
-              _PrefilledItemCard(data: widget.preFilledData!, currency: currency)
+              _PrefilledItemCard(
+                  data: widget.preFilledData!, currency: currency)
             else ...[
               Row(children: [
-                Expanded(child: _WeightField(controller: _weightCtrl, onChanged: () => setState(() {}))),
+                Expanded(
+                    child: _WeightField(
+                        controller: _weightCtrl,
+                        onChanged: () => setState(() {}))),
                 const SizedBox(width: 12),
-                Expanded(child: _ValueField(controller: _itemValueCtrl, currency: currency)),
+                Expanded(
+                    child: _ValueField(
+                        controller: _itemValueCtrl, currency: currency)),
               ]),
               const SizedBox(height: 16),
               _CategoryGrid(
@@ -371,9 +432,13 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             const SizedBox(height: 24),
 
             // ── Receiver details ──────────────────────────────────────
-            _SectionHeader(title: 'Receiver Details', icon: Icons.person_outline_rounded),
+            const _SectionHeader(
+                title: 'Receiver Details', icon: Icons.person_outline_rounded),
             const SizedBox(height: 14),
-            AppTextField(controller: _receiverNameCtrl, label: 'Full name', hint: 'Who receives this?'),
+            AppTextField(
+                controller: _receiverNameCtrl,
+                label: 'Full name',
+                hint: 'Who receives this?'),
             const SizedBox(height: 12),
             _PhoneRow(
               controller: _receiverPhoneCtrl,
@@ -424,7 +489,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             AppButton(
               label: 'Continue to Payment',
               isLoading: _isSubmitting,
-              onPressed: _isSubmitting ? null : () => _continueToPayment(trip, settings),
+              onPressed: _isSubmitting
+                  ? null
+                  : () => _continueToPayment(trip, settings),
             ),
           ],
         ),
@@ -441,15 +508,18 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       leading: IconButton(
         onPressed: () => context.pop(),
         icon: Container(
-          width: 36, height: 36,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: const Color(0xFFF4F6FB),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.black),
+          child: const Icon(Icons.arrow_back_ios_new_rounded,
+              size: 16, color: AppColors.black),
         ),
       ),
-      title: Text('Request Shipment', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+      title: Text('Request Shipment',
+          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
     );
   }
 }
@@ -464,7 +534,8 @@ class _TravelerHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final priceDisplay = formatTripPriceForViewer(trip, userCurrency);
-    final name = NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Traveler');
+    final name =
+        NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Traveler');
     final rating = trip.averageRating ?? 0;
     final initials = name.isNotEmpty ? name[0].toUpperCase() : 'T';
     final meanIcon = _meanIcon(trip.travelMeans);
@@ -485,15 +556,19 @@ class _TravelerHeroCard extends StatelessWidget {
             children: [
               // Avatar
               Container(
-                width: 52, height: 52,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Text(initials, style: const TextStyle(
-                    color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900,
-                  )),
+                  child: Text(initials,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      )),
                 ),
               ),
               const SizedBox(width: 14),
@@ -501,16 +576,23 @@ class _TravelerHeroCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(
-                      color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800,
-                    )),
+                    Text(name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        )),
                     const SizedBox(height: 4),
                     Row(children: [
-                      const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFFD700)),
+                      const Icon(Icons.star_rounded,
+                          size: 14, color: Color(0xFFFFD700)),
                       const SizedBox(width: 4),
                       Text(
                         rating > 0 ? rating.toStringAsFixed(1) : 'New',
-                        style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600),
                       ),
                     ]),
                   ],
@@ -518,7 +600,8 @@ class _TravelerHeroCard extends StatelessWidget {
               ),
               // Travel means badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
@@ -527,8 +610,12 @@ class _TravelerHeroCard extends StatelessWidget {
                   Icon(meanIcon, size: 14, color: Colors.white),
                   const SizedBox(width: 5),
                   Text(
-                    trip.travelMeans.substring(0, 1).toUpperCase() + trip.travelMeans.substring(1),
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                    trip.travelMeans.substring(0, 1).toUpperCase() +
+                        trip.travelMeans.substring(1),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700),
                   ),
                 ]),
               ),
@@ -563,12 +650,18 @@ class _TravelerHeroCard extends StatelessWidget {
 
   IconData _meanIcon(String means) {
     switch (means.toLowerCase()) {
-      case 'flight': return Icons.flight_rounded;
-      case 'bus': return Icons.directions_bus_rounded;
-      case 'train': return Icons.train_rounded;
-      case 'car': return Icons.directions_car_rounded;
-      case 'ship': return Icons.directions_boat_rounded;
-      default: return Icons.luggage_rounded;
+      case 'flight':
+        return Icons.flight_rounded;
+      case 'bus':
+        return Icons.directions_bus_rounded;
+      case 'train':
+        return Icons.train_rounded;
+      case 'car':
+        return Icons.directions_car_rounded;
+      case 'ship':
+        return Icons.directions_boat_rounded;
+      default:
+        return Icons.luggage_rounded;
     }
   }
 }
@@ -592,9 +685,12 @@ class _StatChip extends StatelessWidget {
           const SizedBox(width: 5),
         ],
         Flexible(
-          child: Text(label, style: const TextStyle(
-            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700,
-          )),
+          child: Text(label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              )),
         ),
       ]),
     );
@@ -611,7 +707,20 @@ class _RouteCard extends StatelessWidget {
   String _formatDate(String raw) {
     try {
       final dt = DateTime.parse(raw).toLocal();
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
     } catch (_) {
       return raw;
@@ -631,21 +740,27 @@ class _RouteCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.route_rounded, size: 18, color: AppColors.primary),
+              const Icon(Icons.route_rounded,
+                  size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text('Route', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800, color: AppColors.black)),
+              Text('Route',
+                  style: AppTextStyles.labelMd.copyWith(
+                      fontWeight: FontWeight.w800, color: AppColors.black)),
               const Spacer(),
               GestureDetector(
                 onTap: onChangeRoute,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('Change', style: AppTextStyles.labelSm.copyWith(
-                    color: AppColors.primary, fontWeight: FontWeight.w700,
-                  )),
+                  child: Text('Change',
+                      style: AppTextStyles.labelSm.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      )),
                 ),
               ),
             ],
@@ -665,12 +780,14 @@ class _RouteCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(children: [
                   Container(
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
                       color: AppColors.primarySoft,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primary),
+                    child: const Icon(Icons.arrow_forward_rounded,
+                        size: 16, color: AppColors.primary),
                   ),
                 ]),
               ),
@@ -692,11 +809,13 @@ class _RouteCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.gray400),
+              const Icon(Icons.calendar_today_outlined,
+                  size: 14, color: AppColors.gray400),
               const SizedBox(width: 6),
               Text(
                 'Departs ${_formatDate(trip.departureDate)}',
-                style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w600),
+                style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.gray500, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -707,7 +826,11 @@ class _RouteCard extends StatelessWidget {
 }
 
 class _RouteStop extends StatelessWidget {
-  const _RouteStop({required this.label, required this.city, required this.country, required this.isOrigin});
+  const _RouteStop(
+      {required this.label,
+      required this.city,
+      required this.country,
+      required this.isOrigin});
   final String label;
   final String city;
   final String country;
@@ -727,18 +850,24 @@ class _RouteStop extends StatelessWidget {
         children: [
           Row(children: [
             Container(
-              width: 8, height: 8,
+              width: 8,
+              height: 8,
               decoration: BoxDecoration(
                 color: isOrigin ? AppColors.primary : AppColors.success,
                 shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 6),
-            Text(label, style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w700)),
+            Text(label,
+                style: AppTextStyles.labelXs.copyWith(
+                    color: AppColors.gray400, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 4),
-          Text(city, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
-          Text(country, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+          Text(city,
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          Text(country,
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
         ],
       ),
     );
@@ -756,12 +885,16 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(children: [
       Container(
-        width: 32, height: 32,
-        decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(9)),
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(9)),
         child: Icon(icon, size: 16, color: AppColors.primary),
       ),
       const SizedBox(width: 10),
-      Text(title, style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
+      Text(title,
+          style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
     ]);
   }
 }
@@ -790,12 +923,15 @@ class _WeightField extends StatelessWidget {
             child: TextField(
               controller: controller,
               onChanged: (_) => onChanged(),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: '0.0',
-                hintStyle: AppTextStyles.labelMd.copyWith(color: AppColors.gray300),
+                hintStyle:
+                    AppTextStyles.labelMd.copyWith(color: AppColors.gray300),
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -807,9 +943,11 @@ class _WeightField extends StatelessWidget {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text('kg', style: AppTextStyles.labelSm.copyWith(
-              color: AppColors.primary, fontWeight: FontWeight.w800,
-            )),
+            child: Text('kg',
+                style: AppTextStyles.labelSm.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w800,
+                )),
           ),
         ],
       ),
@@ -843,7 +981,8 @@ class _ValueField extends StatelessWidget {
             decoration: InputDecoration(
               border: InputBorder.none,
               hintText: 'Value',
-              hintStyle: AppTextStyles.labelMd.copyWith(color: AppColors.gray300),
+              hintStyle:
+                  AppTextStyles.labelMd.copyWith(color: AppColors.gray300),
               isDense: true,
               contentPadding: EdgeInsets.zero,
             ),
@@ -856,8 +995,10 @@ class _ValueField extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            CurrencyConversionHelper.symbolForCurrency(currency.isEmpty ? 'USD' : currency),
-            style: AppTextStyles.labelSm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w800),
+            CurrencyConversionHelper.symbolForCurrency(
+                currency.isEmpty ? 'USD' : currency),
+            style: AppTextStyles.labelSm.copyWith(
+                color: AppColors.gray500, fontWeight: FontWeight.w800),
           ),
         ),
       ]),
@@ -868,7 +1009,10 @@ class _ValueField extends StatelessWidget {
 // ── Category grid ─────────────────────────────────────────────────────────────
 
 class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid({required this.categories, required this.selected, required this.onSelect});
+  const _CategoryGrid(
+      {required this.categories,
+      required this.selected,
+      required this.onSelect});
   final List<(String, IconData)> categories;
   final String selected;
   final ValueChanged<String> onSelect;
@@ -899,9 +1043,12 @@ class _CategoryGrid extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(cat.$2, size: 18, color: isSelected ? Colors.white : AppColors.gray400),
+                Icon(cat.$2,
+                    size: 18,
+                    color: isSelected ? Colors.white : AppColors.gray400),
                 const SizedBox(height: 4),
-                Text(cat.$1,
+                Text(
+                  cat.$1,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -943,20 +1090,28 @@ class _ImagePickerTile extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(15),
-                    child: Image.file(image!, height: 160, width: double.infinity, fit: BoxFit.cover),
+                    child: Image.file(image!,
+                        height: 160, width: double.infinity, fit: BoxFit.cover),
                   ),
                   Positioned(
-                    bottom: 10, right: 10,
+                    bottom: 10,
+                    right: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      child:
+                          const Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.edit_rounded, size: 13, color: Colors.white),
                         SizedBox(width: 5),
-                        Text('Change', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                        Text('Change',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700)),
                       ]),
                     ),
                   ),
@@ -967,15 +1122,21 @@ class _ImagePickerTile extends StatelessWidget {
                 child: Column(
                   children: [
                     Container(
-                      width: 52, height: 52,
-                      decoration: BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
-                      child: const Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 24),
+                      width: 52,
+                      height: 52,
+                      decoration: const BoxDecoration(
+                          color: AppColors.primarySoft, shape: BoxShape.circle),
+                      child: const Icon(Icons.add_a_photo_rounded,
+                          color: AppColors.primary, size: 24),
                     ),
                     const SizedBox(height: 12),
-                    Text('Add item photo', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+                    Text('Add item photo',
+                        style: AppTextStyles.labelMd
+                            .copyWith(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
                     Text('A clear photo helps the traveler identify your item',
-                        style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400),
+                        style: AppTextStyles.bodySm
+                            .copyWith(color: AppColors.gray400),
                         textAlign: TextAlign.center),
                   ],
                 ),
@@ -994,7 +1155,9 @@ class _PrefilledItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categoryName = data['categoryName'] as String? ?? data['category'] as String? ?? 'Item';
+    final categoryName = data['categoryName'] as String? ??
+        data['category'] as String? ??
+        'Item';
     final weight = data['weight'] as double? ?? 0.0;
     final declaredValue = data['declaredValue'] as double?;
     final description = data['description'] as String? ?? '';
@@ -1004,7 +1167,8 @@ class _PrefilledItemCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1012,31 +1176,48 @@ class _PrefilledItemCard extends StatelessWidget {
         children: [
           Row(children: [
             Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.inventory_2_rounded, color: AppColors.primary, size: 20),
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.inventory_2_rounded,
+                  color: AppColors.primary, size: 20),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(categoryName, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
-              Text(
-                '${weight == weight.truncateToDouble() ? weight.toInt() : weight.toStringAsFixed(1)} kg',
-                style: AppTextStyles.muted(AppTextStyles.bodySm),
-              ),
-            ])),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(categoryName,
+                      style: AppTextStyles.labelMd
+                          .copyWith(fontWeight: FontWeight.w800)),
+                  Text(
+                    '${weight == weight.truncateToDouble() ? weight.toInt() : weight.toStringAsFixed(1)} kg',
+                    style: AppTextStyles.muted(AppTextStyles.bodySm),
+                  ),
+                ])),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(8)),
-              child: Text('From wizard', style: AppTextStyles.labelXs.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text('From wizard',
+                  style: AppTextStyles.labelXs.copyWith(
+                      color: AppColors.primary, fontWeight: FontWeight.w700)),
             ),
             if (declaredValue != null) ...[
               const SizedBox(width: 8),
-               Container(
-                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                 decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(8)),
-                 child: Text('Value: $currency ${declaredValue.toStringAsFixed(0)}',
-                     style: AppTextStyles.labelXs.copyWith(color: AppColors.gray500)),
-               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                    color: AppColors.gray100,
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                    'Value: $currency ${declaredValue.toStringAsFixed(0)}',
+                    style: AppTextStyles.labelXs
+                        .copyWith(color: AppColors.gray500)),
+              ),
             ],
           ]),
           if (description.isNotEmpty) ...[
@@ -1049,7 +1230,8 @@ class _PrefilledItemCard extends StatelessWidget {
             const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.file(photo, height: 120, width: double.infinity, fit: BoxFit.cover),
+              child: Image.file(photo,
+                  height: 120, width: double.infinity, fit: BoxFit.cover),
             ),
           ],
         ],
@@ -1061,7 +1243,10 @@ class _PrefilledItemCard extends StatelessWidget {
 // ── Phone row ─────────────────────────────────────────────────────────────────
 
 class _PhoneRow extends StatelessWidget {
-  const _PhoneRow({required this.controller, required this.country, required this.onPickCountry});
+  const _PhoneRow(
+      {required this.controller,
+      required this.country,
+      required this.onPickCountry});
   final TextEditingController controller;
   final CountryCurrencyData country;
   final VoidCallback onPickCountry;
@@ -1081,10 +1266,12 @@ class _PhoneRow extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Text(country.flag, style: const TextStyle(fontSize: 18)),
             const SizedBox(width: 8),
-            Text(country.dialCode, style: AppTextStyles.bodyMd.copyWith(
-              color: AppColors.black, fontWeight: FontWeight.w700)),
+            Text(country.dialCode,
+                style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.black, fontWeight: FontWeight.w700)),
             const SizedBox(width: 6),
-            const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.gray400, size: 20),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppColors.gray400, size: 20),
           ]),
         ),
       ),
@@ -1120,22 +1307,30 @@ class _InsuranceTile extends StatelessWidget {
         color: enabled ? AppColors.primarySoft : AppColors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: enabled ? AppColors.primary.withValues(alpha: 0.4) : const Color(0xFFE8EAED),
+          color: enabled
+              ? AppColors.primary.withValues(alpha: 0.4)
+              : const Color(0xFFE8EAED),
         ),
       ),
       padding: const EdgeInsets.all(16),
       child: Row(children: [
         Container(
-          width: 44, height: 44,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             color: enabled ? AppColors.primary : const Color(0xFFF4F6FB),
             borderRadius: BorderRadius.circular(13),
           ),
-          child: Icon(Icons.shield_outlined, color: enabled ? Colors.white : AppColors.gray400, size: 22),
+          child: Icon(Icons.shield_outlined,
+              color: enabled ? Colors.white : AppColors.gray400, size: 22),
         ),
         const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Protect my item', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Protect my item',
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
           Text(
             '4% of item value — covered in transit',
@@ -1145,7 +1340,7 @@ class _InsuranceTile extends StatelessWidget {
         Switch(
           value: enabled,
           onChanged: onToggle,
-          activeColor: AppColors.primary,
+          activeThumbColor: AppColors.primary,
         ),
       ]),
     );
@@ -1176,15 +1371,22 @@ class _PriceSummaryCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(18),
       child: Column(children: [
-        _Row(label: 'Shipping fee', value: '$currency ${shippingAmount.toStringAsFixed(2)}'),
+        _Row(
+            label: 'Shipping fee',
+            value: '$currency ${shippingAmount.toStringAsFixed(2)}'),
         const SizedBox(height: 12),
-        _Row(label: 'Item protection (4%)', value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
+        _Row(
+            label: 'Item protection (4%)',
+            value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
           child: Divider(height: 1, color: Color(0xFFEEEFF1)),
         ),
         Row(children: [
-          Expanded(child: Text('Total', style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w900))),
+          Expanded(
+              child: Text('Total',
+                  style: AppTextStyles.labelLg
+                      .copyWith(fontWeight: FontWeight.w900))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
@@ -1194,7 +1396,8 @@ class _PriceSummaryCard extends StatelessWidget {
             child: Text(
               '$currency ${totalAmount.toStringAsFixed(2)}',
               style: AppTextStyles.labelLg.copyWith(
-                color: AppColors.primary, fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -1212,8 +1415,12 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Expanded(child: Text(label, style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w600))),
-      Text(value, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+      Expanded(
+          child: Text(label,
+              style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.gray500, fontWeight: FontWeight.w600))),
+      Text(value,
+          style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
     ]);
   }
 }
@@ -1291,13 +1498,19 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               controller: scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+              separatorBuilder: (_, __) =>
+                  const Divider(height: 1, color: AppColors.border),
               itemBuilder: (_, index) {
                 final country = _filtered[index];
                 return ListTile(
-                  leading: Text(country.flag, style: const TextStyle(fontSize: 22)),
-                  title: Text(country.name, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
-                  subtitle: Text(country.dialCode, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+                  leading:
+                      Text(country.flag, style: const TextStyle(fontSize: 22)),
+                  title: Text(country.name,
+                      style: AppTextStyles.labelMd
+                          .copyWith(fontWeight: FontWeight.w700)),
+                  subtitle: Text(country.dialCode,
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500)),
                   onTap: () => Navigator.of(context).pop(country),
                 );
               },
