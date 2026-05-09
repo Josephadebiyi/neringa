@@ -63,6 +63,7 @@ void main() async {
   });
   AppSettingsService.instance.fetchPublicSettings().catchError((e) {
     debugPrint('AppSettings fetch error: $e');
+    return AppSettingsService.fallbackSnapshot;
   });
 }
 
