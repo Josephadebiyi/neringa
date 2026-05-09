@@ -34,6 +34,7 @@ import { getAppSettings } from './AdminControllers/setting.js';
 import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingController.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
+import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
 
 let stripeClient = null;
 function getStripeClient() {
@@ -387,6 +388,13 @@ export async function updateRequestStatus(req, res) {
         payload: { requestId, status: statusLabel, location },
       });
 
+      // Purchase MyCover.ai insurance policy when traveler starts the shipment (fire-and-forget)
+      if (status === 'intransit' && updatedRequest.insurance && updatedRequest.insuranceCost > 0) {
+        purchaseMyCoverPolicy(updatedRequest).catch(e =>
+          console.error('MyCover policy purchase failed:', e.message)
+        );
+      }
+
       // PUSH notification for sender on key status changes
       if (['accepted', 'rejected', 'intransit', 'delivering', 'delivered'].includes(statusLabel)) {
         const pushTitle = statusLabel === 'accepted' ? 'Request Accepted!'
@@ -665,6 +673,9 @@ export async function getRequestDetails(req, res) {
           value: request.package?.value,
         },
         payment: request.paymentInfo || {},
+        insurance: request.insurance || false,
+        insuranceCost: request.insuranceCost || 0,
+        insurance_policy_id: request.insurancePolicyId || null,
         dates: {
           created: request.createdAt,
           estimatedDeparture: request.estimatedDeparture,

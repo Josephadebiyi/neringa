@@ -464,6 +464,45 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
             ),
           ),
 
+          if (req.insurance) ...[
+            const SizedBox(height: 14),
+            _InfoCard(
+              child: Row(
+                children: [
+                  Icon(Icons.shield_outlined,
+                      size: 18,
+                      color: req.insurancePolicyId != null
+                          ? AppColors.success
+                          : AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Item protection active',
+                        style: AppTextStyles.bodyMd
+                            .copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: req.insurancePolicyId != null
+                          ? AppColors.successLight
+                          : AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      req.insurancePolicyId != null ? 'Insured' : 'Pending',
+                      style: AppTextStyles.bodyXs.copyWith(
+                        color: req.insurancePolicyId != null
+                            ? AppColors.success
+                            : AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           if (awaitingSenderConfirmation) ...[
             const SizedBox(height: 14),
             _InfoCard(

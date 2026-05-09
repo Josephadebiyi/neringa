@@ -38,6 +38,9 @@ class RequestModel {
   final String? receiverPhone;
   final String? receiverEmail;
   final List<String> packageImages;
+  final bool insurance;
+  final double insuranceCost;
+  final String? insurancePolicyId;
 
   const RequestModel({
     required this.id,
@@ -76,6 +79,9 @@ class RequestModel {
     this.receiverPhone,
     this.receiverEmail,
     this.packageImages = const [],
+    this.insurance = false,
+    this.insuranceCost = 0.0,
+    this.insurancePolicyId,
   });
 
   bool get isPending => status == RequestStatus.pending;
@@ -176,6 +182,9 @@ class RequestModel {
               ?.map((e) => e.toString())
               .toList() ??
           const [],
+      insurance: json['insurance'] == true,
+      insuranceCost: JsonParser.parseDoubleFirst(json, ['insuranceCost', 'insurance_cost']),
+      insurancePolicyId: (json['insurancePolicyId'] ?? json['insurance_policy_id'])?.toString(),
     );
   }
 

@@ -181,16 +181,14 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       fromCurrency: trip.currency,
       toCurrency: currency,
     );
-    final insuranceAmount = _insurance
-        ? settings.calculateInsurance(baseAmount: shippingAmount, currency: currency)
-        : 0.0;
+    final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
+    final insuranceAmount = _insurance ? (declaredValue * 0.04) : 0.0;
     final totalAmount = shippingAmount + insuranceAmount;
     final provider = ShipmentCheckoutService.instance.providerForCurrency(currency);
     final expiresAt = DateTime.now().add(ShipmentCheckoutService.draftLifetime);
 
     setState(() => _isSubmitting = true);
     try {
-      final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? totalAmount;
       final package = await ShipmentService.instance.createPackage(
         category: _category,
         size: 'medium',
@@ -327,9 +325,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       fromCurrency: trip.currency,
       toCurrency: currency,
     );
-    final insuranceAmount = _insurance
-        ? settings.calculateInsurance(baseAmount: shippingAmount, currency: currency)
-        : 0.0;
+    final itemValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
+    final insuranceAmount = _insurance ? (itemValue * 0.04) : 0.0;
     final totalAmount = shippingAmount + insuranceAmount;
 
     return Scaffold(
@@ -410,7 +407,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             _InsuranceTile(
               enabled: _insurance,
               currency: currency,
-              settings: settings,
               onToggle: (v) => setState(() => _insurance = v),
             ),
             const SizedBox(height: 20),
@@ -1111,12 +1107,10 @@ class _InsuranceTile extends StatelessWidget {
   const _InsuranceTile({
     required this.enabled,
     required this.currency,
-    required this.settings,
     required this.onToggle,
   });
   final bool enabled;
   final String currency;
-  final AppSettingsSnapshot settings;
   final ValueChanged<bool> onToggle;
 
   @override
@@ -1141,12 +1135,10 @@ class _InsuranceTile extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Shipment Insurance', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          Text('Protect my item', style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
           Text(
-            settings.usesFixedInsurance
-                ? 'Protect your item for a fixed fee'
-                : 'Extra ${settings.insurancePercentage.toStringAsFixed(settings.insurancePercentage.truncateToDouble() == settings.insurancePercentage ? 0 : 2)}% of shipping cost',
+            '4% of item value — covered in transit',
             style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
           ),
         ])),
@@ -1186,7 +1178,7 @@ class _PriceSummaryCard extends StatelessWidget {
       child: Column(children: [
         _Row(label: 'Shipping fee', value: '$currency ${shippingAmount.toStringAsFixed(2)}'),
         const SizedBox(height: 12),
-        _Row(label: 'Insurance', value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
+        _Row(label: 'Item protection (4%)', value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
           child: Divider(height: 1, color: Color(0xFFEEEFF1)),
