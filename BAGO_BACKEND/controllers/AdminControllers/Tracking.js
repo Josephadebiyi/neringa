@@ -39,6 +39,8 @@ function normalizeRequest(req) {
     status: req.status,
     insurance: req.insurance,
     insuranceCost: Number(req.insurance_cost || 0),
+    insurancePolicyId: req.insurance_policy_id || null,
+    insurancePolicyData: req.insurance_policy_data || null,
     amount: Number(req.amount || 0),
     currency: req.currency,
     trackingNumber: req.tracking_number,
@@ -49,22 +51,29 @@ function normalizeRequest(req) {
 
 export const tracking = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, insured } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
+    // When insured=true, only return packages that have at least one insured request
+    const insuredFilter = insured === 'true'
+      ? `WHERE id IN (SELECT package_id FROM public.shipment_requests WHERE insurance = true)`
+      : '';
+
     const packages = await query(
-      `SELECT * FROM public.packages ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+      `SELECT * FROM public.packages ${insuredFilter} ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
       [Number(limit), offset]
     );
 
-    const countResult = await queryOne(`SELECT COUNT(*)::int as total FROM public.packages`);
+    const countResult = await queryOne(
+      `SELECT COUNT(*)::int as total FROM public.packages ${insuredFilter}`
+    );
 
     const trackingData = await Promise.all(
       packages.rows.map(async (pkg) => {
         const requests = await query(
           `SELECT id, sender_id, traveler_id, package_id, trip_id, status,
-                  insurance, insurance_cost, amount, currency, tracking_number,
-                  created_at, updated_at
+                  insurance, insurance_cost, insurance_policy_id, insurance_policy_data,
+                  amount, currency, tracking_number, created_at, updated_at
            FROM public.shipment_requests WHERE package_id = $1`,
           [pkg.id]
         );
@@ -102,6 +111,9 @@ export const activeShipmentLocations = async (req, res, next) => {
           sr.status,
           sr.amount,
           sr.currency,
+          sr.insurance,
+          sr.insurance_cost,
+          sr.insurance_policy_id,
           sr.tracking_number,
           sr.movement_tracking,
           sr.estimated_departure,
@@ -145,6 +157,9 @@ export const activeShipmentLocations = async (req, res, next) => {
         status: row.status,
         amount: Number(row.amount || 0),
         currency: row.currency,
+        insurance: row.insurance || false,
+        insuranceCost: Number(row.insurance_cost || 0),
+        insurancePolicyId: row.insurance_policy_id || null,
         trackingNumber: row.tracking_number,
         movementTracking,
         estimatedDeparture: row.estimated_departure,
