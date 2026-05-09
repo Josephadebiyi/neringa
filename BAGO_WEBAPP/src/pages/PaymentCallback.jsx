@@ -49,7 +49,7 @@ export default function PaymentCallback() {
 
             sessionStorage.removeItem('bagoPendingShipment');
 
-            if (res.status === 201 || res.data?.success) {
+            if ([200, 201, 202].includes(res.status) || res.data?.success) {
                 const req = res.data.request;
                 setStatus('success');
                 setTimeout(() => {

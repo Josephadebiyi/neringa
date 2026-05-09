@@ -299,11 +299,20 @@ export async function RequestPackage(req, res) {
         });
 
     if (paymentReference) {
-      await holdEscrowForPaidRequest({
-        requestId: newRequest.id,
-        providerReference: paymentReference,
-        provider: paymentProvider || 'paystack',
-      });
+      try {
+        await holdEscrowForPaidRequest({
+          requestId: newRequest.id,
+          providerReference: paymentReference,
+          provider: paymentProvider || 'paystack',
+        });
+      } catch (escrowError) {
+        console.error('Paid request created but escrow hold failed:', {
+          requestId: newRequest.id,
+          paymentReference,
+          provider: paymentProvider || 'paystack',
+          error: escrowError.message,
+        });
+      }
     }
 
     try {
@@ -335,9 +344,50 @@ export async function RequestPackage(req, res) {
       console.error('Failed to notify traveler:', notifError);
     }
 
-    return res.status(existingRequest ? 200 : 201).json({ message: 'You have successfully sent the request', request: newRequest });
+    return res.status(existingRequest ? 200 : 201).json({ success: true, message: 'You have successfully sent the request', request: newRequest });
   } catch (error) {
     console.error('Error creating request:', error);
+    if (req.body?.paymentReference) {
+      try {
+        const senderId = req.user?.id || req.user?._id;
+        const {
+          travelerId,
+          packageId,
+          tripId,
+          paymentReference,
+        } = req.body;
+        const existingPaidRequest = await queryOne(
+          `
+            select id
+            from public.shipment_requests
+            where sender_id = $1
+              and traveler_id = $2
+              and package_id = $3
+              and trip_id = $4
+              and payment_info ->> 'requestId' = $5
+            order by created_at desc
+            limit 1
+          `,
+          [senderId, travelerId, packageId, tripId, paymentReference],
+        );
+        if (existingPaidRequest?.id) {
+          const request = await getShipmentRequestById(existingPaidRequest.id);
+          return res.status(200).json({
+            success: true,
+            message: 'Payment confirmed and shipment request found.',
+            request,
+          });
+        }
+      } catch (lookupError) {
+        console.error('Paid request recovery lookup failed:', lookupError);
+      }
+
+      return res.status(202).json({
+        success: false,
+        paymentPending: true,
+        message: 'Payment is confirmed and your shipment is being finalized. Please check My Shipments shortly.',
+      });
+    }
     if ([
       'This trip does not have enough space left',
       'This trip is no longer available for booking',

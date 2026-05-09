@@ -389,7 +389,7 @@ export default function SendPackage() {
             paymentStatus: 'paid'
         });
 
-        if (requestResponse.status === 201) {
+        if ([200, 201, 202].includes(requestResponse.status) || requestResponse.data?.success) {
             setPendingPayment(null);
             navigate('/dashboard', { state: { message: t('requestSentSuccess') } });
         }
