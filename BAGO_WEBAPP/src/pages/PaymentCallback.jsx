@@ -3,6 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
 import api from '../api';
 
+const PAYMENT_PENDING_MESSAGE =
+    'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
+
 export default function PaymentCallback() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -62,12 +65,14 @@ export default function PaymentCallback() {
                     });
                 }, 1500);
             } else {
+                console.error('[payment-callback]', res.data);
                 setStatus('error');
-                setMessage(res.data?.message || 'Failed to create shipment request.');
+                setMessage(PAYMENT_PENDING_MESSAGE);
             }
         } catch (err) {
+            console.error('[payment-callback]', err);
             setStatus('error');
-            setMessage(err.response?.data?.message || err.message || 'Payment verification failed. Please contact support.');
+            setMessage(PAYMENT_PENDING_MESSAGE);
         }
     };
 

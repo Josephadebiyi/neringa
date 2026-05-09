@@ -46,10 +46,25 @@ const parseLocationData = (locationStr) => {
 };
 
 const AFRICAN_PAYOUT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'];
+const STRIPE_PUBLISHABLE_KEY =
+    import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+    import.meta.env.VITE_STRIPE_KEY ||
+    'pk_live_51SIm5SPvb8NSyluxt0PHddQMCZtzszO7huOR46DEiwX1rS96322QQUkhsTUUOTMeZSK4QVZOPcuP7uyzQG3xuQOW00J76dIWVe';
+const PAYMENT_UNAVAILABLE_MESSAGE =
+    'Secure payment is temporarily unavailable. Please try again in a few minutes.';
+const PAYMENT_PENDING_MESSAGE =
+    'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
 
 const providerForCurrency = (value) => (
     AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'stripe'
 );
+
+const showPaymentError = (setError, message = PAYMENT_UNAVAILABLE_MESSAGE, error = null) => {
+    if (error) {
+        console.error('[payment]', error);
+    }
+    setError(message);
+};
 
 const loadStripeJs = () => new Promise((resolve, reject) => {
     if (window.Stripe) {
@@ -313,9 +328,9 @@ export default function SendPackage() {
             setStripeReady(false);
 
             try {
-                const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+                const publishableKey = STRIPE_PUBLISHABLE_KEY;
                 if (!publishableKey) {
-                    setError('Stripe publishable key is missing. Add VITE_STRIPE_PUBLISHABLE_KEY to the web app environment.');
+                    showPaymentError(setError);
                     return;
                 }
 
@@ -341,7 +356,7 @@ export default function SendPackage() {
                 elementsRef.current = elements;
                 setStripeReady(true);
             } catch (err) {
-                if (!cancelled) setError('Unable to load secure Stripe checkout. Please try again.');
+                if (!cancelled) showPaymentError(setError, PAYMENT_UNAVAILABLE_MESSAGE, err);
             }
         };
 
@@ -394,12 +409,12 @@ export default function SendPackage() {
             });
 
             if (stripeError) {
-                setError(stripeError.message || 'Payment could not be completed.');
+                showPaymentError(setError, PAYMENT_PENDING_MESSAGE, stripeError);
                 return;
             }
 
             if (!['succeeded', 'processing'].includes(paymentIntent?.status)) {
-                setError('Payment was not completed. Please try again.');
+                showPaymentError(setError, 'Payment was not completed. Please try again.');
                 return;
             }
 
@@ -409,7 +424,7 @@ export default function SendPackage() {
                 provider: 'stripe',
             });
         } catch (err) {
-            setError(err.response?.data?.message || err.message || 'Failed to complete payment.');
+            showPaymentError(setError, PAYMENT_PENDING_MESSAGE, err);
         } finally {
             setPaymentProcessing(false);
         }
@@ -422,7 +437,7 @@ export default function SendPackage() {
         try {
             const verify = await api.get(`/api/bago/paystack/verify/${pendingPayment.reference}`);
             if (!verify.data?.success) {
-                setError(verify.data?.message || 'Payment has not been verified yet.');
+                showPaymentError(setError, PAYMENT_PENDING_MESSAGE, verify.data);
                 return;
             }
 
@@ -432,7 +447,7 @@ export default function SendPackage() {
                 provider: 'paystack',
             });
         } catch (err) {
-            setError(err.response?.data?.message || 'Payment verification failed. Please try again.');
+            showPaymentError(setError, PAYMENT_PENDING_MESSAGE, err);
         } finally {
             setPaymentProcessing(false);
         }
@@ -551,7 +566,7 @@ export default function SendPackage() {
                     const authorizationUrl = paystackResponse.data?.authorization_url || paystackResponse.data?.data?.authorization_url;
                     const reference = paystackResponse.data?.reference || paystackResponse.data?.data?.reference;
                     if (!authorizationUrl || !reference) {
-                        throw new Error('Paystack checkout could not start.');
+                        throw new Error('Payment checkout could not start.');
                     }
 
                     window.open(authorizationUrl, '_blank', 'noopener,noreferrer');
@@ -564,7 +579,7 @@ export default function SendPackage() {
                 });
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to process request. Please try again.');
+            showPaymentError(setError, 'We could not continue checkout right now. Please try again in a few minutes.', err);
         } finally {
             setLoading(false);
         }

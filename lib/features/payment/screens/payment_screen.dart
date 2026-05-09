@@ -315,6 +315,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
             'Shipment currency is missing. Please restart the shipment flow from the traveler details page.');
       }
 
+      if (!paymentCompleted &&
+          provider == 'stripe' &&
+          paymentReference != null &&
+          paymentReference.isNotEmpty) {
+        paymentCompleted = await _finalizePaidShipmentDraft(
+          draft,
+          paymentReference: paymentReference,
+          provider: provider,
+        );
+      }
+
       if (!paymentCompleted) {
         final init = await PaymentService.instance.initializePayment(
           packageId: draft['packageId'].toString(),
@@ -385,20 +396,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
 
       if (paymentCompleted && draft['requestSent'] != true) {
-        _updateProcessingMessage('Finalizing your shipment...');
-        await ShipmentService.instance.sendPackageRequest(
-          travelerId: draft['travelerId'].toString(),
-          packageId: draft['packageId'].toString(),
-          tripId: draft['tripId'].toString(),
-          amount: _asDouble(draft['totalAmount']),
-          currency: draft['currency']?.toString() ?? 'USD',
-          insurance: draft['insurance'] == true,
-          insuranceCost: _asDouble(draft['insuranceAmount']),
-          estimatedDeparture: draft['estimatedDeparture']?.toString(),
-          estimatedArrival: draft['estimatedArrival']?.toString(),
+        await _finalizePaidShipmentDraft(
+          draft,
           paymentReference: paymentReference,
-          paymentProvider: provider,
-          message: draft['message']?.toString(),
+          provider: provider,
         );
 
         final updatedDraft = {
@@ -435,6 +436,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context.go('/payment-failed', extra: updatedDraft);
       }
     } on StripeException catch (e) {
+      final recovered = await _recoverPaidStripeShipment(
+        draft,
+        paymentReference: paymentReference,
+        provider: provider,
+      );
+      if (recovered) {
+        await _ensureProcessingStateVisible(processingStartedAt);
+        await _checkoutService.clearDraft();
+        if (!mounted) return;
+        context.go('/order-success', extra: {
+          ...draft,
+          if (paymentReference != null) 'paymentReference': paymentReference,
+        });
+        return;
+      }
       final updatedDraft = {
         ...draft,
         'paymentCompleted': paymentCompleted,
@@ -447,6 +463,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (!mounted) return;
       context.go('/payment-failed', extra: updatedDraft);
     } catch (e) {
+      final recovered = await _recoverPaidStripeShipment(
+        draft,
+        paymentReference: paymentReference,
+        provider: provider,
+      );
+      if (recovered) {
+        await _ensureProcessingStateVisible(processingStartedAt);
+        await _checkoutService.clearDraft();
+        if (!mounted) return;
+        context.go('/order-success', extra: {
+          ...draft,
+          if (paymentReference != null) 'paymentReference': paymentReference,
+        });
+        return;
+      }
       final updatedDraft = {
         ...draft,
         'paymentCompleted': paymentCompleted,
@@ -467,6 +498,54 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
       }
     }
+  }
+
+  Future<bool> _recoverPaidStripeShipment(
+    Map<String, dynamic> draft, {
+    required String? paymentReference,
+    required String provider,
+  }) async {
+    if (provider != 'stripe' ||
+        paymentReference == null ||
+        paymentReference.isEmpty) {
+      return false;
+    }
+
+    try {
+      return _finalizePaidShipmentDraft(
+        draft,
+        paymentReference: paymentReference,
+        provider: provider,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _finalizePaidShipmentDraft(
+    Map<String, dynamic> draft, {
+    required String? paymentReference,
+    required String provider,
+  }) async {
+    if (draft['requestSent'] == true) return true;
+    if (paymentReference == null || paymentReference.isEmpty) return false;
+
+    _updateProcessingMessage('Finalizing your shipment...');
+    await ShipmentService.instance.sendPackageRequest(
+      travelerId: draft['travelerId'].toString(),
+      packageId: draft['packageId'].toString(),
+      tripId: draft['tripId'].toString(),
+      amount: _asDouble(draft['totalAmount']),
+      currency: draft['currency']?.toString() ?? 'USD',
+      insurance: draft['insurance'] == true,
+      insuranceCost: _asDouble(draft['insuranceAmount']),
+      estimatedDeparture: draft['estimatedDeparture']?.toString(),
+      estimatedArrival: draft['estimatedArrival']?.toString(),
+      paymentReference: paymentReference,
+      paymentProvider: provider,
+      message: draft['message']?.toString(),
+    );
+    return true;
   }
 
   double _asDouble(dynamic value) {
@@ -570,7 +649,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   String _buildPaymentFailureMessage(Object error) {
     if (error is StateError) {
-      return error.message.toString().replaceFirst('Bad state: ', '');
+      return _mapPaymentMessage(error.message.toString().toLowerCase()) ??
+          'We could not continue secure payment right now. Please try again in a few minutes.';
     }
 
     if (error is StripeConfigException) {
@@ -592,15 +672,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return mappedMessage;
       }
 
-      final localized = stripeError.localizedMessage?.trim();
-      if (localized != null && localized.isNotEmpty) {
-        return localized;
-      }
+      return 'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
     }
 
     final raw = error.toString();
-    return _mapStripeMessage(raw.toLowerCase()) ??
-        raw.replaceFirst('Bad state: ', '').trim();
+    final normalized = raw.toLowerCase();
+    return _mapStripeMessage(normalized) ??
+        _mapPaymentMessage(normalized) ??
+        'We could not complete this payment right now. Please try again in a few minutes.';
   }
 
   String? _mapStripeMessage(String raw) {
@@ -637,6 +716,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     if (raw.contains('network')) {
       return 'We could not reach the payment network. Please check your connection and try again.';
+    }
+    return null;
+  }
+
+  String? _mapPaymentMessage(String raw) {
+    if (raw.contains('payment checkout could not start') ||
+        raw.contains('stripe checkout could not start') ||
+        raw.contains('paystack checkout could not start') ||
+        raw.contains('payment service not configured') ||
+        raw.contains('publishable key') ||
+        raw.contains('secret key') ||
+        raw.contains('stripe is not configured')) {
+      return 'Secure payment is temporarily unavailable. Please try again in a few minutes.';
+    }
+    if (raw.contains('payment verification failed') ||
+        raw.contains('could not verify stripe payment') ||
+        raw.contains('payment could not be verified') ||
+        raw.contains('payment is not complete') ||
+        raw.contains('payment amount does not match') ||
+        raw.contains('payment currency does not match')) {
+      return 'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
     }
     return null;
   }

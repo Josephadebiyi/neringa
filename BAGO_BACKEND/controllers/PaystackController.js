@@ -12,7 +12,14 @@ import {
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
-import { createNotification } from '../lib/postgres/shipping.js';
+import {
+  createNotification,
+  createShipmentRequestRecord,
+  getPackageById,
+  getShipmentRequestById,
+  getTripById,
+} from '../lib/postgres/shipping.js';
+import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { Resend } from 'resend';
 
 let resend = null;
@@ -502,7 +509,10 @@ export const paystackWebhook = async (req, res) => {
 async function handleSuccessfulPayment(data) {
   const { reference, metadata } = data;
 
-  if (!metadata?.requestId) return;
+  if (!metadata?.requestId) {
+    await finalizePaystackShipmentFromMetadata(data);
+    return;
+  }
 
   const updatedRequest = await queryOne(
     `UPDATE public.shipment_requests
@@ -591,6 +601,105 @@ async function handleSuccessfulPayment(data) {
   ]);
 
   console.log(`✅ Payment confirmed & notifications sent for request ${metadata.requestId}`);
+}
+
+async function finalizePaystackShipmentFromMetadata(data) {
+  const { reference, metadata = {} } = data || {};
+  const senderId = metadata.userId;
+  const packageId = metadata.packageId;
+  const tripId = metadata.tripId;
+
+  if (!reference || !senderId || !packageId || !tripId) {
+    return null;
+  }
+
+  const packageDoc = await getPackageById(packageId);
+  if (!packageDoc || packageDoc.userId !== senderId) {
+    return null;
+  }
+
+  const tripDoc = await getTripById(tripId);
+  if (!tripDoc?.userId) {
+    return null;
+  }
+
+  const existingRequest = await queryOne(
+    `
+      select id
+      from public.shipment_requests
+      where sender_id = $1
+        and traveler_id = $2
+        and package_id = $3
+        and trip_id = $4
+        and payment_info ->> 'requestId' = $5
+      order by created_at desc
+      limit 1
+    `,
+    [senderId, tripDoc.userId, packageId, tripId, reference],
+  );
+
+  const amount = Number(data?.amount || 0) / 100 || Number(metadata.amount || 0);
+  const currency = String(data?.currency || metadata.currency || 'NGN').toUpperCase();
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const request = existingRequest
+    ? await getShipmentRequestById(existingRequest.id)
+    : await createShipmentRequestRecord({
+        senderId,
+        travelerId: tripDoc.userId,
+        packageId,
+        tripId,
+        amount,
+        currency,
+        imageUrl: null,
+        insurance: parseBooleanFlag(metadata.insurance),
+        insuranceCost: Number(metadata.insuranceCost || 0),
+        estimatedDeparture: metadata.estimatedDeparture
+          ? new Date(metadata.estimatedDeparture)
+          : (tripDoc.departureDate ? new Date(tripDoc.departureDate) : null),
+        estimatedArrival: metadata.estimatedArrival
+          ? new Date(metadata.estimatedArrival)
+          : (tripDoc.arrivalDate ? new Date(tripDoc.arrivalDate) : null),
+        termsAccepted: true,
+        paymentInfo: {
+          method: 'paystack',
+          gateway: 'paystack',
+          status: 'paid',
+          requestId: reference,
+        },
+      });
+
+  await holdEscrowForPaidRequest({
+    requestId: request.id,
+    providerReference: reference,
+    provider: 'paystack',
+  });
+
+  await Promise.allSettled([
+    createNotification({
+      userId: request.travelerId,
+      title: 'New booking received!',
+      body: `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
+      type: 'shipment_request',
+      payload: { requestId: request.id, tripId },
+    }),
+    sendPushNotification(
+      request.travelerId,
+      'New booking received!',
+      `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
+      { requestId: request.id, type: 'shipment_request' },
+    ),
+  ]);
+
+  return request;
+}
+
+function parseBooleanFlag(value) {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === 'true' || normalized === 'yes' || normalized === '1';
 }
 
 async function handleSuccessfulTransfer(data) {
