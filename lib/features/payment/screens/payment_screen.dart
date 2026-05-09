@@ -315,17 +315,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
             'Shipment currency is missing. Please restart the shipment flow from the traveler details page.');
       }
 
-      if (!paymentCompleted &&
-          provider == 'stripe' &&
-          paymentReference != null &&
-          paymentReference.isNotEmpty) {
-        paymentCompleted = await _finalizePaidShipmentDraft(
-          draft,
-          paymentReference: paymentReference,
-          provider: provider,
-        );
-      }
-
       if (!paymentCompleted) {
         final init = await PaymentService.instance.initializePayment(
           packageId: draft['packageId'].toString(),
@@ -440,6 +429,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         draft,
         paymentReference: paymentReference,
         provider: provider,
+        paymentCompleted: paymentCompleted,
       );
       if (recovered) {
         await _ensureProcessingStateVisible(processingStartedAt);
@@ -467,6 +457,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         draft,
         paymentReference: paymentReference,
         provider: provider,
+        paymentCompleted: paymentCompleted,
       );
       if (recovered) {
         await _ensureProcessingStateVisible(processingStartedAt);
@@ -504,15 +495,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
     Map<String, dynamic> draft, {
     required String? paymentReference,
     required String provider,
+    required bool paymentCompleted,
   }) async {
     if (provider != 'stripe' ||
+        !paymentCompleted ||
         paymentReference == null ||
         paymentReference.isEmpty) {
       return false;
     }
 
     try {
-      return _finalizePaidShipmentDraft(
+      return await _finalizePaidShipmentDraft(
         draft,
         paymentReference: paymentReference,
         provider: provider,

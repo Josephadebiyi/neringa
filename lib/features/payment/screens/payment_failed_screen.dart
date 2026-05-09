@@ -17,7 +17,8 @@ class PaymentFailedScreen extends StatelessWidget {
     final rawError = extra?['lastPaymentError']?.toString();
     final error = _friendlyError(l10n, rawError);
     final expiresAtRaw = extra?['expiresAt']?.toString();
-    final expiresAt = expiresAtRaw == null ? null : DateTime.tryParse(expiresAtRaw);
+    final expiresAt =
+        expiresAtRaw == null ? null : DateTime.tryParse(expiresAtRaw);
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -30,11 +31,14 @@ class PaymentFailedScreen extends StatelessWidget {
               Container(
                 width: 100,
                 height: 100,
-                decoration: const BoxDecoration(color: AppColors.errorLight, shape: BoxShape.circle),
-                child: const Icon(Icons.close_rounded, color: AppColors.error, size: 52),
+                decoration: const BoxDecoration(
+                    color: AppColors.errorLight, shape: BoxShape.circle),
+                child: const Icon(Icons.close_rounded,
+                    color: AppColors.error, size: 52),
               ),
               const SizedBox(height: 24),
-              Text(l10n.paymentFailedTitle, style: AppTextStyles.h1, textAlign: TextAlign.center),
+              Text(l10n.paymentFailedTitle,
+                  style: AppTextStyles.h1, textAlign: TextAlign.center),
               const SizedBox(height: 10),
               Text(
                 error,
@@ -54,7 +58,9 @@ class PaymentFailedScreen extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 40),
-              AppButton(label: l10n.continuePayment, onPressed: () => context.go('/payment')),
+              AppButton(
+                  label: l10n.continuePayment,
+                  onPressed: () => context.go('/payment')),
               const SizedBox(height: 12),
               AppButton(
                 label: l10n.deleteDraft,
@@ -64,7 +70,8 @@ class PaymentFailedScreen extends StatelessWidget {
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Discard draft?'),
-                      content: const Text('This will remove your saved shipment draft. You\'ll need to start over.'),
+                      content: const Text(
+                          'This will remove your saved shipment draft. You\'ll need to start over.'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(false),
@@ -72,7 +79,8 @@ class PaymentFailedScreen extends StatelessWidget {
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
-                          style: TextButton.styleFrom(foregroundColor: Colors.red),
+                          style:
+                              TextButton.styleFrom(foregroundColor: Colors.red),
                           child: const Text('Discard'),
                         ),
                       ],
@@ -119,16 +127,19 @@ class PaymentFailedScreen extends StatelessWidget {
     if (normalized.contains('insufficient_funds')) {
       return l10n.insufficientFundsMessage;
     }
-    if (normalized.contains('card_declined') || normalized.contains('generic_decline')) {
+    if (normalized.contains('card_declined') ||
+        normalized.contains('generic_decline')) {
       return l10n.cardDeclinedMessage;
     }
-    if (normalized.contains('incorrect_cvc') || normalized.contains('invalid_cvc')) {
+    if (normalized.contains('incorrect_cvc') ||
+        normalized.contains('invalid_cvc')) {
       return l10n.incorrectCvcMessage;
     }
     if (normalized.contains('expired_card')) {
       return l10n.expiredCardMessage;
     }
-    if (normalized.contains('incorrect_number') || normalized.contains('invalid_number')) {
+    if (normalized.contains('incorrect_number') ||
+        normalized.contains('invalid_number')) {
       return l10n.incorrectNumberMessage;
     }
     if (normalized.contains('authentication_required') ||
@@ -144,6 +155,17 @@ class PaymentFailedScreen extends StatelessWidget {
       return l10n.paymentCancelledMessage;
     }
     if (normalized.startsWith('stripeexception(')) {
+      return l10n.paymentCouldNotCompleteGeneric;
+    }
+    if (normalized.contains('internal server') ||
+        normalized.contains('vite') ||
+        normalized.contains('publishable key') ||
+        normalized.contains('secret key') ||
+        normalized.contains('api key') ||
+        normalized.contains('server error') ||
+        normalized.contains('exception') ||
+        normalized.contains('500') ||
+        normalized.contains('503')) {
       return l10n.paymentCouldNotCompleteGeneric;
     }
 

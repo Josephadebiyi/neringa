@@ -28,8 +28,10 @@ import {
   updateTravelerProof,
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
-import { queryOne } from '../lib/postgres/db.js';
+import { queryOne, withTransaction } from '../lib/postgres/db.js';
+import { buildTripCapacitySnapshot, syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { verifyPayment as verifyPaystackPaymentRef } from '../services/paystackService.js';
+import { convertCurrency } from '../services/currencyConverter.js';
 import { getAppSettings } from './AdminControllers/setting.js';
 import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingController.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
@@ -76,6 +78,184 @@ function emitTripUpdate(req, trip, participants = []) {
   }
 
   io.emit('public_trip_updated', payload);
+}
+
+function parseBooleanFlag(value) {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === 'true' || normalized === 'yes' || normalized === '1';
+}
+
+function appendPaymentInfo(existing = {}, payment) {
+  const previousPayments = Array.isArray(existing.payments)
+    ? existing.payments
+    : existing.requestId
+      ? [{
+          method: existing.method,
+          gateway: existing.gateway,
+          status: existing.status,
+          requestId: existing.requestId,
+          amount: existing.amount,
+          currency: existing.currency,
+          paidAt: existing.paidAt,
+        }]
+      : [];
+
+  return {
+    ...existing,
+    method: payment.provider,
+    gateway: payment.provider,
+    status: 'paid',
+    requestId: payment.reference,
+    paidAt: new Date().toISOString(),
+    payments: [
+      ...previousPayments.filter((item) => item?.requestId !== payment.reference),
+      {
+        method: payment.provider,
+        gateway: payment.provider,
+        status: 'paid',
+        requestId: payment.reference,
+        amount: payment.amount,
+        currency: payment.currency,
+        packageId: payment.packageId,
+        paidAt: new Date().toISOString(),
+      },
+    ],
+  };
+}
+
+async function mergePaidDuplicateRequest({
+  requestId,
+  senderId,
+  incomingPackageId,
+  additionalAmount,
+  currency,
+  paymentReference,
+  paymentProvider,
+  insurance,
+  insuranceCost,
+}) {
+  const updatedRequestId = await withTransaction(async (client) => {
+    const requestResult = await client.query(
+      `
+        select id, traveler_id, package_id, trip_id, payment_info, amount, currency, insurance, insurance_cost, tracking_number
+        from public.shipment_requests
+        where id = $1
+          and sender_id = $2
+          and status in ('pending', 'accepted')
+        for update
+      `,
+      [requestId, senderId],
+    );
+    const request = requestResult.rows[0];
+    if (!request) return null;
+
+    const incomingPackageResult = await client.query(
+      `select id, package_weight, declared_value from public.packages where id = $1 and user_id = $2`,
+      [incomingPackageId, senderId],
+    );
+    const incomingPackage = incomingPackageResult.rows[0];
+    if (!incomingPackage) {
+      throw new Error('Package not found or not owned by sender');
+    }
+
+    const additionalKg = Number(incomingPackage.package_weight || 0);
+    if (!Number.isFinite(additionalKg) || additionalKg <= 0) {
+      throw new Error('Package weight must be greater than 0kg');
+    }
+
+    const tripSnapshot = await buildTripCapacitySnapshot(client, request.trip_id, { lockTrip: true });
+    if (!tripSnapshot || additionalKg > tripSnapshot.availableKg) {
+      throw new Error('This trip does not have enough space left');
+    }
+
+    const nextAmount = Number(request.amount || 0) + Number(additionalAmount || 0);
+    const nextCurrency = currency || request.currency || 'USD';
+    const paymentInfo = appendPaymentInfo(request.payment_info || {}, {
+      provider: paymentProvider || 'paystack',
+      reference: paymentReference,
+      amount: Number(additionalAmount),
+      currency: nextCurrency,
+      packageId: incomingPackageId,
+    });
+
+    await client.query(
+      `
+        update public.packages
+        set package_weight = package_weight + $2,
+            declared_value = coalesce(declared_value, 0) + coalesce($3, 0),
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [request.package_id, additionalKg, incomingPackage.declared_value || 0],
+    );
+
+    await client.query(
+      `
+        update public.shipment_requests
+        set amount = $2,
+            currency = $3,
+            insurance = $4,
+            insurance_cost = $5,
+            payment_info = $6,
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [
+        request.id,
+        nextAmount,
+        nextCurrency,
+        request.insurance || parseBooleanFlag(insurance),
+        Number(request.insurance_cost || 0) + Number(insuranceCost || 0),
+        paymentInfo,
+      ],
+    );
+
+    const walletResult = await client.query(
+      `select id, currency from public.wallet_accounts where user_id = $1 for update`,
+      [request.traveler_id],
+    );
+    const wallet = walletResult.rows[0];
+    if (wallet) {
+      const requestCurrency = nextCurrency.toUpperCase();
+      const walletCurrency = (wallet.currency || 'USD').toUpperCase();
+      const rawAmount = Number(additionalAmount || 0);
+      const escrowAmount = requestCurrency !== walletCurrency
+        ? await convertCurrency(rawAmount, requestCurrency, walletCurrency)
+        : rawAmount;
+
+      await client.query(
+        `update public.wallet_accounts set escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
+        [request.traveler_id, escrowAmount],
+      );
+      await client.query(
+        `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
+         values ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
+        [
+          wallet.id,
+          request.traveler_id,
+          request.id,
+          request.trip_id,
+          escrowAmount,
+          walletCurrency,
+          `Additional kg escrow hold for Request ${request.tracking_number || request.id}`,
+          {
+            providerReference: paymentReference,
+            provider: paymentProvider || 'paystack',
+            originalAmount: rawAmount,
+            originalCurrency: requestCurrency,
+            packageId: incomingPackageId,
+            additionalKg,
+          },
+        ],
+      );
+    }
+
+    await syncTripCapacity(client, request.trip_id);
+    return request.id;
+  });
+
+  return updatedRequestId ? getShipmentRequestById(updatedRequestId) : null;
 }
 
 export async function RequestPackage(req, res) {
@@ -201,6 +381,7 @@ export async function RequestPackage(req, res) {
     }
 
     let existingRequest = null;
+    let duplicateRequest = null;
     if (paymentReference) {
       existingRequest = await queryOne(
         `
@@ -265,9 +446,43 @@ export async function RequestPackage(req, res) {
       }
     }
 
+    if (paymentReference && !existingRequest) {
+      duplicateRequest = await queryOne(
+        `
+          select sr.id
+          from public.shipment_requests sr
+          where sr.sender_id = $1
+            and sr.traveler_id = $2
+            and sr.trip_id = $3
+            and sr.status in ('pending', 'accepted')
+            and coalesce(sr.payment_info ->> 'requestId', '') <> $4
+            and not exists (
+              select 1
+              from jsonb_array_elements(coalesce(sr.payment_info -> 'payments', '[]'::jsonb)) payment
+              where payment ->> 'requestId' = $4
+            )
+          order by sr.created_at desc
+          limit 1
+        `,
+        [senderId, travelerId, tripId, paymentReference],
+      );
+    }
+
     const newRequest = existingRequest
       ? await getShipmentRequestById(existingRequest.id)
-      : await createShipmentRequestRecord({
+      : duplicateRequest
+        ? await mergePaidDuplicateRequest({
+            requestId: duplicateRequest.id,
+            senderId,
+            incomingPackageId: packageId,
+            additionalAmount: Number(amount),
+            currency: currency || 'USD',
+            paymentReference,
+            paymentProvider: paymentProvider || 'paystack',
+            insurance,
+            insuranceCost,
+          })
+        : await createShipmentRequestRecord({
           senderId,
           travelerId,
           packageId,
@@ -298,7 +513,7 @@ export async function RequestPackage(req, res) {
             : {},
         });
 
-    if (paymentReference) {
+    if (paymentReference && !duplicateRequest) {
       try {
         await holdEscrowForPaidRequest({
           requestId: newRequest.id,
@@ -319,7 +534,21 @@ export async function RequestPackage(req, res) {
       const updatedTrip = await getTripById(tripId);
       emitTripUpdate(req, updatedTrip, [travelerId, senderId]);
 
-      if (!existingRequest) {
+      if (duplicateRequest && newRequest?.travelerId) {
+        await createNotification({
+          userId: newRequest.travelerId,
+          title: 'Shipment request updated',
+          body: `${newRequest.senderName || 'A sender'} added extra kg to an existing request on your trip to ${tripDoc.toLocation}`,
+          type: 'shipment_request',
+          payload: { requestId: newRequest.id, tripId, merged: true },
+        });
+        await sendPushNotification(
+          newRequest.travelerId,
+          'Shipment request updated',
+          `${newRequest.senderName || 'A sender'} added extra kg to an existing request.`,
+          { requestId: newRequest.id, tripId, type: 'shipment_request', merged: true },
+        );
+      } else if (!existingRequest) {
         if (newRequest?.travelerId) {
           await createNotification({
             userId: newRequest.travelerId,
@@ -344,7 +573,14 @@ export async function RequestPackage(req, res) {
       console.error('Failed to notify traveler:', notifError);
     }
 
-    return res.status(existingRequest ? 200 : 201).json({ success: true, message: 'You have successfully sent the request', request: newRequest });
+    return res.status(existingRequest || duplicateRequest ? 200 : 201).json({
+      success: true,
+      merged: Boolean(duplicateRequest),
+      message: duplicateRequest
+        ? 'Your extra kg has been added to the existing shipment request'
+        : 'You have successfully sent the request',
+      request: newRequest,
+    });
   } catch (error) {
     console.error('Error creating request:', error);
     if (req.body?.paymentReference) {
