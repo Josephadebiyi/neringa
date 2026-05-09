@@ -23,6 +23,7 @@ import {
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
 import { getKycProvider, startDojahSession, dojahWebhook } from '../controllers/DojahController.js';
+import { submitManualKyc, getManualKycStatus } from '../controllers/ManualKycController.js';
 import {
   acceptShipmentTerms,
   getTermsStatus,
@@ -156,6 +157,8 @@ userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => 
 userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
 userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
+userRouter.post('/kyc/manual-submit', isAuthenticated, submitManualKyc);
+userRouter.get('/kyc/manual-status', isAuthenticated, getManualKycStatus);
 userRouter.post('/use-referral-discount', isAuthenticated, useReferralDiscount);
 
 userRouter.post('/request/:requestId/reviews', isAuthenticated, requireKycVerification, AddReviewToRequest);

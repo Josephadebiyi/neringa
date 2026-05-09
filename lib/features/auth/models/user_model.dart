@@ -80,8 +80,8 @@ class UserModel {
         normalized == 'completed';
   }
 
-  /// Whether this sender can create a shipment — all users must verify phone.
-  bool get canSendShipment => phoneVerified;
+  /// Whether this sender can create a shipment — phone + KYC required.
+  bool get canSendShipment => phoneVerified && hasPassedKyc;
 
   /// Whether this traveler can post a trip.
   bool get canPostTrip => hasPassedKyc;

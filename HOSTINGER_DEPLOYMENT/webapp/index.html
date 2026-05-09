@@ -19,6 +19,82 @@
 </head>
 
 <body>
+
+  <!-- Smart app download banner (mobile only, dismissable) -->
+  <div id="bago-app-banner" style="
+    display:none;
+    position:fixed;top:0;left:0;right:0;z-index:9999;
+    background:#fff;
+    border-bottom:1px solid #e5e7eb;
+    padding:10px 16px;
+    align-items:center;
+    gap:12px;
+    font-family:'DM Sans',sans-serif;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  ">
+    <button id="bago-banner-close" aria-label="Dismiss" style="
+      background:none;border:none;cursor:pointer;padding:4px;
+      color:#9ca3af;font-size:20px;line-height:1;flex-shrink:0;
+    ">&#x2715;</button>
+    <div style="
+      width:40px;height:40px;border-radius:10px;overflow:hidden;flex-shrink:0;
+      background:#5C4BFD;display:flex;align-items:center;justify-content:center;
+    ">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="12" fill="#5C4BFD"/>
+        <path d="M8 12l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:700;font-size:14px;color:#111827;line-height:1.2;">Bago</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:1px;" id="bago-banner-sub">Fast international delivery</div>
+    </div>
+    <a id="bago-banner-btn" href="#" style="
+      background:#5C4BFD;color:#fff;text-decoration:none;
+      font-size:13px;font-weight:600;padding:8px 16px;
+      border-radius:20px;white-space:nowrap;flex-shrink:0;
+    ">Install</a>
+  </div>
+
+  <!-- Push content down when banner is visible -->
+  <div id="bago-banner-spacer" style="display:none;height:61px;"></div>
+
+  <script>
+    (function() {
+      var ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind';
+      var IOS_URL = 'https://apps.apple.com/app/bago/id6740265715';
+
+      if (sessionStorage.getItem('bago_banner_dismissed')) return;
+
+      var ua = navigator.userAgent || '';
+      var isIos = /iPhone|iPad|iPod/i.test(ua);
+      var isAndroid = /Android/i.test(ua);
+      if (!isIos && !isAndroid) return;
+
+      var banner = document.getElementById('bago-app-banner');
+      var spacer = document.getElementById('bago-banner-spacer');
+      var btn = document.getElementById('bago-banner-btn');
+      var sub = document.getElementById('bago-banner-sub');
+
+      if (isIos) {
+        btn.href = IOS_URL;
+        sub.textContent = 'Free on the App Store';
+      } else {
+        btn.href = ANDROID_URL;
+        sub.textContent = 'Free on Google Play';
+      }
+
+      banner.style.display = 'flex';
+      spacer.style.display = 'block';
+
+      document.getElementById('bago-banner-close').addEventListener('click', function() {
+        banner.style.display = 'none';
+        spacer.style.display = 'none';
+        sessionStorage.setItem('bago_banner_dismissed', '1');
+      });
+    })();
+  </script>
+
     <div id="root"></div>
 </body>
 

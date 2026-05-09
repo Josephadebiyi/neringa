@@ -120,6 +120,15 @@ export async function RequestPackage(req, res) {
       });
     }
 
+    if (senderProfile.kycStatus !== 'approved') {
+      return res.status(403).json({
+        code: 'SENDER_KYC_REQUIRED',
+        message: 'Identity verification is required before sending a shipment. Please complete KYC in your profile.',
+        kycRequired: true,
+        kycStatus: senderProfile.kycStatus || 'not_started',
+      });
+    }
+
     const hasAcceptedTerms = await checkTermsAccepted(senderId);
     if (!hasAcceptedTerms) {
       return res.status(403).json({

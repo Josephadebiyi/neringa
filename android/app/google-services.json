@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "908126616288",
+    "project_id": "bago-broadcast",
+    "storage_bucket": "bago-broadcast.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:908126616288:android:cb824de242a1ff31086e85",
+        "android_client_info": {
+          "package_name": "com.deracali.boltexponativewind"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgbtEoscUNbxx47nmWrVqoPyJU73RhvA8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

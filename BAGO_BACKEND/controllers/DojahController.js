@@ -45,8 +45,8 @@ export const getKycProvider = async (req, res) => {
 
   if (DOJAH_COUNTRIES.has(country)) {
     if (!DOJAH_APP_ID || !DOJAH_PUBLIC_KEY) {
-      // Fall back to DiDit if keys not configured
-      return res.json({ success: true, provider: 'didit', country });
+      // Fall back to manual if Dojah keys not configured
+      return res.json({ success: true, provider: 'manual', country });
     }
     return res.json({
       success: true,
@@ -57,7 +57,8 @@ export const getKycProvider = async (req, res) => {
     });
   }
 
-  return res.json({ success: true, provider: 'didit', country });
+  // Non-Dojah country — use in-app manual review flow (Didit disabled)
+  return res.json({ success: true, provider: 'manual', country });
 };
 
 // ---------------------------------------------------------------------------

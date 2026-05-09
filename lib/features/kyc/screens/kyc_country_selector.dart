@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_dojah_screen.dart';
+import 'kyc_manual_screen.dart';
 import 'kyc_resumable_flow.dart';
 
 // Countries supported by Dojah — kept internal, never shown to user
@@ -127,7 +128,14 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
             ),
           ),
         );
+      } else if (provider == 'manual') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => KycManualScreen(fromOnboarding: widget.fromOnboarding),
+          ),
+        );
       } else {
+        // Didit (legacy) fallback
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => KYCResumableFlow(fromOnboarding: widget.fromOnboarding),

@@ -25,9 +25,10 @@ export const getAllUsersKYC = async (req, res) => {
     const users = await query(
       `SELECT id, first_name as "firstName", last_name as "lastName", email,
               phone, country, date_of_birth as "dateOfBirth", image_url as "profileImage",
-              kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt",
+              kyc_status as "kycStatus", kyc_provider as "kycProvider", kyc_verified_at as "kycVerifiedAt",
               kyc_failure_reason as "kycFailureReason", identity_fingerprint as "identityFingerprint",
-              didit_session_id as "diditSessionId", created_at as "createdAt", updated_at as "updatedAt"
+              didit_session_id as "diditSessionId", kyc_verified_data as "kycVerifiedData",
+              created_at as "createdAt", updated_at as "updatedAt"
        FROM public.profiles
        ${where}
        ORDER BY kyc_verified_at DESC NULLS LAST, created_at DESC
@@ -68,6 +69,8 @@ export const getUserKYCDetails = async (req, res) => {
               kyc_failure_reason as "kycFailureReason",
               identity_fingerprint as "identityFingerprint",
               didit_session_id as "diditSessionId",
+              kyc_provider as "kycProvider",
+              kyc_verified_data as "kycVerifiedData",
               status, email_verified as "emailVerified",
               created_at as "createdAt", updated_at as "updatedAt"
        FROM public.profiles WHERE id = $1`,
@@ -92,9 +95,11 @@ export const getUserKYCDetails = async (req, res) => {
         },
         kycStatus: {
           status: user.kycStatus,
+          provider: user.kycProvider,
           verifiedAt: user.kycVerifiedAt,
           failureReason: user.kycFailureReason,
           diditSessionId: user.diditSessionId,
+          manualSubmission: user.kycProvider === 'manual' ? user.kycVerifiedData : null,
         },
         accountStatus: {
           accountStatus: user.status,

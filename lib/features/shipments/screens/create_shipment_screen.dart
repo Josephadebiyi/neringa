@@ -142,13 +142,13 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
       return;
     }
 
-    if (!user.canSendShipment) {
-      if (mounted) {
-        setState(() {
-          _gateChecking = false;
-          _gateBlock = 'phone';
-        });
-      }
+    if (!user.phoneVerified) {
+      if (mounted) setState(() { _gateChecking = false; _gateBlock = 'phone'; });
+      return;
+    }
+
+    if (!user.hasPassedKyc) {
+      if (mounted) setState(() { _gateChecking = false; _gateBlock = 'kyc'; });
       return;
     }
 
@@ -326,6 +326,18 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
         backgroundColor: AppColors.backgroundOff,
         appBar: _buildAppBar(showStep: false),
         body: _PhoneGate(onVerify: _resolvePhoneGate, onBack: () => context.pop()),
+      );
+    }
+
+    if (_gateBlock == 'kyc') {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundOff,
+        appBar: _buildAppBar(showStep: false),
+        body: _KycGate(
+          kycStatus: ref.read(authProvider).user?.kycStatus,
+          onVerify: () => context.push('/kyc'),
+          onBack: () => context.pop(),
+        ),
       );
     }
 
@@ -1333,6 +1345,71 @@ class _PhoneGate extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _KycGate extends StatelessWidget {
+  const _KycGate({required this.onVerify, required this.onBack, this.kycStatus});
+  final VoidCallback onVerify, onBack;
+  final String? kycStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPending = kycStatus == 'manual_review' || kycStatus == 'pending';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: isPending ? AppColors.warningLight : AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Icon(
+                isPending ? Icons.hourglass_top_rounded : Icons.verified_user_outlined,
+                size: 36,
+                color: isPending ? AppColors.warning : AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              isPending ? 'Verification Under Review' : 'Identity Verification Required',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.black),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              isPending
+                  ? 'Your documents are being reviewed. You\'ll be notified within 1–2 business days. You can send shipments once approved.'
+                  : 'All senders must verify their identity before creating a shipment. It only takes a few minutes.',
+              style: const TextStyle(color: AppColors.gray500, fontSize: 14, height: 1.6),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            if (!isPending)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onVerify,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                  ),
+                  child: const Text('Verify Identity', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                ),
+              ),
+            const SizedBox(height: 12),
+            TextButton(onPressed: onBack, child: const Text('Not now', style: TextStyle(color: AppColors.gray500))),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Shared small widgets ─────────────────────────────────────────────────────
