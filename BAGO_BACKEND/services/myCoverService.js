@@ -77,7 +77,7 @@ export async function purchaseMyCoverPolicy(request) {
     || null;
 
   await query(
-    `UPDATE public.requests
+    `UPDATE public.shipment_requests
      SET insurance_policy_id = $1,
          insurance_policy_data = $2,
          updated_at = NOW()

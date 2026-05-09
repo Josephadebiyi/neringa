@@ -26,7 +26,7 @@ export const myCoverWebhook = async (req, res) => {
 
     // Find the request with this policy
     const request = await queryOne(
-      `SELECT id, sender_id, insurance_policy_data FROM public.requests WHERE insurance_policy_id = $1`,
+      `SELECT id, sender_id, insurance_policy_data FROM public.shipment_requests WHERE insurance_policy_id = $1`,
       [policyId]
     );
 
@@ -40,7 +40,7 @@ export const myCoverWebhook = async (req, res) => {
     const merged = { ...existing, lastEvent: event, lastEventData: data, lastEventAt: new Date().toISOString() };
 
     await query(
-      `UPDATE public.requests SET insurance_policy_data = $1, updated_at = NOW() WHERE id = $2`,
+      `UPDATE public.shipment_requests SET insurance_policy_data = $1, updated_at = NOW() WHERE id = $2`,
       [JSON.stringify(merged), request.id]
     );
 
