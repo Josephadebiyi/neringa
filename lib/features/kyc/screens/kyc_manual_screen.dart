@@ -36,22 +36,32 @@ class KycManualScreen extends ConsumerStatefulWidget {
 }
 
 class _KycManualScreenState extends ConsumerState<KycManualScreen> {
-  int _step = 0; // 0=type, 1=front, 2=back, 3=selfie, 4=submitting/done
+  int _step = 0; // 0=type, 1=front, 2=back, 3=liveness video, 4=submitting/done
   _IdType _selectedType = _IdType.nationalId;
   File? _frontImage;
   File? _backImage;
-  File? _selfieImage;
+  File? _livenessVideo; // short face video instead of static selfie
   bool _loading = false;
 
   final _picker = ImagePicker();
 
   bool get _needsBack => _selectedType.hasBack;
-  int get _totalSteps => _needsBack ? 4 : 3; // type, front, (back), selfie
 
   Future<void> _pickImage({required bool fromCamera, required ValueSetter<File> onPicked}) async {
     final source = fromCamera ? ImageSource.camera : ImageSource.gallery;
     final picked = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1600);
     if (picked != null) onPicked(File(picked.path));
+  }
+
+  Future<void> _recordLiveness() async {
+    final picked = await _picker.pickVideo(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+      maxDuration: const Duration(seconds: 8),
+    );
+    if (picked != null && mounted) {
+      setState(() => _livenessVideo = File(picked.path));
+    }
   }
 
   void _showImageSourceSheet(ValueSetter<File> onPicked) {
@@ -88,8 +98,8 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
     try {
       final formData = FormData.fromMap({
         'id_type': _selectedType.name,
-        'id_front': await MultipartFile.fromFile(_frontImage!.path, filename: 'id_front.jpg'),
-        'selfie':   await MultipartFile.fromFile(_selfieImage!.path, filename: 'selfie.jpg'),
+        'id_front':       await MultipartFile.fromFile(_frontImage!.path, filename: 'id_front.jpg'),
+        'liveness_video': await MultipartFile.fromFile(_livenessVideo!.path, filename: 'liveness.mp4'),
         if (_backImage != null)
           'id_back': await MultipartFile.fromFile(_backImage!.path, filename: 'id_back.jpg'),
       });
@@ -156,17 +166,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
           nextEnabled: _backImage != null,
           optional: true,
         );
-      case 3: return _buildPhotoStep(
-          key: const ValueKey('selfie'),
-          title: 'Take a selfie',
-          subtitle: 'Look directly at the camera in good lighting. Remove glasses if possible.',
-          image: _selfieImage,
-          icon: Icons.face_outlined,
-          onPick: () => _showImageSourceSheet((f) => setState(() => _selfieImage = f)),
-          onNext: _submit,
-          nextEnabled: _selfieImage != null,
-          nextLabel: 'Submit for Review',
-        );
+      case 3: return _buildLivenessStep();
       case 4: return _buildDoneStep();
       default: return const SizedBox.shrink();
     }
@@ -296,6 +296,105 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                 ),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLivenessStep() {
+    final hasVideo = _livenessVideo != null;
+    return Column(
+      key: const ValueKey('liveness'),
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Liveness Check', style: AppTextStyles.h4),
+                const SizedBox(height: 6),
+                Text(
+                  'Record a short video (up to 8 seconds) using your front camera. '
+                  'Look directly at the camera, slowly turn your head left then right, then blink twice.',
+                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, height: 1.6),
+                ),
+                const SizedBox(height: 20),
+                // Instructions card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.gray50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      for (final item in [
+                        (Icons.lightbulb_outline, 'Good lighting — face the light source'),
+                        (Icons.remove_red_eye_outlined, 'Look directly at the front camera'),
+                        (Icons.rotate_left, 'Slowly turn head left → right'),
+                        (Icons.visibility_off_outlined, 'Blink twice clearly'),
+                      ]) ...[
+                        Row(children: [
+                          Icon(item.$1, size: 18, color: AppColors.primary),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(item.$2, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray700))),
+                        ]),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Record / re-record button
+                GestureDetector(
+                  onTap: _recordLiveness,
+                  child: Container(
+                    height: 160,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: hasVideo ? AppColors.successLight : AppColors.gray50,
+                      border: Border.all(
+                        color: hasVideo ? AppColors.success : AppColors.border,
+                        width: hasVideo ? 2 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          hasVideo ? Icons.check_circle_outline : Icons.videocam_outlined,
+                          size: 44,
+                          color: hasVideo ? AppColors.success : AppColors.gray300,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          hasVideo ? 'Video recorded ✓' : 'Tap to record video',
+                          style: AppTextStyles.bodyMd.copyWith(
+                            color: hasVideo ? AppColors.success : AppColors.gray400,
+                            fontWeight: hasVideo ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                        ),
+                        if (hasVideo) ...[
+                          const SizedBox(height: 4),
+                          Text('Tap to re-record', style: AppTextStyles.bodyXs.copyWith(color: AppColors.gray400)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
+          child: AppButton(
+            label: 'Submit for Review',
+            onPressed: hasVideo ? _submit : null,
           ),
         ),
       ],

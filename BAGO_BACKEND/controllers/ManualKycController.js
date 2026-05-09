@@ -17,6 +17,15 @@ const uploadToCloudinary = (buffer, folder, publicId) =>
     stream.end(buffer);
   });
 
+const uploadVideoToCloudinary = (buffer, folder, publicId) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, public_id: publicId, resource_type: 'video' },
+      (err, result) => (err ? reject(err) : resolve(result.secure_url))
+    );
+    stream.end(buffer);
+  });
+
 // POST /api/bago/kyc/manual-submit
 // Accepts multipart: id_front, id_back (optional), selfie, id_type, id_number (optional)
 export const submitManualKyc = async (req, res) => {
@@ -39,16 +48,16 @@ export const submitManualKyc = async (req, res) => {
 
     // express-fileupload puts files on req.files as UploadedFile objects with .data buffer
     const files = req.files || {};
-    const idFrontFile = files.id_front;
-    const selfieFile  = files.selfie;
+    const idFrontFile     = files.id_front;
+    const livenessFile    = files.liveness_video;
 
-    if (!idFrontFile) return res.status(400).json({ success: false, message: 'id_front image is required' });
-    if (!selfieFile)  return res.status(400).json({ success: false, message: 'selfie image is required' });
+    if (!idFrontFile)  return res.status(400).json({ success: false, message: 'id_front image is required' });
+    if (!livenessFile) return res.status(400).json({ success: false, message: 'liveness_video is required' });
 
     const ts = Date.now();
-    const [idFrontUrl, selfieUrl] = await Promise.all([
-      uploadToCloudinary(idFrontFile.data, 'bago/kyc/id_docs', `${userId}_id_front_${ts}`),
-      uploadToCloudinary(selfieFile.data,  'bago/kyc/selfies',  `${userId}_selfie_${ts}`),
+    const [idFrontUrl, livenessUrl] = await Promise.all([
+      uploadToCloudinary(idFrontFile.data,  'bago/kyc/id_docs',  `${userId}_id_front_${ts}`),
+      uploadVideoToCloudinary(livenessFile.data, 'bago/kyc/liveness', `${userId}_liveness_${ts}`),
     ]);
 
     let idBackUrl = null;
@@ -62,7 +71,7 @@ export const submitManualKyc = async (req, res) => {
       idNumber: id_number || null,
       idFrontUrl,
       idBackUrl,
-      selfieUrl,
+      livenessUrl,
       submittedAt: new Date().toISOString(),
     };
 
