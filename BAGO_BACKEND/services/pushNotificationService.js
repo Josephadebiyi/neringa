@@ -3,9 +3,18 @@ import http2 from 'node:http2';
 import crypto from 'node:crypto';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 
+// ─── Token type detection ─────────────────────────────────────────────────────
+
 const normalizeToken = (token) => (typeof token === 'string' ? token.trim() : '');
 
-const isApnsPushToken = (token) => /^[0-9a-fA-F]{64}$/.test(normalizeToken(token));
+// APNs tokens are exactly 64 hex chars. FCM tokens are much longer (~140+ chars).
+const isApnsToken = (token) => /^[0-9a-fA-F]{64}$/.test(normalizeToken(token));
+const isFcmToken  = (token) => {
+  const t = normalizeToken(token);
+  return t.length > 100 && !isApnsToken(t);
+};
+
+// ─── APNs (iOS) ───────────────────────────────────────────────────────────────
 
 const getApnsPrivateKey = () => {
   const inlineKey = process.env.APNS_PRIVATE_KEY?.trim();
@@ -27,31 +36,25 @@ const base64UrlEncode = (value) =>
 
 const buildApnsJwt = () => {
   const teamId = process.env.APNS_TEAM_ID?.trim();
-  const keyId = process.env.APNS_KEY_ID?.trim();
+  const keyId  = process.env.APNS_KEY_ID?.trim();
   const privateKey = getApnsPrivateKey();
-
   if (!teamId || !keyId || !privateKey) throw new Error('APNs credentials not configured');
-
-  const header = { alg: 'ES256', kid: keyId };
+  const header  = { alg: 'ES256', kid: keyId };
   const payload = { iss: teamId, iat: Math.floor(Date.now() / 1000) };
   const unsigned = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(payload))}`;
   const signature = crypto.sign('sha256', Buffer.from(unsigned), privateKey);
   return `${unsigned}.${base64UrlEncode(signature)}`;
 };
 
-const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
+const sendApnsToToken = async (pushToken, title, body, data = {}) => {
   const token = normalizeToken(pushToken);
-  if (!isApnsPushToken(token)) {
-    return { ok: false, provider: 'apns', skipped: true, reason: 'invalid_token' };
-  }
-
   const bundleId = process.env.APNS_BUNDLE_ID;
   if (!bundleId) return { ok: false, provider: 'apns', skipped: true, reason: 'no_bundle_id' };
 
   try {
-    const jwt = buildApnsJwt();
+    const jwt  = buildApnsJwt();
     const host = getApnsHost();
-    const payload = JSON.stringify({
+    const payloadStr = JSON.stringify({
       aps: { alert: { title, body }, sound: 'default', badge: 1 },
       ...data,
     });
@@ -66,7 +69,7 @@ const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
         'apns-topic': bundleId,
         'apns-push-type': 'alert',
         'content-type': 'application/json',
-        'content-length': Buffer.byteLength(payload),
+        'content-length': Buffer.byteLength(payloadStr),
       });
 
       req.setEncoding('utf8');
@@ -85,7 +88,7 @@ const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
         }
       });
       req.on('error', (err) => { client.close(); reject(err); });
-      req.write(payload);
+      req.write(payloadStr);
       req.end();
     });
   } catch (err) {
@@ -93,12 +96,70 @@ const sendApnsPushToToken = async (pushToken, title, body, data = {}) => {
   }
 };
 
+// ─── FCM (Android) ────────────────────────────────────────────────────────────
+
+let _firebaseAdmin = null;
+
+const getFirebaseAdmin = async () => {
+  if (_firebaseAdmin) return _firebaseAdmin;
+
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) {
+    console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT_JSON not set — Android push will be skipped');
+    return null;
+  }
+
+  try {
+    const { default: admin } = await import('firebase-admin');
+    if (!admin.apps.length) {
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    }
+    _firebaseAdmin = admin;
+    return admin;
+  } catch (err) {
+    console.error('❌ Firebase admin init failed:', err.message);
+    return null;
+  }
+};
+
+const sendFcmToToken = async (fcmToken, title, body, data = {}) => {
+  const admin = await getFirebaseAdmin();
+  if (!admin) {
+    return { ok: false, provider: 'fcm', skipped: true, reason: 'firebase_not_configured' };
+  }
+
+  try {
+    const stringData = Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, String(v)])
+    );
+
+    await admin.messaging().send({
+      token: normalizeToken(fcmToken),
+      notification: { title, body },
+      android: {
+        priority: 'high',
+        notification: { sound: 'default', channelId: 'bago_default' },
+      },
+      data: stringData,
+    });
+
+    return { ok: true, provider: 'fcm' };
+  } catch (err) {
+    console.error('❌ FCM send error:', err.message);
+    return { ok: false, provider: 'fcm', error: err.message };
+  }
+};
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export const sendPushNotificationToToken = async (pushToken, title, body, data = {}) => {
   const token = normalizeToken(pushToken);
-  if (!isApnsPushToken(token)) {
-    return { ok: false, skipped: true, reason: 'unrecognized_token_format', token: token.substring(0, 20) };
-  }
-  return sendApnsPushToToken(token, title, body, data);
+  if (isApnsToken(token)) return sendApnsToToken(token, title, body, data);
+  if (isFcmToken(token))  return sendFcmToToken(token, title, body, data);
+  return { ok: false, skipped: true, reason: 'unrecognized_token_format', preview: token.substring(0, 20) };
 };
 
 export const sendPushNotification = async (userId, title, body, data = {}) => {
@@ -124,18 +185,18 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
     }
 
     if (!row?.push_tokens?.length) {
-      console.log(`No push tokens found for user ${userId}`);
+      console.log(`No push tokens for user ${userId}`);
       return [];
     }
 
     const uniqueTokens = [...new Set(row.push_tokens.map(normalizeToken).filter(Boolean))];
     const results = [];
 
-    for (const pushToken of uniqueTokens) {
+    for (const token of uniqueTokens) {
       try {
-        const result = await sendPushNotificationToToken(pushToken, title, body, data);
+        const result = await sendPushNotificationToToken(token, title, body, data);
         results.push(result);
-        if (result.ok) console.log(`✅ APNs push sent to user ${userId}`);
+        if (result.ok) console.log(`✅ Push sent to user ${userId} via ${result.provider}`);
         else if (result.skipped) console.log(`⏭ Push skipped: ${result.reason}`);
       } catch (error) {
         results.push({ ok: false, error: error.message });

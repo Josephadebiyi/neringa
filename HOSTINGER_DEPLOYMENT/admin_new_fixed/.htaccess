@@ -1,14 +1,12 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /admin/
+  RewriteBase /
 
-  # SPA Routing for Subdirectory Refreshes
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /admin/index.html [L]
+  RewriteRule . /index.html [L]
 </IfModule>
 
-# Robust Fallback for refreshing admin sub-pages
-FallbackResource /admin/index.html
+FallbackResource /index.html

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -8,10 +10,17 @@ import 'storage_service.dart';
 
 enum ApnsAuthStatus { authorized, denied, notDetermined }
 
+/// Background FCM handler — must be a top-level function.
+@pragma('vm:entry-point')
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  debugPrint('🔔 FCM background message: ${message.messageId}');
+}
+
 class PushNotificationService {
   PushNotificationService._();
   static final PushNotificationService instance = PushNotificationService._();
 
+  // iOS-only APNs channel
   static const MethodChannel _channel =
       MethodChannel('bago/push_notifications');
 
@@ -24,19 +33,96 @@ class PushNotificationService {
   static final _supportTapController = StreamController<String>.broadcast();
   static final _kycApprovedController = StreamController<void>.broadcast();
 
-  /// Emits a conversationId whenever the user taps a chat push notification.
   static Stream<String> get onChatTap => _tapController.stream;
   static Stream<String> get onSupportTap => _supportTapController.stream;
-  /// Emits when user taps a KYC-approved push notification.
   static Stream<void> get onKycApproved => _kycApprovedController.stream;
 
   void startListening() {
     if (_listening) return;
     _listening = true;
-    _channel.setMethodCallHandler(_handleMethodCall);
+
+    if (Platform.isAndroid) {
+      _initAndroid();
+    } else {
+      _channel.setMethodCallHandler(_handleIosMethodCall);
+    }
   }
 
+  // ─── Android (FCM) ───────────────────────────────────────────────────────
+
+  Future<void> _initAndroid() async {
+    FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+
+    // Request permission on Android 13+
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    debugPrint('🔔 FCM permission: ${settings.authorizationStatus}');
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional) {
+      await _fetchAndRegisterFcmToken();
+    }
+
+    // Token refresh
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      debugPrint('🔔 FCM token refreshed');
+      _registerIfPossible(newToken, platform: 'android');
+    });
+
+    // Foreground messages
+    FirebaseMessaging.onMessage.listen((message) {
+      debugPrint('🔔 FCM foreground: ${message.notification?.title}');
+      _handleFcmData(message.data);
+    });
+
+    // Notification tap while app in background (not terminated)
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      debugPrint('🔔 FCM tap (background): ${message.notification?.title}');
+      _handleFcmData(message.data);
+    });
+
+    // Notification tap while app was terminated
+    final initial = await FirebaseMessaging.instance.getInitialMessage();
+    if (initial != null) {
+      debugPrint('🔔 FCM tap (terminated): ${initial.notification?.title}');
+      _handleFcmData(initial.data);
+    }
+  }
+
+  Future<void> _fetchAndRegisterFcmToken() async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null && token.isNotEmpty) {
+        debugPrint('🔔 FCM token obtained (${token.length} chars)');
+        await _registerIfPossible(token, platform: 'android');
+      }
+    } catch (e) {
+      debugPrint('❌ FCM getToken error: $e');
+    }
+  }
+
+  void _handleFcmData(Map<String, dynamic> data) {
+    final type = data['type']?.toString() ?? '';
+    final conversationId = data['conversationId']?.toString() ?? '';
+    final ticketId = data['ticketId']?.toString() ?? '';
+    if (type == 'chat_message' && conversationId.isNotEmpty) {
+      _tapController.add(conversationId);
+    }
+    if (type == 'support_message' && ticketId.isNotEmpty) {
+      _supportTapController.add(ticketId);
+    }
+    if (type == 'kyc' || type == 'kyc_approved') {
+      _kycApprovedController.add(null);
+    }
+  }
+
+  // ─── iOS (APNs via MethodChannel) ────────────────────────────────────────
+
   Future<ApnsAuthStatus> notificationAuthorizationStatus() async {
+    if (Platform.isAndroid) return ApnsAuthStatus.authorized;
     try {
       final status = await _channel.invokeMethod<String>('getPermissionStatus');
       switch (status) {
@@ -54,80 +140,72 @@ class PushNotificationService {
   }
 
   Future<bool> shouldShowLoginNotificationPrompt() async {
+    if (Platform.isAndroid) return false;
     final status = await notificationAuthorizationStatus();
-
     if (status == ApnsAuthStatus.notDetermined ||
         status == ApnsAuthStatus.denied) {
-      debugPrint('🔔 Notification status: $status — will prompt login user');
       return true;
     }
-
     final storedToken = await _storage.getPushToken();
-    if (storedToken?.isEmpty ?? true) {
-      debugPrint('🔔 No push token stored — will prompt');
-      return true;
-    }
-
-    debugPrint('🔔 Push token already stored and permission granted — skipping prompt');
-    return false;
+    return storedToken?.isEmpty ?? true;
   }
 
   Future<void> prepareForSignedInUserSilently() async {
     startListening();
+    if (Platform.isAndroid) {
+      await _fetchAndRegisterFcmToken();
+      return;
+    }
     final status = await notificationAuthorizationStatus();
-    debugPrint('🔔 Silent notification prep — status: $status');
-
     if (status == ApnsAuthStatus.authorized) {
-      await _syncDeviceToken();
-    } else {
-      debugPrint('🔔 Notification permission not granted yet — waiting for user prompt');
+      await _syncIosDeviceToken();
     }
   }
 
   Future<void> prepareForSignedInUser() async {
     startListening();
-    debugPrint('🔔 Requesting APNs notification permission');
-
+    if (Platform.isAndroid) {
+      await _fetchAndRegisterFcmToken();
+      return;
+    }
     try {
       final granted = await _channel.invokeMethod<bool>('requestPermission');
-      debugPrint('🔔 Permission result: $granted');
       if (granted == true) {
         await Future<void>.delayed(const Duration(seconds: 1));
-        await _syncDeviceToken();
+        await _syncIosDeviceToken();
       }
     } catch (e) {
-      debugPrint('❌ Permission request error: $e');
+      debugPrint('❌ iOS permission request error: $e');
     }
   }
 
   Future<void> refreshAfterAuthChange() async {
     startListening();
-    final status = await notificationAuthorizationStatus();
-
-    if (status == ApnsAuthStatus.denied) {
-      debugPrint('🔔 Permission denied — cannot register token');
+    if (Platform.isAndroid) {
+      await _fetchAndRegisterFcmToken();
       return;
-    } else if (status == ApnsAuthStatus.notDetermined) {
-      debugPrint('🔔 Permission not determined — requesting now');
+    }
+    final status = await notificationAuthorizationStatus();
+    if (status == ApnsAuthStatus.denied) return;
+    if (status == ApnsAuthStatus.notDetermined) {
       await prepareForSignedInUser();
       return;
     }
-
     if (_pendingToken != null && _pendingToken!.isNotEmpty) {
-      await _registerIfPossible(_pendingToken!);
+      await _registerIfPossible(_pendingToken!, platform: 'ios');
     } else {
-      await _syncDeviceToken();
+      await _syncIosDeviceToken();
     }
   }
 
-  Future<void> _handleMethodCall(MethodCall call) async {
+  Future<void> _handleIosMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'onDeviceToken':
         final token = call.arguments?.toString().trim() ?? '';
         if (token.isNotEmpty) {
-          debugPrint('🔔 APNs token received via channel: ${token.length} chars');
+          debugPrint('🔔 APNs token received (${token.length} chars)');
           _pendingToken = token;
-          await _registerIfPossible(token);
+          await _registerIfPossible(token, platform: 'ios');
         }
         break;
       case 'onNotificationTap':
@@ -135,9 +213,6 @@ class PushNotificationService {
         final type = args?['type']?.toString() ?? '';
         final conversationId = args?['conversationId']?.toString() ?? '';
         final ticketId = args?['ticketId']?.toString() ?? '';
-        debugPrint(
-          '🔔 Notification tapped — type: $type conversationId: $conversationId ticketId: $ticketId',
-        );
         if (type == 'chat_message' && conversationId.isNotEmpty) {
           _tapController.add(conversationId);
         }
@@ -148,31 +223,27 @@ class PushNotificationService {
           _kycApprovedController.add(null);
         }
         break;
-      default:
-        break;
     }
   }
 
-  Future<void> _syncDeviceToken() async {
+  Future<void> _syncIosDeviceToken() async {
     try {
       final token = await _channel.invokeMethod<String>('getDeviceToken');
       final normalized = token?.trim() ?? '';
       if (normalized.isNotEmpty) {
-        debugPrint('🔔 APNs device token: ${normalized.length} chars');
         _pendingToken = normalized;
-        await _registerIfPossible(normalized);
-      } else {
-        debugPrint('🔔 APNs token is empty — will retry via listener');
+        await _registerIfPossible(normalized, platform: 'ios');
       }
     } catch (e) {
-      debugPrint('🔔 getDeviceToken error: $e — will retry via listener');
+      debugPrint('🔔 iOS getDeviceToken error: $e');
     }
   }
 
-  Future<void> _registerIfPossible(String token) async {
-    if (token.isEmpty) return;
+  // ─── Shared registration ─────────────────────────────────────────────────
 
-    await _validateAndStoreToken(token);
+  Future<void> _registerIfPossible(String token, {required String platform}) async {
+    if (token.isEmpty) return;
+    await _storage.savePushToken(token);
 
     if (_registering) {
       _pendingToken = token;
@@ -193,9 +264,9 @@ class PushNotificationService {
 
     while (retries < maxRetries) {
       try {
-        debugPrint('🔔 Registering APNs token (attempt ${retries + 1}/$maxRetries, len=${token.length})');
-        await AuthService.instance.registerPushToken(token, platform: 'ios');
-        debugPrint('✅ APNs token registered successfully');
+        debugPrint('🔔 Registering $platform token (attempt ${retries + 1}/$maxRetries)');
+        await AuthService.instance.registerPushToken(token, platform: platform);
+        debugPrint('✅ $platform push token registered');
         _pendingToken = null;
         _registering = false;
         return;
@@ -213,7 +284,6 @@ class PushNotificationService {
     _registering = false;
   }
 
-  /// Clear the locally stored push token (called when user disables push notifications).
   Future<void> clearLocalToken() async {
     try {
       await _storage.savePushToken('');
@@ -221,21 +291,6 @@ class PushNotificationService {
       debugPrint('🔕 Local push token cleared');
     } catch (e) {
       debugPrint('❌ clearLocalToken error: $e');
-    }
-  }
-
-  Future<void> _validateAndStoreToken(String token) async {
-    if (token.isEmpty) return;
-    try {
-      await _storage.savePushToken(token);
-      final stored = await _storage.getPushToken();
-      if (stored == token) {
-        debugPrint('✅ Token stored locally (${token.length} chars)');
-      } else {
-        debugPrint('⚠️ Token storage verification failed');
-      }
-    } catch (e) {
-      debugPrint('❌ Token storage error: $e');
     }
   }
 }

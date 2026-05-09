@@ -55,11 +55,23 @@ import '../../features/shipments/screens/requests_screen.dart';
 import '../../features/shipments/screens/shipments_screen.dart';
 import '../../features/home/screens/search_results_screen.dart';
 import '../../features/shipments/screens/tracking_screen.dart';
+import '../../features/auth/screens/complete_name_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/trips/models/trip_model.dart';
 import '../../features/trips/screens/post_trip_screen.dart';
 import '../../features/trips/screens/trip_details_screen.dart';
 import '../../features/trips/screens/trips_screen.dart';
+
+// Returns true when a logged-in user has no real name yet (e.g. Google sign-in
+// that produced "Bago User" or an empty name).
+bool _needsName(String? fullName) {
+  final n = (fullName ?? '').trim().toLowerCase();
+  if (n.isEmpty) return true;
+  if (n == 'bago user' || n == 'bagouser') return true;
+  // Single word shorter than 2 chars is not a real name
+  if (!n.contains(' ') && n.length < 2) return true;
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Router notifier – bridges Riverpod auth state → GoRouter refresh
@@ -67,8 +79,11 @@ import '../../features/trips/screens/trips_screen.dart';
 class _RouterNotifier extends ChangeNotifier {
   _RouterNotifier(this._ref) : _authState = _ref.read(authProvider) {
     _ref.listen<AuthState>(authProvider, (prev, next) {
+      final wasNeedsName = _needsName(prev?.user?.fullName);
+      final nowNeedsName = _needsName(next.user?.fullName);
       final navigationChanged = prev?.isLoggedIn != next.isLoggedIn ||
-          prev?.isInitialising != next.isInitialising;
+          prev?.isInitialising != next.isInitialising ||
+          wasNeedsName != nowNeedsName;
       _authState = next;
       if (navigationChanged) notifyListeners();
     });
@@ -111,6 +126,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isInitialising) return null;
 
       if (!isLoggedIn && !isAuthRoute && !isOnboarding && !isGuestAllowed) return '/home';
+
+      // Force users with missing/generic names to complete their profile
+      if (isLoggedIn && _needsName(auth.user?.fullName)) {
+        if (loc != '/auth/complete-name') return '/auth/complete-name';
+        return null;
+      }
+
       // Allow signup/signin even when logged in (e.g. from onboarding)
       if (isLoggedIn && isAuthRoute && loc != '/auth/signup' && loc != '/auth/signin') return '/home';
       return null;
@@ -165,6 +187,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final token = state.uri.queryParameters['token'];
           return OtpScreen(email: email, signupToken: token);
         },
+      ),
+      GoRoute(
+        path: '/auth/complete-name',
+        pageBuilder: (_, __) => const NoTransitionPage(child: CompleteNameScreen()),
       ),
       GoRoute(
         path: '/auth/forgot-password',
