@@ -546,20 +546,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (paymentReference == null || paymentReference.isEmpty) return false;
 
     _updateProcessingMessage('Finalizing your shipment...');
-    await ShipmentService.instance.sendPackageRequest(
-      travelerId: draft['travelerId'].toString(),
-      packageId: draft['packageId'].toString(),
-      tripId: draft['tripId'].toString(),
-      amount: _asDouble(draft['totalAmount']),
-      currency: draft['currency']?.toString() ?? 'USD',
-      insurance: draft['insurance'] == true,
-      insuranceCost: _asDouble(draft['insuranceAmount']),
-      estimatedDeparture: draft['estimatedDeparture']?.toString(),
-      estimatedArrival: draft['estimatedArrival']?.toString(),
-      paymentReference: paymentReference,
-      paymentProvider: provider,
-      message: draft['message']?.toString(),
-    );
+    try {
+      await ShipmentService.instance.sendPackageRequest(
+        travelerId: draft['travelerId'].toString(),
+        packageId: draft['packageId'].toString(),
+        tripId: draft['tripId'].toString(),
+        amount: _asDouble(draft['totalAmount']),
+        currency: draft['currency']?.toString() ?? 'USD',
+        insurance: draft['insurance'] == true,
+        insuranceCost: _asDouble(draft['insuranceAmount']),
+        estimatedDeparture: draft['estimatedDeparture']?.toString(),
+        estimatedArrival: draft['estimatedArrival']?.toString(),
+        paymentReference: paymentReference,
+        paymentProvider: provider,
+        message: draft['message']?.toString(),
+      );
+    } catch (error) {
+      if (provider != 'stripe') rethrow;
+      _updateProcessingMessage('Recovering your paid shipment...');
+      final recovered =
+          await PaymentService.instance.finalizeStripePaidShipment(
+        paymentReference,
+      );
+      if (!recovered.success) {
+        throw StateError(
+          recovered.message ??
+              'Payment is confirmed, but the shipment could not be finalized yet.',
+        );
+      }
+    }
     return true;
   }
 

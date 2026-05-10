@@ -76,11 +76,15 @@ function parseBooleanFlag(value) {
   return normalized === 'true' || normalized === 'yes' || normalized === '1';
 }
 
-async function finalizeStripeShipmentPayment(paymentIntent) {
+async function finalizeStripeShipmentPayment(paymentIntent, { expectedUserId = null } = {}) {
   const metadata = paymentIntent?.metadata || {};
   const senderId = metadata.userId;
   const packageId = metadata.packageId;
   const tripId = metadata.tripId;
+
+  if (expectedUserId && senderId !== expectedUserId) {
+    return null;
+  }
 
   if (!senderId || !packageId || !tripId) {
     return null;
@@ -414,6 +418,46 @@ export async function deletePaymentMethod(req, res) {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Could not remove payment method.',
+    });
+  }
+}
+
+export async function finalizeCustomerPaymentIntent(req, res) {
+  const stripe = getStripeClient();
+  if (!stripe) {
+    return res.status(503).json({ success: false, message: 'Payment service not configured' });
+  }
+
+  try {
+    const profile = await getAuthorizedProfile(req);
+    const paymentIntentId = req.body?.paymentReference || req.body?.paymentIntentId;
+    if (!paymentIntentId) {
+      return res.status(400).json({ success: false, message: 'Payment reference is required.' });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const statusOk = ['succeeded', 'processing'].includes(paymentIntent.status);
+    if (!statusOk) {
+      return res.status(402).json({ success: false, message: 'Stripe payment is not complete.' });
+    }
+
+    const request = await finalizeStripeShipmentPayment(paymentIntent, { expectedUserId: profile.id });
+    if (!request) {
+      return res.status(422).json({
+        success: false,
+        message: 'Payment is confirmed, but the shipment could not be finalized from this payment.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Payment confirmed and shipment finalized.',
+      request,
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Could not finalize paid shipment.',
     });
   }
 }

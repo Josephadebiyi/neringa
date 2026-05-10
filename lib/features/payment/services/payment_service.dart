@@ -79,6 +79,18 @@ class CardSetupSession {
   final String customerEphemeralKeySecret;
 }
 
+class PaidShipmentFinalization {
+  const PaidShipmentFinalization({
+    required this.success,
+    this.message,
+    this.request,
+  });
+
+  final bool success;
+  final String? message;
+  final Map<String, dynamic>? request;
+}
+
 class PaymentService {
   PaymentService._();
   static final PaymentService instance = PaymentService._();
@@ -254,6 +266,30 @@ class PaymentService {
         return SavedPaymentMethod.fromJson(Map<String, dynamic>.from(cardRaw));
       }
       throw StateError('Card could not be saved.');
+    } on DioException catch (e) {
+      throw _parsePaymentMethodsError(e);
+    }
+  }
+
+  Future<PaidShipmentFinalization> finalizeStripePaidShipment(
+    String paymentReference,
+  ) async {
+    try {
+      final response = await _api.post(
+        '${ApiConstants.paymentMethods}/finalize-payment',
+        data: {'paymentReference': paymentReference},
+      );
+      final data = _extractMap(response.data);
+      final requestRaw = data['request'];
+      return PaidShipmentFinalization(
+        success: data['success'] == true && requestRaw is Map,
+        message: data['message']?.toString(),
+        request: requestRaw is Map<String, dynamic>
+            ? requestRaw
+            : requestRaw is Map
+                ? Map<String, dynamic>.from(requestRaw)
+                : null,
+      );
     } on DioException catch (e) {
       throw _parsePaymentMethodsError(e);
     }

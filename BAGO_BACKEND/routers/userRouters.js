@@ -18,6 +18,7 @@ import {
   createCustomerPaymentIntent,
   createSetupIntent,
   deletePaymentMethod,
+  finalizeCustomerPaymentIntent,
   listPaymentMethods,
 } from '../controllers/postgresPaymentMethodController.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
@@ -227,6 +228,7 @@ userRouter.get('/payment-methods', isAuthenticated, requireKycVerification, list
 userRouter.post('/payment-methods/attach', isAuthenticated, requireKycVerification, attachPaymentMethod);
 userRouter.post('/payment-methods/setup-intent', isAuthenticated, requireKycVerification, createSetupIntent);
 userRouter.post('/payment-methods/payment-intent', isAuthenticated, requireKycVerification, createCustomerPaymentIntent);
+userRouter.post('/payment-methods/finalize-payment', isAuthenticated, requireKycVerification, finalizeCustomerPaymentIntent);
 userRouter.delete('/payment-methods/:paymentMethodId', isAuthenticated, requireKycVerification, deletePaymentMethod);
 
 // 💳 Paystack Routes
