@@ -11,7 +11,6 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
-import '../../../shared/services/app_settings_service.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/trip_price_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
@@ -37,7 +36,6 @@ class RequestShipmentScreen extends ConsumerStatefulWidget {
 }
 
 class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
-  late AppSettingsSnapshot _settings;
   final _formScrollController = ScrollController();
   final _weightCtrl = TextEditingController();
   final _itemValueCtrl = TextEditingController();
@@ -71,8 +69,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     super.initState();
     _currentTrip = widget.initialTrip;
     if (_currentTrip == null) _loadTrip();
-    _settings = AppSettingsService.instance.cachedOrFallback;
-    _refreshSettingsInBackground();
 
     final d = widget.preFilledData;
     if (d != null) {
@@ -144,25 +140,10 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     setState(() => _receiverPhoneCountry = selected);
   }
 
-  Future<void> _continueToPayment(
-      TripModel trip, AppSettingsSnapshot settings) async {
+  Future<void> _continueToPayment(TripModel trip) async {
     if (!mounted) return;
 
     final user = ref.read(authProvider).user;
-
-    // Show terms agreement AFTER form is filled, before submission
-    if (user?.termsAcceptedAt == null) {
-      final accepted = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const ShipmentTermsScreen(),
-          fullscreenDialog: true,
-        ),
-      );
-      if (!mounted) return;
-      if (accepted != true) return;
-      await ref.read(authProvider.notifier).refreshProfile();
-      if (!mounted) return;
-    }
 
     final weight = double.tryParse(_weightCtrl.text.trim());
     final currency = UserCurrencyHelper.resolve(user);
@@ -194,6 +175,35 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           type: SnackBarType.error);
       return;
     }
+
+    // Show terms agreement after validation. When accepted, continue directly
+    // into payment instead of popping back to this page first.
+    if (user?.termsAcceptedAt == null) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => ShipmentTermsScreen(
+            onAccepted: () => _createPaymentDraftAndNavigate(
+              trip,
+              replaceStack: true,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    await _createPaymentDraftAndNavigate(trip);
+  }
+
+  Future<void> _createPaymentDraftAndNavigate(
+    TripModel trip, {
+    bool replaceStack = false,
+  }) async {
+    if (!mounted) return;
+    final user = ref.read(authProvider).user;
+    final weight = double.tryParse(_weightCtrl.text.trim());
+    final currency = UserCurrencyHelper.resolve(user);
+    if (weight == null || weight <= 0 || currency.isEmpty) return;
 
     final baseShippingAmount = weight * trip.pricePerKg;
     final shippingAmount = CurrencyConversionHelper.convert(
@@ -260,7 +270,11 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
       await ShipmentCheckoutService.instance.saveDraft(draft);
       if (!mounted) return;
-      context.push('/payment', extra: draft);
+      if (replaceStack) {
+        context.go('/payment', extra: draft);
+      } else {
+        context.push('/payment', extra: draft);
+      }
     } catch (e) {
       if (!mounted) return;
       if (_isKycRequiredError(e)) {
@@ -282,14 +296,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     return message.contains('identity verification') ||
         message.contains('kyc') ||
         message.contains('verification_required');
-  }
-
-  Future<void> _refreshSettingsInBackground() async {
-    try {
-      final latest = await AppSettingsService.instance.fetchPublicSettings();
-      if (!mounted) return;
-      setState(() => _settings = latest);
-    } catch (_) {}
   }
 
   @override
@@ -333,7 +339,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     }
 
     final trip = _currentTrip!;
-    final settings = _settings;
     final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
 
     if (currency.isEmpty) {
@@ -489,9 +494,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             AppButton(
               label: 'Continue to Payment',
               isLoading: _isSubmitting,
-              onPressed: _isSubmitting
-                  ? null
-                  : () => _continueToPayment(trip, settings),
+              onPressed: _isSubmitting ? null : () => _continueToPayment(trip),
             ),
           ],
         ),

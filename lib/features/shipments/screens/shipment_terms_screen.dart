@@ -9,10 +9,13 @@ import '../../auth/providers/auth_provider.dart';
 import '../services/sender_onboarding_service.dart';
 
 class ShipmentTermsScreen extends ConsumerStatefulWidget {
-  const ShipmentTermsScreen({super.key});
+  const ShipmentTermsScreen({super.key, this.onAccepted});
+
+  final Future<void> Function()? onAccepted;
 
   @override
-  ConsumerState<ShipmentTermsScreen> createState() => _ShipmentTermsScreenState();
+  ConsumerState<ShipmentTermsScreen> createState() =>
+      _ShipmentTermsScreenState();
 }
 
 class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
@@ -32,13 +35,15 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
       icon: Icons.search_rounded,
       color: AppColors.primary,
       title: 'Open to inspection',
-      body: 'I understand the traveler may inspect the contents for safety and compliance.',
+      body:
+          'I understand the traveler may inspect the contents for safety and compliance.',
     ),
     (
       icon: Icons.gavel_rounded,
       color: AppColors.warning,
       title: 'Bago guidelines',
-      body: 'I agree to follow Bago\'s guidelines and take responsibility for my shipment.',
+      body:
+          'I agree to follow Bago\'s guidelines and take responsibility for my shipment.',
     ),
   ];
 
@@ -49,10 +54,16 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
       await SenderOnboardingService.instance.acceptTerms();
       await ref.read(authProvider.notifier).refreshProfile();
       if (!mounted) return;
+      if (widget.onAccepted != null) {
+        await widget.onAccepted!();
+        return;
+      }
+      if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: e.toString(), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _isAccepting = false);
     }
@@ -105,7 +116,8 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 26),
+                          child: const Icon(Icons.local_shipping_rounded,
+                              color: Colors.white, size: 26),
                         ),
                         const SizedBox(height: 14),
                         Text(
@@ -140,7 +152,8 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                         title: term.title,
                         body: term.body,
                         checked: _checked[i],
-                        onChanged: (v) => setState(() => _checked[i] = v ?? false),
+                        onChanged: (v) =>
+                            setState(() => _checked[i] = v ?? false),
                       ),
                     );
                   }),
@@ -148,21 +161,26 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                   const SizedBox(height: 8),
                   // ── Progress indicator ──────────────────────────────────
                   Row(
-                    children: List.generate(3, (i) => Expanded(
-                      child: Container(
-                        margin: EdgeInsets.only(right: i < 2 ? 4 : 0),
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: _checked[i] ? AppColors.success : AppColors.gray200,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    )),
+                    children: List.generate(
+                        3,
+                        (i) => Expanded(
+                              child: Container(
+                                margin: EdgeInsets.only(right: i < 2 ? 4 : 0),
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: _checked[i]
+                                      ? AppColors.success
+                                      : AppColors.gray200,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            )),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${_checked.where((v) => v).length} of 3 confirmed',
-                    style: AppTextStyles.labelSm.copyWith(color: AppColors.gray500),
+                    style: AppTextStyles.labelSm
+                        .copyWith(color: AppColors.gray500),
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -172,7 +190,8 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
 
           // ── Bottom CTA ──────────────────────────────────────────────────
           Container(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(
+                20, 16, 20, 20 + MediaQuery.of(context).padding.bottom),
             decoration: BoxDecoration(
               color: AppColors.white,
               boxShadow: [
@@ -254,7 +273,8 @@ class _TermCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                    style: AppTextStyles.labelMd
+                        .copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -271,7 +291,10 @@ class _TermCard extends StatelessWidget {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               child: checked
-                  ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 24, key: ValueKey('checked'))
+                  ? const Icon(Icons.check_circle_rounded,
+                      color: AppColors.success,
+                      size: 24,
+                      key: ValueKey('checked'))
                   : Container(
                       key: const ValueKey('unchecked'),
                       width: 24,
