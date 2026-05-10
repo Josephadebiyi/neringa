@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
 import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, Clock, ArrowLeft, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { io } from 'socket.io-client';
 
 const BANNED_KEYWORDS = ['phone', 'whatsapp', 'number', 'call', 'telegram', 'instagram', 'facebook', 'email', '+', 'gmail', 'yahoo', 'dm', 'contact me', 'text me'];
 
@@ -15,7 +16,40 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     const [disputeReason, setDisputeReason] = useState('');
     const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
     const [downloading, setDownloading] = useState(null);
+    const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef(null);
+    const imageInputRef = useRef(null);
+    const socketRef = useRef(null);
+    const selectedConvRef = useRef(null);
+    const userIdRef = useRef(null);
+
+    const getMessageId = (msg) => msg?._id || msg?.id || null;
+    const getSenderId = (sender) => {
+        if (!sender) return '';
+        if (typeof sender === 'object') return (sender._id || sender.id || '').toString();
+        return sender.toString();
+    };
+    const normalizeMessage = (msg) => ({
+        ...msg,
+        _id: msg?._id || msg?.id,
+        id: msg?.id || msg?._id,
+        text: msg?.text || msg?.content || '',
+        content: msg?.content || msg?.text || '',
+        type: msg?.type || msg?.metadata?.type || 'text',
+        fileUrl: msg?.fileUrl || msg?.metadata?.fileUrl || msg?.metadata?.imageUrl || '',
+        fileName: msg?.fileName || msg?.metadata?.fileName || '',
+        createdAt: msg?.createdAt || msg?.timestamp,
+        timestamp: msg?.timestamp || msg?.createdAt,
+    });
+    const appendMessage = (incoming) => {
+        const normalized = normalizeMessage(incoming);
+        setMessages(prev => {
+            const incomingId = getMessageId(normalized);
+            if (incomingId && prev.some(msg => getMessageId(msg) === incomingId)) return prev;
+            return [...prev, normalized];
+        });
+        setTimeout(scrollToBottom, 0);
+    };
 
     useEffect(() => {
         if (user) {
@@ -24,17 +58,74 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     }, [user]);
 
     useEffect(() => {
-        if (selectedConv) {
-            fetchMessages(selectedConv._id);
-        }
+        userIdRef.current = (user?._id || user?.id || '').toString();
+    }, [user]);
+
+    useEffect(() => {
+        selectedConvRef.current = selectedConv;
     }, [selectedConv]);
 
-    // Poll for new messages every 8 seconds when a conversation is open
     useEffect(() => {
-        if (!selectedConv) return;
-        const interval = setInterval(() => fetchMessages(selectedConv._id), 8000);
-        return () => clearInterval(interval);
+        if (selectedConv) {
+            fetchMessages(selectedConv._id);
+            socketRef.current?.emit('join_conversation', selectedConv._id);
+        }
     }, [selectedConv?._id]);
+
+    useEffect(() => {
+        if (!user) return;
+        const socket = io(api.defaults.baseURL, {
+            transports: ['websocket', 'polling'],
+            withCredentials: true,
+        });
+        socketRef.current = socket;
+
+        socket.on('connect', () => {
+            if (userIdRef.current) socket.emit('join_user', userIdRef.current);
+            if (selectedConvRef.current?._id) {
+                socket.emit('join_conversation', selectedConvRef.current._id);
+            }
+        });
+
+        socket.on('new_message', (message) => {
+            const activeConversationId = selectedConvRef.current?._id;
+            if (message?.conversationId?.toString() === activeConversationId?.toString()) {
+                appendMessage(message);
+            }
+        });
+
+        socket.on('update_conversation', (conversation) => {
+            if (!conversation?._id && !conversation?.id) return;
+            const conversationId = conversation._id || conversation.id;
+            setConversations(prev => {
+                const currentUserId = userIdRef.current;
+                const isSender = getSenderId(conversation.sender) === currentUserId;
+                const otherUser = isSender ? conversation.traveler : conversation.sender;
+                const processed = {
+                    ...conversation,
+                    _id: conversationId,
+                    id: conversationId,
+                    otherUser: otherUser || { firstName: 'User' },
+                    lastMessage: conversation.last_message || conversation.lastMessage || 'Click to chat',
+                };
+                if (processed.request && typeof processed.request === 'object') {
+                    processed.request.role = isSender ? 'sender' : 'traveler';
+                }
+                const next = prev.some(conv => conv._id === conversationId)
+                    ? prev.map(conv => conv._id === conversationId ? { ...conv, ...processed } : conv)
+                    : [processed, ...prev];
+                return [...next].sort((a, b) => new Date(b.updated_at || b.updatedAt || 0) - new Date(a.updated_at || a.updatedAt || 0));
+            });
+            if (selectedConvRef.current?._id === conversationId) {
+                setSelectedConv(prev => prev ? { ...prev, ...conversation } : prev);
+            }
+        });
+
+        return () => {
+            socket.disconnect();
+            socketRef.current = null;
+        };
+    }, [user]);
 
     const fetchConversations = async () => {
         try {
@@ -139,7 +230,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         try {
             const res = await api.get(`/api/bago/conversations/${convId}/messages`);
             // Backend returns { success: true, data: { messages: [] } }
-            setMessages(res.data?.data?.messages || []);
+            setMessages((res.data?.data?.messages || []).map(normalizeMessage));
             scrollToBottom();
         } catch (err) {
             setMessages([]);
@@ -202,16 +293,53 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             return;
         }
 
+        setIsSending(true);
         try {
             const res = await api.post(`/api/bago/conversations/${selectedConv._id}/send`, {
                 text: newMessage
             });
             if (res.data?.success) {
-                setMessages([...messages, res.data.data]);
+                appendMessage(res.data.data);
                 setNewMessage('');
-                scrollToBottom();
+                fetchConversations();
             }
         } catch (err) {
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    const handleSendImage = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file || !selectedConv) return;
+
+        const caption = newMessage.trim();
+        if (caption && containsBannedKeywords(caption)) {
+            setShowWarning(true);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+        if (caption) formData.append('text', caption);
+
+        setIsSending(true);
+        try {
+            const res = await api.post(
+                `/api/bago/conversations/${selectedConv._id}/send`,
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } },
+            );
+            if (res.data?.success) {
+                appendMessage(res.data.data);
+                setNewMessage('');
+                fetchConversations();
+            }
+        } catch (err) {
+            alert('Failed to send image. Please try again.');
+        } finally {
+            setIsSending(false);
         }
     };
 
@@ -413,12 +541,12 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 <span className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-[7px] font-black text-gray-400 uppercase tracking-widest border border-gray-100 shadow-sm">{t('encryptionActive')}</span>
                             </div>
                             {messages.map((msg, i) => {
-                                const senderId = typeof msg.sender === 'object' ? (msg.sender?._id || msg.sender?.id) : msg.sender;
-                                const currentUserId = user?._id || user?.id;
+                                const senderId = getSenderId(msg.sender || msg.senderId || msg.sender_id);
+                                const currentUserId = (user?._id || user?.id || '').toString();
                                 const isMe = senderId === currentUserId;
                                 
                                 return (
-                                    <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 px-2`}>
+                                    <div key={getMessageId(msg) || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 px-2`}>
                                         <div className={`relative max-w-[80%] px-4 py-3 rounded-2xl text-[11px] font-bold shadow-sm ${
                                             isMe 
                                             ? 'bg-[#5845D8] text-white rounded-tr-none' 
@@ -431,7 +559,23 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                 : 'left-[-6px] bg-[#F8F6F3] [clip-path:polygon(0_0,100%_0,100%_100%)] border-l border-gray-100'
                                             }`}></div>
                                             
-                                            <p className="leading-relaxed">{msg.text}</p>
+                                            {msg.fileUrl && (
+                                                <a
+                                                    href={msg.fileUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="block overflow-hidden rounded-xl mb-2 bg-black/5"
+                                                >
+                                                    <img
+                                                        src={msg.fileUrl}
+                                                        alt={msg.fileName || 'Chat attachment'}
+                                                        className="max-h-72 w-full object-cover"
+                                                    />
+                                                </a>
+                                            )}
+                                            {msg.text && msg.text !== 'Image' && (
+                                                <p className="leading-relaxed">{msg.text}</p>
+                                            )}
                                             
                                             <div className="flex items-center justify-end gap-1 mt-1 opacity-60">
                                                 <p className={`text-[7px] font-black uppercase tracking-widest ${isMe ? 'text-white/80' : 'text-gray-400'}`}>
@@ -460,7 +604,21 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                         {/* Input Area */}
                         <div className="px-6 pb-6 bg-white">
                             <form onSubmit={handleSendMessage} className="p-2.5 bg-gray-50/50 rounded-[20px] border border-gray-100 flex items-center gap-2 focus-within:bg-white focus-within:border-[#5845D8]/20 focus-within:shadow-lg transition-all shadow-sm">
-                                <button type="button" className="p-2 text-gray-400 hover:text-[#5845D8] transition-colors"><Paperclip size={18} /></button>
+                                <input
+                                    ref={imageInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleSendImage}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => imageInputRef.current?.click()}
+                                    className="p-2 text-gray-400 hover:text-[#5845D8] transition-colors disabled:opacity-50"
+                                    disabled={isSending}
+                                >
+                                    <Paperclip size={18} />
+                                </button>
                                 <input
                                     type="text"
                                     value={newMessage}
@@ -474,9 +632,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 <button
                                     type="submit"
                                     className="bg-[#5845D8] text-white p-2.5 rounded-xl hover:bg-[#4838B5] hover:scale-105 transition-all shadow-md shadow-[#5845D8]/20 active:scale-95 disabled:opacity-50"
-                                    disabled={!newMessage.trim()}
+                                    disabled={!newMessage.trim() || isSending}
                                 >
-                                    <Send size={16} />
+                                    {isSending ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
                                 </button>
                             </form>
                         </div>

@@ -18,6 +18,26 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const idOf = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object') return String(value._id || value.id || '');
+  return String(value);
+};
+
+function getChatNotificationTarget(conversation, senderId) {
+  const normalizedSenderId = idOf(senderId);
+  const senderIdInConversation = idOf(conversation.sender?._id || conversation.sender?.id);
+  const travelerIdInConversation = idOf(conversation.traveler?._id || conversation.traveler?.id);
+
+  const senderIsShipmentSender = senderIdInConversation === normalizedSenderId;
+  return {
+    recipientId: senderIsShipmentSender ? travelerIdInConversation : senderIdInConversation,
+    senderName: senderIsShipmentSender
+      ? (conversation.sender?.firstName || 'Sender')
+      : (conversation.traveler?.firstName || 'Traveler'),
+  };
+}
+
 async function uploadMessageImage(file, userId) {
   const mime = file?.mimetype || 'image/jpeg';
   const base64 = file?.data?.toString('base64');
@@ -84,14 +104,9 @@ export const messageController = (io) => {
         io.to(conversation.traveler?._id?.toString()).emit('update_conversation', conversation);
 
         // Send push notification to recipient
-        const recipientId = conversation.sender?._id === senderId
-          ? conversation.traveler?._id
-          : conversation.sender?._id;
-        const senderName = conversation.sender?._id === senderId
-          ? (conversation.sender?.firstName || 'Sender')
-          : (conversation.traveler?.firstName || 'Traveler');
+        const { recipientId, senderName } = getChatNotificationTarget(conversation, senderId);
 
-        if (recipientId) {
+        if (recipientId && recipientId !== idOf(senderId)) {
           await sendPushNotification(
             recipientId,
             `💬 New message from ${senderName}`,
@@ -344,14 +359,9 @@ export const sendMessage = async (req, res) => {
       if (conversation.traveler?._id) io.to(conversation.traveler._id.toString()).emit('update_conversation', conversation);
     }
 
-    const recipientId = conversation.sender?._id === userId
-      ? conversation.traveler?._id
-      : conversation.sender?._id;
-    const senderName = conversation.sender?._id === userId
-      ? (conversation.sender?.firstName || 'Sender')
-      : (conversation.traveler?.firstName || 'Traveler');
+    const { recipientId, senderName } = getChatNotificationTarget(conversation, userId);
 
-    if (recipientId) {
+    if (recipientId && recipientId !== idOf(userId)) {
       await sendPushNotification(
         recipientId,
         `💬 New message from ${senderName}`,
