@@ -2,8 +2,9 @@ import Stripe from 'stripe';
 
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { queryOne } from '../lib/postgres/db.js';
-import { createShipmentRequestRecord, getPackageById, getShipmentRequestById, getTripById } from '../lib/postgres/shipping.js';
+import { createNotification, createShipmentRequestRecord, getPackageById, getShipmentRequestById, getTripById } from '../lib/postgres/shipping.js';
 import { findProfileById, updateStripeConnectState } from '../lib/postgres/profiles.js';
+import { sendPushNotification } from '../services/pushNotificationService.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 
 let stripeClient = null;
@@ -183,6 +184,28 @@ async function finalizeStripeShipmentPayment(paymentIntent) {
       providerReference: paymentIntent.id,
       provider: 'stripe',
     });
+  }
+
+  if (!existingRequest) {
+    await Promise.allSettled([
+      createNotification({
+        userId: request.travelerId,
+        title: duplicateRequest ? 'Shipment request updated' : 'New booking received!',
+        body: duplicateRequest
+          ? `${request.senderName || 'A sender'} added extra kg to an existing request on your trip.`
+          : `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
+        type: 'shipment_request',
+        payload: { requestId: request.id, tripId, merged: Boolean(duplicateRequest) },
+      }),
+      sendPushNotification(
+        request.travelerId,
+        duplicateRequest ? 'Shipment request updated' : 'New booking received!',
+        duplicateRequest
+          ? `${request.senderName || 'A sender'} added extra kg to an existing request.`
+          : `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
+        { requestId: request.id, type: 'shipment_request', merged: Boolean(duplicateRequest) },
+      ),
+    ]);
   }
 
   return request;
