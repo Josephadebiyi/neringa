@@ -49,7 +49,7 @@ export async function buildTripCapacitySnapshot(executor, tripId, { lockTrip = f
       FROM public.trips t
       LEFT JOIN public.profiles p ON p.id = t.user_id
       WHERE t.id = $1
-      ${lockTrip ? 'FOR UPDATE' : ''}
+      ${lockTrip ? 'FOR UPDATE OF t' : ''}
     `,
     [tripId],
   );

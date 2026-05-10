@@ -563,7 +563,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     } catch (error) {
       if (provider != 'stripe') rethrow;
-      _updateProcessingMessage('Recovering your paid shipment...');
+      _updateProcessingMessage('Finalizing your shipment...');
       final recovered =
           await PaymentService.instance.finalizeStripePaidShipment(
         paymentReference,
