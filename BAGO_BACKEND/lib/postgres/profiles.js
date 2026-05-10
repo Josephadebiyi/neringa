@@ -347,19 +347,32 @@ export async function clearPushTokens(userId) {
 }
 
 export async function addPushToken(userId, token) {
-  const result = await query(
-    `
-      update public.profiles
-      set push_tokens = case
-        when $2 = any(coalesce(push_tokens, '{}')) then coalesce(push_tokens, '{}')
-        else array_append(coalesce(push_tokens, '{}'), $2)
-      end,
-      updated_at = timezone('utc', now())
-      where id = $1
-      returning id, array_length(push_tokens, 1) as token_count
-    `,
-    [userId, token],
-  );
+  const result = await withTransaction(async (client) => {
+    await client.query(
+      `
+        update public.profiles
+        set push_tokens = array_remove(coalesce(push_tokens, '{}'), $2),
+            updated_at = timezone('utc', now())
+        where id <> $1
+          and $2 = any(coalesce(push_tokens, '{}'))
+      `,
+      [userId, token],
+    );
+
+    return client.query(
+      `
+        update public.profiles
+        set push_tokens = case
+          when $2 = any(coalesce(push_tokens, '{}')) then coalesce(push_tokens, '{}')
+          else array_append(coalesce(push_tokens, '{}'), $2)
+        end,
+        updated_at = timezone('utc', now())
+        where id = $1
+        returning id, array_length(push_tokens, 1) as token_count
+      `,
+      [userId, token],
+    );
+  });
   
   if (result.rows.length === 0) {
     console.warn(`⚠️ addPushToken: No profile found for user ${userId}`);
