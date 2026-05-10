@@ -4,6 +4,7 @@ import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { queryOne } from '../lib/postgres/db.js';
 import { createNotification, createShipmentRequestRecord, getPackageById, getShipmentRequestById, getTripById } from '../lib/postgres/shipping.js';
 import { findProfileById, updateStripeConnectState } from '../lib/postgres/profiles.js';
+import { sendNewRequestToTravelerEmail } from '../services/emailNotifications.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 
@@ -209,6 +210,15 @@ async function finalizeStripeShipmentPayment(paymentIntent, { expectedUserId = n
           : `${request.senderName || 'A sender'} has paid for a shipment on your trip.`,
         { requestId: request.id, type: 'shipment_request', merged: Boolean(duplicateRequest) },
       ),
+      !duplicateRequest && request.traveler?.email
+        ? sendNewRequestToTravelerEmail(
+            request.traveler.email,
+            request.travelerName || 'Traveler',
+            request.senderName || 'Sender',
+            `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
+            tripDoc,
+          )
+        : Promise.resolve(false),
     ]);
   }
 

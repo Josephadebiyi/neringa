@@ -96,7 +96,7 @@ const sendApnsToToken = async (pushToken, title, body, data = {}) => {
   }
 };
 
-// ─── FCM (Android) ────────────────────────────────────────────────────────────
+// ─── FCM (Android + Firebase Messaging iOS) ──────────────────────────────────
 
 let _firebaseAdmin = null;
 
@@ -104,15 +104,20 @@ const getFirebaseAdmin = async () => {
   if (_firebaseAdmin) return _firebaseAdmin;
 
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
   if (!serviceAccountJson) {
-    console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT_JSON not set — Android push will be skipped');
-    return null;
+    if (!serviceAccountPath) {
+      console.warn('⚠️  Firebase service account not set — FCM push will be skipped');
+      return null;
+    }
   }
 
   try {
     const { default: admin } = await import('firebase-admin');
     if (!admin.apps.length) {
-      const serviceAccount = JSON.parse(serviceAccountJson);
+      const serviceAccount = serviceAccountJson
+        ? JSON.parse(serviceAccountJson)
+        : JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
@@ -142,6 +147,14 @@ const sendFcmToToken = async (fcmToken, title, body, data = {}) => {
       android: {
         priority: 'high',
         notification: { sound: 'default', channelId: 'bago_default' },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
       },
       data: stringData,
     });
