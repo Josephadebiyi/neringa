@@ -46,6 +46,131 @@ function getStripeClient() {
   return stripeClient;
 }
 
+function normalizePaymentProvider(paymentInfo = {}) {
+  return String(paymentInfo.gateway || paymentInfo.method || paymentInfo.provider || '').toLowerCase();
+}
+
+function getPaymentReference(paymentInfo = {}) {
+  return paymentInfo.requestId || paymentInfo.paymentIntentId || paymentInfo.reference || paymentInfo.transactionReference || null;
+}
+
+async function refundPaystackPayment(reference) {
+  const secret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
+  if (!secret) {
+    throw new Error('Paystack secret is not configured.');
+  }
+
+  const response = await fetch('https://api.paystack.co/refund', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ transaction: reference }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.status === false) {
+    throw new Error(data.message || 'Paystack refund failed.');
+  }
+  return data.data || data;
+}
+
+async function reverseTravelerEscrowForRefund(client, requestId, reason) {
+  const txResult = await client.query(
+    `
+      select wt.id, wt.wallet_id, wt.user_id, wt.trip_id, wt.amount, wt.currency
+      from public.wallet_transactions wt
+      where wt.request_id = $1
+        and wt.type = 'escrow_hold'
+        and wt.status = 'completed'
+      order by wt.created_at desc
+    `,
+    [requestId],
+  );
+  for (const escrowTx of txResult.rows) {
+    await client.query(
+      `
+        update public.wallet_accounts
+        set escrow_balance = greatest(0, escrow_balance - $2),
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [escrowTx.wallet_id, escrowTx.amount],
+    );
+
+    await client.query(
+      `
+        insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
+        values ($1, $2, $3, $4, 'refund', $5, $6, 'completed', $7, $8)
+      `,
+      [
+        escrowTx.wallet_id,
+        escrowTx.user_id,
+        requestId,
+        escrowTx.trip_id,
+        escrowTx.amount,
+        escrowTx.currency || 'USD',
+        reason,
+        { sourceTransactionId: escrowTx.id },
+      ],
+    );
+  }
+}
+
+async function refundPaidShipmentRequest(request) {
+  const paymentInfo = request?.paymentInfo || {};
+  const provider = normalizePaymentProvider(paymentInfo);
+  const reference = getPaymentReference(paymentInfo);
+  const previousRefundStatus = paymentInfo.refund?.status;
+
+  if (!reference || !['stripe', 'paystack'].includes(provider)) {
+    return null;
+  }
+  if (['succeeded', 'pending'].includes(previousRefundStatus)) {
+    return paymentInfo.refund || null;
+  }
+
+  let refund;
+  if (provider === 'stripe') {
+    const stripe = getStripeClient();
+    if (!stripe) throw new Error('Stripe is not configured.');
+    refund = await stripe.refunds.create(
+      { payment_intent: reference },
+      { idempotencyKey: `shipment-refund-${request.id}-${reference}` },
+    );
+  } else {
+    refund = await refundPaystackPayment(reference);
+  }
+
+  const refundInfo = {
+    status: provider === 'paystack' ? (refund.status || 'pending') : (refund.status || 'succeeded'),
+    provider,
+    reference: refund.id || refund.reference || null,
+    paymentReference: reference,
+    reason: 'traveler_rejected',
+    createdAt: new Date().toISOString(),
+  };
+
+  await withTransaction(async (client) => {
+    await reverseTravelerEscrowForRefund(
+      client,
+      request.id,
+      `Gateway refund after traveler declined Request ${request.trackingNumber || request.id}`,
+    );
+    await client.query(
+      `
+        update public.shipment_requests
+        set payment_info = coalesce(payment_info, '{}'::jsonb) || $2::jsonb,
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [request.id, JSON.stringify({ status: 'refunded', refund: refundInfo })],
+    );
+  });
+
+  return refundInfo;
+}
+
 function buildTripRealtimePayload(trip) {
   if (!trip) return null;
   return {
@@ -653,6 +778,23 @@ export async function updateRequestStatus(req, res) {
     if (!updatedRequest) {
       return res.status(404).json({ message: 'Request not found' });
     }
+    let refundInfo = null;
+    if (['rejected', 'cancelled'].includes(status)) {
+      try {
+        refundInfo = await refundPaidShipmentRequest(updatedRequest);
+      } catch (refundError) {
+        console.error('Request was declined but payment refund failed:', {
+          requestId,
+          status,
+          error: refundError.message,
+        });
+        return res.status(502).json({
+          message: 'Request was declined, but the payment refund could not be started automatically. Please contact support.',
+          success: false,
+          refundFailed: true,
+        });
+      }
+    }
 
     try {
       if (updatedRequest?.tripId) {
@@ -729,6 +871,7 @@ export async function updateRequestStatus(req, res) {
     return res.status(200).json({
       message: 'Request status updated successfully',
       data: updatedRequest,
+      refund: refundInfo,
       success: true,
       errors: false,
     });
