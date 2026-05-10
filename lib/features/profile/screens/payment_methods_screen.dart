@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/user_currency_helper.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../shared/services/app_settings_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
@@ -106,7 +106,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   }
 
   Future<bool> _confirmCardSetup() async {
-    if (ApiConstants.stripePublishableKey.isEmpty) {
+    if (!await _ensureStripeReady()) {
+      if (!mounted) return false;
       AppSnackBar.show(
         context,
         message:
@@ -125,27 +126,33 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
         email: _billingEmail.isEmpty ? null : _billingEmail,
       );
 
-      debugPrint('[PaymentMethods] Creating payment method');
-      final paymentMethod = await Stripe.instance.createPaymentMethod(
+      debugPrint('[PaymentMethods] Creating setup intent');
+      final setupSession =
+          await PaymentService.instance.createCardSetupSession();
+      debugPrint('[PaymentMethods] Confirming setup intent');
+      final setupIntent = await Stripe.instance.confirmSetupIntent(
+        paymentIntentClientSecret: setupSession.setupIntentClientSecret,
         params: PaymentMethodParams.card(
           paymentMethodData: PaymentMethodData(
             billingDetails: billingDetails,
           ),
         ),
       );
+      final setupStatus = setupIntent.status.toLowerCase();
+      if (setupStatus != 'succeeded' && setupStatus != 'success') {
+        throw StateError('Card setup was not completed. Please try again.');
+      }
 
-      final paymentMethodBrand =
-          paymentMethod.card.brand?.trim().toLowerCase() ?? '';
       debugPrint(
-        '[PaymentMethods] Payment method created id=${paymentMethod.id} brand=$paymentMethodBrand',
+        '[PaymentMethods] Setup intent confirmed paymentMethod=${setupIntent.paymentMethodId}',
       );
-      if (!_isSupportedBrand(paymentMethodBrand)) {
-        throw StateError('Only Visa and Mastercard are supported right now.');
+      if (setupIntent.paymentMethodId.isEmpty) {
+        throw StateError('Card setup could not be completed.');
       }
 
       debugPrint('[PaymentMethods] Attaching payment method');
       final attachedCard = await PaymentService.instance.attachPaymentMethod(
-        paymentMethod.id,
+        setupIntent.paymentMethodId,
       );
       debugPrint(
         '[PaymentMethods] Payment method attached id=${attachedCard.id} brand=${attachedCard.brand}',
@@ -291,6 +298,21 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
 
   bool _isSupportedBrand(String brand) =>
       _supportedBrands.contains(brand.trim().toLowerCase());
+
+  Future<bool> _ensureStripeReady() async {
+    try {
+      Stripe.publishableKey;
+      return true;
+    } on StripeConfigException {
+      await AppSettingsService.instance.fetchPublicSettings();
+      try {
+        Stripe.publishableKey;
+        return true;
+      } on StripeConfigException {
+        return false;
+      }
+    }
+  }
 
   String _friendlyPaymentMethodsError(Object error) {
     final raw = error.toString();

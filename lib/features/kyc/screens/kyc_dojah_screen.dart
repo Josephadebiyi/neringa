@@ -154,7 +154,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       } catch(e) {}
     }
 
-    window.addEventListener('load', function() {
+    function startWidget() {
       var options = {
         app_id:   '$safeAppId',
         p_key:    '$safeKey',
@@ -193,7 +193,10 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       };
 
       try {
-        var WidgetCtor = window.DojahEasyOnboard || window.DojaEasyOnboard;
+        var WidgetCtor =
+          window.Connect ||
+          window.DojahEasyOnboard ||
+          window.DojaEasyOnboard;
         if (!WidgetCtor) {
           throw new Error('verification widget unavailable');
         }
@@ -204,6 +207,20 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       } catch(e) {
         notify('error', { message: 'Could not load verification widget: ' + e.message });
       }
+    }
+
+    window.addEventListener('load', function() {
+      var attempts = 0;
+      var timer = setInterval(function() {
+        attempts += 1;
+        if (window.Connect || window.DojahEasyOnboard || window.DojaEasyOnboard) {
+          clearInterval(timer);
+          startWidget();
+        } else if (attempts >= 30) {
+          clearInterval(timer);
+          notify('error', { message: 'Could not load verification widget: timed out' });
+        }
+      }, 200);
     });
   </script>
 </body>

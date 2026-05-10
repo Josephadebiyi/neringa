@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
+import '../../../shared/services/app_settings_service.dart';
 import '../../payment/services/payment_service.dart';
 import '../../shipments/services/shipment_service.dart';
 import '../services/shipment_checkout_service.dart';
@@ -150,7 +151,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<bool> _saveCardFromCheckout() async {
-    if (ApiConstants.stripePublishableKey.isEmpty) {
+    if (!await _ensureStripeReady()) {
+      if (!mounted) return false;
       AppSnackBar.show(
         context,
         message:
@@ -169,22 +171,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
         email: billingEmail.isEmpty ? null : billingEmail,
       );
 
-      final paymentMethod = await Stripe.instance.createPaymentMethod(
+      final setupSession =
+          await PaymentService.instance.createCardSetupSession();
+      final setupIntent = await Stripe.instance.confirmSetupIntent(
+        paymentIntentClientSecret: setupSession.setupIntentClientSecret,
         params: PaymentMethodParams.card(
           paymentMethodData: PaymentMethodData(
             billingDetails: billingDetails,
           ),
         ),
       );
+      final setupStatus = setupIntent.status.toLowerCase();
+      if (setupStatus != 'succeeded' && setupStatus != 'success') {
+        throw StateError('Card setup was not completed. Please try again.');
+      }
 
-      final paymentMethodBrand =
-          paymentMethod.card.brand?.trim().toLowerCase() ?? '';
-      if (!_isSupportedBrand(paymentMethodBrand)) {
-        throw StateError('Only Visa and Mastercard are supported right now.');
+      if (setupIntent.paymentMethodId.isEmpty) {
+        throw StateError('Card setup could not be completed.');
       }
 
       final attachedCard = await PaymentService.instance.attachPaymentMethod(
-        paymentMethod.id,
+        setupIntent.paymentMethodId,
       );
 
       final allCards = await _waitForSavedCards(
@@ -487,6 +494,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _isProcessingPayment = false;
           _processingMessage = 'Processing your payment...';
         });
+      }
+    }
+  }
+
+  Future<bool> _ensureStripeReady() async {
+    try {
+      Stripe.publishableKey;
+      return true;
+    } on StripeConfigException {
+      await AppSettingsService.instance.fetchPublicSettings();
+      try {
+        Stripe.publishableKey;
+        return true;
+      } on StripeConfigException {
+        return false;
       }
     }
   }
