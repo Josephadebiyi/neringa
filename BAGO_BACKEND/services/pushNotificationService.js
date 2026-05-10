@@ -96,7 +96,7 @@ const sendApnsToToken = async (pushToken, title, body, data = {}) => {
   }
 };
 
-// ─── FCM (Android + Firebase Messaging iOS) ──────────────────────────────────
+// ─── FCM (Android) ────────────────────────────────────────────────────────────
 
 let _firebaseAdmin = null;
 
@@ -147,14 +147,6 @@ const sendFcmToToken = async (fcmToken, title, body, data = {}) => {
       android: {
         priority: 'high',
         notification: { sound: 'default', channelId: 'bago_default' },
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-          },
-        },
       },
       data: stringData,
     });

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +10,7 @@ import '../../../core/utils/model_enums.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
+import '../../../shared/widgets/full_screen_image_viewer.dart';
 import '../../messages/providers/message_provider.dart';
 import '../../messages/services/message_realtime_service.dart';
 import '../models/request_model.dart';
@@ -481,7 +481,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                             .copyWith(fontWeight: FontWeight.w600)),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: req.insurancePolicyId != null
                           ? AppColors.successLight
@@ -911,26 +912,12 @@ class _PackageImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget image;
-    if (url.startsWith('data:')) {
-      try {
-        final commaIndex = url.indexOf(',');
-        if (commaIndex == -1) return _placeholder;
-        final base64Str = url.substring(commaIndex + 1);
-        final bytes = base64Decode(base64Str);
-        image = Image.memory(bytes,
-            fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
-      } catch (_) {
-        return _placeholder;
-      }
-    } else {
-      image = Image.network(url,
-          fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
-    }
-    if (width != null || height != null) {
-      return SizedBox(width: width, height: height, child: image);
-    }
-    return image;
+    return TappableImage(
+      url: url,
+      width: width,
+      height: height,
+      placeholder: _placeholder,
+    );
   }
 }
 

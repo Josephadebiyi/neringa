@@ -9,6 +9,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
+import '../../../shared/widgets/full_screen_image_viewer.dart';
 import '../../../core/utils/model_enums.dart';
 import '../../auth/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -21,7 +22,8 @@ class ShipmentDetailsScreen extends ConsumerStatefulWidget {
   final String shipmentId;
 
   @override
-  ConsumerState<ShipmentDetailsScreen> createState() => _ShipmentDetailsScreenState();
+  ConsumerState<ShipmentDetailsScreen> createState() =>
+      _ShipmentDetailsScreenState();
 }
 
 class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
@@ -43,7 +45,8 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        title: Text(l10n.shipmentDetailsTitle, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        title: Text(l10n.shipmentDetailsTitle,
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
@@ -63,17 +66,20 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                    const Icon(Icons.error_outline,
+                        color: AppColors.error, size: 48),
                     const SizedBox(height: 16),
                     Text(l10n.couldNotLoadShipment, style: AppTextStyles.h3),
                     const SizedBox(height: 8),
                     Text(snap.error.toString(),
-                        style: AppTextStyles.muted(AppTextStyles.bodyMd), textAlign: TextAlign.center),
+                        style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 24),
                     AppButton(
                       label: l10n.retry,
                       onPressed: () => setState(() {
-                        _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
+                        _future = ShipmentService.instance
+                            .getPackageDetails(widget.shipmentId);
                       }),
                     ),
                   ],
@@ -102,7 +108,8 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
     );
   }
 
-  Future<void> _showPdfOptions(PackageModel shipment, UserModel? currentUser) async {
+  Future<void> _showPdfOptions(
+      PackageModel shipment, UserModel? currentUser) async {
     final l10n = AppLocalizations.of(context);
     await showModalBottomSheet<void>(
       context: context,
@@ -131,11 +138,14 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text(l10n.shippingPdfTitle, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+                Text(l10n.shippingPdfTitle,
+                    style:
+                        AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
                 Text(
                   l10n.shippingPdfDescription,
-                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, height: 1.4),
+                  style: AppTextStyles.bodySm
+                      .copyWith(color: AppColors.gray500, height: 1.4),
                 ),
                 const SizedBox(height: 18),
                 AppButton(
@@ -149,7 +159,8 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                       );
                     } catch (e) {
                       if (mounted) {
-                        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+                        AppSnackBar.show(context,
+                            message: e.toString(), type: SnackBarType.error);
                       }
                     }
                   },
@@ -167,7 +178,8 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                       );
                     } catch (e) {
                       if (mounted) {
-                        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+                        AppSnackBar.show(context,
+                            message: e.toString(), type: SnackBarType.error);
                       }
                     }
                   },
@@ -180,7 +192,8 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
     );
   }
 
-  Future<void> _showReviewSheet(PackageModel shipment, UserModel? currentUser) async {
+  Future<void> _showReviewSheet(
+      PackageModel shipment, UserModel? currentUser) async {
     final l10n = AppLocalizations.of(context);
     final commentCtrl = TextEditingController();
     double rating = 5;
@@ -211,7 +224,9 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                               : null)),
                   targetRole: currentUser == null
                       ? null
-                      : (currentUser.id == shipment.senderId ? 'traveler' : 'sender'),
+                      : (currentUser.id == shipment.senderId
+                          ? 'traveler'
+                          : 'sender'),
                   requestStatus: shipment.status.apiValue,
                   reporterName: currentUser?.fullName,
                   otherUserName: shipment.travelerName ?? shipment.senderName,
@@ -270,12 +285,14 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                     const SizedBox(height: 16),
                     Text(
                       l10n.leaveFeedback,
-                      style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                      style: AppTextStyles.h3
+                          .copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       l10n.rateTravelerNote,
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -284,10 +301,15 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                         final starValue = index + 1;
                         final selected = starValue <= rating.round();
                         return IconButton(
-                          onPressed: () => setSheetState(() => rating = starValue.toDouble()),
+                          onPressed: () => setSheetState(
+                              () => rating = starValue.toDouble()),
                           icon: Icon(
-                            selected ? Icons.star_rounded : Icons.star_border_rounded,
-                            color: selected ? AppColors.primary : AppColors.gray300,
+                            selected
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.gray300,
                             size: 32,
                           ),
                         );
@@ -338,8 +360,12 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
           'Confirming receipt will release payment to the traveler. Only do this once you have the package.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirm')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Confirm')),
         ],
       ),
     );
@@ -349,12 +375,16 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
     try {
       await ShipmentService.instance.confirmReceived(requestId);
       if (!mounted) return;
-      AppSnackBar.show(context, message: 'Delivery confirmed! Payment released to traveler.', type: SnackBarType.success);
+      AppSnackBar.show(context,
+          message: 'Delivery confirmed! Payment released to traveler.',
+          type: SnackBarType.success);
       setState(() {
         _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
       });
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted)
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _confirmingReceived = false);
     }
@@ -400,27 +430,40 @@ class _ShipmentBody extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 48, height: 48,
-                  decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(14)),
-                  child: const Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 24),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.inventory_2_outlined,
+                      color: AppColors.primary, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(package.title.isNotEmpty ? package.title : package.category,
-                        style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text(package.category, style: AppTextStyles.muted(AppTextStyles.bodySm)),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            package.title.isNotEmpty
+                                ? package.title
+                                : package.category,
+                            style: AppTextStyles.h4
+                                .copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(package.category,
+                            style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                      ]),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(package.statusLabel,
-                      style: AppTextStyles.labelSm.copyWith(color: statusColor, fontWeight: FontWeight.w700)),
+                      style: AppTextStyles.labelSm.copyWith(
+                          color: statusColor, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -429,27 +472,39 @@ class _ShipmentBody extends StatelessWidget {
 
           // Route
           _Card(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _Label(l10n.route),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      _Label(l10n.fromLabel),
-                      const SizedBox(height: 4),
-                      Text(package.fromCity, style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
-                      Text(package.fromCountry, style: AppTextStyles.muted(AppTextStyles.bodySm)),
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _Label(l10n.fromLabel),
+                          const SizedBox(height: 4),
+                          Text(package.fromCity,
+                              style: AppTextStyles.h4
+                                  .copyWith(fontWeight: FontWeight.w800)),
+                          Text(package.fromCountry,
+                              style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                        ]),
                   ),
-                  const Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 20),
+                  const Icon(Icons.arrow_forward_rounded,
+                      color: AppColors.primary, size: 20),
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      _Label(l10n.toLabel),
-                      const SizedBox(height: 4),
-                      Text(package.toCity, style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
-                      Text(package.toCountry, style: AppTextStyles.muted(AppTextStyles.bodySm)),
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _Label(l10n.toLabel),
+                          const SizedBox(height: 4),
+                          Text(package.toCity,
+                              style: AppTextStyles.h4
+                                  .copyWith(fontWeight: FontWeight.w800)),
+                          Text(package.toCountry,
+                              style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                        ]),
                   ),
                 ],
               ),
@@ -459,18 +514,27 @@ class _ShipmentBody extends StatelessWidget {
 
           // Package details
           _Card(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _Label(l10n.packageDetailsTitle),
               const SizedBox(height: 14),
               _Row(l10n.weightLabel, '${package.weight} kg'),
-              _Row(l10n.declaredValueLabel, '${package.currency} ${package.value.toStringAsFixed(2)}'),
-              _Row(l10n.insurance, package.insurance ? l10n.yesLabel : l10n.noLabel),
-              if (package.description.isNotEmpty) _Row(l10n.descriptionLabel, package.description),
-              if (package.senderName?.isNotEmpty == true) _Row(l10n.senderLabel, package.senderName!),
-              if (package.travelerName?.isNotEmpty == true) _Row(l10n.travelerLabel, package.travelerName!),
-              if (package.paymentStatus?.isNotEmpty == true) _Row(l10n.paymentLabel, package.paymentStatus!),
-              if (package.pickupDate != null) _Row(l10n.pickupDateLabel, package.pickupDate!),
-              if (package.deliveryDate != null) _Row(l10n.deliveryDateLabel, package.deliveryDate!),
+              _Row(l10n.declaredValueLabel,
+                  '${package.currency} ${package.value.toStringAsFixed(2)}'),
+              _Row(l10n.insurance,
+                  package.insurance ? l10n.yesLabel : l10n.noLabel),
+              if (package.description.isNotEmpty)
+                _Row(l10n.descriptionLabel, package.description),
+              if (package.senderName?.isNotEmpty == true)
+                _Row(l10n.senderLabel, package.senderName!),
+              if (package.travelerName?.isNotEmpty == true)
+                _Row(l10n.travelerLabel, package.travelerName!),
+              if (package.paymentStatus?.isNotEmpty == true)
+                _Row(l10n.paymentLabel, package.paymentStatus!),
+              if (package.pickupDate != null)
+                _Row(l10n.pickupDateLabel, package.pickupDate!),
+              if (package.deliveryDate != null)
+                _Row(l10n.deliveryDateLabel, package.deliveryDate!),
               if (package.estimatedDeparture?.isNotEmpty == true)
                 _Row(l10n.estimatedDepartureLabel, package.estimatedDeparture!),
               if (package.estimatedArrival?.isNotEmpty == true)
@@ -480,45 +544,50 @@ class _ShipmentBody extends StatelessWidget {
           const SizedBox(height: 14),
 
           // Package Images
-          if (package.images.isNotEmpty) ...[            
+          if (package.images.isNotEmpty) ...[
             _Card(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _Label(l10n.itemImagesLabel),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 140,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: package.images.length,
-                    itemBuilder: (context, index) => Padding(
-                      padding: EdgeInsets.only(right: index < package.images.length - 1 ? 12 : 0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          package.images[index],
-                          fit: BoxFit.cover,
-                          width: 120,
-                          errorBuilder: (context, error, stackTrace) => Container(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Label(l10n.itemImagesLabel),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 140,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: package.images.length,
+                        itemBuilder: (context, index) => Padding(
+                          padding: EdgeInsets.only(
+                              right:
+                                  index < package.images.length - 1 ? 12 : 0),
+                          child: TappableImage(
+                            url: package.images[index],
                             width: 120,
-                            decoration: BoxDecoration(
-                              color: AppColors.backgroundOff,
-                              borderRadius: BorderRadius.circular(12),
+                            height: 140,
+                            borderRadius: BorderRadius.circular(12),
+                            placeholder: Container(
+                              width: 120,
+                              decoration: BoxDecoration(
+                                color: AppColors.backgroundOff,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                  Icons.image_not_supported_rounded,
+                                  color: AppColors.gray500),
                             ),
-                            child: const Icon(Icons.image_not_supported_rounded, color: AppColors.gray500),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              ]),
+                  ]),
             ),
             const SizedBox(height: 14),
           ],
 
           // Addresses
           _Card(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _Label(l10n.addressesTitle),
               const SizedBox(height: 14),
               _Row(l10n.pickupLabel, package.pickupAddress),
@@ -527,25 +596,29 @@ class _ShipmentBody extends StatelessWidget {
           ),
 
           // Receiver
-          if (package.receiverName != null || package.receiverPhone != null || package.receiverEmail != null) ...[  
+          if (package.receiverName != null ||
+              package.receiverPhone != null ||
+              package.receiverEmail != null) ...[
             const SizedBox(height: 14),
             _Card(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _Label(l10n.receiverInfo),
-                const SizedBox(height: 14),
-                if (package.receiverName?.isNotEmpty == true) 
-                  _Row(l10n.nameLabel, package.receiverName!)
-                else
-                  _Row(l10n.nameLabel, l10n.notProvidedLabel),
-                if (package.receiverPhone?.isNotEmpty == true) 
-                  _Row(l10n.phoneLabel, package.receiverPhone!)
-                else
-                  _Row(l10n.phoneLabel, l10n.notProvidedLabel),
-                if (package.receiverEmail?.isNotEmpty == true) 
-                  _Row(l10n.emailLabel, package.receiverEmail!)
-                else
-                  _Row(l10n.emailLabel, l10n.notProvidedLabel),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Label(l10n.receiverInfo),
+                    const SizedBox(height: 14),
+                    if (package.receiverName?.isNotEmpty == true)
+                      _Row(l10n.nameLabel, package.receiverName!)
+                    else
+                      _Row(l10n.nameLabel, l10n.notProvidedLabel),
+                    if (package.receiverPhone?.isNotEmpty == true)
+                      _Row(l10n.phoneLabel, package.receiverPhone!)
+                    else
+                      _Row(l10n.phoneLabel, l10n.notProvidedLabel),
+                    if (package.receiverEmail?.isNotEmpty == true)
+                      _Row(l10n.emailLabel, package.receiverEmail!)
+                    else
+                      _Row(l10n.emailLabel, l10n.notProvidedLabel),
+                  ]),
             ),
           ],
 
@@ -553,25 +626,31 @@ class _ShipmentBody extends StatelessWidget {
           if (package.trackingNumber != null) ...[
             const SizedBox(height: 14),
             _Card(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _Label(l10n.trackingNumberTitle),
-                const SizedBox(height: 14),
-                Row(children: [
-                  Expanded(
-                    child: Text(package.trackingNumber!,
-                        style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Clipboard.setData(ClipboardData(text: package.trackingNumber!));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l10n.copiedToClipboard)),
-                      );
-                    },
-                    child: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                  ),
-                ]),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Label(l10n.trackingNumberTitle),
+                    const SizedBox(height: 14),
+                    Row(children: [
+                      Expanded(
+                        child: Text(package.trackingNumber!,
+                            style: AppTextStyles.labelMd.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5)),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(
+                              ClipboardData(text: package.trackingNumber!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.copiedToClipboard)),
+                          );
+                        },
+                        child: const Icon(Icons.copy_rounded,
+                            size: 18, color: AppColors.primary),
+                      ),
+                    ]),
+                  ]),
             ),
           ],
 
@@ -581,9 +660,12 @@ class _ShipmentBody extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(l10n.totalPriceTitle, style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+                Text(l10n.totalPriceTitle,
+                    style: AppTextStyles.labelMd
+                        .copyWith(fontWeight: FontWeight.w700)),
                 Text('${package.currency} ${package.price.toStringAsFixed(2)}',
-                    style: AppTextStyles.h3.copyWith(color: AppColors.primary, fontWeight: FontWeight.w900)),
+                    style: AppTextStyles.h3.copyWith(
+                        color: AppColors.primary, fontWeight: FontWeight.w900)),
               ],
             ),
           ),
@@ -662,7 +744,8 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(
+            color: AppColors.white, borderRadius: BorderRadius.circular(20)),
         child: child,
       );
 }
@@ -674,7 +757,10 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text.toUpperCase(),
-        style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w800, letterSpacing: 1),
+        style: AppTextStyles.labelXs.copyWith(
+            color: AppColors.gray400,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1),
       );
 }
 
@@ -688,10 +774,14 @@ class _Row extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(width: 110, child: Text(label, style: AppTextStyles.muted(AppTextStyles.bodySm))),
+            SizedBox(
+                width: 110,
+                child: Text(label,
+                    style: AppTextStyles.muted(AppTextStyles.bodySm))),
             Expanded(
               child: Text(value,
-                  style: AppTextStyles.bodySm.copyWith(fontWeight: FontWeight.w600, color: AppColors.black)),
+                  style: AppTextStyles.bodySm.copyWith(
+                      fontWeight: FontWeight.w600, color: AppColors.black)),
             ),
           ],
         ),
