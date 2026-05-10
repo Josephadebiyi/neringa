@@ -77,7 +77,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
           AppSnackBar.show(context,
               message: 'Verification submitted successfully',
               type: SnackBarType.success);
-          context.go('/profile');
+          context.go(widget.fromOnboarding ? '/home' : '/profile');
           break;
 
         case 'close':
@@ -159,7 +159,11 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         app_id:   '$safeAppId',
         p_key:    '$safeKey',
         type:     'custom',
-        metadata: { user_id: '$safeUserId' },
+        reference_id: '$safeUserId',
+        metadata: {
+          userId: '$safeUserId',
+          user_id: '$safeUserId',
+        },
         config: {
           debug: false,
           pages: [

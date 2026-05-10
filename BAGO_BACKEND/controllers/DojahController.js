@@ -108,7 +108,9 @@ export const dojahWebhook = async (req, res) => {
     const status = (event?.data?.status || event?.status || '').toLowerCase();
     const userId  =
       event?.data?.entity?.userId ||
+      event?.data?.entity?.user_id ||
       event?.data?.metadata?.userId ||
+      event?.data?.metadata?.user_id ||
       event?.data?.referenceId;
 
     if (!userId) {
