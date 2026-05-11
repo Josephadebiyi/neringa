@@ -136,11 +136,13 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     }
     setState(() => _loading = true);
     try {
+      final currency = UserCurrencyHelper.resolve(ref.read(authProvider).user);
       final res = await ApiService.instance.post(ApiConstants.paystackAddBank,
           data: {
             'accountNumber': _accountCtrl.text,
             'bankCode': _bankCode,
             'bankName': _bankName,
+            'currency': currency,
           },
           options: Options(
             headers: {
@@ -558,6 +560,16 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          TextButton(
+            onPressed: _loading
+                ? null
+                : () {
+                    _otpCtrl.clear();
+                    _linkBank();
+                  },
+            child: Text('Resend code',
+                style: AppTextStyles.primary(AppTextStyles.labelMd)),
+          ),
           TextButton(
             onPressed: () => setState(() {
               _showOtp = false;

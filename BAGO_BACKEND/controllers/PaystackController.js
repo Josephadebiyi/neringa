@@ -172,65 +172,72 @@ export const addBankAccount = async (req, res) => {
       });
     }
 
-    // Generate 6-digit OTP
+    const currency = (req.body?.currency || req.body?.walletCurrency || req.body?.preferredCurrency || user.preferred_currency || 'NGN').toString().toUpperCase();
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Store pending bank details + OTP inside bank_details JSON
     await pgQuery(
       `UPDATE public.profiles
        SET bank_details = $2,
+           payout_provider = 'paystack',
+           payout_method_status = 'otp_pending',
            updated_at = NOW()
        WHERE id = $1`,
       [
         user.id,
         JSON.stringify({
-          accountNumber,
-          bankCode,
-          accountName: accountInfo.accountName,
           bankName: bankName || 'Bank',
+          bankCode,
+          accountNumber,
+          accountName: accountInfo.accountName,
+          currency,
           pendingOtp: otp,
           otpExpiresAt: expiresAt.toISOString(),
         }),
       ]
     );
 
-    let deliveryStatus = 'email_sent';
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: 'Bago <noreply@bagoapp.com>',
-          to: user.email,
-          subject: 'Confirm Your Bank Account',
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
-              <h2 style="color:#5C4BFD">Confirm Bank Account</h2>
-              <p>You are linking a new payout account to your Bago profile:</p>
-              <p><strong>Bank:</strong> ${bankName || 'Bank'}</p>
-              <p><strong>Account:</strong> ${accountInfo.accountName} — ****${accountNumber.slice(-4)}</p>
-              <p>Use the code below to confirm. It expires in 10 minutes.</p>
-              <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#5C4BFD;margin:24px 0">${otp}</div>
-              <p style="color:#9CA3AF;font-size:12px">If you did not request this, please contact support immediately.</p>
-            </div>
-          `,
-        });
-      } catch (emailError) {
-        deliveryStatus = 'email_failed';
-        console.error('Bank OTP email send error:', emailError);
-      }
-    } else {
-      deliveryStatus = 'email_unavailable';
-      console.log('Bank OTP (no email):', otp);
+    if (!resend || !resend.emails?.send) {
+      return res.status(503).json({
+        success: false,
+        requiresOtp: true,
+        message: 'Bank confirmation code could not be sent because email service is not configured. Please contact support.',
+      });
+    }
+
+    try {
+      await resend.emails.send({
+        from: 'Bago <no-reply@sendwithbago.com>',
+        to: user.email,
+        subject: 'Confirm your Bago payout bank',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px;color:#111827">
+            <h2 style="color:#5240E8;margin:0 0 18px">Confirm your payout bank</h2>
+            <p>Hi ${user.first_name || 'there'},</p>
+            <p>You are linking this bank account for Bago payouts:</p>
+            <p><strong>Bank:</strong> ${bankName || 'Bank'}<br>
+            <strong>Account:</strong> ${accountInfo.accountName} - ****${accountNumber.slice(-4)}</p>
+            <p>Enter this 6-digit code in the app. It expires in 10 minutes.</p>
+            <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#5240E8;margin:24px 0">${otp}</div>
+            <p style="color:#6b7280;font-size:13px">If you did not request this, contact Bago support immediately.</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error('Bank OTP email send error:', emailError);
+      return res.status(502).json({
+        success: false,
+        requiresOtp: true,
+        message: 'Bank confirmation code could not be sent. Please try again or contact support.',
+      });
     }
 
     return res.status(200).json({
       success: true,
       requiresOtp: true,
       accountName: accountInfo.accountName,
-      deliveryStatus,
-      message: deliveryStatus === 'email_sent'
-        ? `A 6-digit confirmation code has been sent to ${user.email}`
-        : 'Use the 6-digit confirmation code shown in the app to complete bank setup.',
+      message: `A 6-digit confirmation code has been sent to ${user.email}`,
+      ...(req.headers['x-debug-bank-otp'] === 'true' ? { debugOtp: otp } : {}),
     });
   } catch (error) {
     console.error('Add bank account error:', error);
@@ -273,14 +280,14 @@ export const verifyBankOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid OTP. Please try again.' });
     }
 
-    const { accountNumber, bankCode, accountName, bankName } = bankDetails;
+    const { accountNumber, bankCode, accountName, bankName, currency } = bankDetails;
 
     // Create transfer recipient on Paystack
     const result = await createTransferRecipient({
       name: accountName,
       accountNumber,
       bankCode,
-      currency: profile.preferred_currency || 'NGN',
+      currency: currency || profile.preferred_currency || 'NGN',
     });
 
     if (!result.success) {
