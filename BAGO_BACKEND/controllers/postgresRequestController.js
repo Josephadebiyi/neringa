@@ -1100,6 +1100,13 @@ export async function getRequestDetails(req, res) {
           toCountry: request.package?.toCountry,
           category: request.package?.category,
           value: request.package?.value,
+          receiverName: request.package?.receiverName,
+          receiverPhone: request.package?.receiverPhone,
+          receiverEmail: request.package?.receiverEmail,
+          image: request.package?.image,
+          images: request.package?.images || request.package?.packageImages || [],
+          pickupAddress: request.package?.pickupAddress,
+          deliveryAddress: request.package?.deliveryAddress,
         },
         payment: request.paymentInfo || {},
         insurance: request.insurance || false,
@@ -1424,6 +1431,7 @@ export async function downloadRequestPDF(req, res) {
     doc.text(`To: ${request.package?.toCity || 'N/A'}, ${request.package?.toCountry || 'N/A'}`);
     doc.text(`Receiver: ${request.package?.receiverName || 'N/A'}`);
     doc.text(`Receiver Phone: ${request.package?.receiverPhone || 'N/A'}`);
+    doc.text(`Receiver Email: ${request.package?.receiverEmail || 'N/A'}`);
     doc.moveDown();
 
     doc.fontSize(14).text('Trip');

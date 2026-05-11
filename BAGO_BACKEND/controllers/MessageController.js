@@ -38,25 +38,27 @@ function getChatNotificationTarget(conversation, senderId) {
   };
 }
 
-async function uploadMessageImage(file, userId) {
-  const mime = file?.mimetype || 'image/jpeg';
+async function uploadMessageAttachment(file, userId) {
+  const mime = file?.mimetype || 'application/octet-stream';
   const base64 = file?.data?.toString('base64');
   if (!base64) {
-    throw new Error('Invalid image upload');
+    throw new Error('Invalid file upload');
   }
 
   const result = await cloudinary.v2.uploader.upload(
     `data:${mime};base64,${base64}`,
     {
-      folder: 'bago/chat_images',
+      folder: 'bago/chat_attachments',
       public_id: `chat_${userId}_${Date.now()}`,
+      resource_type: 'auto',
     },
   );
 
   return {
     fileUrl: result.secure_url,
-    fileName: file?.name || `chat-image-${Date.now()}.jpg`,
+    fileName: file?.name || `chat-file-${Date.now()}`,
     mimeType: mime,
+    type: mime.startsWith('image/') ? 'image' : 'file',
   };
 }
 
@@ -307,12 +309,13 @@ export const sendMessage = async (req, res) => {
     let fileName = null;
     let mimeType = null;
 
-    if (req.files?.image) {
-      const upload = await uploadMessageImage(req.files.image, userId);
+    const uploadFile = req.files?.image || req.files?.file || req.files?.attachment;
+    if (uploadFile) {
+      const upload = await uploadMessageAttachment(uploadFile, userId);
       fileUrl = upload.fileUrl;
       fileName = upload.fileName;
       mimeType = upload.mimeType;
-      type = 'image';
+      type = upload.type;
     }
 
     if (!text.trim() && !fileUrl) {

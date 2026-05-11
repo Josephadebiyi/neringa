@@ -23,10 +23,21 @@ class WithdrawScreen extends ConsumerStatefulWidget {
 class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   final _amountCtrl = TextEditingController();
   double _balance = 0;
+  double _escrowBalance = 0;
   bool _balanceLoading = true;
   bool _submitting = false;
 
-  static const _africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'TZS', 'UGX', 'RWF', 'EGP', 'MAD'];
+  static const _africanCurrencies = [
+    'NGN',
+    'GHS',
+    'KES',
+    'ZAR',
+    'TZS',
+    'UGX',
+    'RWF',
+    'EGP',
+    'MAD'
+  ];
 
   @override
   void initState() {
@@ -44,7 +55,13 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     try {
       final res = await ApiService.instance.get(ApiConstants.walletBalance);
       final data = res.data as Map<String, dynamic>?;
-      if (mounted) setState(() { _balance = (data?['balance'] as num?)?.toDouble() ?? 0; _balanceLoading = false; });
+      if (mounted) {
+        setState(() {
+          _balance = (data?['balance'] as num?)?.toDouble() ?? 0;
+          _escrowBalance = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
+          _balanceLoading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _balanceLoading = false);
     }
@@ -56,7 +73,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     final minimumAmount =
         CurrencyConversionHelper.minimumWithdrawalForCurrency(currency);
     if (amount <= 0) {
-      AppSnackBar.show(context, message: 'Please enter a valid amount.', type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: 'Please enter a valid amount.', type: SnackBarType.error);
       return;
     }
     if (_balance < minimumAmount) {
@@ -78,19 +96,26 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       return;
     }
     if (amount > _balance) {
-      AppSnackBar.show(context, message: 'Insufficient balance.', type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: 'Insufficient balance.', type: SnackBarType.error);
       return;
     }
     setState(() => _submitting = true);
     try {
-      await ApiService.instance.post(ApiConstants.withdrawFunds, data: {'amount': amount});
+      await ApiService.instance
+          .post(ApiConstants.withdrawFunds, data: {'amount': amount});
       if (mounted) {
-        AppSnackBar.show(context, message: 'Withdrawal submitted successfully!', type: SnackBarType.success);
+        AppSnackBar.show(context,
+            message: 'Withdrawal submitted successfully!',
+            type: SnackBarType.success);
         _amountCtrl.clear();
         await _fetchBalance();
       }
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -110,11 +135,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             onTap: () => context.pop(),
             child: Container(
               margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(22)),
-              child: const Icon(Icons.arrow_back_rounded, color: AppColors.black),
+              decoration: BoxDecoration(
+                  color: AppColors.gray100,
+                  borderRadius: BorderRadius.circular(22)),
+              child:
+                  const Icon(Icons.arrow_back_rounded, color: AppColors.black),
             ),
           ),
-          title: Text('Withdraw Funds', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+          title: Text('Withdraw Funds',
+              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
           centerTitle: true,
         ),
         body: Center(
@@ -134,7 +163,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     final isAfrican = _africanCurrencies.contains(currency);
     final hasBankLinked = user?.bankAccountLinked == true;
     final hasPayoutMethod = isAfrican ? hasBankLinked : false;
-    final canWithdraw = hasPayoutMethod && !_submitting && _balance >= minimumAmount;
+    final canWithdraw =
+        hasPayoutMethod && !_submitting && _balance >= minimumAmount;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -145,11 +175,14 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           onTap: () => context.pop(),
           child: Container(
             margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(22)),
+            decoration: BoxDecoration(
+                color: AppColors.gray100,
+                borderRadius: BorderRadius.circular(22)),
             child: const Icon(Icons.arrow_back_rounded, color: AppColors.black),
           ),
         ),
-        title: Text('Withdraw Funds', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        title: Text('Withdraw Funds',
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -172,12 +205,57 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Available Balance',
-                      style: AppTextStyles.labelSm.copyWith(color: Colors.white.withValues(alpha: 0.7), fontWeight: FontWeight.w700)),
+                      style: AppTextStyles.labelSm.copyWith(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   _balanceLoading
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
                       : Text('$currency ${_balance.toStringAsFixed(2)}',
-                          style: AppTextStyles.displaySm.copyWith(color: Colors.white, fontWeight: FontWeight.w900)),
+                          style: AppTextStyles.displaySm.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.lock_clock_rounded,
+                            color: Color(0xFFFBBF24), size: 22),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Held in escrow',
+                                  style: AppTextStyles.labelSm.copyWith(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Released to available balance after delivery is confirmed.',
+                                style: AppTextStyles.bodySm.copyWith(
+                                    color: Colors.white60, height: 1.35),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text('$currency ${_escrowBalance.toStringAsFixed(2)}',
+                            style: AppTextStyles.labelLg.copyWith(
+                                color: const Color(0xFFFBBF24),
+                                fontWeight: FontWeight.w900)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -194,26 +272,34 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+                    const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFFD97706), size: 22),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('No payout method linked',
-                              style: AppTextStyles.labelMd.copyWith(color: const Color(0xFF92400E), fontWeight: FontWeight.w800)),
+                              style: AppTextStyles.labelMd.copyWith(
+                                  color: const Color(0xFF92400E),
+                                  fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
                           Text(
                             isAfrican
                                 ? 'Please link a bank account before withdrawing.'
                                 : 'Please connect your Stripe account to receive payouts.',
-                            style: AppTextStyles.bodySm.copyWith(color: const Color(0xFF92400E), height: 1.4),
+                            style: AppTextStyles.bodySm.copyWith(
+                                color: const Color(0xFF92400E), height: 1.4),
                           ),
                           const SizedBox(height: 12),
                           GestureDetector(
-                            onTap: () => context.push('/profile/payout-methods'),
+                            onTap: () =>
+                                context.push('/profile/payout-methods'),
                             child: Text('Set up payout method →',
-                                style: AppTextStyles.labelSm.copyWith(color: const Color(0xFF92400E), fontWeight: FontWeight.w800, decoration: TextDecoration.underline)),
+                                style: AppTextStyles.labelSm.copyWith(
+                                    color: const Color(0xFF92400E),
+                                    fontWeight: FontWeight.w800,
+                                    decoration: TextDecoration.underline)),
                           ),
                         ],
                       ),
@@ -228,8 +314,11 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               controller: _amountCtrl,
               label: 'Withdrawal Amount',
               hint: '0.00',
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+              ],
               prefix: Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Text(
@@ -245,8 +334,9 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Text('Balance: $currency ${_balance.toStringAsFixed(2)}',
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w600)),
+                Text('Available: $currency ${_balance.toStringAsFixed(2)}',
+                    style: AppTextStyles.bodySm.copyWith(
+                        color: AppColors.gray500, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 GestureDetector(
                   onTap: _balance >= minimumAmount
@@ -276,12 +366,14 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 children: [
                   Text(
                     'Minimum withdrawal',
-                    style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                    style: AppTextStyles.labelMd
+                        .copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '$currency ${minimumAmount.toStringAsFixed(2)} minimum, based on USD ${CurrencyConversionHelper.minimumWithdrawalUsd.toStringAsFixed(2)}.',
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.gray600),
+                    style:
+                        AppTextStyles.bodySm.copyWith(color: AppColors.gray600),
                   ),
                   if (_balance < minimumAmount) ...[
                     const SizedBox(height: 8),
@@ -301,14 +393,18 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
 
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(16)),
-              child: Column(
+              decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(16)),
+              child: const Column(
                 children: [
-                  const _InfoLine(label: 'Processing time', value: '1-3 business days'),
-                  const SizedBox(height: 8),
-                  const _InfoLine(label: 'Transaction fee', value: 'No fee from Bago'),
-                  const SizedBox(height: 8),
-                  const _InfoLine(label: 'Method', value: 'Bank Transfer'),
+                  _InfoLine(
+                      label: 'Processing time', value: '1-3 business days'),
+                  SizedBox(height: 8),
+                  _InfoLine(
+                      label: 'Transaction fee', value: 'No fee from Bago'),
+                  SizedBox(height: 8),
+                  _InfoLine(label: 'Method', value: 'Bank Transfer'),
                 ],
               ),
             ),
@@ -326,9 +422,14 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   elevation: 0,
                 ),
                 child: _submitting
-                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5))
                     : Text('Request Withdrawal',
-                        style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                        style: AppTextStyles.labelLg.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.w800)),
               ),
             ),
           ],
@@ -344,10 +445,14 @@ class _InfoLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(label, style: AppTextStyles.bodyMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)),
-      Text(value, style: AppTextStyles.labelMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
-    ],
-  );
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.primary, fontWeight: FontWeight.w600)),
+          Text(value,
+              style: AppTextStyles.labelMd.copyWith(
+                  color: AppColors.primary, fontWeight: FontWeight.w800)),
+        ],
+      );
 }

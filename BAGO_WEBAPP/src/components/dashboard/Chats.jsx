@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
-import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, Clock, ArrowLeft, Trash2 } from 'lucide-react';
+import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, Clock, ArrowLeft, Trash2, FileText } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { io } from 'socket.io-client';
 
@@ -18,16 +18,56 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     const [downloading, setDownloading] = useState(null);
     const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef(null);
-    const imageInputRef = useRef(null);
+    const attachmentInputRef = useRef(null);
     const socketRef = useRef(null);
     const selectedConvRef = useRef(null);
     const userIdRef = useRef(null);
 
     const getMessageId = (msg) => msg?._id || msg?.id || null;
+    const getUserId = (value) => {
+        if (!value) return '';
+        if (typeof value === 'object') {
+            return (value._id || value.id || value.userId || value.profileId || value.sub || '').toString();
+        }
+        return value.toString();
+    };
     const getSenderId = (sender) => {
         if (!sender) return '';
         if (typeof sender === 'object') return (sender._id || sender.id || '').toString();
         return sender.toString();
+    };
+    const decorateConversation = (conversation, currentUserId = userIdRef.current) => {
+        const conversationId = conversation?._id || conversation?.id;
+        const senderId = getUserId(conversation?.sender);
+        const travelerId = getUserId(conversation?.traveler);
+        const role = senderId === currentUserId
+            ? 'sender'
+            : travelerId === currentUserId
+                ? 'traveler'
+                : conversation?.request?.role;
+        const otherUser = role === 'sender' ? conversation?.traveler : conversation?.sender;
+        const request = conversation?.request && typeof conversation.request === 'object'
+            ? { ...conversation.request, role }
+            : conversation?.request;
+
+        return {
+            ...conversation,
+            _id: conversationId,
+            id: conversationId,
+            request,
+            otherUser: otherUser || { firstName: 'User' },
+            lastMessage: conversation?.last_message || conversation?.lastMessage || 'Click to chat',
+        };
+    };
+    const getCurrentParticipantId = (conversation) => {
+        const currentUserId = userIdRef.current || getUserId(user);
+        const senderId = getUserId(conversation?.sender);
+        const travelerId = getUserId(conversation?.traveler);
+        const role = conversation?.request?.role;
+        if (role === 'sender') return senderId;
+        if (role === 'traveler') return travelerId;
+        if (currentUserId === senderId || currentUserId === travelerId) return currentUserId;
+        return currentUserId;
     };
     const normalizeMessage = (msg) => ({
         ...msg,
@@ -38,6 +78,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         type: msg?.type || msg?.metadata?.type || 'text',
         fileUrl: msg?.fileUrl || msg?.metadata?.fileUrl || msg?.metadata?.imageUrl || '',
         fileName: msg?.fileName || msg?.metadata?.fileName || '',
+        mimeType: msg?.mimeType || msg?.metadata?.mimeType || '',
         createdAt: msg?.createdAt || msg?.timestamp,
         timestamp: msg?.timestamp || msg?.createdAt,
     });
@@ -58,7 +99,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     }, [user]);
 
     useEffect(() => {
-        userIdRef.current = (user?._id || user?.id || '').toString();
+        userIdRef.current = getUserId(user);
     }, [user]);
 
     useEffect(() => {
@@ -98,26 +139,14 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             if (!conversation?._id && !conversation?.id) return;
             const conversationId = conversation._id || conversation.id;
             setConversations(prev => {
-                const currentUserId = userIdRef.current;
-                const isSender = getSenderId(conversation.sender) === currentUserId;
-                const otherUser = isSender ? conversation.traveler : conversation.sender;
-                const processed = {
-                    ...conversation,
-                    _id: conversationId,
-                    id: conversationId,
-                    otherUser: otherUser || { firstName: 'User' },
-                    lastMessage: conversation.last_message || conversation.lastMessage || 'Click to chat',
-                };
-                if (processed.request && typeof processed.request === 'object') {
-                    processed.request.role = isSender ? 'sender' : 'traveler';
-                }
+                const processed = decorateConversation(conversation);
                 const next = prev.some(conv => conv._id === conversationId)
                     ? prev.map(conv => conv._id === conversationId ? { ...conv, ...processed } : conv)
                     : [processed, ...prev];
                 return [...next].sort((a, b) => new Date(b.updated_at || b.updatedAt || 0) - new Date(a.updated_at || a.updatedAt || 0));
             });
             if (selectedConvRef.current?._id === conversationId) {
-                setSelectedConv(prev => prev ? { ...prev, ...conversation } : prev);
+                setSelectedConv(prev => prev ? decorateConversation({ ...prev, ...conversation }) : prev);
             }
         });
 
@@ -132,22 +161,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             const res = await api.get('/api/bago/conversations');
             const rawConversations = res.data?.data?.conversations || [];
 
-            const processed = rawConversations.map(conv => {
-                const currentUserId = user?._id || user?.id;
-                const isSender = conv.sender?._id?.toString() === currentUserId?.toString();
-                const otherUser = isSender ? conv.traveler : conv.sender;
-                
-                // Add role to the request object if it and current user exist
-                if (conv.request && typeof conv.request === 'object') {
-                    conv.request.role = isSender ? 'sender' : 'traveler';
-                }
-
-                return {
-                    ...conv,
-                    otherUser: otherUser || { firstName: 'User' },
-                    lastMessage: conv.last_message || 'Click to chat'
-                };
-            });
+            const processed = rawConversations.map(conv =>
+                decorateConversation(conv, getUserId(user)),
+            );
 
             setConversations(processed);
 
@@ -309,7 +325,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         }
     };
 
-    const handleSendImage = async (event) => {
+    const handleSendAttachment = async (event) => {
         const file = event.target.files?.[0];
         event.target.value = '';
         if (!file || !selectedConv) return;
@@ -321,7 +337,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         }
 
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append(file.type?.startsWith('image/') ? 'image' : 'file', file);
         if (caption) formData.append('text', caption);
 
         setIsSending(true);
@@ -337,7 +353,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                 fetchConversations();
             }
         } catch (err) {
-            alert('Failed to send image. Please try again.');
+            alert('Failed to send attachment. Please try again.');
         } finally {
             setIsSending(false);
         }
@@ -542,8 +558,8 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             </div>
                             {messages.map((msg, i) => {
                                 const senderId = getSenderId(msg.sender || msg.senderId || msg.sender_id);
-                                const currentUserId = (user?._id || user?.id || '').toString();
-                                const isMe = senderId === currentUserId;
+                                const currentParticipantId = getCurrentParticipantId(selectedConv);
+                                const isMe = senderId !== '' && senderId === currentParticipantId;
                                 
                                 return (
                                     <div key={getMessageId(msg) || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 px-2`}>
@@ -559,7 +575,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                 : 'left-[-6px] bg-[#F8F6F3] [clip-path:polygon(0_0,100%_0,100%_100%)] border-l border-gray-100'
                                             }`}></div>
                                             
-                                            {msg.fileUrl && (
+                                            {msg.fileUrl && (msg.type === 'image' || msg.mimeType?.startsWith('image/')) && (
                                                 <a
                                                     href={msg.fileUrl}
                                                     target="_blank"
@@ -571,6 +587,23 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                         alt={msg.fileName || 'Chat attachment'}
                                                         className="max-h-72 w-full object-cover"
                                                     />
+                                                </a>
+                                            )}
+                                            {msg.fileUrl && msg.type !== 'image' && !msg.mimeType?.startsWith('image/') && (
+                                                <a
+                                                    href={msg.fileUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className={`mb-2 flex items-center gap-3 rounded-xl border px-3 py-3 transition-all ${
+                                                        isMe
+                                                            ? 'border-white/20 bg-white/10 text-white hover:bg-white/15'
+                                                            : 'border-gray-100 bg-white text-[#012126] hover:border-[#5845D8]/30'
+                                                    }`}
+                                                >
+                                                    <FileText size={18} className="shrink-0" />
+                                                    <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-wider">
+                                                        {msg.fileName || 'Attachment'}
+                                                    </span>
                                                 </a>
                                             )}
                                             {msg.text && msg.text !== 'Image' && (
@@ -605,15 +638,14 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                         <div className="px-6 pb-6 bg-white">
                             <form onSubmit={handleSendMessage} className="p-2.5 bg-gray-50/50 rounded-[20px] border border-gray-100 flex items-center gap-2 focus-within:bg-white focus-within:border-[#5845D8]/20 focus-within:shadow-lg transition-all shadow-sm">
                                 <input
-                                    ref={imageInputRef}
+                                    ref={attachmentInputRef}
                                     type="file"
-                                    accept="image/*"
                                     className="hidden"
-                                    onChange={handleSendImage}
+                                    onChange={handleSendAttachment}
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => imageInputRef.current?.click()}
+                                    onClick={() => attachmentInputRef.current?.click()}
                                     className="p-2 text-gray-400 hover:text-[#5845D8] transition-colors disabled:opacity-50"
                                     disabled={isSending}
                                 >

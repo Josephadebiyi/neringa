@@ -165,11 +165,26 @@ async function createStripeAccountForUser(user) {
   }
   if (!user) throw new Error('User required');
 
-  if (user.stripeConnectAccountId) return user.stripeConnectAccountId;
+  const existingAccountId = user.stripeConnectAccountId || user.stripe_connect_account_id;
+  if (existingAccountId) {
+    try {
+      const existingAccount = await stripe.accounts.retrieve(existingAccountId);
+      if (
+        existingAccount.type === 'express' ||
+        existingAccount.details_submitted ||
+        existingAccount.payouts_enabled
+      ) {
+        return existingAccountId;
+      }
+      console.warn(`⚠️ Replacing incomplete Stripe ${existingAccount.type} account for user ${user.id}`);
+    } catch (err) {
+      console.warn(`⚠️ Saved Stripe account ${existingAccountId} could not be retrieved: ${err.message}`);
+    }
+  }
 
   try {
     const account = await stripe.accounts.create({
-      type: 'express',                  // or 'standard' / 'custom' depending on your model
+      type: 'express',
       email: user.email,
       capabilities: { transfers: { requested: true } },
     });
@@ -577,6 +592,17 @@ app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const stripeAccountId = await createStripeAccountForUser({ ...user, _id: user.id, stripeConnectAccountId: user.stripe_connect_account_id });
+    const account = await stripe.accounts.retrieve(stripeAccountId);
+
+    if (account.type === 'express' && account.details_submitted && account.payouts_enabled) {
+      const loginLink = await stripe.accounts.createLoginLink(stripeAccountId);
+      return res.json({
+        success: true,
+        url: loginLink.url,
+        login_url: loginLink.url,
+        mode: 'dashboard',
+      });
+    }
 
     // create account link for onboarding
     let backendUrl = process.env.BACKEND_URL;
@@ -595,7 +621,12 @@ app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
       type: 'account_onboarding',
     });
 
-    res.json({ success: true, url: accountLink.url });
+    res.json({
+      success: true,
+      url: accountLink.url,
+      onboarding_url: accountLink.url,
+      mode: 'onboarding',
+    });
   } catch (error) {
     console.error('❌ Stripe Onboarding Error:', error);
     res.status(500).json({ success: false, message: error.message || 'Server error' });

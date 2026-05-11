@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../../api';
 import { Wallet, ArrowUpRight, ArrowDownLeft, Landmark, RefreshCw, CreditCard, AlertCircle, CheckCircle, Shield } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
@@ -8,6 +8,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     const { currency, t } = useLanguage();
     const navigate = useNavigate();
     const [balance, setBalance] = useState(user?.walletBalance ?? user?.balance ?? 0);
+    const [escrowBalance, setEscrowBalance] = useState(user?.escrowBalance ?? user?.escrow_balance ?? 0);
     const [history, setHistory] = useState(user?.balanceHistory || []);
     const [loading, setLoading] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -24,6 +25,29 @@ export default function Earnings({ user, checkAuthStatus }) {
 
     // Default method based on logic
     const [method, setMethod] = useState(isAfricanCurrency ? 'bank' : 'stripe');
+
+    useEffect(() => {
+        setBalance(user?.walletBalance ?? user?.balance ?? 0);
+        setEscrowBalance(user?.escrowBalance ?? user?.escrow_balance ?? 0);
+    }, [user?.walletBalance, user?.balance, user?.escrowBalance, user?.escrow_balance]);
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchWallet = async () => {
+            try {
+                const res = await api.get('/api/bago/getWallet');
+                if (!mounted) return;
+                const data = res.data?.data || res.data || {};
+                setBalance(Number(data.balance ?? data.walletBalance ?? 0));
+                setEscrowBalance(Number(data.escrowBalance ?? data.escrow_balance ?? 0));
+                setHistory(data.history || data.transactions || []);
+            } catch (_) {}
+        };
+        fetchWallet();
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const getSymbol = (curr) => {
         const symbols = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
@@ -92,6 +116,24 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 {balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </h1>
                             <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{t('availableForWithdrawal') || 'Available for withdrawal'}</p>
+                            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1">
+                                        Held in escrow
+                                    </p>
+                                    <p className="text-xl font-black text-amber-300">
+                                        {currencySymbol}{escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1">
+                                        Total pending + available
+                                    </p>
+                                    <p className="text-xl font-black text-white">
+                                        {currencySymbol}{(balance + escrowBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3 mt-8">
