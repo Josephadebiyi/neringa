@@ -433,15 +433,41 @@ export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
   const upper = currency.toUpperCase();
   const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'stripe';
-  await query(
-    `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = FALSE,
-     preferred_currency = $2, payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
-    [userId, upper, paymentGateway],
-  );
-  await query(
-    `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
-    [userId, upper],
-  );
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = FALSE,
+       preferred_currency = $2, payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
+      [userId, upper, paymentGateway],
+    );
+
+    const walletResult = await client.query(
+      `SELECT available_balance, escrow_balance, currency
+       FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
+      [userId],
+    );
+    const wallet = walletResult.rows[0];
+    const fromCurrency = (wallet?.currency || '').toString().toUpperCase();
+
+    if (wallet && fromCurrency && fromCurrency !== upper) {
+      const newAvailable = Number(
+        (await convertCurrency(Number(wallet.available_balance || 0), fromCurrency, upper)).toFixed(2),
+      );
+      const newEscrow = Number(
+        (await convertCurrency(Number(wallet.escrow_balance || 0), fromCurrency, upper)).toFixed(2),
+      );
+      await client.query(
+        `UPDATE public.wallet_accounts
+         SET currency = $2, available_balance = $3, escrow_balance = $4, updated_at = NOW()
+         WHERE user_id = $1`,
+        [userId, upper, newAvailable, newEscrow],
+      );
+    } else {
+      await client.query(
+        `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
+        [userId, upper],
+      );
+    }
+  });
   return findProfileById(userId);
 }
 
