@@ -158,7 +158,7 @@ startEscrowAutoRelease();
 startCurrencyRateSync();
 
 // create or return an existing Stripe account id for a user
-async function createStripeAccountForUser(user) {
+async function createStripeAccountForUser(user, { restartIncomplete = false } = {}) {
   if (!stripe) {
     console.warn('❌ createStripeAccountForUser failed: Stripe not configured');
     throw new Error('Stripe not configured');
@@ -169,11 +169,9 @@ async function createStripeAccountForUser(user) {
   if (existingAccountId) {
     try {
       const existingAccount = await stripe.accounts.retrieve(existingAccountId);
-      if (
-        existingAccount.type === 'express' ||
-        existingAccount.details_submitted ||
-        existingAccount.payouts_enabled
-      ) {
+      const isComplete = existingAccount.charges_enabled === true && existingAccount.payouts_enabled === true;
+      const shouldRestart = restartIncomplete && !isComplete;
+      if (!shouldRestart && (existingAccount.type === 'express' || isComplete)) {
         return existingAccountId;
       }
       console.warn(`⚠️ Replacing incomplete Stripe ${existingAccount.type} account for user ${user.id}`);
@@ -597,7 +595,10 @@ app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
     const user = await queryOne(`SELECT * FROM public.profiles WHERE id = $1`, [userId]);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const stripeAccountId = await createStripeAccountForUser({ ...user, _id: user.id, stripeConnectAccountId: user.stripe_connect_account_id });
+    const stripeAccountId = await createStripeAccountForUser(
+      { ...user, _id: user.id, stripeConnectAccountId: user.stripe_connect_account_id },
+      { restartIncomplete: req.body?.restartIncomplete === true || req.body?.restart_incomplete === true },
+    );
     const account = await stripe.accounts.retrieve(stripeAccountId);
 
     if (account.type === 'express' && account.details_submitted && account.payouts_enabled) {

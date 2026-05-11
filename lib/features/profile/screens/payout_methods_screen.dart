@@ -79,7 +79,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     setState(() => _stripeLoading = true);
     try {
       final response = await ApiService.instance
-          .post(ApiConstants.stripeConnectOnboard, data: {});
+          .post(ApiConstants.stripeConnectOnboard, data: {
+        'restartIncomplete': true,
+      });
       final data = response.data;
       final url = data is Map
           ? (data['url']?.toString() ??

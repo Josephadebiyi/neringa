@@ -237,7 +237,8 @@ export default function Settings({ user, checkAuthStatus }) {
         try {
             const res = await api.post('/api/stripe/connect/onboard', {
                 userId: user?._id || user?.id,
-                email: user?.email
+                email: user?.email,
+                restartIncomplete: true
             });
             if (res.data.success && res.data.url) {
                 window.location.href = res.data.url;
