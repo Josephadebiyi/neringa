@@ -10,6 +10,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
+import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../l10n/app_localizations.dart';
@@ -35,11 +36,85 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     'MAD'
   ];
   bool _stripeLoading = false;
+  bool _savingPayoutCurrency = false;
+  CountryCurrencyData? _selectedCountry;
+  String? _selectedCurrency;
 
   bool _usesPaystack(String currency) =>
       _africanPayoutCurrencies.contains(currency.toUpperCase());
 
   bool _usesStripe(String currency) => !_usesPaystack(currency);
+
+  CountryCurrencyData _countryForCurrency(String currency) {
+    final normalized = currency.toUpperCase();
+    return CurrencyConversionHelper.supportedCountries.firstWhere(
+      (country) => country.currency.toUpperCase() == normalized,
+      orElse: () => CurrencyConversionHelper.supportedCountries.first,
+    );
+  }
+
+  List<String> _currenciesForCountry(CountryCurrencyData country) {
+    final currency = country.currency.toUpperCase();
+    return CurrencyConversionHelper.supportedCurrencyCodes.contains(currency)
+        ? [currency]
+        : CurrencyConversionHelper.supportedCurrencyCodes;
+  }
+
+  String _providerLabel(String provider) {
+    switch (provider) {
+      case 'paystack':
+        return 'Paystack';
+      case 'paypal':
+        return 'PayPal';
+      default:
+        return 'Stripe Connect';
+    }
+  }
+
+  String _recommendedProvider(String currency) {
+    return _usesPaystack(currency) ? 'paystack' : 'stripe';
+  }
+
+  Future<bool> _ensurePayoutCurrencySaved(String currentCurrency) async {
+    final selected = (_selectedCurrency ?? currentCurrency).toUpperCase();
+    final user = ref.read(authProvider).user;
+    if (selected.isEmpty || user == null) return false;
+    if (selected == currentCurrency.toUpperCase()) return true;
+
+    if (user.earningCurrencyLocked) {
+      if (!mounted) return false;
+      AppSnackBar.show(
+        context,
+        message:
+            'To change your payout currency, please contact support. This helps us protect your balance, payouts, and shipment records.',
+        type: SnackBarType.info,
+      );
+      return false;
+    }
+
+    setState(() => _savingPayoutCurrency = true);
+    try {
+      await ref.read(authProvider.notifier).activateEarning(selected);
+      if (!mounted) return false;
+      AppSnackBar.show(
+        context,
+        message: 'Payout currency saved as $selected.',
+        type: SnackBarType.success,
+      );
+      return true;
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          message: e.toString(),
+          type: SnackBarType.error,
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _savingPayoutCurrency = false);
+    }
+  }
 
   Future<void> _showStripeSetupRecovery() async {
     if (!mounted) return;
@@ -74,8 +149,12 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     );
   }
 
-  Future<void> _startStripeOnboarding() async {
+  Future<void> _startStripeOnboarding([String? currentCurrency]) async {
     if (_stripeLoading) return;
+    if (currentCurrency != null &&
+        !await _ensurePayoutCurrencySaved(currentCurrency)) {
+      return;
+    }
     setState(() => _stripeLoading = true);
     try {
       final response = await ApiService.instance
@@ -114,6 +193,15 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
   }
 
+  Future<void> _openPaystackSetup(String currentCurrency) async {
+    if (!await _ensurePayoutCurrencySaved(currentCurrency)) return;
+    if (!mounted) return;
+    await context.push('/profile/add-bank');
+    if (mounted) {
+      await ref.read(authProvider.notifier).refreshProfile();
+    }
+  }
+
   Future<void> _refreshStripeStatus(String userId) async {
     if (_stripeLoading) return;
     setState(() => _stripeLoading = true);
@@ -144,6 +232,14 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final currency = UserCurrencyHelper.resolve(user);
+    final currentCurrency = currency.isEmpty ? 'USD' : currency.toUpperCase();
+    _selectedCountry ??= _countryForCurrency(currentCurrency);
+    _selectedCurrency ??= currentCurrency;
+    final selectedCountry = _selectedCountry!;
+    final selectedCurrency = _selectedCurrency!.toUpperCase();
+    final provider = _recommendedProvider(selectedCurrency);
+    final paypalSuggested =
+        ['USD', 'EUR', 'GBP', 'CAD', 'AUD'].contains(selectedCurrency);
     if (currency.isEmpty) {
       return Scaffold(
         backgroundColor: AppColors.white,
@@ -167,8 +263,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         ),
       );
     }
-    final stripeAllowed = _usesStripe(currency);
-    final paystackAllowed = _usesPaystack(currency);
+    final stripeAllowed = _usesStripe(selectedCurrency);
+    final paystackAllowed = _usesPaystack(selectedCurrency);
     final stripeAccountId = user?.stripeConnectAccountId;
     final stripeConnected =
         stripeAccountId != null && stripeAccountId.isNotEmpty;
@@ -201,20 +297,121 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Your wallet currency is $currency.',
+                    'Where do you want to receive your payouts?',
                     style: AppTextStyles.labelMd
                         .copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Payout rails are matched automatically to your wallet currency.',
+                    'Choose payout country and currency. We will recommend the supported provider for that wallet.',
                     style:
                         AppTextStyles.bodySm.copyWith(color: AppColors.gray600),
                   ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<CountryCurrencyData>(
+                    key: ValueKey('payout-country-${selectedCountry.code}'),
+                    initialValue: selectedCountry,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Payout country',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: CurrencyConversionHelper.supportedCountries
+                        .map(
+                          (country) => DropdownMenuItem(
+                            value: country,
+                            child: Text(
+                              '${country.flag} ${country.name}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: user?.earningCurrencyLocked == true
+                        ? null
+                        : (country) {
+                            if (country == null) return;
+                            final currencies = _currenciesForCountry(country);
+                            setState(() {
+                              _selectedCountry = country;
+                              _selectedCurrency = currencies.first;
+                            });
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('payout-currency-$selectedCurrency'),
+                    initialValue: selectedCurrency,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Payout currency',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _currenciesForCountry(selectedCountry)
+                        .map(
+                          (currency) => DropdownMenuItem(
+                            value: currency,
+                            child: Text(
+                              '$currency (${CurrencyConversionHelper.symbolForCurrency(currency)})',
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: user?.earningCurrencyLocked == true
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            setState(() => _selectedCurrency = value);
+                          },
+                  ),
+                  if (user?.earningCurrencyLocked == true) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'To change your payout currency, please contact support. This helps us protect your balance, payouts, and shipment records.',
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 24),
+            Text(
+              'RECOMMENDED PROVIDERS',
+              style: AppTextStyles.labelMd.copyWith(
+                color: AppColors.gray500,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _ProviderSuggestionCard(
+              title: _providerLabel(provider),
+              subtitle: provider == 'paystack'
+                  ? 'Recommended for ${selectedCountry.name} payouts in $selectedCurrency.'
+                  : 'Recommended for $selectedCurrency payouts through Stripe Express.',
+              selected: true,
+              icon: provider == 'paystack'
+                  ? Icons.account_balance_rounded
+                  : Icons.account_balance_wallet_rounded,
+            ),
+            const SizedBox(height: 10),
+            _ProviderSuggestionCard(
+              title: 'PayPal',
+              subtitle: paypalSuggested
+                  ? 'Supported option for $selectedCurrency when PayPal payouts are enabled.'
+                  : 'Not recommended for $selectedCurrency right now.',
+              selected: false,
+              icon: Icons.alternate_email_rounded,
+            ),
+            if (selectedCurrency != currentCurrency) ...[
+              const SizedBox(height: 12),
+              AppButton(
+                label: 'Save Payout Currency',
+                isLoading: _savingPayoutCurrency,
+                onPressed: () => _ensurePayoutCurrencySaved(currentCurrency),
+              ),
+            ],
+            const SizedBox(height: 28),
             // Stripe Connect Section
             Text(
               'STRIPE CONNECT',
@@ -266,7 +463,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                                           ? 'Connected and verified'
                                           : 'Connected, verification pending')
                                       : 'Available for this wallet')
-                                  : 'Not available for this wallet currency',
+                                  : 'Not available for selected payout currency',
                               style: AppTextStyles.bodySm.copyWith(
                                 color: stripeAllowed
                                     ? (stripeConnected
@@ -324,7 +521,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                       child: AppButton(
                         label: 'Connect Stripe',
                         isLoading: _stripeLoading,
-                        onPressed: _startStripeOnboarding,
+                        onPressed: () =>
+                            _startStripeOnboarding(currentCurrency),
                       ),
                     ),
                   ],
@@ -387,7 +585,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                                   ? (paystackConnected
                                       ? 'Connected'
                                       : 'Available for this wallet')
-                                  : 'Not available for this wallet currency',
+                                  : 'Not available for selected payout currency',
                               style: AppTextStyles.bodySm.copyWith(
                                 color: paystackAllowed
                                     ? (paystackConnected
@@ -417,12 +615,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                       child: AppButton(
                         label: 'Add Bank Account',
                         onPressed: () async {
-                          await context.push('/profile/add-bank');
-                          if (mounted) {
-                            await ref
-                                .read(authProvider.notifier)
-                                .refreshProfile();
-                          }
+                          await _openPaystackSetup(currentCurrency);
                         },
                       ),
                     ),
@@ -448,7 +641,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Your Paystack payout setup is active for $currency. You can open the bank flow again to change it.',
+                            'Your Paystack payout setup is active for $selectedCurrency. You can open the bank flow again to change it.',
                             style: AppTextStyles.bodySm.copyWith(
                               color: AppColors.gray600,
                             ),
@@ -460,12 +653,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                             child: AppButton(
                               label: 'Change Bank Account',
                               onPressed: () async {
-                                await context.push('/profile/add-bank');
-                                if (mounted) {
-                                  await ref
-                                      .read(authProvider.notifier)
-                                      .refreshProfile();
-                                }
+                                await _openPaystackSetup(currentCurrency);
                               },
                             ),
                           ),
@@ -485,6 +673,97 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProviderSuggestionCard extends StatelessWidget {
+  const _ProviderSuggestionCard({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.primarySoft : AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected ? AppColors.primary : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primary : AppColors.gray100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: selected ? AppColors.white : AppColors.gray600,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: AppTextStyles.labelMd.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (selected)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'Suggested',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.gray600,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
