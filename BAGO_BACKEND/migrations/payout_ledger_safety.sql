@@ -17,6 +17,10 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS payout_currency_change_requested_at timestamptz,
   ADD COLUMN IF NOT EXISTS payout_currency_change_request jsonb;
 
+UPDATE public.profiles
+SET earning_currency_locked = FALSE
+WHERE earning_currency_locked IS TRUE;
+
 CREATE TABLE IF NOT EXISTS public.shipment_ledgers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shipment_id uuid NOT NULL REFERENCES public.shipment_requests(id) ON DELETE CASCADE,

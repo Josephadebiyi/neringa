@@ -17,6 +17,11 @@ async function ensureEarningCurrencyColumns() {
     SET earning_currency = preferred_currency
     WHERE earning_currency IS NULL AND preferred_currency IS NOT NULL
   `);
+  await query(`
+    UPDATE public.profiles
+    SET earning_currency_locked = FALSE
+    WHERE earning_currency_locked IS TRUE
+  `);
   _earningCurrencyEnsured = true;
 }
 
@@ -469,7 +474,7 @@ export async function adminChangeEarningCurrency(userId, newCurrency, settleBala
     }
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, preferred_currency = $2,
-       payment_gateway = $3, earning_currency_locked = TRUE, updated_at = NOW() WHERE id = $1`,
+       payment_gateway = $3, earning_currency_locked = FALSE, updated_at = NOW() WHERE id = $1`,
       [userId, upper, paymentGateway],
     );
     await client.query(
