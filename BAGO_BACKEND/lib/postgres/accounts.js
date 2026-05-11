@@ -26,9 +26,126 @@ async function ensurePaymentEventsInfrastructure(client) {
       create unique index if not exists payment_events_provider_event_reference_key
         on public.payment_events (provider, event_type, provider_reference)
     `);
+
+    await client.query(`
+      create table if not exists public.shipment_ledgers (
+        id uuid primary key default gen_random_uuid(),
+        shipment_id uuid not null references public.shipment_requests(id) on delete cascade,
+        sender_id uuid not null references public.profiles(id) on delete cascade,
+        traveler_id uuid not null references public.profiles(id) on delete cascade,
+        payment_provider text not null,
+        payment_reference text,
+        payment_currency text not null,
+        payment_amount numeric(14,2) not null default 0,
+        bago_commission_amount numeric(14,2) not null default 0,
+        payment_processing_fee numeric(14,2) not null default 0,
+        insurance_fee numeric(14,2) not null default 0,
+        currency_conversion_fee_or_margin numeric(14,2) not null default 0,
+        traveler_earning_amount numeric(14,2) not null default 0,
+        traveler_wallet_currency text not null,
+        exchange_rate_used numeric(20,8) not null default 1,
+        converted_traveler_earning numeric(14,2) not null default 0,
+        escrow_status text not null default 'held',
+        payout_status text not null default 'not_available',
+        wallet_credit_created boolean not null default false,
+        provider_payload jsonb not null default '{}'::jsonb,
+        created_at timestamptz not null default timezone('utc', now()),
+        updated_at timestamptz not null default timezone('utc', now())
+      )
+    `);
+
+    await client.query(`
+      create unique index if not exists shipment_ledgers_shipment_id_key
+        on public.shipment_ledgers (shipment_id)
+    `);
+
+    await client.query(`
+      create unique index if not exists wallet_transactions_one_earning_per_request_user
+        on public.wallet_transactions (request_id, user_id)
+        where type = 'earning' and request_id is not null
+    `);
+
+    await client.query(`
+      create unique index if not exists wallet_transactions_one_escrow_hold_per_request_user
+        on public.wallet_transactions (request_id, user_id)
+        where type = 'escrow_hold' and request_id is not null
+    `);
+
+    await client.query(`
+      create unique index if not exists wallet_transactions_withdrawal_reference_key
+        on public.wallet_transactions ((metadata->>'reference'))
+        where type = 'withdrawal' and metadata ? 'reference'
+    `);
   } catch (error) {
-    console.warn('Payment events infrastructure unavailable, continuing without it:', error.message);
+    console.warn('Payment/ledger infrastructure unavailable, continuing without it:', error.message);
   }
+}
+
+function getCommissionRate() {
+  const raw = process.env.BAGO_COMMISSION_RATE || process.env.BAGO_COMMISSION_PERCENT || '0.10';
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0.10;
+  return parsed > 1 ? parsed / 100 : parsed;
+}
+
+async function upsertShipmentLedger(client, {
+  request,
+  provider,
+  providerReference,
+  walletCurrency,
+  convertedTravelerEarning,
+  commissionAmount,
+  paymentProcessingFee = 0,
+  insuranceFee = 0,
+  conversionFee = 0,
+  exchangeRate = 1,
+  travelerEarningAmount,
+}) {
+  await client.query(
+    `
+      insert into public.shipment_ledgers (
+        shipment_id, sender_id, traveler_id, payment_provider, payment_reference,
+        payment_currency, payment_amount, bago_commission_amount,
+        payment_processing_fee, insurance_fee, currency_conversion_fee_or_margin,
+        traveler_earning_amount, traveler_wallet_currency, exchange_rate_used,
+        converted_traveler_earning, escrow_status, payout_status, wallet_credit_created,
+        provider_payload
+      )
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'held','not_available',false,$16)
+      on conflict (shipment_id) do update
+      set payment_provider = excluded.payment_provider,
+          payment_reference = excluded.payment_reference,
+          payment_currency = excluded.payment_currency,
+          payment_amount = excluded.payment_amount,
+          bago_commission_amount = excluded.bago_commission_amount,
+          payment_processing_fee = excluded.payment_processing_fee,
+          insurance_fee = excluded.insurance_fee,
+          currency_conversion_fee_or_margin = excluded.currency_conversion_fee_or_margin,
+          traveler_earning_amount = excluded.traveler_earning_amount,
+          traveler_wallet_currency = excluded.traveler_wallet_currency,
+          exchange_rate_used = excluded.exchange_rate_used,
+          converted_traveler_earning = excluded.converted_traveler_earning,
+          updated_at = timezone('utc', now())
+    `,
+    [
+      request.id,
+      request.sender_id,
+      request.traveler_id,
+      provider,
+      providerReference,
+      (request.currency || 'USD').toUpperCase(),
+      toNumber(request.amount),
+      commissionAmount,
+      paymentProcessingFee,
+      insuranceFee,
+      conversionFee,
+      travelerEarningAmount,
+      walletCurrency,
+      exchangeRate,
+      convertedTravelerEarning,
+      { providerReference, provider },
+    ],
+  );
 }
 
 export async function getAccountProfile(userId) {
@@ -36,6 +153,38 @@ export async function getAccountProfile(userId) {
 }
 
 export async function updateAccountProfile(userId, updates) {
+  if (updates.preferredCurrency) {
+    const current = await queryOne(
+      `
+        select
+          coalesce(wa.available_balance, 0) as available_balance,
+          coalesce(wa.escrow_balance, 0) as escrow_balance,
+          exists (
+            select 1 from public.trips
+            where user_id = $1
+              and coalesce(status, 'active') not in ('cancelled', 'completed')
+            limit 1
+          ) as has_active_trips,
+          exists (
+            select 1 from public.shipment_requests
+            where traveler_id = $1
+              and status not in ('completed', 'cancelled', 'rejected')
+            limit 1
+          ) as has_pending_shipments
+        from public.profiles p
+        left join public.wallet_accounts wa on wa.user_id = p.id
+        where p.id = $1
+      `,
+      [userId],
+    );
+    const hasBalance = toNumber(current?.available_balance) > 0 || toNumber(current?.escrow_balance) > 0;
+    if (hasBalance || current?.has_active_trips || current?.has_pending_shipments) {
+      const error = new Error('To change your payout currency, please contact support. This helps us protect your balance, payouts, and shipment records.');
+      error.code = 'PAYOUT_CURRENCY_LOCKED';
+      throw error;
+    }
+  }
+
   const mapping = {
     firstName: 'first_name',
     lastName: 'last_name',
@@ -333,8 +482,8 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
     const requestResult = await client.query(
       `
         select 
-          sr.id, sr.traveler_id, sr.trip_id, sr.amount, sr.currency, 
-          sr.tracking_number, sr.payment_info, p.package_weight
+          sr.id, sr.sender_id, sr.traveler_id, sr.trip_id, sr.amount, sr.currency,
+          sr.tracking_number, sr.payment_info, sr.insurance_cost, p.package_weight
         from public.shipment_requests sr
         join public.packages p on p.id = sr.package_id
         where sr.id = $1 for update
@@ -349,10 +498,11 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
         select id
         from public.wallet_transactions
         where request_id = $1
+          and user_id = $2
           and type = 'escrow_hold'
         limit 1
       `,
-      [requestId],
+      [requestId, request.traveler_id],
     );
 
     if (existingEscrowTransaction.rows[0]?.id) {
@@ -383,9 +533,25 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       const requestCurrency = (request.currency || 'USD').toUpperCase();
       const walletCurrency = (wallet.currency || 'USD').toUpperCase();
       const rawAmount = toNumber(request.amount);
+      const commissionAmount = Number((rawAmount * getCommissionRate()).toFixed(2));
+      const insuranceFee = toNumber(request.insurance_cost);
+      const travelerEarningAmount = Math.max(0, rawAmount - commissionAmount - insuranceFee);
       const escrowAmount = requestCurrency !== walletCurrency
-        ? await convertCurrency(rawAmount, requestCurrency, walletCurrency)
-        : rawAmount;
+        ? await convertCurrency(travelerEarningAmount, requestCurrency, walletCurrency)
+        : travelerEarningAmount;
+      const exchangeRate = travelerEarningAmount > 0 ? escrowAmount / travelerEarningAmount : 1;
+
+      await upsertShipmentLedger(client, {
+        request,
+        provider,
+        providerReference,
+        walletCurrency,
+        convertedTravelerEarning: escrowAmount,
+        commissionAmount,
+        insuranceFee,
+        exchangeRate,
+        travelerEarningAmount,
+      });
 
       await client.query(
         `update public.wallet_accounts set escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
@@ -394,7 +560,7 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       await client.query(
         `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
          values ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
-        [wallet.id, request.traveler_id, request.id, request.trip_id, escrowAmount, walletCurrency, `Escrow hold for Request ${request.tracking_number || request.id}`, { providerReference, provider, originalAmount: rawAmount, originalCurrency: requestCurrency }],
+        [wallet.id, request.traveler_id, request.id, request.trip_id, escrowAmount, walletCurrency, `Escrow hold for Request ${request.tracking_number || request.id}`, { providerReference, provider, originalAmount: rawAmount, originalCurrency: requestCurrency, commissionAmount, insuranceFee, travelerEarningAmount }],
       );
     }
 
@@ -434,7 +600,13 @@ export async function finalizeBankVerification(userId, { recipientCode, bankName
   delete bankDetails.pending_bank_verification;
 
   await query(
-    `update public.profiles set paystack_recipient_code = $2, bank_details = $3, updated_at = timezone('utc', now()) where id = $1`,
+    `update public.profiles
+     set paystack_recipient_code = $2,
+         bank_details = $3,
+         payout_provider = 'paystack',
+         payout_method_status = 'connected',
+         updated_at = timezone('utc', now())
+     where id = $1`,
     [userId, recipientCode, bankDetails],
   );
   return getAccountProfile(userId);
@@ -487,10 +659,22 @@ export async function upsertKycSession(userId, { sessionId, sessionToken, status
 
 export async function markKycApproved(userId, payload = {}) {
   return withTransaction(async (client) => {
-    const firstName = payload.firstName || null;
-    const lastName = payload.lastName || null;
-    const dateOfBirth = payload.dateOfBirth || null;
     const fullPayload = payload.kycVerifiedData || payload;
+    const candidate = fullPayload?.data?.entity || fullPayload?.data || fullPayload?.entity || fullPayload || {};
+    const firstName = payload.firstName || candidate.first_name || candidate.firstName || candidate.firstname || null;
+    const middleName = payload.middleName || candidate.middle_name || candidate.middleName || null;
+    const lastName = payload.lastName || candidate.last_name || candidate.lastName || candidate.lastname || null;
+    const fullLegalName = payload.fullLegalName ||
+      candidate.full_name ||
+      candidate.fullName ||
+      [firstName, middleName, lastName].filter(Boolean).join(' ') ||
+      null;
+    const dateOfBirth = payload.dateOfBirth ||
+      candidate.date_of_birth ||
+      candidate.dateOfBirth ||
+      candidate.dob ||
+      null;
+    const provider = payload.provider || fullPayload?.provider || fullPayload?.data?.provider || 'didit';
 
     await client.query(
       `
@@ -501,12 +685,19 @@ export async function markKycApproved(userId, payload = {}) {
             kyc_verified_at = timezone('utc', now()),
             kyc_verified_data = $2,
             first_name = coalesce($3, first_name),
-            last_name = coalesce($4, last_name),
-            date_of_birth = coalesce($5, date_of_birth),
+            last_name = coalesce($5, last_name),
+            date_of_birth = coalesce($8, date_of_birth),
+            verified_first_name = coalesce($3, verified_first_name),
+            verified_middle_name = coalesce($4, verified_middle_name),
+            verified_last_name = coalesce($5, verified_last_name),
+            verified_full_legal_name = coalesce($6, verified_full_legal_name),
+            verified_date_of_birth = coalesce($8::date, verified_date_of_birth),
+            verification_provider = $7,
+            identity_fields_locked = true,
             updated_at = timezone('utc', now())
         where id = $1
       `,
-      [userId, fullPayload, firstName, lastName, dateOfBirth],
+      [userId, fullPayload, firstName, middleName, lastName, fullLegalName, provider, dateOfBirth],
     );
 
     await client.query(

@@ -59,7 +59,7 @@ export default function Deliveries({ onNavigateToChat }) {
             });
 
             // 2. If it's a delivery proof being uploaded
-            if (proofImage && (status === 'completed' || status === 'intransit')) {
+            if (proofImage && (status === 'delivered' || status === 'intransit')) {
                 await api.put(`/api/bago/request/${requestId}/traveler-proof`, {
                     image: proofImage
                 });
@@ -67,7 +67,9 @@ export default function Deliveries({ onNavigateToChat }) {
 
             setNotification({
                 show: true,
-                message: status === 'completed' ? 'Delivery completed successfully!' : 'Status updated successfully!',
+                message: status === 'delivered'
+                    ? 'Sender has been asked to confirm delivery. Funds remain in escrow until they confirm.'
+                    : 'Status updated successfully!',
                 type: 'success'
             });
             setUpdatingStatus(null);
@@ -159,6 +161,7 @@ export default function Deliveries({ onNavigateToChat }) {
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
             case 'completed': return 'text-green-600 bg-green-50';
+            case 'delivering': return 'text-amber-600 bg-amber-50';
             case 'pending': return 'text-amber-600 bg-amber-50';
             case 'intransit': return 'text-blue-600 bg-blue-50';
             case 'accepted': return 'text-indigo-600 bg-indigo-50';
@@ -380,7 +383,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                     <span className="text-[8px] font-black uppercase tracking-widest">{t('markInTransit') || 'In Transit'}</span>
                                 </button>
                                 <button
-                                    onClick={() => handleUpdateStatus(updatingStatus._id, 'completed')}
+                                    onClick={() => handleUpdateStatus(updatingStatus._id, 'delivered')}
                                     className="flex flex-col items-center gap-2 p-4 bg-green-50/50 text-green-600 rounded-2xl border border-green-100 hover:bg-green-100 transition-all group"
                                 >
                                     <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />

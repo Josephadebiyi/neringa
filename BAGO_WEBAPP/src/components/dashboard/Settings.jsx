@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
 import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle, ChevronDown, Search } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNavigate } from 'react-router-dom';
 
 const COUNTRY_CODES = [
     { code: 'NG', name: 'Nigeria', dial: '+234', flag: '🇳🇬' },
@@ -170,6 +171,7 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
 
 export default function Settings({ user, checkAuthStatus }) {
     const { currency, setCurrency, t } = useLanguage();
+    const navigate = useNavigate();
     const [firstName, setFirstName] = useState(user?.firstName || '');
     const [lastName, setLastName] = useState(user?.lastName || '');
     const [dateOfBirth, setDateOfBirth] = useState(() => {
@@ -201,6 +203,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const [bankOtp, setBankOtp] = useState('');
     const [stripeVerified, setStripeVerified] = useState(user?.stripeVerified || false);
     const [stripeLoading, setStripeLoading] = useState(false);
+    const [stripeSetupFailed, setStripeSetupFailed] = useState(false);
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
@@ -230,6 +233,7 @@ export default function Settings({ user, checkAuthStatus }) {
 
     const handleStripeConnect = async () => {
         setStripeLoading(true);
+        setStripeSetupFailed(false);
         try {
             const res = await api.post('/api/stripe/connect/onboard', {
                 userId: user?._id || user?.id,
@@ -239,8 +243,9 @@ export default function Settings({ user, checkAuthStatus }) {
                 window.location.href = res.data.url;
             }
         } catch (err) {
-            const msg = err.response?.data?.message || t('failStripeOnboarding');
+            const msg = err.response?.data?.message || 'Stripe setup could not be completed. You can try again, choose another supported payout provider, or contact support.';
             setError(msg);
+            setStripeSetupFailed(true);
         } finally {
             setStripeLoading(false);
         }
@@ -666,15 +671,32 @@ export default function Settings({ user, checkAuthStatus }) {
                                         <ShieldCheck className="text-green-500/50" size={18} />
                                     </div>
                                 ) : (
-                                    <button
-                                        onClick={handleStripeConnect}
-                                        disabled={stripeLoading}
-                                        className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
-                                    >
-                                        {stripeLoading ? <RefreshCw className="animate-spin" size={14} /> : (
-                                            <>{t('connectStripe')} <ShieldCheck size={16} /></>
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={handleStripeConnect}
+                                            disabled={stripeLoading}
+                                            className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
+                                        >
+                                            {stripeLoading ? <RefreshCw className="animate-spin" size={14} /> : (
+                                                <>{stripeSetupFailed ? 'Try Stripe Again' : t('connectStripe')} <ShieldCheck size={16} /></>
+                                            )}
+                                        </button>
+                                        {stripeSetupFailed && (
+                                            <div className="rounded-2xl border border-red-100 bg-red-50/70 p-3 space-y-2">
+                                                <p className="text-[9px] font-bold text-red-700 leading-relaxed">
+                                                    Stripe setup could not be completed. You can try again, choose another supported payout provider, or contact support.
+                                                </p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    <button onClick={() => setStripeSetupFailed(false)} className="rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase tracking-widest text-[#012126] border border-red-100">
+                                                        Choose Another Provider
+                                                    </button>
+                                                    <button onClick={() => navigate('/support')} className="rounded-xl bg-[#012126] px-3 py-2 text-[8px] font-black uppercase tracking-widest text-white">
+                                                        Contact Support
+                                                    </button>
+                                                </div>
+                                            </div>
                                         )}
-                                    </button>
+                                    </div>
                                 )}
                             </div>
                         </div>

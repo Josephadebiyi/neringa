@@ -766,8 +766,8 @@ export async function updateRequestStatus(req, res) {
   try {
     const { requestId } = req.params;
     const { status: rawStatus, location, notes } = req.body;
-    // Map 'delivered' to 'completed' since the DB enum uses 'completed'
-    const status = rawStatus === 'delivered' ? 'completed' : rawStatus;
+    // Traveler delivery is not final completion. Funds remain held until the sender confirms receipt.
+    const status = rawStatus === 'delivered' ? 'delivering' : rawStatus;
     const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
@@ -802,16 +802,18 @@ export async function updateRequestStatus(req, res) {
         emitTripUpdate(req, updatedTrip, [updatedRequest.travelerId, updatedRequest.senderId]);
       }
 
-      // For user-facing labels, show 'delivered' when rawStatus was 'delivered'
-      const statusLabel = rawStatus === 'delivered' ? 'delivered' : status;
+      const statusLabel = rawStatus === 'delivered' ? 'awaiting_sender_confirmation' : status;
       const senderName = updatedRequest.senderName || 'Sender';
       const travelerName = updatedRequest.travelerName || updatedRequest.carrierName || 'Traveler';
+      const senderStatusMessage = rawStatus === 'delivered'
+        ? 'The traveler has marked your shipment as delivered. Please confirm that you have received your item.'
+        : `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`;
 
       // In-app notification for sender
       await createNotification({
         userId: updatedRequest.senderId,
-        title: 'Shipping update',
-        body: `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`,
+        title: rawStatus === 'delivered' ? 'Confirm delivery' : 'Shipping update',
+        body: senderStatusMessage,
         type: 'shipment_status',
         payload: { requestId, status: statusLabel, location },
       });
@@ -824,12 +826,14 @@ export async function updateRequestStatus(req, res) {
       }
 
       // PUSH notification for sender on key status changes
-      if (['accepted', 'rejected', 'intransit', 'delivering', 'delivered'].includes(statusLabel)) {
+      if (['accepted', 'rejected', 'intransit', 'delivering', 'delivered', 'awaiting_sender_confirmation'].includes(statusLabel)) {
         const pushTitle = statusLabel === 'accepted' ? 'Request Accepted!'
           : statusLabel === 'rejected' ? 'Request Declined'
+          : statusLabel === 'awaiting_sender_confirmation' ? 'Confirm delivery'
           : `Shipment ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`;
         const pushBody = statusLabel === 'accepted' ? `${travelerName} accepted your shipment request. You can now chat!`
           : statusLabel === 'rejected' ? `${travelerName} declined your shipment request.`
+          : statusLabel === 'awaiting_sender_confirmation' ? senderStatusMessage
           : `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`;
         
         sendPushNotification(updatedRequest.senderId, pushTitle, pushBody, {
@@ -837,9 +841,8 @@ export async function updateRequestStatus(req, res) {
         }).catch(e => console.warn('Push to sender failed:', e.message));
       }
 
-      // Notify traveler too when sender confirms delivery
-      if (statusLabel === 'delivered') {
-        sendPushNotification(updatedRequest.travelerId || updatedRequest.carrierId, 'Delivery Confirmed', `${senderName} has been notified. Funds will be released soon.`, {
+      if (statusLabel === 'awaiting_sender_confirmation') {
+        sendPushNotification(updatedRequest.travelerId || updatedRequest.carrierId, 'Awaiting sender confirmation', `${senderName} has been asked to confirm delivery. Funds remain in escrow until confirmation.`, {
           type: 'shipment_status', requestId, status: statusLabel,
         }).catch(e => console.warn('Push to traveler failed:', e.message));
       }
@@ -1008,16 +1011,23 @@ export async function confirmReceivedBySender(req, res) {
     try {
       await createNotification({
         userId: updated.travelerId,
-        title: 'Escrow released',
-        body: `Sender confirmed receipt. Escrow released for ${updated.trackingNumber || updated.id}.`,
+        title: 'Funds available',
+        body: `Sender confirmed delivery. Your funds are now available for ${updated.trackingNumber || updated.id}.`,
         type: 'escrow_release',
         payload: { requestId: updated.id },
       });
+      await sendPushNotification(
+        updated.travelerId,
+        'Funds available',
+        `Sender confirmed delivery. Your funds are now available.`,
+        { type: 'escrow_release', requestId: updated.id },
+      );
+      await sendShippingStatusEmail(updated, 'completed');
     } catch (notificationError) {
       console.error('Escrow release notification failed:', notificationError);
     }
 
-    return res.status(200).json({ success: true, message: 'Package confirmed. Escrow handled (if any).', data: updated });
+    return res.status(200).json({ success: true, message: 'Delivery confirmed. Escrow released and traveler wallet credited once.', data: updated });
   } catch (error) {
     if (error.code === 'UNAUTHORIZED') {
       return res.status(403).json({ success: false, message: error.message });

@@ -23,7 +23,17 @@ class PayoutMethodsScreen extends ConsumerStatefulWidget {
 }
 
 class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
-  static const _africanPayoutCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'TZS', 'UGX', 'RWF', 'EGP', 'MAD'];
+  static const _africanPayoutCurrencies = [
+    'NGN',
+    'GHS',
+    'KES',
+    'ZAR',
+    'TZS',
+    'UGX',
+    'RWF',
+    'EGP',
+    'MAD'
+  ];
   bool _stripeLoading = false;
 
   bool _usesPaystack(String currency) =>
@@ -31,12 +41,45 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
   bool _usesStripe(String currency) => !_usesPaystack(currency);
 
+  Future<void> _showStripeSetupRecovery() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Stripe setup could not be completed'),
+        content: const Text(
+          'You can try again, choose another supported payout provider, or contact support.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _startStripeOnboarding();
+            },
+            child: const Text('Try Stripe Again'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Choose Another Provider'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push('/help');
+            },
+            child: const Text('Contact Support'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _startStripeOnboarding() async {
     if (_stripeLoading) return;
     setState(() => _stripeLoading = true);
     try {
-      final response =
-          await ApiService.instance.post(ApiConstants.stripeConnectOnboard, data: {});
+      final response = await ApiService.instance
+          .post(ApiConstants.stripeConnectOnboard, data: {});
       final data = response.data;
       final url = data is Map
           ? (data['url']?.toString() ??
@@ -55,26 +98,15 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: 'Complete Stripe setup in your browser, then come back and tap refresh.',
+          message:
+              'Complete Stripe setup in your browser, then come back and tap refresh.',
           type: SnackBarType.info,
         );
       }
-    } on DioException catch (e) {
-      if (mounted) {
-        AppSnackBar.show(
-          context,
-          message: ApiService.parseError(e),
-          type: SnackBarType.error,
-        );
-      }
+    } on DioException {
+      await _showStripeSetupRecovery();
     } catch (e) {
-      if (mounted) {
-        AppSnackBar.show(
-          context,
-          message: e.toString(),
-          type: SnackBarType.error,
-        );
-      }
+      await _showStripeSetupRecovery();
     } finally {
       if (mounted) setState(() => _stripeLoading = false);
     }
@@ -114,7 +146,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       return Scaffold(
         backgroundColor: AppColors.white,
         appBar: AppBar(
-          title: Text(AppLocalizations.of(context).payoutMethods, style: AppTextStyles.h3),
+          title: Text(AppLocalizations.of(context).payoutMethods,
+              style: AppTextStyles.h3),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
             onPressed: () => Navigator.pop(context),
@@ -135,14 +168,16 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     final stripeAllowed = _usesStripe(currency);
     final paystackAllowed = _usesPaystack(currency);
     final stripeAccountId = user?.stripeConnectAccountId;
-    final stripeConnected = stripeAccountId != null && stripeAccountId.isNotEmpty;
+    final stripeConnected =
+        stripeAccountId != null && stripeAccountId.isNotEmpty;
     final stripeVerified = user?.stripeVerified == true;
     final paystackConnected = user?.bankAccountLinked == true;
 
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context).payoutMethods, style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).payoutMethods,
+            style: AppTextStyles.h3),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -165,12 +200,14 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                 children: [
                   Text(
                     'Your wallet currency is $currency.',
-                    style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                    style: AppTextStyles.labelMd
+                        .copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Payout rails are matched automatically to your wallet currency.',
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.gray600),
+                    style:
+                        AppTextStyles.bodySm.copyWith(color: AppColors.gray600),
                   ),
                 ],
               ),
@@ -201,7 +238,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF635BFF).withOpacity(0.1),
+                          color: const Color(0xFF635BFF).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -230,7 +267,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                                   : 'Not available for this wallet currency',
                               style: AppTextStyles.bodySm.copyWith(
                                 color: stripeAllowed
-                                    ? (stripeConnected ? AppColors.success : AppColors.gray400)
+                                    ? (stripeConnected
+                                        ? AppColors.success
+                                        : AppColors.gray400)
                                     : AppColors.gray400,
                               ),
                             ),
@@ -243,7 +282,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                     const SizedBox(height: 12),
                     Text(
                       'Stripe stays connected for supported non-African currencies.',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                   ],
                   if (stripeConnected && stripeAllowed) ...[
@@ -264,9 +304,13 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                       width: double.infinity,
                       height: 44,
                       child: AppButton(
-                        label: stripeVerified ? 'Refresh Stripe Status' : 'Check Stripe Verification',
+                        label: stripeVerified
+                            ? 'Refresh Stripe Status'
+                            : 'Check Stripe Verification',
                         isLoading: _stripeLoading,
-                        onPressed: user == null ? null : () => _refreshStripeStatus(user.id),
+                        onPressed: user == null
+                            ? null
+                            : () => _refreshStripeStatus(user.id),
                       ),
                     ),
                   ],
@@ -317,7 +361,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF68342).withOpacity(0.1),
+                          color: const Color(0xFFF68342).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -338,11 +382,15 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                             const SizedBox(height: 4),
                             Text(
                               paystackAllowed
-                                  ? (paystackConnected ? 'Connected' : 'Available for this wallet')
+                                  ? (paystackConnected
+                                      ? 'Connected'
+                                      : 'Available for this wallet')
                                   : 'Not available for this wallet currency',
                               style: AppTextStyles.bodySm.copyWith(
                                 color: paystackAllowed
-                                    ? (paystackConnected ? AppColors.success : AppColors.gray400)
+                                    ? (paystackConnected
+                                        ? AppColors.success
+                                        : AppColors.gray400)
                                     : AppColors.gray400,
                               ),
                             ),
@@ -355,7 +403,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                     const SizedBox(height: 12),
                     Text(
                       'Paystack is used for African payout currencies.',
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                   ],
                   if (!paystackConnected && paystackAllowed) ...[
@@ -368,7 +417,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                         onPressed: () async {
                           await context.push('/profile/add-bank');
                           if (mounted) {
-                            await ref.read(authProvider.notifier).refreshProfile();
+                            await ref
+                                .read(authProvider.notifier)
+                                .refreshProfile();
                           }
                         },
                       ),
@@ -409,7 +460,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                               onPressed: () async {
                                 await context.push('/profile/add-bank');
                                 if (mounted) {
-                                  await ref.read(authProvider.notifier).refreshProfile();
+                                  await ref
+                                      .read(authProvider.notifier)
+                                      .refreshProfile();
                                 }
                               },
                             ),

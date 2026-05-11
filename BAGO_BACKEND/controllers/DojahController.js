@@ -118,7 +118,7 @@ export const dojahWebhook = async (req, res) => {
     }
 
     if (status === 'success' || status === 'approved' || status === 'verified') {
-      await markKycApproved(userId, { kycVerifiedData: event });
+      await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: event });
     } else if (status === 'failed' || status === 'declined' || status === 'rejected') {
       await query(
         `UPDATE public.profiles

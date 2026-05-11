@@ -190,7 +190,13 @@ async function createStripeAccountForUser(user) {
     });
 
     await pgQuery(
-      `UPDATE public.profiles SET stripe_connect_account_id = $2, updated_at = NOW() WHERE id = $1`,
+      `UPDATE public.profiles
+       SET stripe_connect_account_id = $2,
+           payout_provider = 'stripe',
+           payout_method_status = 'onboarding',
+           stripe_onboarding_status = 'created',
+           updated_at = NOW()
+       WHERE id = $1`,
       [user.id, account.id]
     );
 
@@ -629,7 +635,12 @@ app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Stripe Onboarding Error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    res.status(500).json({
+      success: false,
+      code: 'STRIPE_ONBOARDING_FAILED',
+      message: 'Stripe setup could not be completed. You can try again, choose another supported payout provider, or contact support.',
+      actions: ['try_stripe_again', 'choose_another_provider', 'contact_support'],
+    });
   }
 });
 
@@ -651,10 +662,27 @@ app.get('/api/stripe/onboarding/complete', async (req, res) => {
 
     const account = await stripe.accounts.retrieve(user.stripe_connect_account_id);
 
-    // ✅ Check onboarding completion - more lenient for initial linking
-    const verified = account.details_submitted || (account.charges_enabled && account.payouts_enabled);
-
-    await queryOne(`UPDATE public.profiles SET stripe_verified = $2, updated_at = NOW() WHERE id = $1 RETURNING id`, [userId, verified]);
+    const verified = account.charges_enabled === true && account.payouts_enabled === true;
+    await queryOne(
+      `UPDATE public.profiles
+       SET stripe_verified = $2,
+           stripe_charges_enabled = $3,
+           stripe_payouts_enabled = $4,
+           stripe_onboarding_status = $5,
+           payout_provider = 'stripe',
+           payout_method_status = $6,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      [
+        userId,
+        verified,
+        account.charges_enabled === true,
+        account.payouts_enabled === true,
+        verified ? 'completed' : 'incomplete',
+        verified ? 'connected' : 'onboarding',
+      ],
+    );
 
     console.log(`✅ Stripe onboarding completed for user ${user.email} (Verified: ${verified})`);
 
@@ -885,11 +913,33 @@ app.get('/api/stripe/connect/status/:userId', async (req, res) => {
 
     // ✅ Save verification & payout status in DB
     const verified = account.charges_enabled && account.payouts_enabled;
-    await queryOne(`UPDATE public.profiles SET stripe_verified = $2, updated_at = NOW() WHERE id = $1 RETURNING id`, [userId, verified]);
+    await queryOne(
+      `UPDATE public.profiles
+       SET stripe_verified = $2,
+           stripe_charges_enabled = $3,
+           stripe_payouts_enabled = $4,
+           stripe_onboarding_status = $5,
+           payout_provider = 'stripe',
+           payout_method_status = $6,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      [
+        userId,
+        verified,
+        account.charges_enabled === true,
+        account.payouts_enabled === true,
+        verified ? 'completed' : 'incomplete',
+        verified ? 'connected' : 'onboarding',
+      ],
+    );
 
     res.json({
       success: true,
       verified,
+      charges_enabled: account.charges_enabled === true,
+      payouts_enabled: account.payouts_enabled === true,
+      payout_method_status: verified ? 'connected' : 'onboarding',
       account,
     });
   } catch (error) {

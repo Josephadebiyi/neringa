@@ -12,6 +12,7 @@ export default function Shipments({ onNavigateToChat }) {
     const [disputeReason, setDisputeReason] = useState('');
     const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
     const [downloading, setDownloading] = useState(null);
+    const [confirming, setConfirming] = useState(null);
 
     useEffect(() => {
         fetchMyRequests();
@@ -54,9 +55,27 @@ export default function Shipments({ onNavigateToChat }) {
         switch (status?.toLowerCase()) {
             case 'completed': return 'text-green-600 bg-green-50';
             case 'pending': return 'text-amber-600 bg-amber-50';
+            case 'delivering': return 'text-amber-600 bg-amber-50';
             case 'in-transit': return 'text-blue-600 bg-blue-50';
             case 'disputed': return 'text-red-600 bg-red-50';
             default: return 'text-gray-600 bg-gray-50';
+        }
+    };
+
+    const getStatusLabel = (req) => {
+        if (req.status === 'delivering' && !req.senderReceived) return 'Awaiting Sender Confirmation';
+        return req.status || 'Pending';
+    };
+
+    const handleConfirmDelivery = async (requestId) => {
+        setConfirming(requestId);
+        try {
+            await api.put(`/api/bago/request/${requestId}/confirm-received`);
+            await fetchMyRequests();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Could not confirm delivery. Please try again.');
+        } finally {
+            setConfirming(null);
         }
     };
 
@@ -150,8 +169,23 @@ export default function Shipments({ onNavigateToChat }) {
 
                             <div className="flex flex-col items-center md:items-end gap-3">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${getStatusColor(req.status)}`}>
-                                    {req.status || 'Pending'}
+                                    {getStatusLabel(req)}
                                 </span>
+                                {req.status === 'delivering' && !req.senderReceived && (
+                                    <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 text-right max-w-xs">
+                                        <p className="text-[9px] font-bold text-amber-800 mb-2">
+                                            The traveler marked this shipment as delivered. Confirm receipt to release payment, or report an issue.
+                                        </p>
+                                        <button
+                                            onClick={() => handleConfirmDelivery(req._id)}
+                                            disabled={confirming === req._id}
+                                            className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-[8px] font-black uppercase tracking-widest text-white disabled:opacity-60"
+                                        >
+                                            {confirming === req._id ? <RefreshCw size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+                                            Confirm Delivery
+                                        </button>
+                                    </div>
+                                )}
                                 {req.travelerProof && (
                                     <div className="flex flex-col items-center md:items-end gap-1.5 mt-1">
                                         <p className="text-[7px] font-black text-[#5845D8] uppercase tracking-widest uppercase italic">{t('travelerUploadedProof')}</p>
@@ -369,4 +403,3 @@ export default function Shipments({ onNavigateToChat }) {
         </div>
     );
 }
-

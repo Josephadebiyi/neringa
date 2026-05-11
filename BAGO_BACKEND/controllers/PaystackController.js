@@ -10,7 +10,6 @@ import {
   getSupportedCountries,
 } from '../services/paystackService.js';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
-import { convertCurrency } from '../services/currencyConverter.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
   createNotification,
@@ -127,22 +126,12 @@ export const verifyPaystackPayment = async (req, res) => {
       );
 
       if (updatedRequest) {
-        const wallet = await queryOne(
-          `SELECT currency FROM public.wallet_accounts WHERE user_id = $1`,
-          [updatedRequest.traveler_id]
-        );
-        const walletCurrency = wallet?.currency || 'USD';
-        const requestCurrency = updatedRequest.currency || 'NGN';
-        const rawAmount = Number(updatedRequest.amount || 0);
-        const escrowAmount = requestCurrency !== walletCurrency
-          ? await convertCurrency(rawAmount, requestCurrency, walletCurrency)
-          : rawAmount;
-
-        await pgQuery(
-          `UPDATE public.wallet_accounts SET escrow_balance = escrow_balance + $2, updated_at = NOW() WHERE user_id = $1`,
-          [updatedRequest.traveler_id, escrowAmount]
-        );
-        console.log(`🔒 Escrowed ${escrowAmount} ${walletCurrency} (from ${rawAmount} ${requestCurrency}) for traveler via Paystack verify`);
+        await holdEscrowForPaidRequest({
+          requestId: updatedRequest.id,
+          providerReference: reference,
+          provider: 'paystack',
+        });
+        console.log(`🔒 Paystack payment verified and ledger/escrow recorded for request ${updatedRequest.id}`);
       }
     }
 
@@ -303,12 +292,14 @@ export const verifyBankOTP = async (req, res) => {
       `UPDATE public.profiles
        SET paystack_recipient_code = $2,
            bank_details = $3,
+           payout_provider = 'paystack',
+           payout_method_status = 'connected',
            updated_at = NOW()
        WHERE id = $1`,
       [
         userId,
         result.recipientCode,
-        JSON.stringify({ bankName, accountNumber, accountHolderName: accountName }),
+        JSON.stringify({ bankName, bankCode, accountNumber, accountName, accountHolderName: accountName, recipientCode: result.recipientCode, paystackRecipientStatus: 'active' }),
       ]
     );
 
@@ -528,38 +519,11 @@ async function handleSuccessfulPayment(data) {
     return;
   }
 
-  // Check idempotency — skip if escrow already held
-  const existing = await queryOne(
-    `SELECT id FROM public.wallet_transactions WHERE request_id = $1 AND type = 'escrow_hold' LIMIT 1`,
-    [updatedRequest.id]
-  );
-  if (existing) {
-    console.log(`ℹ️ Escrow already held for request ${metadata.requestId}, skipping`);
-    return;
-  }
-
-  const wallet = await queryOne(
-    `SELECT id, currency FROM public.wallet_accounts WHERE user_id = $1`,
-    [updatedRequest.traveler_id]
-  );
-  if (!wallet) throw new Error(`Wallet not found for traveler ${updatedRequest.traveler_id}`);
-
-  const walletCurrency = wallet.currency || 'USD';
-  const requestCurrency = updatedRequest.currency || 'NGN';
-  const rawAmount = Number(updatedRequest.amount || 0);
-  const escrowAmount = requestCurrency !== walletCurrency
-    ? await convertCurrency(rawAmount, requestCurrency, walletCurrency)
-    : rawAmount;
-
-  await pgQuery(
-    `UPDATE public.wallet_accounts SET escrow_balance = escrow_balance + $2, updated_at = NOW() WHERE user_id = $1`,
-    [updatedRequest.traveler_id, escrowAmount]
-  );
-  await pgQuery(
-    `INSERT INTO public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
-     VALUES ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
-    [wallet.id, updatedRequest.traveler_id, updatedRequest.id, updatedRequest.trip_id, escrowAmount, walletCurrency, `Escrow hold for Request via webhook`, { providerReference: reference, provider: 'paystack', originalAmount: rawAmount, originalCurrency: requestCurrency }]
-  );
+  await holdEscrowForPaidRequest({
+    requestId: updatedRequest.id,
+    providerReference: reference,
+    provider: 'paystack',
+  });
 
   // Fetch names for notification messages
   const [sender, traveler] = await Promise.all([

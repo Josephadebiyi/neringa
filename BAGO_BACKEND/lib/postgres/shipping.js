@@ -800,6 +800,8 @@ export async function updatePaymentInfo({ requestId, paymentInfo }) {
 
 export async function confirmShipmentReceived({ requestId, senderId }) {
   return withTransaction(async (client) => {
+    const lockResult = await client.query(`select id from public.shipment_requests where id = $1 for update`, [requestId]);
+    if (!lockResult.rows[0]) return null;
     const requestResult = await client.query(`${requestSelect} where sr.id = $1`, [requestId]);
     const request = requestResult.rows[0];
     if (!request) return null;
@@ -809,9 +811,7 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
       throw error;
     }
     if (request.sender_received) {
-      const error = new Error('Already marked as received');
-      error.code = 'ALREADY_DONE';
-      throw error;
+      return getShipmentRequestById(requestId);
     }
     const allowedStatuses = ['delivering', 'delivered', 'completed'];
     if (!allowedStatuses.includes(request.status)) {
@@ -872,6 +872,25 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
       );
       const travelerWallet = travelerWalletResult.rows[0];
       if (travelerWallet) {
+        const existingCredit = await client.query(
+          `select id from public.wallet_transactions where request_id = $1 and user_id = $2 and type = 'earning' limit 1`,
+          [request.id, request.traveler_id],
+        );
+        if (existingCredit.rows[0]?.id) {
+          await client.query(
+            `
+              update public.shipment_ledgers
+              set escrow_status = 'released',
+                  payout_status = 'available',
+                  wallet_credit_created = true,
+                  updated_at = timezone('utc', now())
+              where shipment_id = $1
+            `,
+            [request.id],
+          ).catch(() => {});
+          return getShipmentRequestById(requestId);
+        }
+
         const twCurrency = (travelerWallet.currency || 'USD').toUpperCase();
         const escrowTxResult = await client.query(
           `SELECT amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' ORDER BY created_at DESC LIMIT 1`,
@@ -893,6 +912,17 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
            `Earned for delivering ${request.tracking_number || request.id}`,
            JSON.stringify({ requestId: request.id })],
         );
+        await client.query(
+          `
+            update public.shipment_ledgers
+            set escrow_status = 'released',
+                payout_status = 'available',
+                wallet_credit_created = true,
+                updated_at = timezone('utc', now())
+            where shipment_id = $1
+          `,
+          [request.id],
+        ).catch(() => {});
       }
     }
 
