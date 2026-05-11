@@ -187,15 +187,39 @@ class PackageModel {
         updatedAt: json['updatedAt']?.toString() ?? '',
         receiverName: _firstString([
           json['receiverName'],
+          json['receiver_name'],
           _mapValue(json['package'], 'receiverName'),
+          _mapValue(json['package'], 'receiver_name'),
+          _mapValue(json['recipient_details'], 'receiver_name'),
+          _mapValue(json['recipientDetails'], 'receiverName'),
+          _mapValue(_mapValueRaw(json['package'], 'recipient_details'),
+              'receiver_name'),
+          _mapValue(_mapValueRaw(json['package'], 'recipientDetails'),
+              'receiverName'),
         ]),
         receiverPhone: _firstString([
           json['receiverPhone'],
+          json['receiver_phone'],
           _mapValue(json['package'], 'receiverPhone'),
+          _mapValue(json['package'], 'receiver_phone'),
+          _mapValue(json['recipient_details'], 'receiver_phone'),
+          _mapValue(json['recipientDetails'], 'receiverPhone'),
+          _mapValue(_mapValueRaw(json['package'], 'recipient_details'),
+              'receiver_phone'),
+          _mapValue(_mapValueRaw(json['package'], 'recipientDetails'),
+              'receiverPhone'),
         ]),
         receiverEmail: _firstString([
           json['receiverEmail'],
+          json['receiver_email'],
           _mapValue(json['package'], 'receiverEmail'),
+          _mapValue(json['package'], 'receiver_email'),
+          _mapValue(json['recipient_details'], 'receiver_email'),
+          _mapValue(json['recipientDetails'], 'receiverEmail'),
+          _mapValue(_mapValueRaw(json['package'], 'recipient_details'),
+              'receiver_email'),
+          _mapValue(_mapValueRaw(json['package'], 'recipientDetails'),
+              'receiverEmail'),
         ]),
         currency: json['currency']?.toString() ??
             json['preferredCurrency']?.toString() ??
@@ -282,6 +306,13 @@ class PackageModel {
   static String? _mapValue(dynamic value, String key) {
     if (value is Map<String, dynamic>) {
       return value[key]?.toString();
+    }
+    return null;
+  }
+
+  static dynamic _mapValueRaw(dynamic value, String key) {
+    if (value is Map<String, dynamic>) {
+      return value[key];
     }
     return null;
   }

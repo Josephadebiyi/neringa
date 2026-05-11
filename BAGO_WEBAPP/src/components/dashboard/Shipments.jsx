@@ -67,6 +67,16 @@ export default function Shipments({ onNavigateToChat }) {
         return req.status || 'Pending';
     };
 
+    const getReceiverInfo = (request) => {
+        const pkg = request?.package || {};
+        const recipient = request?.recipient_details || request?.recipientDetails || pkg.recipient_details || pkg.recipientDetails || {};
+        return {
+            name: request?.receiverName || request?.receiver_name || pkg.receiverName || pkg.receiver_name || recipient.receiver_name || recipient.receiverName || '',
+            phone: request?.receiverPhone || request?.receiver_phone || pkg.receiverPhone || pkg.receiver_phone || recipient.receiver_phone || recipient.receiverPhone || '',
+            email: request?.receiverEmail || request?.receiver_email || pkg.receiverEmail || pkg.receiver_email || recipient.receiver_email || recipient.receiverEmail || '',
+        };
+    };
+
     const handleConfirmDelivery = async (requestId) => {
         setConfirming(requestId);
         try {
@@ -288,7 +298,9 @@ export default function Shipments({ onNavigateToChat }) {
             )}
 
             {/* Inspection Details Modal */}
-            {viewingDetails && (
+            {viewingDetails && (() => {
+                const receiver = getReceiverInfo(viewingDetails);
+                return (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[110] flex items-center justify-center p-4 animate-in fade-in duration-300">
                     <div className="bg-white w-full max-w-lg rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                         {/* Header */}
@@ -334,8 +346,11 @@ export default function Shipments({ onNavigateToChat }) {
                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('receiverInformation')}</p>
                                 <div className="p-6 bg-indigo-50/30 rounded-[24px] border border-indigo-100 flex items-center justify-between">
                                     <div>
-                                        <p className="text-[10px] font-black text-[#012126] uppercase">{viewingDetails.package?.receiverName || t('notFound')}</p>
-                                        <p className="text-[9px] text-gray-500 font-bold mt-0.5">{viewingDetails.package?.receiverPhone || t('noPhoneProvided')}</p>
+                                        <p className="text-[10px] font-black text-[#012126] uppercase">{receiver.name || t('notFound')}</p>
+                                        <p className="text-[9px] text-gray-500 font-bold mt-0.5">{receiver.phone || t('noPhoneProvided')}</p>
+                                        {receiver.email && (
+                                            <p className="text-[9px] text-gray-500 font-bold mt-0.5 break-all">{receiver.email}</p>
+                                        )}
                                     </div>
                                     <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#5845D8] shadow-sm">
                                         <User size={18} />
@@ -399,7 +414,8 @@ export default function Shipments({ onNavigateToChat }) {
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
         </div>
     );
 }

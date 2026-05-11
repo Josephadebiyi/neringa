@@ -88,7 +88,9 @@ class RequestModel {
   bool get isAccepted => status == RequestStatus.accepted;
   String get statusLabel => status.label;
   bool get awaitingSenderConfirmation =>
-      rawStatus.toLowerCase() == 'delivered' && !senderReceived;
+      (rawStatus.toLowerCase() == 'delivered' ||
+          rawStatus.toLowerCase() == 'delivering') &&
+      !senderReceived;
   bool get isCompletedBySender =>
       senderReceived || rawStatus.toLowerCase() == 'completed';
 
@@ -96,6 +98,10 @@ class RequestModel {
     final sender = json['sender'] as Map<String, dynamic>?;
     final carrier = json['carrier'] as Map<String, dynamic>?;
     final package = json['package'] as Map<String, dynamic>?;
+    final recipient = (json['recipient_details'] ??
+        json['recipientDetails'] ??
+        package?['recipient_details'] ??
+        package?['recipientDetails']) as Map<String, dynamic>?;
     final rawStatus = json['status']?.toString() ?? '';
     return RequestModel(
       id: JsonParser.parseId(json),
@@ -170,11 +176,23 @@ class RequestModel {
       deliveryAddress: json['deliveryAddress']?.toString() ??
           package?['deliveryAddress']?.toString(),
       receiverName: json['receiverName']?.toString() ??
-          package?['receiverName']?.toString(),
+          json['receiver_name']?.toString() ??
+          package?['receiverName']?.toString() ??
+          package?['receiver_name']?.toString() ??
+          recipient?['receiverName']?.toString() ??
+          recipient?['receiver_name']?.toString(),
       receiverPhone: json['receiverPhone']?.toString() ??
-          package?['receiverPhone']?.toString(),
+          json['receiver_phone']?.toString() ??
+          package?['receiverPhone']?.toString() ??
+          package?['receiver_phone']?.toString() ??
+          recipient?['receiverPhone']?.toString() ??
+          recipient?['receiver_phone']?.toString(),
       receiverEmail: json['receiverEmail']?.toString() ??
-          package?['receiverEmail']?.toString(),
+          json['receiver_email']?.toString() ??
+          package?['receiverEmail']?.toString() ??
+          package?['receiver_email']?.toString() ??
+          recipient?['receiverEmail']?.toString() ??
+          recipient?['receiver_email']?.toString(),
       packageImages: (json['packageImages'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
@@ -183,8 +201,11 @@ class RequestModel {
               .toList() ??
           const [],
       insurance: json['insurance'] == true,
-      insuranceCost: JsonParser.parseDoubleFirst(json, ['insuranceCost', 'insurance_cost']),
-      insurancePolicyId: (json['insurancePolicyId'] ?? json['insurance_policy_id'])?.toString(),
+      insuranceCost: JsonParser.parseDoubleFirst(
+          json, ['insuranceCost', 'insurance_cost']),
+      insurancePolicyId:
+          (json['insurancePolicyId'] ?? json['insurance_policy_id'])
+              ?.toString(),
     );
   }
 
