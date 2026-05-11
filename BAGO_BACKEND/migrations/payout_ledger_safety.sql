@@ -47,12 +47,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS shipment_ledgers_shipment_id_key
 
 CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_one_earning_per_request_user
   ON public.wallet_transactions (request_id, user_id)
-  WHERE type = 'earning' AND request_id IS NOT NULL;
+  WHERE type::text = 'earning' AND request_id IS NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_one_escrow_hold_per_request_user
   ON public.wallet_transactions (request_id, user_id)
-  WHERE type = 'escrow_hold' AND request_id IS NOT NULL;
+  WHERE type::text = 'escrow_hold' AND request_id IS NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_withdrawal_reference_key
   ON public.wallet_transactions ((metadata->>'reference'))
-  WHERE type = 'withdrawal' AND metadata ? 'reference';
+  WHERE type::text = 'withdrawal' AND metadata ? 'reference';

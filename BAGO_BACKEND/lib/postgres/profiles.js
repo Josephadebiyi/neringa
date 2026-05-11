@@ -422,20 +422,14 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
   }
 }
 
-// One-time earner activation: sets earning_currency and locks it
+// Updates traveler payout currency. Currency conversion is handled server-side
+// when ledger entries and wallet balances are created or displayed.
 export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
-  const profile = await queryOne(
-    `SELECT earning_currency_locked FROM public.profiles WHERE id = $1`,
-    [userId],
-  );
-  if (profile?.earning_currency_locked) {
-    throw Object.assign(new Error('Earning currency is already locked and cannot be changed.'), { code: 'CURRENCY_LOCKED' });
-  }
   const upper = currency.toUpperCase();
   const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'stripe';
   await query(
-    `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = TRUE,
+    `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = FALSE,
      preferred_currency = $2, payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
     [userId, upper, paymentGateway],
   );

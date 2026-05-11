@@ -81,17 +81,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     if (selected.isEmpty || user == null) return false;
     if (selected == currentCurrency.toUpperCase()) return true;
 
-    if (user.earningCurrencyLocked) {
-      if (!mounted) return false;
-      AppSnackBar.show(
-        context,
-        message:
-            'To change your payout currency, please contact support. This helps us protect your balance, payouts, and shipment records.',
-        type: SnackBarType.info,
-      );
-      return false;
-    }
-
     setState(() => _savingPayoutCurrency = true);
     try {
       await ref.read(authProvider.notifier).activateEarning(selected);
@@ -162,6 +151,18 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         'restartIncomplete': true,
       });
       final data = response.data;
+      if (data is Map && data['connected'] == true) {
+        await ref.read(authProvider.notifier).refreshProfile();
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            message: data['message']?.toString() ??
+                'Stripe payout setup is complete.',
+            type: SnackBarType.success,
+          );
+        }
+        return;
+      }
       final url = data is Map
           ? (data['url']?.toString() ??
               data['onboarding_url']?.toString() ??
@@ -327,16 +328,14 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: user?.earningCurrencyLocked == true
-                        ? null
-                        : (country) {
-                            if (country == null) return;
-                            final currencies = _currenciesForCountry(country);
-                            setState(() {
-                              _selectedCountry = country;
-                              _selectedCurrency = currencies.first;
-                            });
-                          },
+                    onChanged: (country) {
+                      if (country == null) return;
+                      final currencies = _currenciesForCountry(country);
+                      setState(() {
+                        _selectedCountry = country;
+                        _selectedCurrency = currencies.first;
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -357,21 +356,11 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: user?.earningCurrencyLocked == true
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-                            setState(() => _selectedCurrency = value);
-                          },
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _selectedCurrency = value);
+                    },
                   ),
-                  if (user?.earningCurrencyLocked == true) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'To change your payout currency, please contact support. This helps us protect your balance, payouts, and shipment records.',
-                      style: AppTextStyles.bodySm
-                          .copyWith(color: AppColors.gray500),
-                    ),
-                  ],
                 ],
               ),
             ),

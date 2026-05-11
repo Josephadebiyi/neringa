@@ -240,9 +240,16 @@ export default function Settings({ user, checkAuthStatus }) {
                 email: user?.email,
                 restartIncomplete: true
             });
+            if (res.data.success && res.data.connected) {
+                setStripeVerified(true);
+                await checkAuthStatus?.();
+                return;
+            }
             if (res.data.success && res.data.url) {
                 window.location.href = res.data.url;
+                return;
             }
+            throw new Error(res.data?.message || 'Stripe setup could not be completed.');
         } catch (err) {
             const msg = err.response?.data?.message || 'Stripe setup could not be completed. You can try again, choose another supported payout provider, or contact support.';
             setError(msg);

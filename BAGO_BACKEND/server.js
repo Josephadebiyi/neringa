@@ -95,8 +95,29 @@ if (process.env.RESEND_API_KEY) {
 
 // Run all SQL migration files on startup — each in its own try/catch so one
 // failure doesn't block the rest.
+async function ensureWalletTransactionEnumValues() {
+  const enumExists = await pgQuery(`
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'wallet_transaction_type'
+      AND n.nspname = 'public'
+    LIMIT 1
+  `);
+  if (enumExists.rowCount === 0) return;
+
+  for (const value of ['earning', 'admin_settlement', 'escrow_hold', 'withdrawal']) {
+    await pgQuery(`ALTER TYPE public.wallet_transaction_type ADD VALUE IF NOT EXISTS '${value}'`);
+  }
+}
+
 async function runMigrations() {
   const migrationsDir = path.join(__dirname, 'migrations');
+  try {
+    await ensureWalletTransactionEnumValues();
+  } catch (err) {
+    console.error('❌ Could not prepare wallet transaction enum values:', err.message);
+  }
   let files;
   try {
     files = (await readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
@@ -602,12 +623,25 @@ app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
     const account = await stripe.accounts.retrieve(stripeAccountId);
 
     if (account.type === 'express' && account.details_submitted && account.payouts_enabled) {
-      const loginLink = await stripe.accounts.createLoginLink(stripeAccountId);
+      await queryOne(
+        `UPDATE public.profiles
+         SET stripe_verified = true,
+             stripe_charges_enabled = $2,
+             stripe_payouts_enabled = true,
+             stripe_onboarding_status = 'completed',
+             payout_provider = 'stripe',
+             payout_method_status = 'connected',
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id`,
+        [userId, account.charges_enabled === true],
+      );
       return res.json({
         success: true,
-        url: loginLink.url,
-        login_url: loginLink.url,
-        mode: 'dashboard',
+        connected: true,
+        verified: true,
+        mode: 'connected',
+        message: 'Stripe payout setup is complete.',
       });
     }
 

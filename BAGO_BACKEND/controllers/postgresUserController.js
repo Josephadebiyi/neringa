@@ -1055,15 +1055,23 @@ export async function updateCommunicationPrefs(req, res) {
   }
 }
 
-// Blocked — earning currency is set once via /activate-earning
-export async function editCurrency(_req, res) {
-  return res.status(403).json({
-    message: 'Earning currency cannot be changed by users. Contact support if you need to change it.',
-    code: 'CURRENCY_LOCKED',
-  });
+export async function editCurrency(req, res, next) {
+  const currency = req.body?.currency || req.body?.preferredCurrency;
+  if (!currency) return res.status(400).json({ message: 'Currency is required' });
+  try {
+    const userId = req.user.id || req.user._id;
+    const updatedProfile = await activateEarningCurrency(userId, currency);
+    return res.status(200).json({
+      message: 'Payout currency updated.',
+      success: true,
+      user: buildUserResponse(updatedProfile),
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
-// One-time earning currency activation (sets & locks earning currency)
+// Payout currency activation/update
 export async function activateEarning(req, res, next) {
   const { currency } = req.body;
   if (!currency) return res.status(400).json({ message: 'Currency is required' });
@@ -1071,14 +1079,11 @@ export async function activateEarning(req, res, next) {
     const userId = req.user.id || req.user._id;
     const updatedProfile = await activateEarningCurrency(userId, currency);
     res.status(200).json({
-      message: 'Earning currency set and locked.',
+      message: 'Payout currency updated.',
       success: true,
       user: buildUserResponse(updatedProfile),
     });
   } catch (error) {
-    if (error.code === 'CURRENCY_LOCKED') {
-      return res.status(409).json({ message: error.message, code: error.code });
-    }
     next(error);
   }
 }

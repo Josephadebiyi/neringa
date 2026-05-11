@@ -62,19 +62,19 @@ async function ensurePaymentEventsInfrastructure(client) {
     await client.query(`
       create unique index if not exists wallet_transactions_one_earning_per_request_user
         on public.wallet_transactions (request_id, user_id)
-        where type = 'earning' and request_id is not null
+        where type::text = 'earning' and request_id is not null
     `);
 
     await client.query(`
       create unique index if not exists wallet_transactions_one_escrow_hold_per_request_user
         on public.wallet_transactions (request_id, user_id)
-        where type = 'escrow_hold' and request_id is not null
+        where type::text = 'escrow_hold' and request_id is not null
     `);
 
     await client.query(`
       create unique index if not exists wallet_transactions_withdrawal_reference_key
         on public.wallet_transactions ((metadata->>'reference'))
-        where type = 'withdrawal' and metadata ? 'reference'
+        where type::text = 'withdrawal' and metadata ? 'reference'
     `);
   } catch (error) {
     console.warn('Payment/ledger infrastructure unavailable, continuing without it:', error.message);
@@ -153,38 +153,6 @@ export async function getAccountProfile(userId) {
 }
 
 export async function updateAccountProfile(userId, updates) {
-  if (updates.preferredCurrency) {
-    const current = await queryOne(
-      `
-        select
-          coalesce(wa.available_balance, 0) as available_balance,
-          coalesce(wa.escrow_balance, 0) as escrow_balance,
-          exists (
-            select 1 from public.trips
-            where user_id = $1
-              and coalesce(status, 'active') not in ('cancelled', 'completed')
-            limit 1
-          ) as has_active_trips,
-          exists (
-            select 1 from public.shipment_requests
-            where traveler_id = $1
-              and status not in ('completed', 'cancelled', 'rejected')
-            limit 1
-          ) as has_pending_shipments
-        from public.profiles p
-        left join public.wallet_accounts wa on wa.user_id = p.id
-        where p.id = $1
-      `,
-      [userId],
-    );
-    const hasBalance = toNumber(current?.available_balance) > 0 || toNumber(current?.escrow_balance) > 0;
-    if (hasBalance || current?.has_active_trips || current?.has_pending_shipments) {
-      const error = new Error('To change your payout currency, please contact support. This helps us protect your balance, payouts, and shipment records.');
-      error.code = 'PAYOUT_CURRENCY_LOCKED';
-      throw error;
-    }
-  }
-
   const mapping = {
     firstName: 'first_name',
     lastName: 'last_name',

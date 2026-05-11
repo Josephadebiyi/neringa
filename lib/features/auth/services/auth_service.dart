@@ -70,7 +70,8 @@ class AuthService {
       throw ApiService.parseError(e);
     } on PlatformException catch (e) {
       debugPrint('Login: platform/keychain error (non-fatal): $e');
-      throw Exception('A system error occurred. Please restart the app and try again.');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
     }
   }
 
@@ -147,7 +148,8 @@ class AuthService {
       throw ApiService.parseError(e);
     } on PlatformException catch (e) {
       debugPrint('verifyOtp: platform/keychain error (non-fatal): $e');
-      throw Exception('A system error occurred. Please restart the app and try again.');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
     }
   }
 
@@ -373,7 +375,8 @@ class AuthService {
       throw ApiService.parseError(e);
     } on PlatformException catch (e) {
       debugPrint('appleSignIn: platform/keychain error (non-fatal): $e');
-      throw Exception('A system error occurred. Please restart the app and try again.');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
     } catch (e) {
       if (e is SignInWithAppleAuthorizationException) {
         if (e.code == AuthorizationErrorCode.canceled) {
@@ -503,7 +506,7 @@ class AuthService {
           ? returned
           : existing.copyWith(
               earningCurrency: returned.earningCurrency ?? currency,
-              earningCurrencyLocked: true,
+              earningCurrencyLocked: returned.earningCurrencyLocked,
               preferredCurrency: currency,
               currency: currency,
               walletCurrency: returned.walletCurrency.isNotEmpty
