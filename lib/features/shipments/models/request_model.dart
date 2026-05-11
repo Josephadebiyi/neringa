@@ -89,7 +89,8 @@ class RequestModel {
   String get statusLabel => status.label;
   bool get awaitingSenderConfirmation =>
       (rawStatus.toLowerCase() == 'delivered' ||
-          rawStatus.toLowerCase() == 'delivering') &&
+          rawStatus.toLowerCase() == 'delivering' ||
+          rawStatus.toLowerCase() == 'awaiting_sender_confirmation') &&
       !senderReceived;
   bool get isCompletedBySender =>
       senderReceived || rawStatus.toLowerCase() == 'completed';

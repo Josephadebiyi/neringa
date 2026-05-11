@@ -38,6 +38,7 @@ class PackageModel {
   final String? estimatedDeparture;
   final String? estimatedArrival;
   final bool senderReceived;
+  final String rawStatus;
 
   const PackageModel({
     required this.id,
@@ -76,10 +77,18 @@ class PackageModel {
     this.estimatedDeparture,
     this.estimatedArrival,
     this.senderReceived = false,
+    this.rawStatus = '',
   });
 
   bool get isActive => status.isActive;
   String get statusLabel => status.label;
+  bool get awaitingSenderConfirmation =>
+      (rawStatus.toLowerCase() == 'delivered' ||
+          rawStatus.toLowerCase() == 'delivering' ||
+          rawStatus.toLowerCase() == 'awaiting_sender_confirmation') &&
+      !senderReceived;
+  bool get isCompletedBySender =>
+      senderReceived || rawStatus.toLowerCase() == 'completed';
 
   factory PackageModel.fromJson(Map<String, dynamic> json) => PackageModel(
         id: JsonParser.parseId(json),
@@ -158,6 +167,7 @@ class PackageModel {
         pickupDate: json['pickupDate']?.toString(),
         deliveryDate: json['deliveryDate']?.toString(),
         status: _statusFromRequest(json['status']?.toString()),
+        rawStatus: json['status']?.toString() ?? '',
         trackingNumber: json['trackingNumber']?.toString(),
         images: (json['images'] as List<dynamic>?)
                 ?.map((e) => e.toString())
@@ -239,7 +249,8 @@ class PackageModel {
             _mapValue(json['dates'], 'estimatedDeparture'),
         estimatedArrival: json['estimatedArrival']?.toString() ??
             _mapValue(json['dates'], 'estimatedArrival'),
-        senderReceived: json['senderReceived'] == true,
+        senderReceived:
+            json['senderReceived'] == true || json['sender_received'] == true,
       );
 
   Map<String, dynamic> toJson() => {
@@ -278,6 +289,8 @@ class PackageModel {
         'paymentStatus': paymentStatus,
         'estimatedDeparture': estimatedDeparture,
         'estimatedArrival': estimatedArrival,
+        'senderReceived': senderReceived,
+        'rawStatus': rawStatus,
       };
 
   static String _firstString(List<dynamic> values) {
@@ -336,6 +349,7 @@ class PackageModel {
         return PackageStatus.inTransit;
       case 'completed':
       case 'delivered':
+      case 'awaiting_sender_confirmation':
         return PackageStatus.delivered;
       case 'cancelled':
       case 'rejected':
