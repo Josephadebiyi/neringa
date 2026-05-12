@@ -62,19 +62,19 @@ async function ensurePaymentEventsInfrastructure(client) {
     await client.query(`
       create unique index if not exists wallet_transactions_one_earning_per_request_user
         on public.wallet_transactions (request_id, user_id)
-        where type::text = 'earning' and request_id is not null
+        where type = 'earning' and request_id is not null
     `);
 
     await client.query(`
       create unique index if not exists wallet_transactions_one_escrow_hold_per_request_user
         on public.wallet_transactions (request_id, user_id)
-        where type::text = 'escrow_hold' and request_id is not null
+        where type = 'escrow_hold' and request_id is not null
     `);
 
     await client.query(`
       create unique index if not exists wallet_transactions_withdrawal_reference_key
         on public.wallet_transactions ((metadata->>'reference'))
-        where type::text = 'withdrawal' and metadata ? 'reference'
+        where type = 'withdrawal' and metadata ? 'reference'
     `);
   } catch (error) {
     console.warn('Payment/ledger infrastructure unavailable, continuing without it:', error.message);

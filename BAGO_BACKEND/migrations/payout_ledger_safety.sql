@@ -49,14 +49,47 @@ CREATE TABLE IF NOT EXISTS public.shipment_ledgers (
 CREATE UNIQUE INDEX IF NOT EXISTS shipment_ledgers_shipment_id_key
   ON public.shipment_ledgers (shipment_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_one_earning_per_request_user
-  ON public.wallet_transactions (request_id, user_id)
-  WHERE type::text = 'earning' AND request_id IS NOT NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_enum e
+    JOIN pg_type t ON t.oid = e.enumtypid
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+      AND t.typname = 'wallet_transaction_type'
+      AND e.enumlabel = 'earning'
+  ) THEN
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_one_earning_per_request_user
+      ON public.wallet_transactions (request_id, user_id)
+      WHERE type = ''earning'' AND request_id IS NOT NULL';
+  END IF;
 
-CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_one_escrow_hold_per_request_user
-  ON public.wallet_transactions (request_id, user_id)
-  WHERE type::text = 'escrow_hold' AND request_id IS NOT NULL;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_enum e
+    JOIN pg_type t ON t.oid = e.enumtypid
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+      AND t.typname = 'wallet_transaction_type'
+      AND e.enumlabel = 'escrow_hold'
+  ) THEN
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_one_escrow_hold_per_request_user
+      ON public.wallet_transactions (request_id, user_id)
+      WHERE type = ''escrow_hold'' AND request_id IS NOT NULL';
+  END IF;
 
-CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_withdrawal_reference_key
-  ON public.wallet_transactions ((metadata->>'reference'))
-  WHERE type::text = 'withdrawal' AND metadata ? 'reference';
+  IF EXISTS (
+    SELECT 1
+    FROM pg_enum e
+    JOIN pg_type t ON t.oid = e.enumtypid
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+      AND t.typname = 'wallet_transaction_type'
+      AND e.enumlabel = 'withdrawal'
+  ) THEN
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_withdrawal_reference_key
+      ON public.wallet_transactions ((metadata->>''reference''))
+      WHERE type = ''withdrawal'' AND metadata ? ''reference''';
+  END IF;
+END $$;
