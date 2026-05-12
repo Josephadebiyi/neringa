@@ -499,18 +499,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<bool> _ensureStripeReady() async {
-    try {
-      Stripe.publishableKey;
-      return true;
-    } on StripeConfigException {
-      await AppSettingsService.instance.fetchPublicSettings();
+    Future<bool> applyCurrentKey() async {
+      var key = '';
       try {
-        Stripe.publishableKey;
+        key = Stripe.publishableKey;
+      } on StripeConfigException {
+        key = '';
+      }
+      if (key.isEmpty && ApiConstants.stripePublishableKey.isNotEmpty) {
+        Stripe.publishableKey = ApiConstants.stripePublishableKey;
+      }
+      try {
+        await Stripe.instance.applySettings();
         return true;
       } on StripeConfigException {
         return false;
       }
     }
+
+    if (await applyCurrentKey()) return true;
+    await AppSettingsService.instance.fetchPublicSettings(refresh: true);
+    return applyCurrentKey();
   }
 
   Future<bool> _recoverPaidStripeShipment(
