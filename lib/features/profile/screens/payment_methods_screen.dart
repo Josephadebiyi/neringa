@@ -547,55 +547,26 @@ class _AddCardSheetState extends State<_AddCardSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.gray200),
-                  ),
-                  child: SizedBox(
-                    height: 58,
-                    child: CardField(
-                      autofocus: true,
-                      enablePostalCode: false,
-                      numberHintText: 'Card number',
-                      expirationHintText: 'MM/YY',
-                      cvcHintText: 'CVC',
+                SizedBox(
+                  height: 292,
+                  child: CardFormField(
+                    autofocus: true,
+                    enablePostalCode: false,
+                    style: CardFormStyle(
+                      backgroundColor: AppColors.gray50,
+                      borderColor: AppColors.gray200,
+                      borderRadius: 14,
+                      borderWidth: 1,
                       cursorColor: AppColors.primary,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppColors.gray50,
-                        hintStyle: const TextStyle(color: AppColors.gray400),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 14,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide:
-                              const BorderSide(color: AppColors.gray200),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 1.4,
-                          ),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onCardChanged: (details) {
-                        if (!mounted) return;
-                        setState(() => _cardDetails = details);
-                      },
+                      fontSize: 16,
+                      placeholderColor: AppColors.gray400,
+                      textColor: Colors.black,
+                      textErrorColor: AppColors.error,
                     ),
+                    onCardChanged: (details) {
+                      if (!mounted) return;
+                      setState(() => _cardDetails = details);
+                    },
                   ),
                 ),
                 const SizedBox(height: 20),
