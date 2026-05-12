@@ -767,7 +767,7 @@ export async function updateRequestStatus(req, res) {
     const { requestId } = req.params;
     const { status: rawStatus, location, notes } = req.body;
     // Traveler delivery is not final completion. Funds remain held until the sender confirms receipt.
-    const status = rawStatus === 'delivered' ? 'delivering' : rawStatus;
+    const status = (rawStatus === 'delivered' || rawStatus === 'completed') ? 'delivering' : rawStatus;
     const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });

@@ -691,10 +691,9 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       throw error;
     }
 
-    // Map status to valid Postgres enum values
-    // The DB enum has: pending, accepted, rejected, intransit, delivering, completed, cancelled
-    // 'delivered' and 'completed' both map to 'completed' in the DB
-    const normalizedStatus = (status === 'completed' || status === 'delivered') ? 'completed' : status;
+    // Traveler delivery is not final completion. Funds release only when the
+    // sender confirms receipt through confirmShipmentReceived().
+    const normalizedStatus = (status === 'completed' || status === 'delivered') ? 'delivering' : status;
 
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
     if (['intransit', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
@@ -728,42 +727,6 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
 
     if (normalizedStatus === 'accepted') {
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
-
-      // Hold sender's funds in escrow
-      const rawAmount = toNumber(request.amount);
-      if (rawAmount > 0 && request.sender_id) {
-        const senderWallet = await client.query(
-          `SELECT id, available_balance, escrow_balance, currency FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
-          [request.sender_id],
-        );
-        const sw = senderWallet.rows[0];
-        if (sw) {
-          const requestCurrency = (request.currency || 'USD').toUpperCase();
-          const swCurrency = (sw.currency || 'USD').toUpperCase();
-          const amount = requestCurrency !== swCurrency
-            ? await convertCurrency(rawAmount, requestCurrency, swCurrency)
-            : rawAmount;
-
-          await client.query(
-            `UPDATE public.wallet_accounts
-             SET available_balance = greatest(0, available_balance - $2),
-                 escrow_balance = escrow_balance + $2,
-                 updated_at = timezone('utc', now())
-             WHERE user_id = $1`,
-            [request.sender_id, amount],
-          );
-          await client.query(
-            `INSERT INTO public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
-             VALUES ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
-            [
-              sw.id, request.sender_id, request.id, request.trip_id,
-              amount, swCurrency,
-              `Funds held in escrow for shipment ${request.tracking_number || request.id}`,
-              JSON.stringify({ requestId: request.id, originalAmount: rawAmount, originalCurrency: requestCurrency }),
-            ],
-          );
-        }
-      }
     }
 
     if (request.trip_id) {

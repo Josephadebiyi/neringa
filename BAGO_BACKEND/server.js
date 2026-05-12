@@ -179,7 +179,7 @@ startEscrowAutoRelease();
 startCurrencyRateSync();
 
 // create or return an existing Stripe account id for a user
-async function createStripeAccountForUser(user, { restartIncomplete = false } = {}) {
+async function createStripeAccountForUser(user, { restartIncomplete = true } = {}) {
   if (!stripe) {
     console.warn('❌ createStripeAccountForUser failed: Stripe not configured');
     throw new Error('Stripe not configured');
@@ -191,8 +191,10 @@ async function createStripeAccountForUser(user, { restartIncomplete = false } = 
     try {
       const existingAccount = await stripe.accounts.retrieve(existingAccountId);
       const isComplete = existingAccount.charges_enabled === true && existingAccount.payouts_enabled === true;
-      const shouldRestart = restartIncomplete && !isComplete;
-      if (!shouldRestart && (existingAccount.type === 'express' || isComplete)) {
+      if (isComplete) {
+        return existingAccountId;
+      }
+      if (!restartIncomplete && existingAccount.type === 'express') {
         return existingAccountId;
       }
       console.warn(`⚠️ Replacing incomplete Stripe ${existingAccount.type} account for user ${user.id}`);
@@ -202,15 +204,24 @@ async function createStripeAccountForUser(user, { restartIncomplete = false } = 
   }
 
   try {
-    const account = await stripe.accounts.create({
+    const payoutCountry = (user.payout_country || user.country || '').toString().trim().toUpperCase();
+    const accountParams = {
       type: 'express',
       email: user.email,
       capabilities: { transfers: { requested: true } },
+    };
+    if (/^[A-Z]{2}$/.test(payoutCountry)) {
+      accountParams.country = payoutCountry;
+    }
+
+    const account = await stripe.accounts.create({
+      ...accountParams,
     });
 
     await pgQuery(
       `UPDATE public.profiles
        SET stripe_connect_account_id = $2,
+           stripe_account_id = $2,
            payout_provider = 'stripe',
            payout_method_status = 'onboarding',
            stripe_onboarding_status = 'created',

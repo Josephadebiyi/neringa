@@ -85,10 +85,10 @@ class PackageModel {
   bool get awaitingSenderConfirmation =>
       (rawStatus.toLowerCase() == 'delivered' ||
           rawStatus.toLowerCase() == 'delivering' ||
+          rawStatus.toLowerCase() == 'completed' ||
           rawStatus.toLowerCase() == 'awaiting_sender_confirmation') &&
       !senderReceived;
-  bool get isCompletedBySender =>
-      senderReceived || rawStatus.toLowerCase() == 'completed';
+  bool get isCompletedBySender => senderReceived;
 
   factory PackageModel.fromJson(Map<String, dynamic> json) => PackageModel(
         id: JsonParser.parseId(json),
