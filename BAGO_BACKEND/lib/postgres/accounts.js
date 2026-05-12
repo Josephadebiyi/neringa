@@ -660,6 +660,7 @@ export async function markKycApproved(userId, payload = {}) {
             verified_last_name = coalesce($5, verified_last_name),
             verified_full_legal_name = coalesce($6, verified_full_legal_name),
             verified_date_of_birth = coalesce($8::date, verified_date_of_birth),
+            kyc_provider = $7,
             verification_provider = $7,
             identity_fields_locked = true,
             updated_at = timezone('utc', now())

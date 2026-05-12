@@ -8,7 +8,7 @@ import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { requireKycVerification } from '../middleware/kycMiddleware.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
-import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
+import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
 import { createPackage, updatePackage, deletePackage } from '../controllers/PackageController.js';
 import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
@@ -148,14 +148,7 @@ userRouter.get("/track/:trackingNumber", getPublicTracking);
 
 userRouter.post("/KycVerifications", isAuthenticated, KycVerifications)
 userRouter.get("/getKyc", isAuthenticated, getKyc)
-userRouter.post('/kyc/create-session', isAuthenticated, createDiditSession);
-userRouter.get('/kyc/status', isAuthenticated, fetchDiditResult);
-userRouter.get('/kyc/fetch-result/:sessionId', isAuthenticated, fetchDiditResult);
-userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => {
-  req.params = { ...req.params, sessionId: req.body?.sessionId || req.query?.sessionId };
-  return fetchDiditResult(req, res, next);
-});
-// KYC provider routing (Dojah vs DiDit)
+// KYC provider routing (Dojah or manual upload)
 userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
 userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers

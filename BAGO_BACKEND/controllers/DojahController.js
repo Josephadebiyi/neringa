@@ -57,7 +57,7 @@ export const getKycProvider = async (req, res) => {
     });
   }
 
-  // Non-Dojah country — use in-app manual review flow (Didit disabled)
+  // Non-Dojah country — use in-app manual review flow
   return res.json({ success: true, provider: 'manual', country });
 };
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash, RefreshCw } from "lucide-react";
-import { getAllKyc, verifyKyc, runKycSweep } from "../services/api";
+import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash, CheckCircle2, ExternalLink } from "lucide-react";
+import { getAllKyc, verifyKyc } from "../services/api";
 
 interface KycVerifiedData {
   fullName?: string;
@@ -8,6 +8,12 @@ interface KycVerifiedData {
   documentNumber?: string;
   issuingCountry?: string;
   verificationStatus?: string;
+  idType?: string;
+  idNumber?: string | null;
+  idFrontUrl?: string;
+  idBackUrl?: string | null;
+  livenessUrl?: string;
+  submittedAt?: string;
 }
 
 interface UserData {
@@ -18,13 +24,13 @@ interface UserData {
   email: string;
   phone: string;
   kycStatus: string;
+  kycProvider?: string;
   country?: string;
   dateOfBirth: string;
   kycVerifiedAt?: string;
   kycVerifiedData?: KycVerifiedData;
   kycFailureReason?: string;
   profileImage?: string;
-  diditSessionId?: string;
 }
 
 interface KYCItem {
@@ -35,8 +41,6 @@ export default function KYCVerificationManager() {
   const [kycItems, setKycItems] = useState<KYCItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [sweeping, setSweeping] = useState(false);
-  const [sweepResult, setSweepResult] = useState<{ approved: any[]; declined: any[]; unchanged: any[]; errors: any[] } | null>(null);
   const [previewKYC, setPreviewKYC] = useState<KYCItem | null>(null);
 
   useEffect(() => {
@@ -60,8 +64,9 @@ export default function KYCVerificationManager() {
     }
   };
 
-  const handleVerification = async (userId: string, status: "declined") => {
-    if (!confirm(`Are you sure you want to reject this KYC?`)) {
+  const handleVerification = async (userId: string, status: "approved" | "declined") => {
+    const action = status === "approved" ? "approve" : "reject";
+    if (!confirm(`Are you sure you want to ${action} this KYC?`)) {
       return;
     }
 
@@ -83,26 +88,11 @@ export default function KYCVerificationManager() {
     }
   };
 
-  const handleSweep = async () => {
-    if (!confirm("Sync all pending KYC users with Didit? This will approve/decline based on Didit's current records.")) return;
-    try {
-      setSweeping(true);
-      setSweepResult(null);
-      const result = await runKycSweep();
-      setSweepResult(result.results);
-      await fetchKYCData();
-      alert(`Sync complete: ${result.results.approved.length} approved, ${result.results.declined.length} declined, ${result.results.unchanged.length} unchanged, ${result.results.errors.length} errors.`);
-    } catch (error: any) {
-      alert(error?.message || "Sweep failed");
-    } finally {
-      setSweeping(false);
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     const statusColors: Record<string, string> = {
       approved: "bg-green-100 text-green-700",
       pending: "bg-yellow-100 text-yellow-700",
+      manual_review: "bg-purple-100 text-purple-700",
       declined: "bg-red-100 text-red-700",
       failed_verification: "bg-red-100 text-red-700",
       blocked_duplicate: "bg-red-100 text-red-700",
@@ -111,6 +101,7 @@ export default function KYCVerificationManager() {
     const statusIcons: Record<string, React.ReactElement> = {
       approved: <ShieldCheck className="w-4 h-4" />,
       pending: <Clock className="w-4 h-4" />,
+      manual_review: <FileText className="w-4 h-4" />,
       declined: <XCircle className="w-4 h-4" />,
       failed_verification: <XCircle className="w-4 h-4" />,
       blocked_duplicate: <XCircle className="w-4 h-4" />,
@@ -133,6 +124,12 @@ export default function KYCVerificationManager() {
     });
   };
 
+  const isManualReview = (item: KYCItem | null) =>
+    item?.user.kycProvider === "manual" && item.user.kycStatus === "manual_review";
+
+  const documentLabel = (value?: string | null) =>
+    value ? value.replaceAll("_", " ") : "Not provided";
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -146,16 +143,8 @@ export default function KYCVerificationManager() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">KYC Verification Manager</h1>
-          <p className="text-gray-600">Review identity verifications processed by Didit</p>
+          <p className="text-gray-600">Review Dojah and manual identity verification submissions</p>
         </div>
-        <button
-          onClick={handleSweep}
-          disabled={sweeping}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${sweeping ? 'animate-spin' : ''}`} />
-          {sweeping ? "Syncing..." : "Sync with Didit"}
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -171,9 +160,9 @@ export default function KYCVerificationManager() {
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-yellow-600">
-            {kycItems.filter((item) => item.user.kycStatus === "pending").length}
+            {kycItems.filter((item) => item.user.kycStatus === "pending" || item.user.kycStatus === "manual_review").length}
           </div>
-          <div className="text-gray-600 text-sm">Pending</div>
+          <div className="text-gray-600 text-sm">Pending Review</div>
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-red-600">
@@ -213,6 +202,9 @@ export default function KYCVerificationManager() {
 
                 <div className="text-sm text-gray-500 space-y-1">
                   <div className="truncate">{item.user.email}</div>
+                  {item.user.kycProvider && (
+                    <div className="text-xs text-gray-500 font-medium">Provider: {item.user.kycProvider}</div>
+                  )}
                   {item.user.kycVerifiedData?.fullName && item.user.kycVerifiedData.fullName !== `${item.user.firstName} ${item.user.lastName}` && (
                     <div className="text-xs text-blue-600 font-medium">Verified as: {item.user.kycVerifiedData.fullName}</div>
                   )}
@@ -231,7 +223,18 @@ export default function KYCVerificationManager() {
                     <span>Review</span>
                   </button>
 
-                  {item.user.kycStatus === "pending" && (
+                  {isManualReview(item) && (
+                    <button
+                      onClick={() => handleVerification(item.user._id, "approved")}
+                      disabled={processing}
+                      className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                      title="Approve manual KYC"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {(item.user.kycStatus === "pending" || item.user.kycStatus === "manual_review") && (
                     <button
                       onClick={() => handleVerification(item.user._id, "declined")}
                       disabled={processing}
@@ -292,20 +295,16 @@ export default function KYCVerificationManager() {
                     <span className="text-gray-500">Date of Birth (profile):</span>
                     <span className="ml-2 text-gray-900">{formatDate(previewKYC.user.dateOfBirth)}</span>
                   </div>
-                  {previewKYC.user.diditSessionId && (
-                    <div className="col-span-2">
-                      <span className="text-gray-500">Didit Session:</span>
-                      <span className="ml-2 text-gray-900 font-mono text-xs">{previewKYC.user.diditSessionId}</span>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* Didit verified data */}
+              {/* Provider/manual verified data */}
               <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
                   <ShieldCheck className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-semibold text-blue-900">Didit Verified Identity</h3>
+                  <h3 className="font-semibold text-blue-900">
+                    {previewKYC.user.kycProvider === "manual" ? "Manual Identity Submission" : "Dojah Verified Identity"}
+                  </h3>
                 </div>
                 {previewKYC.user.kycVerifiedData ? (
                   <div className="grid grid-cols-1 gap-3 text-sm">
@@ -327,7 +326,7 @@ export default function KYCVerificationManager() {
                       <Hash className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <div>
                         <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Document Number</div>
-                        <div className="text-gray-900 font-semibold font-mono">{previewKYC.user.kycVerifiedData.documentNumber || "—"}</div>
+                        <div className="text-gray-900 font-semibold font-mono">{previewKYC.user.kycVerifiedData.documentNumber || previewKYC.user.kycVerifiedData.idNumber || "—"}</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -337,6 +336,34 @@ export default function KYCVerificationManager() {
                         <div className="text-gray-900 font-semibold">{previewKYC.user.kycVerifiedData.issuingCountry || "—"}</div>
                       </div>
                     </div>
+                    {previewKYC.user.kycProvider === "manual" && (
+                      <div className="pt-3 border-t border-blue-100 space-y-3">
+                        <div>
+                          <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Document Type</div>
+                          <div className="text-gray-900 font-semibold capitalize">{documentLabel(previewKYC.user.kycVerifiedData.idType)}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {previewKYC.user.kycVerifiedData.idFrontUrl && (
+                            <a href={previewKYC.user.kycVerifiedData.idFrontUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-50">
+                              Front ID <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          {previewKYC.user.kycVerifiedData.idBackUrl && (
+                            <a href={previewKYC.user.kycVerifiedData.idBackUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-50">
+                              Back ID <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          {previewKYC.user.kycVerifiedData.livenessUrl && (
+                            <a href={previewKYC.user.kycVerifiedData.livenessUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-50">
+                              Liveness Video <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        {previewKYC.user.kycVerifiedData.submittedAt && (
+                          <div className="text-xs text-blue-600">Submitted at: {formatDate(previewKYC.user.kycVerifiedData.submittedAt)}</div>
+                        )}
+                      </div>
+                    )}
                     {previewKYC.user.kycVerifiedAt && (
                       <div className="pt-2 border-t border-blue-100 text-xs text-blue-600">
                         Verified at: {formatDate(previewKYC.user.kycVerifiedAt)}
@@ -357,17 +384,17 @@ export default function KYCVerificationManager() {
               )}
 
               <div className="flex gap-3">
-                {previewKYC.user.kycStatus === "pending" && (
+                {isManualReview(previewKYC) && (
                   <button
-                    onClick={() => handleSweep()}
+                    onClick={() => handleVerification(previewKYC.user._id, "approved")}
                     disabled={processing}
-                    className="bg-[#5845D8] hover:bg-[#4937c6] disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
                   >
-                    <RefreshCw className={`w-4 h-4 ${processing ? "animate-spin" : ""}`} />
-                    <span>{processing ? "Syncing..." : "Sync from Didit"}</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{processing ? "Processing..." : "Approve Manual KYC"}</span>
                   </button>
                 )}
-                {previewKYC.user.kycStatus === "pending" && (
+                {(previewKYC.user.kycStatus === "pending" || previewKYC.user.kycStatus === "manual_review") && (
                   <button
                     onClick={() => handleVerification(previewKYC.user._id, "declined")}
                     disabled={processing}

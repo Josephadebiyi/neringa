@@ -147,10 +147,6 @@ export async function verifyKyc(userId: string, status: string) {
   });
 }
 
-export async function runKycSweep() {
-  return apiCall(`${ADMIN_API}/kyc/sweep`, { method: 'POST' });
-}
-
 // Tracking
 export async function getTracking() {
   return apiCall(`${ADMIN_API}/tracking`);

@@ -1,47 +1,40 @@
-import fetch from "node-fetch";
-import FormData from "form-data";
-import axios from 'axios';
 import { query, queryOne } from "../lib/postgres/db.js";
-import cloudinary from "cloudinary";
-import fs from "fs";
-import path from "path";
 import dotenv from 'dotenv';
-import { markKycApproved, upsertKycSession } from "../lib/postgres/accounts.js";
-import { findProfileById } from "../lib/postgres/profiles.js";
+import { markKycApproved } from "../lib/postgres/accounts.js";
 dotenv.config();
 
-async function fetchDiditSessionStatus(sessionId) {
-  if (!sessionId) {
-    throw new Error('No DIDIT session ID found for this user');
-  }
-  if (!DIDIT_API_KEY) {
-    throw new Error('DIDIT_API_KEY is not configured');
-  }
-
-  const response = await fetch(`https://verification.didit.me/v3/session/${sessionId}`, {
-    method: 'GET',
-    headers: {
-      accept: 'application/json',
-      'x-api-key': DIDIT_API_KEY,
-    },
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`Didit session lookup failed (${response.status}): ${body || response.statusText}`);
-  }
-
-  return response.json();
+function buildManualApprovalPayload(profile = {}) {
+  const submission = profile.kycVerifiedData || {};
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
+  return {
+    provider: 'manual',
+    reviewType: 'manual_document_upload',
+    fullName: fullName || null,
+    firstName: profile.firstName || null,
+    lastName: profile.lastName || null,
+    dateOfBirth: profile.dateOfBirth || null,
+    documentType: submission.idType || null,
+    documentNumber: submission.idNumber || null,
+    idFrontUrl: submission.idFrontUrl || null,
+    idBackUrl: submission.idBackUrl || null,
+    livenessUrl: submission.livenessUrl || null,
+    submittedAt: submission.submittedAt || null,
+    approvedAt: new Date().toISOString(),
+    approvedBy: 'admin',
+  };
 }
 
-// Admin can only decline KYC — approvals come exclusively from DIDIT webhook
+// Admin may approve only manual-review uploads. Dojah approvals remain webhook-owned.
 export const Verifykyc = async (req, res, next) => {
-  const { userId, status } = req.body;
+  const { userId, status, reason } = req.body;
 
   try {
-    if (status === 'sync' || status === 'resync') {
+    if (status === "verify" || status === "approved") {
       const profile = await queryOne(
-        `SELECT id, email, didit_session_id as "diditSessionId", kyc_status as "kycStatus"
+        `SELECT id, email, first_name as "firstName", last_name as "lastName",
+                date_of_birth as "dateOfBirth",
+                kyc_status as "kycStatus", kyc_provider as "kycProvider",
+                kyc_verified_data as "kycVerifiedData"
          FROM public.profiles
          WHERE id = $1`,
         [userId],
@@ -51,71 +44,34 @@ export const Verifykyc = async (req, res, next) => {
         return res.status(404).json({ success: false, message: "User not found" });
       }
 
-      const diditData = await fetchDiditSessionStatus(profile.diditSessionId);
-      const diditStatus = String(diditData?.status || '').toLowerCase();
-
-      if (diditStatus === 'approved') {
-        await markKycApproved(profile.id, {
-          kycVerifiedData: diditData,
-        });
-
-        const syncedUser = await queryOne(
-          `SELECT id, email, kyc_status as "kycStatus", status
-           FROM public.profiles
-           WHERE id = $1`,
-          [profile.id],
-        );
-
-        return res.status(200).json({
-          success: true,
-          message: "KYC synced from Didit and approved",
-          diditStatus,
-          data: syncedUser,
+      if (profile.kycProvider !== 'manual' || profile.kycStatus !== 'manual_review') {
+        return res.status(403).json({
+          success: false,
+          message: "Manual approval is only available for manual-upload KYC submissions.",
         });
       }
 
-      if (diditStatus === 'declined' || diditStatus === 'rejected') {
-        await query(
-          `
-            UPDATE public.profiles
-            SET kyc_status = 'declined',
-                kyc_failure_reason = 'Document verification was declined by the verification provider',
-                updated_at = NOW()
-            WHERE id = $1
-          `,
-          [profile.id],
-        );
-
-        await query(
-          `
-            UPDATE public.kyc_verifications
-            SET status = 'declined',
-                review_notes = 'Declined via Didit sync',
-                updated_at = timezone('utc', now())
-            WHERE user_id = $1
-          `,
-          [profile.id],
-        );
-
-        return res.status(200).json({
-          success: true,
-          message: "KYC synced from Didit and remains declined",
-          diditStatus,
-          data: { id: profile.id, email: profile.email, kycStatus: 'declined' },
-        });
-      }
-
-      return res.status(409).json({
-        success: false,
-        message: `Didit session is still ${diditStatus || 'pending'}. No approval was applied.`,
-        diditStatus: diditStatus || 'pending',
+      const approvalPayload = buildManualApprovalPayload(profile);
+      await markKycApproved(profile.id, {
+        provider: 'manual',
+        firstName: profile.firstName || null,
+        lastName: profile.lastName || null,
+        dateOfBirth: profile.dateOfBirth || null,
+        fullLegalName: approvalPayload.fullName,
+        kycVerifiedData: approvalPayload,
       });
-    }
 
-    if (status === "verify" || status === "approved") {
-      return res.status(403).json({
-        success: false,
-        message: "Manual KYC approval is disabled. Use sync/resync to confirm the latest Didit decision.",
+      const approvedUser = await queryOne(
+        `SELECT id, email, kyc_status as "kycStatus", status
+         FROM public.profiles
+         WHERE id = $1`,
+        [profile.id],
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Manual KYC approved",
+        data: approvedUser,
       });
     }
 
@@ -125,6 +81,7 @@ export const Verifykyc = async (req, res, next) => {
 
     if (status === "declined") {
       fields.push(`kyc_status = $${idx++}`); values.push('declined');
+      fields.push(`kyc_failure_reason = $${idx++}`); values.push(reason || 'Admin manual rejection');
     } else if (status === "pending") {
       fields.push(`kyc_status = $${idx++}`); values.push('pending');
     } else {
@@ -146,162 +103,12 @@ export const Verifykyc = async (req, res, next) => {
 };
 
 
-const DIDIT_API_KEY = process.env.DIDIT_API_KEY;
-const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '701347c6-bd51-4ab7-8a35-8a442db4b63c';
-
-// ✅ Generate DIDIT Session for the user (The fix for "Could not start")
-export const createDiditSession = async (req, res, next) => {
-  try {
-    const userId = req.user?.id || req.user?._id;
-    const user = userId ? await findProfileById(userId) : null;
-    if (!user) return res.status(401).json({ success: false, message: "User not authenticated" });
-
-    // Reuse existing approved state
-    if (user.kycStatus === 'approved') {
-      return res.status(200).json({
-        success: true,
-        message: "KYC already approved",
-        status: 'approved'
-      });
-    }
-
-    if (!DIDIT_API_KEY) {
-      return res.status(503).json({
-        success: false,
-        message: "DIDIT_API_KEY is not configured on the server",
-      });
-    }
-    if (!DIDIT_WORKFLOW_ID) {
-      return res.status(503).json({
-        success: false,
-        message: "DIDIT_WORKFLOW_ID is not configured on the server",
-      });
-    }
-
-    // Build the request URL and payload. 
-    // FIXED: Use correct endpoint and ensure headers match DIDIT requirements
-    const vendorData = JSON.stringify({ userId: userId.toString(), email: user.email });
-    const callbackUrl = `${process.env.BASE_URL || 'https://neringa.onrender.com'}/api/didit/webhook`;
-
-    const config = {
-      headers: {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'x-api-key': DIDIT_API_KEY,
-      }
-    };
-
-    const payload = {
-      workflow_id: DIDIT_WORKFLOW_ID,
-      vendor_data: vendorData,
-      callback: callbackUrl,
-      callback_method: 'both',
-      contact_details: {
-        email: user.email,
-        send_notification_emails: false,
-      },
-      expected_details: {
-        first_name: user.firstName || undefined,
-        last_name: user.lastName || undefined,
-        date_of_birth: user.dateOfBirth || undefined,
-      },
-    };
-
-    console.log("📝 Sending request to DIDIT for user:", userId);
-    const response = await axios.post('https://verification.didit.me/v3/session/', payload, config);
-    const sessionUrl = response.data?.url || response.data?.verification_url || response.data?.verificationUrl;
-
-    if (response.data && response.data.session_id && sessionUrl) {
-      await upsertKycSession(userId, {
-        sessionId: response.data.session_id,
-        sessionToken: response.data.session_token || null,
-        status: 'pending',
-      });
-
-      return res.json({
-        success: true,
-        sessionId: response.data.session_id,
-        session_id: response.data.session_id,
-        sessionToken: response.data.session_token,
-        session_token: response.data.session_token,
-        sessionUrl,
-        url: sessionUrl,
-        verification_url: sessionUrl,
-        message: "Verification session created"
-      });
-    } else {
-      throw new Error(response.data.message || "DIDIT initialization failed");
-    }
-  } catch (err) {
-    console.error("❌ DIDIT Create Session Error:", err.response?.data || err.message);
-    res.status(500).json({
-      success: false,
-      message: err.response?.data?.detail || "Failed to create KYC session",
-      error: err.response?.data || err.message
-    });
-  }
+export const KycVerifications = async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: 'This KYC route has been retired. Use Dojah KYC or manual document upload.',
+  });
 };
-
-// Poll KYC status from local DB — webhook keeps this up to date so no DIDIT API call needed
-export const fetchDiditResult = async (req, res, next) => {
-  try {
-    const userId = req.user?.id || req.user?._id;
-    let row = await queryOne(
-      `SELECT kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt", kyc_failure_reason as "kycFailureReason",
-              didit_session_id as "diditSessionId",
-              COALESCE(phone_verified, false) as "phoneVerified"
-       FROM public.profiles WHERE id = $1`,
-      [userId]
-    );
-    if (!row) return res.status(404).json({ success: false, message: "User not found" });
-
-    let status = row.kycStatus || 'pending';
-
-    if (status === 'pending' && row.diditSessionId) {
-      try {
-        const diditData = await fetchDiditSessionStatus(row.diditSessionId);
-        const diditStatus = String(diditData?.status || '').toLowerCase();
-
-        if (diditStatus === 'approved') {
-          await markKycApproved(userId, { kycVerifiedData: diditData });
-          status = 'approved';
-          row = { ...row, kycStatus: status, kycVerifiedAt: new Date() };
-        } else if (diditStatus === 'declined' || diditStatus === 'rejected') {
-          await query(
-            `UPDATE public.profiles
-             SET kyc_status = 'declined',
-                 kyc_failure_reason = 'Document verification was declined by the verification provider',
-                 updated_at = NOW()
-             WHERE id = $1`,
-            [userId],
-          );
-          status = 'declined';
-        }
-      } catch (diditErr) {
-        console.warn('Could not sync DIDIT status:', diditErr.message);
-      }
-    }
-
-    return res.json({
-      success: status === 'approved',
-      status,
-      kycStatus: status,
-      kycVerifiedAt: row.kycVerifiedAt || null,
-      phoneVerified: row.phoneVerified === true,
-      message: status === 'approved'
-        ? 'KYC approved'
-        : status === 'declined'
-          ? 'KYC declined'
-          : 'Verification in progress',
-    });
-  } catch (err) {
-    console.error("❌ fetchDiditResult Error:", err.message);
-    res.status(500).json({ success: false, message: "Error fetching KYC status" });
-  }
-};
-
-// Replaced previous Face++ KycVerifications with a placeholder if needed
-export const KycVerifications = createDiditSession;
 
 
 
@@ -311,9 +118,9 @@ export const getKyc = async (req, res, next) => {
   try {
     const userId = req.user?.id || req.user?._id;
     const user = await queryOne(
-      `SELECT id, email, first_name as "firstName", last_name as "lastName",
+      `SELECT id, id as "_id", email, first_name as "firstName", last_name as "lastName",
               kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt",
-              kyc_failure_reason as "kycFailureReason", didit_session_id as "diditSessionId",
+              kyc_failure_reason as "kycFailureReason",
               identity_fingerprint as "identityFingerprint", kyc_verified_data as "kycVerifiedData"
        FROM public.profiles WHERE id = $1`,
       [userId]
@@ -339,11 +146,14 @@ export const getAllkyc = async (req, res, next) => {
     const result = await query(
       `SELECT id, email, first_name as "firstName", last_name as "lastName",
               phone, image_url as "profileImage", country,
-              kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt",
+              date_of_birth as "dateOfBirth",
+              kyc_status as "kycStatus", kyc_provider as "kycProvider",
+              kyc_verified_at as "kycVerifiedAt",
               kyc_failure_reason as "kycFailureReason",
-              didit_session_id as "diditSessionId",
               identity_fingerprint as "identityFingerprint",
               kyc_verified_data as "kycVerifiedData",
+              verified_full_legal_name as "verifiedFullLegalName",
+              verified_date_of_birth as "verifiedDateOfBirth",
               created_at as "createdAt"
        FROM public.profiles
        ORDER BY kyc_verified_at DESC NULLS LAST, created_at DESC

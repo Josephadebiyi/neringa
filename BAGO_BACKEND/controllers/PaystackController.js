@@ -347,7 +347,7 @@ export const withdrawFundsPaystack = async (req, res) => {
       return res.status(403).json({
         success: false,
         code: 'KYC_REQUIRED',
-        message: 'Identity verification is required before withdrawing funds. Please complete Didit KYC in your profile.',
+        message: 'Identity verification is required before withdrawing funds. Please complete KYC in your profile.',
       });
     }
 

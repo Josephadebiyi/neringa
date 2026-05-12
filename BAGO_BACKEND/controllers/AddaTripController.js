@@ -78,7 +78,7 @@ export const AddAtrip = async (req, res, next) => {
     // ── Traveler must have approved KYC before posting trips ──
     if (user.kycStatus !== 'approved') {
       return res.status(403).json({
-        message: "Identity verification is required before you can post trips. Please complete Didit KYC in your profile.",
+        message: "Identity verification is required before you can post trips. Please complete KYC in your profile.",
         errorType: "KYC_REQUIRED",
         kycStatus: user.kycStatus || 'not_started',
       });

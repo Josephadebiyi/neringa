@@ -209,10 +209,6 @@ AdminRouter.put("/withdrawals/:transactionId/status", adminAuthenticated, valida
 AdminRouter.post("/credentials/request-change", adminAuthenticated, requestAdminCredentialChange);
 AdminRouter.post("/credentials/verify-change", adminAuthenticated, verifyAdminCredentialChange);
 
-// KYC sweep — force-check all pending DIDIT sessions right now
-import { runKycSweep } from '../controllers/AdminControllers/KycSweepController.js';
-AdminRouter.post("/kyc/sweep", adminAuthenticated, runKycSweep);
-
 // Item Categories Management
 AdminRouter.get("/item-categories", adminAuthenticated, adminListItemCategories);
 AdminRouter.post("/item-categories", adminAuthenticated, adminCreateItemCategory);
