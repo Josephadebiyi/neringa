@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/full_screen_image_viewer.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../messages/providers/message_provider.dart';
 import '../../messages/services/message_realtime_service.dart';
 import '../models/request_model.dart';
@@ -162,6 +163,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       });
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
       ref.read(shipmentProvider.notifier).loadMyPackages();
+      ref.read(authProvider.notifier).refreshProfile();
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(

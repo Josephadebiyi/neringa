@@ -54,6 +54,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!ref.read(authProvider).isLoggedIn) return;
+      ref.read(authProvider.notifier).refreshProfile();
       ref.read(tripProvider.notifier).loadMyTrips();
       ref.read(shipmentProvider.notifier).loadMyPackages();
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
@@ -577,7 +578,6 @@ class _CarrierHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final total = balance + pendingEarnings;
     return Container(
       width: double.infinity,
@@ -1865,4 +1865,3 @@ class _SheetRouteRow extends StatelessWidget {
     ),
   );
 }
-

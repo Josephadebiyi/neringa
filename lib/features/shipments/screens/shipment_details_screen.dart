@@ -378,6 +378,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
       setState(() {
         _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
       });
+      ref.read(authProvider.notifier).refreshProfile();
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,

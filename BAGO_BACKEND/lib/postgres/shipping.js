@@ -776,7 +776,7 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
     if (request.sender_received) {
       return getShipmentRequestById(requestId);
     }
-    const allowedStatuses = ['delivering', 'delivered', 'completed'];
+    const allowedStatuses = ['delivering', 'delivered', 'awaiting_sender_confirmation', 'completed'];
     if (!allowedStatuses.includes(request.status)) {
       const error = new Error('Cannot confirm receipt until the traveler has marked the shipment as delivering or delivered');
       error.code = 'NOT_DELIVERED';
@@ -840,6 +840,17 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
           [request.id, request.traveler_id],
         );
         if (existingCredit.rows[0]?.id) {
+          const escrowTxResult = await client.query(
+            `SELECT amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' ORDER BY created_at DESC LIMIT 1`,
+            [request.id, request.traveler_id],
+          );
+          const heldAmount = escrowTxResult.rows[0]?.amount ? toNumber(escrowTxResult.rows[0].amount) : 0;
+          if (heldAmount > 0) {
+            await client.query(
+              `update public.wallet_accounts set escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
+              [request.traveler_id, heldAmount],
+            );
+          }
           await client.query(
             `
               update public.shipment_ledgers
