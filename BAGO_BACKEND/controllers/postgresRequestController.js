@@ -1097,10 +1097,33 @@ export async function getRequestDetails(req, res) {
       data: {
         _id: request.id,
         id: request.id,
+        senderId: request.senderId,
+        travelerId: request.travelerId,
+        carrierId: request.travelerId,
+        role: userId === request.senderId ? 'sender' : 'traveler',
         trackingNumber: request.trackingNumber,
         status: request.status,
+        senderReceived: request.senderReceived === true,
         amount: request.amount,
         currency: request.currency,
+        sender: request.sender || (request.senderId ? {
+          id: request.senderId,
+          _id: request.senderId,
+          firstName: request.senderName?.split(' ')?.[0] || '',
+          email: request.senderEmail,
+        } : null),
+        traveler: request.traveler || (request.travelerId ? {
+          id: request.travelerId,
+          _id: request.travelerId,
+          firstName: request.travelerName?.split(' ')?.[0] || '',
+          email: request.travelerEmail,
+        } : null),
+        carrier: request.traveler || (request.travelerId ? {
+          id: request.travelerId,
+          _id: request.travelerId,
+          firstName: request.travelerName?.split(' ')?.[0] || '',
+          email: request.travelerEmail,
+        } : null),
         package: {
           description: request.package?.description,
           packageWeight: request.package?.packageWeight,
