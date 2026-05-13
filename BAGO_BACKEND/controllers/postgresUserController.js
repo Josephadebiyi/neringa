@@ -533,11 +533,19 @@ export async function signIn(req, res) {
     const { accessToken, refreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
 
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 15 * 60 * 1000,
-      sameSite: 'lax',
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
     });
 
     res.status(200).json({
@@ -623,11 +631,19 @@ export async function googleAuth(req, res) {
 
     const { accessToken: userAccessToken, refreshToken: userRefreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, userRefreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', userAccessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 15 * 60 * 1000,
-      sameSite: 'lax',
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+    });
+    res.cookie('refresh_token', userRefreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
     });
 
     res.status(200).json({
@@ -727,11 +743,19 @@ export async function appleAuth(req, res) {
 
     const { accessToken, refreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 15 * 60 * 1000,
-      sameSite: 'lax',
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
     });
 
     res.status(200).json({
@@ -750,15 +774,14 @@ export async function appleAuth(req, res) {
 
 export async function logout(req, res) {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
     if (refreshToken) {
       await revokeRefreshToken(refreshToken).catch(() => {});
     }
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    });
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOpts = { httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax' };
+    res.clearCookie('token', cookieOpts);
+    res.clearCookie('refresh_token', { ...cookieOpts, path: '/' });
     res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -770,11 +793,10 @@ export async function revokeAllSessions(req, res) {
     const userId = req.user?.id || req.user?._id;
     if (!userId) return res.status(401).json({ message: 'Not authenticated' });
     await revokeAllUserTokens(userId);
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    });
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOpts = { httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax' };
+    res.clearCookie('token', cookieOpts);
+    res.clearCookie('refresh_token', { ...cookieOpts, path: '/' });
     res.status(200).json({ success: true, message: 'All sessions revoked' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

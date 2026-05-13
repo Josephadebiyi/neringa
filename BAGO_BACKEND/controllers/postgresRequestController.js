@@ -1,9 +1,10 @@
-import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail } from '../services/emailNotifications.js';
+import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail } from '../services/emailNotifications.js';
 import PDFDocument from 'pdfkit';
 import Stripe from 'stripe';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
   confirmShipmentReceived,
+  redeemHandoverToken,
   createNotification,
   createShipmentRequestRecord,
   getPackageById,
@@ -849,14 +850,25 @@ export async function updateRequestStatus(req, res) {
 
       await sendShippingStatusEmail(updatedRequest, statusLabel, location);
       if (statusLabel === 'accepted' && updatedRequest.package?.receiverEmail) {
+        const packageDetails = `${updatedRequest.package.description || 'Package'}${updatedRequest.package.packageWeight ? `, ${updatedRequest.package.packageWeight}kg` : ''}`;
         await sendReceiverShipmentAcceptedEmail(
           updatedRequest.package.receiverEmail,
           updatedRequest.package.receiverName,
           updatedRequest.senderName || 'Sender',
           travelerName,
-          `${updatedRequest.package.description || 'Package'}${updatedRequest.package.packageWeight ? `, ${updatedRequest.package.packageWeight}kg` : ''}`,
+          packageDetails,
           updatedRequest.trackingNumber,
         );
+        if (updatedRequest.handoverPin) {
+          await sendHandoverPINEmail(
+            updatedRequest.package.receiverEmail,
+            updatedRequest.package.receiverName,
+            updatedRequest.senderName || 'Sender',
+            packageDetails,
+            updatedRequest.trackingNumber,
+            updatedRequest.handoverPin,
+          );
+        }
       }
       if (statusLabel === 'intransit' && updatedRequest.package?.receiverEmail) {
         await sendReceiverShippingStartedEmail(
@@ -1477,5 +1489,66 @@ export async function downloadRequestPDF(req, res) {
       return res.status(500).json({ success: false, message: 'An unexpected error occurred while generating your shipping label.' });
     }
     return res.end();
+  }
+}
+
+// Authenticated traveler submits the 4-digit handover PIN shown by the sender or receiver.
+export async function redeemHandoverQR(req, res) {
+  try {
+    const { requestId } = req.params;
+    const { pin } = req.body;
+    const travelerId = req.user?.id || req.user?._id;
+
+    if (!pin || !/^\d{4}$/.test(String(pin))) {
+      return res.status(400).json({ success: false, message: 'PIN must be exactly 4 digits' });
+    }
+
+    const updated = await redeemHandoverToken({ requestId, pin: String(pin), travelerId });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Shipment not found' });
+    }
+
+    try {
+      await createNotification({
+        userId: updated.travelerId,
+        title: 'Funds available',
+        body: `Handover PIN accepted. Your funds are now available for ${updated.trackingNumber || updated.id}.`,
+        type: 'escrow_release',
+        payload: { requestId: updated.id },
+      });
+      await sendPushNotification(
+        updated.travelerId,
+        'Funds available',
+        'Handover PIN accepted. Your earnings are now credited.',
+        { type: 'escrow_release', requestId: updated.id },
+      );
+      await createNotification({
+        userId: updated.senderId,
+        title: 'Delivery confirmed',
+        body: `Your package was handed over. Tracking: ${updated.trackingNumber || updated.id}.`,
+        type: 'shipment_status',
+        payload: { requestId: updated.id, status: 'completed' },
+      });
+    } catch (notifErr) {
+      console.error('redeemHandoverQR notification error:', notifErr);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Handover confirmed. Escrow released and traveler wallet credited.',
+      data: updated,
+    });
+  } catch (error) {
+    const statusMap = {
+      UNAUTHORIZED: 403,
+      NOT_FOUND: 404,
+      ALREADY_USED: 409,
+      INVALID_STATUS: 422,
+      WRONG_PIN: 400,
+      TOO_MANY_ATTEMPTS: 429,
+      NO_PIN: 400,
+    };
+    const status = statusMap[error.code] || 500;
+    return res.status(status).json({ success: false, message: error.message });
   }
 }

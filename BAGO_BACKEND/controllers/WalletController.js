@@ -1,6 +1,7 @@
 import Wallet from "../models/walletScheme.js";
 import mongoose from "mongoose";
 import Stripe from "stripe";
+import { getCommissionRate } from '../services/pricingService.js';
 
 // Get or create wallet
 export const getWallet = async (req, res) => {
@@ -107,26 +108,7 @@ export const processPayment = async (req, res) => {
             });
         }
 
-        // Get dynamic commission from regional settings
-        const trip = await Trip.findById(tripId);
-        let commissionPercentage = 15; // default fallback
-
-        if (trip) {
-            const region = getRegionFromCountry(trip.toCountry);
-            const insuranceSettings = await InsuranceSetting.findOne();
-            if (insuranceSettings) {
-                const config = insuranceSettings[region] || insuranceSettings.global;
-                if (config && config.commissionPercentage !== undefined) {
-                    commissionPercentage = config.commissionPercentage;
-                }
-            }
-        } else {
-            // Fallback to global setting if trip not found (shouldn't happen)
-            const settings = await Setting.findOne();
-            commissionPercentage = settings?.commissionPercentage || 15;
-        }
-
-        const commissionRate = commissionPercentage / 100;
+        const commissionRate = await getCommissionRate();
 
         // Convert amount to cents (Stripe requires amounts in cents)
         const amountInCents = Math.round(amount * 100);
