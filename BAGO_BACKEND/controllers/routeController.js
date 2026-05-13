@@ -1,10 +1,11 @@
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
+import { PLATFORM_COMMISSION_RATE } from '../constants/commission.js';
 
 // ── Pure utility functions (no DB) ──────────────────────────────────────────
 const AFRICAN_COUNTRY_CODES = [
   'NG', 'GH', 'KE', 'ZA', 'EG', 'MA', 'TZ', 'UG', 'RW', 'ET',
   'SN', 'CI', 'CM', 'ZM', 'ZW', 'AO', 'BW', 'MW', 'MZ', 'NA',
-  'BJ', 'BF', 'GA', 'GM', 'GN', 'LR', 'ML', 'MR', 'NE', 'SL', 'TG'
+  'BJ', 'BF', 'GA', 'GN', 'LR', 'ML', 'MR', 'NE', 'SL', 'TG'
 ];
 const COUNTRY_CURRENCY_MAP = {
   // Africa
@@ -78,7 +79,7 @@ export function getCurrencyForCountry(countryCode) {
 }
 
 // ── Table bootstrap ──────────────────────────────────────────────────────────
-const ensureRoutesTable = () => pgQuery(`
+const ensureRoutesTable = () => pgQuery(\`
   CREATE TABLE IF NOT EXISTS public.routes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     origin_city TEXT NOT NULL,
@@ -102,12 +103,12 @@ const ensureRoutesTable = () => pgQuery(`
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
   )
-`).catch(() => {});
+\`).catch(() => {});
 
 function rowToRoute(r) {
   return {
     id: r.id,
-    displayName: `${r.origin_city}, ${r.origin_country_code} → ${r.destination_city}, ${r.destination_country_code}`,
+    displayName: \`\${r.origin_city}, \${r.origin_country_code} → \${r.destination_city}, \${r.destination_country_code}\`,
     originCity: r.origin_city,
     originCountry: r.origin_country,
     originCountryCode: r.origin_country_code,
@@ -148,15 +149,15 @@ export const createRoute = async (req, res) => {
     }
 
     const existing = await queryOne(
-      `SELECT id FROM public.routes WHERE origin_city ILIKE $1 AND origin_country_code = $2 AND destination_city ILIKE $3 AND destination_country_code = $4`,
+      \`SELECT id FROM public.routes WHERE origin_city ILIKE \$1 AND origin_country_code = \$2 AND destination_city ILIKE \$3 AND destination_country_code = \$4\`,
       [originCity, originCountryCode.toUpperCase(), destinationCity, destinationCountryCode.toUpperCase()]
     );
     if (existing) return res.status(409).json({ success: false, message: 'This route already exists' });
 
     const route = await queryOne(
-      `INSERT INTO public.routes (origin_city, origin_country, origin_country_code, destination_city, destination_country, destination_country_code, base_price_per_kg, currency, traveler_commission_percent, min_weight_kg, max_weight_kg, estimated_delivery_min_days, estimated_delivery_max_days, supported_transport_modes, is_african_route, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       RETURNING *`,
+      \`INSERT INTO public.routes (origin_city, origin_country, origin_country_code, destination_city, destination_country, destination_country_code, base_price_per_kg, currency, traveler_commission_percent, min_weight_kg, max_weight_kg, estimated_delivery_min_days, estimated_delivery_max_days, supported_transport_modes, is_african_route, notes)
+       VALUES (\$1,\$2,\$3,\$4,\$5,\$6,\$7,\$8,\$9,\$10,\$11,\$12,\$13,\$14,\$15,\$16)
+       RETURNING *\`,
       [
         originCity, originCountry || null, originCountryCode.toUpperCase(),
         destinationCity, destinationCountry || null, destinationCountryCode.toUpperCase(),
@@ -181,20 +182,20 @@ export const getAllRoutes = async (req, res) => {
     const { originCountry, destinationCountry, isActive, isAfricanRoute, page = 1, limit = 50 } = req.query;
     const conditions = [];
     const params = [];
-    if (originCountry) { params.push(originCountry.toUpperCase()); conditions.push(`origin_country_code = $${params.length}`); }
-    if (destinationCountry) { params.push(destinationCountry.toUpperCase()); conditions.push(`destination_country_code = $${params.length}`); }
-    if (isActive !== undefined) { params.push(isActive === 'true'); conditions.push(`is_active = $${params.length}`); }
-    if (isAfricanRoute !== undefined) { params.push(isAfricanRoute === 'true'); conditions.push(`is_african_route = $${params.length}`); }
+    if (originCountry) { params.push(originCountry.toUpperCase()); conditions.push(\`origin_country_code = \$\${params.length}\`); }
+    if (destinationCountry) { params.push(destinationCountry.toUpperCase()); conditions.push(\`destination_country_code = \$\${params.length}\`); }
+    if (isActive !== undefined) { params.push(isActive === 'true'); conditions.push(\`is_active = \$\${params.length}\`); }
+    if (isAfricanRoute !== undefined) { params.push(isAfricanRoute === 'true'); conditions.push(\`is_african_route = \$\${params.length}\`); }
 
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = conditions.length ? \`WHERE \${conditions.join(' AND ')}\` : '';
     const offset = (parseInt(page) - 1) * parseInt(limit);
     params.push(parseInt(limit)); params.push(offset);
 
     const result = await pgQuery(
-      `SELECT * FROM public.routes ${where} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      \`SELECT * FROM public.routes \${where} ORDER BY created_at DESC LIMIT \$\${params.length - 1} OFFSET \$\${params.length}\`,
       params
     );
-    const countResult = await pgQuery(`SELECT COUNT(*) FROM public.routes ${where}`, params.slice(0, -2));
+    const countResult = await pgQuery(\`SELECT COUNT(*) FROM public.routes \${where}\`, params.slice(0, -2));
     const total = parseInt(countResult.rows?.[0]?.count || 0);
     const routes = (result.rows || result).map(rowToRoute);
 
@@ -208,7 +209,7 @@ export const getAllRoutes = async (req, res) => {
 export const getRouteById = async (req, res) => {
   try {
     await ensureRoutesTable();
-    const route = await queryOne(`SELECT * FROM public.routes WHERE id = $1`, [req.params.id]);
+    const route = await queryOne(\`SELECT * FROM public.routes WHERE id = \$1\`, [req.params.id]);
     if (!route) return res.status(404).json({ success: false, message: 'Route not found' });
     res.json({ success: true, route: rowToRoute(route) });
   } catch (err) {
@@ -222,25 +223,25 @@ export const updateRoute = async (req, res) => {
     const { id } = req.params;
     const b = req.body;
     const route = await queryOne(
-      `UPDATE public.routes SET
-        origin_city = COALESCE($2, origin_city),
-        origin_country = COALESCE($3, origin_country),
-        origin_country_code = COALESCE($4, origin_country_code),
-        destination_city = COALESCE($5, destination_city),
-        destination_country = COALESCE($6, destination_country),
-        destination_country_code = COALESCE($7, destination_country_code),
-        base_price_per_kg = COALESCE($8, base_price_per_kg),
-        currency = COALESCE($9, currency),
-        traveler_commission_percent = COALESCE($10, traveler_commission_percent),
-        min_weight_kg = COALESCE($11, min_weight_kg),
-        max_weight_kg = COALESCE($12, max_weight_kg),
-        estimated_delivery_min_days = COALESCE($13, estimated_delivery_min_days),
-        estimated_delivery_max_days = COALESCE($14, estimated_delivery_max_days),
-        supported_transport_modes = COALESCE($15, supported_transport_modes),
-        is_active = COALESCE($16, is_active),
-        notes = COALESCE($17, notes),
+      \`UPDATE public.routes SET
+        origin_city = COALESCE(\$2, origin_city),
+        origin_country = COALESCE(\$3, origin_country),
+        origin_country_code = COALESCE(\$4, origin_country_code),
+        destination_city = COALESCE(\$5, destination_city),
+        destination_country = COALESCE(\$6, destination_country),
+        destination_country_code = COALESCE(\$7, destination_country_code),
+        base_price_per_kg = COALESCE(\$8, base_price_per_kg),
+        currency = COALESCE(\$9, currency),
+        traveler_commission_percent = COALESCE(\$10, traveler_commission_percent),
+        min_weight_kg = COALESCE(\$11, min_weight_kg),
+        max_weight_kg = COALESCE(\$12, max_weight_kg),
+        estimated_delivery_min_days = COALESCE(\$13, estimated_delivery_min_days),
+        estimated_delivery_max_days = COALESCE(\$14, estimated_delivery_max_days),
+        supported_transport_modes = COALESCE(\$15, supported_transport_modes),
+        is_active = COALESCE(\$16, is_active),
+        notes = COALESCE(\$17, notes),
         updated_at = NOW()
-       WHERE id = $1 RETURNING *`,
+       WHERE id = \$1 RETURNING *\`,
       [id, b.originCity, b.originCountry, b.originCountryCode?.toUpperCase(),
        b.destinationCity, b.destinationCountry, b.destinationCountryCode?.toUpperCase(),
        b.basePricePerKg, b.currency, b.travelerCommissionPercent,
@@ -257,9 +258,9 @@ export const updateRoute = async (req, res) => {
 export const deleteRoute = async (req, res) => {
   try {
     await ensureRoutesTable();
-    const existing = await queryOne(`SELECT id FROM public.routes WHERE id = $1`, [req.params.id]);
+    const existing = await queryOne(\`SELECT id FROM public.routes WHERE id = \$1\`, [req.params.id]);
     if (!existing) return res.status(404).json({ success: false, message: 'Route not found' });
-    await pgQuery(`DELETE FROM public.routes WHERE id = $1`, [req.params.id]);
+    await pgQuery(\`DELETE FROM public.routes WHERE id = \$1\`, [req.params.id]);
     res.json({ success: true, message: 'Route deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to delete route', error: err.message });
@@ -275,13 +276,13 @@ export const searchRoutes = async (req, res) => {
     }
     const conditions = ['is_active = true'];
     const params = [];
-    if (from) { params.push(`%${from}%`); conditions.push(`origin_city ILIKE $${params.length}`); }
-    if (to) { params.push(`%${to}%`); conditions.push(`destination_city ILIKE $${params.length}`); }
-    if (fromCountry) { params.push(fromCountry.toUpperCase()); conditions.push(`origin_country_code = $${params.length}`); }
-    if (toCountry) { params.push(toCountry.toUpperCase()); conditions.push(`destination_country_code = $${params.length}`); }
+    if (from) { params.push(\`%\${from}%\`); conditions.push(\`origin_city ILIKE \$\${params.length}\`); }
+    if (to) { params.push(\`%\${to}%\`); conditions.push(\`destination_city ILIKE \$\${params.length}\`); }
+    if (fromCountry) { params.push(fromCountry.toUpperCase()); conditions.push(\`origin_country_code = \$\${params.length}\`); }
+    if (toCountry) { params.push(toCountry.toUpperCase()); conditions.push(\`destination_country_code = \$\${params.length}\`); }
 
     const result = await pgQuery(
-      `SELECT * FROM public.routes WHERE ${conditions.join(' AND ')} ORDER BY base_price_per_kg ASC LIMIT 20`,
+      \`SELECT * FROM public.routes WHERE \${conditions.join(' AND ')} ORDER BY base_price_per_kg ASC LIMIT 20\`,
       params
     );
     res.json({ success: true, routes: (result.rows || result).map(rowToRoute) });
@@ -296,17 +297,17 @@ export const calculatePrice = async (req, res) => {
     const { routeId, weightKg, userCountryCode } = req.body;
     if (!routeId || !weightKg) return res.status(400).json({ success: false, message: 'routeId and weightKg are required' });
 
-    const route = await queryOne(`SELECT * FROM public.routes WHERE id = $1`, [routeId]);
+    const route = await queryOne(\`SELECT * FROM public.routes WHERE id = \$1\`, [routeId]);
     if (!route) return res.status(404).json({ success: false, message: 'Route not found' });
     if (!route.is_active) return res.status(400).json({ success: false, message: 'This route is currently inactive' });
 
     const w = parseFloat(weightKg);
-    if (w < route.min_weight_kg) return res.status(400).json({ success: false, message: `Minimum weight is ${route.min_weight_kg} kg` });
-    if (w > route.max_weight_kg) return res.status(400).json({ success: false, message: `Maximum weight is ${route.max_weight_kg} kg` });
+    if (w < route.min_weight_kg) return res.status(400).json({ success: false, message: \`Minimum weight is \${route.min_weight_kg} kg\` });
+    if (w > route.max_weight_kg) return res.status(400).json({ success: false, message: \`Maximum weight is \${route.max_weight_kg} kg\` });
 
     const base = parseFloat(route.base_price_per_kg) * w;
-    const commission = parseFloat(route.traveler_commission_percent) / 100;
-    const platformFee = parseFloat(route.platform_fee_percent || 10) / 100;
+    const commission = parseFloat(route.traveler_commission_percent || (100 - PLATFORM_COMMISSION_RATE * 100)) / 100;
+    const platformFee = parseFloat(route.platform_fee_percent || (PLATFORM_COMMISSION_RATE * 100)) / 100;
     const pricing = {
       basePrice: base,
       travelerEarnings: base * commission,
@@ -333,13 +334,13 @@ export const getPricingForTrip = async (req, res) => {
     }
 
     let route = await queryOne(
-      `SELECT * FROM public.routes WHERE origin_city ILIKE $1 AND origin_country_code = $2 AND destination_city ILIKE $3 AND destination_country_code = $4 AND is_active = true LIMIT 1`,
+      \`SELECT * FROM public.routes WHERE origin_city ILIKE \$1 AND origin_country_code = \$2 AND destination_city ILIKE \$3 AND destination_country_code = \$4 AND is_active = true LIMIT 1\`,
       [fromCity, fromCountryCode.toUpperCase(), toCity, toCountryCode.toUpperCase()]
     );
 
     if (!route) {
       route = await queryOne(
-        `SELECT * FROM public.routes WHERE origin_country_code = $1 AND destination_country_code = $2 AND is_active = true ORDER BY base_price_per_kg ASC LIMIT 1`,
+        \`SELECT * FROM public.routes WHERE origin_country_code = \$1 AND destination_country_code = \$2 AND is_active = true ORDER BY base_price_per_kg ASC LIMIT 1\`,
         [fromCountryCode.toUpperCase(), toCountryCode.toUpperCase()]
       );
       if (!route) return res.status(404).json({ success: false, message: 'No pricing available for this route', routeNotFound: true });

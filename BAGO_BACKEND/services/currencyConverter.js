@@ -1,8 +1,8 @@
 import fetch from 'node-fetch';
 import { queryOne } from '../lib/postgres/db.js';
+import { PLATFORM_COMMISSION_RATE } from '../constants/commission.js';
 
 const CACHE_DURATION = 10 * 60 * 1000;
-const PLATFORM_COMMISSION_RATE = 0.10;
 
 const FALLBACK_RATES = {
   USD: 1,

@@ -1,6 +1,7 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { findProfileById, getWalletByUserId } from './profiles.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
+import { PLATFORM_COMMISSION_RATE } from '../../constants/commission.js';
 
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
@@ -82,9 +83,10 @@ async function ensurePaymentEventsInfrastructure(client) {
 }
 
 function getCommissionRate() {
-  const raw = process.env.BAGO_COMMISSION_RATE || process.env.BAGO_COMMISSION_PERCENT || '0.10';
+  const raw = process.env.BAGO_COMMISSION_RATE || process.env.BAGO_COMMISSION_PERCENT;
+  if (!raw) return PLATFORM_COMMISSION_RATE;
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) return 0.10;
+  if (!Number.isFinite(parsed) || parsed < 0) return PLATFORM_COMMISSION_RATE;
   return parsed > 1 ? parsed / 100 : parsed;
 }
 
