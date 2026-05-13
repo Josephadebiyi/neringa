@@ -350,11 +350,11 @@ isCarrier
                 // ── Recent Activity — only shown when there is data or loading ──
                 Builder(builder: (context) {
                   final activityRequests = isCarrier
-                      ? shipmentState.incomingRequests.take(5).toList()
-                      : shipmentState.myRequests.take(5).toList();
+                      ? shipmentState.incomingRequests.take(9).toList()
+                      : shipmentState.myRequests.take(9).toList();
                   final activityPackages = isCarrier
                       ? const <PackageModel>[]
-                      : shipmentState.activePackages.take(5).toList();
+                      : shipmentState.activePackages.take(9).toList();
                   final activityLoading = isCarrier
                       ? tripState.isLoading
                       : shipmentState.isLoading;
@@ -1254,9 +1254,10 @@ class _ServiceCardState extends State<_ServiceCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Recent Activity List — bank-transaction style, each row opens shipment
+// Recent Activity List — bank-transaction style, each row opens shipment.
+// Shows 3 rows per page; swipe horizontally to see more pages.
 // ─────────────────────────────────────────────────────────────────────────────
-class _RecentActivityList extends StatelessWidget {
+class _RecentActivityList extends StatefulWidget {
   const _RecentActivityList({
     required this.isCarrier,
     required this.requests,
@@ -1270,13 +1271,29 @@ class _RecentActivityList extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onViewAll;
 
+  @override
+  State<_RecentActivityList> createState() => _RecentActivityListState();
+}
+
+class _RecentActivityListState extends State<_RecentActivityList> {
+  static const int _kPageSize = 3;
+
+  final _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   List<_RecentActivityEntry> _entries() {
-    if (isCarrier)
-      return requests.map(_RecentActivityEntry.fromRequest).toList();
+    if (widget.isCarrier)
+      return widget.requests.map(_RecentActivityEntry.fromRequest).toList();
 
     final items = <_RecentActivityEntry>[
-      ...packages.map(_RecentActivityEntry.fromPackage),
-      ...requests.map(_RecentActivityEntry.fromRequest),
+      ...widget.packages.map(_RecentActivityEntry.fromPackage),
+      ...widget.requests.map(_RecentActivityEntry.fromRequest),
     ];
     final seen = <String>{};
     final deduped = items.where((item) {
@@ -1286,7 +1303,7 @@ class _RecentActivityList extends StatelessWidget {
       return seen.add(key);
     }).toList();
     deduped.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return deduped.take(5).toList();
+    return deduped;
   }
 
   Color _statusColor(_RecentActivityEntry r) {
@@ -1331,11 +1348,96 @@ class _RecentActivityList extends StatelessWidget {
     }
   }
 
+  Widget _buildRow(BuildContext context, _RecentActivityEntry item,
+      {required bool isLast}) {
+    final route = [item.fromLocation, item.toLocation]
+        .where((e) => e != null && e.isNotEmpty)
+        .join(' → ');
+    final amount = item.amount > 0
+        ? '${item.currency} ${item.amount.toStringAsFixed(2)}'
+        : '—';
+    return InkWell(
+      onTap: () {
+        if (item.request != null) {
+          context.push('/shipment-request/${item.id}', extra: item.request);
+          return;
+        }
+        context.push('/shipment-details/${item.id}');
+      },
+      borderRadius: isLast
+          ? const BorderRadius.vertical(bottom: Radius.circular(20))
+          : BorderRadius.zero,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: Colors.white, width: 1.5)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _statusBg(item),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child:
+                  Icon(_statusIcon(item), color: _statusColor(item), size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.counterpart,
+                    style:
+                        AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w800),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    route.isNotEmpty ? route : item.title,
+                    style: AppTextStyles.bodySm.copyWith(
+                        color: AppColors.gray500, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  amount,
+                  style:
+                      AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatDate(item.createdAt),
+                  style: AppTextStyles.bodySm.copyWith(
+                      color: AppColors.gray400, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final entries = _entries();
 
-    if (isLoading) {
+    if (widget.isLoading) {
       return Container(
         height: 100,
         decoration: BoxDecoration(
@@ -1348,7 +1450,7 @@ class _RecentActivityList extends StatelessWidget {
 
     if (entries.isEmpty) {
       return GestureDetector(
-        onTap: onViewAll,
+        onTap: widget.onViewAll,
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -1369,7 +1471,7 @@ class _RecentActivityList extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
-                  isCarrier ? 'No requests yet' : 'No shipments yet',
+                  widget.isCarrier ? 'No requests yet' : 'No shipments yet',
                   style: AppTextStyles.bodyMd.copyWith(
                       color: AppColors.gray500, fontWeight: FontWeight.w600),
                 ),
@@ -1381,112 +1483,71 @@ class _RecentActivityList extends StatelessWidget {
       );
     }
 
+    // Chunk entries into pages of _kPageSize
+    final pages = <List<_RecentActivityEntry>>[];
+    for (var i = 0; i < entries.length; i += _kPageSize) {
+      pages.add(entries.sublist(
+          i, (i + _kPageSize).clamp(0, entries.length)));
+    }
+    final multiPage = pages.length > 1;
+
+    // Each row: padding (14*2=28) + icon (44) = 72px; divider 1.5px between rows
+    const double rowH = 72.0;
+    const double divH = 1.5;
+    final pageHeight = _kPageSize * rowH + (_kPageSize - 1) * divH;
+
     return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.gray100,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            children: [
-              ...entries.asMap().entries.map((entry) {
-                final i = entry.key;
-                final item = entry.value;
-                final isLast = i == entries.length - 1;
-                final route = [item.fromLocation, item.toLocation]
-                    .where((e) => e != null && e.isNotEmpty)
-                    .join(' → ');
-                final amount = item.amount > 0
-                    ? '${item.currency} ${item.amount.toStringAsFixed(2)}'
-                    : '—';
-                return InkWell(
-                  onTap: () {
-                    if (item.request != null) {
-                      context.push('/shipment-request/${item.id}',
-                          extra: item.request);
-                      return;
-                    }
-                    context.push('/shipment-details/${item.id}');
-                  },
-                  borderRadius: isLast
-                      ? const BorderRadius.vertical(bottom: Radius.circular(20))
-                      : BorderRadius.zero,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      border: isLast
-                          ? null
-                          : const Border(
-                              bottom:
-                                  BorderSide(color: Colors.white, width: 1.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: _statusBg(item),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(_statusIcon(item),
-                              color: _statusColor(item), size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.counterpart,
-                                style: AppTextStyles.bodyMd
-                                    .copyWith(fontWeight: FontWeight.w800),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                route.isNotEmpty ? route : item.title,
-                                style: AppTextStyles.bodySm.copyWith(
-                                    color: AppColors.gray500,
-                                    fontWeight: FontWeight.w500),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              amount,
-                              style: AppTextStyles.bodyMd
-                                  .copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _formatDate(item.createdAt),
-                              style: AppTextStyles.bodySm.copyWith(
-                                  color: AppColors.gray400,
-                                  fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ],
+        SizedBox(
+          height: pageHeight,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: pages.length,
+            physics: multiPage
+                ? const PageScrollPhysics()
+                : const NeverScrollableScrollPhysics(),
+            onPageChanged: (p) => setState(() => _currentPage = p),
+            itemBuilder: (_, pageIdx) {
+              final pageEntries = pages[pageIdx];
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppColors.gray100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: pageEntries.asMap().entries.map((e) {
+                    final isLast = e.key == pageEntries.length - 1;
+                    return _buildRow(context, e.value, isLast: isLast);
+                  }).toList(),
+                ),
+              );
+            },
           ),
         ),
+        if (multiPage) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(pages.length, (i) {
+              final active = i == _currentPage;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: active ? 18 : 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: active ? AppColors.primary : AppColors.gray300,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
+        ],
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: onViewAll,
+          onTap: widget.onViewAll,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -1500,7 +1561,7 @@ class _RecentActivityList extends StatelessWidget {
                     color: AppColors.primary, size: 16),
                 const SizedBox(width: 8),
                 Text(
-                  isCarrier ? 'See all requests' : 'See all shipments',
+                  widget.isCarrier ? 'See all requests' : 'See all shipments',
                   style: AppTextStyles.labelMd.copyWith(
                       color: AppColors.primary, fontWeight: FontWeight.w800),
                 ),
