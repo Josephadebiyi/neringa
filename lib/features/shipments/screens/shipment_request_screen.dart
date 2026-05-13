@@ -37,6 +37,9 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
   bool _isRejecting = false;
   bool _hasReviewed = false;
   bool _confirmingReceived = false;
+  bool _confirmingHandover = false;
+  final _pinControllers = List.generate(4, (_) => TextEditingController());
+  final _pinFocusNodes = List.generate(4, (_) => FocusNode());
   late Future<RequestModel?> _requestFuture;
 
   @override
@@ -179,6 +182,42 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     }
   }
 
+  Future<void> _confirmHandover(RequestModel req) async {
+    final pin = _pinControllers.map((c) => c.text.trim()).join();
+    if (pin.length != 4) {
+      AppSnackBar.show(context, message: 'Enter all 4 digits', type: SnackBarType.warning);
+      return;
+    }
+    if (_confirmingHandover) return;
+    setState(() => _confirmingHandover = true);
+    try {
+      await ShipmentService.instance.confirmHandover(req.id, pin);
+      if (mounted) {
+        AppSnackBar.show(context, message: 'Handover confirmed! Funds released.', type: SnackBarType.success);
+        ref.read(shipmentProvider.notifier).loadIncomingRequests();
+        setState(() {
+          _requestFuture = ShipmentService.instance
+              .getRequestDetails(widget.requestId)
+              .then<RequestModel?>((v) => v)
+              .catchError((_) => null);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _confirmingHandover = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _pinControllers) { c.dispose(); }
+    for (final f in _pinFocusNodes) { f.dispose(); }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -251,9 +290,18 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
   Widget _buildBody(BuildContext context, RequestModel req) {
     final isPending = req.status == RequestStatus.pending;
     final isSender = req.role == 'sender';
+    final isTraveler = req.role == 'traveler';
     final awaitingSenderConfirmation =
         isSender && req.awaitingSenderConfirmation;
     final canLeaveFeedback = req.isCompletedBySender && !_hasReviewed;
+    final showHandoverPin = req.handoverPin != null &&
+        req.handoverPin!.isNotEmpty &&
+        !req.isCompletedBySender &&
+        (req.status == RequestStatus.accepted ||
+            req.rawStatus == 'intransit' ||
+            req.rawStatus == 'delivering' ||
+            req.rawStatus == 'awaiting_sender_confirmation');
+    final canEnterHandoverPin = isTraveler && showHandoverPin;
     final statusColor = switch (req.status) {
       RequestStatus.accepted => AppColors.success,
       RequestStatus.rejected => AppColors.error,
@@ -506,6 +554,12 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
             ),
           ],
 
+          // Sender: show their handover PIN so they can read it to the traveler
+          if (isSender && showHandoverPin) ...[
+            const SizedBox(height: 14),
+            _HandoverPinCard(pin: req.handoverPin!),
+          ],
+
           if (awaitingSenderConfirmation) ...[
             const SizedBox(height: 14),
             _InfoCard(
@@ -631,9 +685,42 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   _isAccepting || _isRejecting ? null : () => _reject(req),
             ),
           ] else ...[
-            // Shipment status update section (for traveler, after acceptance)
-            if (req.role == 'traveler' && _canUpdateStatus(req.status)) ...[
+            // Traveler: Handover PIN entry (primary action when PIN is available)
+            if (canEnterHandoverPin) ...[
               const SizedBox(height: 24),
+              _InfoCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoLabel('Confirm Handover'),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ask the sender or receiver for their 4-digit handover PIN to confirm delivery and release your payment instantly.',
+                      style: AppTextStyles.muted(AppTextStyles.bodySm),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(4, (i) => _PinBox(
+                        controller: _pinControllers[i],
+                        focusNode: _pinFocusNodes[i],
+                        nextFocus: i < 3 ? _pinFocusNodes[i + 1] : null,
+                        prevFocus: i > 0 ? _pinFocusNodes[i - 1] : null,
+                      )),
+                    ),
+                    const SizedBox(height: 16),
+                    AppButton(
+                      label: 'Confirm Delivery & Get Paid',
+                      isLoading: _confirmingHandover,
+                      onPressed: _confirmingHandover ? null : () => _confirmHandover(req),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // Shipment status update section (for traveler, after acceptance)
+            if (isTraveler && _canUpdateStatus(req.status)) ...[
+              SizedBox(height: canEnterHandoverPin ? 14 : 24),
               _InfoCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1559,6 +1646,145 @@ class _PhotoButton extends StatelessWidget {
                 style: AppTextStyles.labelSm.copyWith(
                     color: AppColors.gray700, fontWeight: FontWeight.w700)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sender view: displays the handover PIN prominently so they can read it to
+// the traveler at pickup / handover.
+// ---------------------------------------------------------------------------
+class _HandoverPinCard extends StatelessWidget {
+  const _HandoverPinCard({required this.pin});
+  final String pin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline, color: AppColors.primary, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                'Handover PIN',
+                style: AppTextStyles.labelSm.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: pin.split('').map((digit) {
+              return Container(
+                width: 52,
+                height: 60,
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.12),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  digit,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    letterSpacing: 0,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Share this PIN with the traveler to confirm handover.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.labelSm.copyWith(color: AppColors.gray600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Single digit box used in the traveler's OTP-style PIN entry.
+// ---------------------------------------------------------------------------
+class _PinBox extends StatelessWidget {
+  const _PinBox({
+    required this.controller,
+    required this.focusNode,
+    this.nextFocus,
+    this.prevFocus,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final FocusNode? nextFocus;
+  final FocusNode? prevFocus;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      height: 64,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        maxLength: 1,
+        onChanged: (v) {
+          if (v.isNotEmpty) {
+            nextFocus?.requestFocus();
+          } else {
+            prevFocus?.requestFocus();
+          }
+        },
+        style: const TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+        decoration: InputDecoration(
+          counterText: '',
+          contentPadding: EdgeInsets.zero,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.gray300, width: 1.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.primary, width: 2),
+          ),
+          filled: true,
+          fillColor: AppColors.gray50,
         ),
       ),
     );

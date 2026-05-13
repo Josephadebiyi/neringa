@@ -369,4 +369,18 @@ class ShipmentService {
       throw ApiService.parseError(e);
     }
   }
+
+  /// Traveler enters the 4-digit handover PIN shown by the sender or receiver.
+  /// Returns the error message from the server on failure (wrong PIN, too many
+  /// attempts, etc.) so the UI can display it directly.
+  Future<void> confirmHandover(String requestId, String pin) async {
+    try {
+      await _api.post(
+        '${ApiConstants.confirmHandover}/$requestId/confirm-handover',
+        data: {'pin': pin},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
 }
