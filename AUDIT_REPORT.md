@@ -65,12 +65,19 @@ The Bago app implements a complete P2P logistics lifecycle. Below is an analysis
 *   **Flow:** Available Balance -> Request Withdrawal -> Stripe Connect (Global) or Paystack (Africa) -> Funds transferred.
 *   **Controls:** The system implements daily withdrawal limits and minimum thresholds, providing a layer of protection against account takeover or massive unauthorized transfers.
 
+### 4. Currency Conversion & Commissions
+*   **Logic:** Commissions are calculated using a base rate (default 10% in `currencyConverter.js`, but found 15% in `WalletController.js` and references to 30% or 70% in `routeController.js`).
+*   **Withdrawals:** Wallet balances are converted to USD on-the-fly to enforce daily limits, which is a secure and reliable way to handle multi-currency accounts.
+*   **Suggestion:** Standardize the commission rate across all controllers to avoid confusing users and ensuring consistent financial reporting.
+
 ---
 
 ## 🚀 Overall App Suggestions
 
 ### 💎 UX & Functional Enhancements
-1.  **QR Code Handover:** Implement a QR-based handover system. The sender generates a QR code, and the traveler scans it upon delivery to instantly confirm receipt and release escrow. This is more secure than manual confirmation.
+1.  **QR Code Handover (Receiver-Centric):** Currently, the QR code is in the Sender's PDF and only links to a public tracking page.
+    *   **Problem:** If the Sender is not the Receiver, the physical recipient has no secure way to confirm delivery.
+    *   **Solution:** The system should send a **Handoff QR Code** (or SMS PIN) directly to the physical *Receiver* (via email/phone provided in package details). The Traveler scans this code to instantly trigger delivery confirmation and escrow release.
 2.  **Real-time Location Tracking:** Integrate a map view in the `TrackingScreen` showing the traveler's current city or progress along the route, rather than just text-based status updates.
 3.  **Webhook-First Request Creation:** To make the payment flow 100% resilient, consider creating the shipment request in a "pending_payment" state *before* redirecting to Stripe/Paystack, then finalizing it via webhooks.
 4.  **Loyalty & Trust Score:** Expand the `rating` system into a visible "Trust Score" that incorporates KYC level, number of successful deliveries, and account age to help senders choose travelers.
@@ -84,4 +91,4 @@ The Bago app implements a complete P2P logistics lifecycle. Below is an analysis
 ---
 
 **Audit Status:** ✅ **PASS WITH RECOMMENDATIONS**
-*The Bago platform is functionally complete and demonstrates strong recovery and escrow logic. Implementing the suggested UX enhancements and dependency updates will ensure it remains a top-tier P2P delivery solution.*
+*The Bago platform is functionally complete and demonstrates strong recovery and escrow logic. Implementing the suggested UX enhancements—particularly the Receiver-centric QR handover—and dependency updates will ensure it remains a top-tier P2P delivery solution.*
