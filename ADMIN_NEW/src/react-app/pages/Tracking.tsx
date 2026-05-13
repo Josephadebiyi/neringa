@@ -272,8 +272,29 @@ export default function Tracking() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col items-center justify-center py-32 space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-600"></div>
+        <p className="text-gray-400 font-bold text-xs uppercase tracking-widest">Synchronizing Global Shipments...</p>
+      </div>
+    );
+  }
+
+  if (items.length === 0 && !searchTerm && statusFilter === 'all') {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-6 text-center">
+        <div className="bg-gray-100 p-8 rounded-full">
+          <Truck size={64} className="text-gray-300" />
+        </div>
+        <div className="max-w-md">
+          <h2 className="text-2xl font-black text-gray-900 mb-2">No active shipments</h2>
+          <p className="text-gray-500 font-medium">There are currently no delivery requests in the system. New shipments will appear here once travelers accept requests.</p>
+        </div>
+        <button
+          onClick={fetchTrackingAndUsers}
+          className="px-8 py-3 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg hover:shadow-xl transition-all"
+        >
+          Refresh Feed
+        </button>
       </div>
     );
   }

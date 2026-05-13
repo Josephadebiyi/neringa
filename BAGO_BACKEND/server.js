@@ -26,6 +26,7 @@ import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShip
 import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 import { sendKycApprovedEmail } from './services/emailNotifications.js';
 import { handleStripeWebhook } from './controllers/postgresPaymentMethodController.js';
+import { getStripeClient, createStripeAccountForUser } from './services/stripeService.js';
 
 
 dotenv.config();
@@ -75,14 +76,11 @@ const io = new Server(httpServer, {
 });
 
 // ✅ Initialize Stripe (optional - will be null if no key provided)
-let stripe = null;
-const stripeKey = process.env.STRIPE_SECRET_KEY;
-if (stripeKey && stripeKey !== 'your_stripe_secret_key' && stripeKey.startsWith('sk_')) {
-  stripe = new Stripe(stripeKey);
+const stripe = getStripeClient();
+if (stripe) {
   console.log('✅ Stripe initialized successfully');
 } else {
   console.warn('⚠️ STRIPE_SECRET_KEY not set or invalid - Stripe features disabled');
-  console.warn('   To enable Stripe: Get your key from https://dashboard.stripe.com/apikeys');
 }
 
 // Initialize Resend (optional)
@@ -179,28 +177,7 @@ startEscrowAutoRelease();
 startCurrencyRateSync();
 
 // create or return an existing Stripe account id for a user
-async function createStripeAccountForUser(user, { restartIncomplete = true } = {}) {
-  if (!stripe) {
-    console.warn('❌ createStripeAccountForUser failed: Stripe not configured');
-    throw new Error('Stripe not configured');
-  }
-  if (!user) throw new Error('User required');
 
-  const existingAccountId = user.stripeConnectAccountId || user.stripe_connect_account_id;
-  if (existingAccountId) {
-    try {
-      const existingAccount = await stripe.accounts.retrieve(existingAccountId);
-      const isComplete = existingAccount.charges_enabled === true && existingAccount.payouts_enabled === true;
-      if (isComplete) {
-        return existingAccountId;
-      }
-      if (!restartIncomplete && existingAccount.type === 'express') {
-        return existingAccountId;
-      }
-      console.warn(`⚠️ Replacing incomplete Stripe ${existingAccount.type} account for user ${user.id}`);
-    } catch (err) {
-      console.warn(`⚠️ Saved Stripe account ${existingAccountId} could not be retrieved: ${err.message}`);
-    }
   }
 
   try {

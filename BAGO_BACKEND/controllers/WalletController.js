@@ -77,6 +77,7 @@ export const getWalletBalance = async (req, res) => {
 import Setting from "../models/settingScheme.js";
 import Trip from "../models/tripScheme.js";
 import InsuranceSetting from "../models/insuranceSettingScheme.js";
+import { PLATFORM_COMMISSION_RATE } from '../constants/commission.js';
 
 // Helper to get region from country code
 const getRegionFromCountry = (countryCode) => {
@@ -109,7 +110,7 @@ export const processPayment = async (req, res) => {
 
         // Get dynamic commission from regional settings
         const trip = await Trip.findById(tripId);
-        let commissionPercentage = 15; // default fallback
+        let commissionRate = PLATFORM_COMMISSION_RATE;
 
         if (trip) {
             const region = getRegionFromCountry(trip.toCountry);
@@ -117,16 +118,16 @@ export const processPayment = async (req, res) => {
             if (insuranceSettings) {
                 const config = insuranceSettings[region] || insuranceSettings.global;
                 if (config && config.commissionPercentage !== undefined) {
-                    commissionPercentage = config.commissionPercentage;
+                    commissionRate = config.commissionPercentage / 100;
                 }
             }
         } else {
             // Fallback to global setting if trip not found (shouldn't happen)
             const settings = await Setting.findOne();
-            commissionPercentage = settings?.commissionPercentage || 15;
+            if (settings?.commissionPercentage) {
+                commissionRate = settings.commissionPercentage / 100;
+            }
         }
-
-        const commissionRate = commissionPercentage / 100;
 
         // Convert amount to cents (Stripe requires amounts in cents)
         const amountInCents = Math.round(amount * 100);
