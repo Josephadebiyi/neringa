@@ -1494,38 +1494,59 @@ class _RecentActivityListState extends State<_RecentActivityList> {
     // Each row: padding (14*2=28) + icon (44) = 72px; divider 1.5px between rows
     const double rowH = 72.0;
     const double divH = 1.5;
+    // Fixed height only needed when multi-page (so all pages are the same size).
     final pageHeight = _kPageSize * rowH + (_kPageSize - 1) * divH;
+
+    // Single page (≤3 items): render a plain container — no fixed height so it
+    // shrinks to fit the actual number of rows.
+    Widget listWidget;
+    if (!multiPage) {
+      listWidget = Container(
+        decoration: BoxDecoration(
+          color: AppColors.gray100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: pages.first.asMap().entries.map((e) {
+            final isLast = e.key == pages.first.length - 1;
+            return _buildRow(context, e.value, isLast: isLast);
+          }).toList(),
+        ),
+      );
+    } else {
+      // Multiple pages: fixed height PageView so all pages are uniform.
+      listWidget = SizedBox(
+        height: pageHeight,
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: pages.length,
+          onPageChanged: (p) => setState(() => _currentPage = p),
+          itemBuilder: (_, pageIdx) {
+            final pageEntries = pages[pageIdx];
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.gray100,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: pageEntries.asMap().entries.map((e) {
+                  final isLast = e.key == pageEntries.length - 1;
+                  return _buildRow(context, e.value, isLast: isLast);
+                }).toList(),
+              ),
+            );
+          },
+        ),
+      );
+    }
 
     return Column(
       children: [
-        SizedBox(
-          height: pageHeight,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: pages.length,
-            physics: multiPage
-                ? const PageScrollPhysics()
-                : const NeverScrollableScrollPhysics(),
-            onPageChanged: (p) => setState(() => _currentPage = p),
-            itemBuilder: (_, pageIdx) {
-              final pageEntries = pages[pageIdx];
-              return Container(
-                decoration: BoxDecoration(
-                  color: AppColors.gray100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                clipBehavior: Clip.hardEdge,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: pageEntries.asMap().entries.map((e) {
-                    final isLast = e.key == pageEntries.length - 1;
-                    return _buildRow(context, e.value, isLast: isLast);
-                  }).toList(),
-                ),
-              );
-            },
-          ),
-        ),
+        listWidget,
         if (multiPage) ...[
           const SizedBox(height: 8),
           Row(
