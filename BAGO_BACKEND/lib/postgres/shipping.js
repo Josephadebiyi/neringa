@@ -815,14 +815,13 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
       const senderWallet = senderWalletResult.rows[0];
       if (senderWallet) {
         const swCurrency = (senderWallet.currency || 'USD').toUpperCase();
-        // Look up what was actually escrowed (already converted to wallet currency at hold time)
+        // Sum ALL escrow_hold txns for this request (additional-kg holds create multiple rows)
         const escrowTxResult = await client.query(
-          `SELECT amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' ORDER BY created_at DESC LIMIT 1`,
+          `SELECT COALESCE(SUM(amount), 0) AS amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' AND status='completed'`,
           [request.id, request.sender_id],
         );
-        const senderEscrowAmount = escrowTxResult.rows[0]
-          ? toNumber(escrowTxResult.rows[0].amount)
-          : (swCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, swCurrency) : rawAmount);
+        const senderEscrowAmount = toNumber(escrowTxResult.rows[0]?.amount) ||
+          (swCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, swCurrency) : rawAmount);
 
         await client.query(
           `update public.wallet_accounts set escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
@@ -851,10 +850,10 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
         );
         if (existingCredit.rows[0]?.id) {
           const escrowTxResult = await client.query(
-            `SELECT amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' ORDER BY created_at DESC LIMIT 1`,
+            `SELECT COALESCE(SUM(amount), 0) AS amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' AND status='completed'`,
             [request.id, request.traveler_id],
           );
-          const heldAmount = escrowTxResult.rows[0]?.amount ? toNumber(escrowTxResult.rows[0].amount) : 0;
+          const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
           if (heldAmount > 0) {
             await client.query(
               `update public.wallet_accounts set escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
@@ -877,12 +876,11 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
 
         const twCurrency = (travelerWallet.currency || 'USD').toUpperCase();
         const escrowTxResult = await client.query(
-          `SELECT amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' ORDER BY created_at DESC LIMIT 1`,
+          `SELECT COALESCE(SUM(amount), 0) AS amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' AND status='completed'`,
           [request.id, request.traveler_id],
         );
-        const travelerCreditAmount = escrowTxResult.rows[0]
-          ? toNumber(escrowTxResult.rows[0].amount)
-          : (twCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, twCurrency) : rawAmount);
+        const travelerCreditAmount = toNumber(escrowTxResult.rows[0]?.amount) ||
+          (twCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, twCurrency) : rawAmount);
 
         await client.query(
           `update public.wallet_accounts set available_balance = available_balance + $2, escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
@@ -1197,9 +1195,7 @@ export async function redeemHandoverToken({ requestId, pin, travelerId }) {
     const request = requestResult.rows[0];
 
     // Release sender escrow
-    const rawAmount = toNumber(request.amount);
-    const requestCurrency = (request.currency || 'USD').toUpperCase();
-    if (rawAmount > 0) {
+    if (true) {
       const senderWalletResult = await client.query(
         `SELECT id, escrow_balance, currency FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
         [request.sender_id],
@@ -1207,33 +1203,31 @@ export async function redeemHandoverToken({ requestId, pin, travelerId }) {
       const senderWallet = senderWalletResult.rows[0];
       if (senderWallet) {
         const swCurrency = (senderWallet.currency || 'USD').toUpperCase();
+        // Sum ALL escrow_hold txns for this request (additional-kg holds create multiple rows)
         const escrowTxResult = await client.query(
-          `SELECT amount FROM public.wallet_transactions
-           WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold'
-           ORDER BY created_at DESC LIMIT 1`,
+          `SELECT COALESCE(SUM(amount), 0) AS amount FROM public.wallet_transactions
+           WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' AND status='completed'`,
           [request.id, request.sender_id],
         );
-        const senderEscrowAmount = escrowTxResult.rows[0]
-          ? toNumber(escrowTxResult.rows[0].amount)
-          : (swCurrency !== requestCurrency
-            ? await convertCurrency(rawAmount, requestCurrency, swCurrency)
-            : rawAmount);
+        const senderEscrowAmount = toNumber(escrowTxResult.rows[0]?.amount);
 
-        await client.query(
-          `UPDATE public.wallet_accounts
-           SET escrow_balance = GREATEST(0, escrow_balance - $2), updated_at = timezone('utc', now())
-           WHERE user_id = $1`,
-          [request.sender_id, senderEscrowAmount],
-        );
-        await client.query(
-          `INSERT INTO public.wallet_transactions
-             (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
-           VALUES ($1,$2,$3,$4,'escrow_release',$5,$6,'completed',$7,$8)`,
-          [senderWallet.id, request.sender_id, request.id, request.trip_id,
-           senderEscrowAmount, swCurrency,
-           `Escrow released via handover PIN — ${request.tracking_number || request.id}`,
-           JSON.stringify({ requestId: request.id, method: 'handover_pin' })],
-        );
+        if (senderEscrowAmount > 0) {
+          await client.query(
+            `UPDATE public.wallet_accounts
+             SET escrow_balance = GREATEST(0, escrow_balance - $2), updated_at = timezone('utc', now())
+             WHERE user_id = $1`,
+            [request.sender_id, senderEscrowAmount],
+          );
+          await client.query(
+            `INSERT INTO public.wallet_transactions
+               (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
+             VALUES ($1,$2,$3,$4,'escrow_release',$5,$6,'completed',$7,$8)`,
+            [senderWallet.id, request.sender_id, request.id, request.trip_id,
+             senderEscrowAmount, swCurrency,
+             `Escrow released via handover PIN — ${request.tracking_number || request.id}`,
+             JSON.stringify({ requestId: request.id, method: 'handover_pin' })],
+          );
+        }
       }
 
       // Credit traveler

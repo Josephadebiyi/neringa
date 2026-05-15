@@ -640,7 +640,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
             ),
           ],
 
-          if (isPending) ...[
+          if (isPending && isTraveler) ...[
             const SizedBox(height: 32),
             // Show package images gallery before accept/reject
             if (req.packageImages.length > 1) ...[
