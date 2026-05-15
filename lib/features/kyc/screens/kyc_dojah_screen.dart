@@ -53,10 +53,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
     final ctrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      // Grant camera + microphone so the selfie step works
-      ..setOnPermissionRequest((WebViewPermissionRequest request) {
-        request.grant();
-      })
       // Spoof a standard mobile Safari UA so Dojah doesn't detect a WebView
       ..setUserAgent(
         'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
@@ -72,6 +68,10 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
           if (mounted) setState(() => _webLoading = false);
         },
         onNavigationRequest: (req) => NavigationDecision.navigate,
+        // Grant camera + microphone so the selfie step works on Android
+        onPermissionRequest: (WebViewPermissionRequest request) {
+          request.grant();
+        },
       ))
       ..loadHtmlString(html);
 
