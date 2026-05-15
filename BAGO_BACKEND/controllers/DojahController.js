@@ -97,42 +97,92 @@ export const startDojahSession = async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/bago/kyc/dojah/webhook
-// Dojah calls this when verification completes
+// Dojah calls this when verification completes.
+// Handles both production and sandbox payload shapes.
 // ---------------------------------------------------------------------------
 export const dojahWebhook = async (req, res) => {
   try {
     const event = req.body;
-    console.log('Dojah webhook received:', JSON.stringify(event).slice(0, 300));
+    console.log('Dojah webhook received:', JSON.stringify(event).slice(0, 500));
 
-    // Dojah sends: { type, data: { referenceId, status, entity: { userId } } }
-    const status = (event?.data?.status || event?.status || '').toLowerCase();
-    const userId  =
+    // --- Extract status (many field names used across sandbox vs live) ------
+    const rawStatus = (
+      event?.data?.status ||
+      event?.data?.verificationStatus ||
+      event?.data?.verification_status ||
+      event?.status ||
+      event?.verification_status ||
+      event?.verificationStatus ||
+      ''
+    ).toLowerCase().trim();
+
+    // --- Extract userId / referenceId --------------------------------------
+    const userId =
       event?.data?.entity?.userId ||
       event?.data?.entity?.user_id ||
       event?.data?.metadata?.userId ||
       event?.data?.metadata?.user_id ||
-      event?.data?.referenceId;
+      event?.data?.referenceId ||
+      event?.data?.reference_id ||
+      event?.referenceId ||
+      event?.reference_id ||
+      // sandbox sometimes puts it at the top level
+      event?.data?.entity?.id;
 
     if (!userId) {
+      console.warn('Dojah webhook: no userId found in payload');
       return res.status(200).json({ received: true, note: 'no userId in payload' });
     }
 
-    if (status === 'success' || status === 'approved' || status === 'verified') {
+    const approved = ['success', 'approved', 'verified', 'completed'].includes(rawStatus);
+    const declined = ['failed', 'declined', 'rejected', 'failure'].includes(rawStatus);
+
+    if (approved) {
       await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: event });
-    } else if (status === 'failed' || status === 'declined' || status === 'rejected') {
+      console.log(`Dojah webhook: approved userId=${userId}`);
+    } else if (declined) {
+      const reason = event?.data?.reason || event?.data?.failureReason || 'Dojah verification declined';
       await query(
         `UPDATE public.profiles
          SET kyc_status = 'declined',
-             kyc_failure_reason = 'Dojah verification declined',
+             kyc_failure_reason = $2,
              updated_at = NOW()
          WHERE id = $1`,
-        [userId],
+        [userId, reason],
       );
+      console.log(`Dojah webhook: declined userId=${userId} reason=${reason}`);
+    } else {
+      console.log(`Dojah webhook: unhandled status="${rawStatus}" for userId=${userId}`);
     }
 
     res.status(200).json({ received: true });
   } catch (err) {
     console.error('dojahWebhook error:', err);
     res.status(200).json({ received: true, error: err.message });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/bago/kyc/status
+// Lightweight poll endpoint — app calls this after widget onSuccess to wait
+// for the webhook to flip kyc_status to approved/declined.
+// ---------------------------------------------------------------------------
+export const getKycStatus = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const row = await queryOne(
+      `SELECT kyc_status AS "kycStatus", kyc_provider AS "kycProvider",
+              kyc_failure_reason AS "kycFailureReason"
+       FROM public.profiles WHERE id = $1`,
+      [userId],
+    );
+
+    if (!row) return res.status(404).json({ success: false, message: 'User not found' });
+
+    res.json({ success: true, kycStatus: row.kycStatus, kycProvider: row.kycProvider });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
