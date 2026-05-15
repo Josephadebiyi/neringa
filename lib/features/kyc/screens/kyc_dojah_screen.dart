@@ -68,10 +68,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
           if (mounted) setState(() => _webLoading = false);
         },
         onNavigationRequest: (req) => NavigationDecision.navigate,
-        // Grant camera + microphone so the selfie step works on Android
-        onPermissionRequest: (WebViewPermissionRequest request) {
-          request.grant();
-        },
       ))
       ..loadHtmlString(html);
 
