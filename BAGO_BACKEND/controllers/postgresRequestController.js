@@ -1552,3 +1552,43 @@ export async function redeemHandoverQR(req, res) {
     return res.status(status).json({ success: false, message: error.message });
   }
 }
+
+// ---------------------------------------------------------------------------
+// DELETE /api/bago/request/:requestId
+// Sender or traveler can delete a rejected/cancelled request from their history.
+// ---------------------------------------------------------------------------
+export async function deleteRequestFromHistory(req, res) {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user?.id;
+
+    const request = await getShipmentRequestById(requestId);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    const isSender   = String(request.senderId)   === String(userId);
+    const isTraveler = String(request.travelerId)  === String(userId);
+    if (!isSender && !isTraveler) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const deletable = ['rejected', 'cancelled'];
+    if (!deletable.includes(request.status?.toLowerCase())) {
+      return res.status(422).json({
+        success: false,
+        message: 'Only rejected or cancelled requests can be deleted',
+      });
+    }
+
+    await query(
+      `DELETE FROM public.shipment_requests WHERE id = $1`,
+      [requestId],
+    );
+
+    return res.status(200).json({ success: true, message: 'Request removed from history' });
+  } catch (err) {
+    console.error('deleteRequestFromHistory error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}

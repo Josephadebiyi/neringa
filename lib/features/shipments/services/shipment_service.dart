@@ -383,4 +383,12 @@ class ShipmentService {
       throw ApiService.parseError(e);
     }
   }
+
+  Future<void> deleteHistoryRequest(String requestId) async {
+    try {
+      await _api.delete('/api/bago/request/$requestId');
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
 }
