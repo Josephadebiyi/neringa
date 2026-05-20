@@ -252,7 +252,10 @@ class _TripBody extends StatelessWidget {
                   value:
                       '$displayCurrency ${trip.travelerEarnings.toStringAsFixed(2)}',
                 ),
-                _TripInfoRow(label: 'Payout status', value: trip.payoutStatus),
+                _TripInfoRow(
+                  label: 'Payout status',
+                  value: _formatPayoutStatus(trip.payoutStatus),
+                ),
                 if (userCurrencyLabel.isNotEmpty &&
                     displayCurrency.isNotEmpty &&
                     userCurrencyLabel != displayCurrency)
@@ -348,6 +351,19 @@ class _TripBody extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatPayoutStatus(String raw) {
+    switch (raw.trim().toLowerCase()) {
+      case 'paid':
+        return 'Paid out';
+      case 'partially_paid':
+        return 'Partially paid — some shipments still in transit';
+      case 'pending':
+        return 'Pending — awaiting delivery confirmations';
+      default:
+        return raw.isNotEmpty ? raw : 'Pending';
+    }
   }
 
   String _formatDate(String raw) {
