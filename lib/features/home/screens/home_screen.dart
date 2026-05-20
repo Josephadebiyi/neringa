@@ -322,7 +322,7 @@ isCarrier
                       ),
 
                 if (!isCarrier) ...[
-                  if ((_liveEscrow ?? 0) > 0) ...[
+                  if ((_liveEscrow ?? 0) >= 10) ...[
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.symmetric(
