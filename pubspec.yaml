@@ -73,6 +73,9 @@ dependencies:
   # WebView (for KYC / Paystack)
   webview_flutter: ^4.11.0
 
+  # Native Dojah KYC SDK
+  dojah_kyc_sdk_flutter: ^0.1.7
+
   # URL launcher
   url_launcher: ^6.3.1
 

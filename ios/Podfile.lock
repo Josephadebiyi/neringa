@@ -11,6 +11,7 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
+  - Clarity (3.5.2)
   - DKImagePickerController/Core (4.3.9):
     - DKImagePickerController/ImageDataManager
     - DKImagePickerController/Resource
@@ -42,6 +43,17 @@ PODS:
   - DKPhotoGallery/Resource (0.0.19):
     - SDWebImage
     - SwiftyGif
+  - dojah_kyc_sdk_flutter (0.0.5):
+    - DojahWidget
+    - Flutter
+  - DojahWidget (1.1.8):
+    - Clarity
+    - GooglePlaces (~> 8.5.0)
+    - HorizonCalendar (~> 1.16.0)
+    - IQKeyboardManagerSwift (~> 7.1.1)
+    - Kingfisher (~> 7.12.0)
+    - lottie-ios (~> 4.5.2)
+    - RealmSwift (~> 10.52.2)
   - file_picker (0.0.1):
     - DKImagePickerController/PhotoGallery
     - Flutter
@@ -94,6 +106,7 @@ PODS:
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
+  - GooglePlaces (8.5.0)
   - GoogleSignIn (8.0.0):
     - AppAuth (< 2.0, >= 1.7.3)
     - AppCheckCore (~> 11.0)
@@ -131,11 +144,15 @@ PODS:
   - GTMSessionFetcher/Core (3.5.0)
   - GTMSessionFetcher/Full (3.5.0):
     - GTMSessionFetcher/Core
+  - HorizonCalendar (1.16.0)
   - image_picker_ios (0.0.1):
     - Flutter
+  - IQKeyboardManagerSwift (7.1.1)
+  - Kingfisher (7.12.0)
   - local_auth_darwin (0.0.1):
     - Flutter
     - FlutterMacOS
+  - lottie-ios (4.5.2)
   - nanopb (3.30910.0):
     - nanopb/decode (= 3.30910.0)
     - nanopb/encode (= 3.30910.0)
@@ -144,6 +161,11 @@ PODS:
   - printing (1.0.0):
     - Flutter
   - PromisesObjC (2.4.0)
+  - Realm (10.52.3):
+    - Realm/Headers (= 10.52.3)
+  - Realm/Headers (10.52.3)
+  - RealmSwift (10.52.3):
+    - Realm (= 10.52.3)
   - SDWebImage (5.21.7):
     - SDWebImage/Core (= 5.21.7)
   - SDWebImage/Core (5.21.7)
@@ -219,6 +241,8 @@ PODS:
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
+  - dojah_kyc_sdk_flutter (from `.symlinks/plugins/dojah_kyc_sdk_flutter/ios`)
+  - DojahWidget (from `https://github.com/dojah-inc/sdk-swift.git`, branch `pod-package`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
@@ -230,6 +254,7 @@ DEPENDENCIES:
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
   - printing (from `.symlinks/plugins/printing/ios`)
+  - Realm (~> 10.52.2)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/ios`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
@@ -241,6 +266,7 @@ SPEC REPOS:
   trunk:
     - AppAuth
     - AppCheckCore
+    - Clarity
     - DKImagePickerController
     - DKPhotoGallery
     - Firebase
@@ -249,12 +275,19 @@ SPEC REPOS:
     - FirebaseInstallations
     - FirebaseMessaging
     - GoogleDataTransport
+    - GooglePlaces
     - GoogleSignIn
     - GoogleUtilities
     - GTMAppAuth
     - GTMSessionFetcher
+    - HorizonCalendar
+    - IQKeyboardManagerSwift
+    - Kingfisher
+    - lottie-ios
     - nanopb
     - PromisesObjC
+    - Realm
+    - RealmSwift
     - SDWebImage
     - Stripe
     - StripeApplePay
@@ -269,6 +302,11 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
+  dojah_kyc_sdk_flutter:
+    :path: ".symlinks/plugins/dojah_kyc_sdk_flutter/ios"
+  DojahWidget:
+    :branch: pod-package
+    :git: https://github.com/dojah-inc/sdk-swift.git
   file_picker:
     :path: ".symlinks/plugins/file_picker/ios"
   firebase_core:
@@ -304,12 +342,20 @@ EXTERNAL SOURCES:
   webview_flutter_wkwebview:
     :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
 
+CHECKOUT OPTIONS:
+  DojahWidget:
+    :commit: 48bd76e5e82c0f177627575fb78ba04cd474b925
+    :git: https://github.com/dojah-inc/sdk-swift.git
+
 SPEC CHECKSUMS:
   app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
+  Clarity: 26b69506b51fdc75d03c56f3b928292b5ac7ba73
   DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
   DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
+  dojah_kyc_sdk_flutter: 473995e92048019f8e921ba27a449cd346495392
+  DojahWidget: f3d67d213a765fb062b213f7e7c3483d98da201c
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818
@@ -324,15 +370,22 @@ SPEC CHECKSUMS:
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   google_sign_in_ios: b48bb9af78576358a168361173155596c845f0b9
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
+  GooglePlaces: 426efb69051e7b460e16300ba63598687d10fa1a
   GoogleSignIn: ce8c89bb9b37fb624b92e7514cc67335d1e277e4
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMAppAuth: f69bd07d68cd3b766125f7e072c45d7340dea0de
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
+  HorizonCalendar: 90d7281cf1cd0cb3fae1d3e53f6f7fd24fda5a0e
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
+  IQKeyboardManagerSwift: d7f3d3a562c237a0e7335e657cd598c452f57f1b
+  Kingfisher: 53a10ea35051a436b5fb626ca2dd8f3144d755e9
   local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
+  lottie-ios: 96784afc26ea031d3e2b6cae342a4b8915072489
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
+  Realm: f9d340f510309e52a393d65c56103ef524d88a43
+  RealmSwift: 673454b09bc096853ee530e824847f38cdc21243
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sign_in_with_apple: c5dcc141574c8c54d5ac99dd2163c0c72ad22418
@@ -350,6 +403,6 @@ SPEC CHECKSUMS:
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: f2befb7ba244b9e0515e57297948795269e72546
+PODFILE CHECKSUM: 6b8c9103bfaccc5af9048d4f4fb21893a129db20
 
 COCOAPODS: 1.16.2

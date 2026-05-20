@@ -106,16 +106,13 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
       if (!mounted) return;
 
       if (provider == 'dojah') {
-        final startRes = await ApiService.instance
-            .post(ApiConstants.kycDojahStart, data: {});
-        final cfg = startRes.data as Map<String, dynamic>;
         if (!mounted) return;
+        final userId = ref.read(authProvider).user?.id ?? '';
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => KycDojahScreen(
-              appId: cfg['appId'] as String,
-              publicKey: cfg['publicKey'] as String,
-              userId: cfg['userId']?.toString() ?? '',
+              userId: userId,
+              countryCode: _selectedCode!,
               fromOnboarding: widget.fromOnboarding,
             ),
           ),

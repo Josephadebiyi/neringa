@@ -30,6 +30,10 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  pod 'Realm', '~> 10.52.2', :modular_headers => true
+  pod 'DojahWidget', :git => 'https://github.com/dojah-inc/sdk-swift.git', :branch => 'pod-package'
+
   target 'RunnerTests' do
     inherit! :search_paths
   end

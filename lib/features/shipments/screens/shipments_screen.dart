@@ -216,6 +216,34 @@ class _PackagesList extends ConsumerWidget {
         ],
       );
     }
+    // History tab: merge requests + packages into one chronological list
+    if (!activeTab) {
+      final merged = <_HistoryEntry>[
+        ...requests.map((r) => _HistoryEntry(createdAt: r.createdAt, widget: _DismissibleRequest(request: r, ref: ref))),
+        ...items.map((p) => _HistoryEntry(createdAt: p.createdAt, widget: Padding(padding: const EdgeInsets.only(bottom: 12), child: _PackageCard(package: p)))),
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      return RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(shipmentProvider.notifier).loadMyPackages();
+          await ref.read(shipmentProvider.notifier).loadMyRequestHistory();
+        },
+        child: merged.isEmpty
+            ? ListView(padding: const EdgeInsets.all(24), children: [
+                BagoEmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: l10n.nothingHereYet,
+                  subtitle: l10n.shipmentsEmptySubtitle,
+                  cta: AppButton(label: l10n.findTraveler, onPressed: () => context.go('/create-shipment')),
+                ),
+              ])
+            : ListView(
+                padding: const EdgeInsets.all(24),
+                children: merged.map((e) => e.widget).toList(),
+              ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(shipmentProvider.notifier).loadMyPackages();
@@ -237,72 +265,20 @@ class _PackagesList extends ConsumerWidget {
           ],
           if (requests.isNotEmpty) ...[
             _SectionHeader(
-              title: activeTab ? l10n.requestsSent : l10n.requestHistory,
-              subtitle: activeTab
-                  ? l10n.requestsSentSubtitle
-                  : l10n.requestHistorySubtitle,
+              title: l10n.requestsSent,
+              subtitle: l10n.requestsSentSubtitle,
             ),
             const SizedBox(height: 12),
-            ...requests.map((request) {
-              final deletable = !activeTab &&
-                  (request.status == RequestStatus.rejected ||
-                      request.status == RequestStatus.cancelled);
-              final card = Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _SenderRequestCard(request: request),
-              );
-              if (!deletable) return card;
-              return Dismissible(
-                key: ValueKey(request.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentCoral,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.delete_rounded,
-                      color: Colors.white, size: 24),
-                ),
-                confirmDismiss: (_) async {
-                  return await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Remove from history?'),
-                      content: const Text(
-                          'This will permanently remove this request from your history.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          style: TextButton.styleFrom(
-                              foregroundColor: AppColors.accentCoral),
-                          child: const Text('Remove'),
-                        ),
-                      ],
-                    ),
-                  ) ?? false;
-                },
-                onDismissed: (_) {
-                  ref
-                      .read(shipmentProvider.notifier)
-                      .deleteHistoryRequest(request.id);
-                },
-                child: card,
-              );
-            }),
+            ...requests.map((request) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _SenderRequestCard(request: request),
+            )),
             if (items.isNotEmpty) const SizedBox(height: 10),
           ],
           if (items.isNotEmpty) ...[
             _SectionHeader(
-              title: activeTab ? l10n.myShipmentsSection : l10n.shipmentHistory,
-              subtitle: activeTab
-                  ? l10n.myShipmentsSubtitle
-                  : l10n.shipmentHistorySubtitle,
+              title: l10n.myShipmentsSection,
+              subtitle: l10n.myShipmentsSubtitle,
             ),
             const SizedBox(height: 12),
             ...items.map(
@@ -656,6 +632,38 @@ class _TripsList extends ConsumerWidget {
       );
     }
 
+    // History tab: merge all items into one chronological list
+    if (!activeTab) {
+      final merged = <_HistoryEntry>[
+        ...requests.map((r) => _HistoryEntry(createdAt: r.createdAt, widget: _DismissibleRequest(request: r, ref: ref))),
+        ...sentHistoryRequests.map((r) => _HistoryEntry(createdAt: r.createdAt, widget: _DismissibleSentRequest(request: r, ref: ref))),
+        ...sentPackageHistory.map((p) => _HistoryEntry(createdAt: p.createdAt, widget: Padding(padding: const EdgeInsets.only(bottom: 12), child: _PackageCard(package: p)))),
+        ...items.map((t) => _HistoryEntry(createdAt: t.createdAt, widget: _DismissibleTrip(trip: t, ref: ref, l10n: l10n))),
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      return RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(shipmentProvider.notifier).loadMyPackages();
+          await ref.read(shipmentProvider.notifier).loadMyRequestHistory();
+          await ref.read(tripProvider.notifier).loadMyTrips();
+          await ref.read(shipmentProvider.notifier).loadIncomingRequests();
+        },
+        child: merged.isEmpty
+            ? ListView(padding: const EdgeInsets.all(24), children: [
+                BagoEmptyState(
+                  icon: Icons.inbox_rounded,
+                  title: l10n.nothingHereYet,
+                  subtitle: l10n.tripsEmptySubtitle,
+                  cta: AppButton(label: l10n.seeRequests, onPressed: () => context.push('/requests')),
+                ),
+              ])
+            : ListView(
+                padding: const EdgeInsets.all(24),
+                children: merged.map((e) => e.widget).toList(),
+              ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(shipmentProvider.notifier).loadMyPackages();
@@ -678,67 +686,16 @@ class _TripsList extends ConsumerWidget {
           ],
           if (showRequestSection) ...[
             _SectionHeader(
-              title: activeTab ? l10n.incomingRequests : l10n.requestHistory,
-              subtitle: activeTab
-                  ? l10n.incomingRequestsSubtitle
-                  : l10n.requestHistorySubtitle,
+              title: l10n.incomingRequests,
+              subtitle: l10n.incomingRequestsSubtitle,
             ),
             const SizedBox(height: 12),
-            ...requests.map((req) {
-              final deletable = !activeTab &&
-                  (req.status == RequestStatus.rejected ||
-                      req.status == RequestStatus.cancelled);
-              final card = Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _RequestCard(request: req),
-              );
-              if (!deletable) return card;
-              return Dismissible(
-                key: ValueKey(req.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentCoral,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.delete_rounded,
-                      color: Colors.white, size: 24),
-                ),
-                confirmDismiss: (_) async {
-                  return await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Remove from history?'),
-                      content: const Text(
-                          'This will permanently remove this request from your history.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          style: TextButton.styleFrom(
-                              foregroundColor: AppColors.accentCoral),
-                          child: const Text('Remove'),
-                        ),
-                      ],
-                    ),
-                  ) ?? false;
-                },
-                onDismissed: (_) {
-                  ref
-                      .read(shipmentProvider.notifier)
-                      .deleteHistoryRequest(req.id);
-                },
-                child: card,
-              );
-            }),
+            ...requests.map((req) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _RequestCard(request: req),
+            )),
             const SizedBox(height: 10),
           ],
-          // Packages this user sent as a customer (active)
           if (sentActiveRequests.isNotEmpty) ...[
             _SectionHeader(
               title: l10n.requestsSent,
@@ -753,85 +710,10 @@ class _TripsList extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
           ],
-          // Completed/cancelled requests this user sent as a customer
-          if (sentHistoryRequests.isNotEmpty) ...[
-            _SectionHeader(
-              title: l10n.requestHistory,
-              subtitle: l10n.requestHistorySubtitle,
-            ),
-            const SizedBox(height: 12),
-            ...sentHistoryRequests.map((req) {
-              final deletable = req.status == RequestStatus.rejected ||
-                  req.status == RequestStatus.cancelled;
-              final card = Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _SenderRequestCard(request: req),
-              );
-              if (!deletable) return card;
-              return Dismissible(
-                key: ValueKey('sent-${req.id}'),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentCoral,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.delete_rounded,
-                      color: Colors.white, size: 24),
-                ),
-                confirmDismiss: (_) async {
-                  return await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Remove from history?'),
-                      content: const Text(
-                          'This will permanently remove this request from your history.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          style: TextButton.styleFrom(
-                              foregroundColor: AppColors.accentCoral),
-                          child: const Text('Remove'),
-                        ),
-                      ],
-                    ),
-                  ) ?? false;
-                },
-                onDismissed: (_) {
-                  ref
-                      .read(shipmentProvider.notifier)
-                      .deleteHistoryRequest(req.id);
-                },
-                child: card,
-              );
-            }),
-            const SizedBox(height: 10),
-          ],
-          if (sentPackageHistory.isNotEmpty) ...[
-            _SectionHeader(
-              title: l10n.shipmentHistory,
-              subtitle: l10n.shipmentHistorySubtitle,
-            ),
-            const SizedBox(height: 12),
-            ...sentPackageHistory.map(
-              (package) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _PackageCard(package: package),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
           if (items.isNotEmpty) ...[
             _SectionHeader(
-              title: activeTab ? l10n.tripsTitle : l10n.tripHistory,
-              subtitle:
-                  activeTab ? l10n.myTripsSubtitle : l10n.tripHistorySubtitle,
+              title: l10n.tripsTitle,
+              subtitle: l10n.myTripsSubtitle,
             ),
             const SizedBox(height: 12),
             ...items.map((trip) {
@@ -849,43 +731,26 @@ class _TripsList extends ConsumerWidget {
                                 content: Text(l10n.deleteTripMessage),
                                 actions: [
                                   TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(dialogContext, false),
+                                    onPressed: () => Navigator.pop(dialogContext, false),
                                     child: Text(l10n.cancel),
                                   ),
                                   TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(dialogContext, true),
-                                    child: Text(
-                                      l10n.delete,
-                                      style: const TextStyle(
-                                          color: AppColors.error),
-                                    ),
+                                    onPressed: () => Navigator.pop(dialogContext, true),
+                                    child: Text(l10n.delete, style: const TextStyle(color: AppColors.error)),
                                   ),
                                 ],
                               ),
-                            ) ==
-                            true;
+                            ) == true;
                       },
                       onDismissed: (_) async {
                         try {
-                          await ref
-                              .read(tripProvider.notifier)
-                              .cancelTrip(tripId);
+                          await ref.read(tripProvider.notifier).cancelTrip(tripId);
                           if (context.mounted) {
-                            AppSnackBar.show(
-                              context,
-                              message: l10n.tripDeletedSuccessfully,
-                              type: SnackBarType.success,
-                            );
+                            AppSnackBar.show(context, message: l10n.tripDeletedSuccessfully, type: SnackBarType.success);
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            AppSnackBar.show(
-                              context,
-                              message: e.toString(),
-                              type: SnackBarType.error,
-                            );
+                            AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
                           }
                         }
                       },
@@ -896,15 +761,11 @@ class _TripsList extends ConsumerWidget {
                           color: AppColors.error.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(Icons.delete_rounded,
-                            color: AppColors.error),
+                        child: const Icon(Icons.delete_rounded, color: AppColors.error),
                       ),
                       child: _TripCard(trip: trip),
                     );
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: card,
-              );
+              return Padding(padding: const EdgeInsets.only(bottom: 12), child: card);
             }),
           ],
         ],
@@ -1525,6 +1386,131 @@ class _SegmentButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// History helpers — merge all item types into one sorted list
+// ---------------------------------------------------------------------------
+class _HistoryEntry {
+  final String createdAt;
+  final Widget widget;
+  const _HistoryEntry({required this.createdAt, required this.widget});
+}
+
+class _DismissibleRequest extends StatelessWidget {
+  const _DismissibleRequest({required this.request, required this.ref});
+  final RequestModel request;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final deletable = request.status == RequestStatus.rejected || request.status == RequestStatus.cancelled;
+    final card = Padding(padding: const EdgeInsets.only(bottom: 12), child: _RequestCard(request: request));
+    if (!deletable) return card;
+    return Dismissible(
+      key: ValueKey(request.id),
+      direction: DismissDirection.endToStart,
+      background: _deleteBackground(),
+      confirmDismiss: (_) => _confirmDelete(context),
+      onDismissed: (_) => ref.read(shipmentProvider.notifier).deleteHistoryRequest(request.id),
+      child: card,
+    );
+  }
+}
+
+class _DismissibleSentRequest extends StatelessWidget {
+  const _DismissibleSentRequest({required this.request, required this.ref});
+  final RequestModel request;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final deletable = request.status == RequestStatus.rejected || request.status == RequestStatus.cancelled;
+    final card = Padding(padding: const EdgeInsets.only(bottom: 12), child: _SenderRequestCard(request: request));
+    if (!deletable) return card;
+    return Dismissible(
+      key: ValueKey('sent-${request.id}'),
+      direction: DismissDirection.endToStart,
+      background: _deleteBackground(),
+      confirmDismiss: (_) => _confirmDelete(context),
+      onDismissed: (_) => ref.read(shipmentProvider.notifier).deleteHistoryRequest(request.id),
+      child: card,
+    );
+  }
+}
+
+class _DismissibleTrip extends StatelessWidget {
+  const _DismissibleTrip({required this.trip, required this.ref, required this.l10n});
+  final TripModel trip;
+  final WidgetRef ref;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final tripId = trip.id.trim();
+    final card = _TripCard(trip: trip);
+    if (tripId.isEmpty) return Padding(padding: const EdgeInsets.only(bottom: 12), child: card);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Dismissible(
+        key: ValueKey('trip-$tripId'),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (_) async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(l10n.deleteTripTitle),
+              content: Text(l10n.deleteTripMessage),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.delete, style: const TextStyle(color: AppColors.error))),
+              ],
+            ),
+          ) == true;
+        },
+        onDismissed: (_) async {
+          try {
+            await ref.read(tripProvider.notifier).cancelTrip(tripId);
+            if (context.mounted) AppSnackBar.show(context, message: l10n.tripDeletedSuccessfully, type: SnackBarType.success);
+          } catch (e) {
+            if (context.mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+          }
+        },
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(20)),
+          child: const Icon(Icons.delete_rounded, color: AppColors.error),
+        ),
+        child: card,
+      ),
+    );
+  }
+}
+
+Widget _deleteBackground() => Container(
+  alignment: Alignment.centerRight,
+  padding: const EdgeInsets.only(right: 20),
+  decoration: BoxDecoration(color: AppColors.accentCoral, borderRadius: BorderRadius.circular(16)),
+  child: const Icon(Icons.delete_rounded, color: Colors.white, size: 24),
+);
+
+Future<bool> _confirmDelete(BuildContext context) async {
+  return await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Remove from history?'),
+      content: const Text('This will permanently remove this item from your history.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.accentCoral),
+          child: const Text('Remove'),
+        ),
+      ],
+    ),
+  ) ?? false;
 }
 
 String _shortDate(String raw) {

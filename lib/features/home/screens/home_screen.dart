@@ -10,6 +10,8 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../widgets/banner_slider.dart';
 import '../../../shared/utils/user_currency_helper.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../shared/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shipments/models/package_model.dart';
 import '../../shipments/models/request_model.dart';
@@ -49,6 +51,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _from = '';
   String _to = '';
   String _date = '';
+  // Fresh escrow pulled from wallet API — never from stale auth cache
+  double? _liveEscrow;
+  String _liveEscrowCurrency = '';
+
   @override
   void initState() {
     super.initState();
@@ -59,7 +65,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(shipmentProvider.notifier).loadMyPackages();
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
       ref.read(shipmentProvider.notifier).loadIncomingRequests();
+      _fetchLiveEscrow();
     });
+  }
+
+  Future<void> _fetchLiveEscrow() async {
+    try {
+      final res = await ApiService.instance.get(ApiConstants.walletBalance);
+      final data = res.data as Map<String, dynamic>?;
+      if (mounted) {
+        setState(() {
+          _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
+          _liveEscrowCurrency = data?['currency']?.toString() ?? '';
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _liveEscrow = 0);
+    }
   }
 
   void _openLocationPicker(bool isFrom) {
@@ -291,7 +313,7 @@ isCarrier
                       ),
 
                 if (!isCarrier) ...[
-                  if ((user?.escrowBalance ?? 0) > 0) ...[
+                  if ((_liveEscrow ?? 0) > 0) ...[
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -307,7 +329,7 @@ isCarrier
                               color: Color(0xFFD97706), size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            '${UserCurrencyHelper.resolve(user)} ${user!.escrowBalance.toStringAsFixed(2)} held in escrow',
+                            '${_liveEscrowCurrency.isNotEmpty ? _liveEscrowCurrency : UserCurrencyHelper.resolve(user)} ${_liveEscrow!.toStringAsFixed(2)} held in escrow',
                             style: AppTextStyles.labelMd.copyWith(
                               color: const Color(0xFF92400E),
                               fontWeight: FontWeight.w700,
@@ -347,47 +369,6 @@ isCarrier
                   ),
                 ],
 
-                // ── Recent Activity — only shown when there is data or loading ──
-                Builder(builder: (context) {
-                  final activityRequests = isCarrier
-                      ? shipmentState.incomingRequests.take(1).toList()
-                      : shipmentState.myRequests.take(1).toList();
-                  final activityPackages = isCarrier
-                      ? const <PackageModel>[]
-                      : shipmentState.activePackages.take(1).toList();
-                  final activityLoading = isCarrier
-                      ? tripState.isLoading
-                      : shipmentState.isLoading;
-                  final hasActivity = activityRequests.isNotEmpty ||
-                      activityPackages.isNotEmpty;
-
-                  if (!activityLoading && !hasActivity) return const SizedBox.shrink();
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 16),
-                      Text(
-                          isCarrier
-                              ? l10n.tripActivityShort
-                              : l10n.recentActivity,
-                          style: AppTextStyles.h3.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.black)),
-                      const SizedBox(height: 10),
-                      _RecentActivityList(
-                        isCarrier: isCarrier,
-                        requests: activityRequests,
-                        packages: activityPackages,
-                        isLoading: activityLoading,
-                        onViewAll: () => context
-                            .go(isCarrier ? '/requests' : '/shipments'),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  );
-                }),
-
                 if (!isCarrier) ...[
                   // ── Services ─────────────────────────────────────────────
                   Text(l10n.whatDoYouWantToDo,
@@ -409,6 +390,55 @@ isCarrier
 
                 // ── Banner Slider ─────────────────────────────────────────
                 const BannerSlider(),
+
+                // ── Recent Activity — below the banner ────────────────────
+                Builder(builder: (context) {
+                  final activityRequests = isCarrier
+                      ? shipmentState.incomingRequests.take(8).toList()
+                      : shipmentState.myRequests.take(8).toList();
+                  final activityPackages = isCarrier
+                      ? const <PackageModel>[]
+                      : shipmentState.activePackages.take(8).toList();
+                  final activityLoading = isCarrier
+                      ? tripState.isLoading
+                      : shipmentState.isLoading;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            isCarrier ? l10n.tripActivityShort : l10n.recentActivity,
+                            style: AppTextStyles.h3.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.black),
+                          ),
+                          GestureDetector(
+                            onTap: () => context.go(isCarrier ? '/requests' : '/shipments'),
+                            child: Text(
+                              'See all',
+                              style: AppTextStyles.bodySm.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _RecentActivityList(
+                        isCarrier: isCarrier,
+                        requests: activityRequests,
+                        packages: activityPackages,
+                        isLoading: activityLoading,
+                        onViewAll: () => context
+                            .go(isCarrier ? '/requests' : '/shipments'),
+                      ),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
@@ -1254,8 +1284,7 @@ class _ServiceCardState extends State<_ServiceCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Recent Activity List — bank-transaction style, each row opens shipment.
-// Shows 3 rows per page; swipe horizontally to see more pages.
+// Recent Activity List — bank-transaction style with date grouping
 // ─────────────────────────────────────────────────────────────────────────────
 class _RecentActivityList extends StatelessWidget {
   const _RecentActivityList({
@@ -1271,11 +1300,7 @@ class _RecentActivityList extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onViewAll;
 
-  _RecentActivityEntry? _mostRecent() {
-    if (isCarrier) {
-      if (requests.isEmpty) return null;
-      return _RecentActivityEntry.fromRequest(requests.first);
-    }
+  List<_RecentActivityEntry> _allEntries() {
     final items = <_RecentActivityEntry>[
       ...packages.map(_RecentActivityEntry.fromPackage),
       ...requests.map(_RecentActivityEntry.fromRequest),
@@ -1287,33 +1312,22 @@ class _RecentActivityList extends StatelessWidget {
           requestKey.isNotEmpty ? 'request:$requestKey' : 'package:${item.id}';
       return seen.add(key);
     }).toList();
-    if (deduped.isEmpty) return null;
     deduped.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return deduped.first;
+    return deduped;
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────────
-
-  Color _statusColor(_RecentActivityEntry r) {
-    final s = r.status;
-    if (s == 'completed') return const Color(0xFF059669);
-    if (s == 'delivered') return const Color(0xFF059669);
-    if (s == 'intransit' || s == 'delivering' || s == 'in_transit') {
+  Color _statusColor(String s) {
+    if (s == 'completed' || s == 'delivered') return const Color(0xFF059669);
+    if (s == 'intransit' || s == 'delivering' || s == 'in_transit')
       return AppColors.primary;
-    }
-    if (s == 'accepted') return const Color(0xFF0891B2);
-    if (s == 'matched') return const Color(0xFF0891B2);
+    if (s == 'accepted' || s == 'matched') return const Color(0xFF0891B2);
     if (s == 'rejected' || s == 'cancelled') return const Color(0xFFDC2626);
     return AppColors.gray400;
   }
 
-  Color _statusBg(_RecentActivityEntry r) => _statusColor(r).withOpacity(0.10);
-
-  IconData _statusIcon(_RecentActivityEntry r) {
-    final s = r.status;
+  IconData _statusIcon(String s) {
     if (s == 'completed' || s == 'delivered') return Icons.check_circle_rounded;
-    if (s == 'intransit' || s == 'in_transit')
-      return Icons.flight_takeoff_rounded;
+    if (s == 'intransit' || s == 'in_transit') return Icons.flight_takeoff_rounded;
     if (s == 'delivering') return Icons.local_shipping_rounded;
     if (s == 'accepted') return Icons.handshake_rounded;
     if (s == 'matched') return Icons.inventory_rounded;
@@ -1321,29 +1335,97 @@ class _RecentActivityList extends StatelessWidget {
     return Icons.inventory_2_outlined;
   }
 
-  String _formatDate(String iso) {
+  String _statusLabel(String s) {
+    if (s == 'completed') return 'Completed';
+    if (s == 'delivered') return 'Delivered';
+    if (s == 'intransit' || s == 'in_transit') return 'In Transit';
+    if (s == 'delivering') return 'Delivering';
+    if (s == 'accepted') return 'Accepted';
+    if (s == 'matched') return 'Matched';
+    if (s == 'rejected') return 'Rejected';
+    if (s == 'cancelled') return 'Cancelled';
+    return 'Pending';
+  }
+
+  String _dateGroup(String iso) {
     try {
-      final dt = DateTime.parse(iso);
+      final dt = DateTime.parse(iso).toLocal();
       final now = DateTime.now();
-      if (dt.year == now.year && dt.month == now.month && dt.day == now.day)
-        return 'Today';
-      final diff = now.difference(dt);
-      if (diff.inDays == 1) return 'Yesterday';
-      if (diff.inDays < 7) return '${diff.inDays}d ago';
-      return '${dt.day}/${dt.month}/${dt.year}';
+      final today = DateTime(now.year, now.month, now.day);
+      final d = DateTime(dt.year, dt.month, dt.day);
+      if (d == today) return 'Today';
+      if (d == today.subtract(const Duration(days: 1))) return 'Yesterday';
+      if (today.difference(d).inDays < 7) return 'This Week';
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${months[dt.month - 1]} ${dt.year}';
     } catch (_) {
-      return '';
+      return 'Earlier';
     }
   }
 
-  Widget _buildRow(BuildContext context, _RecentActivityEntry item,
-      {required bool isLast}) {
+  Widget _buildSkeleton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF0F0F2)),
+      ),
+      child: Column(
+        children: List.generate(3, (i) {
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.gray100,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(height: 13, width: 120, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                          const SizedBox(height: 6),
+                          Container(height: 11, width: 80, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(height: 13, width: 60, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                        const SizedBox(height: 6),
+                        Container(height: 11, width: 40, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (i < 2)
+                const Divider(height: 1, indent: 72, endIndent: 16, color: Color(0xFFF5F5F7)),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, _RecentActivityEntry item, {required bool isLast}) {
     final route = [item.fromLocation, item.toLocation]
         .where((e) => e != null && e.isNotEmpty)
         .join(' → ');
     final amount = item.amount > 0
         ? '${item.currency} ${item.amount.toStringAsFixed(2)}'
-        : '—';
+        : null;
+    final color = _statusColor(item.status);
+
     return InkWell(
       onTap: () {
         if (item.request != null) {
@@ -1355,25 +1437,18 @@ class _RecentActivityList extends StatelessWidget {
       borderRadius: isLast
           ? const BorderRadius.vertical(bottom: Radius.circular(20))
           : BorderRadius.zero,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          border: isLast
-              ? null
-              : const Border(
-                  bottom: BorderSide(color: Colors.white, width: 1.5)),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: _statusBg(item),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withOpacity(0.10),
+                shape: BoxShape.circle,
               ),
-              child:
-                  Icon(_statusIcon(item), color: _statusColor(item), size: 20),
+              child: Icon(_statusIcon(item.status), color: color, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1382,8 +1457,8 @@ class _RecentActivityList extends StatelessWidget {
                 children: [
                   Text(
                     item.counterpart,
-                    style:
-                        AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w800),
+                    style: AppTextStyles.bodyMd.copyWith(
+                        fontWeight: FontWeight.w700, color: AppColors.black),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1398,20 +1473,28 @@ class _RecentActivityList extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  amount,
-                  style:
-                      AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatDate(item.createdAt),
-                  style: AppTextStyles.bodySm.copyWith(
-                      color: AppColors.gray400, fontWeight: FontWeight.w500),
+                if (amount != null)
+                  Text(
+                    amount,
+                    style: AppTextStyles.bodyMd.copyWith(
+                        fontWeight: FontWeight.w800, color: AppColors.black),
+                  ),
+                const SizedBox(height: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _statusLabel(item.status),
+                    style: AppTextStyles.caption.copyWith(
+                        color: color, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ],
             ),
@@ -1423,88 +1506,115 @@ class _RecentActivityList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return Container(
-        height: 100,
-        decoration: BoxDecoration(
-            color: AppColors.gray100, borderRadius: BorderRadius.circular(20)),
-        child: const Center(
-            child: CircularProgressIndicator(
-                color: AppColors.primary, strokeWidth: 2)),
-      );
-    }
+    if (isLoading) return _buildSkeleton();
 
-    final entry = _mostRecent();
+    final entries = _allEntries();
 
-    if (entry == null) {
+    if (entries.isEmpty) {
       return GestureDetector(
         onTap: onViewAll,
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.gray100,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF0F0F2)),
           ),
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(14)),
-                child:
-                    const Icon(Icons.inbox_outlined, color: AppColors.primary),
+                    color: AppColors.primarySoft, shape: BoxShape.circle),
+                child: const Icon(Icons.inbox_outlined,
+                    color: AppColors.primary, size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  isCarrier ? 'No requests yet' : 'No shipments yet',
-                  style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.gray500, fontWeight: FontWeight.w600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isCarrier ? 'No requests yet' : 'No shipments yet',
+                      style: AppTextStyles.bodyMd.copyWith(
+                          color: AppColors.black, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isCarrier
+                          ? 'Requests from senders will appear here'
+                          : 'Your shipment activity will appear here',
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
+                    ),
+                  ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.gray400),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.gray300),
             ],
           ),
         ),
       );
     }
 
+    // Group entries by date label
+    final grouped = <String, List<_RecentActivityEntry>>{};
+    for (final e in entries) {
+      final g = _dateGroup(e.createdAt);
+      (grouped[g] ??= []).add(e);
+    }
+
+    final groupOrder = grouped.keys.toList();
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.gray100,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          clipBehavior: Clip.hardEdge,
-          child: _buildRow(context, entry, isLast: true),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: onViewAll,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(14),
-            ),
+        for (final group in groupOrder) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.history_rounded,
-                    color: AppColors.primary, size: 16),
-                const SizedBox(width: 8),
                 Text(
-                  isCarrier ? 'See all requests' : 'See all shipments',
-                  style: AppTextStyles.labelMd.copyWith(
-                      color: AppColors.primary, fontWeight: FontWeight.w800),
+                  group,
+                  style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.gray500, fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2),
                 ),
+                const SizedBox(width: 8),
+                Expanded(child: Divider(color: const Color(0xFFF0F0F2), height: 1)),
               ],
             ),
           ),
-        ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF0F0F2)),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2)),
+              ],
+            ),
+            clipBehavior: Clip.hardEdge,
+            child: Column(
+              children: [
+                for (int i = 0; i < grouped[group]!.length; i++) ...[
+                  _buildRow(context, grouped[group]![i],
+                      isLast: i == grouped[group]!.length - 1),
+                  if (i < grouped[group]!.length - 1)
+                    const Divider(
+                        height: 1, indent: 72, endIndent: 16,
+                        color: Color(0xFFF5F5F7)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        const SizedBox(height: 4),
       ],
     );
   }

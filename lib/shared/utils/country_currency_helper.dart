@@ -21,7 +21,7 @@ class CountryCurrencyData {
 class CurrencyConversionHelper {
   CurrencyConversionHelper._();
 
-  static const double minimumWithdrawalUsd = 5.0;
+  static const double minimumWithdrawalUsd = 2.0;
 
   static const List<CountryCurrencyData> supportedCountries = [
     CountryCurrencyData(name: 'United Kingdom', code: 'GB', currency: 'GBP', symbol: '£', flag: '🇬🇧', dialCode: '+44'),
