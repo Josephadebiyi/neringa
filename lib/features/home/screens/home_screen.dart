@@ -68,12 +68,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_dataLoaded || !mounted) return;
     if (!ref.read(authProvider).isLoggedIn) return;
     _dataLoaded = true;
-    ref.read(authProvider.notifier).refreshProfile();
-    ref.read(tripProvider.notifier).loadMyTrips();
-    ref.read(shipmentProvider.notifier).loadMyPackages();
-    ref.read(shipmentProvider.notifier).loadMyRequestHistory();
-    ref.read(shipmentProvider.notifier).loadIncomingRequests();
-    _fetchLiveEscrow();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(authProvider.notifier).refreshProfile();
+      ref.read(tripProvider.notifier).loadMyTrips();
+      ref.read(shipmentProvider.notifier).loadMyPackages();
+      ref.read(shipmentProvider.notifier).loadMyRequestHistory();
+      ref.read(shipmentProvider.notifier).loadIncomingRequests();
+      _fetchLiveEscrow();
+    });
   }
 
   Future<void> _fetchLiveEscrow() async {
@@ -157,8 +160,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
-    // Triggers data load as soon as auth becomes ready (handles slow restoreSession)
-    if (user != null) _loadDataIfReady();
+    // Load data once when auth becomes ready (safe: runs outside build frame)
+    ref.listen<AuthState>(authProvider, (_, next) {
+      if (next.user != null) _loadDataIfReady();
+    });
     final tripState = ref.watch(tripProvider);
     final shipmentState = ref.watch(shipmentProvider);
     final isCarrier = user?.isCarrier ?? false;
