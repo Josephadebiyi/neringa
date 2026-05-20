@@ -97,8 +97,8 @@ function buildUserResponse(user) {
     escrow_balance: Number(user.escrowBalance || 0),
     walletCurrency: user.walletCurrency || user.preferredCurrency || 'USD',
     wallet_currency: user.walletCurrency || user.preferredCurrency || 'USD',
-    bankAccountLinked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
-    bank_account_linked: Boolean(user.paystackRecipientCode || user.bankDetails?.accountNumber),
+    bankAccountLinked: Boolean(user.paystackRecipientCode),
+    bank_account_linked: Boolean(user.paystackRecipientCode),
   };
 }
 
