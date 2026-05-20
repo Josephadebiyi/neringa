@@ -41,7 +41,7 @@ export default function Signup() {
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
                 if (response.data.success) {
-                    login(response.data.user, response.data.token, response.data.refreshToken);
+                    login(response.data.user);
                     navigate('/dashboard');
                 } else {
                     setError(response.data.message || 'Google signup failed');
@@ -135,7 +135,7 @@ export default function Signup() {
         try {
             const response = await api.post('/api/bago/verify-signup-otp', { signupToken, otp });
             if (response.data.success) {
-                login(response.data.user, response.data.token, response.data.refreshToken);
+                login(response.data.user);
                 navigate('/dashboard');
             }
         } catch (err) {

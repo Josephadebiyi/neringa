@@ -533,11 +533,19 @@ export async function signIn(req, res) {
     const { accessToken, refreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
 
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 15 * 60 * 1000,
-      sameSite: 'lax',
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
     });
 
     res.status(200).json({
@@ -623,11 +631,19 @@ export async function googleAuth(req, res) {
 
     const { accessToken: userAccessToken, refreshToken: userRefreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, userRefreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', userAccessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 15 * 60 * 1000,
-      sameSite: 'lax',
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+    });
+    res.cookie('refresh_token', userRefreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
     });
 
     res.status(200).json({
@@ -727,11 +743,19 @@ export async function appleAuth(req, res) {
 
     const { accessToken, refreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 15 * 60 * 1000,
-      sameSite: 'lax',
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
     });
 
     res.status(200).json({
@@ -750,15 +774,14 @@ export async function appleAuth(req, res) {
 
 export async function logout(req, res) {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
     if (refreshToken) {
       await revokeRefreshToken(refreshToken).catch(() => {});
     }
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    });
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOpts = { httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax' };
+    res.clearCookie('token', cookieOpts);
+    res.clearCookie('refresh_token', { ...cookieOpts, path: '/' });
     res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -770,11 +793,10 @@ export async function revokeAllSessions(req, res) {
     const userId = req.user?.id || req.user?._id;
     if (!userId) return res.status(401).json({ message: 'Not authenticated' });
     await revokeAllUserTokens(userId);
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    });
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOpts = { httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax' };
+    res.clearCookie('token', cookieOpts);
+    res.clearCookie('refresh_token', { ...cookieOpts, path: '/' });
     res.status(200).json({ success: true, message: 'All sessions revoked' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -1055,15 +1077,23 @@ export async function updateCommunicationPrefs(req, res) {
   }
 }
 
-// Blocked — earning currency is set once via /activate-earning
-export async function editCurrency(_req, res) {
-  return res.status(403).json({
-    message: 'Earning currency cannot be changed by users. Contact support if you need to change it.',
-    code: 'CURRENCY_LOCKED',
-  });
+export async function editCurrency(req, res, next) {
+  const currency = req.body?.currency || req.body?.preferredCurrency;
+  if (!currency) return res.status(400).json({ message: 'Currency is required' });
+  try {
+    const userId = req.user.id || req.user._id;
+    const updatedProfile = await activateEarningCurrency(userId, currency);
+    return res.status(200).json({
+      message: 'Payout currency updated.',
+      success: true,
+      user: buildUserResponse(updatedProfile),
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
-// One-time earning currency activation (sets & locks earning currency)
+// Payout currency activation/update
 export async function activateEarning(req, res, next) {
   const { currency } = req.body;
   if (!currency) return res.status(400).json({ message: 'Currency is required' });
@@ -1071,14 +1101,11 @@ export async function activateEarning(req, res, next) {
     const userId = req.user.id || req.user._id;
     const updatedProfile = await activateEarningCurrency(userId, currency);
     res.status(200).json({
-      message: 'Earning currency set and locked.',
+      message: 'Payout currency updated.',
       success: true,
       user: buildUserResponse(updatedProfile),
     });
   } catch (error) {
-    if (error.code === 'CURRENCY_LOCKED') {
-      return res.status(409).json({ message: error.message, code: error.code });
-    }
     next(error);
   }
 }

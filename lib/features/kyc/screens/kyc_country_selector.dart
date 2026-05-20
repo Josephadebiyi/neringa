@@ -12,53 +12,46 @@ import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_dojah_screen.dart';
 import 'kyc_manual_screen.dart';
-import 'kyc_resumable_flow.dart';
-
-// Countries supported by Dojah — kept internal, never shown to user
-const _dojahCountries = {
-  'NG', 'GH', 'KE', 'ZA', 'UG', 'RW', 'TZ', 'CM',
-  'SN', 'CI', 'SL', 'ZM', 'BJ', 'TG', 'ET', 'CD', 'MZ', 'ZW', 'MW', 'GN',
-};
 
 const _allCountries = [
-  ('🇳🇬', 'Nigeria',          'NG'),
-  ('🇬🇭', 'Ghana',            'GH'),
-  ('🇰🇪', 'Kenya',            'KE'),
-  ('🇿🇦', 'South Africa',     'ZA'),
-  ('🇺🇬', 'Uganda',           'UG'),
-  ('🇷🇼', 'Rwanda',           'RW'),
-  ('🇹🇿', 'Tanzania',         'TZ'),
-  ('🇨🇲', 'Cameroon',         'CM'),
-  ('🇸🇳', 'Senegal',          'SN'),
-  ('🇨🇮', "Côte d'Ivoire",    'CI'),
-  ('🇸🇱', 'Sierra Leone',     'SL'),
-  ('🇿🇲', 'Zambia',           'ZM'),
-  ('🇧🇯', 'Benin',            'BJ'),
-  ('🇹🇬', 'Togo',             'TG'),
-  ('🇪🇹', 'Ethiopia',         'ET'),
-  ('🇨🇩', 'DR Congo',         'CD'),
-  ('🇲🇿', 'Mozambique',       'MZ'),
-  ('🇿🇼', 'Zimbabwe',         'ZW'),
-  ('🇲🇼', 'Malawi',           'MW'),
-  ('🇬🇳', 'Guinea',           'GN'),
-  ('🇬🇧', 'United Kingdom',   'GB'),
-  ('🇺🇸', 'United States',    'US'),
-  ('🇫🇷', 'France',           'FR'),
-  ('🇩🇪', 'Germany',          'DE'),
-  ('🇮🇹', 'Italy',            'IT'),
-  ('🇪🇸', 'Spain',            'ES'),
-  ('🇳🇱', 'Netherlands',      'NL'),
-  ('🇧🇪', 'Belgium',          'BE'),
-  ('🇸🇪', 'Sweden',           'SE'),
-  ('🇨🇭', 'Switzerland',      'CH'),
-  ('🇵🇹', 'Portugal',         'PT'),
-  ('🇨🇦', 'Canada',           'CA'),
-  ('🇦🇺', 'Australia',        'AU'),
-  ('🇦🇪', 'UAE',              'AE'),
-  ('🇧🇷', 'Brazil',           'BR'),
-  ('🇮🇳', 'India',            'IN'),
-  ('🇨🇳', 'China',            'CN'),
-  ('🇯🇵', 'Japan',            'JP'),
+  ('🇳🇬', 'Nigeria', 'NG'),
+  ('🇬🇭', 'Ghana', 'GH'),
+  ('🇰🇪', 'Kenya', 'KE'),
+  ('🇿🇦', 'South Africa', 'ZA'),
+  ('🇺🇬', 'Uganda', 'UG'),
+  ('🇷🇼', 'Rwanda', 'RW'),
+  ('🇹🇿', 'Tanzania', 'TZ'),
+  ('🇨🇲', 'Cameroon', 'CM'),
+  ('🇸🇳', 'Senegal', 'SN'),
+  ('🇨🇮', "Côte d'Ivoire", 'CI'),
+  ('🇸🇱', 'Sierra Leone', 'SL'),
+  ('🇿🇲', 'Zambia', 'ZM'),
+  ('🇧🇯', 'Benin', 'BJ'),
+  ('🇹🇬', 'Togo', 'TG'),
+  ('🇪🇹', 'Ethiopia', 'ET'),
+  ('🇨🇩', 'DR Congo', 'CD'),
+  ('🇲🇿', 'Mozambique', 'MZ'),
+  ('🇿🇼', 'Zimbabwe', 'ZW'),
+  ('🇲🇼', 'Malawi', 'MW'),
+  ('🇬🇳', 'Guinea', 'GN'),
+  ('🇬🇧', 'United Kingdom', 'GB'),
+  ('🇺🇸', 'United States', 'US'),
+  ('🇫🇷', 'France', 'FR'),
+  ('🇩🇪', 'Germany', 'DE'),
+  ('🇮🇹', 'Italy', 'IT'),
+  ('🇪🇸', 'Spain', 'ES'),
+  ('🇳🇱', 'Netherlands', 'NL'),
+  ('🇧🇪', 'Belgium', 'BE'),
+  ('🇸🇪', 'Sweden', 'SE'),
+  ('🇨🇭', 'Switzerland', 'CH'),
+  ('🇵🇹', 'Portugal', 'PT'),
+  ('🇨🇦', 'Canada', 'CA'),
+  ('🇦🇺', 'Australia', 'AU'),
+  ('🇦🇪', 'UAE', 'AE'),
+  ('🇧🇷', 'Brazil', 'BR'),
+  ('🇮🇳', 'India', 'IN'),
+  ('🇨🇳', 'China', 'CN'),
+  ('🇯🇵', 'Japan', 'JP'),
 ];
 
 /// Entry point — shows T&C consent then country picker
@@ -77,7 +70,6 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
   bool _privacyAccepted = false;
 
   String? _selectedCode;
-  String? _selectedName;
   bool _loading = false;
   String _search = '';
 
@@ -90,7 +82,6 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
       final match = _allCountries.where((c) => c.$3 == code).firstOrNull;
       if (match != null) {
         _selectedCode = match.$3;
-        _selectedName = match.$2;
       }
     }
   }
@@ -110,12 +101,13 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
         '${ApiConstants.kycProvider}?country=$_selectedCode',
       );
       final data = res.data as Map<String, dynamic>;
-      final provider = data['provider'] as String? ?? 'didit';
+      final provider = data['provider'] as String? ?? 'manual';
 
       if (!mounted) return;
 
       if (provider == 'dojah') {
-        final startRes = await ApiService.instance.post(ApiConstants.kycDojahStart, data: {});
+        final startRes = await ApiService.instance
+            .post(ApiConstants.kycDojahStart, data: {});
         final cfg = startRes.data as Map<String, dynamic>;
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
@@ -131,20 +123,23 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
       } else if (provider == 'manual') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => KycManualScreen(fromOnboarding: widget.fromOnboarding),
+            builder: (_) =>
+                KycManualScreen(fromOnboarding: widget.fromOnboarding),
           ),
         );
       } else {
-        // Didit (legacy) fallback
+        // Unknown provider: keep the user moving through manual review.
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => KYCResumableFlow(fromOnboarding: widget.fromOnboarding),
+            builder: (_) =>
+                KycManualScreen(fromOnboarding: widget.fromOnboarding),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
         setState(() => _loading = false);
       }
     }
@@ -182,21 +177,22 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.06),
+                    color: AppColors.primary.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.shield_outlined, color: AppColors.primary, size: 28),
+                      const Icon(Icons.shield_outlined,
+                          color: AppColors.primary, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Data Protection & Consent',
-                                style: AppTextStyles.bodyMd.copyWith(
-                                    fontWeight: FontWeight.w700)),
+                                style: AppTextStyles.bodyMd
+                                    .copyWith(fontWeight: FontWeight.w700)),
                             const SizedBox(height: 6),
                             Text(
                               'To verify your identity we collect and process your personal data including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.',
@@ -210,7 +206,9 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                Text('What we collect', style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                Text('What we collect',
+                    style: AppTextStyles.bodyMd
+                        .copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 for (final item in [
                   'Government-issued photo ID (passport, national ID, driver\'s licence)',
@@ -223,7 +221,8 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.check_circle_outline, size: 18, color: AppColors.primary),
+                        const Icon(Icons.check_circle_outline,
+                            size: 18, color: AppColors.primary),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(item,
@@ -234,11 +233,14 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                     ),
                   ),
                 const SizedBox(height: 24),
-                Text('How we use it', style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                Text('How we use it',
+                    style: AppTextStyles.bodyMd
+                        .copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 Text(
                   'Your data is processed solely to verify your identity and comply with anti-money-laundering (AML) and know-your-customer (KYC) regulations. It is not sold to third parties.',
-                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500, height: 1.5),
+                  style: AppTextStyles.bodySm
+                      .copyWith(color: AppColors.gray500, height: 1.5),
                 ),
                 const SizedBox(height: 32),
                 _ConsentCheckbox(
@@ -246,15 +248,18 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                   onChanged: (v) => setState(() => _termsAccepted = v),
                   child: RichText(
                     text: TextSpan(
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                       children: [
                         const TextSpan(text: 'I have read and agree to the '),
                         TextSpan(
                           text: 'Terms & Conditions',
                           style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.primary, fontWeight: FontWeight.w600),
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600),
                           recognizer: TapGestureRecognizer()
-                            ..onTap = () => launchUrl(Uri.parse('https://bago.app/terms')),
+                            ..onTap = () =>
+                                launchUrl(Uri.parse('https://bago.app/terms')),
                         ),
                       ],
                     ),
@@ -266,17 +271,24 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                   onChanged: (v) => setState(() => _privacyAccepted = v),
                   child: RichText(
                     text: TextSpan(
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                       children: [
-                        const TextSpan(text: 'I consent to the collection and processing of my personal data as described in the '),
+                        const TextSpan(
+                            text:
+                                'I consent to the collection and processing of my personal data as described in the '),
                         TextSpan(
                           text: 'Privacy Policy',
                           style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.primary, fontWeight: FontWeight.w600),
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600),
                           recognizer: TapGestureRecognizer()
-                            ..onTap = () => launchUrl(Uri.parse('https://bago.app/privacy')),
+                            ..onTap = () => launchUrl(
+                                Uri.parse('https://bago.app/privacy')),
                         ),
-                        const TextSpan(text: ', including processing by our identity verification partner.'),
+                        const TextSpan(
+                            text:
+                                ', including processing by our identity verification partner.'),
                       ],
                     ),
                   ),
@@ -287,7 +299,8 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
           ),
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
+          padding: EdgeInsets.fromLTRB(
+              24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
           child: AppButton(
             label: 'I agree — Continue',
             onPressed: canContinue ? () => setState(() => _step = 1) : null,
@@ -307,7 +320,8 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Select your country of residence',
-                  style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+                  style:
+                      AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
               const SizedBox(height: 16),
               TextField(
                 onChanged: (v) => setState(() => _search = v),
@@ -316,12 +330,14 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                   prefixIcon: const Icon(Icons.search, size: 20),
                   filled: true,
                   fillColor: const Color(0xFFF5F5F7),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
             ],
@@ -338,15 +354,19 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
               return GestureDetector(
                 onTap: () => setState(() {
                   _selectedCode = code;
-                  _selectedName = name;
                 }),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                   decoration: BoxDecoration(
-                    color: selected ? AppColors.primary.withOpacity(0.07) : Colors.transparent,
+                    color: selected
+                        ? AppColors.primary.withValues(alpha: 0.07)
+                        : Colors.transparent,
                     border: Border.all(
-                      color: selected ? AppColors.primary : const Color(0xFFEEEEEE),
+                      color: selected
+                          ? AppColors.primary
+                          : const Color(0xFFEEEEEE),
                       width: selected ? 1.5 : 1,
                     ),
                     borderRadius: BorderRadius.circular(12),
@@ -358,12 +378,16 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                       Expanded(
                         child: Text(name,
                             style: AppTextStyles.bodyMd.copyWith(
-                              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                              color: selected ? AppColors.primary : AppColors.black,
+                              fontWeight:
+                                  selected ? FontWeight.w600 : FontWeight.w400,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.black,
                             )),
                       ),
                       if (selected)
-                        Icon(Icons.check_circle, color: AppColors.primary, size: 20),
+                        const Icon(Icons.check_circle,
+                            color: AppColors.primary, size: 20),
                     ],
                   ),
                 ),
@@ -372,9 +396,12 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
           ),
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(context).padding.bottom + 16),
+          padding: EdgeInsets.fromLTRB(
+              20, 8, 20, MediaQuery.of(context).padding.bottom + 16),
           child: AppButton(
-            label: _selectedCode == null ? 'Select a country' : 'Start verification',
+            label: _selectedCode == null
+                ? 'Select a country'
+                : 'Start verification',
             onPressed: _selectedCode == null || _loading ? null : _proceed,
             isLoading: _loading,
           ),
@@ -408,11 +435,14 @@ class _ConsentCheckbox extends StatelessWidget {
               value: value,
               onChanged: (v) => onChanged(v ?? false),
               activeColor: AppColors.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5)),
             ),
           ),
           const SizedBox(width: 10),
-          Expanded(child: Padding(padding: const EdgeInsets.only(top: 2), child: child)),
+          Expanded(
+              child: Padding(
+                  padding: const EdgeInsets.only(top: 2), child: child)),
         ],
       ),
     );

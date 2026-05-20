@@ -22,6 +22,14 @@ class AuthService {
   final _storage = StorageService.instance;
   final _localAuth = LocalAuthentication();
 
+  bool get _isDebugIosSimulator {
+    if (kReleaseMode || !Platform.isIOS) return false;
+    final environment = Platform.environment;
+    return environment.containsKey('SIMULATOR_DEVICE_NAME') ||
+        environment.containsKey('SIMULATOR_UDID') ||
+        environment.containsKey('SIMULATOR_MODEL_IDENTIFIER');
+  }
+
   // Google Sign-In initialization
   static final _googleSignIn = _initializeGoogleSignIn();
 
@@ -70,7 +78,8 @@ class AuthService {
       throw ApiService.parseError(e);
     } on PlatformException catch (e) {
       debugPrint('Login: platform/keychain error (non-fatal): $e');
-      throw Exception('A system error occurred. Please restart the app and try again.');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
     }
   }
 
@@ -147,7 +156,8 @@ class AuthService {
       throw ApiService.parseError(e);
     } on PlatformException catch (e) {
       debugPrint('verifyOtp: platform/keychain error (non-fatal): $e');
-      throw Exception('A system error occurred. Please restart the app and try again.');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
     }
   }
 
@@ -373,7 +383,8 @@ class AuthService {
       throw ApiService.parseError(e);
     } on PlatformException catch (e) {
       debugPrint('appleSignIn: platform/keychain error (non-fatal): $e');
-      throw Exception('A system error occurred. Please restart the app and try again.');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
     } catch (e) {
       if (e is SignInWithAppleAuthorizationException) {
         if (e.code == AuthorizationErrorCode.canceled) {
@@ -389,6 +400,7 @@ class AuthService {
 
   Future<bool> isBiometricAvailable() async {
     try {
+      if (_isDebugIosSimulator) return false;
       final canCheck = await _localAuth.canCheckBiometrics;
       final isDeviceSupported = await _localAuth.isDeviceSupported();
       return canCheck && isDeviceSupported;
@@ -399,6 +411,7 @@ class AuthService {
 
   Future<bool> authenticateWithBiometrics() async {
     try {
+      if (_isDebugIosSimulator) return false;
       final enabled = await _storage.isBiometricEnabled();
       if (!enabled) return false;
       return await _localAuth.authenticate(
@@ -503,7 +516,7 @@ class AuthService {
           ? returned
           : existing.copyWith(
               earningCurrency: returned.earningCurrency ?? currency,
-              earningCurrencyLocked: true,
+              earningCurrencyLocked: returned.earningCurrencyLocked,
               preferredCurrency: currency,
               currency: currency,
               walletCurrency: returned.walletCurrency.isNotEmpty

@@ -136,11 +136,13 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     }
     setState(() => _loading = true);
     try {
+      final currency = UserCurrencyHelper.resolve(ref.read(authProvider).user);
       final res = await ApiService.instance.post(ApiConstants.paystackAddBank,
           data: {
             'accountNumber': _accountCtrl.text,
             'bankCode': _bankCode,
             'bankName': _bankName,
+            'currency': currency,
           },
           options: Options(
             headers: {
@@ -169,11 +171,19 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
               message: 'Bank account linked!', type: SnackBarType.success);
         }
       }
-    } catch (e) {
+    } on DioException catch (e) {
       setState(() => _loading = false);
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: _bankSetupErrorMessage(e), type: SnackBarType.error);
+      }
+    } catch (_) {
+      setState(() => _loading = false);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message:
+                'Bank account setup could not be completed. Please try again.',
+            type: SnackBarType.error);
       }
     }
   }
@@ -201,14 +211,28 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
         _debugOtp = null;
       });
       context.pop();
-    } catch (e) {
+    } on DioException catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: ApiService.parseError(e), type: SnackBarType.error);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: 'Could not confirm the code. Please try again.',
+            type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String _bankSetupErrorMessage(DioException e) {
+    final parsed = ApiService.parseError(e);
+    if (e.response?.statusCode == 500 || parsed == 'An error occurred') {
+      return 'Bank account setup could not be completed. Please try again or contact support.';
+    }
+    return parsed;
   }
 
   @override
@@ -558,6 +582,16 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          TextButton(
+            onPressed: _loading
+                ? null
+                : () {
+                    _otpCtrl.clear();
+                    _linkBank();
+                  },
+            child: Text('Resend code',
+                style: AppTextStyles.primary(AppTextStyles.labelMd)),
+          ),
           TextButton(
             onPressed: () => setState(() {
               _showOtp = false;

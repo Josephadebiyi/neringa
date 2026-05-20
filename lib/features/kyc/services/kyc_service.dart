@@ -1,7 +1,4 @@
-import 'package:flutter/material.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
-import '../screens/kyc_resumable_flow.dart';
 
 // ---------------------------------------------------------------------------
 // KYC Service – Handle verification status checks and navigation
@@ -15,10 +12,18 @@ class KycService {
   /// Returns: 'approved', 'pending', 'not_started', 'declined', 'failed_verification', 'blocked_duplicate', etc.
   Future<String?> getKycStatus() async {
     try {
-      final response = await ApiService.instance.get('/api/bago/kyc/status');
+      final response = await ApiService.instance.get('/api/bago/getKyc');
       final data = response.data;
       if (data is Map) {
-        return data['kycStatus']?.toString() ?? data['status']?.toString();
+        final payload = data['data'];
+        if (payload is Map) {
+          return payload['kycStatus']?.toString() ??
+              payload['kyc_status']?.toString() ??
+              payload['status']?.toString();
+        }
+        return data['kycStatus']?.toString() ??
+            data['kyc_status']?.toString() ??
+            data['status']?.toString();
       }
       return null;
     } catch (_) {
@@ -29,7 +34,9 @@ class KycService {
   /// Checks if user has passed KYC verification
   Future<bool> isKycApproved() async {
     final status = await getKycStatus();
-    return status == 'approved' || status == 'verified' || status == 'completed';
+    return status == 'approved' ||
+        status == 'verified' ||
+        status == 'completed';
   }
 
   /// Check if response is a KYC verification required error
@@ -43,7 +50,8 @@ class KycService {
 
   /// Check if DioException is a KYC verification required error
   static bool isVerificationRequiredError(dynamic error) {
-    if (error is Exception && error.toString().contains('VERIFICATION_REQUIRED')) {
+    if (error is Exception &&
+        error.toString().contains('VERIFICATION_REQUIRED')) {
       return true;
     }
     return false;
@@ -54,14 +62,15 @@ class KycService {
     if (status == null) return 'Unknown';
     final normalized = status.toLowerCase().trim();
     return {
-      'not_started': 'Not Started',
-      'pending': 'Verification Pending',
-      'approved': 'Approved ✓',
-      'verified': 'Verified ✓',
-      'completed': 'Completed ✓',
-      'declined': 'Declined',
-      'failed_verification': 'Verification Failed',
-      'blocked_duplicate': 'Duplicate Account Blocked',
-    }[normalized] ?? status;
+          'not_started': 'Not Started',
+          'pending': 'Verification Pending',
+          'approved': 'Approved ✓',
+          'verified': 'Verified ✓',
+          'completed': 'Completed ✓',
+          'declined': 'Declined',
+          'failed_verification': 'Verification Failed',
+          'blocked_duplicate': 'Duplicate Account Blocked',
+        }[normalized] ??
+        status;
   }
 }

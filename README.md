@@ -85,7 +85,7 @@
 - **JWT** authentication
 - **Cloudinary** for image storage
 - **Stripe** & **Paystack** payment processing
-- **DIDIT.me** KYC verification
+- **Dojah** KYC verification
 
 ### Frontend (Web)
 - **React** (v18+)
@@ -284,9 +284,10 @@ CLOUDINARY_API_SECRET=your_cloudinary_secret
 STRIPE_SECRET_KEY=sk_test_your_stripe_key
 PAYSTACK_SECRET=sk_test_your_paystack_key
 
-# KYC Verification (DIDIT.me)
-DIDIT_API_KEY=your_didit_api_key
-DIDIT_WEBHOOK_SECRET=your_didit_webhook_secret
+# KYC Verification (Dojah)
+DOJAH_APP_ID=your_dojah_app_id
+DOJAH_PUBLIC_KEY=your_dojah_public_key
+DOJAH_SECRET_KEY=your_dojah_secret_key
 
 # Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
@@ -516,7 +517,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - MongoDB for database
 - Stripe & Paystack for payment processing
-- DIDIT.me for KYC verification
+- Dojah for KYC verification
 - Cloudinary for image hosting
 - All our contributors and users
 

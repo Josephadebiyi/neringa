@@ -38,17 +38,16 @@ class KycVerificationRequiredDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusLabel =
-        KycService.getStatusLabel(kycStatus ?? 'not_started');
+    final statusLabel = KycService.getStatusLabel(kycStatus ?? 'not_started');
 
     return AlertDialog(
       backgroundColor: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: Row(
+      title: const Row(
         children: [
-          const Icon(Icons.shield_outlined, color: AppColors.primary),
-          const SizedBox(width: 8),
-          const Expanded(
+          Icon(Icons.shield_outlined, color: AppColors.primary),
+          SizedBox(width: 8),
+          Expanded(
             child: Text('Account Verification'),
           ),
         ],
@@ -58,7 +57,7 @@ class KycVerificationRequiredDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'To unlock all features, please complete identity verification with DIDIT.',
+            'To unlock all features, please complete identity verification.',
             style: AppTextStyles.bodyMd,
           ),
           const SizedBox(height: 12),

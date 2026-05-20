@@ -94,12 +94,10 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
             package: pkg,
             onDownloadPdf: () => _showPdfOptions(pkg, currentUser),
             canLeaveFeedback: !_hasReviewed &&
-                pkg.status == PackageStatus.delivered &&
+                pkg.isCompletedBySender &&
                 pkg.requestId.isNotEmpty,
             onLeaveFeedback: () => _showReviewSheet(pkg, currentUser),
-            canConfirmReceived: isSender &&
-                pkg.status == PackageStatus.delivered &&
-                !pkg.senderReceived,
+            canConfirmReceived: isSender && pkg.awaitingSenderConfirmation,
             confirmingReceived: _confirmingReceived,
             onConfirmReceived: () => _confirmReceived(pkg.requestId),
           );
@@ -351,7 +349,6 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
   }
 
   Future<void> _confirmReceived(String requestId) async {
-    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -381,10 +378,12 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
       setState(() {
         _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
       });
+      ref.read(authProvider.notifier).refreshProfile();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         AppSnackBar.show(context,
             message: e.toString(), type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _confirmingReceived = false);
     }
@@ -675,7 +674,7 @@ class _ShipmentBody extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Label('Confirm delivery'),
+                  const _Label('Confirm delivery'),
                   const SizedBox(height: 8),
                   Text(
                     'The traveler has marked this package as delivered. Please confirm you\'ve received it to release the payment.',

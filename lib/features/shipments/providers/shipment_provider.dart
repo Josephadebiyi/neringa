@@ -145,6 +145,19 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
       rethrow;
     }
   }
+
+  Future<void> deleteHistoryRequest(String requestId) async {
+    try {
+      await _service.deleteHistoryRequest(requestId);
+      state = state.copyWith(
+        myRequests: state.myRequests.where((r) => r.id != requestId).toList(),
+        incomingRequests: state.incomingRequests.where((r) => r.id != requestId).toList(),
+      );
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

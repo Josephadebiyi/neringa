@@ -799,6 +799,48 @@ export async function sendKycSubmittedEmail(userEmail, userName) {
     return true;
   } catch (err) {
     console.error('❌ Failed to send KYC submitted email:', err);
+
+/**
+ * Sends the receiver their 4-digit handover PIN.
+ * They read this PIN to the traveler at delivery; the traveler enters it in
+ * their app to release escrow instantly without waiting for the sender.
+ */
+export async function sendHandoverPINEmail(receiverEmail, receiverName, senderName, packageDetails, trackingNumber, handoverPin) {
+  if (!resend || !receiverEmail || !handoverPin) return false;
+
+  try {
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${receiverName || 'there'}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        <strong>${senderName || 'A sender'}</strong> is sending you a package via Bago. When the traveler arrives, give them the 4-digit PIN below so they can confirm delivery and get paid instantly.
+      </p>
+      <div style="background:#f6f3ff; padding:28px; border-radius:8px; margin:24px 0; text-align:center; border-left:4px solid #5240E8;">
+        <p style="margin:0 0 8px; font-size:13px; color:#3721a8; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Your Handover PIN</p>
+        <p style="margin:0; font-size:48px; font-weight:800; color:#5240E8; letter-spacing:12px;">${handoverPin}</p>
+      </div>
+      <div style="background:#f6f3ff; padding:16px 20px; border-radius:8px; margin:0 0 18px;">
+        <p style="margin:0 0 8px; font-size:14px; color:#3721a8; font-weight:600;">Package Details</p>
+        <p style="margin:0 0 4px; font-size:14px; color:#374151;">${packageDetails || 'Your package'}</p>
+        <p style="margin:0; font-size:13px; color:#6b7280;">Tracking: <strong style="color:#5240E8;">${trackingNumber}</strong></p>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:13px; color:#6b7280; line-height:1.6;">
+        Keep this PIN private — only share it with the traveler at the moment of handover.
+      </p>
+    `;
+
+    await resend.emails.send({
+      from: 'Bago Shipping <no-reply@sendwithbago.com>',
+      to: receiverEmail,
+      subject: `🔑 Your Bago handover PIN — ${trackingNumber}`,
+      html: generateEmailTemplate('Your Handover PIN', content),
+    });
+
+    console.log(`✅ Sent handover PIN email to ${receiverEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send handover PIN email:', err);
     return false;
   }
 }

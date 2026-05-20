@@ -14,5 +14,7 @@
   <true/>
   <key>signingStyle</key>
   <string>automatic</string>
+  <key>thinning</key>
+  <string>&lt;none&gt;</string>
 </dict>
 </plist>

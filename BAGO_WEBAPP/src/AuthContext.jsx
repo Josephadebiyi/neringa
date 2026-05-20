@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api, { removeToken, saveToken } from './api';
+import api, { clearLegacyLocalStorage } from './api';
 
 const AuthContext = createContext({});
 
@@ -10,6 +10,7 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        clearLegacyLocalStorage();
         checkAuthStatus();
     }, []);
 
@@ -32,19 +33,17 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     };
 
-    const login = (userData, token, refreshToken) => {
-        saveToken(token, refreshToken);
+    const login = (userData) => {
         setUser(userData);
         setIsAuthenticated(true);
     };
 
     const logout = async () => {
         try {
-            await api.get('/api/bago/logout');
+            await api.post('/api/bago/logout');
         } catch (error) {
             console.error('Logout request failed:', error);
         } finally {
-            removeToken();
             setUser(null);
             setIsAuthenticated(false);
         }

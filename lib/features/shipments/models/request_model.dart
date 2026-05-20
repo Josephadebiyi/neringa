@@ -41,6 +41,7 @@ class RequestModel {
   final bool insurance;
   final double insuranceCost;
   final String? insurancePolicyId;
+  final String? handoverPin;
 
   const RequestModel({
     required this.id,
@@ -82,6 +83,7 @@ class RequestModel {
     this.insurance = false,
     this.insuranceCost = 0.0,
     this.insurancePolicyId,
+    this.handoverPin,
   });
 
   bool get isPending => status == RequestStatus.pending;
@@ -89,10 +91,11 @@ class RequestModel {
   String get statusLabel => status.label;
   bool get awaitingSenderConfirmation =>
       (rawStatus.toLowerCase() == 'delivered' ||
-          rawStatus.toLowerCase() == 'delivering') &&
+          rawStatus.toLowerCase() == 'delivering' ||
+          rawStatus.toLowerCase() == 'completed' ||
+          rawStatus.toLowerCase() == 'awaiting_sender_confirmation') &&
       !senderReceived;
-  bool get isCompletedBySender =>
-      senderReceived || rawStatus.toLowerCase() == 'completed';
+  bool get isCompletedBySender => senderReceived;
 
   factory RequestModel.fromJson(Map<String, dynamic> json) {
     final sender = json['sender'] as Map<String, dynamic>?;
@@ -206,6 +209,8 @@ class RequestModel {
       insurancePolicyId:
           (json['insurancePolicyId'] ?? json['insurance_policy_id'])
               ?.toString(),
+      handoverPin:
+          (json['handoverPin'] ?? json['handover_pin'])?.toString(),
     );
   }
 

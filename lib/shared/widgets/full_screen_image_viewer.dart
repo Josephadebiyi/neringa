@@ -57,29 +57,49 @@ class FullScreenImageViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Center(
-          child: InteractiveViewer(
-            minScale: 0.8,
-            maxScale: 4,
-            child: _ImageContent(
-              url: url,
-              fit: BoxFit.contain,
-              placeholder: const Icon(
-                Icons.image_not_supported_rounded,
-                color: Colors.white54,
-                size: 56,
+      body: Stack(
+        children: [
+          // Full-screen zoomable image
+          Positioned.fill(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4,
+              child: _ImageContent(
+                url: url,
+                fit: BoxFit.contain,
+                placeholder: const Icon(
+                  Icons.image_not_supported_rounded,
+                  color: Colors.white54,
+                  size: 56,
+                ),
               ),
             ),
           ),
-        ),
+          // Back button pinned to top-left, always on top of image
+          Positioned(
+            top: topPadding + 8,
+            left: 12,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

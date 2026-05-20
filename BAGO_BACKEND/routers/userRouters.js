@@ -8,9 +8,9 @@ import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { requireKycVerification } from '../middleware/kycMiddleware.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
-import { getKyc, KycVerifications, createDiditSession, fetchDiditResult } from '../controllers/KycVerificationsController.js';
+import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
 import { createPackage, updatePackage, deletePackage } from '../controllers/PackageController.js';
-import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder } from '../controllers/postgresRequestController.js';
+import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import {
@@ -23,7 +23,7 @@ import {
 } from '../controllers/postgresPaymentMethodController.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
-import { getKycProvider, startDojahSession, dojahWebhook } from '../controllers/DojahController.js';
+import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus } from '../controllers/DojahController.js';
 import { submitManualKyc, getManualKycStatus } from '../controllers/ManualKycController.js';
 import { myCoverWebhook } from '../controllers/MyCoverWebhookController.js';
 import {
@@ -54,10 +54,10 @@ userRouter.post('/google-auth', googleAuth);
 userRouter.post('/apple-auth', appleAuth);
 userRouter.post('/verify-signup-otp', verifySignupOtp);
 
-// Token refresh endpoint (validates token is in DB and not revoked)
+// Token refresh endpoint — accepts refresh token from HttpOnly cookie (web) or request body (mobile)
 userRouter.post('/refresh-token', async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
     if (!refreshToken) {
       return res.status(400).json({ success: false, message: 'Refresh token is required' });
     }
@@ -97,6 +97,21 @@ userRouter.post('/refresh-token', async (req, res) => {
       { expiresIn: '30d' },
     );
     await storeRefreshToken(user.id, newRefreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('token', accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+    });
+    res.cookie('refresh_token', newRefreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
+    });
 
     res.status(200).json({
       success: true,
@@ -148,17 +163,11 @@ userRouter.get("/track/:trackingNumber", getPublicTracking);
 
 userRouter.post("/KycVerifications", isAuthenticated, KycVerifications)
 userRouter.get("/getKyc", isAuthenticated, getKyc)
-userRouter.post('/kyc/create-session', isAuthenticated, createDiditSession);
-userRouter.get('/kyc/status', isAuthenticated, fetchDiditResult);
-userRouter.get('/kyc/fetch-result/:sessionId', isAuthenticated, fetchDiditResult);
-userRouter.post('/kyc/fetch-result', isAuthenticated, async (req, res, next) => {
-  req.params = { ...req.params, sessionId: req.body?.sessionId || req.query?.sessionId };
-  return fetchDiditResult(req, res, next);
-});
-// KYC provider routing (Dojah vs DiDit)
+// KYC provider routing (Dojah or manual upload)
 userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
 userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
+userRouter.get('/kyc/status', isAuthenticated, getKycStatus);  // app polls this after widget onSuccess
 userRouter.get('/insurance/mycover/webhook', (_req, res) => res.status(200).json({ success: true })); // URL verification by MyCover.ai
 userRouter.post('/insurance/mycover/webhook', myCoverWebhook); // event delivery by MyCover.ai servers
 userRouter.post('/kyc/manual-submit', isAuthenticated, submitManualKyc);
@@ -187,6 +196,9 @@ userRouter.put('/request/:requestId/confirm-received', isAuthenticated, requireK
 userRouter.put('/request/:requestId/traveler-proof', isAuthenticated, requireKycVerification, uploadTravelerProof);
 userRouter.get('/request/:requestId/pdf', isAuthenticated, requireKycVerification, downloadRequestPDF);
 userRouter.get('/request/:requestId/details', isAuthenticated, requireKycVerification, getRequestDetails);
+// Traveler submits the 4-digit PIN shown by the sender/receiver to confirm handover
+userRouter.post('/request/:requestId/confirm-handover', isAuthenticated, requireKycVerification, redeemHandoverQR);
+userRouter.delete('/request/:requestId', isAuthenticated, deleteRequestFromHistory);
 
 // 💰 Wallet & Payments
 userRouter.get('/getWallet', isAuthenticated, requireKycVerification, getWallet);

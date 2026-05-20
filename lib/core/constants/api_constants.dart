@@ -133,6 +133,8 @@ class ApiConstants {
   static const String travelerProof = '/api/bago/request';
   // Backend: PUT /request/:requestId/confirm-received — caller appends /<id>/confirm-received
   static const String confirmReceived = '/api/bago/request';
+  // Backend: POST /request/:requestId/confirm-handover — traveler submits 4-digit PIN
+  static const String confirmHandover = '/api/bago/request';
 
   // ---------------------------------------------------------------------------
   // Wallet / payments

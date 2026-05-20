@@ -189,7 +189,9 @@ class _PackagesList extends ConsumerWidget {
         ? state.myRequests
             .where((r) =>
                 r.status == RequestStatus.pending ||
-                r.status == RequestStatus.accepted)
+                r.status == RequestStatus.accepted ||
+                r.status == RequestStatus.intransit ||
+                r.status == RequestStatus.delivering)
             .toList()
         : state.myRequests
             .where((r) =>
@@ -241,12 +243,58 @@ class _PackagesList extends ConsumerWidget {
                   : l10n.requestHistorySubtitle,
             ),
             const SizedBox(height: 12),
-            ...requests.map(
-              (request) => Padding(
+            ...requests.map((request) {
+              final deletable = !activeTab &&
+                  (request.status == RequestStatus.rejected ||
+                      request.status == RequestStatus.cancelled);
+              final card = Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _SenderRequestCard(request: request),
-              ),
-            ),
+              );
+              if (!deletable) return card;
+              return Dismissible(
+                key: ValueKey(request.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentCoral,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.delete_rounded,
+                      color: Colors.white, size: 24),
+                ),
+                confirmDismiss: (_) async {
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Remove from history?'),
+                      content: const Text(
+                          'This will permanently remove this request from your history.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: TextButton.styleFrom(
+                              foregroundColor: AppColors.accentCoral),
+                          child: const Text('Remove'),
+                        ),
+                      ],
+                    ),
+                  ) ?? false;
+                },
+                onDismissed: (_) {
+                  ref
+                      .read(shipmentProvider.notifier)
+                      .deleteHistoryRequest(request.id);
+                },
+                child: card,
+              );
+            }),
             if (items.isNotEmpty) const SizedBox(height: 10),
           ],
           if (items.isNotEmpty) ...[
@@ -547,14 +595,30 @@ class _TripsList extends ConsumerWidget {
     }
     final items = activeTab ? tripState.activeTrips : tripState.historyTrips;
     final sentPackageHistory = activeTab ? const <PackageModel>[] : shipmentState.historyPackages;
-    final requests = shipmentState.incomingRequests;
-    final showRequestSection = activeTab && requests.isNotEmpty;
+    final allIncoming = shipmentState.incomingRequests;
+    final requests = activeTab
+        ? allIncoming
+            .where((r) =>
+                r.status == RequestStatus.pending ||
+                r.status == RequestStatus.accepted ||
+                r.status == RequestStatus.intransit ||
+                r.status == RequestStatus.delivering)
+            .toList()
+        : allIncoming
+            .where((r) =>
+                r.status == RequestStatus.rejected ||
+                r.status == RequestStatus.completed ||
+                r.status == RequestStatus.cancelled)
+            .toList();
+    final showRequestSection = requests.isNotEmpty;
     // Sent-package requests for carrier users who also send packages
     final sentActiveRequests = activeTab
         ? shipmentState.myRequests
             .where((r) =>
                 r.status == RequestStatus.pending ||
-                r.status == RequestStatus.accepted)
+                r.status == RequestStatus.accepted ||
+                r.status == RequestStatus.intransit ||
+                r.status == RequestStatus.delivering)
             .toList()
         : const <RequestModel>[];
     final sentHistoryRequests = !activeTab
@@ -614,16 +678,64 @@ class _TripsList extends ConsumerWidget {
           ],
           if (showRequestSection) ...[
             _SectionHeader(
-              title: l10n.incomingRequests,
-              subtitle: l10n.incomingRequestsSubtitle,
+              title: activeTab ? l10n.incomingRequests : l10n.requestHistory,
+              subtitle: activeTab
+                  ? l10n.incomingRequestsSubtitle
+                  : l10n.requestHistorySubtitle,
             ),
             const SizedBox(height: 12),
-            ...requests.map(
-              (req) => Padding(
+            ...requests.map((req) {
+              final deletable = !activeTab &&
+                  (req.status == RequestStatus.rejected ||
+                      req.status == RequestStatus.cancelled);
+              final card = Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RequestCard(request: req),
-              ),
-            ),
+              );
+              if (!deletable) return card;
+              return Dismissible(
+                key: ValueKey(req.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentCoral,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.delete_rounded,
+                      color: Colors.white, size: 24),
+                ),
+                confirmDismiss: (_) async {
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Remove from history?'),
+                      content: const Text(
+                          'This will permanently remove this request from your history.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: TextButton.styleFrom(
+                              foregroundColor: AppColors.accentCoral),
+                          child: const Text('Remove'),
+                        ),
+                      ],
+                    ),
+                  ) ?? false;
+                },
+                onDismissed: (_) {
+                  ref
+                      .read(shipmentProvider.notifier)
+                      .deleteHistoryRequest(req.id);
+                },
+                child: card,
+              );
+            }),
             const SizedBox(height: 10),
           ],
           // Packages this user sent as a customer (active)
@@ -648,12 +760,57 @@ class _TripsList extends ConsumerWidget {
               subtitle: l10n.requestHistorySubtitle,
             ),
             const SizedBox(height: 12),
-            ...sentHistoryRequests.map(
-              (req) => Padding(
+            ...sentHistoryRequests.map((req) {
+              final deletable = req.status == RequestStatus.rejected ||
+                  req.status == RequestStatus.cancelled;
+              final card = Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _SenderRequestCard(request: req),
-              ),
-            ),
+              );
+              if (!deletable) return card;
+              return Dismissible(
+                key: ValueKey('sent-${req.id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentCoral,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.delete_rounded,
+                      color: Colors.white, size: 24),
+                ),
+                confirmDismiss: (_) async {
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Remove from history?'),
+                      content: const Text(
+                          'This will permanently remove this request from your history.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: TextButton.styleFrom(
+                              foregroundColor: AppColors.accentCoral),
+                          child: const Text('Remove'),
+                        ),
+                      ],
+                    ),
+                  ) ?? false;
+                },
+                onDismissed: (_) {
+                  ref
+                      .read(shipmentProvider.notifier)
+                      .deleteHistoryRequest(req.id);
+                },
+                child: card,
+              );
+            }),
             const SizedBox(height: 10),
           ],
           if (sentPackageHistory.isNotEmpty) ...[

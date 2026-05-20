@@ -499,18 +499,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<bool> _ensureStripeReady() async {
-    try {
-      Stripe.publishableKey;
-      return true;
-    } on StripeConfigException {
-      await AppSettingsService.instance.fetchPublicSettings();
+    Future<bool> applyCurrentKey() async {
+      var key = '';
       try {
-        Stripe.publishableKey;
+        key = Stripe.publishableKey;
+      } on StripeConfigException {
+        key = '';
+      }
+      if (key.isEmpty && ApiConstants.stripePublishableKey.isNotEmpty) {
+        Stripe.publishableKey = ApiConstants.stripePublishableKey;
+      }
+      try {
+        await Stripe.instance.applySettings();
         return true;
       } on StripeConfigException {
         return false;
       }
     }
+
+    if (await applyCurrentKey()) return true;
+    await AppSettingsService.instance.fetchPublicSettings(refresh: true);
+    return applyCurrentKey();
   }
 
   Future<bool> _recoverPaidStripeShipment(
@@ -1291,21 +1300,21 @@ class _CheckoutAddCardSheetState extends State<_CheckoutAddCardSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.gray200),
-                  ),
-                  child: CardField(
+                SizedBox(
+                  height: 292,
+                  child: CardFormField(
+                    autofocus: true,
                     enablePostalCode: false,
-                    style: const TextStyle(
-                      color: Colors.black,
+                    style: CardFormStyle(
+                      backgroundColor: AppColors.gray50,
+                      borderColor: AppColors.gray200,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      cursorColor: AppColors.primary,
                       fontSize: 16,
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
+                      placeholderColor: AppColors.gray400,
+                      textColor: Colors.black,
+                      textErrorColor: AppColors.error,
                     ),
                     onCardChanged: (details) {
                       if (!mounted) return;

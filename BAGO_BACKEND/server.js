@@ -95,8 +95,29 @@ if (process.env.RESEND_API_KEY) {
 
 // Run all SQL migration files on startup — each in its own try/catch so one
 // failure doesn't block the rest.
+async function ensureWalletTransactionEnumValues() {
+  const enumExists = await pgQuery(`
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'wallet_transaction_type'
+      AND n.nspname = 'public'
+    LIMIT 1
+  `);
+  if (enumExists.rowCount === 0) return;
+
+  for (const value of ['earning', 'admin_settlement', 'escrow_hold', 'withdrawal']) {
+    await pgQuery(`ALTER TYPE public.wallet_transaction_type ADD VALUE IF NOT EXISTS '${value}'`);
+  }
+}
+
 async function runMigrations() {
   const migrationsDir = path.join(__dirname, 'migrations');
+  try {
+    await ensureWalletTransactionEnumValues();
+  } catch (err) {
+    console.error('❌ Could not prepare wallet transaction enum values:', err.message);
+  }
   let files;
   try {
     files = (await readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
@@ -158,7 +179,7 @@ startEscrowAutoRelease();
 startCurrencyRateSync();
 
 // create or return an existing Stripe account id for a user
-async function createStripeAccountForUser(user, { restartIncomplete = false } = {}) {
+async function createStripeAccountForUser(user, { restartIncomplete = true } = {}) {
   if (!stripe) {
     console.warn('❌ createStripeAccountForUser failed: Stripe not configured');
     throw new Error('Stripe not configured');
@@ -170,8 +191,10 @@ async function createStripeAccountForUser(user, { restartIncomplete = false } = 
     try {
       const existingAccount = await stripe.accounts.retrieve(existingAccountId);
       const isComplete = existingAccount.charges_enabled === true && existingAccount.payouts_enabled === true;
-      const shouldRestart = restartIncomplete && !isComplete;
-      if (!shouldRestart && (existingAccount.type === 'express' || isComplete)) {
+      if (isComplete) {
+        return existingAccountId;
+      }
+      if (!restartIncomplete && existingAccount.type === 'express') {
         return existingAccountId;
       }
       console.warn(`⚠️ Replacing incomplete Stripe ${existingAccount.type} account for user ${user.id}`);
@@ -181,15 +204,24 @@ async function createStripeAccountForUser(user, { restartIncomplete = false } = 
   }
 
   try {
-    const account = await stripe.accounts.create({
+    const payoutCountry = (user.payout_country || user.country || '').toString().trim().toUpperCase();
+    const accountParams = {
       type: 'express',
       email: user.email,
       capabilities: { transfers: { requested: true } },
+    };
+    if (/^[A-Z]{2}$/.test(payoutCountry)) {
+      accountParams.country = payoutCountry;
+    }
+
+    const account = await stripe.accounts.create({
+      ...accountParams,
     });
 
     await pgQuery(
       `UPDATE public.profiles
        SET stripe_connect_account_id = $2,
+           stripe_account_id = $2,
            payout_provider = 'stripe',
            payout_method_status = 'onboarding',
            stripe_onboarding_status = 'created',
@@ -602,12 +634,25 @@ app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
     const account = await stripe.accounts.retrieve(stripeAccountId);
 
     if (account.type === 'express' && account.details_submitted && account.payouts_enabled) {
-      const loginLink = await stripe.accounts.createLoginLink(stripeAccountId);
+      await queryOne(
+        `UPDATE public.profiles
+         SET stripe_verified = true,
+             stripe_charges_enabled = $2,
+             stripe_payouts_enabled = true,
+             stripe_onboarding_status = 'completed',
+             payout_provider = 'stripe',
+             payout_method_status = 'connected',
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id`,
+        [userId, account.charges_enabled === true],
+      );
       return res.json({
         success: true,
-        url: loginLink.url,
-        login_url: loginLink.url,
-        mode: 'dashboard',
+        connected: true,
+        verified: true,
+        mode: 'connected',
+        message: 'Stripe payout setup is complete.',
       });
     }
 
@@ -1030,41 +1075,7 @@ httpServer.listen(PORT, () => {
     fetch(`${selfUrl}/api/health`).catch(() => {});
   }, 13 * 60 * 1000);
 
-  // KYC sweep — sync all pending sessions with DIDIT every 30 min
-  setInterval(async () => {
-    if (!DIDIT_API_KEY) return;
-    try {
-      const pending = await pgQuery(
-        `SELECT id, email, didit_session_id FROM public.profiles WHERE kyc_status = 'pending' AND didit_session_id IS NOT NULL`
-      );
-      for (const user of (pending.rows || [])) {
-        try {
-          const r = await fetch(`https://verification.didit.me/v3/session/${user.didit_session_id}`, {
-            headers: { 'accept': 'application/json', 'x-api-key': DIDIT_API_KEY },
-          });
-          if (!r.ok) continue;
-          const d = await r.json();
-          const s = d.status?.toLowerCase();
-          if (s === 'approved') {
-            const docData = d.document_data || d.extracted_data || d.verification_data || d.kyc?.document || {};
-            const firstName = docData.first_name || docData.firstName || docData.given_name || '';
-            const lastName = docData.last_name || docData.lastName || docData.family_name || docData.surname || '';
-            const dob = docData.date_of_birth || docData.dateOfBirth || docData.dob || null;
-            const setParts = [`kyc_status='approved'`, `kyc_verified_at=NOW()`, `updated_at=NOW()`];
-            const vals = [user.id];
-            if (firstName) { setParts.push(`first_name=$${vals.length + 1}`); vals.push(firstName); }
-            if (lastName)  { setParts.push(`last_name=$${vals.length + 1}`); vals.push(lastName); }
-            if (dob)       { setParts.push(`date_of_birth=$${vals.length + 1}`); vals.push(new Date(dob)); }
-            await pgQuery(`UPDATE public.profiles SET ${setParts.join(', ')} WHERE id=$1`, vals);
-            await sendPushNotification(user.id, 'Identity Verified!', 'Your identity has been verified.').catch(() => {});
-            await sendKycApprovedEmail(user.email, `${firstName} ${lastName}`.trim() || user.email).catch(() => {});
-          } else if (s === 'declined' || s === 'rejected') {
-            await pgQuery(`UPDATE public.profiles SET kyc_status='declined', updated_at=NOW() WHERE id=$1`, [user.id]);
-          }
-        } catch (_) {}
-      }
-    } catch (_) {}
-  }, 30 * 60 * 1000);
+  // KYC is Dojah/manual only. Legacy Didit polling is intentionally disabled.
 });
 
 
@@ -1611,8 +1622,49 @@ app.get("/api/payment/verify/:reference", async (req, res) => {
 });
 
 // ============================================
-// DIDIT.ME KYC VERIFICATION ROUTES
+// Legacy Didit KYC routes are retired. Bago currently uses Dojah plus manual
+// upload review for unsupported countries.
 // ============================================
+app.all("/api/bago/kyc/create-session", (_req, res) => {
+  res.status(410).json({
+    success: false,
+    message: "This KYC route has been retired. Use Dojah KYC or manual document upload.",
+  });
+});
+
+app.all("/api/bago/kyc/callback", (_req, res) => {
+  res.status(410).json({ success: false, message: "Legacy KYC callback retired." });
+});
+
+app.all("/api/didit/webhook", (_req, res) => {
+  res.status(410).json({ success: false, message: "Legacy Didit webhook retired." });
+});
+
+app.get("/api/bago/kyc/status", isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    const user = await queryOne(
+      `select kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt",
+              kyc_failure_reason as "kycFailureReason", kyc_provider as "kycProvider"
+       from public.profiles where id = $1`,
+      [userId],
+    );
+    return res.json({
+      success: true,
+      kycStatus: user?.kycStatus || 'not_started',
+      kycVerifiedAt: user?.kycVerifiedAt || null,
+      kycProvider: user?.kycProvider || null,
+      kycFailureReason: user?.kycFailureReason || null,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Failed to get KYC status" });
+  }
+});
+
+app.all("/api/bago/kyc/check-session/:sessionId", (_req, res) => {
+  res.status(410).json({ success: false, message: "Legacy KYC session checks are retired." });
+});
+
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY;
 const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID || '701347c6-bd51-4ab7-8a35-8a442db4b63c';
 const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET;

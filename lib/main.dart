@@ -17,7 +17,17 @@ void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
+    }
+  } on FirebaseException catch (error) {
+    if (error.code != 'duplicate-app') {
+      rethrow;
+    }
+    debugPrint('Firebase already initialized, continuing startup.');
+  }
 
   _logRuntimeConfig();
 

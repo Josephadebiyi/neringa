@@ -1,9 +1,10 @@
-import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail } from '../services/emailNotifications.js';
+import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail } from '../services/emailNotifications.js';
 import PDFDocument from 'pdfkit';
 import Stripe from 'stripe';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
   confirmShipmentReceived,
+  redeemHandoverToken,
   createNotification,
   createShipmentRequestRecord,
   getPackageById,
@@ -767,7 +768,7 @@ export async function updateRequestStatus(req, res) {
     const { requestId } = req.params;
     const { status: rawStatus, location, notes } = req.body;
     // Traveler delivery is not final completion. Funds remain held until the sender confirms receipt.
-    const status = rawStatus === 'delivered' ? 'delivering' : rawStatus;
+    const status = (rawStatus === 'delivered' || rawStatus === 'completed') ? 'delivering' : rawStatus;
     const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
@@ -849,14 +850,25 @@ export async function updateRequestStatus(req, res) {
 
       await sendShippingStatusEmail(updatedRequest, statusLabel, location);
       if (statusLabel === 'accepted' && updatedRequest.package?.receiverEmail) {
+        const packageDetails = `${updatedRequest.package.description || 'Package'}${updatedRequest.package.packageWeight ? `, ${updatedRequest.package.packageWeight}kg` : ''}`;
         await sendReceiverShipmentAcceptedEmail(
           updatedRequest.package.receiverEmail,
           updatedRequest.package.receiverName,
           updatedRequest.senderName || 'Sender',
           travelerName,
-          `${updatedRequest.package.description || 'Package'}${updatedRequest.package.packageWeight ? `, ${updatedRequest.package.packageWeight}kg` : ''}`,
+          packageDetails,
           updatedRequest.trackingNumber,
         );
+        if (updatedRequest.handoverPin) {
+          await sendHandoverPINEmail(
+            updatedRequest.package.receiverEmail,
+            updatedRequest.package.receiverName,
+            updatedRequest.senderName || 'Sender',
+            packageDetails,
+            updatedRequest.trackingNumber,
+            updatedRequest.handoverPin,
+          );
+        }
       }
       if (statusLabel === 'intransit' && updatedRequest.package?.receiverEmail) {
         await sendReceiverShippingStartedEmail(
@@ -1097,10 +1109,33 @@ export async function getRequestDetails(req, res) {
       data: {
         _id: request.id,
         id: request.id,
+        senderId: request.senderId,
+        travelerId: request.travelerId,
+        carrierId: request.travelerId,
+        role: userId === request.senderId ? 'sender' : 'traveler',
         trackingNumber: request.trackingNumber,
         status: request.status,
+        senderReceived: request.senderReceived === true,
         amount: request.amount,
         currency: request.currency,
+        sender: request.sender || (request.senderId ? {
+          id: request.senderId,
+          _id: request.senderId,
+          firstName: request.senderName?.split(' ')?.[0] || '',
+          email: request.senderEmail,
+        } : null),
+        traveler: request.traveler || (request.travelerId ? {
+          id: request.travelerId,
+          _id: request.travelerId,
+          firstName: request.travelerName?.split(' ')?.[0] || '',
+          email: request.travelerEmail,
+        } : null),
+        carrier: request.traveler || (request.travelerId ? {
+          id: request.travelerId,
+          _id: request.travelerId,
+          firstName: request.travelerName?.split(' ')?.[0] || '',
+          email: request.travelerEmail,
+        } : null),
         package: {
           description: request.package?.description,
           packageWeight: request.package?.packageWeight,
@@ -1454,5 +1489,106 @@ export async function downloadRequestPDF(req, res) {
       return res.status(500).json({ success: false, message: 'An unexpected error occurred while generating your shipping label.' });
     }
     return res.end();
+  }
+}
+
+// Authenticated traveler submits the 4-digit handover PIN shown by the sender or receiver.
+export async function redeemHandoverQR(req, res) {
+  try {
+    const { requestId } = req.params;
+    const { pin } = req.body;
+    const travelerId = req.user?.id || req.user?._id;
+
+    if (!pin || !/^\d{4}$/.test(String(pin))) {
+      return res.status(400).json({ success: false, message: 'PIN must be exactly 4 digits' });
+    }
+
+    const updated = await redeemHandoverToken({ requestId, pin: String(pin), travelerId });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Shipment not found' });
+    }
+
+    try {
+      await createNotification({
+        userId: updated.travelerId,
+        title: 'Funds available',
+        body: `Handover PIN accepted. Your funds are now available for ${updated.trackingNumber || updated.id}.`,
+        type: 'escrow_release',
+        payload: { requestId: updated.id },
+      });
+      await sendPushNotification(
+        updated.travelerId,
+        'Funds available',
+        'Handover PIN accepted. Your earnings are now credited.',
+        { type: 'escrow_release', requestId: updated.id },
+      );
+      await createNotification({
+        userId: updated.senderId,
+        title: 'Delivery confirmed',
+        body: `Your package was handed over. Tracking: ${updated.trackingNumber || updated.id}.`,
+        type: 'shipment_status',
+        payload: { requestId: updated.id, status: 'completed' },
+      });
+    } catch (notifErr) {
+      console.error('redeemHandoverQR notification error:', notifErr);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Handover confirmed. Escrow released and traveler wallet credited.',
+      data: updated,
+    });
+  } catch (error) {
+    const statusMap = {
+      UNAUTHORIZED: 403,
+      NOT_FOUND: 404,
+      ALREADY_USED: 409,
+      INVALID_STATUS: 422,
+      WRONG_PIN: 400,
+      TOO_MANY_ATTEMPTS: 429,
+      NO_PIN: 400,
+    };
+    const status = statusMap[error.code] || 500;
+    return res.status(status).json({ success: false, message: error.message });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/bago/request/:requestId
+// Sender or traveler can delete a rejected/cancelled request from their history.
+// ---------------------------------------------------------------------------
+export async function deleteRequestFromHistory(req, res) {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user?.id;
+
+    const request = await getShipmentRequestById(requestId);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    const isSender   = String(request.senderId)   === String(userId);
+    const isTraveler = String(request.travelerId)  === String(userId);
+    if (!isSender && !isTraveler) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const deletable = ['rejected', 'cancelled'];
+    if (!deletable.includes(request.status?.toLowerCase())) {
+      return res.status(422).json({
+        success: false,
+        message: 'Only rejected or cancelled requests can be deleted',
+      });
+    }
+
+    await query(
+      `DELETE FROM public.shipment_requests WHERE id = $1`,
+      [requestId],
+    );
+
+    return res.status(200).json({ success: true, message: 'Request removed from history' });
+  } catch (err) {
+    console.error('deleteRequestFromHistory error:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 }

@@ -153,38 +153,6 @@ export async function getAccountProfile(userId) {
 }
 
 export async function updateAccountProfile(userId, updates) {
-  if (updates.preferredCurrency) {
-    const current = await queryOne(
-      `
-        select
-          coalesce(wa.available_balance, 0) as available_balance,
-          coalesce(wa.escrow_balance, 0) as escrow_balance,
-          exists (
-            select 1 from public.trips
-            where user_id = $1
-              and coalesce(status, 'active') not in ('cancelled', 'completed')
-            limit 1
-          ) as has_active_trips,
-          exists (
-            select 1 from public.shipment_requests
-            where traveler_id = $1
-              and status not in ('completed', 'cancelled', 'rejected')
-            limit 1
-          ) as has_pending_shipments
-        from public.profiles p
-        left join public.wallet_accounts wa on wa.user_id = p.id
-        where p.id = $1
-      `,
-      [userId],
-    );
-    const hasBalance = toNumber(current?.available_balance) > 0 || toNumber(current?.escrow_balance) > 0;
-    if (hasBalance || current?.has_active_trips || current?.has_pending_shipments) {
-      const error = new Error('To change your payout currency, please contact support. This helps us protect your balance, payouts, and shipment records.');
-      error.code = 'PAYOUT_CURRENCY_LOCKED';
-      throw error;
-    }
-  }
-
   const mapping = {
     firstName: 'first_name',
     lastName: 'last_name',
@@ -692,6 +660,7 @@ export async function markKycApproved(userId, payload = {}) {
             verified_last_name = coalesce($5, verified_last_name),
             verified_full_legal_name = coalesce($6, verified_full_legal_name),
             verified_date_of_birth = coalesce($8::date, verified_date_of_birth),
+            kyc_provider = $7,
             verification_provider = $7,
             identity_fields_locked = true,
             updated_at = timezone('utc', now())

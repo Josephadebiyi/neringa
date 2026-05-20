@@ -280,7 +280,7 @@ export const addFunds = async (req, res) => {
 };
 
 const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
-const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 5);
+const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 2);
 const PAYSTACK_PAYOUT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'];
 
 function payoutMethodForCurrency(currency = 'USD') {

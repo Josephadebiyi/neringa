@@ -54,6 +54,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!ref.read(authProvider).isLoggedIn) return;
+      ref.read(authProvider.notifier).refreshProfile();
       ref.read(tripProvider.notifier).loadMyTrips();
       ref.read(shipmentProvider.notifier).loadMyPackages();
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
@@ -349,11 +350,11 @@ isCarrier
                 // ── Recent Activity — only shown when there is data or loading ──
                 Builder(builder: (context) {
                   final activityRequests = isCarrier
-                      ? shipmentState.incomingRequests.take(5).toList()
-                      : shipmentState.myRequests.take(5).toList();
+                      ? shipmentState.incomingRequests.take(1).toList()
+                      : shipmentState.myRequests.take(1).toList();
                   final activityPackages = isCarrier
                       ? const <PackageModel>[]
-                      : shipmentState.activePackages.take(5).toList();
+                      : shipmentState.activePackages.take(1).toList();
                   final activityLoading = isCarrier
                       ? tripState.isLoading
                       : shipmentState.isLoading;
@@ -577,7 +578,6 @@ class _CarrierHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final total = balance + pendingEarnings;
     return Container(
       width: double.infinity,
@@ -1254,7 +1254,8 @@ class _ServiceCardState extends State<_ServiceCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Recent Activity List — bank-transaction style, each row opens shipment
+// Recent Activity List — bank-transaction style, each row opens shipment.
+// Shows 3 rows per page; swipe horizontally to see more pages.
 // ─────────────────────────────────────────────────────────────────────────────
 class _RecentActivityList extends StatelessWidget {
   const _RecentActivityList({
@@ -1270,10 +1271,11 @@ class _RecentActivityList extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onViewAll;
 
-  List<_RecentActivityEntry> _entries() {
-    if (isCarrier)
-      return requests.map(_RecentActivityEntry.fromRequest).toList();
-
+  _RecentActivityEntry? _mostRecent() {
+    if (isCarrier) {
+      if (requests.isEmpty) return null;
+      return _RecentActivityEntry.fromRequest(requests.first);
+    }
     final items = <_RecentActivityEntry>[
       ...packages.map(_RecentActivityEntry.fromPackage),
       ...requests.map(_RecentActivityEntry.fromRequest),
@@ -1285,9 +1287,12 @@ class _RecentActivityList extends StatelessWidget {
           requestKey.isNotEmpty ? 'request:$requestKey' : 'package:${item.id}';
       return seen.add(key);
     }).toList();
+    if (deduped.isEmpty) return null;
     deduped.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return deduped.take(5).toList();
+    return deduped.first;
   }
+
+  // ── helpers ──────────────────────────────────────────────────────────────
 
   Color _statusColor(_RecentActivityEntry r) {
     final s = r.status;
@@ -1331,10 +1336,93 @@ class _RecentActivityList extends StatelessWidget {
     }
   }
 
+  Widget _buildRow(BuildContext context, _RecentActivityEntry item,
+      {required bool isLast}) {
+    final route = [item.fromLocation, item.toLocation]
+        .where((e) => e != null && e.isNotEmpty)
+        .join(' → ');
+    final amount = item.amount > 0
+        ? '${item.currency} ${item.amount.toStringAsFixed(2)}'
+        : '—';
+    return InkWell(
+      onTap: () {
+        if (item.request != null) {
+          context.push('/shipment-request/${item.id}', extra: item.request);
+          return;
+        }
+        context.push('/shipment-details/${item.id}');
+      },
+      borderRadius: isLast
+          ? const BorderRadius.vertical(bottom: Radius.circular(20))
+          : BorderRadius.zero,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: Colors.white, width: 1.5)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _statusBg(item),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child:
+                  Icon(_statusIcon(item), color: _statusColor(item), size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.counterpart,
+                    style:
+                        AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w800),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    route.isNotEmpty ? route : item.title,
+                    style: AppTextStyles.bodySm.copyWith(
+                        color: AppColors.gray500, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  amount,
+                  style:
+                      AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatDate(item.createdAt),
+                  style: AppTextStyles.bodySm.copyWith(
+                      color: AppColors.gray400, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final entries = _entries();
-
     if (isLoading) {
       return Container(
         height: 100,
@@ -1346,7 +1434,9 @@ class _RecentActivityList extends StatelessWidget {
       );
     }
 
-    if (entries.isEmpty) {
+    final entry = _mostRecent();
+
+    if (entry == null) {
       return GestureDetector(
         onTap: onViewAll,
         child: Container(
@@ -1388,101 +1478,8 @@ class _RecentActivityList extends StatelessWidget {
             color: AppColors.gray100,
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Column(
-            children: [
-              ...entries.asMap().entries.map((entry) {
-                final i = entry.key;
-                final item = entry.value;
-                final isLast = i == entries.length - 1;
-                final route = [item.fromLocation, item.toLocation]
-                    .where((e) => e != null && e.isNotEmpty)
-                    .join(' → ');
-                final amount = item.amount > 0
-                    ? '${item.currency} ${item.amount.toStringAsFixed(2)}'
-                    : '—';
-                return InkWell(
-                  onTap: () {
-                    if (item.request != null) {
-                      context.push('/shipment-request/${item.id}',
-                          extra: item.request);
-                      return;
-                    }
-                    context.push('/shipment-details/${item.id}');
-                  },
-                  borderRadius: isLast
-                      ? const BorderRadius.vertical(bottom: Radius.circular(20))
-                      : BorderRadius.zero,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      border: isLast
-                          ? null
-                          : const Border(
-                              bottom:
-                                  BorderSide(color: Colors.white, width: 1.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: _statusBg(item),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(_statusIcon(item),
-                              color: _statusColor(item), size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.counterpart,
-                                style: AppTextStyles.bodyMd
-                                    .copyWith(fontWeight: FontWeight.w800),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                route.isNotEmpty ? route : item.title,
-                                style: AppTextStyles.bodySm.copyWith(
-                                    color: AppColors.gray500,
-                                    fontWeight: FontWeight.w500),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              amount,
-                              style: AppTextStyles.bodyMd
-                                  .copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _formatDate(item.createdAt),
-                              style: AppTextStyles.bodySm.copyWith(
-                                  color: AppColors.gray400,
-                                  fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
+          clipBehavior: Clip.hardEdge,
+          child: _buildRow(context, entry, isLast: true),
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -1865,4 +1862,3 @@ class _SheetRouteRow extends StatelessWidget {
     ),
   );
 }
-
