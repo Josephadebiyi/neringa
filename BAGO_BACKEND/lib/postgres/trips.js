@@ -132,7 +132,7 @@ const baseTripSelect = `
     trip_stats.booking_status_summary,
     (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as gross_sales,
     0::numeric as commission_amount,
-    (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as traveler_earnings,
+    (coalesce(trip_stats.pending_kg, 0) * coalesce(t.price_per_kg, 0)) as traveler_earnings,
     case
       when coalesce(trip_stats.completed_booking_count, 0) > 0 then 'partially_paid'
       when coalesce(trip_stats.active_shipment_count, 0) > 0 then 'pending'
@@ -144,6 +144,7 @@ const baseTripSelect = `
     select
       coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
       coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
+      coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering') then coalesce(pkg.package_weight, 0) else 0 end), 0) as pending_kg,
       count(*) filter (where sr.status not in ('rejected', 'cancelled'))::int as active_shipment_count,
       count(*) filter (where sr.status = 'pending')::int as pending_booking_count,
       count(*) filter (where sr.status = 'accepted')::int as accepted_booking_count,
