@@ -479,6 +479,15 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppColors.gray500, height: 1.5),
               textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Text(
+            'Can\'t find it? Check your spam or junk folder.',
+            style: AppTextStyles.bodySm.copyWith(
+              color: AppColors.gray400,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
           if (_debugOtp != null && _debugOtp!.isNotEmpty) ...[
             const SizedBox(height: 18),
             GestureDetector(

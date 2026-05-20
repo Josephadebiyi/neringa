@@ -339,12 +339,12 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                         color: AppColors.gray500, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 GestureDetector(
-                  onTap: _balance >= minimumAmount
+                  onTap: _balance > 0
                       ? () => _amountCtrl.text = _balance.toStringAsFixed(2)
                       : null,
                   child: Text('Withdraw all',
                       style: AppTextStyles.labelSm.copyWith(
-                        color: _balance >= minimumAmount
+                        color: _balance > 0
                             ? AppColors.primary
                             : AppColors.gray400,
                         fontWeight: FontWeight.w700,
