@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/full_screen_image_viewer.dart';
+import '../../../shared/widgets/journey_map_widget.dart';
 import '../../../core/utils/model_enums.dart';
 import '../../auth/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -508,6 +509,22 @@ class _ShipmentBody extends StatelessWidget {
                 ],
               ),
             ]),
+          ),
+          const SizedBox(height: 14),
+
+          // Journey map
+          JourneyMapWidget(
+            fromCity: package.fromCity,
+            fromCountry: package.fromCountry,
+            toCity: package.toCity,
+            toCountry: package.toCountry,
+            status: package.rawStatus,
+            departureDate: package.estimatedDeparture != null
+                ? DateTime.tryParse(package.estimatedDeparture!)?.toLocal()
+                : null,
+            arrivalDate: package.estimatedArrival != null
+                ? DateTime.tryParse(package.estimatedArrival!)?.toLocal()
+                : null,
           ),
           const SizedBox(height: 14),
 

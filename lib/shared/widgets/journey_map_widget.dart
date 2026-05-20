@@ -72,10 +72,19 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
   }
 
   Future<void> _geocode() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = false; });
     final g = GeocodingService.instance;
-    final from = await g.geocode(widget.fromCity, widget.fromCountry);
-    final to = await g.geocode(widget.toCity, widget.toCountry);
+
+    // Try city+country first, fall back to city-only if that fails
+    LatLng? from = await g.geocode(widget.fromCity, widget.fromCountry);
+    from ??= await g.geocode(widget.fromCity);
+
+    LatLng? to = await g.geocode(widget.toCity, widget.toCountry);
+    to ??= await g.geocode(widget.toCity);
+
+    debugPrint('[JourneyMap] from="${widget.fromCity},${widget.fromCountry}" → $from');
+    debugPrint('[JourneyMap] to="${widget.toCity},${widget.toCountry}" → $to');
+
     if (!mounted) return;
     if (from == null || to == null) {
       setState(() {
@@ -208,17 +217,47 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
   Widget _buildError() => Container(
         color: AppColors.gray100,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.map_outlined,
-                  size: 48, color: AppColors.gray400),
-              const SizedBox(height: 8),
-              Text(
-                'Map unavailable for this route',
-                style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.map_outlined,
+                    size: 48, color: AppColors.gray400),
+                const SizedBox(height: 10),
+                Text(
+                  'Could not load map',
+                  style: AppTextStyles.labelMd
+                      .copyWith(color: AppColors.gray700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${widget.fromCity} → ${widget.toCity}',
+                  style: AppTextStyles.bodySm
+                      .copyWith(color: AppColors.gray500),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: _geocode,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Retry',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
