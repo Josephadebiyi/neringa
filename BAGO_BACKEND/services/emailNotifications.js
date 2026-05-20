@@ -799,6 +799,9 @@ export async function sendKycSubmittedEmail(userEmail, userName) {
     return true;
   } catch (err) {
     console.error('❌ Failed to send KYC submitted email:', err);
+    return false;
+  }
+}
 
 /**
  * Sends the receiver their 4-digit handover PIN.
