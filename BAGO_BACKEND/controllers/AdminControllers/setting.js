@@ -6,6 +6,11 @@ const DEFAULTS = {
   insurancePercentage: 3,
   insuranceFixedAmount: 6,
   commissionPercentage: 10,
+  // All-inclusive sender pricing (surcharge on top of traveler payout)
+  platformCommissionPercent: 20,
+  processingFeePercent: 5,
+  fxBufferPercent: 1,
+  senderInsurancePercent: 0.5,
   autoVerification: false,
   baseCurrency: 'USD',
   supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD', 'NGN', 'GHS', 'KES', 'ZAR'],
@@ -72,7 +77,8 @@ export const updateInsurance = async (req, res, next) => {
 
 export const updateSettings = async (req, res, next) => {
   const { autoVerification, commissionPercentage, insuranceType, insurancePercentage,
-          insuranceFixedAmount, banner, baseCurrency, supportedCurrencies, exchangeRates } = req.body;
+          insuranceFixedAmount, banner, baseCurrency, supportedCurrencies, exchangeRates,
+          platformCommissionPercent, processingFeePercent, fxBufferPercent, senderInsurancePercent } = req.body;
   try {
     await loadSettings();
     if (typeof autoVerification === 'boolean') _cached.autoVerification = autoVerification;
@@ -84,10 +90,13 @@ export const updateSettings = async (req, res, next) => {
     if (typeof baseCurrency === 'string' && baseCurrency.trim()) _cached.baseCurrency = baseCurrency.trim().toUpperCase();
     if (Array.isArray(supportedCurrencies)) _cached.supportedCurrencies = supportedCurrencies;
     if (exchangeRates && typeof exchangeRates === 'object') {
-      // Reject any zero or negative exchange rates to prevent divide-by-zero
       const allPositive = Object.values(exchangeRates).every(r => typeof r === 'number' && r > 0);
       if (allPositive) _cached.exchangeRates = exchangeRates;
     }
+    if (typeof platformCommissionPercent === 'number' && platformCommissionPercent >= 0 && platformCommissionPercent <= 100) _cached.platformCommissionPercent = platformCommissionPercent;
+    if (typeof processingFeePercent === 'number' && processingFeePercent >= 0 && processingFeePercent <= 100) _cached.processingFeePercent = processingFeePercent;
+    if (typeof fxBufferPercent === 'number' && fxBufferPercent >= 0 && fxBufferPercent <= 100) _cached.fxBufferPercent = fxBufferPercent;
+    if (typeof senderInsurancePercent === 'number' && senderInsurancePercent >= 0 && senderInsurancePercent <= 100) _cached.senderInsurancePercent = senderInsurancePercent;
     await persistSettings(_cached);
     res.status(200).json({ message: 'Settings updated successfully', setting: _cached, success: true });
   } catch (error) {

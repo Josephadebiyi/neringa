@@ -13,6 +13,19 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(numericValue) ? numericValue : fallback;
 }
 
+async function ensureShipmentBreakdownColumns(client) {
+  const exec = client?.query ? (sql) => client.query(sql) : (sql) => query(sql);
+  await exec(`
+    ALTER TABLE public.shipment_requests
+      ADD COLUMN IF NOT EXISTS traveler_payout NUMERIC,
+      ADD COLUMN IF NOT EXISTS platform_commission NUMERIC,
+      ADD COLUMN IF NOT EXISTS processing_fee NUMERIC,
+      ADD COLUMN IF NOT EXISTS fx_buffer NUMERIC,
+      ADD COLUMN IF NOT EXISTS sender_shipping_fee NUMERIC,
+      ADD COLUMN IF NOT EXISTS bago_net_revenue NUMERIC
+  `);
+}
+
 function normalizeProfile(row) {
   if (!row) return null;
   return {
@@ -600,9 +613,16 @@ export async function createShipmentRequestRecord({
   estimatedArrival,
   termsAccepted,
   paymentInfo = {},
+  travelerPayout = null,
+  platformCommission = null,
+  processingFee = null,
+  fxBuffer = null,
+  senderShippingFee = null,
+  bagoNetRevenue = null,
 }) {
   const requestId = await withTransaction(async (client) => {
     await ensureTripCapacityColumns(client);
+    await ensureShipmentBreakdownColumns(client);
 
     const packageResult = await client.query(
       `select id, package_weight from public.packages where id = $1 and user_id = $2`,
@@ -634,9 +654,11 @@ export async function createShipmentRequestRecord({
         insert into public.shipment_requests (
           sender_id, traveler_id, package_id, trip_id, amount, currency, image_url,
           insurance, insurance_cost, estimated_departure, estimated_arrival,
-          terms_accepted, terms_accepted_at, payment_info
+          terms_accepted, terms_accepted_at, payment_info,
+          traveler_payout, platform_commission, processing_fee, fx_buffer,
+          sender_shipping_fee, bago_net_revenue
         )
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
         returning id
       `,
       [
@@ -654,6 +676,12 @@ export async function createShipmentRequestRecord({
         termsAccepted,
         termsAccepted ? new Date() : null,
         paymentInfo,
+        travelerPayout,
+        platformCommission,
+        processingFee,
+        fxBuffer,
+        senderShippingFee,
+        bagoNetRevenue,
       ],
     );
 

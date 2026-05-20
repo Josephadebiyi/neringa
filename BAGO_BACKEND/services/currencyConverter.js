@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import { queryOne } from '../lib/postgres/db.js';
-import { DEFAULT_COMMISSION_RATE } from './pricingService.js';
+import { DEFAULT_COMMISSION_RATE, getFullPricingConfig, calculateAllInclusivePrice } from './pricingService.js';
 
 const CACHE_DURATION = 10 * 60 * 1000;
 const PLATFORM_COMMISSION_RATE = DEFAULT_COMMISSION_RATE;
@@ -206,10 +206,12 @@ export function formatCurrency(amount, currency) {
 }
 
 export async function processPaymentQuote({ weight, travelerPricePerKg, travelerCurrency, senderCurrency }) {
-  const travelerTotal = calculateTravelerPrice(weight, travelerPricePerKg);
-  const commission = calculateCommission(travelerTotal);
-  const travelerPayout = calculateTravelerPayout(travelerTotal, commission);
-  const senderAmount = await convertCurrency(travelerTotal, travelerCurrency, senderCurrency);
+  // travelerPayout = exactly what the traveler set (weight × pricePerKg)
+  const travelerPayout = calculateTravelerPrice(weight, travelerPricePerKg);
+  const config = await getFullPricingConfig();
+  const breakdown = calculateAllInclusivePrice(travelerPayout, config);
+  // Convert the all-inclusive sender fee from traveler's currency to sender's currency
+  const senderAmount = await convertCurrency(breakdown.senderShippingFee, travelerCurrency, senderCurrency);
   const processor = choosePaymentProcessor(senderCurrency);
 
   return {
@@ -217,9 +219,13 @@ export async function processPaymentQuote({ weight, travelerPricePerKg, traveler
     travelerPricePerKg: Number(travelerPricePerKg),
     travelerCurrency: travelerCurrency.toUpperCase(),
     senderCurrency: senderCurrency.toUpperCase(),
-    travelerTotal,
-    commission,
-    travelerPayout,
+    travelerTotal: breakdown.senderShippingFee,
+    travelerPayout: breakdown.travelerPayout,
+    commission: breakdown.platformCommission,
+    platformCommission: breakdown.platformCommission,
+    processingFee: breakdown.processingFee,
+    fxBuffer: breakdown.fxBuffer,
+    bagoNetRevenue: breakdown.bagoNetRevenue,
     senderAmount: Number(senderAmount.toFixed(2)),
     paymentProcessor: processor,
   };
