@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum PackageStatus {
   pending,
   matched,
@@ -27,6 +29,14 @@ enum PackageStatus {
         PackageStatus.inTransit => 'in_transit',
         PackageStatus.delivered => 'delivered',
         PackageStatus.cancelled => 'cancelled',
+      };
+
+  Color get color => switch (this) {
+        PackageStatus.pending   => const Color(0xFFF59E0B),
+        PackageStatus.matched   => const Color(0xFF3B82F6),
+        PackageStatus.inTransit => const Color(0xFF8B5CF6),
+        PackageStatus.delivered => const Color(0xFF10B981),
+        PackageStatus.cancelled => const Color(0xFF6B7280),
       };
 
   bool get isActive =>
@@ -62,6 +72,16 @@ enum RequestStatus {
         RequestStatus.delivering => 'Delivering',
         RequestStatus.completed => 'Delivered',
         RequestStatus.cancelled => 'Cancelled',
+      };
+
+  Color get color => switch (this) {
+        RequestStatus.pending   => const Color(0xFFF59E0B),
+        RequestStatus.accepted  => const Color(0xFF3B82F6),
+        RequestStatus.intransit => const Color(0xFF8B5CF6),
+        RequestStatus.delivering=> const Color(0xFFF97316),
+        RequestStatus.completed => const Color(0xFF10B981),
+        RequestStatus.rejected  => const Color(0xFFEF4444),
+        RequestStatus.cancelled => const Color(0xFF6B7280),
       };
 
   String get apiValue => name;

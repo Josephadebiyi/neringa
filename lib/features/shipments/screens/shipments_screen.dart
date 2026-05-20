@@ -540,7 +540,7 @@ class _PackageCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              _StatusDot(label: package.statusLabel),
+              _StatusDot(label: package.statusLabel, color: package.status.color),
               const Spacer(),
               if (package.trackingNumber != null)
                 _InfoChip(label: package.trackingNumber!),
@@ -865,7 +865,7 @@ class _RequestCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _StatusDot(label: request.statusLabel),
+              _StatusDot(label: request.statusLabel, color: request.status.color),
               const Spacer(),
               Text(
                 '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
@@ -960,7 +960,7 @@ class _SenderRequestCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _StatusDot(label: request.statusLabel),
+              _StatusDot(label: request.statusLabel, color: request.status.color),
               const Spacer(),
               Text(
                 '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
@@ -1133,7 +1133,7 @@ class _TripCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              _StatusDot(label: trip.statusLabel),
+              _StatusDot(label: trip.statusLabel, color: _tripStatusColor(trip.status)),
               const Spacer(),
               _InfoChip(label: '${bookedKg.toStringAsFixed(0)} booked'),
               const SizedBox(width: 8),
@@ -1299,31 +1299,37 @@ class _TypeBadge extends StatelessWidget {
 }
 
 class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.label});
+  const _StatusDot({required this.label, this.color});
   final String label;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: AppColors.primary,
-            shape: BoxShape.circle,
+    final c = color ?? AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: c.withValues(alpha: 0.35), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7, height: 7,
+            decoration: BoxDecoration(color: c, shape: BoxShape.circle),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: AppTextStyles.labelSm.copyWith(
-            color: AppColors.black,
-            fontWeight: FontWeight.w700,
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTextStyles.labelSm.copyWith(
+              color: c,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1511,6 +1517,17 @@ Future<bool> _confirmDelete(BuildContext context) async {
       ],
     ),
   ) ?? false;
+}
+
+Color _tripStatusColor(String status) {
+  switch (status.trim().toLowerCase()) {
+    case 'active':      return const Color(0xFF3B82F6);
+    case 'upcoming':    return const Color(0xFFF59E0B);
+    case 'completed':   return const Color(0xFF10B981);
+    case 'cancelled':   return const Color(0xFF6B7280);
+    case 'full':        return const Color(0xFF8B5CF6);
+    default:            return AppColors.primary;
+  }
 }
 
 String _shortDate(String raw) {
