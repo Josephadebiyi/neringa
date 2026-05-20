@@ -12,6 +12,12 @@
 @import app_links;
 #endif
 
+#if __has_include(<dojah_kyc_sdk_flutter/DojahFlutterSdkPlugin.h>)
+#import <dojah_kyc_sdk_flutter/DojahFlutterSdkPlugin.h>
+#else
+@import dojah_kyc_sdk_flutter;
+#endif
+
 #if __has_include(<file_picker/FilePickerPlugin.h>)
 #import <file_picker/FilePickerPlugin.h>
 #else
@@ -112,6 +118,7 @@
 
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
   [AppLinksIosPlugin registerWithRegistrar:[registry registrarForPlugin:@"AppLinksIosPlugin"]];
+  [DojahFlutterSdkPlugin registerWithRegistrar:[registry registrarForPlugin:@"DojahFlutterSdkPlugin"]];
   [FilePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FilePickerPlugin"]];
   [FLTFirebaseCorePlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTFirebaseCorePlugin"]];
   [FLTFirebaseMessagingPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTFirebaseMessagingPlugin"]];

@@ -208,6 +208,7 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				E1C635ADEC15A1522B9A7B18 /* [CP] Copy Pods Resources */,
 				12EC8966435FFCFD50691B05 /* [CP] Embed Pods Frameworks */,
+				B2A5D9047A6E4C50B2751F34 /* Sign Native Asset Frameworks */,
 			);
 			buildRules = (
 			);
@@ -370,6 +371,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B2A5D9047A6E4C50B2751F34 /* Sign Native Asset Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Sign Native Asset Frameworks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nif [ \"${CODE_SIGNING_ALLOWED}\" != \"YES\" ] || [ -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ] || [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" = \"-\" ]; then\n  echo \"Skipping native asset framework signing because code signing is disabled.\"\n  exit 0\nfi\n\nFRAMEWORKS_DIR=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nNATIVE_FRAMEWORK=\"${FRAMEWORKS_DIR}/objective_c.framework\"\n\nif [ -d \"${NATIVE_FRAMEWORK}\" ]; then\n  echo \"Signing ${NATIVE_FRAMEWORK}\"\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"${NATIVE_FRAMEWORK}\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		E1C635ADEC15A1522B9A7B18 /* [CP] Copy Pods Resources */ = {

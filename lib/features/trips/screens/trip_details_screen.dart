@@ -11,6 +11,7 @@ import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../shared/widgets/journey_map_widget.dart';
 import '../models/trip_model.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
@@ -185,6 +186,19 @@ class _TripBody extends StatelessWidget {
             from: '${trip.fromLocation}, ${trip.fromCountry}',
             to: '${trip.toLocation}, ${trip.toCountry}',
             travelMeans: trip.travelMeans,
+          ),
+          const SizedBox(height: 16),
+          JourneyMapWidget(
+            fromCity: trip.fromLocation,
+            fromCountry: trip.fromCountry,
+            toCity: trip.toLocation,
+            toCountry: trip.toCountry,
+            travelMeans: trip.travelMeans,
+            status: trip.status,
+            departureDate: DateTime.tryParse(trip.departureDate)?.toLocal(),
+            arrivalDate: trip.arrivalDate != null
+                ? DateTime.tryParse(trip.arrivalDate!)?.toLocal()
+                : null,
           ),
           const SizedBox(height: 16),
           Container(

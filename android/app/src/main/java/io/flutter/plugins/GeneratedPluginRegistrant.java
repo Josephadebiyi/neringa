@@ -21,6 +21,11 @@ public final class GeneratedPluginRegistrant {
       Log.e(TAG, "Error registering plugin app_links, com.llfbandit.app_links.AppLinksPlugin", e);
     }
     try {
+      flutterEngine.getPlugins().add(new com.dojah.dojah_kyc_sdk_flutter.DojahFlutterSdkPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin dojah_kyc_sdk_flutter, com.dojah.dojah_kyc_sdk_flutter.DojahFlutterSdkPlugin", e);
+    }
+    try {
       flutterEngine.getPlugins().add(new com.mr.flutter.plugin.filepicker.FilePickerPlugin());
     } catch (Exception e) {
       Log.e(TAG, "Error registering plugin file_picker, com.mr.flutter.plugin.filepicker.FilePickerPlugin", e);

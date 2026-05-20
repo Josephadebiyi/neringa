@@ -7,9 +7,11 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/services/geocoding_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/journey_map_widget.dart';
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
@@ -181,7 +183,22 @@ class _TrackingScreenState extends State<TrackingScreen> {
          _buildDetailRow(l10n.destinationLabel, destination),
          if (!kIsWeb) _buildDetailRow(l10n.currentLocationLabel, currentLocation),
          _buildDetailRow(l10n.estimatedDeliveryLabel, estimatedDelivery),
+        const SizedBox(height: 24),
+        _buildJourneyMap(origin, destination, status),
       ],
+    );
+  }
+
+  Widget _buildJourneyMap(String origin, String destination, String status) {
+    final (fromCity, fromCountry) = GeocodingService.parseCityCountry(origin);
+    final (toCity, toCountry) = GeocodingService.parseCityCountry(destination);
+    if (fromCity.isEmpty || toCity.isEmpty) return const SizedBox.shrink();
+    return JourneyMapWidget(
+      fromCity: fromCity,
+      fromCountry: fromCountry,
+      toCity: toCity,
+      toCountry: toCountry,
+      status: status,
     );
   }
 

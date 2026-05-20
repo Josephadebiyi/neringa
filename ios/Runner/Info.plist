@@ -11,13 +11,21 @@
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 		<string>Bago needs your location to show nearby services and calculate distances.</string>
 		<key>NSCameraUsageDescription</key>
-		<string>Bago needs camera access to let you upload a profile photo.</string>
+		<string>Bago needs camera access for identity verification and profile photos.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Bago needs microphone access for identity verification.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Bago needs photo library access to let you choose a profile photo.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
 		<string>Bago needs permission to save photos to your library.</string>
 		<key>NSFaceIDUsageDescription</key>
 		<string>Bago uses Face ID to let you sign in quickly and securely.</string>
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>Bago needs local network access while debugging so Flutter tools can connect to the app.</string>
+		<key>NSBonjourServices</key>
+		<array>
+			<string>_dartobservatory._tcp</string>
+		</array>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
