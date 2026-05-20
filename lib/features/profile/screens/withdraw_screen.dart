@@ -405,6 +405,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                       label: 'Transaction fee', value: 'No fee from Bago'),
                   SizedBox(height: 8),
                   _InfoLine(label: 'Method', value: 'Bank Transfer'),
+                  SizedBox(height: 8),
+                  _InfoLine(
+                      label: 'Bago commission',
+                      value: '10% — already deducted from earnings'),
                 ],
               ),
             ),

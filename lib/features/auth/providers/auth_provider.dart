@@ -88,31 +88,40 @@ class AuthNotifier extends Notifier<AuthState> {
         return;
       }
 
-      final hasSavedSession = await _storage
-          .hasSavedSession()
-          .timeout(const Duration(seconds: 2), onTimeout: () => false);
-      debugPrint(
-          'Auth init: secure storage session present = $hasSavedSession');
+      // Restore from local cache instantly — unblocks splash without waiting for network.
+      final cachedUser = await _service.restoreSession(validateWithBackend: false);
+      state = state.copyWith(user: cachedUser, isInitialising: false);
 
-      // Must be longer than restoreSession's inner getProfile() timeout (5s)
-      // so the cached-user fallback fires before this outer timeout.
-      final user = await _service
-          .restoreSession(validateWithBackend: true)
-          .timeout(const Duration(seconds: 7), onTimeout: () => null);
-      state = state.copyWith(user: user, isInitialising: false);
-
-      if (user != null) {
-        await _connectRealtime(user.id);
+      if (cachedUser != null) {
+        unawaited(_connectRealtime(cachedUser.id));
         PushNotificationService.instance
             .prepareForSignedInUserSilently()
             .catchError((e) {
           debugPrint('Push notification prep failed: $e');
         });
-        _applyIpCurrencyIfNeeded(user).catchError((_) {});
+        _applyIpCurrencyIfNeeded(cachedUser).catchError((_) {});
+        // Background: validate token with server and refresh profile silently.
+        _refreshSessionInBackground().catchError((_) {});
       }
     } catch (e) {
       debugPrint('Auth init failed, continuing to app shell: $e');
       state = state.copyWith(isInitialising: false);
+    }
+  }
+
+  Future<void> _refreshSessionInBackground() async {
+    try {
+      final user = await _service
+          .restoreSession(validateWithBackend: true)
+          .timeout(const Duration(seconds: 15));
+      if (user == null) {
+        // Server rejected token (401/403) — log out
+        state = const AuthState(isInitialising: false);
+      } else {
+        state = state.copyWith(user: user);
+      }
+    } catch (_) {
+      // Network failure: cached session stays, user remains logged in
     }
   }
 

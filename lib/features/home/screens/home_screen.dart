@@ -54,22 +54,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // Fresh escrow pulled from wallet API — never from stale auth cache
   double? _liveEscrow;
   String _liveEscrowCurrency = '';
-  bool _dataLoaded = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadDataIfReady();
-    });
-  }
-
-  void _loadDataIfReady() {
-    if (_dataLoaded || !mounted) return;
-    if (!ref.read(authProvider).isLoggedIn) return;
-    _dataLoaded = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!ref.read(authProvider).isLoggedIn) return;
       ref.read(authProvider.notifier).refreshProfile();
       ref.read(tripProvider.notifier).loadMyTrips();
       ref.read(shipmentProvider.notifier).loadMyPackages();
@@ -160,10 +150,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
-    // Load data once when auth becomes ready (safe: runs outside build frame)
-    ref.listen<AuthState>(authProvider, (_, next) {
-      if (next.user != null) _loadDataIfReady();
-    });
     final tripState = ref.watch(tripProvider);
     final shipmentState = ref.watch(shipmentProvider);
     final isCarrier = user?.isCarrier ?? false;

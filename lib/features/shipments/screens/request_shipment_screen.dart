@@ -20,6 +20,7 @@ import '../../kyc/widgets/kyc_verification_required_dialog.dart';
 import '../../payment/services/shipment_checkout_service.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/services/trip_service.dart';
+import '../../../shared/services/app_settings_service.dart';
 import '../services/shipment_service.dart';
 import 'shipment_terms_screen.dart';
 
@@ -205,14 +206,15 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final currency = UserCurrencyHelper.resolve(user);
     if (weight == null || weight <= 0 || currency.isEmpty) return;
 
-    final baseShippingAmount = weight * trip.pricePerKg;
+    final settings = AppSettingsService.instance.cachedOrFallback;
+    final travelerPayout = weight * trip.pricePerKg;
     final shippingAmount = CurrencyConversionHelper.convert(
-      amount: baseShippingAmount,
+      amount: travelerPayout * settings.surchargeMultiplier,
       fromCurrency: trip.currency,
       toCurrency: currency,
     );
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
-    final insuranceAmount = _insurance ? (declaredValue * 0.04) : 0.0;
+    final insuranceAmount = _insurance ? (declaredValue * (settings.senderInsurancePercent / 100)) : 0.0;
     final totalAmount = shippingAmount + insuranceAmount;
     final provider =
         ShipmentCheckoutService.instance.providerForCurrency(currency);
@@ -248,7 +250,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         'currency': currency,
         'provider': provider,
         'tripCurrency': trip.currency,
-        'baseShippingAmount': baseShippingAmount,
+        'travelerPayout': travelerPayout,
+        'baseShippingAmount': travelerPayout,
         'shippingAmount': shippingAmount,
         'insuranceAmount': insuranceAmount,
         'totalAmount': totalAmount,
@@ -375,15 +378,15 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       );
     }
 
+    final settings = AppSettingsService.instance.cachedOrFallback;
     final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
-    final baseShippingAmount = weight * trip.pricePerKg;
     final shippingAmount = CurrencyConversionHelper.convert(
-      amount: baseShippingAmount,
+      amount: weight * trip.pricePerKg * settings.surchargeMultiplier,
       fromCurrency: trip.currency,
       toCurrency: currency,
     );
     final itemValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
-    final insuranceAmount = _insurance ? (itemValue * 0.04) : 0.0;
+    final insuranceAmount = _insurance ? (itemValue * (settings.senderInsurancePercent / 100)) : 0.0;
     final totalAmount = shippingAmount + insuranceAmount;
 
     return Scaffold(
@@ -477,6 +480,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             _InsuranceTile(
               enabled: _insurance,
               currency: currency,
+              insurancePercent: settings.senderInsurancePercent,
               onToggle: (v) => setState(() => _insurance = v),
             ),
             const SizedBox(height: 20),
@@ -487,6 +491,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               shippingAmount: shippingAmount,
               insuranceAmount: insuranceAmount,
               totalAmount: totalAmount,
+              insurancePercent: settings.senderInsurancePercent,
             ),
             const SizedBox(height: 28),
 
@@ -1298,9 +1303,11 @@ class _InsuranceTile extends StatelessWidget {
     required this.enabled,
     required this.currency,
     required this.onToggle,
+    this.insurancePercent = 0.5,
   });
   final bool enabled;
   final String currency;
+  final double insurancePercent;
   final ValueChanged<bool> onToggle;
 
   @override
@@ -1336,7 +1343,7 @@ class _InsuranceTile extends StatelessWidget {
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
           Text(
-            '4% of item value — covered in transit',
+            '${insurancePercent % 1 == 0 ? insurancePercent.toInt() : insurancePercent}% of item value — covered in transit',
             style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
           ),
         ])),
@@ -1358,11 +1365,13 @@ class _PriceSummaryCard extends StatelessWidget {
     required this.shippingAmount,
     required this.insuranceAmount,
     required this.totalAmount,
+    this.insurancePercent = 0.5,
   });
   final String currency;
   final double shippingAmount;
   final double insuranceAmount;
   final double totalAmount;
+  final double insurancePercent;
 
   @override
   Widget build(BuildContext context) {
@@ -1379,7 +1388,7 @@ class _PriceSummaryCard extends StatelessWidget {
             value: '$currency ${shippingAmount.toStringAsFixed(2)}'),
         const SizedBox(height: 12),
         _Row(
-            label: 'Item protection (4%)',
+            label: 'Item protection (${insurancePercent % 1 == 0 ? insurancePercent.toInt() : insurancePercent}%)',
             value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),

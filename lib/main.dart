@@ -20,13 +20,17 @@ void main() async {
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform);
+              options: DefaultFirebaseOptions.currentPlatform)
+          .timeout(const Duration(seconds: 8), onTimeout: () => Firebase.app());
     }
   } on FirebaseException catch (error) {
     if (error.code != 'duplicate-app') {
-      rethrow;
+      debugPrint('Firebase init failed, continuing startup: $error');
+    } else {
+      debugPrint('Firebase already initialized, continuing startup.');
     }
-    debugPrint('Firebase already initialized, continuing startup.');
+  } catch (error) {
+    debugPrint('Firebase init error, continuing startup: $error');
   }
 
   _logRuntimeConfig();
@@ -45,7 +49,8 @@ void main() async {
         Stripe.merchantIdentifier =
             ApiConstants.stripeApplePayMerchantIdentifier;
       }
-      await Stripe.instance.applySettings();
+      await Stripe.instance.applySettings()
+          .timeout(const Duration(seconds: 5), onTimeout: () {});
     } catch (error) {
       debugPrint('Stripe init skipped: $error');
     }

@@ -14,6 +14,10 @@ class AppSettingsSnapshot {
     required this.supportedCurrencies,
     required this.exchangeRates,
     this.stripePublishableKey = '',
+    this.platformCommissionPercent = 20,
+    this.processingFeePercent = 5,
+    this.fxBufferPercent = 1,
+    this.senderInsurancePercent = 0.5,
   });
 
   final String insuranceType;
@@ -24,6 +28,15 @@ class AppSettingsSnapshot {
   final List<String> supportedCurrencies;
   final Map<String, double> exchangeRates;
   final String stripePublishableKey;
+
+  // All-inclusive sender pricing
+  final double platformCommissionPercent;
+  final double processingFeePercent;
+  final double fxBufferPercent;
+  final double senderInsurancePercent;
+
+  double get surchargeMultiplier =>
+      1 + (platformCommissionPercent + processingFeePercent + fxBufferPercent) / 100;
 
   bool get usesFixedInsurance =>
       insuranceType.toLowerCase().trim() == 'fixed';
@@ -69,6 +82,10 @@ class AppSettingsSnapshot {
       supportedCurrencies: supportedCurrencies,
       exchangeRates: exchangeRates,
       stripePublishableKey: raw['stripePublishableKey']?.toString() ?? '',
+      platformCommissionPercent: _asDouble(raw['platformCommissionPercent'], fallback: 20),
+      processingFeePercent: _asDouble(raw['processingFeePercent'], fallback: 5),
+      fxBufferPercent: _asDouble(raw['fxBufferPercent'], fallback: 1),
+      senderInsurancePercent: _asDouble(raw['senderInsurancePercent'], fallback: 0.5),
     );
   }
 
