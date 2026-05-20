@@ -205,25 +205,24 @@ export const addBankAccount = async (req, res) => {
       });
     }
 
-    try {
-      await resend.emails.send({
-        from: 'Bago <no-reply@sendwithbago.com>',
-        to: user.email,
-        subject: 'Confirm your Bago payout bank',
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px;color:#111827">
-            <h2 style="color:#5240E8;margin:0 0 18px">Confirm your payout bank</h2>
-            <p>Hi ${user.first_name || 'there'},</p>
-            <p>You are linking this bank account for Bago payouts:</p>
-            <p><strong>Bank:</strong> ${bankName || 'Bank'}<br>
-            <strong>Account:</strong> ${accountInfo.accountName} - ****${accountNumber.slice(-4)}</p>
-            <p>Enter this 6-digit code in the app. It expires in 10 minutes.</p>
-            <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#5240E8;margin:24px 0">${otp}</div>
-            <p style="color:#6b7280;font-size:13px">If you did not request this, contact Bago support immediately.</p>
-          </div>
-        `,
-      });
-    } catch (emailError) {
+    const { data: emailData, error: emailError } = await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: user.email,
+      subject: 'Confirm your Bago payout bank',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px;color:#111827">
+          <h2 style="color:#5240E8;margin:0 0 18px">Confirm your payout bank</h2>
+          <p>Hi ${user.first_name || 'there'},</p>
+          <p>You are linking this bank account for Bago payouts:</p>
+          <p><strong>Bank:</strong> ${bankName || 'Bank'}<br>
+          <strong>Account:</strong> ${accountInfo.accountName} - ****${accountNumber.slice(-4)}</p>
+          <p>Enter this 6-digit code in the app. It expires in 30 minutes.</p>
+          <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#5240E8;margin:24px 0">${otp}</div>
+          <p style="color:#6b7280;font-size:13px">If you did not request this, contact Bago support immediately.</p>
+        </div>
+      `,
+    });
+    if (emailError) {
       console.error('Bank OTP email send error:', emailError);
       return res.status(502).json({
         success: false,
