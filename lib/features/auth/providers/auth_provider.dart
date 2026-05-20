@@ -94,9 +94,11 @@ class AuthNotifier extends Notifier<AuthState> {
       debugPrint(
           'Auth init: secure storage session present = $hasSavedSession');
 
+      // Must be longer than restoreSession's inner getProfile() timeout (5s)
+      // so the cached-user fallback fires before this outer timeout.
       final user = await _service
           .restoreSession(validateWithBackend: true)
-          .timeout(const Duration(seconds: 3), onTimeout: () => null);
+          .timeout(const Duration(seconds: 7), onTimeout: () => null);
       state = state.copyWith(user: user, isInitialising: false);
 
       if (user != null) {
