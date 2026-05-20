@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { query, queryOne } from '../lib/postgres/db.js';
 import { markKycApproved } from '../lib/postgres/accounts.js';
+import { sendKycApprovedEmail, sendKycSubmittedEmail } from '../services/emailNotifications.js';
+import { sendPushNotification } from '../services/pushNotificationService.js';
 
 // ---------------------------------------------------------------------------
 // Dojah-supported countries (ISO 3166-1 alpha-2)
@@ -74,13 +76,14 @@ export const startDojahSession = async (req, res) => {
       return res.status(503).json({ success: false, message: 'Dojah is not configured on the server' });
     }
 
-    // Mark user as having a pending KYC via Dojah
+    // Record that this user is using Dojah — do NOT set kyc_status here.
+    // Status is only updated once Dojah fires the webhook with an actual result.
     await query(
       `UPDATE public.profiles
-       SET kyc_status = 'pending', kyc_provider = 'dojah', updated_at = NOW()
+       SET kyc_provider = 'dojah', updated_at = NOW()
        WHERE id = $1`,
       [userId],
-    ).catch(() => {}); // non-fatal if column doesn't exist yet
+    ).catch(() => {});
 
     return res.json({
       success: true,
@@ -117,8 +120,41 @@ export const dojahWebhook = async (req, res) => {
       return res.status(200).json({ received: true, note: 'no userId in payload' });
     }
 
+    // Fetch user profile for notifications
+    const userRow = await queryOne(
+      `SELECT email, first_name, last_name FROM public.profiles WHERE id = $1`,
+      [userId],
+    ).catch(() => null);
+    const userEmail = userRow?.email;
+    const userName = [userRow?.first_name, userRow?.last_name].filter(Boolean).join(' ') || 'there';
+
     if (status === 'success' || status === 'approved' || status === 'verified') {
       await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: event });
+      if (userEmail) {
+        sendKycApprovedEmail(userEmail, userName).catch(() => {});
+      }
+      sendPushNotification(
+        userId,
+        'Identity Verified! ✅',
+        'Your identity has been verified. You now have full access to all Bago features.',
+        { type: 'kyc_approved' },
+      ).catch(() => {});
+    } else if (status === 'pending' || status === 'submitted' || status === 'review') {
+      await query(
+        `UPDATE public.profiles
+         SET kyc_status = 'pending', kyc_provider = 'dojah', updated_at = NOW()
+         WHERE id = $1`,
+        [userId],
+      ).catch(() => {});
+      if (userEmail) {
+        sendKycSubmittedEmail(userEmail, userName).catch(() => {});
+      }
+      sendPushNotification(
+        userId,
+        'Verification Under Review ⏳',
+        'Your identity verification has been submitted and is being reviewed. We\'ll notify you once it\'s approved.',
+        { type: 'kyc_pending' },
+      ).catch(() => {});
     } else if (status === 'failed' || status === 'declined' || status === 'rejected') {
       await query(
         `UPDATE public.profiles

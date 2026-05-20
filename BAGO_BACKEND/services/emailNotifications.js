@@ -741,7 +741,7 @@ export async function sendKycApprovedEmail(userEmail, userName) {
         Hi <strong style="color:#111827;">${firstName}</strong>,
       </p>
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
-        Great news! Your identity has been <strong>successfully verified</strong> by Didit. You now have full access to all Bago features.
+        Great news! Your identity has been <strong>successfully verified</strong>. You now have full access to all Bago features.
       </p>
       <div style="background:#f0fdf4; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #22c55e;">
         <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">You can now:</p>
@@ -765,6 +765,40 @@ export async function sendKycApprovedEmail(userEmail, userName) {
     return true;
   } catch (err) {
     console.error('❌ Failed to send KYC approved email:', err);
+    return false;
+  }
+}
+
+export async function sendKycSubmittedEmail(userEmail, userName) {
+  if (!resend) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Your identity verification has been <strong>submitted successfully</strong> and is currently under review. This usually takes a short while — we'll notify you as soon as it's approved.
+      </p>
+      <div style="background:#eff6ff; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #3b82f6;">
+        <p style="margin:0; font-size:14px; color:#374151; line-height:1.6;">
+          There's nothing else you need to do right now. Once your identity is confirmed, you'll receive another email and a notification in the app.
+        </p>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        If you have questions, our support team is here to help.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: '⏳ Identity Verification Submitted – We\'re reviewing your details',
+      html: generateEmailTemplate('Verification Submitted', content, 'Open Bago App', FRONTEND_URL),
+    });
+    console.log(`✅ Sent KYC submitted email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send KYC submitted email:', err);
     return false;
   }
 }
