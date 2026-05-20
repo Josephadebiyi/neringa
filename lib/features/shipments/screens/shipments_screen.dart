@@ -12,7 +12,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/name_formatter.dart';
+import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
@@ -605,12 +607,23 @@ class _TripsList extends ConsumerWidget {
                 r.status == RequestStatus.cancelled)
             .toList()
         : const <RequestModel>[];
+    final userCurrency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
     final totalKgSold = items.fold<double>(
         0, (sum, trip) => sum + trip.soldKg + trip.reservedKg);
     final totalKgRemaining =
         items.fold<double>(0, (sum, trip) => sum + trip.availableKg);
-    final totalEarnings =
-        items.fold<double>(0, (sum, trip) => sum + trip.travelerEarnings);
+    final totalEarnings = items.fold<double>(0, (sum, trip) {
+      if (trip.travelerEarnings == 0) return sum;
+      final currency = trip.currency.trim().toUpperCase();
+      if (currency.isEmpty || currency == userCurrency) {
+        return sum + trip.travelerEarnings;
+      }
+      return sum + CurrencyConversionHelper.convert(
+        amount: trip.travelerEarnings,
+        fromCurrency: currency,
+        toCurrency: userCurrency,
+      );
+    });
     final activeShipmentCount =
         items.fold<int>(0, (sum, trip) => sum + trip.activeShipmentCount);
 
@@ -680,6 +693,7 @@ class _TripsList extends ConsumerWidget {
               totalKgSold: totalKgSold,
               totalKgRemaining: totalKgRemaining,
               totalEarnings: totalEarnings,
+              earningsCurrency: userCurrency,
               activeShipmentCount: activeShipmentCount,
             ),
             const SizedBox(height: 16),
@@ -1147,28 +1161,33 @@ class _TripCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${trip.activeShipmentCount} active shipments',
+                  _shipmentCountLabel(trip),
                   style:
                       AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
                 ),
               ),
-              Text(
-                '${trip.currency} ${trip.travelerEarnings.toStringAsFixed(0)}',
-                style: AppTextStyles.labelMd.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w800,
+              if (trip.travelerEarnings > 0)
+                Text(
+                  '${trip.currency} ${trip.travelerEarnings.toStringAsFixed(2)}',
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              trip.bookingStatusSummary,
-              style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+          if (trip.activeShipmentCount > 0 &&
+              trip.bookingStatusSummary.isNotEmpty &&
+              trip.bookingStatusSummary != 'No active bookings') ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                trip.bookingStatusSummary,
+                style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1181,6 +1200,7 @@ class _TripSummaryStrip extends StatelessWidget {
     required this.totalKgSold,
     required this.totalKgRemaining,
     required this.totalEarnings,
+    required this.earningsCurrency,
     required this.activeShipmentCount,
   });
 
@@ -1188,6 +1208,7 @@ class _TripSummaryStrip extends StatelessWidget {
   final double totalKgSold;
   final double totalKgRemaining;
   final double totalEarnings;
+  final String earningsCurrency;
   final int activeShipmentCount;
 
   @override
@@ -1206,8 +1227,9 @@ class _TripSummaryStrip extends StatelessWidget {
           _InfoChip(label: '$totalTrips trips'),
           _InfoChip(label: '${totalKgSold.toStringAsFixed(0)}kg booked'),
           _InfoChip(label: '${totalKgRemaining.toStringAsFixed(0)}kg left'),
-          _InfoChip(label: '$activeShipmentCount active'),
-          _InfoChip(label: 'Earned ${totalEarnings.toStringAsFixed(0)}'),
+          if (activeShipmentCount > 0)
+            _InfoChip(label: '$activeShipmentCount active'),
+          _InfoChip(label: '$earningsCurrency ${totalEarnings.toStringAsFixed(2)} earned'),
         ],
       ),
     );
@@ -1517,6 +1539,18 @@ Future<bool> _confirmDelete(BuildContext context) async {
       ],
     ),
   ) ?? false;
+}
+
+String _shipmentCountLabel(TripModel trip) {
+  if (trip.activeShipmentCount > 0) {
+    final n = trip.activeShipmentCount;
+    return '$n active shipment${n == 1 ? '' : 's'}';
+  }
+  final summary = trip.bookingStatusSummary;
+  if (summary.isNotEmpty && summary != 'No active bookings') return summary;
+  final isCompleted = ['completed', 'cancelled']
+      .contains(trip.status.trim().toLowerCase());
+  return isCompleted ? 'Trip completed' : 'No active shipments';
 }
 
 Color _tripStatusColor(String status) {
