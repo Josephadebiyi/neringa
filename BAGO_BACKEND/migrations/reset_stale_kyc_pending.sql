@@ -7,6 +7,6 @@
 --   • Going forward, kyc_status = 'pending' is only written by the webhook when
 --     Dojah actually fires a pending/submitted/review event.
 UPDATE public.profiles
-SET kyc_status = NULL, updated_at = NOW()
+SET kyc_status = 'not_started', updated_at = NOW()
 WHERE kyc_status = 'pending'
   AND kyc_verified_at IS NULL;
