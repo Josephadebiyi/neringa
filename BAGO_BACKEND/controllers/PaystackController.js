@@ -174,7 +174,7 @@ export const addBankAccount = async (req, res) => {
 
     const currency = (req.body?.currency || req.body?.walletCurrency || req.body?.preferredCurrency || user.preferred_currency || 'NGN').toString().toUpperCase();
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
     await pgQuery(
       `UPDATE public.profiles
@@ -283,15 +283,27 @@ export const verifyBankOTP = async (req, res) => {
     const { accountNumber, bankCode, accountName, bankName, currency } = bankDetails;
 
     // Create transfer recipient on Paystack
-    const result = await createTransferRecipient({
-      name: accountName,
-      accountNumber,
-      bankCode,
-      currency: currency || profile.preferred_currency || 'NGN',
-    });
+    let result;
+    try {
+      result = await createTransferRecipient({
+        name: accountName,
+        accountNumber,
+        bankCode,
+        currency: currency || profile.preferred_currency || 'NGN',
+      });
+    } catch (recipientErr) {
+      console.error('Paystack create recipient failed after OTP verify:', recipientErr?.response?.data || recipientErr.message);
+      return res.status(422).json({
+        success: false,
+        message: 'Your OTP was correct, but we could not register your bank with our payment provider. Please try again or contact support.',
+      });
+    }
 
     if (!result.success) {
-      throw new Error('Failed to create Paystack recipient');
+      return res.status(422).json({
+        success: false,
+        message: 'Your OTP was correct, but bank registration failed. Please try again.',
+      });
     }
 
     // Save recipient code and finalize bank details in Postgres
