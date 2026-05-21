@@ -273,7 +273,7 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
 
           <!-- Header -->
           <tr>
-            <td style="padding:24px 28px; text-align:center; background:linear-gradient(90deg,#5240E8 0%, #6B5CFF 100%);">
+            <td bgcolor="#5240E8" style="padding:24px 28px; text-align:center; background:linear-gradient(90deg,#5240E8 0%, #6B5CFF 100%);">
               <a href="${FRONTEND_URL}" target="_blank" style="text-decoration:none; display:inline-block;">
                 <img src="${BAGO_LOGO}" alt="Bago" width="140" style="display:block; border:0;"/>
               </a>

@@ -18,7 +18,9 @@
         "react-phone-input-2": "^2.15.1",
         "react-router-dom": "^6.20.0",
         "react-select": "^5.10.2",
-        "socket.io-client": "4.8.3"
+        "socket.io-client": "4.8.3",
+        "react-leaflet": "^4.2.1",
+        "leaflet": "^1.9.4"
     },
     "devDependencies": {
         "@types/react": "^18.2.37",

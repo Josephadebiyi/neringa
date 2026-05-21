@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { Plane, Calendar, Trash2, Edit3, Plus, ChevronRight, Weight, RefreshCw, X } from 'lucide-react';
+import { Plane, Calendar, Trash2, Edit3, Plus, ChevronRight, Weight, RefreshCw, X, ChevronDown, TrendingUp } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import JourneyMap from '../JourneyMap';
+
+function formatPayoutStatus(raw) {
+    switch ((raw || '').trim().toLowerCase()) {
+        case 'paid': return 'Paid out';
+        case 'partially_paid': return 'Partially paid';
+        case 'pending': return 'Pending';
+        default: return raw || 'Pending';
+    }
+}
 
 export default function Trips() {
     const { t } = useLanguage();
@@ -12,6 +22,7 @@ export default function Trips() {
     const [editingTrip, setEditingTrip] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+    const [expandedTripId, setExpandedTripId] = useState(null);
 
     // Form states for editing
     const [fromLocation, setFromLocation] = useState('');
@@ -145,7 +156,7 @@ export default function Trips() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 mb-5 bg-gray-50/50 rounded-xl p-3.5 relative z-10 border border-gray-50">
+                            <div className="grid grid-cols-2 gap-3 mb-4 bg-gray-50/50 rounded-xl p-3.5 relative z-10 border border-gray-50">
                                 <div>
                                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">{t('availableSpace')}</p>
                                     <div className="flex items-center gap-1.5 text-[#012126] font-black text-xs uppercase tracking-tighter">
@@ -159,7 +170,48 @@ export default function Trips() {
                                         {t(trip.travelMeans?.toLowerCase()) || trip.travelMeans || t('flight')}
                                     </div>
                                 </div>
+                                {trip.travelerEarnings > 0 && (
+                                    <div>
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">Earnings</p>
+                                        <div className="flex items-center gap-1 text-green-600 font-black text-xs">
+                                            <TrendingUp size={11} />
+                                            <span>{trip.currency || 'USD'} {Number(trip.travelerEarnings).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {trip.payoutStatus && (
+                                    <div>
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-60">Payout</p>
+                                        <div className={`text-[10px] font-black uppercase tracking-tight ${trip.payoutStatus === 'paid' ? 'text-green-600' : trip.payoutStatus === 'partially_paid' ? 'text-yellow-600' : 'text-gray-400'}`}>
+                                            {formatPayoutStatus(trip.payoutStatus)}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Journey Map toggle */}
+                            <button
+                                onClick={() => setExpandedTripId(expandedTripId === (trip._id || trip.id) ? null : (trip._id || trip.id))}
+                                className="w-full flex items-center justify-center gap-1.5 py-2 mb-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-[9px] font-black text-gray-400 uppercase tracking-widest relative z-10"
+                            >
+                                <span>Route Map</span>
+                                <ChevronDown size={12} className={`transition-transform ${expandedTripId === (trip._id || trip.id) ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {expandedTripId === (trip._id || trip.id) && (
+                                <div className="mb-4 relative z-10">
+                                    <JourneyMap
+                                        fromCity={trip.fromLocation}
+                                        fromCountry={trip.fromCountry || ''}
+                                        toCity={trip.toLocation}
+                                        toCountry={trip.toCountry || ''}
+                                        travelMeans={trip.travelMeans || 'airplane'}
+                                        status={trip.status}
+                                        departureDate={trip.departureDate}
+                                        arrivalDate={trip.arrivalDate}
+                                    />
+                                </div>
+                            )}
 
                             {/* Delete Confirmation */}
                             {deleteConfirmId === (trip._id || trip.id) ? (

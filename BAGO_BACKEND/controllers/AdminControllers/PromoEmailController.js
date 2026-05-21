@@ -59,7 +59,7 @@ export const sendPromoEmail = async (req, res, next) => {
     const htmlTemplate = `<!DOCTYPE html><html><head><style>
       body{font-family:Arial,sans-serif;line-height:1.6;color:#1e293b;background:#f8fafc;margin:0;padding:0;}
       .container{max-width:600px;margin:40px auto;background:white;border-radius:24px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.05);}
-      .header{background:linear-gradient(90deg,#5240E8 0%,#3B28C9 100%);padding:30px;text-align:center;}
+      .header{background:#5240E8;background:linear-gradient(90deg,#5240E8 0%,#3B28C9 100%);padding:30px;text-align:center;}
       .content{padding:40px;}.footer{padding:20px;text-align:center;font-size:12px;color:#64748b;background:#f1f5f9;}
       .promo-text{font-size:16px;color:#334155;white-space:pre-wrap;}
       .btn{display:inline-block;padding:16px 32px;background:#5240E8;color:white!important;text-decoration:none;border-radius:14px;font-weight:bold;margin-top:30px;}

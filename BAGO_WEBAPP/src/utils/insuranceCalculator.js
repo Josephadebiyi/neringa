@@ -77,14 +77,14 @@ export function calculateInsurance(itemValue, currencyCode = 'USD', exchangeRate
     // Check if we have exchange rates
     if (!exchangeRates || Object.keys(exchangeRates).length === 0) {
       console.warn('⚠️ No exchange rates provided, using fallback calculation');
-      // Fallback: assume $3 fixed
+      const fallback = Math.round(itemValue * 0.005 * 100) / 100;
       return {
-        insurancePrice: 3,
-        insurancePriceUSD: 3,
+        insurancePrice: fallback,
+        insurancePriceUSD: fallback,
         currency: 'USD',
         itemValue: itemValue,
         itemValueUSD: itemValue,
-        threshold: 'fallback',
+        threshold: '0.5%',
         warning: 'Exchange rates unavailable',
       };
     }
@@ -106,16 +106,8 @@ export function calculateInsurance(itemValue, currencyCode = 'USD', exchangeRate
       }
     }
 
-    // Step 2: Apply threshold logic (in USD)
-    let insurancePriceUSD;
-
-    if (itemValueUSD >= 100) {
-      // 1% of item value
-      insurancePriceUSD = itemValueUSD * 0.01;
-    } else {
-      // Fixed $3
-      insurancePriceUSD = 3;
-    }
+    // 0.5% of item value (all-inclusive)
+    let insurancePriceUSD = itemValueUSD * 0.005;
 
     // Round to 2 decimal places
     insurancePriceUSD = Math.round(insurancePriceUSD * 100) / 100;
@@ -142,7 +134,7 @@ export function calculateInsurance(itemValue, currencyCode = 'USD', exchangeRate
       currency,             // User's currency code
       itemValue,            // Original item value
       itemValueUSD,         // Item value in USD
-      threshold: itemValueUSD >= 100 ? '1%' : 'fixed',
+      threshold: '0.5%',
     };
 
   } catch (error) {

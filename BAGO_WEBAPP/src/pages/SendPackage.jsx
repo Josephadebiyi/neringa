@@ -926,12 +926,16 @@ export default function SendPackage() {
 
                                 <div className="space-y-3 border-t border-white/10 pt-6">
                                     <div className="flex justify-between items-center text-[8px] font-black text-white/40 uppercase tracking-widest">
-                                        <span>Shipping (Fixed / Standard)</span>
-                                        <span>{currency} {shippingCost.toFixed(2)}</span>
+                                        <span>Traveler rate</span>
+                                        <span>{currency} {(shippingCost / 1.26).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[8px] font-black text-white/40 uppercase tracking-widest">
+                                        <span>Platform fee (26%)</span>
+                                        <span>{currency} {(shippingCost - shippingCost / 1.26).toFixed(2)}</span>
                                     </div>
                                     {formData.insuranceProtection && (
                                         <div className="flex justify-between items-center text-[8px] font-black text-white/40 uppercase tracking-widest">
-                                            <span>Insurance Protection</span>
+                                            <span>Insurance (0.5%)</span>
                                             <span>{currency} {insuranceCost.toFixed(2)}</span>
                                         </div>
                                     )}
@@ -941,8 +945,8 @@ export default function SendPackage() {
                                             <p className="text-2xl font-black">{currency} {totalCost}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1.5">{t('serviceFee')}</p>
-                                            <p className="text-[10px] font-black">INCLUDED</p>
+                                            <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1.5">All-inclusive</p>
+                                            <p className="text-[10px] font-black">NO HIDDEN FEES</p>
                                         </div>
                                     </div>
                                 </div>

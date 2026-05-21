@@ -11,10 +11,10 @@ import {
     Clock,
     CheckCircle,
     Truck,
-    ArrowRight,
     RefreshCw,
     Shield
 } from 'lucide-react';
+import JourneyMap from '../components/JourneyMap';
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -172,6 +172,22 @@ export default function TrackShipment() {
                                 })}
                             </div>
                         </div>
+
+                        {/* Journey Map */}
+                        {shipment.fromCity && shipment.toCity && (
+                            <div className="mb-8">
+                                <JourneyMap
+                                    fromCity={shipment.fromCity}
+                                    fromCountry={shipment.fromCountry || ''}
+                                    toCity={shipment.toCity}
+                                    toCountry={shipment.toCountry || ''}
+                                    travelMeans={shipment.travelMeans || 'truck'}
+                                    status={shipment.status}
+                                    departureDate={shipment.departureDate || shipment.estimatedDeparture}
+                                    arrivalDate={shipment.arrivalDate || shipment.estimatedArrival}
+                                />
+                            </div>
+                        )}
 
                         {/* Recent Movements */}
                         <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
