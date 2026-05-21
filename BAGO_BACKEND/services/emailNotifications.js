@@ -297,9 +297,13 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
 
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 24px; background:#fbfbfe; text-align:center; font-family:Arial, sans-serif; font-size:12px; color:#9ca3af;">
+            <td style="padding:24px 24px 20px; background:#fbfbfe; text-align:center; font-family:Arial, sans-serif; font-size:12px; color:#9ca3af;">
               <div style="max-width:520px; margin:0 auto;">
-                <div style="margin-bottom:6px;">Need help? Visit our <a href="${FRONTEND_URL}/help" style="color:#5240E8; text-decoration:none;">Help Center</a>.</div>
+                <p style="margin:0 0 12px; font-family:Arial, sans-serif; font-size:11px; color:#9ca3af;">Get the Bago app</p>
+                <a href="${FRONTEND_URL}" target="_blank" style="display:inline-block;">
+                  <img src="${FRONTEND_URL}/app_store_buttons.png" alt="Download on App Store and Google Play" width="240" style="display:block; border:0; margin:0 auto;"/>
+                </a>
+                <div style="margin-top:16px; margin-bottom:6px;">Need help? Visit our <a href="${FRONTEND_URL}/help" style="color:#5240E8; text-decoration:none;">Help Center</a>.</div>
                 <div style="margin-top:8px;">© ${new Date().getFullYear()} Bago. All rights reserved.</div>
               </div>
             </td>

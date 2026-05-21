@@ -97,8 +97,20 @@ function buildUserResponse(user) {
     escrow_balance: Number(user.escrowBalance || 0),
     walletCurrency: user.walletCurrency || user.preferredCurrency || 'USD',
     wallet_currency: user.walletCurrency || user.preferredCurrency || 'USD',
-    bankAccountLinked: Boolean(user.paystackRecipientCode),
-    bank_account_linked: Boolean(user.paystackRecipientCode),
+    stripeVerified: user.stripeVerified ?? false,
+    stripe_verified: user.stripeVerified ?? false,
+    stripeConnectAccountId: user.stripeConnectAccountId || user.stripeAccountId || null,
+    stripe_connect_account_id: user.stripeConnectAccountId || user.stripeAccountId || null,
+    paystackRecipientCode: user.paystackRecipientCode || null,
+    paystack_recipient_code: user.paystackRecipientCode || null,
+    bankDetails: user.bankDetails || {},
+    bank_details: user.bankDetails || {},
+    payoutMethod: user.payoutMethod || null,
+    payout_method: user.payoutMethod || null,
+    payoutMethodStatus: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeVerified ? 'connected' : null),
+    payout_method_status: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeVerified ? 'connected' : null),
+    bankAccountLinked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeVerified),
+    bank_account_linked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeVerified),
   };
 }
 

@@ -68,7 +68,11 @@ export const sendPromoEmail = async (req, res, next) => {
       <div class="content"><div class="promo-text">${body}</div>${bodyImagesHtml}
         <div style="text-align:center;"><a href="https://sendwithbago.com" class="btn">Explore Bago</a></div>
       </div>
-      <div class="footer">&copy; ${new Date().getFullYear()} Bago Logistics. All rights reserved.<br/>You received this email because you are a registered user of Bago.</div>
+      <div class="footer">
+        <p style="margin:0 0 12px;font-size:11px;color:#94a3b8;">Get the Bago app</p>
+        <a href="https://sendwithbago.com" style="display:inline-block;"><img src="https://sendwithbago.com/app_store_buttons.png" alt="Download on App Store and Google Play" width="220" style="display:block;border:0;margin:0 auto;"/></a>
+        <p style="margin:16px 0 0;">&copy; ${new Date().getFullYear()} Bago Logistics. All rights reserved.<br/>You received this email because you are a registered user of Bago.</p>
+      </div>
     </div></body></html>`;
 
     const { data, error } = await resend.emails.send({

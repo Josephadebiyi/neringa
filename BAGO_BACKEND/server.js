@@ -1358,9 +1358,13 @@ app.post("/send-otp", isAuthenticated, async (req, res) => {
 
           <!-- Footer -->
           <tr>
-            <td style="padding:18px 24px; background:#fbfbfe; text-align:center; font-family:Arial, sans-serif; font-size:12px; color:#9ca3af;">
+            <td style="padding:24px 24px 20px; background:#fbfbfe; text-align:center; font-family:Arial, sans-serif; font-size:12px; color:#9ca3af;">
               <div style="max-width:520px; margin:0 auto;">
-                <div style="margin-bottom:6px;">Need help? Visit our <a href="${process.env.FRONTEND_URL || '#'}" style="color:#5240E8; text-decoration:none;">Help Center</a>.</div>
+                <p style="margin:0 0 12px; font-family:Arial, sans-serif; font-size:11px; color:#9ca3af;">Get the Bago app</p>
+                <a href="${process.env.FRONTEND_URL || 'https://sendwithbago.com'}" target="_blank" style="display:inline-block;">
+                  <img src="${process.env.FRONTEND_URL || 'https://sendwithbago.com'}/app_store_buttons.png" alt="Download on App Store and Google Play" width="240" style="display:block; border:0; margin:0 auto;"/>
+                </a>
+                <div style="margin-top:16px; margin-bottom:6px;">Need help? Visit our <a href="${process.env.FRONTEND_URL || 'https://sendwithbago.com'}" style="color:#5240E8; text-decoration:none;">Help Center</a>.</div>
                 <div style="margin-top:8px;">© ${new Date().getFullYear()} Bago. All rights reserved.</div>
                 <div style="margin-top:8px;"><a href="#" style="color:#9ca3af; text-decoration:underline;">Unsubscribe</a></div>
               </div>
