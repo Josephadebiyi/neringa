@@ -9,7 +9,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 
-const _kDojahWidgetId = '6a0326d5e680c3109bc57f0b';
+const _kDojahWidgetId = '6a107b3f9e9b60b7a55f5fdf';
 
 enum _KycState { launching, error }
 
@@ -44,11 +44,25 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     if (_launched) return;
     _launched = true;
 
+    final user = ref.read(authProvider).user;
+    final email = user?.email ?? '';
+    final firstName = user?.fullName.split(' ').first ?? '';
+    final lastName = user?.fullName.contains(' ') == true
+        ? user!.fullName.split(' ').skip(1).join(' ')
+        : '';
+
     String result;
     try {
       result = await DojahKyc.launch(
         _kDojahWidgetId,
+        referenceId: widget.userId,
+        email: email.isNotEmpty ? email : null,
         extraUserData: ExtraUserData(
+          userData: UserData(
+            email: email.isNotEmpty ? email : null,
+            firstName: firstName.isNotEmpty ? firstName : null,
+            lastName: lastName.isNotEmpty ? lastName : null,
+          ),
           metadata: {
             'userId': widget.userId,
             'country': widget.countryCode,
