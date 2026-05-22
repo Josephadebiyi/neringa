@@ -46,10 +46,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
     final user = ref.read(authProvider).user;
     final email = user?.email ?? '';
-    final firstName = user?.fullName.split(' ').first ?? '';
-    final lastName = user?.fullName.contains(' ') == true
-        ? user!.fullName.split(' ').skip(1).join(' ')
-        : '';
 
     String result;
     try {
@@ -58,10 +54,12 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         referenceId: widget.userId,
         email: email.isNotEmpty ? email : null,
         extraUserData: ExtraUserData(
+          // Only pre-fill email — names are intentionally left blank so users
+          // enter their legal name from their ID document. Dojah then extracts
+          // and returns the verified name via webhook, overwriting any nickname
+          // that came from a Google / Apple signup.
           userData: UserData(
             email: email.isNotEmpty ? email : null,
-            firstName: firstName.isNotEmpty ? firstName : null,
-            lastName: lastName.isNotEmpty ? lastName : null,
           ),
           metadata: {
             'userId': widget.userId,

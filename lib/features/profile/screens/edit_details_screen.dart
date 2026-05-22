@@ -338,7 +338,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          kycLocked ? 'KYC Passed' : 'KYC Not Passed',
+                          kycLocked ? 'Identity Verified' : 'Identity Not Verified',
                           style: AppTextStyles.labelMd.copyWith(
                             fontWeight: FontWeight.w600,
                             color: kycLocked
@@ -349,7 +349,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                         const SizedBox(height: 4),
                         Text(
                           kycLocked
-                              ? 'Didit has verified your identity, so legal identity fields are now locked.'
+                              ? 'Your legal name and date of birth are locked to your verified identity.'
                               : 'Complete KYC to unlock higher limits',
                           style: AppTextStyles.bodySm.copyWith(
                             color: AppColors.gray400,
