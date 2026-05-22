@@ -3,7 +3,7 @@ import { Shield, Plane, Package, CheckCircle, Clock, AlertCircle, Wallet, Phone 
 import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStatus, userStats }) {
+export default function Overview({ user, kycStatus, handleStartKyc, userStats }) {
     const { t } = useLanguage();
     const navigate = useNavigate();
     const effectiveKycStatus = user?.kycStatus === 'approved' || user?.isKycCompleted
@@ -12,22 +12,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
     const phoneVerified = user?.phoneVerified === true;
 
     const renderKycContent = () => {
-        // If phone is not verified yet, show phone verification prompt only
-        if (effectiveKycStatus !== 'approved' && !phoneVerified) {
-            return (
-                <div className="space-y-4 font-sans">
-                    <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-relaxed opacity-80">{t('verifyPhoneToAccess') || 'Verify your phone number to continue.'}</p>
-                    <button
-                        onClick={() => navigate('/dashboard?tab=settings')}
-                        className="w-full bg-[#5845D8] text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest shadow-md shadow-[#5845D8]/15 hover:scale-[1.02] transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        <Phone size={12} />
-                        {t('verifyPhone') || 'Verify Phone'}
-                    </button>
-                </div>
-            );
-        }
-
         switch (effectiveKycStatus) {
             case 'approved':
                 return (
@@ -100,11 +84,20 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                 );
             default:
                 return (
-                    <div className="space-y-4 font-sans">
+                    <div className="space-y-3 font-sans">
                         <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-relaxed opacity-80">{t('completeVerificationToPost')}</p>
                         <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest shadow-md shadow-[#5845D8]/15 hover:scale-[1.02] transition-all active:scale-95">
                             {t('verifyNow')}
                         </button>
+                        {!phoneVerified && (
+                            <button
+                                onClick={() => navigate('/dashboard?tab=settings')}
+                                className="w-full border border-gray-200 text-gray-500 font-black py-2 rounded-xl text-[8px] uppercase tracking-widest hover:border-[#5845D8]/40 transition-all flex items-center justify-center gap-1.5"
+                            >
+                                <Phone size={10} />
+                                Also verify phone
+                            </button>
+                        )}
                     </div>
                 );
         }
@@ -119,10 +112,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, fetchKycStat
                         <div className="absolute top-0 right-0 w-20 h-20 bg-[#5845D8]/5 rounded-bl-[50px] -mr-8 -mt-8 group-hover:bg-[#5845D8]/10 transition-all"></div>
                         <div className="flex items-center justify-between mb-4 relative z-10">
                             <h3 className="font-black text-[#012126] flex items-center gap-2 text-[9px] uppercase tracking-widest">
-                                {effectiveKycStatus !== 'approved' && !phoneVerified
-                                    ? <><Phone size={14} className="text-[#5845D8]" /> {t('phoneVerification') || 'Phone'}</>
-                                    : <><Shield size={14} className="text-[#5845D8]" /> {t('verification')}</>
-                                }
+                                <Shield size={14} className="text-[#5845D8]" /> {t('verification') || 'Identity Verification'}
                             </h3>
                         </div>
 
