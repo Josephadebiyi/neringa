@@ -1,7 +1,7 @@
 name: bago_app
 description: Bago - P2P International Logistics Platform
 publish_to: 'none'
-version: 1.0.0+78
+version: 1.0.0+80
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -74,7 +74,7 @@ dependencies:
   webview_flutter: ^4.11.0
 
   # Native Dojah KYC SDK
-  dojah_kyc_sdk_flutter: ^0.1.7
+  dojah_kyc_sdk_flutter: ^0.1.8
 
   # URL launcher
   url_launcher: ^6.3.1

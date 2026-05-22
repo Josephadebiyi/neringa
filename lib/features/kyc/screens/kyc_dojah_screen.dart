@@ -54,16 +54,16 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         referenceId: widget.userId,
         email: email.isNotEmpty ? email : null,
         extraUserData: ExtraUserData(
-          // Only pre-fill email — names are intentionally left blank so users
-          // enter their legal name from their ID document. Dojah then extracts
-          // and returns the verified name via webhook, overwriting any nickname
+          // Only pre-fill email — names intentionally left blank so the user
+          // enters their legal name from their ID document. Dojah extracts and
+          // returns the verified name via webhook, overwriting any nickname
           // that came from a Google / Apple signup.
           userData: UserData(
             email: email.isNotEmpty ? email : null,
           ),
           metadata: {
             'userId': widget.userId,
-            'country': widget.countryCode,
+            if (widget.countryCode.isNotEmpty) 'country': widget.countryCode,
           },
         ),
       );
@@ -78,15 +78,26 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
     if (!mounted) return;
 
-    if (result == 'closed') {
+    // Treat any non-success result as the appropriate action
+    final lower = result.toLowerCase().trim();
+
+    // User closed / cancelled — just go back silently
+    if (lower == 'closed' || lower.isEmpty) {
       Navigator.of(context).pop();
       return;
     }
 
-    if (result == 'failed') {
+    // Explicit failure or any unrecognised SDK-internal string (e.g. "failed",
+    // "initializing dojah sdk", "2secs", etc.) that is NOT a completion status
+    final isSuccess = lower.contains('success') ||
+        lower.contains('complet') ||
+        lower.contains('submitted') ||
+        lower.contains('verif');
+
+    if (!isSuccess) {
       setState(() {
         _state = _KycState.error;
-        _errorMessage = 'Verification could not be started. Please try again.';
+        _errorMessage = 'Verification could not be completed. Please try again.';
       });
       return;
     }
@@ -128,26 +139,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       ),
       body: Center(
         child: switch (_state) {
-          _KycState.launching => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(
-                    color: AppColors.primary, strokeWidth: 3),
-                const SizedBox(height: 24),
-                Text(
-                  'Opening secure verification…',
-                  style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.gray700, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'You\'ll be guided through a quick identity check.',
-                  style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+          _KycState.launching => const CircularProgressIndicator(
+              color: AppColors.primary, strokeWidth: 3),
           _KycState.error => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(

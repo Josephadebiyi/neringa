@@ -277,10 +277,10 @@ packages:
     dependency: "direct main"
     description:
       name: dojah_kyc_sdk_flutter
-      sha256: f47b1f37e9ea81f73448a48c9e49593f25a02920e5e9975c77e4bd51e123da87
+      sha256: a8d159f9619eeaf9b656e039d461c875938e514740b04b8b00e42ee225091b38
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.7"
+    version: "0.1.8"
   fake_async:
     dependency: transitive
     description:
