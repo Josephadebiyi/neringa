@@ -45,22 +45,19 @@ export const getKycProvider = async (req, res) => {
     return res.status(400).json({ success: false, message: 'country is required' });
   }
 
-  if (DOJAH_COUNTRIES.has(country)) {
-    if (!DOJAH_APP_ID || !DOJAH_PUBLIC_KEY) {
-      // Fall back to manual if Dojah keys not configured
-      return res.json({ success: true, provider: 'manual', country });
-    }
-    return res.json({
-      success: true,
-      provider: 'dojah',
-      country,
-      appId: DOJAH_APP_ID,
-      publicKey: DOJAH_PUBLIC_KEY,
-    });
+  // Dojah handles global documents — route every country through Dojah when keys
+  // are configured. Fall back to manual review only if keys are missing.
+  if (!DOJAH_APP_ID || !DOJAH_PUBLIC_KEY) {
+    return res.json({ success: true, provider: 'manual', country });
   }
 
-  // Non-Dojah country — use in-app manual review flow
-  return res.json({ success: true, provider: 'manual', country });
+  return res.json({
+    success: true,
+    provider: 'dojah',
+    country,
+    appId: DOJAH_APP_ID,
+    publicKey: DOJAH_PUBLIC_KEY,
+  });
 };
 
 // ---------------------------------------------------------------------------
