@@ -5,56 +5,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../shared/services/api_service.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_dojah_screen.dart';
-import 'kyc_manual_screen.dart';
 
-const _allCountries = [
-  ('🇳🇬', 'Nigeria', 'NG'),
-  ('🇬🇭', 'Ghana', 'GH'),
-  ('🇰🇪', 'Kenya', 'KE'),
-  ('🇿🇦', 'South Africa', 'ZA'),
-  ('🇺🇬', 'Uganda', 'UG'),
-  ('🇷🇼', 'Rwanda', 'RW'),
-  ('🇹🇿', 'Tanzania', 'TZ'),
-  ('🇨🇲', 'Cameroon', 'CM'),
-  ('🇸🇳', 'Senegal', 'SN'),
-  ('🇨🇮', "Côte d'Ivoire", 'CI'),
-  ('🇸🇱', 'Sierra Leone', 'SL'),
-  ('🇿🇲', 'Zambia', 'ZM'),
-  ('🇧🇯', 'Benin', 'BJ'),
-  ('🇹🇬', 'Togo', 'TG'),
-  ('🇪🇹', 'Ethiopia', 'ET'),
-  ('🇨🇩', 'DR Congo', 'CD'),
-  ('🇲🇿', 'Mozambique', 'MZ'),
-  ('🇿🇼', 'Zimbabwe', 'ZW'),
-  ('🇲🇼', 'Malawi', 'MW'),
-  ('🇬🇳', 'Guinea', 'GN'),
-  ('🇬🇧', 'United Kingdom', 'GB'),
-  ('🇺🇸', 'United States', 'US'),
-  ('🇫🇷', 'France', 'FR'),
-  ('🇩🇪', 'Germany', 'DE'),
-  ('🇮🇹', 'Italy', 'IT'),
-  ('🇪🇸', 'Spain', 'ES'),
-  ('🇳🇱', 'Netherlands', 'NL'),
-  ('🇧🇪', 'Belgium', 'BE'),
-  ('🇸🇪', 'Sweden', 'SE'),
-  ('🇨🇭', 'Switzerland', 'CH'),
-  ('🇵🇹', 'Portugal', 'PT'),
-  ('🇨🇦', 'Canada', 'CA'),
-  ('🇦🇺', 'Australia', 'AU'),
-  ('🇦🇪', 'UAE', 'AE'),
-  ('🇧🇷', 'Brazil', 'BR'),
-  ('🇮🇳', 'India', 'IN'),
-  ('🇨🇳', 'China', 'CN'),
-  ('🇯🇵', 'Japan', 'JP'),
-];
-
-/// Entry point — shows T&C consent then country picker
+/// Entry point — shows T&C / data consent then launches Dojah directly.
+/// Country selection is handled inside the Dojah widget (200+ countries).
 class KycCountrySelector extends ConsumerStatefulWidget {
   const KycCountrySelector({super.key, this.fromOnboarding = false});
   final bool fromOnboarding;
@@ -64,86 +20,29 @@ class KycCountrySelector extends ConsumerStatefulWidget {
 }
 
 class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
-  // Step 0 = T&C, Step 1 = country picker
-  int _step = 0;
   bool _termsAccepted = false;
   bool _privacyAccepted = false;
 
-  String? _selectedCode;
-  bool _loading = false;
-  String _search = '';
-
-  @override
-  void initState() {
-    super.initState();
+  void _proceed() {
     final user = ref.read(authProvider).user;
-    if (user?.country != null) {
-      final code = user!.country!.toUpperCase();
-      final match = _allCountries.where((c) => c.$3 == code).firstOrNull;
-      if (match != null) {
-        _selectedCode = match.$3;
-      }
-    }
-  }
+    final userId = user?.id ?? '';
+    final countryCode = user?.country?.toUpperCase() ?? '';
 
-  List<(String, String, String)> get _filtered {
-    if (_search.isEmpty) return _allCountries;
-    final q = _search.toLowerCase();
-    return _allCountries.where((c) => c.$2.toLowerCase().contains(q)).toList();
-  }
-
-  Future<void> _proceed() async {
-    if (_selectedCode == null) return;
-    setState(() => _loading = true);
-
-    try {
-      final res = await ApiService.instance.get(
-        '${ApiConstants.kycProvider}?country=$_selectedCode',
-      );
-      final data = res.data as Map<String, dynamic>;
-      final provider = data['provider'] as String? ?? 'manual';
-
-      if (!mounted) return;
-
-      if (provider == 'dojah') {
-        if (!mounted) return;
-        final userId = ref.read(authProvider).user?.id ?? '';
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => KycDojahScreen(
-              userId: userId,
-              countryCode: _selectedCode!,
-              fromOnboarding: widget.fromOnboarding,
-            ),
-          ),
-        );
-      } else if (provider == 'manual') {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) =>
-                KycManualScreen(fromOnboarding: widget.fromOnboarding),
-          ),
-        );
-      } else {
-        // Unknown provider: keep the user moving through manual review.
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) =>
-                KycManualScreen(fromOnboarding: widget.fromOnboarding),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
-        setState(() => _loading = false);
-      }
-    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => KycDojahScreen(
+          userId: userId,
+          countryCode: countryCode,
+          fromOnboarding: widget.fromOnboarding,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final canContinue = _termsAccepted && _privacyAccepted;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -151,259 +50,152 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
         elevation: 0,
         leading: BackButton(
           color: AppColors.black,
-          onPressed: _step == 1
-              ? () => setState(() => _step = 0)
-              : () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text('Identity Verification', style: AppTextStyles.h3),
       ),
-      body: _step == 0 ? _buildConsent() : _buildCountryPicker(),
-    );
-  }
-
-  Widget _buildConsent() {
-    final canContinue = _termsAccepted && _privacyAccepted;
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.shield_outlined,
-                          color: AppColors.primary, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Data Protection & Consent',
-                                style: AppTextStyles.bodyMd
-                                    .copyWith(fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 6),
-                            Text(
-                              'To verify your identity we collect and process your personal data including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.',
-                              style: AppTextStyles.bodySm.copyWith(
-                                  color: AppColors.gray500, height: 1.5),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Text('What we collect',
-                    style: AppTextStyles.bodyMd
-                        .copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                for (final item in [
-                  'Government-issued photo ID (passport, national ID, driver\'s licence)',
-                  'A selfie or short video for liveness verification',
-                  'Name, date of birth, and address from your ID',
-                  'Device and location metadata during the session',
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.check_circle_outline,
-                            size: 18, color: AppColors.primary),
-                        const SizedBox(width: 10),
+                        const Icon(Icons.shield_outlined,
+                            color: AppColors.primary, size: 28),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: Text(item,
-                              style: AppTextStyles.bodySm.copyWith(
-                                  color: AppColors.gray500, height: 1.5)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Data Protection & Consent',
+                                  style: AppTextStyles.bodyMd
+                                      .copyWith(fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 6),
+                              Text(
+                                'To verify your identity we collect and process your personal data including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.',
+                                style: AppTextStyles.bodySm.copyWith(
+                                    color: AppColors.gray500, height: 1.5),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                const SizedBox(height: 24),
-                Text('How we use it',
-                    style: AppTextStyles.bodyMd
-                        .copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                Text(
-                  'Your data is processed solely to verify your identity and comply with anti-money-laundering (AML) and know-your-customer (KYC) regulations. It is not sold to third parties.',
-                  style: AppTextStyles.bodySm
-                      .copyWith(color: AppColors.gray500, height: 1.5),
-                ),
-                const SizedBox(height: 32),
-                _ConsentCheckbox(
-                  value: _termsAccepted,
-                  onChanged: (v) => setState(() => _termsAccepted = v),
-                  child: RichText(
-                    text: TextSpan(
-                      style: AppTextStyles.bodySm
-                          .copyWith(color: AppColors.gray500),
-                      children: [
-                        const TextSpan(text: 'I have read and agree to the '),
-                        TextSpan(
-                          text: 'Terms & Conditions',
-                          style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = () =>
-                                launchUrl(Uri.parse('https://bago.app/terms')),
-                        ),
-                      ],
+                  const SizedBox(height: 28),
+                  Text('What we collect',
+                      style: AppTextStyles.bodyMd
+                          .copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  for (final item in [
+                    'Government-issued photo ID (passport, national ID, driver\'s licence)',
+                    'A selfie or short video for liveness verification',
+                    'Name, date of birth, and address from your ID',
+                    'Device and location metadata during the session',
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.check_circle_outline,
+                              size: 18, color: AppColors.primary),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(item,
+                                style: AppTextStyles.bodySm.copyWith(
+                                    color: AppColors.gray500, height: 1.5)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  Text('How we use it',
+                      style: AppTextStyles.bodyMd
+                          .copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your data is processed solely to verify your identity and comply with anti-money-laundering (AML) and know-your-customer (KYC) regulations. It is not sold to third parties.',
+                    style: AppTextStyles.bodySm
+                        .copyWith(color: AppColors.gray500, height: 1.5),
+                  ),
+                  const SizedBox(height: 32),
+                  _ConsentCheckbox(
+                    value: _termsAccepted,
+                    onChanged: (v) => setState(() => _termsAccepted = v),
+                    child: RichText(
+                      text: TextSpan(
+                        style: AppTextStyles.bodySm
+                            .copyWith(color: AppColors.gray500),
+                        children: [
+                          const TextSpan(text: 'I have read and agree to the '),
+                          TextSpan(
+                            text: 'Terms & Conditions',
+                            style: AppTextStyles.bodySm.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () =>
+                                  launchUrl(Uri.parse('https://bago.app/terms')),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _ConsentCheckbox(
-                  value: _privacyAccepted,
-                  onChanged: (v) => setState(() => _privacyAccepted = v),
-                  child: RichText(
-                    text: TextSpan(
-                      style: AppTextStyles.bodySm
-                          .copyWith(color: AppColors.gray500),
-                      children: [
-                        const TextSpan(
-                            text:
-                                'I consent to the collection and processing of my personal data as described in the '),
-                        TextSpan(
-                          text: 'Privacy Policy',
-                          style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = () => launchUrl(
-                                Uri.parse('https://bago.app/privacy')),
-                        ),
-                        const TextSpan(
-                            text:
-                                ', including processing by our identity verification partner.'),
-                      ],
+                  const SizedBox(height: 12),
+                  _ConsentCheckbox(
+                    value: _privacyAccepted,
+                    onChanged: (v) => setState(() => _privacyAccepted = v),
+                    child: RichText(
+                      text: TextSpan(
+                        style: AppTextStyles.bodySm
+                            .copyWith(color: AppColors.gray500),
+                        children: [
+                          const TextSpan(
+                              text:
+                                  'I consent to the collection and processing of my personal data as described in the '),
+                          TextSpan(
+                            text: 'Privacy Policy',
+                            style: AppTextStyles.bodySm.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => launchUrl(
+                                  Uri.parse('https://bago.app/privacy')),
+                          ),
+                          const TextSpan(
+                              text:
+                                  ', including processing by our identity verification partner.'),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-              ],
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-              24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
-          child: AppButton(
-            label: 'I agree — Continue',
-            onPressed: canContinue ? () => setState(() => _step = 1) : null,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
+            child: AppButton(
+              label: 'I agree — Start Verification',
+              onPressed: canContinue ? _proceed : null,
+            ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCountryPicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Select your country of residence',
-                  style:
-                      AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
-              const SizedBox(height: 16),
-              TextField(
-                onChanged: (v) => setState(() => _search = v),
-                decoration: InputDecoration(
-                  hintText: 'Search country…',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true,
-                  fillColor: const Color(0xFFF5F5F7),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            itemCount: _filtered.length,
-            itemBuilder: (_, i) {
-              final (flag, name, code) = _filtered[i];
-              final selected = code == _selectedCode;
-              return GestureDetector(
-                onTap: () => setState(() {
-                  _selectedCode = code;
-                }),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary.withValues(alpha: 0.07)
-                        : Colors.transparent,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.primary
-                          : const Color(0xFFEEEEEE),
-                      width: selected ? 1.5 : 1,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(flag, style: const TextStyle(fontSize: 22)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(name,
-                            style: AppTextStyles.bodyMd.copyWith(
-                              fontWeight:
-                                  selected ? FontWeight.w600 : FontWeight.w400,
-                              color: selected
-                                  ? AppColors.primary
-                                  : AppColors.black,
-                            )),
-                      ),
-                      if (selected)
-                        const Icon(Icons.check_circle,
-                            color: AppColors.primary, size: 20),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-              20, 8, 20, MediaQuery.of(context).padding.bottom + 16),
-          child: AppButton(
-            label: _selectedCode == null
-                ? 'Select a country'
-                : 'Start verification',
-            onPressed: _selectedCode == null || _loading ? null : _proceed,
-            isLoading: _loading,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

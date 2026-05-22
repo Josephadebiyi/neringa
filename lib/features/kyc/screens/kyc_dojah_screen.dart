@@ -17,7 +17,7 @@ class KycDojahScreen extends ConsumerStatefulWidget {
   const KycDojahScreen({
     super.key,
     required this.userId,
-    required this.countryCode,
+    this.countryCode = '',
     this.fromOnboarding = false,
   });
 
