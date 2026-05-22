@@ -1,125 +1,38 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     Shield, ChevronLeft, CheckCircle, Clock, AlertCircle,
-    ArrowRight, Loader2, Lock, Globe, Search, ChevronDown
+    ArrowRight, Loader2, Lock, Globe
 } from 'lucide-react';
+import Dojah from 'dojah-kyc-sdk-react';
 import { useAuth } from '../AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
 
-// Countries where Dojah handles verification — never exposed in UI
-const DOJAH_COUNTRIES = new Set([
-    'NG', 'GH', 'KE', 'ZA', 'UG', 'RW', 'TZ', 'CM',
-    'SN', 'CI', 'SL', 'ZM', 'BJ', 'TG', 'ET', 'CD', 'MZ', 'ZW', 'MW', 'GN',
-]);
+const WIDGET_ID = '6a107b3f9e9b60b7a55f5fdf';
 
-const ALL_COUNTRIES = [
-    { code: 'NG', name: 'Nigeria',          flag: '🇳🇬' },
-    { code: 'GH', name: 'Ghana',            flag: '🇬🇭' },
-    { code: 'KE', name: 'Kenya',            flag: '🇰🇪' },
-    { code: 'ZA', name: 'South Africa',     flag: '🇿🇦' },
-    { code: 'UG', name: 'Uganda',           flag: '🇺🇬' },
-    { code: 'RW', name: 'Rwanda',           flag: '🇷🇼' },
-    { code: 'TZ', name: 'Tanzania',         flag: '🇹🇿' },
-    { code: 'CM', name: 'Cameroon',         flag: '🇨🇲' },
-    { code: 'SN', name: 'Senegal',          flag: '🇸🇳' },
-    { code: 'CI', name: "Côte d'Ivoire",    flag: '🇨🇮' },
-    { code: 'SL', name: 'Sierra Leone',     flag: '🇸🇱' },
-    { code: 'ZM', name: 'Zambia',           flag: '🇿🇲' },
-    { code: 'BJ', name: 'Benin',            flag: '🇧🇯' },
-    { code: 'TG', name: 'Togo',             flag: '🇹🇬' },
-    { code: 'ET', name: 'Ethiopia',         flag: '🇪🇹' },
-    { code: 'CD', name: 'DR Congo',         flag: '🇨🇩' },
-    { code: 'MZ', name: 'Mozambique',       flag: '🇲🇿' },
-    { code: 'ZW', name: 'Zimbabwe',         flag: '🇿🇼' },
-    { code: 'MW', name: 'Malawi',           flag: '🇲🇼' },
-    { code: 'GN', name: 'Guinea',           flag: '🇬🇳' },
-    { code: 'GB', name: 'United Kingdom',   flag: '🇬🇧' },
-    { code: 'US', name: 'United States',    flag: '🇺🇸' },
-    { code: 'FR', name: 'France',           flag: '🇫🇷' },
-    { code: 'DE', name: 'Germany',          flag: '🇩🇪' },
-    { code: 'IT', name: 'Italy',            flag: '🇮🇹' },
-    { code: 'ES', name: 'Spain',            flag: '🇪🇸' },
-    { code: 'NL', name: 'Netherlands',      flag: '🇳🇱' },
-    { code: 'BE', name: 'Belgium',          flag: '🇧🇪' },
-    { code: 'SE', name: 'Sweden',           flag: '🇸🇪' },
-    { code: 'CH', name: 'Switzerland',      flag: '🇨🇭' },
-    { code: 'PT', name: 'Portugal',         flag: '🇵🇹' },
-    { code: 'CA', name: 'Canada',           flag: '🇨🇦' },
-    { code: 'AU', name: 'Australia',        flag: '🇦🇺' },
-    { code: 'AE', name: 'UAE',              flag: '🇦🇪' },
-    { code: 'BR', name: 'Brazil',           flag: '🇧🇷' },
-    { code: 'IN', name: 'India',            flag: '🇮🇳' },
-    { code: 'CN', name: 'China',            flag: '🇨🇳' },
-    { code: 'JP', name: 'Japan',            flag: '🇯🇵' },
-];
-
-// Steps: 'status' | 'consent' | 'country' | 'verifying'
+// Steps: 'status' | 'consent' | 'verifying'
 export default function Verify() {
     const { user, isAuthenticated, loading: authLoading } = useAuth();
-    const { t } = useLanguage();
+
     const navigate = useNavigate();
 
     const [kycStatus, setKycStatus] = useState('not_started');
     const [pageLoading, setPageLoading] = useState(true);
-    const [step, setStep] = useState('status'); // status → consent → country → verifying
+    const [step, setStep] = useState('status');
 
-    // Consent step
+    // Consent
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
-    // Country step
-    const [selectedCountry, setSelectedCountry] = useState(null);
-    const [countrySearch, setCountrySearch] = useState('');
-    const [showDropdown, setShowDropdown] = useState(false);
-    const dropdownRef = useRef(null);
-
-    // Verification
+    // Dojah
+    const [dojahCreds, setDojahCreds] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState('');
-    const [dojahReady, setDojahReady] = useState(false);
-    const dojahScriptRef = useRef(null);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) navigate('/login?redirect=/verify');
         else if (isAuthenticated) fetchKycStatus();
     }, [authLoading, isAuthenticated]);
-
-    // Pre-fill country from profile
-    useEffect(() => {
-        if (user?.country) {
-            const match = ALL_COUNTRIES.find(c => c.code === user.country.toUpperCase());
-            if (match) setSelectedCountry(match);
-        }
-    }, [user]);
-
-    // Close dropdown on outside click
-    useEffect(() => {
-        const handler = (e) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target))
-                setShowDropdown(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    // Load Dojah widget script once
-    useEffect(() => {
-        if (dojahScriptRef.current) return;
-        const script = document.createElement('script');
-        script.src = 'https://widget.dojah.io/widget.js';
-        script.async = true;
-        script.onload = () => setDojahReady(true);
-        document.head.appendChild(script);
-        dojahScriptRef.current = script;
-        return () => {
-            if (dojahScriptRef.current) {
-                document.head.removeChild(dojahScriptRef.current);
-                dojahScriptRef.current = null;
-            }
-        };
-    }, []);
 
     const fetchKycStatus = async () => {
         try {
@@ -136,83 +49,33 @@ export default function Verify() {
     };
 
     const handleStartVerification = async () => {
-        if (!selectedCountry) return;
         setActionLoading(true);
         setError('');
         try {
-            // Ask backend which provider to use (routing is invisible to user)
-            const providerRes = await api.get(`/api/bago/kyc/provider?country=${selectedCountry.code}`);
-            const provider = providerRes.data?.provider || 'didit';
-
-            if (provider === 'dojah') {
-                const startRes = await api.post('/api/bago/kyc/dojah/start');
-                const { appId, publicKey, userId: uid } = startRes.data;
-                setStep('verifying');
-                setActionLoading(false);
-                _openDojahWidget({ appId, publicKey, userId: uid });
-            } else {
-                // DiDit redirect
-                const response = await api.post('/api/bago/kyc/create-session');
-                const returnedStatus = response.data?.status || response.data?.kycStatus;
-                if (returnedStatus === 'approved') { setKycStatus('approved'); return; }
-                const url = response.data?.sessionUrl || response.data?.url;
-                if (url) {
-                    window.location.href = url;
-                } else {
-                    throw new Error('Could not create verification session.');
-                }
-            }
+            const res = await api.post('/api/bago/kyc/dojah/start');
+            setDojahCreds(res.data);
+            setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
+        } finally {
             setActionLoading(false);
         }
     };
 
-    const _openDojahWidget = ({ appId, publicKey, userId }) => {
-        if (!window.DojaEasyOnboard) {
-            setError('Verification widget failed to load. Please refresh and try again.');
-            setStep('country');
-            return;
-        }
-        const options = {
-            app_id: appId,
-            p_key: publicKey,
-            type: 'custom',
-            metadata: { user_id: userId },
-            config: {
-                debug: false,
-                pages: [
-                    {
-                        page: 'government-data',
-                        config: { bvn: true, nin: true, dl: true, intl_passport: true, voter_id: true }
-                    },
-                    { page: 'selfie' }
-                ]
-            },
-            onSuccess: async () => {
-                setKycStatus('pending');
-            },
-            onClose: () => {
-                setStep('country');
-            },
-            onError: (err) => {
-                setError(typeof err === 'string' ? err : 'Verification encountered an error.');
-                setStep('country');
-            },
-        };
-        try {
-            const connect = new window.DojaEasyOnboard(options);
-            connect.setup();
-            connect.open();
-        } catch (e) {
-            setError('Could not open verification widget. Please try again.');
-            setStep('country');
+    const handleDojahResponse = (type, data) => {
+        if (type === 'success') {
+            setKycStatus('pending');
+            setStep('status');
+            setDojahCreds(null);
+        } else if (type === 'close') {
+            setStep('consent');
+            setDojahCreds(null);
+        } else if (type === 'error') {
+            setError(typeof data === 'string' ? data : 'Verification encountered an error. Please try again.');
+            setStep('consent');
+            setDojahCreds(null);
         }
     };
-
-    const filteredCountries = countrySearch
-        ? ALL_COUNTRIES.filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()))
-        : ALL_COUNTRIES;
 
     if (authLoading || pageLoading) {
         return (
@@ -227,8 +90,7 @@ export default function Verify() {
             <nav className="w-full bg-white border-b border-gray-100 py-4 px-6 md:px-12 flex justify-between items-center sticky top-0 z-50">
                 <button
                     onClick={() => {
-                        if (step === 'country') setStep('consent');
-                        else if (step === 'consent') setStep('status');
+                        if (step === 'consent') setStep('status');
                         else navigate(-1);
                     }}
                     className="flex items-center gap-2 text-[#012126] hover:text-[#5845D8] transition-colors"
@@ -240,108 +102,54 @@ export default function Verify() {
                 <div className="w-20" />
             </nav>
 
+            {/* Dojah widget — renders nothing visible, auto-opens modal on mount */}
+            {step === 'verifying' && dojahCreds && (
+                <Dojah
+                    appID={dojahCreds.appId}
+                    publicKey={dojahCreds.publicKey}
+                    type="custom"
+                    config={{ widget_id: WIDGET_ID }}
+                    userData={{ email: user?.email || undefined }}
+                    metadata={{ userId: dojahCreds.userId }}
+                    referenceId={dojahCreds.userId}
+                    response={handleDojahResponse}
+                />
+            )}
+
             <main className="max-w-2xl mx-auto px-6 py-12 md:py-20">
-                {/* STATUS VIEW — already verified or pending */}
                 {(kycStatus === 'approved' || kycStatus === 'pending' || kycStatus === 'processing') ? (
-                    <StatusCard kycStatus={kycStatus} navigate={navigate} t={t}
-                        onResubmit={() => { setStep('consent'); setKycStatus('not_started'); }} />
+                    <StatusCard
+                        kycStatus={kycStatus}
+                        navigate={navigate}
+                        t={t}
+                        onResubmit={() => { setStep('consent'); setKycStatus('not_started'); }}
+                    />
                 ) : step === 'status' ? (
-                    /* LANDING — "Start verification" button */
-                    <LandingCard t={t} onStart={() => setStep('consent')} />
+                    <LandingCard onStart={() => setStep('consent')} />
                 ) : step === 'consent' ? (
-                    /* CONSENT STEP */
                     <ConsentCard
-                        termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted}
-                        privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted}
-                        onContinue={() => setStep('country')}
+                        termsAccepted={termsAccepted}
+                        setTermsAccepted={setTermsAccepted}
+                        privacyAccepted={privacyAccepted}
+                        setPrivacyAccepted={setPrivacyAccepted}
+                        actionLoading={actionLoading}
+                        error={error}
+                        onContinue={handleStartVerification}
                     />
                 ) : (
-                    /* COUNTRY + START */
+                    /* Verifying — modal is open, show subtle background while Dojah overlay is active */
                     <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
                         <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
                             <div className="w-16 h-16 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-4">
-                                <Globe size={32} className="text-[#5845D8]" />
+                                <Shield size={30} className="text-[#5845D8]" />
                             </div>
-                            <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Select Your Country</h1>
-                            <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Country of residence</p>
+                            <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Verification in Progress</h1>
+                            <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Follow the instructions in the overlay</p>
                         </div>
-
-                        <div className="p-8 md:p-12 space-y-6">
-                            {/* Country dropdown */}
-                            <div className="relative" ref={dropdownRef}>
-                                <button
-                                    onClick={() => setShowDropdown(!showDropdown)}
-                                    className="w-full flex items-center justify-between gap-3 p-4 border-2 border-gray-200 rounded-2xl hover:border-[#5845D8]/40 transition-colors"
-                                >
-                                    {selectedCountry ? (
-                                        <span className="flex items-center gap-3 font-semibold">
-                                            <span className="text-2xl">{selectedCountry.flag}</span>
-                                            {selectedCountry.name}
-                                        </span>
-                                    ) : (
-                                        <span className="text-gray-400 font-medium">Select a country…</span>
-                                    )}
-                                    <ChevronDown size={18} className={`text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {showDropdown && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-                                        <div className="p-3 border-b border-gray-100">
-                                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl">
-                                                <Search size={16} className="text-gray-400" />
-                                                <input
-                                                    autoFocus
-                                                    type="text"
-                                                    placeholder="Search country…"
-                                                    value={countrySearch}
-                                                    onChange={e => setCountrySearch(e.target.value)}
-                                                    className="bg-transparent outline-none text-sm font-medium flex-1"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="max-h-64 overflow-y-auto py-2">
-                                            {filteredCountries.map(c => (
-                                                <button
-                                                    key={c.code}
-                                                    onClick={() => { setSelectedCountry(c); setShowDropdown(false); setCountrySearch(''); }}
-                                                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${selectedCountry?.code === c.code ? 'bg-[#5845D8]/5' : ''}`}
-                                                >
-                                                    <span className="text-xl">{c.flag}</span>
-                                                    <span className={`text-sm font-medium ${selectedCountry?.code === c.code ? 'text-[#5845D8] font-bold' : ''}`}>
-                                                        {c.name}
-                                                    </span>
-                                                    {selectedCountry?.code === c.code && (
-                                                        <CheckCircle size={16} className="ml-auto text-[#5845D8]" />
-                                                    )}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {error && (
-                                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
-                                    <AlertCircle size={18} />
-                                    <p className="text-xs font-bold">{error}</p>
-                                </div>
-                            )}
-
-                            <button
-                                onClick={handleStartVerification}
-                                disabled={!selectedCountry || actionLoading}
-                                className="w-full bg-[#5845D8] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:pointer-events-none"
-                            >
-                                {actionLoading ? <Loader2 className="animate-spin" size={20} /> : (
-                                    <>
-                                        Start Verification
-                                        <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                                    </>
-                                )}
-                            </button>
-
-                            <p className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest">
-                                Your data is encrypted and protected
+                        <div className="p-8 md:p-12 flex flex-col items-center gap-4">
+                            <Loader2 className="animate-spin text-[#5845D8]" size={32} />
+                            <p className="text-sm text-gray-500 font-medium text-center">
+                                A secure verification window is open. Complete the steps there to verify your identity.
                             </p>
                         </div>
                     </div>
@@ -360,7 +168,7 @@ export default function Verify() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function LandingCard({ t, onStart }) {
+function LandingCard({ onStart }) {
     return (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
@@ -403,8 +211,8 @@ function LandingCard({ t, onStart }) {
     );
 }
 
-function ConsentCard({ termsAccepted, setTermsAccepted, privacyAccepted, setPrivacyAccepted, onContinue }) {
-    const canContinue = termsAccepted && privacyAccepted;
+function ConsentCard({ termsAccepted, setTermsAccepted, privacyAccepted, setPrivacyAccepted, actionLoading, error, onContinue }) {
+    const canContinue = termsAccepted && privacyAccepted && !actionLoading;
     return (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
@@ -459,12 +267,27 @@ function ConsentCard({ termsAccepted, setTermsAccepted, privacyAccepted, setPriv
                         </span>
                     </label>
                 </div>
+
+                {error && (
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+                        <AlertCircle size={18} />
+                        <p className="text-xs font-bold">{error}</p>
+                    </div>
+                )}
+
                 <button
                     onClick={onContinue}
                     disabled={!canContinue}
-                    className="w-full bg-[#5845D8] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                    className="w-full bg-[#5845D8] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-3"
                 >
-                    I Agree — Continue
+                    {actionLoading ? (
+                        <Loader2 className="animate-spin" size={20} />
+                    ) : (
+                        <>
+                            I Agree — Start Verification
+                            <ArrowRight size={20} />
+                        </>
+                    )}
                 </button>
             </div>
         </div>
