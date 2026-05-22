@@ -18,12 +18,30 @@ export const clearLegacyLocalStorage = () => {
 
 let refreshPromise = null;
 
+// Called when both the access token AND refresh token are gone/expired.
+// Components can set this to handle clean logout (e.g. clear React state).
+let _sessionExpiredHandler = null;
+export const setSessionExpiredHandler = (fn) => { _sessionExpiredHandler = fn; };
+
+function handleSessionExpired() {
+    if (_sessionExpiredHandler) _sessionExpiredHandler();
+    if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login?reason=session_expired';
+    }
+}
+
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
         if (error.response?.status !== 401 || originalRequest?._retry) {
+            return Promise.reject(error);
+        }
+
+        // Don't try to refresh the refresh-token endpoint itself
+        if (originalRequest?.url?.includes('/refresh-token')) {
+            handleSessionExpired();
             return Promise.reject(error);
         }
 
@@ -41,6 +59,8 @@ api.interceptors.response.use(
             await refreshPromise;
             return api(originalRequest);
         } catch (refreshError) {
+            // Both tokens are expired/missing — session is dead
+            handleSessionExpired();
             return Promise.reject(refreshError);
         }
     }

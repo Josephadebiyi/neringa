@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api, { clearLegacyLocalStorage } from './api';
+import api, { clearLegacyLocalStorage, setSessionExpiredHandler } from './api';
 
 const AuthContext = createContext({});
 
@@ -12,6 +12,10 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         clearLegacyLocalStorage();
         checkAuthStatus();
+        setSessionExpiredHandler(() => {
+            setUser(null);
+            setIsAuthenticated(false);
+        });
     }, []);
 
     const checkAuthStatus = async () => {

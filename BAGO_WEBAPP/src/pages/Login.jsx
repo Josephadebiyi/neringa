@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import api from '../api';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -14,6 +14,8 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const sessionExpired = searchParams.get('reason') === 'session_expired';
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -123,6 +125,13 @@ export default function Login() {
                             <span className="flex-shrink mx-6 text-gray-300 text-[9px] font-black uppercase tracking-[3px]">{t('secureAccountLogin')}</span>
                             <div className="flex-grow border-t-2 border-gray-50"></div>
                         </div>
+
+                        {sessionExpired && !error && (
+                            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded-xl text-xs font-bold flex items-center gap-3">
+                                <AlertCircle size={16} />
+                                Your session has expired. Please sign in again.
+                            </div>
+                        )}
 
                         {error && (
                             <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-3 animate-shake">
