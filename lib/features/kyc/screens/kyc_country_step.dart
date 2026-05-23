@@ -8,25 +8,6 @@ import '../../../shared/widgets/app_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_dojah_screen.dart';
 
-// Production widget IDs — can be overridden via --dart-define at build time.
-const _kWidgetNigeria = String.fromEnvironment(
-  'DOJAH_WIDGET_NG',
-  defaultValue: '6a107b3f9e9b60b7a55f5fdf',
-);
-const _kWidgetKenya = String.fromEnvironment(
-  'DOJAH_WIDGET_KE',
-  defaultValue: '6a107b3f9e9b60b7a55f5fdf',
-);
-const _kWidgetNigeriaKenyaFallback = String.fromEnvironment(
-  'DOJAH_WIDGET_NG_KE',
-  defaultValue: '6a107b3f9e9b60b7a55f5fdf',
-);
-// All other countries use ID doc + selfie widget.
-const _kWidgetOther = String.fromEnvironment(
-  'DOJAH_WIDGET_GLOBAL',
-  defaultValue: '6a10dc7ed0496f7ecf8d1359',
-);
-
 class KycCountryStep extends ConsumerStatefulWidget {
   const KycCountryStep({super.key, this.fromOnboarding = false});
   final bool fromOnboarding;
@@ -37,21 +18,6 @@ class KycCountryStep extends ConsumerStatefulWidget {
 
 class _KycCountryStepState extends ConsumerState<KycCountryStep> {
   Country? _selected;
-
-  String _widgetIdFor(Country country) {
-    final code = country.countryCode.toUpperCase();
-    if (code == 'NG') {
-      return _kWidgetNigeria.isNotEmpty
-          ? _kWidgetNigeria
-          : _kWidgetNigeriaKenyaFallback;
-    }
-    if (code == 'KE') {
-      return _kWidgetKenya.isNotEmpty
-          ? _kWidgetKenya
-          : _kWidgetNigeriaKenyaFallback;
-    }
-    return _kWidgetOther;
-  }
 
   void _openPicker() {
     showCountryPicker(
@@ -82,7 +48,6 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => KycDojahScreen(
         userId: userId,
-        widgetId: _widgetIdFor(country),
         countryCode: country.countryCode.toUpperCase(),
         countryName: country.name,
         fromOnboarding: widget.fromOnboarding,
@@ -205,12 +170,8 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
   }
 
   String _infoText(String code) {
-    final upper = code.toUpperCase();
-    if (upper == 'NG') {
+    if (code.toUpperCase() == 'NG') {
       return 'For Nigeria, we\'ll verify using BVN or NIN — no ID upload required.';
-    }
-    if (upper == 'KE') {
-      return 'For Kenya, we\'ll verify using government ID checks.';
     }
     return 'We\'ll verify your identity using a government-issued ID and a selfie.';
   }

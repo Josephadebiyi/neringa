@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_extra_flutter_data.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_kyc_sdk_flutter.dart';
 import 'package:flutter/material.dart';
@@ -22,14 +21,12 @@ class KycDojahScreen extends ConsumerStatefulWidget {
   const KycDojahScreen({
     super.key,
     required this.userId,
-    required this.widgetId,
     required this.countryCode,
     required this.countryName,
     this.fromOnboarding = false,
   });
 
   final String userId;
-  final String widgetId;
   final String countryCode;
   final String countryName;
   final bool fromOnboarding;
@@ -88,44 +85,38 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     final email = user?.email ?? '';
     final name = _splitName(user?.fullName ?? '');
     final dob = _formatDob(user?.dateOfBirth);
-    final referenceId =
-        'bago-${widget.userId}-${DateTime.now().millisecondsSinceEpoch}';
 
-    // Optional backend call — tells the server a KYC session is starting and
-    // may return a server-side widget ID override. Failures are silently ignored
-    // so that a backend outage never blocks the Dojah flow.
-    String widgetId = widget.widgetId;
+    // Backend creates the KYC session and returns the widget ID + reference ID.
+    // Widget IDs and reference IDs are never generated or stored client-side.
+    String widgetId;
+    String referenceId;
     try {
-      final startResponse =
-          await ApiService.instance.post<Map<String, dynamic>>(
-        ApiConstants.kycDojahStart,
-        data: {
-          'country': widget.countryCode,
-          'widgetId': widget.widgetId,
-          'referenceId': referenceId,
-        },
-      ).timeout(const Duration(seconds: 10));
-      final serverWidgetId =
-          startResponse.data?['widgetId']?.toString().trim() ?? '';
-      if (serverWidgetId.isNotEmpty) widgetId = serverWidgetId;
+      final sessionResponse = await ApiService.instance
+          .post<Map<String, dynamic>>(
+            ApiConstants.kycDojahSession,
+            data: {'country': widget.countryCode},
+          )
+          .timeout(const Duration(seconds: 15));
+      final data = sessionResponse.data;
+      widgetId = data?['widgetId']?.toString().trim() ?? '';
+      referenceId = data?['referenceId']?.toString().trim() ?? '';
+      if (widgetId.isEmpty) throw Exception('No widgetId in session response');
+      if (referenceId.isEmpty) {
+        referenceId =
+            'bago-${widget.userId}-${DateTime.now().millisecondsSinceEpoch}';
+      }
     } catch (e) {
-      debugPrint('kycDojahStart optional call failed (using local widgetId): $e');
-    }
-
-    if (widgetId.trim().isEmpty) {
-      try {
-        await _kycOverlay.invokeMethod('hide');
-      } catch (_) {}
+      debugPrint('kycDojahSession failed: $e');
       if (!mounted) return;
       setState(() {
         _hasError = true;
         _errorMessage =
-            'Verification is not available for ${widget.countryName} yet. Please try again later.';
+            'Could not start verification. Please check your connection and try again.';
       });
       return;
     }
 
-    // Show our branded overlay while the native KYC widget starts.
+    // Show branded overlay while the native KYC widget initialises.
     try {
       await _kycOverlay.invokeMethod('show');
     } catch (_) {}
@@ -195,7 +186,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    // Overlay hides itself after 3.5 s, but hide early on result too
     try {
       await _kycOverlay.invokeMethod('hide');
     } catch (_) {}
@@ -209,88 +199,24 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    final isSuccess = lower.contains('success') ||
-        lower.contains('approved') ||
-        lower.contains('complet') ||
-        lower.contains('submitted') ||
-        lower.contains('verif');
-
-    if (!isSuccess) {
-      setState(() {
-        _hasError = true;
-        _errorMessage =
-            'Verification could not be completed. Please try again.';
-        _debugResult = result;
-      });
-      return;
-    }
-
-    final kycStatus = await _waitForKycStatus() ?? lower;
-    if (!mounted) return;
-
-    if (_isDeclinedStatus(kycStatus)) {
-      setState(() {
-        _hasError = true;
-        _errorMessage =
-            'Verification was not approved. Please check your document and try again.';
-        _debugResult = kycStatus;
-      });
-      return;
-    }
-
+    // SDK flow completed — final approval is determined by backend webhook only.
+    // Refresh profile in case the backend already processed the result.
     await ref.read(authProvider.notifier).refreshProfile().catchError((_) {});
     if (!mounted) return;
 
     AppSnackBar.show(
       context,
-      message: _isApprovedStatus(kycStatus)
-          ? 'Identity verified successfully.'
-          : 'Verification submitted! We\'ll notify you once it\'s confirmed.',
+      message: 'Verification submitted! We\'ll notify you once it\'s confirmed.',
       type: SnackBarType.success,
     );
     context.go(widget.fromOnboarding ? '/home' : '/profile');
-  }
-
-  Future<String?> _waitForKycStatus() async {
-    for (var attempt = 0; attempt < 8; attempt += 1) {
-      try {
-        final response = await ApiService.instance
-            .get<Map<String, dynamic>>(
-              ApiConstants.kycStatus,
-            )
-            .timeout(const Duration(seconds: 5));
-        final status = response.data?['kycStatus']?.toString().toLowerCase();
-        if (status != null && status.isNotEmpty && status != 'not_started') {
-          return status;
-        }
-      } catch (error) {
-        debugPrint('Dojah status poll failed: $error');
-      }
-      await Future<void>.delayed(const Duration(seconds: 3));
-    }
-    return null;
-  }
-
-  bool _isApprovedStatus(String? status) {
-    final value = status?.toLowerCase().trim();
-    return value == 'approved' ||
-        value == 'verified' ||
-        value == 'success' ||
-        value == 'completed';
-  }
-
-  bool _isDeclinedStatus(String? status) {
-    final value = status?.toLowerCase().trim();
-    return value == 'declined' ||
-        value == 'rejected' ||
-        value == 'failed' ||
-        value == 'failed_verification';
   }
 
   Future<void> _retry() async {
     setState(() {
       _hasError = false;
       _errorMessage = null;
+      _debugResult = null;
       _launched = false;
     });
     _launch();
