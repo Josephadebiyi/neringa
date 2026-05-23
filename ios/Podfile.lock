@@ -46,7 +46,7 @@ PODS:
   - dojah_kyc_sdk_flutter (0.0.5):
     - DojahWidget
     - Flutter
-  - DojahWidget (1.1.8):
+  - DojahWidget (1.1.9):
     - Clarity
     - GooglePlaces (~> 8.5.0)
     - HorizonCalendar (~> 1.16.0)
@@ -344,7 +344,7 @@ EXTERNAL SOURCES:
 
 CHECKOUT OPTIONS:
   DojahWidget:
-    :commit: 48bd76e5e82c0f177627575fb78ba04cd474b925
+    :commit: 843fe236c1cba07a41c08a42f176b6e3327fa216
     :git: https://github.com/dojah-inc/sdk-swift.git
 
 SPEC CHECKSUMS:
@@ -355,7 +355,7 @@ SPEC CHECKSUMS:
   DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
   DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
   dojah_kyc_sdk_flutter: 473995e92048019f8e921ba27a449cd346495392
-  DojahWidget: f3d67d213a765fb062b213f7e7c3483d98da201c
+  DojahWidget: 8e5f3749cdd64d94d1ab99858ce585cbeb9aa91d
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818

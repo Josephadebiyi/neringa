@@ -1,40 +1,28 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/app_button.dart';
-import '../../auth/providers/auth_provider.dart';
-import 'kyc_dojah_screen.dart';
+import 'kyc_country_step.dart';
 
-/// Entry point — shows T&C / data consent then launches Dojah directly.
-/// Country selection is handled inside the Dojah widget (200+ countries).
-class KycCountrySelector extends ConsumerStatefulWidget {
+class KycCountrySelector extends StatefulWidget {
   const KycCountrySelector({super.key, this.fromOnboarding = false});
   final bool fromOnboarding;
 
   @override
-  ConsumerState<KycCountrySelector> createState() => _KycCountrySelectorState();
+  State<KycCountrySelector> createState() => _KycCountrySelectorState();
 }
 
-class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
+class _KycCountrySelectorState extends State<KycCountrySelector> {
   bool _termsAccepted = false;
   bool _privacyAccepted = false;
 
   void _proceed() {
-    final user = ref.read(authProvider).user;
-    final userId = user?.id ?? '';
-    final countryCode = user?.country?.toUpperCase() ?? '';
-
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => KycDojahScreen(
-          userId: userId,
-          countryCode: countryCode,
-          fromOnboarding: widget.fromOnboarding,
-        ),
+        builder: (_) => KycCountryStep(fromOnboarding: widget.fromOnboarding),
       ),
     );
   }
@@ -62,6 +50,7 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Data consent banner
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -94,6 +83,7 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                     ),
                   ),
                   const SizedBox(height: 28),
+
                   Text('What we collect',
                       style: AppTextStyles.bodyMd
                           .copyWith(fontWeight: FontWeight.w700)),
@@ -121,6 +111,7 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                       ),
                     ),
                   const SizedBox(height: 24),
+
                   Text('How we use it',
                       style: AppTextStyles.bodyMd
                           .copyWith(fontWeight: FontWeight.w700)),
@@ -131,6 +122,7 @@ class _KycCountrySelectorState extends ConsumerState<KycCountrySelector> {
                         .copyWith(color: AppColors.gray500, height: 1.5),
                   ),
                   const SizedBox(height: 32),
+
                   _ConsentCheckbox(
                     value: _termsAccepted,
                     onChanged: (v) => setState(() => _termsAccepted = v),

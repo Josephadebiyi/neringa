@@ -71,10 +71,11 @@ dependencies:
   flutter_native_splash: ^2.4.4
 
   # WebView (for KYC / Paystack)
-  webview_flutter: ^4.11.0
+  # Native Dojah KYC SDK (local patched copy — fixes SDKInitViewController early-resolve bug)
+  dojah_kyc_sdk_flutter:
+    path: packages/dojah_kyc_sdk_flutter
 
-  # Native Dojah KYC SDK
-  dojah_kyc_sdk_flutter: ^0.1.8
+  webview_flutter: ^4.11.0
 
   # URL launcher
   url_launcher: ^6.3.1

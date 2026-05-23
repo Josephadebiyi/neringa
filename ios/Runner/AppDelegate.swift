@@ -6,6 +6,7 @@ import GoogleSignIn
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let pushChannelName = "bago/push_notifications"
+  private let kycOverlayChannelName = "bago/kyc_overlay"
   private var pushMethodChannel: FlutterMethodChannel?
   private var currentDeviceToken: String?
   private var pendingNotificationData: [String: String]?
@@ -44,6 +45,19 @@ import GoogleSignIn
     if let data = pendingNotificationData {
       pushMethodChannel?.invokeMethod("onNotificationTap", arguments: data)
       pendingNotificationData = nil
+    }
+
+    // KYC overlay channel — shows Bago's branded startup screen
+    let kycOverlayChannel = FlutterMethodChannel(
+      name: kycOverlayChannelName,
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    kycOverlayChannel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "show": DojahLoadingOverlay.show(); result(nil)
+      case "hide": DojahLoadingOverlay.hide(); result(nil)
+      default: result(FlutterMethodNotImplemented)
+      }
     }
 
     pushMethodChannel?.setMethodCallHandler { [weak self] call, result in

@@ -34,6 +34,14 @@ export const DOJAH_COUNTRIES = new Set([
 const DOJAH_APP_ID  = process.env.DOJAH_APP_ID;
 const DOJAH_SECRET  = process.env.DOJAH_SECRET_KEY;
 const DOJAH_PUBLIC_KEY = process.env.DOJAH_PUBLIC_KEY;
+const DOJAH_WIDGET_NG_KE = process.env.DOJAH_WIDGET_NG_KE || process.env.DOJAH_WIDGET_ID_NG_KE || '';
+const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH_WIDGET_ID_GLOBAL || process.env.DOJAH_WIDGET_ID || '';
+
+const widgetIdForCountry = (country = '') => {
+  const code = country.toUpperCase().trim();
+  if ((code === 'NG' || code === 'KE') && DOJAH_WIDGET_NG_KE) return DOJAH_WIDGET_NG_KE;
+  return DOJAH_WIDGET_GLOBAL || DOJAH_WIDGET_NG_KE;
+};
 
 // ---------------------------------------------------------------------------
 // GET /api/bago/kyc/provider?country=NG
@@ -57,6 +65,7 @@ export const getKycProvider = async (req, res) => {
     country,
     appId: DOJAH_APP_ID,
     publicKey: DOJAH_PUBLIC_KEY,
+    widgetId: widgetIdForCountry(country),
   });
 };
 
@@ -73,6 +82,13 @@ export const startDojahSession = async (req, res) => {
       return res.status(503).json({ success: false, message: 'Dojah is not configured on the server' });
     }
 
+    const country = (req.body?.country || req.query?.country || '').toUpperCase().trim();
+    const widgetId = widgetIdForCountry(country) || req.body?.widgetId;
+
+    if (!widgetId) {
+      return res.status(503).json({ success: false, message: 'Dojah widget is not configured on the server' });
+    }
+
     // Record that this user is using Dojah — do NOT set kyc_status here.
     // Status is only updated once Dojah fires the webhook with an actual result.
     await query(
@@ -87,6 +103,8 @@ export const startDojahSession = async (req, res) => {
       provider: 'dojah',
       appId: DOJAH_APP_ID,
       publicKey: DOJAH_PUBLIC_KEY,
+      country,
+      widgetId,
       userId,
     });
   } catch (err) {

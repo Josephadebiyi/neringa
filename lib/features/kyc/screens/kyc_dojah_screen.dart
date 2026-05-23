@@ -1,28 +1,36 @@
+import 'dart:async';
+
 import 'package:dojah_kyc_sdk_flutter/dojah_extra_flutter_data.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_kyc_sdk_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../shared/services/api_service.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 
-const _kDojahWidgetId = '6a107b3f9e9b60b7a55f5fdf';
-
-enum _KycState { launching, error }
+// Channel that controls the native UIWindow overlay for KYC startup
+const _kycOverlay = MethodChannel('bago/kyc_overlay');
 
 class KycDojahScreen extends ConsumerStatefulWidget {
   const KycDojahScreen({
     super.key,
     required this.userId,
-    this.countryCode = '',
+    required this.widgetId,
+    required this.countryCode,
+    required this.countryName,
     this.fromOnboarding = false,
   });
 
   final String userId;
+  final String widgetId;
   final String countryCode;
+  final String countryName;
   final bool fromOnboarding;
 
   @override
@@ -31,8 +39,9 @@ class KycDojahScreen extends ConsumerStatefulWidget {
 
 class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
   bool _launched = false;
-  _KycState _state = _KycState.launching;
+  bool _hasError = false;
   String? _errorMessage;
+  String? _debugResult;
 
   @override
   void initState() {
@@ -45,50 +54,100 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     _launched = true;
 
     final user = ref.read(authProvider).user;
+    if (widget.userId.trim().isEmpty) {
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            'Could not start verification because your session is missing. Please sign in again and retry.';
+      });
+      return;
+    }
+
     final email = user?.email ?? '';
+    final referenceId =
+        'bago-${widget.userId}-${DateTime.now().millisecondsSinceEpoch}';
+
+    // Show our branded overlay while the native KYC widget starts.
+    try {
+      await _kycOverlay.invokeMethod('show');
+    } catch (_) {}
 
     String result;
     try {
+      final startResponse =
+          await ApiService.instance.post<Map<String, dynamic>>(
+        ApiConstants.kycDojahStart,
+        data: {
+          'country': widget.countryCode,
+          'widgetId': widget.widgetId,
+          'referenceId': referenceId,
+        },
+      ).timeout(const Duration(seconds: 10));
+      final serverWidgetId =
+          startResponse.data?['widgetId']?.toString().trim() ?? '';
+      final widgetId =
+          serverWidgetId.isNotEmpty ? serverWidgetId : widget.widgetId;
+
+      debugPrint(
+        'Dojah launch: country=${widget.countryCode} widgetId=$widgetId referenceId=$referenceId',
+      );
+
       result = await DojahKyc.launch(
-        _kDojahWidgetId,
-        referenceId: widget.userId,
+        widgetId,
+        referenceId: referenceId,
         email: email.isNotEmpty ? email : null,
         extraUserData: ExtraUserData(
-          // Only pre-fill email — names intentionally left blank so the user
-          // enters their legal name from their ID document. Dojah extracts and
-          // returns the verified name via webhook, overwriting any nickname
-          // that came from a Google / Apple signup.
           userData: UserData(
             email: email.isNotEmpty ? email : null,
           ),
           metadata: {
             'userId': widget.userId,
-            if (widget.countryCode.isNotEmpty) 'country': widget.countryCode,
+            'referenceId': referenceId,
+            'country': widget.countryCode,
+            'countryName': widget.countryName,
+            'widgetId': widgetId,
           },
         ),
-      );
-    } catch (e) {
+      ).timeout(const Duration(seconds: 30));
+      debugPrint('Dojah result: $result');
+    } on TimeoutException {
+      try {
+        await _kycOverlay.invokeMethod('hide');
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
-        _state = _KycState.error;
-        _errorMessage = 'Could not start verification. Please check your connection and try again.';
+        _hasError = true;
+        _errorMessage =
+            'Verification is taking too long to start. Please check your connection and try again.';
+      });
+      return;
+    } catch (_) {
+      try {
+        await _kycOverlay.invokeMethod('hide');
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            'Could not start verification. Please check your connection and try again.';
       });
       return;
     }
 
+    // Overlay hides itself after 3.5 s, but hide early on result too
+    try {
+      await _kycOverlay.invokeMethod('hide');
+    } catch (_) {}
+
     if (!mounted) return;
 
-    // Treat any non-success result as the appropriate action
     final lower = result.toLowerCase().trim();
 
-    // User closed / cancelled — just go back silently
     if (lower == 'closed' || lower.isEmpty) {
       Navigator.of(context).pop();
       return;
     }
 
-    // Explicit failure or any unrecognised SDK-internal string (e.g. "failed",
-    // "initializing dojah sdk", "2secs", etc.) that is NOT a completion status
     final isSuccess = lower.contains('success') ||
         lower.contains('complet') ||
         lower.contains('submitted') ||
@@ -96,27 +155,28 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
     if (!isSuccess) {
       setState(() {
-        _state = _KycState.error;
-        _errorMessage = 'Verification could not be completed. Please try again.';
+        _hasError = true;
+        _errorMessage =
+            'Verification could not be completed. Please try again.';
+        _debugResult = result;
       });
       return;
     }
 
-    // Verification submitted — refresh profile and navigate back immediately.
-    // The webhook will update KYC status asynchronously.
+    // Refresh profile so name/DOB from Dojah webhook are reflected immediately
     ref.read(authProvider.notifier).refreshProfile().ignore();
-    if (!mounted) return;
     AppSnackBar.show(
       context,
-      message: 'Verification submitted! We\'ll notify you once it\'s confirmed.',
+      message:
+          'Verification submitted! We\'ll notify you once it\'s confirmed.',
       type: SnackBarType.success,
     );
     context.go(widget.fromOnboarding ? '/home' : '/profile');
   }
 
-  Future<void> _retryLaunch() async {
+  Future<void> _retry() async {
     setState(() {
-      _state = _KycState.launching;
+      _hasError = false;
       _errorMessage = null;
       _launched = false;
     });
@@ -125,46 +185,72 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_hasError) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: AppColors.black, size: 20),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text('Identity Verification', style: AppTextStyles.h3),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline,
+                    color: AppColors.error, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  _errorMessage ?? 'Something went wrong. Please try again.',
+                  style:
+                      AppTextStyles.bodyMd.copyWith(color: AppColors.gray700),
+                  textAlign: TextAlign.center,
+                ),
+                if (_debugResult?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Dojah response: $_debugResult',
+                    style:
+                        AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _retry,
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary),
+                  child: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new,
-                    color: AppColors.black, size: 20),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
+          icon: const Icon(Icons.arrow_back_ios_new,
+              color: AppColors.black, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text('Identity Verification', style: AppTextStyles.h3),
       ),
-      body: Center(
-        child: switch (_state) {
-          _KycState.launching => const CircularProgressIndicator(
-              color: AppColors.primary, strokeWidth: 3),
-          _KycState.error => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline,
-                      color: AppColors.error, size: 48),
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage ?? 'Something went wrong. Please try again.',
-                    style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray700),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _retryLaunch,
-                    style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary),
-                    child: const Text('Try Again'),
-                  ),
-                ],
-              ),
-            ),
-        },
+      body: const Center(
+        child:
+            CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
       ),
     );
   }

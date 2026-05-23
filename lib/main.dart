@@ -49,7 +49,8 @@ void main() async {
         Stripe.merchantIdentifier =
             ApiConstants.stripeApplePayMerchantIdentifier;
       }
-      await Stripe.instance.applySettings()
+      await Stripe.instance
+          .applySettings()
           .timeout(const Duration(seconds: 5), onTimeout: () {});
     } catch (error) {
       debugPrint('Stripe init skipped: $error');
@@ -71,6 +72,10 @@ void main() async {
       child: BagoApp(),
     ),
   );
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FlutterNativeSplash.remove();
+  });
 
   // Run non-critical init after the first frame is rendered
   SupabaseService.init().catchError((e) {
