@@ -13,12 +13,12 @@ import 'kyc_dojah_screen.dart';
 // --dart-define=DOJAH_WIDGET_NG_KE=... --dart-define=DOJAH_WIDGET_GLOBAL=...
 const _kWidgetNigeriaKenya = String.fromEnvironment(
   'DOJAH_WIDGET_NG_KE',
-  defaultValue: '6a107b3f9e9b60b7a55f5fdf',
+  defaultValue: '',
 );
 // All other countries use ID doc + selfie widget.
 const _kWidgetOther = String.fromEnvironment(
   'DOJAH_WIDGET_GLOBAL',
-  defaultValue: '6a10dc7ed0496f7ecf8d1359',
+  defaultValue: '',
 );
 
 class KycCountryStep extends ConsumerStatefulWidget {

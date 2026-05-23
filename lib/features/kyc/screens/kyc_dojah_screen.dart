@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_extra_flutter_data.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_kyc_sdk_flutter.dart';
 import 'package:flutter/material.dart';
@@ -87,6 +88,11 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
           startResponse.data?['widgetId']?.toString().trim() ?? '';
       final widgetId =
           serverWidgetId.isNotEmpty ? serverWidgetId : widget.widgetId;
+      if (widgetId.trim().isEmpty) {
+        throw StateError(
+          'Dojah widget is not configured for ${widget.countryName}.',
+        );
+      }
 
       debugPrint(
         'Dojah launch: country=${widget.countryCode} widgetId=$widgetId referenceId=$referenceId',
@@ -106,6 +112,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
             'country': widget.countryCode,
             'countryName': widget.countryName,
             'widgetId': widgetId,
+            'user_id': widget.userId,
+            'reference_id': referenceId,
           },
         ),
       ).timeout(const Duration(minutes: 15));
@@ -120,15 +128,37 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         _errorMessage = 'Verification session timed out. Please try again.';
       });
       return;
-    } catch (_) {
+    } on DioException catch (error) {
       try {
         await _kycOverlay.invokeMethod('hide');
       } catch (_) {}
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage =
-            'Could not start verification. Please check your connection and try again.';
+        _errorMessage = ApiService.parseError(error);
+      });
+      return;
+    } on PlatformException catch (error) {
+      try {
+        await _kycOverlay.invokeMethod('hide');
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+        _errorMessage = error.message?.trim().isNotEmpty == true
+            ? error.message!
+            : 'Dojah could not start verification. Please try again.';
+        _debugResult = error.details?.toString();
+      });
+      return;
+    } catch (error) {
+      try {
+        await _kycOverlay.invokeMethod('hide');
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+        _errorMessage = error.toString().replaceFirst('Bad state: ', '');
       });
       return;
     }

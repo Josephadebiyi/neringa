@@ -37,10 +37,36 @@ const DOJAH_PUBLIC_KEY = process.env.DOJAH_PUBLIC_KEY;
 const DOJAH_WIDGET_NG_KE = process.env.DOJAH_WIDGET_NG_KE || process.env.DOJAH_WIDGET_ID_NG_KE || '';
 const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH_WIDGET_ID_GLOBAL || process.env.DOJAH_WIDGET_ID || '';
 
-const widgetIdForCountry = (country = '') => {
+const countryNeedsLocalGovWidget = (country = '') => {
   const code = country.toUpperCase().trim();
-  if ((code === 'NG' || code === 'KE') && DOJAH_WIDGET_NG_KE) return DOJAH_WIDGET_NG_KE;
-  return DOJAH_WIDGET_GLOBAL || DOJAH_WIDGET_NG_KE;
+  return code === 'NG' || code === 'KE';
+};
+
+const widgetConfigForCountry = (country = '', clientWidgetId = '') => {
+  const code = country.toUpperCase().trim();
+  const clientId = clientWidgetId.toString().trim();
+
+  if (countryNeedsLocalGovWidget(code)) {
+    const widgetId = DOJAH_WIDGET_NG_KE || clientId;
+    return {
+      widgetId,
+      widgetSource: DOJAH_WIDGET_NG_KE ? 'server:DOJAH_WIDGET_NG_KE' : 'client',
+      missingEnv: !widgetId ? 'DOJAH_WIDGET_NG_KE' : null,
+    };
+  }
+
+  const widgetId = DOJAH_WIDGET_GLOBAL || clientId || DOJAH_WIDGET_NG_KE;
+  return {
+    widgetId,
+    widgetSource: DOJAH_WIDGET_GLOBAL ? 'server:DOJAH_WIDGET_GLOBAL' : (clientId ? 'client' : 'server:DOJAH_WIDGET_NG_KE'),
+    missingEnv: !widgetId ? 'DOJAH_WIDGET_GLOBAL' : null,
+  };
+};
+
+const userIdFromReferenceId = (referenceId = '') => {
+  const value = referenceId.toString().trim();
+  const match = value.match(/^bago-(.+)-\d+$/);
+  return match?.[1] || value;
 };
 
 // ---------------------------------------------------------------------------
@@ -59,13 +85,22 @@ export const getKycProvider = async (req, res) => {
     return res.json({ success: true, provider: 'manual', country });
   }
 
+  const widgetConfig = widgetConfigForCountry(country);
+  if (!widgetConfig.widgetId) {
+    return res.status(503).json({
+      success: false,
+      message: `Dojah widget is not configured for ${country}. Set ${widgetConfig.missingEnv}.`,
+    });
+  }
+
   return res.json({
     success: true,
     provider: 'dojah',
     country,
     appId: DOJAH_APP_ID,
     publicKey: DOJAH_PUBLIC_KEY,
-    widgetId: widgetIdForCountry(country),
+    widgetId: widgetConfig.widgetId,
+    widgetSource: widgetConfig.widgetSource,
   });
 };
 
@@ -83,10 +118,14 @@ export const startDojahSession = async (req, res) => {
     }
 
     const country = (req.body?.country || req.query?.country || '').toUpperCase().trim();
-    const widgetId = widgetIdForCountry(country) || req.body?.widgetId;
+    const widgetConfig = widgetConfigForCountry(country, req.body?.widgetId);
+    const widgetId = widgetConfig.widgetId;
 
     if (!widgetId) {
-      return res.status(503).json({ success: false, message: 'Dojah widget is not configured on the server' });
+      return res.status(503).json({
+        success: false,
+        message: `Dojah widget is not configured for ${country || 'this country'}. Set ${widgetConfig.missingEnv}.`,
+      });
     }
 
     // Record that this user is using Dojah — do NOT set kyc_status here.
@@ -105,6 +144,7 @@ export const startDojahSession = async (req, res) => {
       publicKey: DOJAH_PUBLIC_KEY,
       country,
       widgetId,
+      widgetSource: widgetConfig.widgetSource,
       userId,
     });
   } catch (err) {
@@ -135,17 +175,22 @@ export const dojahWebhook = async (req, res) => {
     ).toLowerCase().trim();
 
     // --- Extract userId / referenceId --------------------------------------
-    const userId =
+    const rawUserId =
       event?.data?.entity?.userId ||
       event?.data?.entity?.user_id ||
       event?.data?.metadata?.userId ||
       event?.data?.metadata?.user_id ||
+      event?.metadata?.userId ||
+      event?.metadata?.user_id ||
+      event?.data?.metadata?.referenceId ||
+      event?.data?.metadata?.reference_id ||
       event?.data?.referenceId ||
       event?.data?.reference_id ||
       event?.referenceId ||
       event?.reference_id ||
       // sandbox sometimes puts it at the top level
       event?.data?.entity?.id;
+    const userId = userIdFromReferenceId(rawUserId);
 
     if (!userId) {
       console.warn('Dojah webhook: no userId found in payload');
