@@ -8,23 +8,23 @@ import '../../../shared/widgets/app_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_dojah_screen.dart';
 
-// Override these at build time if Dojah dashboard widget IDs change.
+// Production widget IDs — can be overridden via --dart-define at build time.
 const _kWidgetNigeria = String.fromEnvironment(
   'DOJAH_WIDGET_NG',
-  defaultValue: '',
+  defaultValue: '6a107b3f9e9b60b7a55f5fdf',
 );
 const _kWidgetKenya = String.fromEnvironment(
   'DOJAH_WIDGET_KE',
-  defaultValue: '',
+  defaultValue: '6a107b3f9e9b60b7a55f5fdf',
 );
 const _kWidgetNigeriaKenyaFallback = String.fromEnvironment(
   'DOJAH_WIDGET_NG_KE',
-  defaultValue: '',
+  defaultValue: '6a107b3f9e9b60b7a55f5fdf',
 );
 // All other countries use ID doc + selfie widget.
 const _kWidgetOther = String.fromEnvironment(
   'DOJAH_WIDGET_GLOBAL',
-  defaultValue: '',
+  defaultValue: '6a10dc7ed0496f7ecf8d1359',
 );
 
 class KycCountryStep extends ConsumerStatefulWidget {

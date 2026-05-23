@@ -44,6 +44,27 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
   String? _errorMessage;
   String? _debugResult;
 
+  ({String? first, String? last}) _splitName(String fullName) {
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || (parts.length == 1 && parts.first.isEmpty)) {
+      return (first: null, last: null);
+    }
+    final first = parts.first;
+    final last = parts.length > 1 ? parts.sublist(1).join(' ') : null;
+    return (
+      first: first.isNotEmpty ? first : null,
+      last: last?.isNotEmpty == true ? last : null,
+    );
+  }
+
+  String? _formatDob(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(raw)) return raw;
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(raw);
+    if (m != null) return '${m[3]}-${m[2]}-${m[1]}';
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -64,16 +85,15 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    final email = user?.email ?? '';
+    final name = _splitName(user?.fullName ?? '');
+    final dob = _formatDob(user?.dateOfBirth);
     final referenceId =
         'bago-${widget.userId}-${DateTime.now().millisecondsSinceEpoch}';
 
-    // Show our branded overlay while the native KYC widget starts.
-    try {
-      await _kycOverlay.invokeMethod('show');
-    } catch (_) {}
-
-    String result;
+    // Optional backend call — tells the server a KYC session is starting and
+    // may return a server-side widget ID override. Failures are silently ignored
+    // so that a backend outage never blocks the Dojah flow.
+    String widgetId = widget.widgetId;
     try {
       final startResponse =
           await ApiService.instance.post<Map<String, dynamic>>(
@@ -86,25 +106,43 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       ).timeout(const Duration(seconds: 10));
       final serverWidgetId =
           startResponse.data?['widgetId']?.toString().trim() ?? '';
-      final widgetId =
-          serverWidgetId.isNotEmpty ? serverWidgetId : widget.widgetId;
-      if (widgetId.trim().isEmpty) {
-        throw StateError(
-          'Dojah widget is not configured for ${widget.countryName}.',
-        );
-      }
+      if (serverWidgetId.isNotEmpty) widgetId = serverWidgetId;
+    } catch (e) {
+      debugPrint('kycDojahStart optional call failed (using local widgetId): $e');
+    }
 
-      debugPrint(
-        'Dojah launch: country=${widget.countryCode} widgetId=$widgetId referenceId=$referenceId',
-      );
+    if (widgetId.trim().isEmpty) {
+      try {
+        await _kycOverlay.invokeMethod('hide');
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            'Verification is not available for ${widget.countryName} yet. Please try again later.';
+      });
+      return;
+    }
 
+    // Show our branded overlay while the native KYC widget starts.
+    try {
+      await _kycOverlay.invokeMethod('show');
+    } catch (_) {}
+
+    debugPrint(
+      'Dojah launch: country=${widget.countryCode} widgetId=$widgetId referenceId=$referenceId',
+    );
+
+    String result;
+    try {
       result = await DojahKyc.launch(
         widgetId,
         referenceId: referenceId,
-        email: email.isNotEmpty ? email : null,
         extraUserData: ExtraUserData(
           userData: UserData(
-            email: email.isNotEmpty ? email : null,
+            firstName: name.first,
+            lastName: name.last,
+            dob: dob,
           ),
           metadata: {
             'userId': widget.userId,
@@ -128,16 +166,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         _errorMessage = 'Verification session timed out. Please try again.';
       });
       return;
-    } on DioException catch (error) {
-      try {
-        await _kycOverlay.invokeMethod('hide');
-      } catch (_) {}
-      if (!mounted) return;
-      setState(() {
-        _hasError = true;
-        _errorMessage = ApiService.parseError(error);
-      });
-      return;
     } on PlatformException catch (error) {
       try {
         await _kycOverlay.invokeMethod('hide');
@@ -158,7 +186,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage = error.toString().replaceFirst('Bad state: ', '');
+        _errorMessage =
+            'Could not start verification. Please check your connection and try again.';
       });
       return;
     }
