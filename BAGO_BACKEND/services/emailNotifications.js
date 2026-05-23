@@ -807,6 +807,40 @@ export async function sendKycSubmittedEmail(userEmail, userName) {
   }
 }
 
+export async function sendKycDeclinedEmail(userEmail, userName, reason = '') {
+  if (!resend) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const reasonText = reason?.trim() || 'We could not verify the document details provided.';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Your identity verification was <strong>not approved</strong>. You can try again with a valid, clear document and matching details.
+      </p>
+      <div style="background:#fef2f2; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #ef4444;">
+        <p style="margin:0 0 8px; font-size:14px; color:#991b1b; font-weight:600;">Reason</p>
+        <p style="margin:0; font-size:14px; color:#374151; line-height:1.6;">${reasonText}</p>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        If you believe this is a mistake, contact support and we'll help review it.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: 'Identity Verification Was Not Approved',
+      html: generateEmailTemplate('Verification Not Approved', content, 'Try Again', FRONTEND_URL),
+    });
+    console.log(`✅ Sent KYC declined email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send KYC declined email:', err);
+    return false;
+  }
+}
+
 /**
  * Sends the receiver their 4-digit handover PIN.
  * They read this PIN to the traveler at delivery; the traveler enters it in

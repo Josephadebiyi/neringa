@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { query, queryOne } from '../lib/postgres/db.js';
 import { markKycApproved } from '../lib/postgres/accounts.js';
-import { sendKycApprovedEmail, sendKycSubmittedEmail } from '../services/emailNotifications.js';
+import { sendKycApprovedEmail, sendKycSubmittedEmail, sendKycDeclinedEmail } from '../services/emailNotifications.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 
 // ---------------------------------------------------------------------------
@@ -245,6 +245,13 @@ export const dojahWebhook = async (req, res) => {
         [userId, reason],
       );
       console.log(`Dojah webhook: declined userId=${userId} reason=${reason}`);
+      if (userEmail) sendKycDeclinedEmail(userEmail, userName, reason).catch(() => {});
+      sendPushNotification(
+        userId,
+        'Verification Not Approved',
+        'Your identity verification was not approved. Please check your details and try again.',
+        { type: 'kyc_declined' },
+      ).catch(() => {});
     } else {
       console.log(`Dojah webhook: unhandled status="${rawStatus}" for userId=${userId}`);
     }
