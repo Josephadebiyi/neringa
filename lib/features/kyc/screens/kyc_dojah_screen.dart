@@ -85,6 +85,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
+    final email = user?.email ?? '';
     final name = _splitName(user?.fullName ?? '');
     final dob = _formatDob(user?.dateOfBirth);
     final referenceId =
@@ -138,11 +139,13 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       result = await DojahKyc.launch(
         widgetId,
         referenceId: referenceId,
+        email: email.isNotEmpty ? email : null,
         extraUserData: ExtraUserData(
           userData: UserData(
             firstName: name.first,
             lastName: name.last,
             dob: dob,
+            email: email.isNotEmpty ? email : null,
           ),
           metadata: {
             'userId': widget.userId,
