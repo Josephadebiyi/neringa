@@ -259,7 +259,18 @@ export const dojahWebhook = async (req, res) => {
     const declined = ['failed', 'declined', 'rejected', 'failure'].includes(rawStatus);
 
     if (approved) {
-      await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: event });
+      const approval = await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: event });
+      if (approval?.duplicate) {
+        console.log(`Dojah webhook: duplicate identity blocked userId=${userId} duplicate=${approval.duplicateUserId}`);
+        if (userEmail) sendKycDeclinedEmail(userEmail, userName, approval.reason).catch(() => {});
+        sendPushNotification(
+          userId,
+          'Verification Not Approved',
+          'This identity appears to already be linked to another Bago account.',
+          { type: 'kyc_duplicate' },
+        ).catch(() => {});
+        return res.status(200).json({ received: true, duplicate: true });
+      }
       console.log(`Dojah webhook: approved userId=${userId}`);
       if (userEmail) sendKycApprovedEmail(userEmail, userName).catch(() => {});
       sendPushNotification(

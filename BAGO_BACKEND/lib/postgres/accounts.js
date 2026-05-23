@@ -7,6 +7,136 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(numericValue) ? numericValue : fallback;
 }
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return null;
+}
+
+function compactName(value) {
+  return value ? String(value).trim().replace(/\s+/g, ' ') : null;
+}
+
+function normalizeDateString(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const text = String(value).trim();
+  if (!text) return null;
+
+  const ymd = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (ymd) {
+    const [, year, month, day] = ymd;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  const dmy = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmy) {
+    const [, day, month, year] = dmy;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+function identityFromPayload(payload = {}) {
+  const fullPayload = payload.kycVerifiedData || payload;
+  const candidates = [
+    payload,
+    fullPayload?.data?.entity,
+    fullPayload?.data?.entity?.data,
+    fullPayload?.data?.entity?.result,
+    fullPayload?.data?.verification,
+    fullPayload?.data?.result,
+    fullPayload?.data,
+    fullPayload?.entity,
+    fullPayload?.result,
+    fullPayload,
+  ].filter(Boolean);
+
+  const read = (...keys) => {
+    for (const candidate of candidates) {
+      for (const key of keys) {
+        const value = candidate?.[key];
+        if (value == null) continue;
+        if (typeof value === 'object' && !Array.isArray(value)) {
+          const nested = firstNonEmpty(
+            value.first_name,
+            value.firstName,
+            value.firstname,
+            value.name,
+            value.value,
+          );
+          if (nested) return nested;
+        }
+        const text = firstNonEmpty(value);
+        if (text) return text;
+      }
+    }
+    return null;
+  };
+
+  const firstName = compactName(read('firstName', 'first_name', 'firstname', 'given_name', 'givenName'));
+  const middleName = compactName(read('middleName', 'middle_name', 'middlename', 'middle'));
+  const lastName = compactName(read('lastName', 'last_name', 'lastname', 'surname', 'family_name', 'familyName'));
+  const fullLegalName = compactName(
+    read('fullLegalName', 'full_legal_name', 'fullName', 'full_name', 'name') ||
+    [firstName, middleName, lastName].filter(Boolean).join(' '),
+  );
+  const dateOfBirth = normalizeDateString(
+    read('dateOfBirth', 'date_of_birth', 'dob', 'birthdate', 'birth_date', 'dateOfBirth'),
+  );
+
+  return { firstName, middleName, lastName, fullLegalName, dateOfBirth };
+}
+
+async function blockDuplicateIdentity(client, userId, {
+  duplicate,
+  provider,
+  fullPayload,
+  firstName,
+  lastName,
+  dateOfBirth,
+}) {
+  const reason = `Duplicate identity matched approved account ${duplicate.id}`;
+  await client.query(
+    `
+      update public.profiles
+      set kyc_status = 'blocked_duplicate',
+          kyc_provider = $2,
+          verification_provider = $2,
+          kyc_failure_reason = $3,
+          kyc_verified_data = $4,
+          verified_first_name = coalesce($5, verified_first_name),
+          verified_last_name = coalesce($6, verified_last_name),
+          verified_date_of_birth = coalesce($7::date, verified_date_of_birth),
+          updated_at = timezone('utc', now())
+      where id = $1
+    `,
+    [userId, provider, reason, fullPayload, firstName, lastName, dateOfBirth],
+  );
+
+  await client.query(
+    `
+      update public.kyc_verifications
+      set status = 'blocked_duplicate',
+          reviewed_at = timezone('utc', now()),
+          review_notes = $2,
+          updated_at = timezone('utc', now())
+      where user_id = $1
+    `,
+    [userId, reason],
+  ).catch(() => {});
+
+  return { approved: false, duplicate: true, duplicateUserId: duplicate.id, reason };
+}
+
 async function ensurePaymentEventsInfrastructure(client) {
   try {
     await client.query(`
@@ -628,21 +758,46 @@ export async function upsertKycSession(userId, { sessionId, sessionToken, status
 export async function markKycApproved(userId, payload = {}) {
   return withTransaction(async (client) => {
     const fullPayload = payload.kycVerifiedData || payload;
-    const candidate = fullPayload?.data?.entity || fullPayload?.data || fullPayload?.entity || fullPayload || {};
-    const firstName = payload.firstName || candidate.first_name || candidate.firstName || candidate.firstname || null;
-    const middleName = payload.middleName || candidate.middle_name || candidate.middleName || null;
-    const lastName = payload.lastName || candidate.last_name || candidate.lastName || candidate.lastname || null;
-    const fullLegalName = payload.fullLegalName ||
-      candidate.full_name ||
-      candidate.fullName ||
-      [firstName, middleName, lastName].filter(Boolean).join(' ') ||
-      null;
-    const dateOfBirth = payload.dateOfBirth ||
-      candidate.date_of_birth ||
-      candidate.dateOfBirth ||
-      candidate.dob ||
-      null;
+    const extracted = identityFromPayload(payload);
+    let firstName = compactName(payload.firstName || extracted.firstName);
+    const middleName = compactName(payload.middleName || extracted.middleName);
+    let lastName = compactName(payload.lastName || extracted.lastName);
+    const fullLegalName = compactName(payload.fullLegalName || extracted.fullLegalName);
+    const dateOfBirth = normalizeDateString(payload.dateOfBirth || extracted.dateOfBirth);
     const provider = payload.provider || fullPayload?.provider || fullPayload?.data?.provider || 'didit';
+
+    if ((!firstName || !lastName) && fullLegalName) {
+      const parts = fullLegalName.split(/\s+/).filter(Boolean);
+      firstName ||= parts[0] || null;
+      lastName ||= parts.length > 1 ? parts[parts.length - 1] : null;
+    }
+
+    if (firstName && lastName && dateOfBirth) {
+      const duplicate = await client.query(
+        `
+          select id, email
+          from public.profiles
+          where id <> $1
+            and kyc_status = 'approved'
+            and coalesce(verified_date_of_birth, date_of_birth)::date = $4::date
+            and lower(regexp_replace(trim(coalesce(verified_first_name, first_name, '')), '\\s+', ' ', 'g')) = lower(regexp_replace(trim($2), '\\s+', ' ', 'g'))
+            and lower(regexp_replace(trim(coalesce(verified_last_name, last_name, '')), '\\s+', ' ', 'g')) = lower(regexp_replace(trim($3), '\\s+', ' ', 'g'))
+          limit 1
+        `,
+        [userId, firstName, lastName, dateOfBirth],
+      );
+
+      if (duplicate.rows[0]) {
+        return blockDuplicateIdentity(client, userId, {
+          duplicate: duplicate.rows[0],
+          provider,
+          fullPayload,
+          firstName,
+          lastName,
+          dateOfBirth,
+        });
+      }
+    }
 
     await client.query(
       `
@@ -680,5 +835,7 @@ export async function markKycApproved(userId, payload = {}) {
       `,
       [userId],
     );
+
+    return { approved: true, duplicate: false, userId };
   });
 }

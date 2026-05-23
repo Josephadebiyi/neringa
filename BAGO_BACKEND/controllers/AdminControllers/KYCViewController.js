@@ -194,7 +194,7 @@ export const updateKYCStatus = async (req, res) => {
     const { userId } = req.params;
     const { status, reason } = req.body;
 
-    const validStatuses = ['approved', 'declined', 'pending', 'manual_review', 'not_started', 'failed_verification'];
+    const validStatuses = ['approved', 'declined', 'pending', 'manual_review', 'not_started', 'failed_verification', 'blocked_duplicate'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
     }
