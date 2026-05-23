@@ -91,7 +91,6 @@ class ApiConstants {
   static const String kycSession = '/api/bago/kyc/create-session';
   static const String kycProvider = '/api/bago/kyc/provider';
   static const String kycDojahStart = '/api/bago/kyc/dojah/start';
-  static const String kycDojahSession = '/api/bago/kyc/dojah/session';
   static const String kycStatus = '/api/bago/kyc/status';
   static const String kycManualSubmit = '/api/bago/kyc/manual-submit';
   static const String kycManualStatus = '/api/bago/kyc/manual-status';

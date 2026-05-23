@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_extra_flutter_data.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_kyc_sdk_flutter.dart';
 import 'package:flutter/material.dart';
@@ -86,32 +87,37 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     final name = _splitName(user?.fullName ?? '');
     final dob = _formatDob(user?.dateOfBirth);
 
-    // Backend creates the KYC session and returns the widget ID + reference ID.
-    // Widget IDs and reference IDs are never generated or stored client-side.
+    final referenceId =
+        'bago-${widget.userId}-${DateTime.now().millisecondsSinceEpoch}';
+
     String widgetId;
-    String referenceId;
     try {
-      final sessionResponse = await ApiService.instance
-          .post<Map<String, dynamic>>(
-            ApiConstants.kycDojahSession,
-            data: {'country': widget.countryCode},
-          )
-          .timeout(const Duration(seconds: 15));
-      final data = sessionResponse.data;
-      widgetId = data?['widgetId']?.toString().trim() ?? '';
-      referenceId = data?['referenceId']?.toString().trim() ?? '';
-      if (widgetId.isEmpty) throw Exception('No widgetId in session response');
-      if (referenceId.isEmpty) {
-        referenceId =
-            'bago-${widget.userId}-${DateTime.now().millisecondsSinceEpoch}';
+      final startResponse =
+          await ApiService.instance.post<Map<String, dynamic>>(
+        ApiConstants.kycDojahStart,
+        data: {
+          'country': widget.countryCode,
+          'referenceId': referenceId,
+        },
+      ).timeout(const Duration(seconds: 10));
+      widgetId = startResponse.data?['widgetId']?.toString().trim() ?? '';
+      if (widgetId.isEmpty) {
+        throw StateError(
+          'Dojah widget is not configured for ${widget.countryName}.',
+        );
       }
-    } catch (e) {
-      debugPrint('kycDojahSession failed: $e');
+    } on DioException catch (error) {
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage =
-            'Could not start verification. Please check your connection and try again.';
+        _errorMessage = ApiService.parseError(error);
+      });
+      return;
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+        _errorMessage = error.toString().replaceFirst('Bad state: ', '');
       });
       return;
     }
@@ -180,8 +186,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage =
-            'Could not start verification. Please check your connection and try again.';
+        _errorMessage = error.toString().replaceFirst('Bad state: ', '');
       });
       return;
     }
@@ -206,7 +211,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
     AppSnackBar.show(
       context,
-      message: 'Verification submitted! We\'ll notify you once it\'s confirmed.',
+      message:
+          'Verification submitted! We\'ll notify you once it\'s confirmed.',
       type: SnackBarType.success,
     );
     context.go(widget.fromOnboarding ? '/home' : '/profile');
