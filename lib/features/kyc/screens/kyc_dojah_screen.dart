@@ -178,6 +178,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     }
 
     final isSuccess = lower.contains('success') ||
+        lower.contains('approved') ||
         lower.contains('complet') ||
         lower.contains('submitted') ||
         lower.contains('verif');
@@ -192,7 +193,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    final kycStatus = await _waitForKycStatus();
+    final kycStatus = await _waitForKycStatus() ?? lower;
     if (!mounted) return;
 
     if (_isDeclinedStatus(kycStatus)) {
