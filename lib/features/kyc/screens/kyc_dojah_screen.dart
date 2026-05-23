@@ -108,7 +108,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
             'widgetId': widgetId,
           },
         ),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(minutes: 15));
       debugPrint('Dojah result: $result');
     } on TimeoutException {
       try {
@@ -117,8 +117,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage =
-            'Verification is taking too long to start. Please check your connection and try again.';
+        _errorMessage = 'Verification session timed out. Please try again.';
       });
       return;
     } catch (_) {
@@ -163,15 +162,66 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    // Refresh profile so name/DOB from Dojah webhook are reflected immediately
-    ref.read(authProvider.notifier).refreshProfile().ignore();
+    final kycStatus = await _waitForKycStatus();
+    if (!mounted) return;
+
+    if (_isDeclinedStatus(kycStatus)) {
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            'Verification was not approved. Please check your document and try again.';
+        _debugResult = kycStatus;
+      });
+      return;
+    }
+
+    await ref.read(authProvider.notifier).refreshProfile().catchError((_) {});
+    if (!mounted) return;
+
     AppSnackBar.show(
       context,
-      message:
-          'Verification submitted! We\'ll notify you once it\'s confirmed.',
+      message: _isApprovedStatus(kycStatus)
+          ? 'Identity verified successfully.'
+          : 'Verification submitted! We\'ll notify you once it\'s confirmed.',
       type: SnackBarType.success,
     );
     context.go(widget.fromOnboarding ? '/home' : '/profile');
+  }
+
+  Future<String?> _waitForKycStatus() async {
+    for (var attempt = 0; attempt < 8; attempt += 1) {
+      try {
+        final response = await ApiService.instance
+            .get<Map<String, dynamic>>(
+              ApiConstants.kycStatus,
+            )
+            .timeout(const Duration(seconds: 5));
+        final status = response.data?['kycStatus']?.toString().toLowerCase();
+        if (status != null && status.isNotEmpty && status != 'not_started') {
+          return status;
+        }
+      } catch (error) {
+        debugPrint('Dojah status poll failed: $error');
+      }
+      await Future<void>.delayed(const Duration(seconds: 3));
+    }
+    return null;
+  }
+
+  bool _isApprovedStatus(String? status) {
+    final value = status?.toLowerCase().trim();
+    return value == 'approved' ||
+        value == 'verified' ||
+        value == 'success' ||
+        value == 'completed';
+  }
+
+  bool _isDeclinedStatus(String? status) {
+    final value = status?.toLowerCase().trim();
+    return value == 'declined' ||
+        value == 'rejected' ||
+        value == 'failed' ||
+        value == 'failed_verification';
   }
 
   Future<void> _retry() async {

@@ -26,6 +26,7 @@ public class DojahFlutterSdkPlugin: NSObject, FlutterPlugin {
     private var prevController: UIViewController?
     private var flutterResult: FlutterResult?
     private weak var modalNavController: UINavigationController?
+    private var pendingResolveWorkItem: DispatchWorkItem?
 
     // ✅ SAFE REGISTRATION
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -38,15 +39,28 @@ public class DojahFlutterSdkPlugin: NSObject, FlutterPlugin {
 
     }
     
-    private func resolveSdkResult() {
+    private func resolveSdkResult(fallbackStatus: String = "closed") {
+        pendingResolveWorkItem?.cancel()
+        pendingResolveWorkItem = nil
+
         let vStatus = DojahWidgetSDK.getVerificationResultStatus()
-        let status = vStatus.isEmpty ? "closed" : vStatus
+        let status = vStatus.isEmpty ? fallbackStatus : vStatus
 
         self.flutterResult?(status)
+        self.flutterResult = nil
         self.prevController = nil
 
         self.modalNavController?.dismiss(animated: true)
         self.modalNavController = nil
+    }
+
+    private func scheduleResolveAfterCompletedFlow() {
+        pendingResolveWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.resolveSdkResult(fallbackStatus: "submitted")
+        }
+        pendingResolveWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: item)
     }
 
     // MARK: - Method Handler
@@ -95,14 +109,20 @@ public class DojahFlutterSdkPlugin: NSObject, FlutterPlugin {
                 
                 print("Dojah visible controller: \(vcName)")
                 
-                if vcName.contains("DojahWidget") &&
-                    !vcName.contains("DojahWidget.SDKInitViewController") {
+                if vcName.contains("DojahWidget.SDKInitViewController") {
+                    if self.prevController != nil {
+                        self.scheduleResolveAfterCompletedFlow()
+                    }
+                }
+                else if vcName.contains("DojahWidget") {
+                    self.pendingResolveWorkItem?.cancel()
+                    self.pendingResolveWorkItem = nil
                     self.prevController = vc
                 }
                 // SDKInitViewController is a transient loading state. Do not
-                // resolve from navigation events; the SDK may show intermediate
-                // non-Dojah controllers while a user taps Continue. Resolving
-                // here turns a valid in-progress flow into a false failure.
+                // resolve on the first init screen. If it appears again after a
+                // real verification controller, Dojah has returned to its
+                // loading shell after completion; resolve back to Flutter.
             }
 
             dojahNavController.delegate = navDelegate
@@ -151,9 +171,12 @@ public class DojahFlutterSdkPlugin: NSObject, FlutterPlugin {
 extension DojahFlutterSdkPlugin: UIAdaptivePresentationControllerDelegate {
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         let vStatus = DojahWidgetSDK.getVerificationResultStatus()
-        let status = vStatus.isEmpty ? "closed" : vStatus
+        let status = vStatus.isEmpty ? (prevController == nil ? "closed" : "submitted") : vStatus
+        pendingResolveWorkItem?.cancel()
+        pendingResolveWorkItem = nil
         flutterResult?(status)
         flutterResult = nil
+        prevController = nil
         modalNavController = nil
     }
 }

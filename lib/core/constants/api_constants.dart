@@ -19,7 +19,8 @@ class ApiConstants {
     'STRIPE_PUBLISHABLE_KEY',
     defaultValue: String.fromEnvironment(
       'STRIPE_KEY',
-      defaultValue: 'pk_live_51SIm5SPvb8NSyluxt0PHddQMCZtzszO7huOR46DEiwX1rS96322QQUkhsTUUOTMeZSK4QVZOPcuP7uyzQG3xuQOW00J76dIWVe',
+      defaultValue:
+          'pk_live_51SIm5SPvb8NSyluxt0PHddQMCZtzszO7huOR46DEiwX1rS96322QQUkhsTUUOTMeZSK4QVZOPcuP7uyzQG3xuQOW00J76dIWVe',
     ),
   );
   static const String stripeApplePayMerchantIdentifier = String.fromEnvironment(
@@ -90,6 +91,7 @@ class ApiConstants {
   static const String kycSession = '/api/bago/kyc/create-session';
   static const String kycProvider = '/api/bago/kyc/provider';
   static const String kycDojahStart = '/api/bago/kyc/dojah/start';
+  static const String kycStatus = '/api/bago/kyc/status';
   static const String kycManualSubmit = '/api/bago/kyc/manual-submit';
   static const String kycManualStatus = '/api/bago/kyc/manual-status';
   // Backend: GET /kyc/fetch-result/:sessionId  — caller appends /<sessionId>
