@@ -75,6 +75,45 @@ const userIdFromReferenceId = (referenceId = '') => {
   return match?.[1] || value;
 };
 
+const normalizeWebhookValue = (value) => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.toLowerCase().trim();
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).toLowerCase().trim();
+  }
+  if (Array.isArray(value)) {
+    return value.map(normalizeWebhookValue).find(Boolean) || '';
+  }
+  if (typeof value === 'object') {
+    for (const key of [
+      'status',
+      'value',
+      'decision',
+      'result',
+      'verificationStatus',
+      'verification_status',
+      'state',
+      'name',
+      'message',
+    ]) {
+      const normalized = normalizeWebhookValue(value[key]);
+      if (normalized && normalized !== 'true' && normalized !== 'false') {
+        return normalized;
+      }
+    }
+    return '';
+  }
+  return '';
+};
+
+const firstWebhookValue = (...values) => {
+  for (const value of values) {
+    const normalized = normalizeWebhookValue(value);
+    if (normalized) return normalized;
+  }
+  return '';
+};
+
 // ---------------------------------------------------------------------------
 // GET /api/bago/kyc/provider?country=NG
 // Returns which provider to use + config the client needs
@@ -170,15 +209,19 @@ export const dojahWebhook = async (req, res) => {
     console.log('Dojah webhook received:', JSON.stringify(event).slice(0, 500));
 
     // --- Extract status (many field names used across sandbox vs live) ------
-    const rawStatus = (
-      event?.data?.status ||
-      event?.data?.verificationStatus ||
-      event?.data?.verification_status ||
-      event?.status ||
-      event?.verification_status ||
-      event?.verificationStatus ||
-      ''
-    ).toLowerCase().trim();
+    const rawStatus = firstWebhookValue(
+      event?.data?.status,
+      event?.data?.verification_status,
+      event?.data?.verificationStatus,
+      event?.data?.decision,
+      event?.data?.result,
+      event?.data?.verification?.status,
+      event?.status,
+      event?.verification_status,
+      event?.verificationStatus,
+      event?.decision,
+      event?.result,
+    );
 
     // --- Extract userId / referenceId --------------------------------------
     const rawUserId =
