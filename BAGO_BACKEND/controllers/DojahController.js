@@ -34,31 +34,37 @@ export const DOJAH_COUNTRIES = new Set([
 const DOJAH_APP_ID  = process.env.DOJAH_APP_ID;
 const DOJAH_SECRET  = process.env.DOJAH_SECRET_KEY;
 const DOJAH_PUBLIC_KEY = process.env.DOJAH_PUBLIC_KEY;
+const DOJAH_WIDGET_NG = process.env.DOJAH_WIDGET_NG || process.env.DOJAH_WIDGET_ID_NG || '';
+const DOJAH_WIDGET_KE = process.env.DOJAH_WIDGET_KE || process.env.DOJAH_WIDGET_ID_KE || '';
 const DOJAH_WIDGET_NG_KE = process.env.DOJAH_WIDGET_NG_KE || process.env.DOJAH_WIDGET_ID_NG_KE || '';
 const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH_WIDGET_ID_GLOBAL || process.env.DOJAH_WIDGET_ID || '';
-
-const countryNeedsLocalGovWidget = (country = '') => {
-  const code = country.toUpperCase().trim();
-  return code === 'NG' || code === 'KE';
-};
 
 const widgetConfigForCountry = (country = '', clientWidgetId = '') => {
   const code = country.toUpperCase().trim();
   const clientId = clientWidgetId.toString().trim();
 
-  if (countryNeedsLocalGovWidget(code)) {
-    const widgetId = DOJAH_WIDGET_NG_KE || clientId;
+  if (code === 'NG') {
+    const widgetId = DOJAH_WIDGET_NG || DOJAH_WIDGET_NG_KE || clientId;
     return {
       widgetId,
-      widgetSource: DOJAH_WIDGET_NG_KE ? 'server:DOJAH_WIDGET_NG_KE' : 'client',
-      missingEnv: !widgetId ? 'DOJAH_WIDGET_NG_KE' : null,
+      widgetSource: DOJAH_WIDGET_NG ? 'server:DOJAH_WIDGET_NG' : (DOJAH_WIDGET_NG_KE ? 'server:DOJAH_WIDGET_NG_KE' : 'client'),
+      missingEnv: !widgetId ? 'DOJAH_WIDGET_NG' : null,
     };
   }
 
-  const widgetId = DOJAH_WIDGET_GLOBAL || clientId || DOJAH_WIDGET_NG_KE;
+  if (code === 'KE') {
+    const widgetId = DOJAH_WIDGET_KE || DOJAH_WIDGET_NG_KE || clientId;
+    return {
+      widgetId,
+      widgetSource: DOJAH_WIDGET_KE ? 'server:DOJAH_WIDGET_KE' : (DOJAH_WIDGET_NG_KE ? 'server:DOJAH_WIDGET_NG_KE' : 'client'),
+      missingEnv: !widgetId ? 'DOJAH_WIDGET_KE' : null,
+    };
+  }
+
+  const widgetId = DOJAH_WIDGET_GLOBAL || clientId || DOJAH_WIDGET_NG || DOJAH_WIDGET_KE || DOJAH_WIDGET_NG_KE;
   return {
     widgetId,
-    widgetSource: DOJAH_WIDGET_GLOBAL ? 'server:DOJAH_WIDGET_GLOBAL' : (clientId ? 'client' : 'server:DOJAH_WIDGET_NG_KE'),
+    widgetSource: DOJAH_WIDGET_GLOBAL ? 'server:DOJAH_WIDGET_GLOBAL' : (clientId ? 'client' : 'server:fallback'),
     missingEnv: !widgetId ? 'DOJAH_WIDGET_GLOBAL' : null,
   };
 };

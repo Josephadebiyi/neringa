@@ -8,10 +8,16 @@ import '../../../shared/widgets/app_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_dojah_screen.dart';
 
-// Nigeria + Kenya use BVN/NIN government checks widget.
-// Override these at build time if Dojah dashboard widget IDs change:
-// --dart-define=DOJAH_WIDGET_NG_KE=... --dart-define=DOJAH_WIDGET_GLOBAL=...
-const _kWidgetNigeriaKenya = String.fromEnvironment(
+// Override these at build time if Dojah dashboard widget IDs change.
+const _kWidgetNigeria = String.fromEnvironment(
+  'DOJAH_WIDGET_NG',
+  defaultValue: '',
+);
+const _kWidgetKenya = String.fromEnvironment(
+  'DOJAH_WIDGET_KE',
+  defaultValue: '',
+);
+const _kWidgetNigeriaKenyaFallback = String.fromEnvironment(
   'DOJAH_WIDGET_NG_KE',
   defaultValue: '',
 );
@@ -34,9 +40,17 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
 
   String _widgetIdFor(Country country) {
     final code = country.countryCode.toUpperCase();
-    return (code == 'NG' || code == 'KE')
-        ? _kWidgetNigeriaKenya
-        : _kWidgetOther;
+    if (code == 'NG') {
+      return _kWidgetNigeria.isNotEmpty
+          ? _kWidgetNigeria
+          : _kWidgetNigeriaKenyaFallback;
+    }
+    if (code == 'KE') {
+      return _kWidgetKenya.isNotEmpty
+          ? _kWidgetKenya
+          : _kWidgetNigeriaKenyaFallback;
+    }
+    return _kWidgetOther;
   }
 
   void _openPicker() {
