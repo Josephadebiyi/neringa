@@ -1062,7 +1062,8 @@ app.get(/^\/admin(\/.*)?$/, (req, res) => {
 // ✅ Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  const message = err.message || 'Something went wrong!';
+  res.status(500).json({ message });
 });
 
 const PORT = process.env.PORT || 3000;

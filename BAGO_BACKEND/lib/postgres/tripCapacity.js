@@ -27,8 +27,25 @@ export async function ensureTripCapacityColumns(executor = { query }) {
     ALTER TABLE public.trips
       ADD COLUMN IF NOT EXISTS total_kg NUMERIC NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS sold_kg NUMERIC NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS reserved_kg NUMERIC NOT NULL DEFAULT 0
+      ADD COLUMN IF NOT EXISTS reserved_kg NUMERIC NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS from_country TEXT,
+      ADD COLUMN IF NOT EXISTS to_country TEXT,
+      ADD COLUMN IF NOT EXISTS collection_city TEXT,
+      ADD COLUMN IF NOT EXISTS collection_country TEXT,
+      ADD COLUMN IF NOT EXISTS price_per_kg NUMERIC DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'USD',
+      ADD COLUMN IF NOT EXISTS landmark TEXT DEFAULT '',
+      ADD COLUMN IF NOT EXISTS travel_document_url TEXT,
+      ADD COLUMN IF NOT EXISTS travel_document_uploaded_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS travel_document_verified BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS request_count INTEGER DEFAULT 0
   `);
+
+  // The original Supabase schema had status CHECK IN ('active','completed','cancelled').
+  // Drop that constraint so 'pending_admin_review' and 'pending' are valid statuses.
+  try {
+    await executor.query(`ALTER TABLE public.trips DROP CONSTRAINT IF EXISTS trips_status_check`);
+  } catch (_) { /* constraint may not exist or may have a different name — safe to ignore */ }
 }
 
 export async function buildTripCapacitySnapshot(executor, tripId, { lockTrip = false } = {}) {
