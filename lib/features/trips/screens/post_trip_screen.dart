@@ -446,10 +446,9 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           message: l10n.selectTravelDate, type: SnackBarType.error);
       return;
     }
-    if (_step == 4 && _time.isEmpty) {
-      AppSnackBar.show(context,
-          message: l10n.setDepartureTime, type: SnackBarType.error);
-      return;
+    if (_step == 4) {
+      // Seed _time with the current picker values if the user never moved any wheel.
+      if (_time.isEmpty) _time = '$_hour:$_minute $_period';
     }
     if (_step == 5 &&
         _travelDocumentFile == null &&
@@ -486,12 +485,13 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     final l10n = AppLocalizations.of(context);
     setState(() => _loading = true);
     try {
-      final parts = _from.split(', ');
-      final fromCity = parts.first.trim();
-      final fromCountry = parts.length > 1 ? parts.last.trim() : fromCity;
-      final toParts = _to.split(', ');
-      final toCity = toParts.first.trim();
-      final toCountry = toParts.length > 1 ? toParts.last.trim() : toCity;
+      // Extract base city so "Heathrow Airport, London, UK" → fromCity="London"
+      // This lets senders find the trip by searching "London", not the airport name
+      final fromCity = _extractCityDisplay(_from);
+      final fromCountry = _extractCountry(_from);
+      final toCity = _extractCityDisplay(_to);
+      final toCountry = _extractCountry(_to);
+
       final currency = _resolvedCurrency(
         candidate: _strictUserCurrency(ref.read(authProvider).user),
       );
@@ -526,7 +526,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       }
 
       final departureIso = _parseDateTimeToISO();
-      final landmark = '$fromCity, $fromCountry';
+      // Full selection (may include hub like "Heathrow Airport, London, United Kingdom")
+      final landmark = _from.isNotEmpty ? _from : '$fromCity, $fromCountry';
       final debugPayload = <String, dynamic>{
         'mode': _isEditMode ? 'edit' : 'create',
         'fromLocation': fromCity,
@@ -679,8 +680,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       _lockedCurrency = tripCurrency.toUpperCase();
     }
     setState(() {
-      _from = '${trip.fromLocation}, ${trip.fromCountry}';
-      _to = '${trip.toLocation}, ${trip.toCountry}';
+      final fromLoc = trip.fromLocation.trim();
+      _from = fromLoc.contains(',') ? fromLoc : '$fromLoc, ${trip.fromCountry.trim()}';
+      final toLoc = trip.toLocation.trim();
+      _to = toLoc.contains(',') ? toLoc : '$toLoc, ${trip.toCountry.trim()}';
       _date = dateLabel;
       _time = '$hour:$minute $period';
       _hour = hour;
@@ -904,7 +907,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
             // ── Step content ─────────────────────────────────────────────
             Expanded(child: _buildStep(currentCurrency)),
 
-            // ── Footer button ────────────────────────────────────────────
+            // ── Footer button (hidden on location steps — tap-to-select advances automatically) ──
+            if (_step != 1 && _step != 2)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
               child: SizedBox(
@@ -965,7 +969,12 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           title: l10n.departureCityTitle,
           subtitle: l10n.departureCitySubtitle,
           value: _from,
-          onSelect: (v) => setState(() => _from = v),
+          onSelect: (v, _, __) {
+            setState(() => _from = v);
+            Future.delayed(const Duration(milliseconds: 650), () {
+              if (mounted) setState(() => _step = 2);
+            });
+          },
         );
       case 2:
         return _LocationStep(
@@ -973,7 +982,18 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           title: l10n.destinationCityTitle,
           subtitle: l10n.destinationCitySubtitle,
           value: _to,
-          onSelect: (v) => setState(() => _to = v),
+          onSelect: (v, _, __) {
+            if (_locationsMatch(_from, v)) {
+              AppSnackBar.show(context,
+                  message: l10n.departureDestinationDifferent,
+                  type: SnackBarType.error);
+              return;
+            }
+            setState(() => _to = v);
+            Future.delayed(const Duration(milliseconds: 650), () {
+              if (mounted) setState(() => _step = 3);
+            });
+          },
         );
       case 3:
         return _DateStep(
@@ -1071,22 +1091,33 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         'Dec'
       ][m - 1];
 
-  bool _locationsMatch(String first, String second) {
-    String normalize(String input) =>
-        input.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  // Extracts the base city from either "City, Country" or "HubName, City, Country"
+  String _extractBaseCity(String location) {
+    final parts = location.split(',').map((p) => p.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ')).toList();
+    if (parts.length == 1) return parts.first;
+    if (parts.length == 2) return parts[0];
+    // "City, Country, Country" (broken edit) → "City"; "HubName, City, Country" → "City"
+    if (parts.length == 3 && parts[1] == parts[2]) return parts[0];
+    return parts[1];
+  }
 
-    final firstParts = first.split(',').map((part) => normalize(part)).toList();
-    final secondParts =
-        second.split(',').map((part) => normalize(part)).toList();
-
-    if (firstParts.isEmpty || secondParts.isEmpty) return false;
-    if (firstParts.first != secondParts.first) return false;
-
-    if (firstParts.length > 1 && secondParts.length > 1) {
-      return firstParts.last == secondParts.last;
+  String _extractCityDisplay(String location) {
+    final parts = location.split(',').map((p) => p.trim()).toList();
+    if (parts.length == 1) return location.trim();
+    if (parts.length == 2) return parts[0];
+    // 3+ parts: hub format "HubName, City, Country" OR broken edit "City, Country, Country"
+    if (parts.length == 3 && parts[1].toLowerCase() == parts[2].toLowerCase()) {
+      return parts[0]; // "City, Country, Country" → "City"
     }
+    return parts[1]; // "HubName, City, Country" → "City"
+  }
 
-    return true;
+  String _extractCountry(String location) => location.split(',').last.trim();
+
+  bool _locationsMatch(String first, String second) {
+    final a = _extractBaseCity(first);
+    final b = _extractBaseCity(second);
+    return a.isNotEmpty && a == b;
   }
 }
 
@@ -1317,25 +1348,20 @@ class _ComplianceStep extends StatelessWidget {
                       style: AppTextStyles.h4
                           .copyWith(fontWeight: FontWeight.w800)),
                 ),
-                const SizedBox(
-                  height: 200,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18),
-                    child: SingleChildScrollView(
-                      child: Text(
-                        'As a Bago Carrier, you enter into a legally binding agreement with Bago and the Senders you connect with.\n\n'
-                        '1. Package Inspection: You MUST personally inspect the contents of any package you agree to carry.\n\n'
-                        '2. Safety & Legality: You are solely responsible for ensuring the contents are legal in both the origin and destination countries. Bago has ZERO tolerance for illegal substances or restricted items.\n\n'
-                        '3. Insurance & Value: You must respect the declared value of items and follow Bago\'s protection protocols.\n\n'
-                        '4. Timely Delivery: You agree to deliver items within the agreed timeframe. Any delays must be communicated immediately via the app.\n\n'
-                        '5. In-App Conduct: All negotiations, tracking, and payments must occur via the Bago platform to be protected by our escrow and insurance policies.\n\n'
-                        '6. Liability: Bago is not liable for transport-related losses beyond the insured value. You indemnify Bago against any legal claims arising from your conduct.',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF6B7280),
-                            height: 1.6),
-                      ),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                  child: Text(
+                    'As a Bago Carrier, you enter into a legally binding agreement with Bago and the Senders you connect with.\n\n'
+                    '1. Package Inspection: You MUST personally inspect the contents of any package you agree to carry.\n\n'
+                    '2. Safety & Legality: You are solely responsible for ensuring the contents are legal in both the origin and destination countries. Bago has ZERO tolerance for illegal substances or restricted items.\n\n'
+                    '3. Insurance & Value: You must respect the declared value of items and follow Bago\'s protection protocols.\n\n'
+                    '4. Timely Delivery: You agree to deliver items within the agreed timeframe. Any delays must be communicated immediately via the app.\n\n'
+                    '5. In-App Conduct: All negotiations, tracking, and payments must occur via the Bago platform to be protected by our escrow and insurance policies.\n\n'
+                    '6. Liability: Bago is not liable for transport-related losses beyond the insured value. You indemnify Bago against any legal claims arising from your conduct.',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF6B7280),
+                        height: 1.6),
                   ),
                 ),
                 const Divider(height: 1),
@@ -1383,8 +1409,41 @@ class _ComplianceStep extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 1 & 2: Location Picker
+// Location result model
 // ─────────────────────────────────────────────────────────────────────────────
+class _LocationResult {
+  final String displayName;
+  final String countryCode;
+  final String category; // 'city' | 'airport' | 'train' | 'bus'
+  final double lat;
+  final double lon;
+
+  const _LocationResult({
+    required this.displayName,
+    required this.countryCode,
+    required this.category,
+    required this.lat,
+    required this.lon,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 1 & 2: Location Picker (tappable field → modal search sheet)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const _kDefaultLocations = [
+  _LocationResult(displayName: 'London, United Kingdom',       countryCode: 'gb', category: 'city', lat: 51.5074, lon: -0.1278),
+  _LocationResult(displayName: 'Lagos, Nigeria',               countryCode: 'ng', category: 'city', lat: 6.5244,  lon: 3.3792),
+  _LocationResult(displayName: 'New York, United States',      countryCode: 'us', category: 'city', lat: 40.7128, lon: -74.0060),
+  _LocationResult(displayName: 'Paris, France',                countryCode: 'fr', category: 'city', lat: 48.8566, lon: 2.3522),
+  _LocationResult(displayName: 'Toronto, Canada',              countryCode: 'ca', category: 'city', lat: 43.6532, lon: -79.3832),
+  _LocationResult(displayName: 'Dubai, United Arab Emirates',  countryCode: 'ae', category: 'city', lat: 25.2048, lon: 55.2708),
+  _LocationResult(displayName: 'Accra, Ghana',                 countryCode: 'gh', category: 'city', lat: 5.6037,  lon: -0.1870),
+  _LocationResult(displayName: 'Abuja, Nigeria',               countryCode: 'ng', category: 'city', lat: 9.0579,  lon: 7.4951),
+  _LocationResult(displayName: 'Amsterdam, Netherlands',       countryCode: 'nl', category: 'city', lat: 52.3676, lon: 4.9041),
+  _LocationResult(displayName: 'Nairobi, Kenya',               countryCode: 'ke', category: 'city', lat: -1.2921, lon: 36.8219),
+];
+
 class _LocationStep extends StatefulWidget {
   const _LocationStep({
     super.key,
@@ -1394,33 +1453,206 @@ class _LocationStep extends StatefulWidget {
     required this.onSelect,
   });
   final String title, subtitle, value;
-  final void Function(String) onSelect;
+  final void Function(String, double, double) onSelect;
 
   @override
   State<_LocationStep> createState() => _LocationStepState();
 }
 
 class _LocationStepState extends State<_LocationStep> {
-  final _ctrl = TextEditingController();
-  List<Map<String, String>> _suggestions = [];
-  bool _loading = false;
-  Timer? _debounce;
+  String _flag(String code) {
+    if (code.length != 2) return '🌍';
+    final pts = code.toUpperCase().split('').map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0)).toList();
+    return String.fromCharCode(pts[0]) + String.fromCharCode(pts[1]);
+  }
 
-  static const _defaults = [
-    {'name': 'London, United Kingdom', 'code': 'gb'},
-    {'name': 'Lagos, Nigeria', 'code': 'ng'},
-    {'name': 'New York, United States', 'code': 'us'},
-    {'name': 'Paris, France', 'code': 'fr'},
-    {'name': 'Toronto, Canada', 'code': 'ca'},
-    {'name': 'Dubai, United Arab Emirates', 'code': 'ae'},
-    {'name': 'Accra, Ghana', 'code': 'gh'},
-  ];
+  void _openSearch() async {
+    final result = await showModalBottomSheet<_LocationResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LocationSearchSheet(title: widget.title),
+    );
+    if (result != null && mounted) {
+      widget.onSelect(result.displayName, result.lat, result.lon);
+    }
+  }
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.value.isNotEmpty) _ctrl.text = widget.value;
+  Widget build(BuildContext context) {
+    final selected = widget.value.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.title,
+                  style: AppTextStyles.displaySm.copyWith(
+                      fontWeight: FontWeight.w900, color: AppColors.black)),
+              const SizedBox(height: 4),
+              Text(widget.subtitle,
+                  style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+              const SizedBox(height: 20),
+              // Tappable location field
+              GestureDetector(
+                onTap: _openSearch,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primarySoft : const Color(0xFFF7F7F8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.primary.withValues(alpha: 0.3)
+                          : AppColors.border,
+                      width: selected ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(children: [
+                    Icon(
+                      selected ? Icons.check_circle_rounded : Icons.search_rounded,
+                      size: 20,
+                      color: selected ? AppColors.primary : AppColors.gray400,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        selected ? widget.value : 'Search cities, airports, stations...',
+                        style: AppTextStyles.bodyMd.copyWith(
+                          color: selected ? AppColors.primary : AppColors.gray400,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (selected) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text('Change',
+                            style: AppTextStyles.labelSm.copyWith(
+                                color: AppColors.primary, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        if (!selected) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
+            child: Text('POPULAR CITIES',
+                style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.gray400, fontWeight: FontWeight.w700, letterSpacing: 0.6)),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+              itemCount: _kDefaultLocations.length,
+              itemBuilder: (_, i) {
+                final loc = _kDefaultLocations[i];
+                final parts = loc.displayName.split(',');
+                return InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => widget.onSelect(loc.displayName, loc.lat, loc.lon),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(children: [
+                      Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.gray100,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Center(
+                            child: Text(_flag(loc.countryCode),
+                                style: const TextStyle(fontSize: 22))),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(parts.first.trim(),
+                              style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                          if (parts.length > 1)
+                            Text(parts.skip(1).join(',').trim(),
+                                style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+                        ],
+                      )),
+                      const Icon(Icons.arrow_forward_ios_rounded,
+                          size: 13, color: AppColors.gray300),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
+        ] else ...[
+          // Confirmation card shown during 650ms before auto-advance
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Selected', style: AppTextStyles.labelSm.copyWith(color: AppColors.primary)),
+                    const SizedBox(height: 2),
+                    Text(widget.value,
+                        style: AppTextStyles.bodyMd.copyWith(
+                            fontWeight: FontWeight.w700, color: AppColors.black)),
+                  ],
+                )),
+              ]),
+            ),
+          ),
+          const Spacer(),
+        ],
+      ],
+    );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Location Search Sheet (modal bottom sheet)
+// ─────────────────────────────────────────────────────────────────────────────
+class _LocationSearchSheet extends StatefulWidget {
+  const _LocationSearchSheet({required this.title});
+  final String title;
+
+  @override
+  State<_LocationSearchSheet> createState() => _LocationSearchSheetState();
+}
+
+class _LocationSearchSheetState extends State<_LocationSearchSheet> {
+  final _ctrl = TextEditingController();
+  List<_LocationResult> _suggestions = [];
+  bool _loading = false;
+  Timer? _debounce;
 
   @override
   void dispose() {
@@ -1429,56 +1661,62 @@ class _LocationStepState extends State<_LocationStep> {
     super.dispose();
   }
 
+  String _categorize(String cls, String type) {
+    if (cls == 'aeroway') return 'airport';
+    if (cls == 'railway') return 'train';
+    if (cls == 'amenity' && type.contains('bus')) return 'bus';
+    return 'city';
+  }
+
   Future<void> _search(String q) async {
-    if (q.length < 2) {
-      setState(() => _suggestions = []);
-      return;
-    }
+    if (q.length < 2) { setState(() => _suggestions = []); return; }
     setState(() => _loading = true);
     try {
       final dio = Dio();
-      final languageCode = Localizations.localeOf(context).languageCode;
-      final res = await dio.get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'q': q,
-          'format': 'json',
-          'addressdetails': 1,
-          'limit': 15,
-          'accept-language': languageCode,
-        },
-        options:
-            Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
-      );
+      final lang = Localizations.localeOf(context).languageCode;
+      final opts = Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'});
+      final responses = await Future.wait([
+        dio.get('https://nominatim.openstreetmap.org/search', options: opts,
+            queryParameters: {'q': q, 'format': 'json', 'addressdetails': 1, 'limit': 12, 'accept-language': lang}),
+        dio.get('https://nominatim.openstreetmap.org/search', options: opts,
+            queryParameters: {'q': '$q airport', 'format': 'json', 'addressdetails': 1, 'limit': 6, 'accept-language': lang}),
+        dio.get('https://nominatim.openstreetmap.org/search', options: opts,
+            queryParameters: {'q': '$q train station', 'format': 'json', 'addressdetails': 1, 'limit': 4, 'accept-language': lang}),
+      ]);
       final seen = <String>{};
-      final list = <Map<String, String>>[];
-      for (final item in res.data as List) {
-        final addr = item['address'] as Map<String, dynamic>;
-        final city = addr['city'] ??
-            addr['town'] ??
-            addr['municipality'] ??
-            addr['county'] ??
-            addr['village'] ??
-            addr['suburb'] ??
-            (item['display_name'] as String).split(',').first.trim();
-        final country = addr['country'] as String? ?? '';
-        final code = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
-        final key = '${city.toString().toLowerCase()},$code';
-        if (!seen.contains(key) &&
-            city.toString().isNotEmpty &&
-            country.isNotEmpty) {
-          seen.add(key);
-          list.add(
-              {'name': '${city.toString().trim()}, $country', 'code': code});
+      final list = <_LocationResult>[];
+      for (final res in responses) {
+        for (final item in res.data as List) {
+          final cls = (item['class'] as String? ?? '').toLowerCase();
+          final type = (item['type'] as String? ?? '').toLowerCase();
+          final category = _categorize(cls, type);
+          final addr = item['address'] as Map<String, dynamic>;
+          final lat = double.tryParse(item['lat'] as String? ?? '') ?? 0.0;
+          final lon = double.tryParse(item['lon'] as String? ?? '') ?? 0.0;
+          final cc = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
+          final country = addr['country'] as String? ?? '';
+          String name;
+          if (category == 'airport' || category == 'train' || category == 'bus') {
+            final hub = (item['name'] as String? ?? '').isNotEmpty
+                ? item['name'] as String
+                : (item['display_name'] as String).split(',').first.trim();
+            final city = (addr['city'] ?? addr['town'] ?? addr['municipality'] ?? '').toString().trim();
+            name = city.isNotEmpty ? '$hub, $city, $country' : '$hub, $country';
+          } else {
+            final city = addr['city'] ?? addr['town'] ?? addr['municipality'] ??
+                addr['county'] ?? addr['village'] ?? addr['suburb'] ??
+                (item['display_name'] as String).split(',').first.trim();
+            if (city.toString().isEmpty || country.isEmpty) continue;
+            name = '${city.toString().trim()}, $country';
+          }
+          final key = '${name.toLowerCase()}:$cc';
+          if (!seen.contains(key) && name.isNotEmpty && lat != 0.0) {
+            seen.add(key);
+            list.add(_LocationResult(displayName: name, countryCode: cc, category: category, lat: lat, lon: lon));
+          }
         }
-        if (list.length >= 8) break;
       }
-      if (mounted) {
-        setState(() {
-          _suggestions = list;
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() { _suggestions = list; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -1486,143 +1724,166 @@ class _LocationStepState extends State<_LocationStep> {
 
   String _flag(String code) {
     if (code.length != 2) return '🌍';
-    final pts = code
-        .toUpperCase()
-        .split('')
-        .map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0))
-        .toList();
+    final pts = code.toUpperCase().split('').map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0)).toList();
     return String.fromCharCode(pts[0]) + String.fromCharCode(pts[1]);
+  }
+
+  IconData _catIcon(String cat) {
+    switch (cat) {
+      case 'airport': return Icons.flight_rounded;
+      case 'train':   return Icons.train_rounded;
+      case 'bus':     return Icons.directions_bus_rounded;
+      default:        return Icons.location_city_rounded;
+    }
+  }
+
+  Color _catColor(String cat) {
+    switch (cat) {
+      case 'airport': return const Color(0xFF0EA5E9);
+      case 'train':   return const Color(0xFF8B5CF6);
+      case 'bus':     return const Color(0xFFF59E0B);
+      default:        return AppColors.primary;
+    }
+  }
+
+  String _catLabel(String cat) {
+    switch (cat) {
+      case 'airport': return 'Airports';
+      case 'train':   return 'Train Stations';
+      case 'bus':     return 'Bus Stations';
+      default:        return 'Cities';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final display = _suggestions.isNotEmpty ? _suggestions : _defaults;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.title,
-                  style: AppTextStyles.displaySm.copyWith(
-                      fontWeight: FontWeight.w900, color: AppColors.black)),
-              const SizedBox(height: 6),
-              Text(widget.subtitle,
-                  style:
-                      AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
-              const SizedBox(height: 8),
-              Text(
-                'You can choose cities in the same country, but departure and destination cannot be the exact same city.',
-                style: AppTextStyles.bodySm.copyWith(
-                  color: AppColors.gray500,
-                  height: 1.4,
-                ),
-              ),
-              if (widget.value.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle_rounded,
-                          color: AppColors.primary, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          widget.value,
-                          style: AppTextStyles.labelMd.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
+    final display = _suggestions.isNotEmpty ? _suggestions : _kDefaultLocations;
+    final order = ['city', 'airport', 'train', 'bus'];
+    final grouped = <String, List<_LocationResult>>{};
+    for (final r in display) {
+      grouped.putIfAbsent(r.category, () => []).add(r);
+    }
+
+    final listItems = <Widget>[];
+    for (final cat in order) {
+      final items = grouped[cat];
+      if (items == null || items.isEmpty) continue;
+      listItems.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+        child: Row(children: [
+          Icon(_catIcon(cat), size: 13, color: _catColor(cat)),
+          const SizedBox(width: 5),
+          Text(_catLabel(cat).toUpperCase(),
+              style: AppTextStyles.labelSm.copyWith(
+                  color: _catColor(cat), fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+        ]),
+      ));
+      for (final loc in items) {
+        final parts = loc.displayName.split(',');
+        final primary = parts.first.trim();
+        final secondary = parts.length > 1 ? parts.skip(1).join(',').trim() : '';
+        listItems.add(InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Navigator.pop(context, loc),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                height: 52,
+                width: 40, height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F8),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
+                  color: _catColor(cat).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search,
-                        color: AppColors.gray400, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _ctrl,
-                        autofocus: true,
-                        style: AppTextStyles.bodyMd
-                            .copyWith(fontWeight: FontWeight.w600),
-                        decoration: const InputDecoration(
-                          hintText: 'Search city or country...',
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (v) {
-                          _debounce?.cancel();
-                          _debounce = Timer(const Duration(milliseconds: 400),
-                              () => _search(v));
-                        },
-                      ),
-                    ),
-                    if (_loading)
-                      const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppColors.primary)),
-                  ],
+                child: cat == 'city'
+                    ? Center(child: Text(_flag(loc.countryCode), style: const TextStyle(fontSize: 22)))
+                    : Icon(_catIcon(cat), size: 18, color: _catColor(cat)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(primary, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                  if (secondary.isNotEmpty)
+                    Text(secondary, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+                ],
+              )),
+            ]),
+          ),
+        ));
+      }
+    }
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.92,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(children: [
+        const SizedBox(height: 12),
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(widget.title,
+                style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F7F8),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(children: [
+              const Icon(Icons.search, color: AppColors.gray400, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  autofocus: true,
+                  style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                  decoration: const InputDecoration(
+                    hintText: 'City, airport, station...',
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (v) {
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 350), () => _search(v));
+                  },
                 ),
               ),
-            ],
+              if (_loading)
+                const SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+              else if (_ctrl.text.isNotEmpty)
+                GestureDetector(
+                  onTap: () { _ctrl.clear(); setState(() => _suggestions = []); },
+                  child: const Icon(Icons.close_rounded, color: AppColors.gray400, size: 20),
+                ),
+            ]),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Expanded(
-          child: ListView.builder(
-            itemCount: display.length,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemBuilder: (_, i) {
-              final loc = display[i];
-              final isSelected = _ctrl.text == loc['name'];
-              return ListTile(
-                leading: Text(_flag(loc['code']!),
-                    style: const TextStyle(fontSize: 28)),
-                title: Text(loc['name']!,
-                    style: AppTextStyles.bodyMd
-                        .copyWith(fontWeight: FontWeight.w700)),
-                trailing: isSelected
-                    ? const Icon(Icons.check_circle_rounded,
-                        color: AppColors.primary, size: 22)
-                    : null,
-                tileColor: isSelected ? AppColors.primarySoft : null,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                onTap: () {
-                  setState(() => _ctrl.text = loc['name']!);
-                  widget.onSelect(loc['name']!);
-                },
-              );
-            },
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom + 16),
+            children: listItems,
           ),
         ),
-      ],
+      ]),
     );
   }
 }
