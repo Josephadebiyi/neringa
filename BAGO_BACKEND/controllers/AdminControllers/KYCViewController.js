@@ -214,16 +214,9 @@ export const updateKYCStatus = async (req, res) => {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
 
-      if (existing.kycProvider !== 'manual' || existing.kycStatus !== 'manual_review') {
-        return res.status(403).json({
-          success: false,
-          message: 'Manual approval is only available for manual-upload KYC submissions.',
-        });
-      }
-
       const approvalPayload = buildManualApprovalPayload(existing);
       await markKycApproved(existing.id, {
-        provider: 'manual',
+        provider: existing.kycProvider || 'manual',
         firstName: existing.firstName || null,
         lastName: existing.lastName || null,
         dateOfBirth: existing.dateOfBirth || null,
@@ -233,7 +226,7 @@ export const updateKYCStatus = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: 'Manual KYC approved',
+        message: 'KYC approved by admin',
         data: { userId: existing.id, email: existing.email, newStatus: 'approved', reason: null },
       });
     }
