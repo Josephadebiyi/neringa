@@ -194,6 +194,11 @@ async function createStripeAccountForUser(user, { restartIncomplete = true } = {
       if (isComplete) {
         return existingAccountId;
       }
+      // If details were already submitted, keep the account — creating a new one wastes the submission.
+      // The caller will use account_update link type to let the user continue from their dashboard.
+      if (existingAccount.details_submitted) {
+        return existingAccountId;
+      }
       if (!restartIncomplete && existingAccount.type === 'express') {
         return existingAccountId;
       }
@@ -665,12 +670,14 @@ app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
     } else {
       backendUrl = backendUrl.endsWith('/api/stripe') ? backendUrl : `${backendUrl}/api/stripe`;
     }
-    // Actually, I'll use the frontend URL to redirect back for refresh, but return should go to backend to save status
+    // Use account_update if the user already submitted details (avoids sign-in-only page),
+    // otherwise use account_onboarding for a fresh Express form with sign-up option.
+    const linkType = account.details_submitted ? 'account_update' : 'account_onboarding';
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
       return_url: `${backendUrl.replace('/api/stripe', '')}/api/stripe/onboarding/complete?userId=${userId}`,
       refresh_url: `${backendUrl.replace('/api/stripe', '')}/api/stripe/onboarding/refresh?userId=${userId}`,
-      type: 'account_onboarding',
+      type: linkType,
     });
 
     res.json({
