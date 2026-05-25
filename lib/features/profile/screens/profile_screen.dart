@@ -6,11 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/providers/locale_provider.dart';
-import '../../../shared/widgets/app_card.dart';
+import '../../../shared/services/api_service.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../../../shared/utils/status_formatter.dart';
@@ -26,7 +27,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _aboutTab = true;
-  bool _isSwitchingRole = false;
   bool _uploadingPhoto = false;
 
   Future<void> _pickAndUploadPhoto() async {
@@ -52,19 +52,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
-    }
-  }
-
-  Future<void> _switchRoleWithSplash() async {
-    if (_isSwitchingRole) return;
-    _isSwitchingRole = true;
-
-    try {
-      await ref.read(authProvider.notifier).toggleRole();
-      if (!mounted) return;
-      context.go('/role-switch?next=/home&duration=2800');
-    } finally {
-      _isSwitchingRole = false;
     }
   }
 
@@ -129,7 +116,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         uploadingPhoto: _uploadingPhoto,
                         currentLanguageLabel:
                             '${currentLanguage.flag} ${currentLanguage.nativeName}',
-                        onToggleRole: _switchRoleWithSplash,
                         onChangePhoto: _pickAndUploadPhoto,
                       )
                     : _AccountTab(
@@ -228,7 +214,6 @@ class _AboutTab extends StatelessWidget {
     required this.profilePicture,
     required this.isCarrier,
     required this.currentLanguageLabel,
-    required this.onToggleRole,
     required this.onChangePhoto,
     required this.uploadingPhoto,
   });
@@ -243,7 +228,6 @@ class _AboutTab extends StatelessWidget {
   final String? profilePicture;
   final bool isCarrier;
   final String currentLanguageLabel;
-  final VoidCallback onToggleRole;
   final VoidCallback onChangePhoto;
   final bool uploadingPhoto;
 
@@ -253,29 +237,6 @@ class _AboutTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppCard(
-          padding: const EdgeInsets.all(8),
-          borderRadius: 18,
-          child: Row(
-            children: [
-              Expanded(
-                child: _RoleButton(
-                  label: l10n.roleSendPackages,
-                  selected: !isCarrier,
-                  onTap: isCarrier ? onToggleRole : null,
-                ),
-              ),
-              Expanded(
-                child: _RoleButton(
-                  label: l10n.roleEarnTraveler,
-                  selected: isCarrier,
-                  onTap: !isCarrier ? onToggleRole : null,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -522,6 +483,8 @@ class _AccountTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _WalletCard(),
+        const SizedBox(height: 24),
         BagoSectionLabel(l10n.ratingsActivity),
         BagoMenuGroup(
           children: [
@@ -641,43 +604,201 @@ class _AccountTab extends StatelessWidget {
   }
 }
 
-class _RoleButton extends StatelessWidget {
-  const _RoleButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+// ─────────────────────────────────────────────────────────────────────────────
+// Wallet card — shows balance + withdraw button, fetches live data
+// ─────────────────────────────────────────────────────────────────────────────
+class _WalletCard extends ConsumerStatefulWidget {
+  const _WalletCard();
 
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
+  @override
+  ConsumerState<_WalletCard> createState() => _WalletCardState();
+}
+
+class _WalletCardState extends ConsumerState<_WalletCard> {
+  double? _liveEscrow;
+  bool _escrowLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchEscrow();
+  }
+
+  Future<void> _fetchEscrow() async {
+    try {
+      final res = await ApiService.instance.get(ApiConstants.walletBalance);
+      final data = res.data as Map<String, dynamic>?;
+      if (mounted) {
+        setState(() {
+          _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
+          _escrowLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _escrowLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      splashFactory: NoSplash.splashFactory,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.labelSm.copyWith(
-              color: selected ? AppColors.white : AppColors.gray500,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
+    final user = ref.watch(authProvider).user;
+    final displayCurrency = UserCurrencyHelper.resolve(user);
+    final available = UserCurrencyHelper.convertWalletBalance(
+      balance: user?.walletBalance ?? 0,
+      walletCurrency: user?.walletCurrency ?? 'USD',
+      viewerCurrency: displayCurrency,
+    );
+    final escrow = _liveEscrow ?? 0;
+    final total = available + escrow;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D0E12),
+        borderRadius: BorderRadius.circular(20),
       ),
+      child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.account_balance_wallet_outlined,
+                          color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TOTAL BALANCE',
+                          style: AppTextStyles.labelXs.copyWith(
+                            color: Colors.white38,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$displayCurrency ${total.toStringAsFixed(2)}',
+                          style: AppTextStyles.displaySm.copyWith(
+                              color: Colors.white, fontWeight: FontWeight.w900),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _BalanceTile(
+                          label: 'Available',
+                          sublabel: 'Withdraw now',
+                          amount: available,
+                          currency: displayCurrency,
+                          color: const Color(0xFF34D399),
+                        ),
+                      ),
+                      Container(
+                          width: 1, height: 32, color: Colors.white12),
+                      Expanded(
+                        child: _escrowLoading
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white38,
+                                    strokeWidth: 1.5,
+                                  ),
+                                ),
+                              )
+                            : _BalanceTile(
+                                label: 'Held',
+                                sublabel: 'Released on delivery',
+                                amount: escrow,
+                                currency: displayCurrency,
+                                color: const Color(0xFFFBBF24),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => context.push('/profile/withdraw'),
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.savings_outlined,
+                            color: AppColors.primary, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Withdraw Earnings',
+                          style: AppTextStyles.buttonMd.copyWith(
+                              color: AppColors.black,
+                              fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _BalanceTile extends StatelessWidget {
+  const _BalanceTile({
+    required this.label,
+    required this.sublabel,
+    required this.amount,
+    required this.currency,
+    required this.color,
+  });
+  final String label, sublabel, currency;
+  final double amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(label,
+            style: AppTextStyles.labelXs.copyWith(
+                color: Colors.white54, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 3),
+        Text(
+          '$currency ${amount.toStringAsFixed(2)}',
+          style: AppTextStyles.bodyMd
+              .copyWith(color: color, fontWeight: FontWeight.w800),
+        ),
+        Text(sublabel,
+            style: AppTextStyles.labelXs.copyWith(
+                color: Colors.white38, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }
@@ -727,7 +848,7 @@ class _CarrierKycBanner extends StatelessWidget {
       case 'expired':
         return 'Your verification has expired. Re-verify your identity to continue earning.';
       default:
-        return 'Verify your identity with Didit KYC to post trips, accept shipments, and withdraw earnings.';
+        return 'Verify your identity to post trips, accept shipments, and withdraw earnings.';
     }
   }
 

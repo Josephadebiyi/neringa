@@ -384,7 +384,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
             content: Text(
               user?.kycStatus == 'pending' || user?.kycStatus == 'manual_review'
                   ? 'Your identity verification is still under review. You\'ll be able to post trips once approved.'
-                  : 'Travelers must verify their identity before posting trips. Complete your Didit KYC to start earning.',
+                  : 'Travelers must verify their identity before posting trips. Complete verification in your profile to start earning.',
             ),
             actions: [
               TextButton(
