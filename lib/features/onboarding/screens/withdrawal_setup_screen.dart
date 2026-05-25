@@ -782,14 +782,14 @@ class _StripeSetupState extends ConsumerState<_StripeSetup> {
         ),
         const SizedBox(height: 32),
         AppButton(
-          label: 'Connect with Stripe',
+          label: 'Set Up Stripe Payouts',
           isLoading: _isLoading,
           onPressed: _isLoading ? null : _startStripeOnboarding,
         ),
         const SizedBox(height: 12),
         Center(
           child: Text(
-            'You\'ll be redirected to Stripe to complete setup.',
+            'Stripe will ask you to sign in or create an account — this is normal. Complete the steps to enable payouts.',
             style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
             textAlign: TextAlign.center,
           ),

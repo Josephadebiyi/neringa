@@ -400,124 +400,120 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                 onPressed: () => _ensurePayoutCurrencySaved(currentCurrency),
               ),
             ],
-            const SizedBox(height: 28),
-            // Stripe Connect Section
-            Text(
-              'STRIPE CONNECT',
-              style: AppTextStyles.labelMd.copyWith(
-                color: AppColors.gray500,
-                fontWeight: FontWeight.w700,
+            if (stripeAllowed) ...[
+              const SizedBox(height: 28),
+              Text(
+                'STRIPE CONNECT',
+                style: AppTextStyles.labelMd.copyWith(
+                  color: AppColors.gray500,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.border),
-                borderRadius: BorderRadius.circular(14),
-                color: stripeAllowed ? AppColors.white : AppColors.gray50,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF635BFF).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(14),
+                  color: AppColors.white,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF635BFF).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_wallet_rounded,
+                            color: Color(0xFF635BFF),
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.account_balance_wallet_rounded,
-                          color: Color(0xFF635BFF),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Stripe Payout Account',
+                                style: AppTextStyles.labelMd
+                                    .copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                stripeConnected
+                                    ? (stripeVerified
+                                        ? 'Connected and verified'
+                                        : 'Connected, verification pending')
+                                    : 'Not yet connected',
+                                style: AppTextStyles.bodySm.copyWith(
+                                  color: stripeConnected
+                                      ? AppColors.success
+                                      : AppColors.gray400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (stripeConnected) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.gray50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Stripe account: $stripeAccountId',
+                          style: AppTextStyles.caption,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Stripe Payout Account',
-                              style: AppTextStyles.labelMd
-                                  .copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              stripeAllowed
-                                  ? (stripeConnected
-                                      ? (stripeVerified
-                                          ? 'Connected and verified'
-                                          : 'Connected, verification pending')
-                                      : 'Available for this wallet')
-                                  : 'Not available for selected payout currency',
-                              style: AppTextStyles.bodySm.copyWith(
-                                color: stripeAllowed
-                                    ? (stripeConnected
-                                        ? AppColors.success
-                                        : AppColors.gray400)
-                                    : AppColors.gray400,
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: AppButton(
+                          label: stripeVerified
+                              ? 'Refresh Stripe Status'
+                              : 'Check Stripe Verification',
+                          isLoading: _stripeLoading,
+                          onPressed: user == null
+                              ? null
+                              : () => _refreshStripeStatus(user.id),
                         ),
                       ),
                     ],
-                  ),
-                  if (!stripeAllowed) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'Stripe stays connected for supported non-African currencies.',
-                      style: AppTextStyles.bodySm
-                          .copyWith(color: AppColors.gray500),
-                    ),
+                    if (!stripeConnected) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'You\'ll be redirected to Stripe. Sign in or create a Stripe account to complete payout setup.',
+                        style: AppTextStyles.bodySm
+                            .copyWith(color: AppColors.gray500),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: AppButton(
+                          label: 'Set Up Stripe Payouts',
+                          isLoading: _stripeLoading,
+                          onPressed: () =>
+                              _startStripeOnboarding(currentCurrency),
+                        ),
+                      ),
+                    ],
                   ],
-                  if (stripeConnected && stripeAllowed) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.gray50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Stripe account: $stripeAccountId',
-                        style: AppTextStyles.caption,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: AppButton(
-                        label: stripeVerified
-                            ? 'Refresh Stripe Status'
-                            : 'Check Stripe Verification',
-                        isLoading: _stripeLoading,
-                        onPressed: user == null
-                            ? null
-                            : () => _refreshStripeStatus(user.id),
-                      ),
-                    ),
-                  ],
-                  if (!stripeConnected && stripeAllowed) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: AppButton(
-                        label: 'Connect Stripe',
-                        isLoading: _stripeLoading,
-                        onPressed: () =>
-                            _startStripeOnboarding(currentCurrency),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 32),
 
             // Paystack Section
