@@ -1652,27 +1652,6 @@ app.all("/api/didit/webhook", (_req, res) => {
   res.status(410).json({ success: false, message: "Legacy Didit webhook retired." });
 });
 
-app.get("/api/bago/kyc/status", isAuthenticated, async (req, res) => {
-  try {
-    const userId = req.user?.id || req.user?._id;
-    const user = await queryOne(
-      `select kyc_status as "kycStatus", kyc_verified_at as "kycVerifiedAt",
-              kyc_failure_reason as "kycFailureReason", kyc_provider as "kycProvider"
-       from public.profiles where id = $1`,
-      [userId],
-    );
-    return res.json({
-      success: true,
-      kycStatus: user?.kycStatus || 'not_started',
-      kycVerifiedAt: user?.kycVerifiedAt || null,
-      kycProvider: user?.kycProvider || null,
-      kycFailureReason: user?.kycFailureReason || null,
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: "Failed to get KYC status" });
-  }
-});
-
 app.all("/api/bago/kyc/check-session/:sessionId", (_req, res) => {
   res.status(410).json({ success: false, message: "Legacy KYC session checks are retired." });
 });
