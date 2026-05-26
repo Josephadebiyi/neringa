@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:dojah_kyc_sdk_flutter/dojah_extra_flutter_data.dart';
@@ -41,6 +42,14 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
   bool _hasError = false;
   String? _errorMessage;
   String? _debugResult;
+  static final Random _secureRandom = Random.secure();
+
+  String _newDojahReferenceId() {
+    final bytes = List<int>.generate(16, (_) => _secureRandom.nextInt(256));
+    final token =
+        bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    return 'bago-$token';
+  }
 
   ({String? first, String? last}) _splitName(String fullName) {
     final parts = fullName.trim().split(RegExp(r'\s+'));
@@ -87,8 +96,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     final name = _splitName(user?.fullName ?? '');
     final dob = _formatDob(user?.dateOfBirth);
 
-    final referenceId =
-        'bago-${widget.userId}-${DateTime.now().millisecondsSinceEpoch}';
+    final referenceId = _newDojahReferenceId();
 
     String widgetId;
     try {

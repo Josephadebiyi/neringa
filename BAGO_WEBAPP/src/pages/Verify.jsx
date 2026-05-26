@@ -55,7 +55,11 @@ export default function Verify() {
         try {
             const userId = user?.id || user?._id;
             if (!userId) throw new Error('Could not start verification. Please log in again.');
-            const nextReferenceId = `bago-${userId}-${Date.now()}`;
+            const randomToken = window.crypto?.randomUUID?.()
+                || (window.crypto?.getRandomValues
+                    ? Array.from(window.crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+                    : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
+            const nextReferenceId = `bago-${randomToken}`;
             const res = await api.post('/api/bago/kyc/dojah/start', {
                 country: user?.country,
                 referenceId: nextReferenceId,
