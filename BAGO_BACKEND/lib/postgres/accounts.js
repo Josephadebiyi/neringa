@@ -20,6 +20,48 @@ function compactName(value) {
   return value ? String(value).trim().replace(/\s+/g, ' ') : null;
 }
 
+function deepReadIdentityValue(source, keys, seen = new Set()) {
+  if (!source || typeof source !== 'object') return null;
+  if (seen.has(source)) return null;
+  seen.add(source);
+
+  const wanted = new Set(keys.map((key) => key.toLowerCase().replace(/[_-]/g, '')));
+
+  for (const [key, value] of Object.entries(source)) {
+    const normalizedKey = key.toLowerCase().replace(/[_-]/g, '');
+    if (wanted.has(normalizedKey)) {
+      if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+        const nested = firstNonEmpty(
+          value.first_name,
+          value.firstName,
+          value.firstname,
+          value.full_name,
+          value.fullName,
+          value.name,
+          value.value,
+        );
+        if (nested) return nested;
+      }
+      const text = firstNonEmpty(value);
+      if (text) return text;
+    }
+  }
+
+  for (const value of Object.values(source)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = deepReadIdentityValue(item, keys, seen);
+        if (found) return found;
+      }
+    } else if (value && typeof value === 'object') {
+      const found = deepReadIdentityValue(value, keys, seen);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
 function normalizeDateString(value) {
   if (!value) return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -79,14 +121,14 @@ function identityFromPayload(payload = {}) {
         if (text) return text;
       }
     }
-    return null;
+    return deepReadIdentityValue(fullPayload, keys);
   };
 
   const firstName = compactName(read('firstName', 'first_name', 'firstname', 'given_name', 'givenName'));
   const middleName = compactName(read('middleName', 'middle_name', 'middlename', 'middle'));
   const lastName = compactName(read('lastName', 'last_name', 'lastname', 'surname', 'family_name', 'familyName'));
   const fullLegalName = compactName(
-    read('fullLegalName', 'full_legal_name', 'fullName', 'full_name', 'name') ||
+    read('fullLegalName', 'full_legal_name', 'fullName', 'full_name', 'legal_name', 'legalName') ||
     [firstName, middleName, lastName].filter(Boolean).join(' '),
   );
   const dateOfBirth = normalizeDateString(

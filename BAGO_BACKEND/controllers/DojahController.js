@@ -1,4 +1,5 @@
 import axios from 'axios';
+import crypto from 'crypto';
 import { query, queryOne } from '../lib/postgres/db.js';
 import { markKycApproved } from '../lib/postgres/accounts.js';
 import { sendKycApprovedEmail, sendKycSubmittedEmail, sendKycDeclinedEmail } from '../services/emailNotifications.js';
@@ -150,6 +151,44 @@ const isApprovedStatus = (status) => DOJAH_APPROVED_STATUSES.has(status);
 const isPendingStatus = (status) => DOJAH_PENDING_STATUSES.has(status);
 const isDeclinedStatus = (status) => DOJAH_DECLINED_STATUSES.has(status);
 
+const firstReferenceId = (event = {}) =>
+  event?.data?.metadata?.referenceId ||
+  event?.data?.metadata?.reference_id ||
+  event?.metadata?.referenceId ||
+  event?.metadata?.reference_id ||
+  event?.data?.referenceId ||
+  event?.data?.reference_id ||
+  event?.referenceId ||
+  event?.reference_id ||
+  event?.data?.entity?.referenceId ||
+  event?.data?.entity?.reference_id ||
+  event?.entity?.referenceId ||
+  event?.entity?.reference_id ||
+  '';
+
+const lookupUserIdByDojahReference = async (referenceId = '') => {
+  const ref = referenceId.toString().trim();
+  if (!ref) return null;
+  const row = await queryOne(
+    `SELECT id
+     FROM public.profiles
+     WHERE kyc_provider = 'dojah'
+       AND kyc_verified_data IS NOT NULL
+       AND (
+         kyc_verified_data->>'referenceId' = $1
+         OR kyc_verified_data->>'reference_id' = $1
+         OR kyc_verified_data#>>'{metadata,referenceId}' = $1
+         OR kyc_verified_data#>>'{metadata,reference_id}' = $1
+         OR kyc_verified_data#>>'{data,metadata,referenceId}' = $1
+         OR kyc_verified_data#>>'{data,metadata,reference_id}' = $1
+       )
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [ref],
+  ).catch(() => null);
+  return row?.id || null;
+};
+
 // ---------------------------------------------------------------------------
 // GET /api/bago/kyc/provider?country=NG
 // Returns which provider to use + config the client needs
@@ -199,7 +238,7 @@ export const startDojahSession = async (req, res) => {
     }
 
     const country = (req.body?.country || req.query?.country || '').toUpperCase().trim();
-    const referenceId = (req.body?.referenceId || req.query?.referenceId || '').toString().trim();
+    const referenceId = (req.body?.referenceId || req.query?.referenceId || `bago-${crypto.randomUUID()}`).toString().trim();
     const widgetConfig = widgetConfigForCountry(country, req.body?.widgetId);
     const widgetId = widgetConfig.widgetId;
 
@@ -210,13 +249,26 @@ export const startDojahSession = async (req, res) => {
       });
     }
 
-    // Record that this user is using Dojah — do NOT set kyc_status here.
-    // Status is only updated once Dojah fires the webhook with an actual result.
+    // Store the Dojah reference immediately. This lets a later webhook/API
+    // result be matched back to the profile even if Dojah omits user metadata.
     await query(
       `UPDATE public.profiles
-       SET kyc_provider = 'dojah', updated_at = NOW()
+       SET kyc_provider = 'dojah',
+           kyc_verified_data = CASE
+             WHEN kyc_status IN ('approved', 'blocked_duplicate') THEN kyc_verified_data
+             ELSE jsonb_strip_nulls(jsonb_build_object(
+               'provider', 'dojah',
+               'referenceId', $2,
+               'reference_id', $2,
+               'userId', $1,
+               'country', $3,
+               'widgetId', $4,
+               'startedAt', timezone('utc', now())
+             ))
+           END,
+           updated_at = NOW()
        WHERE id = $1`,
-      [userId],
+      [userId, referenceId, country, widgetId],
     ).catch(() => {});
 
     return res.json({
@@ -277,7 +329,8 @@ export const dojahWebhook = async (req, res) => {
       event?.reference_id ||
       // sandbox sometimes puts it at the top level
       event?.data?.entity?.id;
-    const userId = userIdFromReferenceId(rawUserId);
+    const referenceId = firstReferenceId(event);
+    const userId = userIdFromReferenceId(rawUserId) || await lookupUserIdByDojahReference(referenceId);
 
     if (!userId) {
       console.warn('Dojah webhook: no userId found in payload');
@@ -320,9 +373,12 @@ export const dojahWebhook = async (req, res) => {
     } else if (pending) {
       await query(
         `UPDATE public.profiles
-         SET kyc_status = 'pending', kyc_provider = 'dojah', updated_at = NOW()
+         SET kyc_status = 'pending',
+             kyc_provider = 'dojah',
+             kyc_verified_data = $2,
+             updated_at = NOW()
          WHERE id = $1`,
-        [userId],
+        [userId, event],
       ).catch(() => {});
       console.log(`Dojah webhook: pending/review userId=${userId}`);
       if (userEmail) sendKycSubmittedEmail(userEmail, userName).catch(() => {});
@@ -337,10 +393,12 @@ export const dojahWebhook = async (req, res) => {
       await query(
         `UPDATE public.profiles
          SET kyc_status = 'declined',
+             kyc_provider = 'dojah',
              kyc_failure_reason = $2,
+             kyc_verified_data = $3,
              updated_at = NOW()
          WHERE id = $1`,
-        [userId, reason],
+        [userId, reason, event],
       );
       console.log(`Dojah webhook: declined userId=${userId} reason=${reason}`);
       if (userEmail) sendKycDeclinedEmail(userEmail, userName, reason).catch(() => {});
@@ -412,9 +470,18 @@ export const syncDojahResult = async (req, res) => {
     // Immediately mark as pending so the app knows it was submitted.
     await query(
       `UPDATE public.profiles
-       SET kyc_status = 'pending', kyc_provider = 'dojah', updated_at = NOW()
+       SET kyc_status = 'pending',
+           kyc_provider = 'dojah',
+           kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
+             'provider', 'dojah',
+             'referenceId', $2,
+             'reference_id', $2,
+             'userId', $1,
+             'syncStartedAt', timezone('utc', now())
+           ),
+           updated_at = NOW()
        WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate', 'declined')`,
-      [userId],
+      [userId, referenceId],
     ).catch(() => {});
 
     let finalStatus = 'pending';
@@ -435,6 +502,16 @@ export const syncDojahResult = async (req, res) => {
           event?.verificationStatus,
           event?.verification_status,
           event?.decision,
+          event?.result,
+          event?.verification?.status,
+          event?.entity?.status,
+          event?.entity?.verification_status,
+          event?.entity?.verificationStatus,
+          event?.data?.status,
+          event?.data?.verification_status,
+          event?.data?.verificationStatus,
+          event?.data?.decision,
+          event?.data?.result,
           dojahResp.data?.status,
         );
 
@@ -445,7 +522,21 @@ export const syncDojahResult = async (req, res) => {
 
         if (approved) {
           // Re-use webhook payload shape so identityFromPayload can find name/DOB.
-          const webhookShape = { data: event, status: rawStatus };
+          const webhookShape = {
+            data: {
+              ...event,
+              metadata: {
+                ...(event?.metadata || {}),
+                userId,
+                user_id: userId,
+                referenceId,
+                reference_id: referenceId,
+              },
+            },
+            status: rawStatus,
+            referenceId,
+            reference_id: referenceId,
+          };
           const approval = await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: webhookShape });
           if (approval?.duplicate) {
             finalStatus = 'blocked_duplicate';
@@ -471,9 +562,13 @@ export const syncDojahResult = async (req, res) => {
           const reason = event?.reason || event?.failureReason || 'Verification declined';
           await query(
             `UPDATE public.profiles
-             SET kyc_status = 'declined', kyc_failure_reason = $2, updated_at = NOW()
+             SET kyc_status = 'declined',
+                 kyc_provider = 'dojah',
+                 kyc_failure_reason = $2,
+                 kyc_verified_data = $3,
+                 updated_at = NOW()
              WHERE id = $1`,
-            [userId, reason],
+            [userId, reason, { data: event, status: rawStatus, referenceId }],
           );
           finalStatus = 'declined';
           source = 'dojah_api';
