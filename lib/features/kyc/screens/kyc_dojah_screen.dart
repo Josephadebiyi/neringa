@@ -204,21 +204,36 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    // Poll the KYC status endpoint for up to 8 seconds so that fast webhooks
-    // are reflected immediately. Navigate regardless once the window expires.
+    // Ask the backend to actively pull the result from Dojah's API right now.
+    // This resolves the status immediately without waiting for the webhook.
     String finalStatus = 'pending';
-    for (int i = 0; i < 4; i++) {
-      try {
-        final resp = await ApiService.instance
-            .get(ApiConstants.kycStatus)
-            .timeout(const Duration(seconds: 4));
-        final s = resp.data?['kycStatus']?.toString() ?? '';
-        if (s == 'approved' || s == 'declined') {
-          finalStatus = s;
-          break;
-        }
-      } catch (_) {}
-      if (i < 3) await Future.delayed(const Duration(seconds: 2));
+    try {
+      final syncResp = await ApiService.instance
+          .post(ApiConstants.kycDojahSyncResult, data: {'referenceId': referenceId})
+          .timeout(const Duration(seconds: 15));
+      final synced = syncResp.data?['kycStatus']?.toString() ?? '';
+      if (synced == 'approved' || synced == 'declined' || synced == 'blocked_duplicate') {
+        finalStatus = synced;
+      }
+    } catch (_) {}
+
+    // If the sync-result call didn't resolve it yet (Dojah API may still be
+    // indexing the result), poll the status endpoint for up to 10 more seconds
+    // in case the webhook arrives shortly after.
+    if (finalStatus == 'pending') {
+      for (int i = 0; i < 5; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        try {
+          final resp = await ApiService.instance
+              .get(ApiConstants.kycStatus)
+              .timeout(const Duration(seconds: 4));
+          final s = resp.data?['kycStatus']?.toString() ?? '';
+          if (s == 'approved' || s == 'declined' || s == 'blocked_duplicate') {
+            finalStatus = s;
+            break;
+          }
+        } catch (_) {}
+      }
     }
 
     await ref
@@ -234,8 +249,10 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       message = 'Your identity has been verified!';
       snackType = SnackBarType.success;
     } else if (finalStatus == 'declined') {
-      message =
-          'Verification was not approved. Please check your profile for details or try again.';
+      message = 'Verification was not approved. Please check your profile for details or try again.';
+      snackType = SnackBarType.error;
+    } else if (finalStatus == 'blocked_duplicate') {
+      message = 'This identity is already linked to another account. Please contact support.';
       snackType = SnackBarType.error;
     } else {
       message = 'Verification submitted. We\'ll update your status shortly.';
