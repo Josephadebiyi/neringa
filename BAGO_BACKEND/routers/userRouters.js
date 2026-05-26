@@ -23,7 +23,7 @@ import {
 } from '../controllers/postgresPaymentMethodController.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
-import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus } from '../controllers/DojahController.js';
+import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus, syncDojahResult } from '../controllers/DojahController.js';
 import { submitManualKyc, getManualKycStatus } from '../controllers/ManualKycController.js';
 import { myCoverWebhook } from '../controllers/MyCoverWebhookController.js';
 import {
@@ -167,6 +167,7 @@ userRouter.get("/getKyc", isAuthenticated, getKyc)
 userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
 userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
+userRouter.post('/kyc/dojah/sync-result', isAuthenticated, syncDojahResult);
 userRouter.get('/kyc/status', isAuthenticated, getKycStatus);  // app polls this after widget onSuccess
 userRouter.get('/insurance/mycover/webhook', (_req, res) => res.status(200).json({ success: true })); // URL verification by MyCover.ai
 userRouter.post('/insurance/mycover/webhook', myCoverWebhook); // event delivery by MyCover.ai servers

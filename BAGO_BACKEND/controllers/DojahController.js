@@ -347,3 +347,108 @@ export const getKycStatus = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// ---------------------------------------------------------------------------
+// POST /api/bago/kyc/dojah/sync-result
+// Called by the app immediately after the Dojah SDK returns a non-closed
+// result.  Actively fetches the verification result from Dojah's API using
+// the referenceId so we don't depend on the webhook arriving quickly.
+// ---------------------------------------------------------------------------
+export const syncDojahResult = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const { referenceId } = req.body;
+    if (!referenceId) return res.status(400).json({ success: false, message: 'referenceId required' });
+
+    // Check current status first — if already approved/declined, nothing to do.
+    const existing = await queryOne(
+      `SELECT kyc_status AS "kycStatus" FROM public.profiles WHERE id = $1`,
+      [userId],
+    );
+    if (['approved', 'blocked_duplicate'].includes(existing?.kycStatus)) {
+      return res.json({ success: true, kycStatus: existing.kycStatus, source: 'db' });
+    }
+
+    // Immediately mark as pending so the app knows it was submitted.
+    await query(
+      `UPDATE public.profiles
+       SET kyc_status = 'pending', kyc_provider = 'dojah', updated_at = NOW()
+       WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate', 'declined')`,
+      [userId],
+    ).catch(() => {});
+
+    let finalStatus = 'pending';
+    let source = 'pending_only';
+
+    // Actively pull the result from Dojah's API.
+    if (DOJAH_APP_ID && DOJAH_SECRET) {
+      try {
+        const dojahResp = await axios.get('https://api.dojah.io/api/v1/kyc/easyonboard', {
+          params: { referenceId },
+          headers: { AppId: DOJAH_APP_ID, Authorization: DOJAH_SECRET },
+          timeout: 10000,
+        });
+
+        const event = dojahResp.data?.data ?? dojahResp.data;
+        const rawStatus = firstWebhookValue(
+          event?.status,
+          event?.verificationStatus,
+          event?.verification_status,
+          event?.decision,
+          dojahResp.data?.status,
+        );
+
+        console.log(`Dojah sync: referenceId=${referenceId} rawStatus=${rawStatus}`);
+
+        const approved = ['success', 'approved', 'verified', 'completed'].includes(rawStatus);
+        const declined = ['failed', 'declined', 'rejected', 'failure'].includes(rawStatus);
+
+        if (approved) {
+          // Re-use webhook payload shape so identityFromPayload can find name/DOB.
+          const webhookShape = { data: event, status: rawStatus };
+          const approval = await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: webhookShape });
+          if (approval?.duplicate) {
+            finalStatus = 'blocked_duplicate';
+          } else {
+            finalStatus = 'approved';
+            // Notify user
+            const userRow = await queryOne(
+              `SELECT email, first_name FROM public.profiles WHERE id = $1`,
+              [userId],
+            ).catch(() => null);
+            if (userRow?.email) {
+              sendKycApprovedEmail(userRow.email, userRow.first_name || 'there').catch(() => {});
+            }
+            sendPushNotification(
+              userId,
+              'Identity Verified! ✅',
+              'Your identity has been verified. You now have full access to all Bago features.',
+              { type: 'kyc_approved' },
+            ).catch(() => {});
+          }
+          source = 'dojah_api';
+        } else if (declined) {
+          const reason = event?.reason || event?.failureReason || 'Verification declined';
+          await query(
+            `UPDATE public.profiles
+             SET kyc_status = 'declined', kyc_failure_reason = $2, updated_at = NOW()
+             WHERE id = $1`,
+            [userId, reason],
+          );
+          finalStatus = 'declined';
+          source = 'dojah_api';
+        }
+      } catch (err) {
+        // Dojah API unreachable or referenceId not yet indexed — webhook will handle it.
+        console.log(`Dojah sync API call failed (webhook fallback active): ${err.message}`);
+      }
+    }
+
+    return res.json({ success: true, kycStatus: finalStatus, source });
+  } catch (err) {
+    console.error('syncDojahResult error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to sync result' });
+  }
+};
