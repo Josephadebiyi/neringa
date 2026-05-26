@@ -204,17 +204,44 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    // SDK flow completed — final approval is determined by backend webhook only.
-    // Refresh profile in case the backend already processed the result.
-    await ref.read(authProvider.notifier).refreshProfile().catchError((_) {});
+    // Poll the KYC status endpoint for up to 8 seconds so that fast webhooks
+    // are reflected immediately. Navigate regardless once the window expires.
+    String finalStatus = 'pending';
+    for (int i = 0; i < 4; i++) {
+      try {
+        final resp = await ApiService.instance
+            .get(ApiConstants.kycStatus)
+            .timeout(const Duration(seconds: 4));
+        final s = resp.data?['kycStatus']?.toString() ?? '';
+        if (s == 'approved' || s == 'declined') {
+          finalStatus = s;
+          break;
+        }
+      } catch (_) {}
+      if (i < 3) await Future.delayed(const Duration(seconds: 2));
+    }
+
+    await ref
+        .read(authProvider.notifier)
+        .refreshProfile()
+        .timeout(const Duration(seconds: 5))
+        .catchError((_) {});
     if (!mounted) return;
 
-    AppSnackBar.show(
-      context,
-      message:
-          'Verification submitted! We\'ll notify you once it\'s confirmed.',
-      type: SnackBarType.success,
-    );
+    final String message;
+    final SnackBarType snackType;
+    if (finalStatus == 'approved') {
+      message = 'Your identity has been verified!';
+      snackType = SnackBarType.success;
+    } else if (finalStatus == 'declined') {
+      message =
+          'Verification was not approved. Please check your profile for details or try again.';
+      snackType = SnackBarType.error;
+    } else {
+      message = 'Verification submitted. We\'ll update your status shortly.';
+      snackType = SnackBarType.info;
+    }
+    AppSnackBar.show(context, message: message, type: snackType);
     context.go(widget.fromOnboarding ? '/home' : '/profile');
   }
 
