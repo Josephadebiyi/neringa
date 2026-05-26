@@ -81,6 +81,9 @@ class _SecurityGateHostState extends ConsumerState<_SecurityGateHost>
 
     if (state == AppLifecycleState.resumed) {
       appLock.noteResumed(isLoggedIn: auth.isLoggedIn);
+      if (auth.isLoggedIn) {
+        unawaited(ref.read(authProvider.notifier).refreshProfile());
+      }
     }
   }
 
@@ -144,7 +147,8 @@ class _NotificationPromptHostState
     _chatTapSub?.cancel();
     _supportTapSub?.cancel();
     if (_supportListenerAttached) {
-      SocketService.instance.removeSupportListener(_handleForegroundSupportEvent);
+      SocketService.instance
+          .removeSupportListener(_handleForegroundSupportEvent);
       _supportListenerAttached = false;
     }
     super.dispose();
