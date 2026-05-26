@@ -19,10 +19,6 @@ const kycScheme = new mongoose.Schema(
       type: String, // Cloudinary URL for selfie
       required: true,
     },
-    diditSessionId: {
-      type: String, // Optional — for Didit verification
-    },
-
     // ✅ Add these fields for tracking & debugging
     verificationNumber: {
       type: String,

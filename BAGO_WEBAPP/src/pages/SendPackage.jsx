@@ -123,6 +123,7 @@ export default function SendPackage() {
     const [error, setError] = useState('');
     const [platformRate, setPlatformRate] = useState(0);
     const [currency, setCurrency] = useState(user?.preferredCurrency || 'USD');
+    const [kycStatus, setKycStatus] = useState(user?.kycStatus || 'not_started');
     const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
     const [insuranceCost, setInsuranceCost] = useState(0);
     const [exchangeRates, setExchangeRates] = useState(null);
@@ -266,9 +267,11 @@ export default function SendPackage() {
         try {
             const response = await api.get('/api/bago/kyc/status');
             if (response.data.success) {
+                setKycStatus(response.data.kycStatus || user?.kycStatus || 'not_started');
                 setPhoneVerified(response.data.phoneVerified === true || user?.phoneVerified === true);
             }
         } catch (error) {
+            setKycStatus(user?.kycStatus || 'not_started');
             setPhoneVerified(user?.phoneVerified === true);
         }
     };
@@ -457,6 +460,15 @@ export default function SendPackage() {
         e.preventDefault();
         setError('');
         setLoading(true);
+
+        if (kycStatus !== 'approved' && user?.kycStatus !== 'approved') {
+            setError('Please verify your identity to send a package.');
+            setLoading(false);
+            navigate('/verify', {
+                state: { message: 'Please verify your identity to send a package.', from: '/send-package' }
+            });
+            return;
+        }
 
         if (!phoneVerified && user?.phoneVerified !== true) {
             setError('Please verify your phone number to send a package.');

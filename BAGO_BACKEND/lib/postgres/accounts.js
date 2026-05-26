@@ -719,42 +719,6 @@ export async function getKycRecord(userId) {
   return { kyc, user };
 }
 
-export async function upsertKycSession(userId, { sessionId, sessionToken, status = 'pending' }) {
-  await query(
-    `
-      update public.profiles
-      set didit_session_id = $2,
-          didit_session_token = $3,
-          kyc_status = $4,
-          updated_at = timezone('utc', now())
-      where id = $1
-    `,
-    [userId, sessionId, sessionToken, status],
-  );
-
-  // Keep exactly one row per user — update if exists, insert if not
-  const existing = await queryOne(`select id from public.kyc_verifications where user_id = $1`, [userId]);
-  if (existing) {
-    await query(
-      `
-        update public.kyc_verifications
-        set didit_session_id = $2,
-            status = $3,
-            updated_at = timezone('utc', now())
-        where user_id = $1
-      `,
-      [userId, sessionId, status],
-    );
-  } else {
-    await query(
-      `insert into public.kyc_verifications (user_id, didit_session_id, status) values ($1, $2, $3)`,
-      [userId, sessionId, status],
-    );
-  }
-
-  return getKycRecord(userId);
-}
-
 export async function markKycApproved(userId, payload = {}) {
   return withTransaction(async (client) => {
     const fullPayload = payload.kycVerifiedData || payload;
@@ -764,7 +728,7 @@ export async function markKycApproved(userId, payload = {}) {
     let lastName = compactName(payload.lastName || extracted.lastName);
     const fullLegalName = compactName(payload.fullLegalName || extracted.fullLegalName);
     const dateOfBirth = normalizeDateString(payload.dateOfBirth || extracted.dateOfBirth);
-    const provider = payload.provider || fullPayload?.provider || fullPayload?.data?.provider || 'didit';
+    const provider = payload.provider || fullPayload?.provider || fullPayload?.data?.provider || 'dojah';
 
     if ((!firstName || !lastName) && fullLegalName) {
       const parts = fullLegalName.split(/\s+/).filter(Boolean);
@@ -829,7 +793,7 @@ export async function markKycApproved(userId, payload = {}) {
         update public.kyc_verifications
         set status = 'approved',
             reviewed_at = timezone('utc', now()),
-            review_notes = 'Approved via DIDIT',
+            review_notes = 'Approved via KYC provider',
             updated_at = timezone('utc', now())
         where user_id = $1
       `,

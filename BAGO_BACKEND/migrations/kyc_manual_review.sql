@@ -1,4 +1,4 @@
--- Add kyc_provider column to track which KYC flow was used (dojah, manual, didit)
+-- Add kyc_provider column to track which KYC flow was used (dojah, manual)
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS kyc_provider TEXT;
 

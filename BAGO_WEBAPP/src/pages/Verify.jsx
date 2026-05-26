@@ -6,13 +6,13 @@ import {
 } from 'lucide-react';
 import Dojah from 'dojah-kyc-sdk-react';
 import { useAuth } from '../AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
-
-const WIDGET_ID = '6a107b3f9e9b60b7a55f5fdf';
 
 // Steps: 'status' | 'consent' | 'verifying'
 export default function Verify() {
-    const { user, isAuthenticated, loading: authLoading } = useAuth();
+    const { user, isAuthenticated, loading: authLoading, checkAuthStatus } = useAuth();
+    const { t } = useLanguage();
 
     const navigate = useNavigate();
 
@@ -26,6 +26,7 @@ export default function Verify() {
 
     // Dojah
     const [dojahCreds, setDojahCreds] = useState(null);
+    const [referenceId, setReferenceId] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -52,8 +53,15 @@ export default function Verify() {
         setActionLoading(true);
         setError('');
         try {
-            const res = await api.post('/api/bago/kyc/dojah/start');
-            setDojahCreds(res.data);
+            const userId = user?.id || user?._id;
+            if (!userId) throw new Error('Could not start verification. Please log in again.');
+            const nextReferenceId = `bago-${userId}-${Date.now()}`;
+            const res = await api.post('/api/bago/kyc/dojah/start', {
+                country: user?.country,
+                referenceId: nextReferenceId,
+            });
+            setReferenceId(res.data?.referenceId || nextReferenceId);
+            setDojahCreds({ ...res.data, referenceId: res.data?.referenceId || nextReferenceId });
             setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
@@ -62,11 +70,55 @@ export default function Verify() {
         }
     };
 
-    const handleDojahResponse = (type, data) => {
+    const syncDojahResult = async (activeReferenceId) => {
+        let finalStatus = 'pending';
+        try {
+            const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', {
+                referenceId: activeReferenceId,
+            });
+            const synced = syncRes.data?.kycStatus || '';
+            if (['approved', 'declined', 'blocked_duplicate'].includes(synced)) {
+                finalStatus = synced;
+            }
+        } catch (_) {}
+
+        if (finalStatus === 'pending') {
+            for (let i = 0; i < 12; i += 1) {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                try {
+                    const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', {
+                        referenceId: activeReferenceId,
+                    });
+                    let status = syncRes.data?.kycStatus || '';
+                    if (!status || status === 'pending') {
+                        const statusRes = await api.get('/api/bago/kyc/status');
+                        status = statusRes.data?.kycStatus || '';
+                    }
+                    if (['approved', 'declined', 'blocked_duplicate'].includes(status)) {
+                        finalStatus = status;
+                        break;
+                    }
+                } catch (_) {}
+            }
+        }
+
+        setKycStatus(finalStatus);
+        await checkAuthStatus?.();
+        return finalStatus;
+    };
+
+    const handleDojahResponse = async (type, data) => {
         if (type === 'success') {
             setKycStatus('pending');
             setStep('status');
             setDojahCreds(null);
+            const activeReferenceId = referenceId || dojahCreds?.referenceId || data?.referenceId || data?.reference_id;
+            if (activeReferenceId) {
+                await syncDojahResult(activeReferenceId);
+            } else {
+                await fetchKycStatus();
+                await checkAuthStatus?.();
+            }
         } else if (type === 'close') {
             setStep('consent');
             setDojahCreds(null);
@@ -108,10 +160,16 @@ export default function Verify() {
                     appID={dojahCreds.appId}
                     publicKey={dojahCreds.publicKey}
                     type="custom"
-                    config={{ widget_id: WIDGET_ID }}
+                    config={{ widget_id: dojahCreds.widgetId }}
                     userData={{ email: user?.email || undefined }}
-                    metadata={{ userId: dojahCreds.userId }}
-                    referenceId={dojahCreds.userId}
+                    metadata={{
+                        userId: dojahCreds.userId,
+                        user_id: dojahCreds.userId,
+                        referenceId: dojahCreds.referenceId,
+                        reference_id: dojahCreds.referenceId,
+                        country: dojahCreds.country,
+                    }}
+                    referenceId={dojahCreds.referenceId}
                     response={handleDojahResponse}
                 />
             )}
@@ -125,7 +183,7 @@ export default function Verify() {
                         onResubmit={() => { setStep('consent'); setKycStatus('not_started'); }}
                     />
                 ) : step === 'status' ? (
-                    <LandingCard onStart={() => setStep('consent')} />
+                    <LandingCard onStart={() => setStep('consent')} t={t} />
                 ) : step === 'consent' ? (
                     <ConsentCard
                         termsAccepted={termsAccepted}
@@ -168,7 +226,7 @@ export default function Verify() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function LandingCard({ onStart }) {
+function LandingCard({ onStart, t }) {
     return (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">

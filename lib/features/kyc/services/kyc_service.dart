@@ -1,4 +1,5 @@
 import '../../../shared/services/api_service.dart';
+import '../../../core/constants/api_constants.dart';
 
 // ---------------------------------------------------------------------------
 // KYC Service – Handle verification status checks and navigation
@@ -12,7 +13,7 @@ class KycService {
   /// Returns: 'approved', 'pending', 'not_started', 'declined', 'failed_verification', 'blocked_duplicate', etc.
   Future<String?> getKycStatus() async {
     try {
-      final response = await ApiService.instance.get('/api/bago/getKyc');
+      final response = await ApiService.instance.get(ApiConstants.kycStatus);
       final data = response.data;
       if (data is Map) {
         final payload = data['data'];

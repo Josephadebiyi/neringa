@@ -114,6 +114,42 @@ const firstWebhookValue = (...values) => {
   return '';
 };
 
+const DOJAH_APPROVED_STATUSES = new Set([
+  'success',
+  'successful',
+  'approved',
+  'verified',
+  'completed',
+  'complete',
+  'passed',
+  'pass',
+  'accepted',
+]);
+
+const DOJAH_PENDING_STATUSES = new Set([
+  'pending',
+  'submitted',
+  'processing',
+  'in_progress',
+  'review',
+  'manual_review',
+  'under_review',
+]);
+
+const DOJAH_DECLINED_STATUSES = new Set([
+  'failed',
+  'failure',
+  'declined',
+  'rejected',
+  'reject',
+  'denied',
+  'unsuccessful',
+]);
+
+const isApprovedStatus = (status) => DOJAH_APPROVED_STATUSES.has(status);
+const isPendingStatus = (status) => DOJAH_PENDING_STATUSES.has(status);
+const isDeclinedStatus = (status) => DOJAH_DECLINED_STATUSES.has(status);
+
 // ---------------------------------------------------------------------------
 // GET /api/bago/kyc/provider?country=NG
 // Returns which provider to use + config the client needs
@@ -163,6 +199,7 @@ export const startDojahSession = async (req, res) => {
     }
 
     const country = (req.body?.country || req.query?.country || '').toUpperCase().trim();
+    const referenceId = (req.body?.referenceId || req.query?.referenceId || '').toString().trim();
     const widgetConfig = widgetConfigForCountry(country, req.body?.widgetId);
     const widgetId = widgetConfig.widgetId;
 
@@ -188,6 +225,7 @@ export const startDojahSession = async (req, res) => {
       appId: DOJAH_APP_ID,
       publicKey: DOJAH_PUBLIC_KEY,
       country,
+      referenceId,
       widgetId,
       widgetSource: widgetConfig.widgetSource,
       userId,
@@ -254,9 +292,9 @@ export const dojahWebhook = async (req, res) => {
     const userEmail = userRow?.email;
     const userName = [userRow?.first_name, userRow?.last_name].filter(Boolean).join(' ') || 'there';
 
-    const approved = ['success', 'approved', 'verified', 'completed'].includes(rawStatus);
-    const pending  = ['pending', 'submitted', 'review', 'manual_review'].includes(rawStatus);
-    const declined = ['failed', 'declined', 'rejected', 'failure'].includes(rawStatus);
+    const approved = isApprovedStatus(rawStatus);
+    const pending = isPendingStatus(rawStatus);
+    const declined = isDeclinedStatus(rawStatus);
 
     if (approved) {
       const approval = await markKycApproved(userId, { provider: 'dojah', kycVerifiedData: event });
@@ -402,8 +440,8 @@ export const syncDojahResult = async (req, res) => {
 
         console.log(`Dojah sync: referenceId=${referenceId} rawStatus=${rawStatus}`);
 
-        const approved = ['success', 'approved', 'verified', 'completed'].includes(rawStatus);
-        const declined = ['failed', 'declined', 'rejected', 'failure'].includes(rawStatus);
+        const approved = isApprovedStatus(rawStatus);
+        const declined = isDeclinedStatus(rawStatus);
 
         if (approved) {
           // Re-use webhook payload shape so identityFromPayload can find name/DOB.

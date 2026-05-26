@@ -209,25 +209,35 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     String finalStatus = 'pending';
     try {
       final syncResp = await ApiService.instance
-          .post(ApiConstants.kycDojahSyncResult, data: {'referenceId': referenceId})
-          .timeout(const Duration(seconds: 15));
+          .post(ApiConstants.kycDojahSyncResult, data: {
+        'referenceId': referenceId
+      }).timeout(const Duration(seconds: 15));
       final synced = syncResp.data?['kycStatus']?.toString() ?? '';
-      if (synced == 'approved' || synced == 'declined' || synced == 'blocked_duplicate') {
+      if (synced == 'approved' ||
+          synced == 'declined' ||
+          synced == 'blocked_duplicate') {
         finalStatus = synced;
       }
     } catch (_) {}
 
-    // If the sync-result call didn't resolve it yet (Dojah API may still be
-    // indexing the result), poll the status endpoint for up to 10 more seconds
-    // in case the webhook arrives shortly after.
+    // If the first sync-result call didn't resolve it yet, keep asking the
+    // backend to actively pull by referenceId. Dojah can take a little while to
+    // index a just-completed session, especially on live mobile flows.
     if (finalStatus == 'pending') {
-      for (int i = 0; i < 5; i++) {
-        await Future.delayed(const Duration(seconds: 2));
+      for (int i = 0; i < 12; i++) {
+        await Future.delayed(const Duration(seconds: 5));
         try {
-          final resp = await ApiService.instance
-              .get(ApiConstants.kycStatus)
-              .timeout(const Duration(seconds: 4));
-          final s = resp.data?['kycStatus']?.toString() ?? '';
+          final syncResp = await ApiService.instance
+              .post(ApiConstants.kycDojahSyncResult, data: {
+            'referenceId': referenceId
+          }).timeout(const Duration(seconds: 10));
+          var s = syncResp.data?['kycStatus']?.toString() ?? '';
+          if (s == 'pending' || s.isEmpty) {
+            final resp = await ApiService.instance
+                .get(ApiConstants.kycStatus)
+                .timeout(const Duration(seconds: 4));
+            s = resp.data?['kycStatus']?.toString() ?? '';
+          }
           if (s == 'approved' || s == 'declined' || s == 'blocked_duplicate') {
             finalStatus = s;
             break;
@@ -249,10 +259,12 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       message = 'Your identity has been verified!';
       snackType = SnackBarType.success;
     } else if (finalStatus == 'declined') {
-      message = 'Verification was not approved. Please check your profile for details or try again.';
+      message =
+          'Verification was not approved. Please check your profile for details or try again.';
       snackType = SnackBarType.error;
     } else if (finalStatus == 'blocked_duplicate') {
-      message = 'This identity is already linked to another account. Please contact support.';
+      message =
+          'This identity is already linked to another account. Please contact support.';
       snackType = SnackBarType.error;
     } else {
       message = 'Verification submitted. We\'ll update your status shortly.';

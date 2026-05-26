@@ -114,7 +114,7 @@ class PushNotificationService {
     if (type == 'support_message' && ticketId.isNotEmpty) {
       _supportTapController.add(ticketId);
     }
-    if (type == 'kyc' || type == 'kyc_approved') {
+    if (type == 'kyc' || type.startsWith('kyc_')) {
       _kycApprovedController.add(null);
     }
   }
@@ -219,7 +219,7 @@ class PushNotificationService {
         if (type == 'support_message' && ticketId.isNotEmpty) {
           _supportTapController.add(ticketId);
         }
-        if (type == 'kyc' || type == 'kyc_approved') {
+        if (type == 'kyc' || type.startsWith('kyc_')) {
           _kycApprovedController.add(null);
         }
         break;
