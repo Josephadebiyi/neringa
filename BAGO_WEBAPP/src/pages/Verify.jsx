@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     Shield, ChevronLeft, CheckCircle, Clock, AlertCircle,
@@ -9,12 +9,16 @@ import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
 
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 120000;
+
 // Steps: 'status' | 'consent' | 'verifying'
 export default function Verify() {
-    const { user, isAuthenticated, loading: authLoading, checkAuthStatus } = useAuth();
+    const { user, isAuthenticated, loading: authLoading, checkAuthStatus, refreshUser } = useAuth();
     const { t } = useLanguage();
 
     const navigate = useNavigate();
+    const pollRef = useRef(null);
 
     const [kycStatus, setKycStatus] = useState('not_started');
     const [pageLoading, setPageLoading] = useState(true);
@@ -45,6 +49,10 @@ export default function Verify() {
         else if (isAuthenticated) fetchKycStatus();
     }, [authLoading, isAuthenticated]);
 
+    useEffect(() => {
+        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    }, []);
+
     const fetchKycStatus = async () => {
         try {
             setPageLoading(true);
@@ -60,12 +68,35 @@ export default function Verify() {
             if (status === 'approved') {
                 setStep('status');
                 setDojahCreds(null);
+            } else if (status === 'pending' || status === 'processing') {
+                startPolling();
             }
         } catch {
             setKycStatus(currentUserKycStatus());
         } finally {
             setPageLoading(false);
         }
+    };
+
+    const startPolling = () => {
+        if (pollRef.current) return;
+        const deadline = Date.now() + POLL_TIMEOUT_MS;
+        pollRef.current = setInterval(async () => {
+            if (Date.now() > deadline) { stopPolling(); return; }
+            try {
+                const res = await api.get('/api/bago/kyc/status');
+                const status = normalizeKycStatus(res.data?.kycStatus || res.data?.kyc_status || res.data?.status);
+                setKycStatus(status);
+                if (status === 'approved' || status === 'declined' || status === 'blocked_duplicate') {
+                    stopPolling();
+                    await refreshUser();
+                }
+            } catch { /* keep polling */ }
+        }, POLL_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
 
     const handleStartVerification = async () => {
@@ -145,21 +176,23 @@ export default function Verify() {
         }
 
         setKycStatus(finalStatus);
-        await checkAuthStatus?.();
+        await refreshUser();
         return finalStatus;
     };
 
     const handleDojahResponse = async (type, data) => {
         if (type === 'success') {
-            setKycStatus('pending');
-            setStep('status');
             setDojahCreds(null);
             const activeReferenceId = referenceId || dojahCreds?.referenceId || data?.referenceId || data?.reference_id;
             if (activeReferenceId) {
+                setKycStatus('pending');
+                setStep('status');
                 await syncDojahResult(activeReferenceId);
             } else {
+                setKycStatus('pending');
+                setStep('status');
                 await fetchKycStatus();
-                await checkAuthStatus?.();
+                await refreshUser();
             }
         } else if (type === 'close') {
             setStep('consent');
@@ -221,7 +254,6 @@ export default function Verify() {
                     <StatusCard
                         kycStatus={kycStatus}
                         navigate={navigate}
-                        t={t}
                         onResubmit={() => { setStep('consent'); setKycStatus('not_started'); }}
                     />
                 ) : step === 'status' ? (
@@ -284,10 +316,10 @@ function LandingCard({ onStart, t }) {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
-                        { title: 'Fast & Secure', desc: 'Verified in minutes using advanced AI.', icon: <Lock size={18} /> },
-                        { title: 'Trust Badge', desc: 'Get a verified shield on your profile.', icon: <CheckCircle size={18} /> },
-                        { title: 'Global Access', desc: 'Send packages to any destination.', icon: <Globe size={18} /> },
-                        { title: 'Secure Payouts', desc: 'Required for all financial withdrawals.', icon: <Shield size={18} /> },
+                        { title: t('fastVerification') || 'Fast & Secure', desc: t('fastVerificationDesc') || 'Verified in minutes using advanced AI.', icon: <Lock size={18} /> },
+                        { title: t('trustedBadge') || 'Trust Badge', desc: t('trustedBadgeDesc') || 'Get a verified shield on your profile.', icon: <CheckCircle size={18} /> },
+                        { title: t('globalAccess') || 'Global Access', desc: t('globalAccessDesc') || 'Send packages to any destination.', icon: <Globe size={18} /> },
+                        { title: t('securePayments') || 'Secure Payouts', desc: t('securePaymentsDesc') || 'Required for all financial withdrawals.', icon: <Shield size={18} /> },
                     ].map((item, i) => (
                         <div key={i} className="p-5 bg-gray-50/50 rounded-2xl border border-gray-100 hover:bg-white hover:border-[#5845D8]/20 transition-all group">
                             <div className="text-[#5845D8] mb-3 group-hover:scale-110 transition-transform">{item.icon}</div>
@@ -300,7 +332,7 @@ function LandingCard({ onStart, t }) {
                     onClick={onStart}
                     className="w-full bg-[#5845D8] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-3 group"
                 >
-                    Start Verification
+                    {t('startVerification') || 'Start Verification'}
                     <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
                 <p className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest">
@@ -394,7 +426,7 @@ function ConsentCard({ termsAccepted, setTermsAccepted, privacyAccepted, setPriv
     );
 }
 
-function StatusCard({ kycStatus, navigate, t, onResubmit }) {
+function StatusCard({ kycStatus, navigate, onResubmit }) {
     if (kycStatus === 'approved') {
         return (
             <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">

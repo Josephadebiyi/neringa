@@ -221,6 +221,17 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     }, [user?._id, user?.preferredCurrency, user?.phone]);
 
+    // Re-sync name and DOB when user data updates (e.g. after identity verification)
+    useEffect(() => {
+        if (user?.firstName) setFirstName(user.firstName);
+        if (user?.lastName) setLastName(user.lastName);
+        if (user?.dateOfBirth) {
+            try {
+                setDateOfBirth(new Date(user.dateOfBirth).toISOString().split('T')[0]);
+            } catch { /* ignore invalid date */ }
+        }
+    }, [user?.firstName, user?.lastName, user?.dateOfBirth]);
+
     const checkStripeStatus = async () => {
         try {
             const res = await api.get(`/api/stripe/connect/status/${user?._id || user?.id}`);
@@ -652,6 +663,22 @@ export default function Settings({ user, checkAuthStatus }) {
                     <Landmark className="text-[#5845D8]" size={18} />
                     <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">{t('withdrawalMethods')}</h3>
                 </div>
+
+                {user?.kycStatus !== 'approved' && !user?.isKycCompleted && (
+                    <div className="mb-6 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                        <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+                        <div className="flex-1">
+                            <p className="font-black text-[10px] text-amber-900 uppercase tracking-wider mb-1">Identity Verification Required</p>
+                            <p className="text-[10px] text-amber-700 font-medium leading-relaxed">You need to verify your identity before setting up payout methods.</p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/verify')}
+                            className="shrink-0 bg-amber-500 text-white px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-600 transition-all"
+                        >
+                            Verify Now
+                        </button>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {showStripeOption && (

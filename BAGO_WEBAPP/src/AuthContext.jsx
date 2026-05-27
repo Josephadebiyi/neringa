@@ -42,6 +42,18 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
     };
 
+    // Silently refreshes user data without touching auth state on failure
+    const refreshUser = async () => {
+        try {
+            const response = await api.get('/api/bago/getuser');
+            if (response.data.success) {
+                setUser(response.data.user);
+            }
+        } catch {
+            // Ignore — keep existing user state
+        }
+    };
+
     const logout = async () => {
         try {
             await api.post('/api/bago/logout');
@@ -54,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, isAuthenticated, login, logout, checkAuthStatus }}>
+        <AuthContext.Provider value={{ user, loading, isAuthenticated, login, logout, checkAuthStatus, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

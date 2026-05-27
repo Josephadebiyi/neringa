@@ -31,7 +31,7 @@ import { Link } from 'react-router-dom';
 
 
 export default function Dashboard() {
-    const { user, loading, isAuthenticated, logout, checkAuthStatus } = useAuth();
+    const { user, loading, isAuthenticated, logout, checkAuthStatus, refreshUser } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
     const [kycStatus, setKycStatus] = useState('not_started');
@@ -108,6 +108,7 @@ export default function Dashboard() {
                     ? 'approved'
                     : res.data?.kycStatus || 'not_started';
                 setKycStatus(status);
+                if (status === 'approved') await refreshUser();
             } catch {
                 // Fallback to old endpoint
                 const response = await api.get('/api/bago/getKyc');
