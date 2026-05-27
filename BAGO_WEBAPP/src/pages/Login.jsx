@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import api from '../api';
@@ -14,19 +14,34 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-    const sessionExpired = searchParams.get('reason') === 'session_expired';
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [showSessionExpired, setShowSessionExpired] = useState(searchParams.get('reason') === 'session_expired');
+    const redirectPath = searchParams.get('redirect')?.startsWith('/')
+        ? searchParams.get('redirect')
+        : '/dashboard';
+
+    useEffect(() => {
+        if (searchParams.get('reason') !== 'session_expired') return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('reason');
+        setSearchParams(nextParams, { replace: true });
+    }, [searchParams, setSearchParams]);
+
+    const clearSessionNotice = () => {
+        if (showSessionExpired) setShowSessionExpired(false);
+    };
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
+        clearSessionNotice();
         setLoading(true);
 
         try {
             const response = await api.post('/api/bago/signin', { email, password });
             if (response.data.success) {
                 login(response.data.user);
-                navigate('/dashboard');
+                navigate(redirectPath);
             } else {
                 setError(response.data.message || 'Login failed');
             }
@@ -48,11 +63,12 @@ export default function Login() {
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             setError('');
+            clearSessionNotice();
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
                 if (response.data.success) {
                     login(response.data.user);
-                    navigate('/dashboard');
+                    navigate(redirectPath);
                 } else {
                     setError(response.data.message || t('googleSignupFailed') || 'Unable to sign in with Google');
                 }
@@ -126,7 +142,7 @@ export default function Login() {
                             <div className="flex-grow border-t-2 border-gray-50"></div>
                         </div>
 
-                        {sessionExpired && !error && (
+                        {showSessionExpired && !error && (
                             <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded-xl text-xs font-bold flex items-center gap-3">
                                 <AlertCircle size={16} />
                                 Your session has expired. Please sign in again.
@@ -147,7 +163,10 @@ export default function Login() {
                                     <input
                                         type="email"
                                         value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        onChange={(e) => {
+                                            clearSessionNotice();
+                                            setEmail(e.target.value);
+                                        }}
                                         className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                         placeholder="name@example.com"
                                         required
@@ -162,7 +181,10 @@ export default function Login() {
                                     <input
                                         type="password"
                                         value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
+                                        onChange={(e) => {
+                                            clearSessionNotice();
+                                            setPassword(e.target.value);
+                                        }}
                                         className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                         placeholder="••••••••"
                                         required
