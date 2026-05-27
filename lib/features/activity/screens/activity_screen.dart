@@ -298,9 +298,9 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
             _EmptyState(
               icon: Icons.inventory_2_outlined,
               title: l10n.noShipmentsYet,
-              subtitle: l10n.sendAPackageSubtitle,
+              subtitle: 'Find a traveler to carry your package.',
               cta: AppButton(
-                label: l10n.sendAPackageCta,
+                label: l10n.findTraveler,
                 onPressed: () => context.go('/home'),
               ),
             ),
@@ -972,6 +972,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayLabel = formatFrontendStatus(label);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -979,7 +980,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        label,
+        displayLabel,
         style: AppTextStyles.labelXs.copyWith(
           color: color,
           fontWeight: FontWeight.w700,
