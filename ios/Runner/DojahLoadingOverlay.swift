@@ -28,12 +28,11 @@ class DojahLoadingOverlay {
             window.isHidden = false
             overlayWindow = window
 
-            // Dismiss automatically — by this time Dojah's real UI has loaded.
-            // Keep this long enough to cover Dojah's own init screen on slow
-            // mobile networks, but short enough to avoid masking a problem.
+            // Dismiss automatically after Dojah's own startup screen has had
+            // enough time to finish, including on slow mobile networks.
             let item = DispatchWorkItem { hide() }
             dismissTimer = item
-            DispatchQueue.main.asyncAfter(deadline: .now() + 7.0, execute: item)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 14.0, execute: item)
         }
     }
 
@@ -64,7 +63,7 @@ private class OverlayViewController: UIViewController {
         spinner.startAnimating()
 
         let label = UILabel()
-        label.text = "Starting KYC"
+        label.text = "Starting verification"
         label.textColor = bagoColor
         label.font = UIFont.systemFont(ofSize: 15, weight: .medium)
         label.translatesAutoresizingMaskIntoConstraints = false

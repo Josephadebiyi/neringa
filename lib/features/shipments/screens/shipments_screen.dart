@@ -14,6 +14,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/name_formatter.dart';
+import '../../../shared/utils/status_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -1200,7 +1201,7 @@ class _TripCard extends StatelessWidget {
           Row(
             children: [
               _StatusDot(
-                  label: trip.statusLabel,
+                  label: formatFrontendStatus(trip.status),
                   color: _tripStatusColor(trip.status)),
               const Spacer(),
               _InfoChip(label: '${bookedKg.toStringAsFixed(0)} booked'),

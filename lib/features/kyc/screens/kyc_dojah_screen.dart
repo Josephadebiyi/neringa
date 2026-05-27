@@ -41,7 +41,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
   bool _launched = false;
   bool _hasError = false;
   String? _errorMessage;
-  String? _debugResult;
   static final Random _secureRandom = Random.secure();
 
   String _newDojahReferenceId() {
@@ -135,9 +134,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       await _kycOverlay.invokeMethod('show');
     } catch (_) {}
 
-    debugPrint(
-      'Dojah launch: country=${widget.countryCode} widgetId=$widgetId referenceId=$referenceId',
-    );
+    debugPrint('Dojah launch: country=${widget.countryCode}');
 
     String result;
     try {
@@ -184,7 +181,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         _errorMessage = error.message?.trim().isNotEmpty == true
             ? error.message!
             : 'Dojah could not start verification. Please try again.';
-        _debugResult = error.details?.toString();
       });
       return;
     } catch (error) {
@@ -286,7 +282,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     setState(() {
       _hasError = false;
       _errorMessage = null;
-      _debugResult = null;
       _launched = false;
     });
     _launch();
@@ -322,15 +317,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
                       AppTextStyles.bodyMd.copyWith(color: AppColors.gray700),
                   textAlign: TextAlign.center,
                 ),
-                if (_debugResult?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Dojah response: $_debugResult',
-                    style:
-                        AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _retry,
