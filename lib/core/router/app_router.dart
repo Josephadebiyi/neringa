@@ -125,16 +125,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (loc == '/') return null;
       if (isInitialising) return null;
 
-      if (!isLoggedIn && !isAuthRoute && !isOnboarding && !isGuestAllowed) return '/home';
-
-      // Force users with missing/generic names to complete their profile
-      if (isLoggedIn && _needsName(auth.user?.fullName)) {
-        if (loc != '/auth/complete-name') return '/auth/complete-name';
-        return null;
-      }
+      if (!isLoggedIn && !isAuthRoute && !isOnboarding && !isGuestAllowed)
+        return '/home';
 
       // Allow signup/signin even when logged in (e.g. from onboarding)
-      if (isLoggedIn && isAuthRoute && loc != '/auth/signup' && loc != '/auth/signin') return '/home';
+      if (isLoggedIn &&
+          isAuthRoute &&
+          loc != '/auth/signup' &&
+          loc != '/auth/signin') return '/home';
       return null;
     },
     routes: [
