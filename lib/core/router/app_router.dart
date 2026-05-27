@@ -46,7 +46,6 @@ import '../../features/services_pages/screens/group_shipping_screen.dart';
 import '../../features/settings/screens/language_settings_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/shell/shell_screen.dart';
-import '../../features/shipments/screens/create_shipment_screen.dart';
 import '../../features/shipments/screens/request_shipment_screen.dart';
 import '../../features/shipments/models/request_model.dart';
 import '../../features/shipments/screens/shipment_details_screen.dart';
@@ -260,7 +259,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── Shipments ─────────────────────────────────────────────────────────
       GoRoute(
         path: '/create-shipment',
-        builder: (_, __) => const CreateShipmentScreen(),
+        redirect: (_, __) => '/home',
       ),
       GoRoute(
         path: '/shipment-details/:id',

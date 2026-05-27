@@ -214,7 +214,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       toCurrency: currency,
     );
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
-    final insuranceAmount = _insurance ? (declaredValue * (settings.senderInsurancePercent / 100)) : 0.0;
+    final insuranceAmount = _insurance
+        ? (declaredValue * (settings.senderInsurancePercent / 100))
+        : 0.0;
     final totalAmount = shippingAmount + insuranceAmount;
     final provider =
         ShipmentCheckoutService.instance.providerForCurrency(currency);
@@ -386,7 +388,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       toCurrency: currency,
     );
     final itemValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
-    final insuranceAmount = _insurance ? (itemValue * (settings.senderInsurancePercent / 100)) : 0.0;
+    final insuranceAmount = _insurance
+        ? (itemValue * (settings.senderInsurancePercent / 100))
+        : 0.0;
     final totalAmount = shippingAmount + insuranceAmount;
 
     return Scaffold(
@@ -404,9 +408,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             const SizedBox(height: 20),
 
             // ── Route ─────────────────────────────────────────────────
-            _RouteCard(
-                trip: trip,
-                onChangeRoute: () => context.push('/create-shipment')),
+            _RouteCard(trip: trip, onChangeRoute: () => context.go('/home')),
             const SizedBox(height: 24),
 
             // ── Shipment details ──────────────────────────────────────
@@ -1388,7 +1390,8 @@ class _PriceSummaryCard extends StatelessWidget {
             value: '$currency ${shippingAmount.toStringAsFixed(2)}'),
         const SizedBox(height: 12),
         _Row(
-            label: 'Item protection (${insurancePercent % 1 == 0 ? insurancePercent.toInt() : insurancePercent}%)',
+            label:
+                'Item protection (${insurancePercent % 1 == 0 ? insurancePercent.toInt() : insurancePercent}%)',
             value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),

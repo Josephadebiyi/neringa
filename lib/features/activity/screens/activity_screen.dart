@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/model_enums.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/utils/status_formatter.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../shipments/models/package_model.dart';
@@ -300,7 +301,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               subtitle: l10n.sendAPackageSubtitle,
               cta: AppButton(
                 label: l10n.sendAPackageCta,
-                onPressed: () => context.push('/create-shipment'),
+                onPressed: () => context.go('/home'),
               ),
             ),
           ],
@@ -583,7 +584,10 @@ class _TripCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _StatusBadge(label: trip.status, color: statusColor),
+                _StatusBadge(
+                  label: formatFrontendStatus(trip.status),
+                  color: statusColor,
+                ),
               ],
             ),
             const SizedBox(height: 12),

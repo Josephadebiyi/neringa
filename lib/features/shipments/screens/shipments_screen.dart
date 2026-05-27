@@ -179,6 +179,15 @@ class _PackagesList extends ConsumerWidget {
   const _PackagesList({required this.activeTab});
   final bool activeTab;
 
+  void _showFindTravelerSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _SenderRouteSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
@@ -212,7 +221,7 @@ class _PackagesList extends ConsumerWidget {
             subtitle: l10n.shipmentsEmptySubtitle,
             cta: AppButton(
               label: l10n.findTraveler,
-              onPressed: () => context.go('/create-shipment'),
+              onPressed: () => _showFindTravelerSheet(context),
             ),
           ),
         ],
@@ -221,8 +230,14 @@ class _PackagesList extends ConsumerWidget {
     // History tab: merge requests + packages into one chronological list
     if (!activeTab) {
       final merged = <_HistoryEntry>[
-        ...requests.map((r) => _HistoryEntry(createdAt: r.createdAt, widget: _DismissibleRequest(request: r, ref: ref))),
-        ...items.map((p) => _HistoryEntry(createdAt: p.createdAt, widget: Padding(padding: const EdgeInsets.only(bottom: 12), child: _PackageCard(package: p)))),
+        ...requests.map((r) => _HistoryEntry(
+            createdAt: r.createdAt,
+            widget: _DismissibleRequest(request: r, ref: ref))),
+        ...items.map((p) => _HistoryEntry(
+            createdAt: p.createdAt,
+            widget: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PackageCard(package: p)))),
       ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       return RefreshIndicator(
@@ -236,7 +251,10 @@ class _PackagesList extends ConsumerWidget {
                   icon: Icons.inventory_2_outlined,
                   title: l10n.nothingHereYet,
                   subtitle: l10n.shipmentsEmptySubtitle,
-                  cta: AppButton(label: l10n.findTraveler, onPressed: () => context.go('/create-shipment')),
+                  cta: AppButton(
+                    label: l10n.findTraveler,
+                    onPressed: () => _showFindTravelerSheet(context),
+                  ),
                 ),
               ])
             : ListView(
@@ -261,7 +279,7 @@ class _PackagesList extends ConsumerWidget {
               subtitle: l10n.shipmentsEmptySubtitle,
               cta: AppButton(
                 label: l10n.findTraveler,
-                onPressed: () => context.go('/create-shipment'),
+                onPressed: () => _showFindTravelerSheet(context),
               ),
             ),
           ],
@@ -272,9 +290,9 @@ class _PackagesList extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             ...requests.map((request) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _SenderRequestCard(request: request),
-            )),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _SenderRequestCard(request: request),
+                )),
             if (items.isNotEmpty) const SizedBox(height: 10),
           ],
           if (items.isNotEmpty) ...[
@@ -542,7 +560,8 @@ class _PackageCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              _StatusDot(label: package.statusLabel, color: package.status.color),
+              _StatusDot(
+                  label: package.statusLabel, color: package.status.color),
               const Spacer(),
               if (package.trackingNumber != null)
                 _InfoChip(label: package.trackingNumber!),
@@ -572,7 +591,8 @@ class _TripsList extends ConsumerWidget {
       return const Center(child: AppLoading());
     }
     final items = activeTab ? tripState.activeTrips : tripState.historyTrips;
-    final sentPackageHistory = activeTab ? const <PackageModel>[] : shipmentState.historyPackages;
+    final sentPackageHistory =
+        activeTab ? const <PackageModel>[] : shipmentState.historyPackages;
     final allIncoming = shipmentState.incomingRequests;
     final requests = activeTab
         ? allIncoming
@@ -607,7 +627,8 @@ class _TripsList extends ConsumerWidget {
                 r.status == RequestStatus.cancelled)
             .toList()
         : const <RequestModel>[];
-    final userCurrency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+    final userCurrency =
+        UserCurrencyHelper.resolve(ref.watch(authProvider).user);
     final totalKgSold = items.fold<double>(
         0, (sum, trip) => sum + trip.soldKg + trip.reservedKg);
     final totalKgRemaining =
@@ -618,17 +639,21 @@ class _TripsList extends ConsumerWidget {
       if (currency.isEmpty || currency == userCurrency) {
         return sum + trip.travelerEarnings;
       }
-      return sum + CurrencyConversionHelper.convert(
-        amount: trip.travelerEarnings,
-        fromCurrency: currency,
-        toCurrency: userCurrency,
-      );
+      return sum +
+          CurrencyConversionHelper.convert(
+            amount: trip.travelerEarnings,
+            fromCurrency: currency,
+            toCurrency: userCurrency,
+          );
     });
     final activeShipmentCount =
         items.fold<int>(0, (sum, trip) => sum + trip.activeShipmentCount);
 
-    if (items.isEmpty && !showRequestSection && sentPackageHistory.isEmpty &&
-        sentActiveRequests.isEmpty && sentHistoryRequests.isEmpty) {
+    if (items.isEmpty &&
+        !showRequestSection &&
+        sentPackageHistory.isEmpty &&
+        sentActiveRequests.isEmpty &&
+        sentHistoryRequests.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -648,10 +673,20 @@ class _TripsList extends ConsumerWidget {
     // History tab: merge all items into one chronological list
     if (!activeTab) {
       final merged = <_HistoryEntry>[
-        ...requests.map((r) => _HistoryEntry(createdAt: r.createdAt, widget: _DismissibleRequest(request: r, ref: ref))),
-        ...sentHistoryRequests.map((r) => _HistoryEntry(createdAt: r.createdAt, widget: _DismissibleSentRequest(request: r, ref: ref))),
-        ...sentPackageHistory.map((p) => _HistoryEntry(createdAt: p.createdAt, widget: Padding(padding: const EdgeInsets.only(bottom: 12), child: _PackageCard(package: p)))),
-        ...items.map((t) => _HistoryEntry(createdAt: t.createdAt, widget: _DismissibleTrip(trip: t, ref: ref, l10n: l10n))),
+        ...requests.map((r) => _HistoryEntry(
+            createdAt: r.createdAt,
+            widget: _DismissibleRequest(request: r, ref: ref))),
+        ...sentHistoryRequests.map((r) => _HistoryEntry(
+            createdAt: r.createdAt,
+            widget: _DismissibleSentRequest(request: r, ref: ref))),
+        ...sentPackageHistory.map((p) => _HistoryEntry(
+            createdAt: p.createdAt,
+            widget: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PackageCard(package: p)))),
+        ...items.map((t) => _HistoryEntry(
+            createdAt: t.createdAt,
+            widget: _DismissibleTrip(trip: t, ref: ref, l10n: l10n))),
       ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       return RefreshIndicator(
@@ -667,7 +702,9 @@ class _TripsList extends ConsumerWidget {
                   icon: Icons.inbox_rounded,
                   title: l10n.nothingHereYet,
                   subtitle: l10n.tripsEmptySubtitle,
-                  cta: AppButton(label: l10n.seeRequests, onPressed: () => context.push('/requests')),
+                  cta: AppButton(
+                      label: l10n.seeRequests,
+                      onPressed: () => context.push('/requests')),
                 ),
               ])
             : ListView(
@@ -705,9 +742,9 @@ class _TripsList extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             ...requests.map((req) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _RequestCard(request: req),
-            )),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RequestCard(request: req),
+                )),
             const SizedBox(height: 10),
           ],
           if (sentActiveRequests.isNotEmpty) ...[
@@ -745,26 +782,37 @@ class _TripsList extends ConsumerWidget {
                                 content: Text(l10n.deleteTripMessage),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.pop(dialogContext, false),
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, false),
                                     child: Text(l10n.cancel),
                                   ),
                                   TextButton(
-                                    onPressed: () => Navigator.pop(dialogContext, true),
-                                    child: Text(l10n.delete, style: const TextStyle(color: AppColors.error)),
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, true),
+                                    child: Text(l10n.delete,
+                                        style: const TextStyle(
+                                            color: AppColors.error)),
                                   ),
                                 ],
                               ),
-                            ) == true;
+                            ) ==
+                            true;
                       },
                       onDismissed: (_) async {
                         try {
-                          await ref.read(tripProvider.notifier).cancelTrip(tripId);
+                          await ref
+                              .read(tripProvider.notifier)
+                              .cancelTrip(tripId);
                           if (context.mounted) {
-                            AppSnackBar.show(context, message: l10n.tripDeletedSuccessfully, type: SnackBarType.success);
+                            AppSnackBar.show(context,
+                                message: l10n.tripDeletedSuccessfully,
+                                type: SnackBarType.success);
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+                            AppSnackBar.show(context,
+                                message: e.toString(),
+                                type: SnackBarType.error);
                           }
                         }
                       },
@@ -775,11 +823,13 @@ class _TripsList extends ConsumerWidget {
                           color: AppColors.error.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(Icons.delete_rounded, color: AppColors.error),
+                        child: const Icon(Icons.delete_rounded,
+                            color: AppColors.error),
                       ),
                       child: _TripCard(trip: trip),
                     );
-              return Padding(padding: const EdgeInsets.only(bottom: 12), child: card);
+              return Padding(
+                  padding: const EdgeInsets.only(bottom: 12), child: card);
             }),
           ],
         ],
@@ -879,7 +929,8 @@ class _RequestCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _StatusDot(label: request.statusLabel, color: request.status.color),
+              _StatusDot(
+                  label: request.statusLabel, color: request.status.color),
               const Spacer(),
               Text(
                 '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
@@ -974,7 +1025,8 @@ class _SenderRequestCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _StatusDot(label: request.statusLabel, color: request.status.color),
+              _StatusDot(
+                  label: request.statusLabel, color: request.status.color),
               const Spacer(),
               Text(
                 '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
@@ -1147,7 +1199,9 @@ class _TripCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              _StatusDot(label: trip.statusLabel, color: _tripStatusColor(trip.status)),
+              _StatusDot(
+                  label: trip.statusLabel,
+                  color: _tripStatusColor(trip.status)),
               const Spacer(),
               _InfoChip(label: '${bookedKg.toStringAsFixed(0)} booked'),
               const SizedBox(width: 8),
@@ -1229,7 +1283,9 @@ class _TripSummaryStrip extends StatelessWidget {
           _InfoChip(label: '${totalKgRemaining.toStringAsFixed(0)}kg left'),
           if (activeShipmentCount > 0)
             _InfoChip(label: '$activeShipmentCount active'),
-          _InfoChip(label: '$earningsCurrency ${totalEarnings.toStringAsFixed(2)} earned'),
+          _InfoChip(
+              label:
+                  '$earningsCurrency ${totalEarnings.toStringAsFixed(2)} earned'),
         ],
       ),
     );
@@ -1339,7 +1395,8 @@ class _StatusDot extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 7, height: 7,
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(color: c, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
@@ -1432,15 +1489,19 @@ class _DismissibleRequest extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final deletable = request.status == RequestStatus.rejected || request.status == RequestStatus.cancelled;
-    final card = Padding(padding: const EdgeInsets.only(bottom: 12), child: _RequestCard(request: request));
+    final deletable = request.status == RequestStatus.rejected ||
+        request.status == RequestStatus.cancelled;
+    final card = Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _RequestCard(request: request));
     if (!deletable) return card;
     return Dismissible(
       key: ValueKey(request.id),
       direction: DismissDirection.endToStart,
       background: _deleteBackground(),
       confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => ref.read(shipmentProvider.notifier).deleteHistoryRequest(request.id),
+      onDismissed: (_) =>
+          ref.read(shipmentProvider.notifier).deleteHistoryRequest(request.id),
       child: card,
     );
   }
@@ -1453,22 +1514,27 @@ class _DismissibleSentRequest extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final deletable = request.status == RequestStatus.rejected || request.status == RequestStatus.cancelled;
-    final card = Padding(padding: const EdgeInsets.only(bottom: 12), child: _SenderRequestCard(request: request));
+    final deletable = request.status == RequestStatus.rejected ||
+        request.status == RequestStatus.cancelled;
+    final card = Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _SenderRequestCard(request: request));
     if (!deletable) return card;
     return Dismissible(
       key: ValueKey('sent-${request.id}'),
       direction: DismissDirection.endToStart,
       background: _deleteBackground(),
       confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => ref.read(shipmentProvider.notifier).deleteHistoryRequest(request.id),
+      onDismissed: (_) =>
+          ref.read(shipmentProvider.notifier).deleteHistoryRequest(request.id),
       child: card,
     );
   }
 }
 
 class _DismissibleTrip extends StatelessWidget {
-  const _DismissibleTrip({required this.trip, required this.ref, required this.l10n});
+  const _DismissibleTrip(
+      {required this.trip, required this.ref, required this.l10n});
   final TripModel trip;
   final WidgetRef ref;
   final AppLocalizations l10n;
@@ -1477,7 +1543,8 @@ class _DismissibleTrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final tripId = trip.id.trim();
     final card = _TripCard(trip: trip);
-    if (tripId.isEmpty) return Padding(padding: const EdgeInsets.only(bottom: 12), child: card);
+    if (tripId.isEmpty)
+      return Padding(padding: const EdgeInsets.only(bottom: 12), child: card);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Dismissible(
@@ -1485,29 +1552,42 @@ class _DismissibleTrip extends StatelessWidget {
         direction: DismissDirection.endToStart,
         confirmDismiss: (_) async {
           return await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: Text(l10n.deleteTripTitle),
-              content: Text(l10n.deleteTripMessage),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.delete, style: const TextStyle(color: AppColors.error))),
-              ],
-            ),
-          ) == true;
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text(l10n.deleteTripTitle),
+                  content: Text(l10n.deleteTripMessage),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(l10n.cancel)),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(l10n.delete,
+                            style: const TextStyle(color: AppColors.error))),
+                  ],
+                ),
+              ) ==
+              true;
         },
         onDismissed: (_) async {
           try {
             await ref.read(tripProvider.notifier).cancelTrip(tripId);
-            if (context.mounted) AppSnackBar.show(context, message: l10n.tripDeletedSuccessfully, type: SnackBarType.success);
+            if (context.mounted)
+              AppSnackBar.show(context,
+                  message: l10n.tripDeletedSuccessfully,
+                  type: SnackBarType.success);
           } catch (e) {
-            if (context.mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+            if (context.mounted)
+              AppSnackBar.show(context,
+                  message: e.toString(), type: SnackBarType.error);
           }
         },
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20)),
           child: const Icon(Icons.delete_rounded, color: AppColors.error),
         ),
         child: card,
@@ -1517,28 +1597,35 @@ class _DismissibleTrip extends StatelessWidget {
 }
 
 Widget _deleteBackground() => Container(
-  alignment: Alignment.centerRight,
-  padding: const EdgeInsets.only(right: 20),
-  decoration: BoxDecoration(color: AppColors.accentCoral, borderRadius: BorderRadius.circular(16)),
-  child: const Icon(Icons.delete_rounded, color: Colors.white, size: 24),
-);
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      decoration: BoxDecoration(
+          color: AppColors.accentCoral,
+          borderRadius: BorderRadius.circular(16)),
+      child: const Icon(Icons.delete_rounded, color: Colors.white, size: 24),
+    );
 
 Future<bool> _confirmDelete(BuildContext context) async {
   return await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Remove from history?'),
-      content: const Text('This will permanently remove this item from your history.'),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          style: TextButton.styleFrom(foregroundColor: AppColors.accentCoral),
-          child: const Text('Remove'),
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Remove from history?'),
+          content: const Text(
+              'This will permanently remove this item from your history.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style:
+                  TextButton.styleFrom(foregroundColor: AppColors.accentCoral),
+              child: const Text('Remove'),
+            ),
+          ],
         ),
-      ],
-    ),
-  ) ?? false;
+      ) ??
+      false;
 }
 
 String _shipmentCountLabel(TripModel trip) {
@@ -1548,19 +1635,25 @@ String _shipmentCountLabel(TripModel trip) {
   }
   final summary = trip.bookingStatusSummary;
   if (summary.isNotEmpty && summary != 'No active bookings') return summary;
-  final isCompleted = ['completed', 'cancelled']
-      .contains(trip.status.trim().toLowerCase());
+  final isCompleted =
+      ['completed', 'cancelled'].contains(trip.status.trim().toLowerCase());
   return isCompleted ? 'Trip completed' : 'No active shipments';
 }
 
 Color _tripStatusColor(String status) {
   switch (status.trim().toLowerCase()) {
-    case 'active':      return const Color(0xFF3B82F6);
-    case 'upcoming':    return const Color(0xFFF59E0B);
-    case 'completed':   return const Color(0xFF10B981);
-    case 'cancelled':   return const Color(0xFF6B7280);
-    case 'full':        return const Color(0xFF8B5CF6);
-    default:            return AppColors.primary;
+    case 'active':
+      return const Color(0xFF3B82F6);
+    case 'upcoming':
+      return const Color(0xFFF59E0B);
+    case 'completed':
+      return const Color(0xFF10B981);
+    case 'cancelled':
+      return const Color(0xFF6B7280);
+    case 'full':
+      return const Color(0xFF8B5CF6);
+    default:
+      return AppColors.primary;
   }
 }
 
@@ -1728,10 +1821,12 @@ class _CarrierOrSenderSheet extends StatelessWidget {
                 color: AppColors.primarySoft,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.flight_takeoff_rounded, color: AppColors.primary),
+              child: const Icon(Icons.flight_takeoff_rounded,
+                  color: AppColors.primary),
             ),
             title: Text(l10n.postTripTitle,
-                style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+                style: AppTextStyles.labelMd
+                    .copyWith(fontWeight: FontWeight.w700)),
             subtitle: Text('Earn by carrying packages on your trip',
                 style: AppTextStyles.bodyXs.copyWith(color: AppColors.gray500)),
             contentPadding: EdgeInsets.zero,
@@ -1754,10 +1849,12 @@ class _CarrierOrSenderSheet extends StatelessWidget {
                 color: AppColors.accentCoral.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.inventory_2_outlined, color: AppColors.accentCoral),
+              child: const Icon(Icons.inventory_2_outlined,
+                  color: AppColors.accentCoral),
             ),
             title: Text(l10n.findTraveler,
-                style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+                style: AppTextStyles.labelMd
+                    .copyWith(fontWeight: FontWeight.w700)),
             subtitle: Text('Send a package with a traveler',
                 style: AppTextStyles.bodyXs.copyWith(color: AppColors.gray500)),
             contentPadding: EdgeInsets.zero,
@@ -1796,7 +1893,11 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
     );
     if (result != null && mounted) {
       setState(() {
-        if (isFrom) { _from = result; } else { _to = result; }
+        if (isFrom) {
+          _from = result;
+        } else {
+          _to = result;
+        }
       });
     }
   }
@@ -1816,8 +1917,22 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
       ),
     );
     if (picked != null && mounted) {
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      setState(() => _date = '${months[picked.month - 1]} ${picked.day}, ${picked.year}');
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
+      setState(() =>
+          _date = '${months[picked.month - 1]} ${picked.day}, ${picked.year}');
     }
   }
 
@@ -1842,21 +1957,27 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
-      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+          24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
             child: Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: AppColors.gray200,
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
           const SizedBox(height: 20),
-          Text('Find a Traveler', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
+          Text('Find a Traveler',
+              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
-          Text('Enter your route to see available travelers.', style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+          Text('Enter your route to see available travelers.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
           const SizedBox(height: 20),
           Container(
             decoration: BoxDecoration(
@@ -1872,14 +1993,22 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
                   hasValue: _from.isNotEmpty,
                   onTap: () => _pickCity(true),
                 ),
-                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                const Divider(
+                    height: 1,
+                    color: AppColors.border,
+                    indent: 20,
+                    endIndent: 20),
                 _SheetRouteRow(
                   icon: Icons.location_on_rounded,
                   label: _to.isEmpty ? 'Destination city' : _to,
                   hasValue: _to.isNotEmpty,
                   onTap: () => _pickCity(false),
                 ),
-                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                const Divider(
+                    height: 1,
+                    color: AppColors.border,
+                    indent: 20,
+                    endIndent: 20),
                 _SheetRouteRow(
                   icon: Icons.calendar_month_rounded,
                   label: _date.isEmpty ? 'Any date (optional)' : _date,
@@ -1906,7 +2035,8 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
                   foregroundColor: Colors.white,
                   shape: const StadiumBorder(),
                   elevation: 0,
-                  textStyle: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
+                  textStyle: AppTextStyles.labelLg
+                      .copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
             ),
@@ -1918,7 +2048,11 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
 }
 
 class _SheetRouteRow extends StatelessWidget {
-  const _SheetRouteRow({required this.icon, required this.label, required this.hasValue, required this.onTap});
+  const _SheetRouteRow(
+      {required this.icon,
+      required this.label,
+      required this.hasValue,
+      required this.onTap});
   final IconData icon;
   final String label;
   final bool hasValue;
@@ -1933,7 +2067,9 @@ class _SheetRouteRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            Icon(icon, color: hasValue ? AppColors.primary : AppColors.gray400, size: 20),
+            Icon(icon,
+                color: hasValue ? AppColors.primary : AppColors.gray400,
+                size: 20),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
@@ -1944,7 +2080,9 @@ class _SheetRouteRow extends StatelessWidget {
                 ),
               ),
             ),
-            if (hasValue) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 16),
+            if (hasValue)
+              const Icon(Icons.check_circle_rounded,
+                  color: AppColors.primary, size: 16),
           ],
         ),
       ),
@@ -1977,35 +2115,63 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
   }
 
   Future<void> _search(String q) async {
-    if (q.length < 2) { setState(() => _results = []); return; }
+    if (q.length < 2) {
+      setState(() => _results = []);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final res = await Dio().get(
         'https://nominatim.openstreetmap.org/search',
-        queryParameters: { 'q': q, 'format': 'json', 'addressdetails': 1, 'limit': 15 },
-        options: Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
+        queryParameters: {
+          'q': q,
+          'format': 'json',
+          'addressdetails': 1,
+          'limit': 15
+        },
+        options:
+            Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
       );
       final seen = <String>{};
       final list = <_CityResult>[];
       for (final item in res.data as List) {
         final addr = item['address'] as Map<String, dynamic>;
-        final city = addr['city'] ?? addr['town'] ?? addr['municipality'] ?? addr['county'] ?? addr['village'] ?? (item['display_name'] as String).split(',').first.trim();
+        final city = addr['city'] ??
+            addr['town'] ??
+            addr['municipality'] ??
+            addr['county'] ??
+            addr['village'] ??
+            (item['display_name'] as String).split(',').first.trim();
         final country = addr['country'] as String? ?? '';
         final code = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
         final key = '${city.toString().toLowerCase()},$code';
-        if (!seen.contains(key) && city.toString().isNotEmpty && country.isNotEmpty) {
+        if (!seen.contains(key) &&
+            city.toString().isNotEmpty &&
+            country.isNotEmpty) {
           seen.add(key);
-          list.add(_CityResult(display: '${city.toString().trim()}, $country', countryCode: code));
+          list.add(_CityResult(
+              display: '${city.toString().trim()}, $country',
+              countryCode: code));
         }
         if (list.length >= 8) break;
       }
-      if (mounted) setState(() { _results = list; _loading = false; });
-    } catch (_) { if (mounted) setState(() => _loading = false); }
+      if (mounted)
+        setState(() {
+          _results = list;
+          _loading = false;
+        });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   String _flag(String code) {
     if (code.length != 2) return '🌍';
-    final pts = code.toUpperCase().split('').map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0)).toList();
+    final pts = code
+        .toUpperCase()
+        .split('')
+        .map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0))
+        .toList();
     return String.fromCharCode(pts[0]) + String.fromCharCode(pts[1]);
   }
 
@@ -2021,14 +2187,20 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
         children: [
           Container(
             margin: const EdgeInsets.only(top: 10),
-            width: 36, height: 4,
-            decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+                color: AppColors.gray200,
+                borderRadius: BorderRadius.circular(2)),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             child: Row(
               children: [
-                Expanded(child: Text(widget.title, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800))),
+                Expanded(
+                    child: Text(widget.title,
+                        style: AppTextStyles.h3
+                            .copyWith(fontWeight: FontWeight.w800))),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: const Icon(Icons.close, size: 24),
@@ -2041,7 +2213,9 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               height: 50,
-              decoration: BoxDecoration(color: const Color(0xFFF7F7F8), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF7F7F8),
+                  borderRadius: BorderRadius.circular(16)),
               child: Row(
                 children: [
                   const Icon(Icons.search, color: AppColors.gray400, size: 20),
@@ -2050,23 +2224,28 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                     child: TextField(
                       controller: _ctrl,
                       autofocus: true,
-                      style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                      style: AppTextStyles.bodyMd
+                          .copyWith(fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         hintText: widget.hint,
                         border: InputBorder.none,
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
                       ),
                       onChanged: (v) {
                         _debounce?.cancel();
-                        _debounce = Timer(const Duration(milliseconds: 400), () => _search(v));
+                        _debounce = Timer(const Duration(milliseconds: 400),
+                            () => _search(v));
                       },
                     ),
                   ),
                   if (_loading)
                     const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.primary),
                     ),
                 ],
               ),
@@ -2076,19 +2255,25 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
             child: _results.isEmpty
                 ? Center(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text('Search for a city or country',
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text('Search for a city or country',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, fontWeight: FontWeight.w500)),
-                    ))
+                        style: AppTextStyles.bodyMd.copyWith(
+                            color: AppColors.gray500,
+                            fontWeight: FontWeight.w500)),
+                  ))
                 : ListView.builder(
                     itemCount: _results.length,
                     itemBuilder: (_, i) {
                       final loc = _results[i];
                       return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                        leading: Text(_flag(loc.countryCode), style: const TextStyle(fontSize: 28)),
-                        title: Text(loc.display, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 4),
+                        leading: Text(_flag(loc.countryCode),
+                            style: const TextStyle(fontSize: 28)),
+                        title: Text(loc.display,
+                            style: AppTextStyles.bodyMd
+                                .copyWith(fontWeight: FontWeight.w700)),
                         onTap: () => Navigator.pop(context, loc.display),
                       );
                     },
