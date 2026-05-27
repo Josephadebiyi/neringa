@@ -120,7 +120,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       )
                     : _AccountTab(
                         currency: UserCurrencyHelper.resolve(user),
-                        earningCurrencyLocked: user?.earningCurrencyLocked ?? false,
+                        earningCurrencyLocked:
+                            user?.earningCurrencyLocked ?? false,
                         email: user?.email ?? '',
                         onLogout: () async {
                           await ref.read(authProvider.notifier).logout();
@@ -398,12 +399,14 @@ class _AboutTab extends StatelessWidget {
             ),
             BagoMenuItem(
               label: '${l10n.phoneLabel}: ${phone ?? l10n.notSet}',
-              leading: const Icon(Icons.phone_outlined, color: AppColors.gray600),
+              leading:
+                  const Icon(Icons.phone_outlined, color: AppColors.gray600),
               onTap: () => context.push('/profile/change-phone'),
               showDivider: false,
               trailing: phone != null && !phoneVerified
                   ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFF3CD),
                         borderRadius: BorderRadius.circular(8),
@@ -659,112 +662,108 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.account_balance_wallet_outlined,
+                    color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'TOTAL BALANCE',
+                    style: AppTextStyles.labelXs.copyWith(
+                      color: Colors.white38,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$displayCurrency ${total.toStringAsFixed(2)}',
+                    style: AppTextStyles.displaySm.copyWith(
+                        color: Colors.white, fontWeight: FontWeight.w900),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.account_balance_wallet_outlined,
-                          color: Colors.white, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'TOTAL BALANCE',
-                          style: AppTextStyles.labelXs.copyWith(
-                            color: Colors.white38,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.1,
+                Expanded(
+                  child: _BalanceTile(
+                    label: 'Available',
+                    sublabel: 'Withdraw now',
+                    amount: available,
+                    currency: displayCurrency,
+                    color: const Color(0xFF34D399),
+                  ),
+                ),
+                Container(width: 1, height: 32, color: Colors.white12),
+                Expanded(
+                  child: _escrowLoading
+                      ? const Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white38,
+                              strokeWidth: 1.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$displayCurrency ${total.toStringAsFixed(2)}',
-                          style: AppTextStyles.displaySm.copyWith(
-                              color: Colors.white, fontWeight: FontWeight.w900),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _BalanceTile(
-                          label: 'Available',
-                          sublabel: 'Withdraw now',
-                          amount: available,
+                        )
+                      : _BalanceTile(
+                          label: 'Held',
+                          sublabel: 'Released on delivery',
+                          amount: escrow,
                           currency: displayCurrency,
-                          color: const Color(0xFF34D399),
+                          color: const Color(0xFFFBBF24),
                         ),
-                      ),
-                      Container(
-                          width: 1, height: 32, color: Colors.white12),
-                      Expanded(
-                        child: _escrowLoading
-                            ? const Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white38,
-                                    strokeWidth: 1.5,
-                                  ),
-                                ),
-                              )
-                            : _BalanceTile(
-                                label: 'Held',
-                                sublabel: 'Released on delivery',
-                                amount: escrow,
-                                currency: displayCurrency,
-                                color: const Color(0xFFFBBF24),
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () => context.push('/profile/withdraw'),
-                  child: Container(
-                    height: 38,
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.savings_outlined,
-                            color: AppColors.primary, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Withdraw Earnings',
-                          style: AppTextStyles.buttonMd.copyWith(
-                              color: AppColors.black,
-                              fontWeight: FontWeight.w800),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => context.push('/profile/withdraw'),
+            child: Container(
+              height: 38,
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.savings_outlined,
+                      color: AppColors.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Withdraw Earnings',
+                    style: AppTextStyles.buttonMd.copyWith(
+                        color: AppColors.black, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -787,8 +786,8 @@ class _BalanceTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(label,
-            style: AppTextStyles.labelXs.copyWith(
-                color: Colors.white54, fontWeight: FontWeight.w700)),
+            style: AppTextStyles.labelXs
+                .copyWith(color: Colors.white54, fontWeight: FontWeight.w700)),
         const SizedBox(height: 3),
         Text(
           '$currency ${amount.toStringAsFixed(2)}',
@@ -796,8 +795,8 @@ class _BalanceTile extends StatelessWidget {
               .copyWith(color: color, fontWeight: FontWeight.w800),
         ),
         Text(sublabel,
-            style: AppTextStyles.labelXs.copyWith(
-                color: Colors.white38, fontWeight: FontWeight.w500)),
+            style: AppTextStyles.labelXs
+                .copyWith(color: Colors.white38, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -810,10 +809,17 @@ class _CarrierKycBanner extends StatelessWidget {
   Color get _statusColor {
     switch (kycStatus?.toLowerCase()) {
       case 'pending':
+      case 'pending_admin_review':
+      case 'pending_review':
+      case 'admin_review':
       case 'manual_review':
+      case 'under_review':
         return AppColors.warning;
       case 'rejected':
       case 'declined':
+      case 'failed':
+      case 'failed_verification':
+      case 'blocked_duplicate':
       case 'expired':
         return AppColors.error;
       default:
@@ -822,28 +828,26 @@ class _CarrierKycBanner extends StatelessWidget {
   }
 
   String get _statusLabel {
-    switch (kycStatus?.toLowerCase()) {
-      case 'pending':
-        return 'Pending Review';
-      case 'manual_review':
-        return 'Under Review';
-      case 'rejected':
-      case 'declined':
-        return 'Rejected — try again';
-      case 'expired':
-        return 'Expired — re-verify';
-      default:
-        return 'Not started';
-    }
+    final label = formatFrontendStatus(kycStatus);
+    if (label == 'Pending') return 'Pending Review';
+    if (label == 'Rejected') return 'Not Approved';
+    return label;
   }
 
   String get _bodyText {
     switch (kycStatus?.toLowerCase()) {
       case 'pending':
+      case 'pending_admin_review':
+      case 'pending_review':
+      case 'admin_review':
       case 'manual_review':
+      case 'under_review':
         return 'Your identity verification is under review. You\'ll be notified once it\'s approved.';
       case 'rejected':
       case 'declined':
+      case 'failed':
+      case 'failed_verification':
+      case 'blocked_duplicate':
         return 'Your verification was rejected. Re-submit your documents to start accepting shipments.';
       case 'expired':
         return 'Your verification has expired. Re-verify your identity to continue earning.';
@@ -855,7 +859,11 @@ class _CarrierKycBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPending = kycStatus?.toLowerCase() == 'pending' ||
-        kycStatus?.toLowerCase() == 'manual_review';
+        kycStatus?.toLowerCase() == 'pending_admin_review' ||
+        kycStatus?.toLowerCase() == 'pending_review' ||
+        kycStatus?.toLowerCase() == 'admin_review' ||
+        kycStatus?.toLowerCase() == 'manual_review' ||
+        kycStatus?.toLowerCase() == 'under_review';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -897,11 +905,13 @@ class _CarrierKycBanner extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Identity Verification',
-                        style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                        style: AppTextStyles.labelMd
+                            .copyWith(fontWeight: FontWeight.w800),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: _statusColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
@@ -929,7 +939,8 @@ class _CarrierKycBanner extends StatelessWidget {
                   GestureDetector(
                     onTap: () => context.push('/kyc'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         color: _statusColor,
                         borderRadius: BorderRadius.circular(12),
@@ -937,7 +948,8 @@ class _CarrierKycBanner extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.fingerprint_rounded, color: Colors.white, size: 16),
+                          const Icon(Icons.fingerprint_rounded,
+                              color: Colors.white, size: 16),
                           const SizedBox(width: 6),
                           Text(
                             'Verify Identity',

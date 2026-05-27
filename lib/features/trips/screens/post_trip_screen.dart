@@ -219,7 +219,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 36, height: 4,
+                        width: 36,
+                        height: 4,
                         decoration: BoxDecoration(
                           color: AppColors.gray200,
                           borderRadius: BorderRadius.circular(2),
@@ -229,55 +230,78 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                       Text(
                         AppLocalizations.of(ctx).setWalletCurrencyTitle,
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                        style: AppTextStyles.h3
+                            .copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        AppLocalizations.of(ctx).chooseWalletCurrencyDescription,
+                        AppLocalizations.of(ctx)
+                            .chooseWalletCurrencyDescription,
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+                        style: AppTextStyles.bodyMd
+                            .copyWith(color: AppColors.gray500),
                       ),
                       const SizedBox(height: 18),
                       Flexible(
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: currencies.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
                           itemBuilder: (_, i) {
                             final currency = currencies[i];
-                            final symbol = CurrencyConversionHelper.symbolForCurrency(currency);
+                            final symbol =
+                                CurrencyConversionHelper.symbolForCurrency(
+                                    currency);
                             final sel = tempSelection == currency;
                             return InkWell(
-                              onTap: () => setSheetState(() => tempSelection = currency),
+                              onTap: () =>
+                                  setSheetState(() => tempSelection = currency),
                               borderRadius: BorderRadius.circular(18),
                               child: Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: sel ? AppColors.primarySoft : AppColors.white,
+                                  color: sel
+                                      ? AppColors.primarySoft
+                                      : AppColors.white,
                                   borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(color: sel ? AppColors.primary : AppColors.border),
+                                  border: Border.all(
+                                      color: sel
+                                          ? AppColors.primary
+                                          : AppColors.border),
                                 ),
                                 child: Row(
                                   children: [
                                     Container(
-                                      width: 44, height: 44,
+                                      width: 44,
+                                      height: 44,
                                       decoration: BoxDecoration(
-                                        color: sel ? AppColors.primary : AppColors.gray100,
+                                        color: sel
+                                            ? AppColors.primary
+                                            : AppColors.gray100,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       alignment: Alignment.center,
-                                      child: Text(symbol,
+                                      child: Text(
+                                        symbol,
                                         style: AppTextStyles.labelMd.copyWith(
-                                          color: sel ? AppColors.white : AppColors.black,
+                                          color: sel
+                                              ? AppColors.white
+                                              : AppColors.black,
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    Expanded(child: Text(currency,
-                                      style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
+                                    Expanded(
+                                        child: Text(
+                                      currency,
+                                      style: AppTextStyles.labelLg.copyWith(
+                                          fontWeight: FontWeight.w800),
                                     )),
-                                    if (sel) const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+                                    if (sel)
+                                      const Icon(Icons.check_circle_rounded,
+                                          color: AppColors.primary),
                                   ],
                                 ),
                               ),
@@ -291,7 +315,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                         child: ElevatedButton(
                           onPressed: tempSelection == null
                               ? null
-                              : () => Navigator.pop(sheetContext, tempSelection),
+                              : () =>
+                                  Navigator.pop(sheetContext, tempSelection),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
@@ -321,7 +346,9 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       if (!mounted) return;
       setState(() => _lockedCurrency = selected.toUpperCase());
     } catch (e) {
-      if (mounted) AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      if (mounted)
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
     } finally {
       _currencyPromptShown = false;
     }
@@ -379,7 +406,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Text('Identity Verification Required'),
             content: Text(
               user?.kycStatus == 'pending' || user?.kycStatus == 'manual_review'
@@ -391,7 +419,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('Cancel'),
               ),
-              if (user?.kycStatus != 'pending' && user?.kycStatus != 'manual_review')
+              if (user?.kycStatus != 'pending' &&
+                  user?.kycStatus != 'manual_review')
                 ElevatedButton(
                   onPressed: () {
                     Navigator.of(ctx).pop();
@@ -681,7 +710,9 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     }
     setState(() {
       final fromLoc = trip.fromLocation.trim();
-      _from = fromLoc.contains(',') ? fromLoc : '$fromLoc, ${trip.fromCountry.trim()}';
+      _from = fromLoc.contains(',')
+          ? fromLoc
+          : '$fromLoc, ${trip.fromCountry.trim()}';
       final toLoc = trip.toLocation.trim();
       _to = toLoc.contains(',') ? toLoc : '$toLoc, ${trip.toCountry.trim()}';
       _date = dateLabel;
@@ -799,7 +830,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     if (_currencyLoading) {
       return const Scaffold(
         backgroundColor: AppColors.white,
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body:
+            Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
 
@@ -807,7 +839,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _promptForCurrency());
       return const Scaffold(
         backgroundColor: AppColors.white,
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body:
+            Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
 
@@ -815,7 +848,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       return _SuccessScreen(
         destination: _to.split(',').first,
         isEditMode: _isEditMode,
-        onDone: () => context.go('/trips'),
+        onDone: () => context.go('/activity'),
       );
     }
 
@@ -909,44 +942,44 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
 
             // ── Footer button (hidden on location steps — tap-to-select advances automatically) ──
             if (_step != 1 && _step != 2)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _next,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: const StadiumBorder(),
-                    elevation: 0,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _next,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: const StadiumBorder(),
+                      elevation: 0,
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2.5))
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                  _step == 8
+                                      ? (_isEditMode
+                                          ? l10n.saveChanges
+                                          : l10n.publishTripAction)
+                                      : l10n.continueLabel,
+                                  style: AppTextStyles.labelLg.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800)),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward_rounded, size: 20),
+                            ],
+                          ),
                   ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2.5))
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                                _step == 8
-                                    ? (_isEditMode
-                                        ? l10n.saveChanges
-                                        : l10n.publishTripAction)
-                                    : l10n.continueLabel,
-                                style: AppTextStyles.labelLg.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800)),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_rounded, size: 20),
-                          ],
-                        ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -1093,7 +1126,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
 
   // Extracts the base city from either "City, Country" or "HubName, City, Country"
   String _extractBaseCity(String location) {
-    final parts = location.split(',').map((p) => p.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ')).toList();
+    final parts = location
+        .split(',')
+        .map((p) => p.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' '))
+        .toList();
     if (parts.length == 1) return parts.first;
     if (parts.length == 2) return parts[0];
     // "City, Country, Country" (broken edit) → "City"; "HubName, City, Country" → "City"
@@ -1359,9 +1395,7 @@ class _ComplianceStep extends StatelessWidget {
                     '5. In-App Conduct: All negotiations, tracking, and payments must occur via the Bago platform to be protected by our escrow and insurance policies.\n\n'
                     '6. Liability: Bago is not liable for transport-related losses beyond the insured value. You indemnify Bago against any legal claims arising from your conduct.',
                     style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B7280),
-                        height: 1.6),
+                        fontSize: 13, color: Color(0xFF6B7280), height: 1.6),
                   ),
                 ),
                 const Divider(height: 1),
@@ -1432,16 +1466,66 @@ class _LocationResult {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _kDefaultLocations = [
-  _LocationResult(displayName: 'London, United Kingdom',       countryCode: 'gb', category: 'city', lat: 51.5074, lon: -0.1278),
-  _LocationResult(displayName: 'Lagos, Nigeria',               countryCode: 'ng', category: 'city', lat: 6.5244,  lon: 3.3792),
-  _LocationResult(displayName: 'New York, United States',      countryCode: 'us', category: 'city', lat: 40.7128, lon: -74.0060),
-  _LocationResult(displayName: 'Paris, France',                countryCode: 'fr', category: 'city', lat: 48.8566, lon: 2.3522),
-  _LocationResult(displayName: 'Toronto, Canada',              countryCode: 'ca', category: 'city', lat: 43.6532, lon: -79.3832),
-  _LocationResult(displayName: 'Dubai, United Arab Emirates',  countryCode: 'ae', category: 'city', lat: 25.2048, lon: 55.2708),
-  _LocationResult(displayName: 'Accra, Ghana',                 countryCode: 'gh', category: 'city', lat: 5.6037,  lon: -0.1870),
-  _LocationResult(displayName: 'Abuja, Nigeria',               countryCode: 'ng', category: 'city', lat: 9.0579,  lon: 7.4951),
-  _LocationResult(displayName: 'Amsterdam, Netherlands',       countryCode: 'nl', category: 'city', lat: 52.3676, lon: 4.9041),
-  _LocationResult(displayName: 'Nairobi, Kenya',               countryCode: 'ke', category: 'city', lat: -1.2921, lon: 36.8219),
+  _LocationResult(
+      displayName: 'London, United Kingdom',
+      countryCode: 'gb',
+      category: 'city',
+      lat: 51.5074,
+      lon: -0.1278),
+  _LocationResult(
+      displayName: 'Lagos, Nigeria',
+      countryCode: 'ng',
+      category: 'city',
+      lat: 6.5244,
+      lon: 3.3792),
+  _LocationResult(
+      displayName: 'New York, United States',
+      countryCode: 'us',
+      category: 'city',
+      lat: 40.7128,
+      lon: -74.0060),
+  _LocationResult(
+      displayName: 'Paris, France',
+      countryCode: 'fr',
+      category: 'city',
+      lat: 48.8566,
+      lon: 2.3522),
+  _LocationResult(
+      displayName: 'Toronto, Canada',
+      countryCode: 'ca',
+      category: 'city',
+      lat: 43.6532,
+      lon: -79.3832),
+  _LocationResult(
+      displayName: 'Dubai, United Arab Emirates',
+      countryCode: 'ae',
+      category: 'city',
+      lat: 25.2048,
+      lon: 55.2708),
+  _LocationResult(
+      displayName: 'Accra, Ghana',
+      countryCode: 'gh',
+      category: 'city',
+      lat: 5.6037,
+      lon: -0.1870),
+  _LocationResult(
+      displayName: 'Abuja, Nigeria',
+      countryCode: 'ng',
+      category: 'city',
+      lat: 9.0579,
+      lon: 7.4951),
+  _LocationResult(
+      displayName: 'Amsterdam, Netherlands',
+      countryCode: 'nl',
+      category: 'city',
+      lat: 52.3676,
+      lon: 4.9041),
+  _LocationResult(
+      displayName: 'Nairobi, Kenya',
+      countryCode: 'ke',
+      category: 'city',
+      lat: -1.2921,
+      lon: 36.8219),
 ];
 
 class _LocationStep extends StatefulWidget {
@@ -1462,7 +1546,11 @@ class _LocationStep extends StatefulWidget {
 class _LocationStepState extends State<_LocationStep> {
   String _flag(String code) {
     if (code.length != 2) return '🌍';
-    final pts = code.toUpperCase().split('').map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0)).toList();
+    final pts = code
+        .toUpperCase()
+        .split('')
+        .map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0))
+        .toList();
     return String.fromCharCode(pts[0]) + String.fromCharCode(pts[1]);
   }
 
@@ -1494,16 +1582,20 @@ class _LocationStepState extends State<_LocationStep> {
                       fontWeight: FontWeight.w900, color: AppColors.black)),
               const SizedBox(height: 4),
               Text(widget.subtitle,
-                  style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
+                  style:
+                      AppTextStyles.bodyMd.copyWith(color: AppColors.gray500)),
               const SizedBox(height: 20),
               // Tappable location field
               GestureDetector(
                 onTap: _openSearch,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                   decoration: BoxDecoration(
-                    color: selected ? AppColors.primarySoft : const Color(0xFFF7F7F8),
+                    color: selected
+                        ? AppColors.primarySoft
+                        : const Color(0xFFF7F7F8),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: selected
@@ -1514,17 +1606,23 @@ class _LocationStepState extends State<_LocationStep> {
                   ),
                   child: Row(children: [
                     Icon(
-                      selected ? Icons.check_circle_rounded : Icons.search_rounded,
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.search_rounded,
                       size: 20,
                       color: selected ? AppColors.primary : AppColors.gray400,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        selected ? widget.value : 'Search cities, airports, stations...',
+                        selected
+                            ? widget.value
+                            : 'Search cities, airports, stations...',
                         style: AppTextStyles.bodyMd.copyWith(
-                          color: selected ? AppColors.primary : AppColors.gray400,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          color:
+                              selected ? AppColors.primary : AppColors.gray400,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w400,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1533,14 +1631,16 @@ class _LocationStepState extends State<_LocationStep> {
                     if (selected) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text('Change',
                             style: AppTextStyles.labelSm.copyWith(
-                                color: AppColors.primary, fontWeight: FontWeight.w700)),
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700)),
                       ),
                     ],
                   ]),
@@ -1555,7 +1655,9 @@ class _LocationStepState extends State<_LocationStep> {
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
             child: Text('POPULAR CITIES',
                 style: AppTextStyles.labelSm.copyWith(
-                    color: AppColors.gray400, fontWeight: FontWeight.w700, letterSpacing: 0.6)),
+                    color: AppColors.gray400,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6)),
           ),
           Expanded(
             child: ListView.builder(
@@ -1566,12 +1668,15 @@ class _LocationStepState extends State<_LocationStep> {
                 final parts = loc.displayName.split(',');
                 return InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: () => widget.onSelect(loc.displayName, loc.lat, loc.lon),
+                  onTap: () =>
+                      widget.onSelect(loc.displayName, loc.lat, loc.lon),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     child: Row(children: [
                       Container(
-                        width: 40, height: 40,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: AppColors.gray100,
                           borderRadius: BorderRadius.circular(11),
@@ -1581,14 +1686,17 @@ class _LocationStepState extends State<_LocationStep> {
                                 style: const TextStyle(fontSize: 22))),
                       ),
                       const SizedBox(width: 14),
-                      Expanded(child: Column(
+                      Expanded(
+                          child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(parts.first.trim(),
-                              style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                              style: AppTextStyles.bodyMd
+                                  .copyWith(fontWeight: FontWeight.w700)),
                           if (parts.length > 1)
                             Text(parts.skip(1).join(',').trim(),
-                                style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+                                style: AppTextStyles.bodySm
+                                    .copyWith(color: AppColors.gray400)),
                         ],
                       )),
                       const Icon(Icons.arrow_forward_ios_rounded,
@@ -1608,23 +1716,31 @@ class _LocationStepState extends State<_LocationStep> {
               decoration: BoxDecoration(
                 color: AppColors.primarySoft,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+                border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.15)),
               ),
               child: Row(children: [
                 Container(
-                  width: 44, height: 44,
-                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 22),
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                      color: AppColors.primary, shape: BoxShape.circle),
+                  child: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 14),
-                Expanded(child: Column(
+                Expanded(
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Selected', style: AppTextStyles.labelSm.copyWith(color: AppColors.primary)),
+                    Text('Selected',
+                        style: AppTextStyles.labelSm
+                            .copyWith(color: AppColors.primary)),
                     const SizedBox(height: 2),
                     Text(widget.value,
                         style: AppTextStyles.bodyMd.copyWith(
-                            fontWeight: FontWeight.w700, color: AppColors.black)),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.black)),
                   ],
                 )),
               ]),
@@ -1669,19 +1785,44 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
   }
 
   Future<void> _search(String q) async {
-    if (q.length < 2) { setState(() => _suggestions = []); return; }
+    if (q.length < 2) {
+      setState(() => _suggestions = []);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final dio = Dio();
       final lang = Localizations.localeOf(context).languageCode;
-      final opts = Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'});
+      final opts =
+          Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'});
       final responses = await Future.wait([
-        dio.get('https://nominatim.openstreetmap.org/search', options: opts,
-            queryParameters: {'q': q, 'format': 'json', 'addressdetails': 1, 'limit': 12, 'accept-language': lang}),
-        dio.get('https://nominatim.openstreetmap.org/search', options: opts,
-            queryParameters: {'q': '$q airport', 'format': 'json', 'addressdetails': 1, 'limit': 6, 'accept-language': lang}),
-        dio.get('https://nominatim.openstreetmap.org/search', options: opts,
-            queryParameters: {'q': '$q train station', 'format': 'json', 'addressdetails': 1, 'limit': 4, 'accept-language': lang}),
+        dio.get('https://nominatim.openstreetmap.org/search',
+            options: opts,
+            queryParameters: {
+              'q': q,
+              'format': 'json',
+              'addressdetails': 1,
+              'limit': 12,
+              'accept-language': lang
+            }),
+        dio.get('https://nominatim.openstreetmap.org/search',
+            options: opts,
+            queryParameters: {
+              'q': '$q airport',
+              'format': 'json',
+              'addressdetails': 1,
+              'limit': 6,
+              'accept-language': lang
+            }),
+        dio.get('https://nominatim.openstreetmap.org/search',
+            options: opts,
+            queryParameters: {
+              'q': '$q train station',
+              'format': 'json',
+              'addressdetails': 1,
+              'limit': 4,
+              'accept-language': lang
+            }),
       ]);
       final seen = <String>{};
       final list = <_LocationResult>[];
@@ -1696,15 +1837,24 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
           final cc = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
           final country = addr['country'] as String? ?? '';
           String name;
-          if (category == 'airport' || category == 'train' || category == 'bus') {
+          if (category == 'airport' ||
+              category == 'train' ||
+              category == 'bus') {
             final hub = (item['name'] as String? ?? '').isNotEmpty
                 ? item['name'] as String
                 : (item['display_name'] as String).split(',').first.trim();
-            final city = (addr['city'] ?? addr['town'] ?? addr['municipality'] ?? '').toString().trim();
+            final city =
+                (addr['city'] ?? addr['town'] ?? addr['municipality'] ?? '')
+                    .toString()
+                    .trim();
             name = city.isNotEmpty ? '$hub, $city, $country' : '$hub, $country';
           } else {
-            final city = addr['city'] ?? addr['town'] ?? addr['municipality'] ??
-                addr['county'] ?? addr['village'] ?? addr['suburb'] ??
+            final city = addr['city'] ??
+                addr['town'] ??
+                addr['municipality'] ??
+                addr['county'] ??
+                addr['village'] ??
+                addr['suburb'] ??
                 (item['display_name'] as String).split(',').first.trim();
             if (city.toString().isEmpty || country.isEmpty) continue;
             name = '${city.toString().trim()}, $country';
@@ -1712,11 +1862,20 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
           final key = '${name.toLowerCase()}:$cc';
           if (!seen.contains(key) && name.isNotEmpty && lat != 0.0) {
             seen.add(key);
-            list.add(_LocationResult(displayName: name, countryCode: cc, category: category, lat: lat, lon: lon));
+            list.add(_LocationResult(
+                displayName: name,
+                countryCode: cc,
+                category: category,
+                lat: lat,
+                lon: lon));
           }
         }
       }
-      if (mounted) setState(() { _suggestions = list; _loading = false; });
+      if (mounted)
+        setState(() {
+          _suggestions = list;
+          _loading = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -1724,34 +1883,50 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
 
   String _flag(String code) {
     if (code.length != 2) return '🌍';
-    final pts = code.toUpperCase().split('').map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0)).toList();
+    final pts = code
+        .toUpperCase()
+        .split('')
+        .map((c) => 0x1F1E6 - 65 + c.codeUnitAt(0))
+        .toList();
     return String.fromCharCode(pts[0]) + String.fromCharCode(pts[1]);
   }
 
   IconData _catIcon(String cat) {
     switch (cat) {
-      case 'airport': return Icons.flight_rounded;
-      case 'train':   return Icons.train_rounded;
-      case 'bus':     return Icons.directions_bus_rounded;
-      default:        return Icons.location_city_rounded;
+      case 'airport':
+        return Icons.flight_rounded;
+      case 'train':
+        return Icons.train_rounded;
+      case 'bus':
+        return Icons.directions_bus_rounded;
+      default:
+        return Icons.location_city_rounded;
     }
   }
 
   Color _catColor(String cat) {
     switch (cat) {
-      case 'airport': return const Color(0xFF0EA5E9);
-      case 'train':   return const Color(0xFF8B5CF6);
-      case 'bus':     return const Color(0xFFF59E0B);
-      default:        return AppColors.primary;
+      case 'airport':
+        return const Color(0xFF0EA5E9);
+      case 'train':
+        return const Color(0xFF8B5CF6);
+      case 'bus':
+        return const Color(0xFFF59E0B);
+      default:
+        return AppColors.primary;
     }
   }
 
   String _catLabel(String cat) {
     switch (cat) {
-      case 'airport': return 'Airports';
-      case 'train':   return 'Train Stations';
-      case 'bus':     return 'Bus Stations';
-      default:        return 'Cities';
+      case 'airport':
+        return 'Airports';
+      case 'train':
+        return 'Train Stations';
+      case 'bus':
+        return 'Bus Stations';
+      default:
+        return 'Cities';
     }
   }
 
@@ -1775,13 +1950,16 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
           const SizedBox(width: 5),
           Text(_catLabel(cat).toUpperCase(),
               style: AppTextStyles.labelSm.copyWith(
-                  color: _catColor(cat), fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                  color: _catColor(cat),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5)),
         ]),
       ));
       for (final loc in items) {
         final parts = loc.displayName.split(',');
         final primary = parts.first.trim();
-        final secondary = parts.length > 1 ? parts.skip(1).join(',').trim() : '';
+        final secondary =
+            parts.length > 1 ? parts.skip(1).join(',').trim() : '';
         listItems.add(InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: () => Navigator.pop(context, loc),
@@ -1790,22 +1968,30 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Row(children: [
               Container(
-                width: 40, height: 40,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: _catColor(cat).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: cat == 'city'
-                    ? Center(child: Text(_flag(loc.countryCode), style: const TextStyle(fontSize: 22)))
+                    ? Center(
+                        child: Text(_flag(loc.countryCode),
+                            style: const TextStyle(fontSize: 22)))
                     : Icon(_catIcon(cat), size: 18, color: _catColor(cat)),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Column(
+              Expanded(
+                  child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(primary, style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                  Text(primary,
+                      style: AppTextStyles.bodyMd
+                          .copyWith(fontWeight: FontWeight.w700)),
                   if (secondary.isNotEmpty)
-                    Text(secondary, style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+                    Text(secondary,
+                        style: AppTextStyles.bodySm
+                            .copyWith(color: AppColors.gray400)),
                 ],
               )),
             ]),
@@ -1822,8 +2008,12 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
       ),
       child: Column(children: [
         const SizedBox(height: 12),
-        Container(width: 36, height: 4,
-            decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2))),
+        Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+                color: AppColors.gray200,
+                borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1851,7 +2041,8 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
                 child: TextField(
                   controller: _ctrl,
                   autofocus: true,
-                  style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                  style: AppTextStyles.bodyMd
+                      .copyWith(fontWeight: FontWeight.w600),
                   decoration: const InputDecoration(
                     hintText: 'City, airport, station...',
                     border: InputBorder.none,
@@ -1860,17 +2051,25 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
                   ),
                   onChanged: (v) {
                     _debounce?.cancel();
-                    _debounce = Timer(const Duration(milliseconds: 350), () => _search(v));
+                    _debounce = Timer(
+                        const Duration(milliseconds: 350), () => _search(v));
                   },
                 ),
               ),
               if (_loading)
-                const SizedBox(width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppColors.primary))
               else if (_ctrl.text.isNotEmpty)
                 GestureDetector(
-                  onTap: () { _ctrl.clear(); setState(() => _suggestions = []); },
-                  child: const Icon(Icons.close_rounded, color: AppColors.gray400, size: 20),
+                  onTap: () {
+                    _ctrl.clear();
+                    setState(() => _suggestions = []);
+                  },
+                  child: const Icon(Icons.close_rounded,
+                      color: AppColors.gray400, size: 20),
                 ),
             ]),
           ),
@@ -1879,7 +2078,8 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
         Expanded(
           child: ListView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom + 16),
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom + 16),
             children: listItems,
           ),
         ),
@@ -2147,8 +2347,8 @@ class _TimeStepState extends State<_TimeStep> {
                           12, (i) => (i + 1).toString().padLeft(2, '0')),
                       onChanged: (i) {
                         HapticFeedback.selectionClick();
-                        widget.onHourChanged(
-                            (i + 1).toString().padLeft(2, '0'));
+                        widget
+                            .onHourChanged((i + 1).toString().padLeft(2, '0'));
                       },
                     ),
                     Padding(
@@ -2242,10 +2442,8 @@ class _DrumState extends State<_Drum> {
               child: AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 150),
                 style: AppTextStyles.displaySm.copyWith(
-                  fontWeight:
-                      isSelected ? FontWeight.w900 : FontWeight.w400,
-                  color:
-                      isSelected ? AppColors.primary : AppColors.gray400,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w400,
+                  color: isSelected ? AppColors.primary : AppColors.gray400,
                   fontSize: isSelected ? 26 : 20,
                 ),
                 child: Text(widget.items[index]),

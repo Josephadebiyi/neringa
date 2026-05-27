@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/utils/json_parser.dart';
+import '../../../shared/utils/status_formatter.dart';
 
 class UserModel {
   final String id;
@@ -71,7 +72,8 @@ class UserModel {
   bool get isKycApproved => hasPassedKyc;
   bool get isGoogleUser => signupMethod == 'google';
   bool get isAppleUser => signupMethod == 'apple';
-  bool get isSocialSignup => signupMethod == 'google' || signupMethod == 'apple';
+  bool get isSocialSignup =>
+      signupMethod == 'google' || signupMethod == 'apple';
 
   bool get hasPassedKyc {
     final normalized = kycStatus?.trim().toLowerCase() ?? '';
@@ -90,23 +92,8 @@ class UserModel {
   bool get canWithdraw => hasPassedKyc;
 
   String get kycDisplayStatus {
-    switch (kycStatus?.toLowerCase()) {
-      case 'approved':
-      case 'verified':
-      case 'completed':
-        return 'Verified';
-      case 'pending':
-        return 'Pending Review';
-      case 'rejected':
-      case 'declined':
-        return 'Rejected';
-      case 'expired':
-        return 'Expired';
-      case 'manual_review':
-        return 'Under Review';
-      default:
-        return 'Not Started';
-    }
+    final label = formatFrontendStatus(kycStatus);
+    return label == 'Pending' ? 'Pending Review' : label;
   }
 
   UserModel copyWith({
@@ -164,12 +151,14 @@ class UserModel {
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
       acceptedTerms: acceptedTerms ?? this.acceptedTerms,
       bankAccountLinked: bankAccountLinked ?? this.bankAccountLinked,
-      stripeConnectAccountId: stripeConnectAccountId ?? this.stripeConnectAccountId,
+      stripeConnectAccountId:
+          stripeConnectAccountId ?? this.stripeConnectAccountId,
       stripeVerified: stripeVerified ?? this.stripeVerified,
       signupMethod: signupMethod ?? this.signupMethod,
       termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
       earningCurrency: earningCurrency ?? this.earningCurrency,
-      earningCurrencyLocked: earningCurrencyLocked ?? this.earningCurrencyLocked,
+      earningCurrencyLocked:
+          earningCurrencyLocked ?? this.earningCurrencyLocked,
     );
   }
 
@@ -189,11 +178,16 @@ class UserModel {
             json['image']?.toString(),
         role: _normalizeRole(json['role']?.toString() ?? 'sender'),
         isVerified: json['is_verified'] == true || json['isVerified'] == true,
-        emailVerified: json['emailVerified'] == true || json['email_verified'] == true,
-        phoneVerified: json['phoneVerified'] == true || json['phone_verified'] == true,
-        kycStatus: json['kyc_status']?.toString() ?? json['kycStatus']?.toString(),
-        walletBalance: JsonParser.parseDoubleFirst(json, ['wallet_balance', 'walletBalance']),
-        escrowBalance: JsonParser.parseDoubleFirst(json, ['escrow_balance', 'escrowBalance']),
+        emailVerified:
+            json['emailVerified'] == true || json['email_verified'] == true,
+        phoneVerified:
+            json['phoneVerified'] == true || json['phone_verified'] == true,
+        kycStatus:
+            json['kyc_status']?.toString() ?? json['kycStatus']?.toString(),
+        walletBalance: JsonParser.parseDoubleFirst(
+            json, ['wallet_balance', 'walletBalance']),
+        escrowBalance: JsonParser.parseDoubleFirst(
+            json, ['escrow_balance', 'escrowBalance']),
         currency: json['currency']?.toString() ??
             json['preferredCurrency']?.toString() ??
             json['preferred_currency']?.toString() ??
@@ -203,13 +197,18 @@ class UserModel {
             'USD',
         bio: json['bio']?.toString(),
         rating: JsonParser.parseDouble(json, 'rating'),
-        ratingCount: JsonParser.parseInt(json, 'rating_count', altKey: 'ratingCount'),
-        acceptedTerms: json['accepted_terms'] == true || json['acceptedTerms'] == true,
-        bankAccountLinked: json['bank_account_linked'] == true || json['bankAccountLinked'] == true,
+        ratingCount:
+            JsonParser.parseInt(json, 'rating_count', altKey: 'ratingCount'),
+        acceptedTerms:
+            json['accepted_terms'] == true || json['acceptedTerms'] == true,
+        bankAccountLinked: json['bank_account_linked'] == true ||
+            json['bankAccountLinked'] == true,
         stripeConnectAccountId: json['stripeConnectAccountId']?.toString() ??
             json['stripe_connect_account_id']?.toString(),
-        stripeVerified: json['stripeVerified'] == true || json['stripe_verified'] == true,
-        signupMethod: json['signupMethod']?.toString() ?? json['signup_method']?.toString(),
+        stripeVerified:
+            json['stripeVerified'] == true || json['stripe_verified'] == true,
+        signupMethod: json['signupMethod']?.toString() ??
+            json['signup_method']?.toString(),
         preferredCurrency: json['preferredCurrency']?.toString() ??
             json['preferred_currency']?.toString() ??
             json['currency']?.toString() ??
@@ -219,8 +218,7 @@ class UserModel {
             : null,
         earningCurrency: json['earningCurrency']?.toString() ??
             json['earning_currency']?.toString(),
-        earningCurrencyLocked:
-            json['earningCurrencyLocked'] == true ||
+        earningCurrencyLocked: json['earningCurrencyLocked'] == true ||
             json['earning_currency_locked'] == true,
       );
 
@@ -240,7 +238,8 @@ class UserModel {
         'wallet_balance': walletBalance,
         'escrow_balance': escrowBalance,
         'currency': currency,
-        'preferredCurrency': preferredCurrency.isNotEmpty ? preferredCurrency : currency,
+        'preferredCurrency':
+            preferredCurrency.isNotEmpty ? preferredCurrency : currency,
         'bio': bio,
         'rating': rating,
         'rating_count': ratingCount,

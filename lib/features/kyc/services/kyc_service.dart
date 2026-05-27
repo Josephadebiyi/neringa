@@ -1,5 +1,6 @@
 import '../../../shared/services/api_service.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../shared/utils/status_formatter.dart';
 
 // ---------------------------------------------------------------------------
 // KYC Service – Handle verification status checks and navigation
@@ -60,18 +61,10 @@ class KycService {
 
   /// Get KYC status string for display
   static String getStatusLabel(String? status) {
-    if (status == null) return 'Unknown';
-    final normalized = status.toLowerCase().trim();
-    return {
-          'not_started': 'Not Started',
-          'pending': 'Verification Pending',
-          'approved': 'Approved ✓',
-          'verified': 'Verified ✓',
-          'completed': 'Completed ✓',
-          'declined': 'Declined',
-          'failed_verification': 'Verification Failed',
-          'blocked_duplicate': 'Duplicate Account Blocked',
-        }[normalized] ??
-        status;
+    final label = formatFrontendStatus(status);
+    if (label == 'Verified') return 'Verified';
+    if (label == 'Pending') return 'Verification Pending';
+    if (label == 'Rejected') return 'Verification Not Approved';
+    return label;
   }
 }

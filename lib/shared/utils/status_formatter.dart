@@ -5,6 +5,9 @@ String formatFrontendStatus(String? rawStatus) {
     case 'pending':
     case 'pending_admin_review':
     case 'pending_review':
+    case 'admin_review':
+    case 'manual_review':
+    case 'kyc_review':
     case 'under_review':
       return 'Pending';
     case 'approved':
@@ -12,7 +15,10 @@ String formatFrontendStatus(String? rawStatus) {
     case 'completed':
       return 'Verified';
     case 'rejected':
+    case 'declined':
     case 'failed':
+    case 'failed_verification':
+    case 'blocked_duplicate':
     case 'expired':
       return 'Rejected';
     case 'not_started':
@@ -54,8 +60,18 @@ String formatKycStatusLabel(String? rawStatus) {
     case 'pending':
     case 'pending_admin_review':
     case 'pending_review':
+    case 'admin_review':
+    case 'manual_review':
+    case 'kyc_review':
     case 'under_review':
       return 'KYC In Review';
+    case 'declined':
+    case 'rejected':
+    case 'failed':
+    case 'failed_verification':
+      return 'KYC Not Approved';
+    case 'blocked_duplicate':
+      return 'Contact Support';
     default:
       return 'KYC Not Passed';
   }
