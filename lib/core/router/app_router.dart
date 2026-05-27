@@ -1,4 +1,4 @@
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -58,6 +58,7 @@ import '../../features/shipments/screens/tracking_screen.dart';
 import '../../features/auth/screens/complete_name_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/trips/models/trip_model.dart';
+import '../../features/activity/screens/activity_screen.dart';
 import '../../features/trips/screens/post_trip_screen.dart';
 import '../../features/trips/screens/trip_details_screen.dart';
 import '../../features/trips/screens/trips_screen.dart';
@@ -162,7 +163,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── Onboarding (first launch only) ───────────────────────────────────
       GoRoute(
         path: '/onboarding',
-        pageBuilder: (_, __) => const NoTransitionPage(child: OnboardingScreen()),
+        pageBuilder: (_, __) =>
+            const NoTransitionPage(child: OnboardingScreen()),
       ),
 
       // ── Auth ──────────────────────────────────────────────────────────────
@@ -188,7 +190,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/auth/complete-name',
-        pageBuilder: (_, __) => const NoTransitionPage(child: CompleteNameScreen()),
+        pageBuilder: (_, __) =>
+            const NoTransitionPage(child: CompleteNameScreen()),
       ),
       GoRoute(
         path: '/auth/forgot-password',
@@ -240,6 +243,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
+            path: '/activity',
+            builder: (_, __) => const ActivityScreen(),
+          ),
+          GoRoute(
             path: '/profile',
             builder: (_, __) => const ProfileScreen(),
           ),
@@ -270,9 +277,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             final extra = state.extra as Map<String, dynamic>;
             final trip = extra['trip'] as TripModel?;
             final itemData = extra['itemData'] as Map<String, dynamic>?;
-            return RequestShipmentScreen(tripId: id, initialTrip: trip, preFilledData: itemData);
+            return RequestShipmentScreen(
+                tripId: id, initialTrip: trip, preFilledData: itemData);
           }
-          final trip = state.extra is TripModel ? state.extra as TripModel : null;
+          final trip =
+              state.extra is TripModel ? state.extra as TripModel : null;
           return RequestShipmentScreen(tripId: id, initialTrip: trip);
         },
       ),
@@ -280,8 +289,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/shipment-request/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          final request = state.extra is RequestModel ? state.extra as RequestModel : null;
-          return ShipmentRequestScreen(requestId: id, preloadedRequest: request);
+          final request =
+              state.extra is RequestModel ? state.extra as RequestModel : null;
+          return ShipmentRequestScreen(
+              requestId: id, preloadedRequest: request);
         },
       ),
       // ── Trips ─────────────────────────────────────────────────────────────
@@ -293,7 +304,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/edit-trip/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          final trip = state.extra is TripModel ? state.extra as TripModel : null;
+          final trip =
+              state.extra is TripModel ? state.extra as TripModel : null;
           return PostTripScreen(tripId: id, initialTrip: trip);
         },
       ),
@@ -301,7 +313,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/trip-details/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          final trip = state.extra is TripModel ? state.extra as TripModel : null;
+          final trip =
+              state.extra is TripModel ? state.extra as TripModel : null;
           return TripDetailsScreen(tripId: id, preloadedTrip: trip);
         },
       ),
@@ -446,7 +459,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/profile/support/ticket/:id',
-        builder: (_, state) => TicketChatScreen(ticketId: state.pathParameters['id']!),
+        builder: (_, state) =>
+            TicketChatScreen(ticketId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/profile/withdraw',

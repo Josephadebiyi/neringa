@@ -614,6 +614,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           travelDocument: _travelDocumentFile,
         );
       }
+      await ref.read(tripProvider.notifier).loadMyTrips();
       setState(() {
         _loading = false;
         _showSuccess = true;

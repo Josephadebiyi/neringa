@@ -51,6 +51,17 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
   }
 
   @override
+  void didUpdateWidget(covariant JourneyMapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.fromCity != widget.fromCity ||
+        oldWidget.fromCountry != widget.fromCountry ||
+        oldWidget.toCity != widget.toCity ||
+        oldWidget.toCountry != widget.toCountry) {
+      _geocode();
+    }
+  }
+
+  @override
   void dispose() {
     _animCtrl?.dispose();
     super.dispose();
@@ -71,19 +82,37 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
     return (now.difference(dep).inMilliseconds / total).clamp(0.0, 1.0);
   }
 
+  ({String city, String country}) _normalizedLocation(
+      String rawCity, String rawCountry) {
+    final parsed = GeocodingService.parseCityCountry(rawCity);
+    final city = parsed.city.isNotEmpty ? parsed.city : rawCity.trim();
+    final country =
+        rawCountry.trim().isNotEmpty ? rawCountry.trim() : parsed.country;
+    return (city: city, country: country);
+  }
+
   Future<void> _geocode() async {
-    setState(() { _loading = true; _error = false; });
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
     final g = GeocodingService.instance;
+    final fromLocation =
+        _normalizedLocation(widget.fromCity, widget.fromCountry);
+    final toLocation = _normalizedLocation(widget.toCity, widget.toCountry);
 
-    // Try city+country first, fall back to city-only if that fails
-    LatLng? from = await g.geocode(widget.fromCity, widget.fromCountry);
-    from ??= await g.geocode(widget.fromCity);
+    LatLng? from = await g.geocode(fromLocation.city, fromLocation.country);
+    from ??= await g.geocode(fromLocation.city);
 
-    LatLng? to = await g.geocode(widget.toCity, widget.toCountry);
-    to ??= await g.geocode(widget.toCity);
+    LatLng? to = await g.geocode(toLocation.city, toLocation.country);
+    to ??= await g.geocode(toLocation.city);
 
-    debugPrint('[JourneyMap] from="${widget.fromCity},${widget.fromCountry}" → $from');
-    debugPrint('[JourneyMap] to="${widget.toCity},${widget.toCountry}" → $to');
+    debugPrint(
+      '[JourneyMap] from="${fromLocation.city}, ${fromLocation.country}" -> $from',
+    );
+    debugPrint(
+      '[JourneyMap] to="${toLocation.city}, ${toLocation.country}" -> $to',
+    );
 
     if (!mounted) return;
     if (from == null || to == null) {
@@ -227,22 +256,22 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
                 const SizedBox(height: 10),
                 Text(
                   'Could not load map',
-                  style: AppTextStyles.labelMd
-                      .copyWith(color: AppColors.gray700),
+                  style:
+                      AppTextStyles.labelMd.copyWith(color: AppColors.gray700),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${widget.fromCity} → ${widget.toCity}',
-                  style: AppTextStyles.bodySm
-                      .copyWith(color: AppColors.gray500),
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 GestureDetector(
                   onTap: _geocode,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(20),
@@ -277,8 +306,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
           ),
           children: [
             TileLayer(
-              urlTemplate:
-                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.deracali.boltexponativewind',
             ),
             PolylineLayer(
@@ -320,9 +348,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
             border: Border.all(color: Colors.white, width: 2.5),
             boxShadow: [
               BoxShadow(
-                  color: color.withOpacity(0.4),
-                  blurRadius: 4,
-                  spreadRadius: 1)
+                  color: color.withOpacity(0.4), blurRadius: 4, spreadRadius: 1)
             ],
           ),
         ),
@@ -393,8 +419,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
           child: GestureDetector(
             onTap: _simulating ? _stopSim : _startSim,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: _simulating ? AppColors.error : AppColors.primary,
                 borderRadius: BorderRadius.circular(20),
@@ -409,9 +434,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _simulating
-                        ? Icons.stop_rounded
-                        : Icons.play_arrow_rounded,
+                    _simulating ? Icons.stop_rounded : Icons.play_arrow_rounded,
                     color: Colors.white,
                     size: 15,
                   ),
@@ -434,8 +457,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
           right: 10,
           bottom: 28,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.55),
               borderRadius: BorderRadius.circular(10),

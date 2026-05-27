@@ -13,7 +13,9 @@ class GeocodingService {
   ));
 
   Future<LatLng?> geocode(String city, [String country = '']) async {
-    final q = country.isNotEmpty ? '$city, $country' : city;
+    final cleanCity = city.trim();
+    final cleanCountry = country.trim();
+    final q = cleanCountry.isNotEmpty ? '$cleanCity, $cleanCountry' : cleanCity;
     final key = q.toLowerCase().trim();
     if (key.isEmpty) return null;
     if (_cache.containsKey(key)) return _cache[key];
@@ -21,7 +23,16 @@ class GeocodingService {
     try {
       final response = await _dio.get<List<dynamic>>(
         'https://nominatim.openstreetmap.org/search',
-        queryParameters: {'q': q, 'format': 'json', 'limit': '1'},
+        queryParameters: {
+          if (cleanCountry.isNotEmpty) ...{
+            'city': cleanCity,
+            'country': cleanCountry,
+          } else
+            'q': cleanCity,
+          'format': 'json',
+          'limit': '1',
+          'addressdetails': '1',
+        },
       );
       final data = response.data;
       if (data != null && data.isNotEmpty) {
@@ -39,11 +50,11 @@ class GeocodingService {
     return null;
   }
 
-  // Parse "Lagos, Nigeria" → ("Lagos", "Nigeria"); "Lagos" → ("Lagos", "")
-  static (String city, String country) parseCityCountry(String raw) {
+  // Parse "Lagos, Nigeria" as city "Lagos" and country "Nigeria".
+  static ({String city, String country}) parseCityCountry(String raw) {
     final parts = raw.split(',');
     final city = parts.first.trim();
     final country = parts.length > 1 ? parts.last.trim() : '';
-    return (city, country);
+    return (city: city, country: country);
   }
 }
