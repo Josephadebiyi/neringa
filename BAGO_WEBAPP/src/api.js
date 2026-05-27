@@ -23,6 +23,29 @@ let refreshPromise = null;
 let _sessionExpiredHandler = null;
 export const setSessionExpiredHandler = (fn) => { _sessionExpiredHandler = fn; };
 
+const AUTH_REFRESH_EXEMPT_PATHS = [
+    '/api/bago/signin',
+    '/api/bago/google-auth',
+    '/api/bago/signup',
+    '/api/bago/verify-otp',
+    '/api/bago/forgot-password',
+    '/api/bago/reset-password',
+    '/api/bago/getuser',
+];
+
+function requestPath(url = '') {
+    try {
+        return new URL(url, api.defaults.baseURL).pathname;
+    } catch {
+        return url;
+    }
+}
+
+function shouldSkipRefresh(originalRequest) {
+    const path = requestPath(originalRequest?.url);
+    return AUTH_REFRESH_EXEMPT_PATHS.some((exemptPath) => path === exemptPath);
+}
+
 function handleSessionExpired() {
     if (_sessionExpiredHandler) _sessionExpiredHandler();
     if (!window.location.pathname.startsWith('/login')) {
@@ -39,8 +62,14 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        // Auth/bootstrap requests should surface their own 401 instead of
+        // being hidden behind a refresh attempt.
+        if (shouldSkipRefresh(originalRequest)) {
+            return Promise.reject(error);
+        }
+
         // Don't try to refresh the refresh-token endpoint itself
-        if (originalRequest?.url?.includes('/refresh-token')) {
+        if (requestPath(originalRequest?.url).includes('/refresh-token')) {
             handleSessionExpired();
             return Promise.reject(error);
         }
