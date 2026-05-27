@@ -30,6 +30,16 @@ export default function Verify() {
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const normalizeKycStatus = (raw) => {
+        const status = String(raw || '').trim().toLowerCase();
+        if (['approved', 'verified', 'completed'].includes(status)) return 'approved';
+        if (['pending', 'pending_admin_review', 'pending_review', 'admin_review', 'manual_review', 'processing', 'under_review'].includes(status)) return 'pending';
+        if (['declined', 'rejected', 'failed', 'failed_verification', 'blocked_duplicate', 'expired'].includes(status)) return 'declined';
+        return status || 'not_started';
+    };
+
+    const currentUserKycStatus = () => normalizeKycStatus(user?.kycStatus || user?.kyc_status);
+
     useEffect(() => {
         if (!authLoading && !isAuthenticated) navigate('/login?redirect=/verify');
         else if (isAuthenticated) fetchKycStatus();
@@ -39,11 +49,20 @@ export default function Verify() {
         try {
             setPageLoading(true);
             const res = await api.get('/api/bago/kyc/status');
-            const status = user?.kycStatus === 'approved' ? 'approved'
-                : res.data?.kycStatus || res.data?.status || 'not_started';
+            const status = normalizeKycStatus(
+                user?.kycStatus ||
+                user?.kyc_status ||
+                res.data?.kycStatus ||
+                res.data?.kyc_status ||
+                res.data?.status
+            );
             setKycStatus(status);
+            if (status === 'approved') {
+                setStep('status');
+                setDojahCreds(null);
+            }
         } catch {
-            setKycStatus(user?.kycStatus === 'approved' ? 'approved' : 'not_started');
+            setKycStatus(currentUserKycStatus());
         } finally {
             setPageLoading(false);
         }
@@ -53,6 +72,13 @@ export default function Verify() {
         setActionLoading(true);
         setError('');
         try {
+            await checkAuthStatus?.();
+            if (currentUserKycStatus() === 'approved' || kycStatus === 'approved') {
+                setKycStatus('approved');
+                setStep('status');
+                setDojahCreds(null);
+                return;
+            }
             const userId = user?.id || user?._id;
             if (!userId) throw new Error('Could not start verification. Please log in again.');
             const randomToken = window.crypto?.randomUUID?.()
@@ -64,11 +90,23 @@ export default function Verify() {
                 country: user?.country,
                 referenceId: nextReferenceId,
             });
-            setReferenceId(res.data?.referenceId || nextReferenceId);
-            setDojahCreds({ ...res.data, referenceId: res.data?.referenceId || nextReferenceId });
+            const rawCreds = res.data || {};
+            const resolvedCreds = {
+                ...rawCreds,
+                appId: rawCreds.appId || rawCreds.appID || rawCreds.app_id,
+                publicKey: rawCreds.publicKey || rawCreds.public_key,
+                widgetId: rawCreds.widgetId || rawCreds.widget_id,
+                referenceId: rawCreds.referenceId || rawCreds.reference_id || nextReferenceId,
+            };
+            if (!resolvedCreds.appId || !resolvedCreds.publicKey || !resolvedCreds.widgetId) {
+                throw new Error('Verification widget is not configured. Please contact support.');
+            }
+            setReferenceId(resolvedCreds.referenceId);
+            setDojahCreds(resolvedCreds);
             setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
+            setStep('consent');
         } finally {
             setActionLoading(false);
         }
@@ -80,7 +118,7 @@ export default function Verify() {
             const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', {
                 referenceId: activeReferenceId,
             });
-            const synced = syncRes.data?.kycStatus || '';
+            const synced = normalizeKycStatus(syncRes.data?.kycStatus || syncRes.data?.kyc_status || syncRes.data?.status);
             if (['approved', 'declined', 'blocked_duplicate'].includes(synced)) {
                 finalStatus = synced;
             }
@@ -93,10 +131,10 @@ export default function Verify() {
                     const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', {
                         referenceId: activeReferenceId,
                     });
-                    let status = syncRes.data?.kycStatus || '';
+                    let status = normalizeKycStatus(syncRes.data?.kycStatus || syncRes.data?.kyc_status || syncRes.data?.status);
                     if (!status || status === 'pending') {
                         const statusRes = await api.get('/api/bago/kyc/status');
-                        status = statusRes.data?.kycStatus || '';
+                        status = normalizeKycStatus(statusRes.data?.kycStatus || statusRes.data?.kyc_status || statusRes.data?.status);
                     }
                     if (['approved', 'declined', 'blocked_duplicate'].includes(status)) {
                         finalStatus = status;

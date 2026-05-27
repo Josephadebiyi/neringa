@@ -35,7 +35,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
     final l10n = AppLocalizations.of(context);
     final trackingNumber = _trackingCtrl.text.trim();
     if (trackingNumber.isEmpty) {
-      AppSnackBar.show(context, message: l10n.enterTrackingNumberMessage, type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: l10n.enterTrackingNumberMessage, type: SnackBarType.error);
       return;
     }
 
@@ -47,7 +48,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
       setState(() => _trackingData = response.data as Map<String, dynamic>?);
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -79,7 +81,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 const SizedBox(height: 8),
                 Text(
                   l10n.enterTrackingNumberPrompt,
-                  style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+                  style:
+                      AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
                 ),
                 const SizedBox(height: 32),
                 AppTextField(
@@ -118,12 +121,22 @@ class _TrackingScreenState extends State<TrackingScreen> {
     final sender = _trackingData?['senderName'] ?? l10n.unknownSender;
     final receiver = _trackingData?['receiverName'] ?? l10n.unknownReceiver;
     final origin = _trackingData?['originLocation'] ?? l10n.unknownLabel;
-    final destination = _trackingData?['destinationLocation'] ?? l10n.unknownLabel;
-    final estimatedDelivery = _trackingData?['estimatedDeliveryDate'] ?? l10n.unknownLabel;
-    final currentLocation = _trackingData?['currentLocation'] ?? l10n.inTransitLabel;
+    final destination =
+        _trackingData?['destinationLocation'] ?? l10n.unknownLabel;
+    final estimatedDelivery =
+        _trackingData?['estimatedDeliveryDate'] ?? l10n.unknownLabel;
+    final currentLocation =
+        _trackingData?['currentLocation'] ?? l10n.inTransitLabel;
 
-    final statuses = [l10n.pendingLabel, l10n.pickedUpLabel, l10n.inTransitLabel, l10n.outForDeliveryLabel, l10n.deliveredLabel];
-    final currentIndex = statuses.contains(status) ? statuses.indexOf(status) : 0;
+    final statuses = [
+      l10n.pendingLabel,
+      l10n.pickedUpLabel,
+      l10n.inTransitLabel,
+      l10n.outForDeliveryLabel,
+      l10n.deliveredLabel
+    ];
+    final currentIndex =
+        statuses.contains(status) ? statuses.indexOf(status) : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,10 +148,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
             color: AppColors.primarySoft,
             borderRadius: BorderRadius.circular(12),
           ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-              Text(l10n.trackingNumberLabel, style: AppTextStyles.caption.copyWith(color: AppColors.gray500)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.trackingNumberLabel,
+                  style:
+                      AppTextStyles.caption.copyWith(color: AppColors.gray500)),
               const SizedBox(height: 4),
               Text(_trackingCtrl.text, style: AppTextStyles.h4),
             ],
@@ -155,13 +170,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
           ),
           child: Row(
             children: [
-              Icon(_getStatusIcon(currentIndex), color: _getStatusColor(currentIndex), size: 24),
+              Icon(_getStatusIcon(currentIndex),
+                  color: _getStatusColor(currentIndex), size: 24),
               const SizedBox(width: 12),
               Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    Text(l10n.currentStatusTitle, style: AppTextStyles.caption.copyWith(color: AppColors.gray500)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.currentStatusTitle,
+                        style: AppTextStyles.caption
+                            .copyWith(color: AppColors.gray500)),
                     const SizedBox(height: 4),
                     Text(status, style: AppTextStyles.h4),
                   ],
@@ -177,12 +195,13 @@ class _TrackingScreenState extends State<TrackingScreen> {
         // Details
         Text(l10n.shipmentDetailsTitle, style: AppTextStyles.h4),
         const SizedBox(height: 12),
-         _buildDetailRow(l10n.fromLabel, sender),
-         _buildDetailRow(l10n.toLabel, receiver),
-         _buildDetailRow(l10n.originLabel, origin),
-         _buildDetailRow(l10n.destinationLabel, destination),
-         if (!kIsWeb) _buildDetailRow(l10n.currentLocationLabel, currentLocation),
-         _buildDetailRow(l10n.estimatedDeliveryLabel, estimatedDelivery),
+        _buildDetailRow(l10n.fromLabel, sender),
+        _buildDetailRow(l10n.toLabel, receiver),
+        _buildDetailRow(l10n.originLabel, origin),
+        _buildDetailRow(l10n.destinationLabel, destination),
+        if (!kIsWeb)
+          _buildDetailRow(l10n.currentLocationLabel, currentLocation),
+        _buildDetailRow(l10n.estimatedDeliveryLabel, estimatedDelivery),
         const SizedBox(height: 24),
         _buildJourneyMap(origin, destination, status),
       ],
@@ -190,14 +209,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   Widget _buildJourneyMap(String origin, String destination, String status) {
-    final (fromCity, fromCountry) = GeocodingService.parseCityCountry(origin);
-    final (toCity, toCountry) = GeocodingService.parseCityCountry(destination);
-    if (fromCity.isEmpty || toCity.isEmpty) return const SizedBox.shrink();
+    final from = GeocodingService.parseCityCountry(origin);
+    final to = GeocodingService.parseCityCountry(destination);
+    if (from.city.isEmpty || to.city.isEmpty) return const SizedBox.shrink();
     return JourneyMapWidget(
-      fromCity: fromCity,
-      fromCountry: fromCountry,
-      toCity: toCity,
-      toCountry: toCountry,
+      fromCity: from.city,
+      fromCountry: from.country,
+      toCity: to.city,
+      toCountry: to.country,
       status: status,
     );
   }
@@ -219,20 +238,25 @@ class _TrackingScreenState extends State<TrackingScreen> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: isCompleted ? AppColors.success : AppColors.gray200,
+                        color:
+                            isCompleted ? AppColors.success : AppColors.gray200,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        isCompleted ? Icons.check_rounded : Icons.access_time_rounded,
+                        isCompleted
+                            ? Icons.check_rounded
+                            : Icons.access_time_rounded,
                         size: 16,
-                        color: isCompleted ? AppColors.white : AppColors.gray500,
+                        color:
+                            isCompleted ? AppColors.white : AppColors.gray500,
                       ),
                     ),
                     if (!isLast)
                       Container(
                         width: 2,
                         height: 32,
-                        color: isCompleted ? AppColors.success : AppColors.gray200,
+                        color:
+                            isCompleted ? AppColors.success : AppColors.gray200,
                       ),
                   ],
                 ),
@@ -263,10 +287,13 @@ class _TrackingScreenState extends State<TrackingScreen> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: AppTextStyles.labelMd.copyWith(color: AppColors.gray500)),
+            child: Text(label,
+                style:
+                    AppTextStyles.labelMd.copyWith(color: AppColors.gray500)),
           ),
           Expanded(
-            child: Text(value, style: AppTextStyles.bodyMd, overflow: TextOverflow.ellipsis),
+            child: Text(value,
+                style: AppTextStyles.bodyMd, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
