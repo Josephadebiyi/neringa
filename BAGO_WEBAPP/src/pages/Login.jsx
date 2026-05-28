@@ -15,7 +15,6 @@ export default function Login() {
     const { login } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [showSessionExpired, setShowSessionExpired] = useState(searchParams.get('reason') === 'session_expired');
     const redirectPath = searchParams.get('redirect')?.startsWith('/')
         ? searchParams.get('redirect')
         : '/dashboard';
@@ -27,14 +26,9 @@ export default function Login() {
         setSearchParams(nextParams, { replace: true });
     }, [searchParams, setSearchParams]);
 
-    const clearSessionNotice = () => {
-        if (showSessionExpired) setShowSessionExpired(false);
-    };
-
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
-        clearSessionNotice();
         setLoading(true);
 
         try {
@@ -63,7 +57,6 @@ export default function Login() {
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             setError('');
-            clearSessionNotice();
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
                 if (response.data.success) {
@@ -142,13 +135,6 @@ export default function Login() {
                             <div className="flex-grow border-t-2 border-gray-50"></div>
                         </div>
 
-                        {showSessionExpired && !error && (
-                            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded-xl text-xs font-bold flex items-center gap-3">
-                                <AlertCircle size={16} />
-                                Your session has expired. Please sign in again.
-                            </div>
-                        )}
-
                         {error && (
                             <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-3 animate-shake">
                                 <AlertCircle size={16} />
@@ -163,10 +149,7 @@ export default function Login() {
                                     <input
                                         type="email"
                                         value={email}
-                                        onChange={(e) => {
-                                            clearSessionNotice();
-                                            setEmail(e.target.value);
-                                        }}
+                                        onChange={(e) => setEmail(e.target.value)}
                                         className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                         placeholder="name@example.com"
                                         required
@@ -181,10 +164,7 @@ export default function Login() {
                                     <input
                                         type="password"
                                         value={password}
-                                        onChange={(e) => {
-                                            clearSessionNotice();
-                                            setPassword(e.target.value);
-                                        }}
+                                        onChange={(e) => setPassword(e.target.value)}
                                         className="w-full px-5 py-3.5 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-[#012126] font-bold text-sm"
                                         placeholder="••••••••"
                                         required
