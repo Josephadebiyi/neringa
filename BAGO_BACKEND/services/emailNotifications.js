@@ -1,4 +1,4 @@
-import { resend } from '../server.js';
+import { resend } from './resendClient.js';
 
 /**
  * Email Notification Service for Shipping Status Changes

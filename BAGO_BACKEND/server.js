@@ -29,6 +29,8 @@ import {
   paypalWebhook,
   savePayPalPayoutSettings,
   sendPayPalPayout,
+  sendPayPalPayoutOtp,
+  verifyPayPalPayoutOtp,
 } from './controllers/PayPalController.js';
 
 
@@ -483,6 +485,8 @@ app.post('/api/payments/paypal/create-order', isAuthenticated, createPayPalOrder
 app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrder);
 app.post('/api/payouts/paypal/settings', isAuthenticated, savePayPalPayoutSettings);
 app.post('/api/payouts/paypal/send', isAuthenticated, sendPayPalPayout);
+app.post('/api/payouts/paypal/send-otp', isAuthenticated, sendPayPalPayoutOtp);
+app.post('/api/payouts/paypal/verify-otp', isAuthenticated, verifyPayPalPayoutOtp);
 app.post('/api/webhooks/paypal', paypalWebhook);
 app.get('/api/payments/paypal/return', paypalReturn);
 app.get('/api/payments/paypal/cancel', paypalCancel);

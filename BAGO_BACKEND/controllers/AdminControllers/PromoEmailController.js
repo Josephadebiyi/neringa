@@ -1,5 +1,5 @@
 import { query } from '../../lib/postgres/db.js';
-import { resend } from '../../server.js';
+import { resend } from '../../services/resendClient.js';
 import fetch from 'node-fetch';
 
 export const sendPromoEmail = async (req, res, next) => {

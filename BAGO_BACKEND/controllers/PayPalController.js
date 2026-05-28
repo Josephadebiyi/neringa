@@ -14,6 +14,7 @@ import { findProfileById } from '../lib/postgres/profiles.js';
 import { sendNewRequestToTravelerEmail } from '../services/emailNotifications.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
+import { resend } from '../services/resendClient.js';
 
 let tokenCache = { accessToken: null, expiresAt: 0 };
 
@@ -797,4 +798,127 @@ export function paypalReturn(_req, res) {
 
 export function paypalCancel(_req, res) {
   res.send('<html><body><script>window.close();</script><p>Payment cancelled. You can return to Bago.</p></body></html>');
+}
+
+/**
+ * POST /api/payouts/paypal/send-otp
+ * Sends a 6-digit OTP to the provided PayPal email to verify ownership.
+ */
+export async function sendPayPalPayoutOtp(req, res) {
+  try {
+    await ensurePayPalTables();
+    const profile = await getAuthorizedProfile(req);
+
+    const paypalEmail = String(req.body?.paypalEmail || '').trim().toLowerCase();
+    const payoutCurrency = normalizeCurrency(req.body?.payoutCurrency || profile.preferredCurrency || 'USD');
+
+    if (!paypalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail)) {
+      return res.status(400).json({ success: false, message: 'A valid PayPal email address is required.' });
+    }
+    if (africanPayoutCurrencies.has(payoutCurrency)) {
+      return res.status(400).json({
+        success: false,
+        message: `${payoutCurrency} payouts use Paystack bank transfer, not PayPal.`,
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+    await query(
+      `alter table public.profiles add column if not exists paypal_pending_setup jsonb`,
+    ).catch(() => {});
+
+    await query(
+      `update public.profiles
+       set paypal_pending_setup = $2, updated_at = timezone('utc', now())
+       where id = $1`,
+      [profile.id, JSON.stringify({ email: paypalEmail, currency: payoutCurrency, otp, expiresAt })],
+    );
+
+    if (!resend?.emails?.send) {
+      return res.status(503).json({ success: false, message: 'Email service not configured. Contact support.' });
+    }
+
+    const { error: emailError } = await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: paypalEmail,
+      subject: 'Verify your Bago PayPal payout account',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px;color:#111827">
+          <h2 style="color:#003087;margin:0 0 18px">Verify your PayPal payout account</h2>
+          <p>Hi ${profile.first_name || 'there'},</p>
+          <p>You are linking <strong>${paypalEmail}</strong> as your Bago payout account.</p>
+          <p>Enter this 6-digit code in the app to confirm. It expires in 30 minutes.</p>
+          <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#003087;margin:24px 0;text-align:center">${otp}</div>
+          <p style="color:#6b7280;font-size:13px">If you did not request this, contact Bago support immediately.</p>
+        </div>
+      `,
+    });
+
+    if (emailError) {
+      console.error('PayPal OTP email error:', emailError);
+      return res.status(502).json({ success: false, message: 'Could not send verification email. Please try again.' });
+    }
+
+    return res.json({
+      success: true,
+      requiresOtp: true,
+      message: `A 6-digit code has been sent to ${paypalEmail}`,
+    });
+  } catch (error) {
+    console.error('sendPayPalPayoutOtp error:', error.message);
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Failed to send OTP.' });
+  }
+}
+
+/**
+ * POST /api/payouts/paypal/verify-otp
+ * Verifies OTP and saves the PayPal payout settings.
+ */
+export async function verifyPayPalPayoutOtp(req, res) {
+  try {
+    await ensurePayPalTables();
+    const profile = await getAuthorizedProfile(req);
+    const otp = String(req.body?.otp || '').trim();
+
+    if (!otp || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ success: false, message: 'A valid 6-digit code is required.' });
+    }
+
+    const row = await queryOne(
+      `select paypal_pending_setup from public.profiles where id = $1`,
+      [profile.id],
+    );
+
+    const pending = row?.paypal_pending_setup;
+    if (!pending?.otp || !pending?.email) {
+      return res.status(400).json({ success: false, message: 'No pending PayPal verification found. Please start again.' });
+    }
+    if (new Date() > new Date(pending.expiresAt)) {
+      return res.status(400).json({ success: false, message: 'Code has expired. Please request a new one.' });
+    }
+    if (pending.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Incorrect code. Please try again.' });
+    }
+
+    const user = await queryOne(
+      `update public.profiles
+       set payout_provider = 'paypal',
+           paypal_email = $2,
+           payout_currency = $3,
+           payout_status = 'active',
+           payout_method_status = 'connected',
+           paypal_pending_setup = null,
+           updated_at = timezone('utc', now())
+       where id = $1
+       returning id, paypal_email, payout_currency, payout_status, payout_method_status`,
+      [profile.id, pending.email, pending.currency],
+    );
+
+    return res.json({ success: true, message: 'PayPal payout account verified and saved.', data: user });
+  } catch (error) {
+    console.error('verifyPayPalPayoutOtp error:', error.message);
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'OTP verification failed.' });
+  }
 }

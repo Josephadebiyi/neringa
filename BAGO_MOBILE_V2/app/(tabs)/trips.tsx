@@ -85,26 +85,40 @@ export default function TravelerDashboard() {
     setSelectedRequest(null);
   };
 
-  const handleWithdrawalInitiate = () => {
-    if (parseFloat(withdrawAmount) <= 0) {
-      if (Platform.OS === 'web') return window.alert('Enter a valid amount');
-      return Alert.alert('Error', 'Enter a valid amount');
+  const handleWithdrawalInitiate = async () => {
+    const amount = parseFloat(withdrawAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'Enter a valid amount');
+      return;
+    }
+    if (!isAfrican) {
+      Alert.alert('PayPal Payout', 'Your earnings are paid out automatically to your PayPal account after each delivery is confirmed. No manual withdrawal is needed.');
+      return;
+    }
+    if (!user?.paystackRecipientCode) {
+      Alert.alert('No Bank Linked', 'Please link a bank account first.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Add Bank', onPress: () => { resetWithdrawal(); router.push('/profile/add-bank'); } },
+      ]);
+      return;
     }
     setIsSendingOtp(true);
-    // Mock API
-    setTimeout(() => {
+    try {
+      const paymentService = (await import('../../lib/payment')).default;
+      const res = await paymentService.withdraw(amount, 'bank');
+      if (res.success) {
+        setWithdrawalStep(3);
+      } else {
+        Alert.alert('Failed', res.message || 'Withdrawal could not be processed.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.message || e.message || 'Withdrawal failed. Please try again.');
+    } finally {
       setIsSendingOtp(false);
-      setWithdrawalStep(2);
-      if (Platform.OS === 'web') window.alert('Check your email for your 6-digit withdrawal confirmation code.');
-      else Alert.alert('Verification Code Sent', 'Check your email for your 6-digit withdrawal confirmation code.');
-    }, 1500);
+    }
   };
 
   const handleVerifyWithdrawal = () => {
-    if (otp.length < 4) {
-      if (Platform.OS === 'web') return window.alert('Enter a valid verification code');
-      return Alert.alert('Error', 'Enter a valid verification code');
-    }
     setWithdrawalStep(3);
   };
 
@@ -384,14 +398,22 @@ export default function TravelerDashboard() {
                 <Text style={styles.payoutTitle}>How much to withdraw?</Text>
                 <Text style={styles.payoutSub}>Maximum available: {formatCurrency(walletBalance)}</Text>
                 
-                {!user?.paystackRecipientCode && (
+                {isAfrican && !user?.paystackRecipientCode && (
                   <View style={styles.warningBox}>
                      <AlertCircle size={20} color="#B45309" />
                      <View style={{ flex: 1 }}>
-                        <Text style={styles.warningText}>No payout account linked.</Text>
-                        <TouchableOpacity onPress={() => { resetWithdrawal(); router.push('/profile/payout-methods'); }}>
-                           <Text style={styles.warningLink}>Add a bank account →</Text>
+                        <Text style={styles.warningText}>No bank account linked.</Text>
+                        <TouchableOpacity onPress={() => { resetWithdrawal(); router.push('/profile/add-bank'); }}>
+                           <Text style={styles.warningLink}>Link bank account →</Text>
                         </TouchableOpacity>
+                     </View>
+                  </View>
+                )}
+                {!isAfrican && (
+                  <View style={styles.warningBox}>
+                     <AlertCircle size={20} color="#B45309" />
+                     <View style={{ flex: 1 }}>
+                        <Text style={styles.warningText}>PayPal payouts are automatic after delivery.</Text>
                      </View>
                   </View>
                 )}

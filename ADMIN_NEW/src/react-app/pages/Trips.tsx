@@ -12,9 +12,12 @@ import {
     Bus,
     Trash2,
     LayoutGrid,
-    Calendar
+    Calendar,
+    X,
+    TrendingUp
 } from 'lucide-react';
 import { getTrips, updateTripStatus, deleteTrip } from '../services/api';
+import JourneyMap from '../components/JourneyMap';
 
 interface Trip {
     _id: string;
@@ -26,15 +29,34 @@ interface Trip {
         phone: string;
     };
     fromLocation: string;
+    fromCountry?: string;
     toLocation: string;
+    toCountry?: string;
     departureDate: string;
     arrivalDate: string;
     availableKg: number;
+    soldKg?: number;
     travelMeans: string;
     status: string;
     request: number;
     travelDocument?: string;
     createdAt: string;
+    currency?: string;
+    pricePerKg?: number;
+    travelerEarnings?: number;
+    grossSales?: number;
+    payoutStatus?: string;
+    bookingStatusSummary?: string;
+    activeShipmentCount?: number;
+}
+
+function formatPayoutStatus(raw: string | undefined): string {
+    switch ((raw || '').trim().toLowerCase()) {
+        case 'paid': return 'Paid out';
+        case 'partially_paid': return 'Partially paid';
+        case 'pending': return 'Pending';
+        default: return raw || 'Pending';
+    }
 }
 
 export default function Trips() {
@@ -44,6 +66,7 @@ export default function Trips() {
     const [selectedTrips, setSelectedTrips] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
+    const [detailTrip, setDetailTrip] = useState<Trip | null>(null);
     const limit = 20;
 
     const toggleSelection = (tripId: string) => {
@@ -266,10 +289,16 @@ export default function Trips() {
                                                                 try {
                                                                     const resp = await fetch(url);
                                                                     const blob = await resp.blob();
+                                                                    const mime = blob.type || '';
+                                                                    const ext = mime.includes('pdf') ? 'pdf'
+                                                                        : mime.includes('png') ? 'png'
+                                                                        : mime.includes('webp') ? 'webp'
+                                                                        : mime.includes('jpeg') || mime.includes('jpg') ? 'jpg'
+                                                                        : url.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
                                                                     const blobUrl = URL.createObjectURL(blob);
                                                                     const a = document.createElement('a');
                                                                     a.href = blobUrl;
-                                                                    a.download = `travel-proof-${trip._id}.pdf`;
+                                                                    a.download = `travel-proof-${trip._id}.${ext}`;
                                                                     a.click();
                                                                     URL.revokeObjectURL(blobUrl);
                                                                 } catch {
@@ -290,22 +319,7 @@ export default function Trips() {
                                             <td className="py-5 px-8 text-right">
                                                 <div className="flex justify-end gap-2 flex-wrap">
                                                     <button
-                                                        onClick={() => {
-                                                            const details = [
-                                                                `Traveler: ${trip.user?.firstName || ''} ${trip.user?.lastName || ''}`,
-                                                                `Email: ${trip.user?.email || 'N/A'}`,
-                                                                `Route: ${trip.fromLocation} → ${trip.toLocation}`,
-                                                                `Travel Means: ${trip.travelMeans}`,
-                                                                `Available KG: ${trip.availableKg}`,
-                                                                `Departure: ${new Date(trip.departureDate).toLocaleDateString()}`,
-                                                                `Arrival: ${new Date(trip.arrivalDate).toLocaleDateString()}`,
-                                                                `Status: ${trip.status}`,
-                                                                `Requests: ${trip.request || 0}`,
-                                                                `Created: ${new Date(trip.createdAt).toLocaleString()}`,
-                                                                `Travel Document: ${trip.travelDocument ? 'Uploaded' : 'Not uploaded'}`,
-                                                            ].join('\n');
-                                                            alert(details);
-                                                        }}
+                                                        onClick={() => setDetailTrip(trip)}
                                                         className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-[10px] font-black uppercase hover:bg-gray-100"
                                                     >
                                                         Details
@@ -351,6 +365,66 @@ export default function Trips() {
                     </div>
                 )}
             </div>
+
+            {/* Trip Detail Modal */}
+            {detailTrip && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 overflow-y-auto">
+                    <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                            <div>
+                                <h3 className="text-lg font-black text-[#1e2749]">{detailTrip.fromLocation} → {detailTrip.toLocation}</h3>
+                                <p className="text-xs font-bold text-gray-400 mt-0.5">{detailTrip.user?.firstName} {detailTrip.user?.lastName} · {detailTrip.user?.email}</p>
+                            </div>
+                            <button onClick={() => setDetailTrip(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                                <X className="w-5 h-5 text-gray-400" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <JourneyMap
+                                fromCity={detailTrip.fromLocation}
+                                fromCountry={detailTrip.fromCountry || ''}
+                                toCity={detailTrip.toLocation}
+                                toCountry={detailTrip.toCountry || ''}
+                                travelMeans={detailTrip.travelMeans}
+                                status={detailTrip.status}
+                                departureDate={detailTrip.departureDate}
+                                arrivalDate={detailTrip.arrivalDate}
+                            />
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {[
+                                    { label: 'Status', value: detailTrip.status },
+                                    { label: 'Travel means', value: detailTrip.travelMeans },
+                                    { label: 'Departure', value: new Date(detailTrip.departureDate).toLocaleDateString() },
+                                    { label: 'Arrival', value: new Date(detailTrip.arrivalDate).toLocaleDateString() },
+                                    { label: 'Available KG', value: `${detailTrip.availableKg} kg` },
+                                    { label: 'Sold KG', value: `${detailTrip.soldKg ?? 0} kg` },
+                                    { label: 'Requests', value: String(detailTrip.request || 0) },
+                                    { label: 'Active shipments', value: String(detailTrip.activeShipmentCount ?? 0) },
+                                    { label: 'Bookings', value: detailTrip.bookingStatusSummary || 'None' },
+                                    ...(detailTrip.pricePerKg ? [{ label: 'Price/kg', value: `${detailTrip.currency || 'USD'} ${detailTrip.pricePerKg}` }] : []),
+                                    ...(detailTrip.travelerEarnings ? [{ label: 'Earnings', value: `${detailTrip.currency || 'USD'} ${Number(detailTrip.travelerEarnings).toFixed(2)}` }] : []),
+                                    { label: 'Payout', value: formatPayoutStatus(detailTrip.payoutStatus) },
+                                    { label: 'Travel doc', value: detailTrip.travelDocument ? 'Uploaded' : 'Not uploaded' },
+                                    { label: 'Created', value: new Date(detailTrip.createdAt).toLocaleString() },
+                                ].map(({ label, value }) => (
+                                    <div key={label} className="bg-gray-50 rounded-xl p-3">
+                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+                                        <p className="text-xs font-bold text-[#1e2749] truncate">{value}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            {detailTrip.travelerEarnings != null && detailTrip.travelerEarnings > 0 && (
+                                <div className="flex items-center gap-2 bg-green-50 rounded-xl p-3 border border-green-100">
+                                    <TrendingUp className="w-4 h-4 text-green-600" />
+                                    <span className="text-xs font-black text-green-700">
+                                        Traveler earned {detailTrip.currency || 'USD'} {Number(detailTrip.travelerEarnings).toFixed(2)} · Payout: {formatPayoutStatus(detailTrip.payoutStatus)}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Pagination */}
             <div className="flex items-center justify-between bg-white px-8 py-4 rounded-[24px] border border-gray-100 shadow-sm mt-6">

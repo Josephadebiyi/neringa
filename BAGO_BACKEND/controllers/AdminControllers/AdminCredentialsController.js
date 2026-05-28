@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { queryOne } from '../../lib/postgres/db.js';
-import { resend } from '../../server.js';
+import { resend } from '../../services/resendClient.js';
 
 const buildOtpEmail = ({ fullName, otp, pendingEmail }) => `
   <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2937">

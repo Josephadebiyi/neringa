@@ -1,21 +1,13 @@
-<<<<<<< HEAD
 import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, TouchableOpacity, Alert, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ChevronLeft, Building2, CheckCircle, ShieldCheck, Search, X, Check } from 'lucide-react-native';
-=======
-import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Dimensions, TouchableOpacity, Alert, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { ChevronLeft, Building2, CheckCircle, ShieldCheck } from 'lucide-react-native';
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
 import { COLORS } from '../../constants/theme';
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
-<<<<<<< HEAD
 
-// Map currency → Paystack country code
+// Matches the africanPayoutCurrencies in PayPalController — maps to Paystack country codes
 const CURRENCY_COUNTRY_MAP: Record<string, string> = {
   NGN: 'NG',
   GHS: 'GH',
@@ -26,12 +18,14 @@ const CURRENCY_COUNTRY_MAP: Record<string, string> = {
   RWF: 'RW',
   EGP: 'EG',
   MAD: 'MA',
+  ZMW: 'ZM',
+  XOF: 'SN', // Senegal/West Africa (CFA)
+  XAF: 'CM', // Cameroon (CFA)
+  ETB: 'ET',
+  GNF: 'GN',
+  MUR: 'MU',
+  MWK: 'MW',
 };
-=======
-import { Search, X, Check } from 'lucide-react-native';
-
-const { width } = Dimensions.get('window');
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
 
 export default function AddBankScreen() {
   const { user } = useAuth();
@@ -39,32 +33,24 @@ export default function AddBankScreen() {
   const [bankCode, setBankCode] = useState('');
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
-<<<<<<< HEAD
-=======
-  const [routingNumber, setRoutingNumber] = useState('');
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [banks, setBanks] = useState<any[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
   const [showBankPicker, setShowBankPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-<<<<<<< HEAD
-  const [banksLoading, setBanksLoading] = useState(false);
 
   // OTP step
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpMessage, setOtpMessage] = useState('');
-=======
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
 
   useEffect(() => {
     fetchBanks();
   }, []);
 
   const fetchBanks = async () => {
-<<<<<<< HEAD
     setBanksLoading(true);
     try {
       const currency = user?.preferredCurrency || 'NGN';
@@ -79,17 +65,6 @@ export default function AddBankScreen() {
       Alert.alert('Error', e.response?.data?.message || 'Failed to load banks. Check your connection.');
     } finally {
       setBanksLoading(false);
-=======
-    try {
-      const country = user?.country || 'Nigeria';
-      const currency = user?.preferredCurrency || 'NGN';
-      const res = await api.get(`/api/paystack/banks?country=${country}&currency=${currency}`);
-      if (res.data.success) {
-        setBanks(res.data.banks);
-      }
-    } catch (e) {
-      console.log('Fetch banks error:', e);
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
     }
   };
 
@@ -98,16 +73,9 @@ export default function AddBankScreen() {
       setVerifying(true);
       try {
         const res = await api.get(`/api/paystack/resolve?accountNumber=${num}&bankCode=${code}`);
-<<<<<<< HEAD
         if (res.data.success) setAccountName(res.data.accountName);
         else setAccountName('');
       } catch {
-=======
-        if (res.data.success) {
-          setAccountName(res.data.accountName);
-        }
-      } catch (e) {
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
         setAccountName('');
       } finally {
         setVerifying(false);
@@ -118,11 +86,8 @@ export default function AddBankScreen() {
   useEffect(() => {
     if (accountNumber.length === 10 && bankCode) {
       resolveAccount(accountNumber, bankCode);
-<<<<<<< HEAD
     } else {
       setAccountName('');
-=======
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
     }
   }, [accountNumber, bankCode]);
 
@@ -131,8 +96,6 @@ export default function AddBankScreen() {
     else router.replace('/(tabs)/profile');
   };
 
-<<<<<<< HEAD
-  // Step 1: initiate — backend verifies account and sends OTP
   const handleSave = async () => {
     if (!bankCode || !accountNumber) {
       Alert.alert('Error', 'Please select a bank and enter your account number');
@@ -142,20 +105,11 @@ export default function AddBankScreen() {
       Alert.alert('Error', 'Account number must be 10 digits');
       return;
     }
-=======
-  const handleSave = async () => {
-    if (!bankCode || !accountNumber) {
-      Alert.alert('Error', 'Please provide bank and account number');
-      return;
-    }
-    
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
     setLoading(true);
     try {
       const res = await api.post('/api/paystack/add-bank', {
         accountNumber,
         bankCode,
-<<<<<<< HEAD
         bankName,
       });
       if (res.data.success && res.data.requiresOtp) {
@@ -171,7 +125,6 @@ export default function AddBankScreen() {
     }
   };
 
-  // Step 2: confirm OTP
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
       Alert.alert('Error', 'Please enter the 6-digit code');
@@ -184,28 +137,14 @@ export default function AddBankScreen() {
         setShowOtpModal(false);
         Alert.alert('Success', 'Bank account linked successfully!', [
           { text: 'OK', onPress: handleBack },
-=======
-        accountName: bankName
-      });
-
-      if (res.data.success) {
-        Alert.alert('Success', 'Payout account linked successfully!', [
-          { text: 'OK', onPress: handleBack }
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
         ]);
       } else {
         throw new Error(res.data.message);
       }
     } catch (e: any) {
-<<<<<<< HEAD
       Alert.alert('Verification Failed', e.response?.data?.message || e.message || 'Invalid code');
     } finally {
       setOtpLoading(false);
-=======
-      Alert.alert('Setup Failed', e.message || 'Could not link your account');
-    } finally {
-      setLoading(false);
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
     }
   };
 
@@ -225,39 +164,29 @@ export default function AddBankScreen() {
           <Text style={styles.infoBannerText}>Your bank details are encrypted and securely stored. We use them strictly for traveler payouts.</Text>
         </View>
 
-<<<<<<< HEAD
         <Text style={styles.sectionTitle}>ACCOUNT DETAILS</Text>
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Select Bank *</Text>
-          <TouchableOpacity style={styles.inputContainer} onPress={() => { if (!banksLoading) setShowBankPicker(true); }}>
+          <TouchableOpacity
+            style={styles.inputContainer}
+            onPress={() => { if (!banksLoading) setShowBankPicker(true); }}
+          >
             <Building2 size={20} color={COLORS.primary} style={{ marginRight: 12 }} />
-            <Text style={[styles.input, !bankName && { color: COLORS.gray400 }]}>
+            <Text style={[styles.input, !bankName && { color: COLORS.gray }]}>
               {banksLoading ? 'Loading banks...' : bankName || 'Select your bank'}
             </Text>
             {banksLoading && <ActivityIndicator size="small" color={COLORS.primary} />}
-=======
-        <Text style={styles.sectionTitle}>Account Details</Text>
-        
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Select Bank *</Text>
-          <TouchableOpacity style={styles.inputContainer} onPress={() => setShowBankPicker(true)}>
-             <Building2 size={20} color={COLORS.primary} style={styles.inputIcon} />
-             <Text style={[styles.input, !bankName && { color: COLORS.gray400 }]}>
-                {bankName || "Select your bank"}
-             </Text>
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
           </TouchableOpacity>
         </View>
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Account Number *</Text>
           <View style={styles.inputContainer}>
-<<<<<<< HEAD
             <TextInput
               style={styles.input}
               placeholder="0123456789"
-              placeholderTextColor={COLORS.gray400}
+              placeholderTextColor={COLORS.gray}
               value={accountNumber}
               onChangeText={setAccountNumber}
               keyboardType="number-pad"
@@ -270,12 +199,12 @@ export default function AddBankScreen() {
         {accountName ? (
           <View style={styles.formGroup}>
             <Text style={styles.label}>Account Holder Name</Text>
-            <View style={[styles.inputContainer, { backgroundColor: COLORS.bgSoft, opacity: 0.8 }]}>
+            <View style={[styles.inputContainer, { opacity: 0.8 }]}>
               <TextInput
                 style={styles.input}
                 value={accountName}
                 editable={false}
-                placeholderTextColor={COLORS.gray400}
+                placeholderTextColor={COLORS.gray}
               />
               <Check size={18} color={COLORS.success} />
             </View>
@@ -291,7 +220,7 @@ export default function AddBankScreen() {
         </TouchableOpacity>
 
         <View style={styles.secureNoteRow}>
-          <CheckCircle size={14} color={COLORS.gray400} />
+          <CheckCircle size={14} color={COLORS.gray} />
           <Text style={styles.secureNoteText}>Protected by bank-grade encryption</Text>
         </View>
       </ScrollView>
@@ -307,7 +236,7 @@ export default function AddBankScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.searchBox}>
-              <Search size={20} color={COLORS.gray400} />
+              <Search size={20} color={COLORS.gray} />
               <TextInput
                 placeholder="Search banks..."
                 style={styles.searchInput}
@@ -318,11 +247,11 @@ export default function AddBankScreen() {
             {banksLoading ? (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={{ marginTop: 12, color: COLORS.gray500, fontWeight: '600' }}>Loading banks...</Text>
+                <Text style={{ marginTop: 12, color: COLORS.gray, fontWeight: '600' }}>Loading banks...</Text>
               </View>
             ) : banks.length === 0 ? (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-                <Text style={{ color: COLORS.gray500, fontWeight: '600' }}>No banks loaded.</Text>
+                <Text style={{ color: COLORS.gray, fontWeight: '600' }}>No banks loaded.</Text>
                 <TouchableOpacity style={styles.saveBtn} onPress={fetchBanks}>
                   <Text style={styles.saveBtnText}>Retry</Text>
                 </TouchableOpacity>
@@ -334,7 +263,12 @@ export default function AddBankScreen() {
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.bankItem}
-                    onPress={() => { setBankName(item.name); setBankCode(item.code); setShowBankPicker(false); setSearchQuery(''); }}
+                    onPress={() => {
+                      setBankName(item.name);
+                      setBankCode(item.code);
+                      setShowBankPicker(false);
+                      setSearchQuery('');
+                    }}
                   >
                     <Text style={styles.bankItemText}>{item.name}</Text>
                     {bankCode === item.code && <Check size={18} color={COLORS.primary} />}
@@ -360,7 +294,7 @@ export default function AddBankScreen() {
             <TextInput
               style={styles.otpInput}
               placeholder="Enter 6-digit code"
-              placeholderTextColor={COLORS.gray400}
+              placeholderTextColor={COLORS.gray}
               value={otp}
               onChangeText={setOtp}
               keyboardType="number-pad"
@@ -379,152 +313,38 @@ export default function AddBankScreen() {
             </Pressable>
           </View>
         </View>
-=======
-             <TextInput 
-               style={styles.input} 
-               placeholder="0123456789"
-               placeholderTextColor={COLORS.gray400}
-               value={accountNumber}
-               onChangeText={setAccountNumber}
-               keyboardType="number-pad"
-               maxLength={10}
-             />
-             {verifying && <ActivityIndicator size="small" color={COLORS.primary} />}
-          </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Account Holder Name</Text>
-          <View style={[styles.inputContainer, { backgroundColor: COLORS.bgSoft, opacity: 0.8 }]}>
-            <TextInput 
-              style={styles.input} 
-              placeholder="Verified account name"
-              placeholderTextColor={COLORS.gray400}
-              value={accountName}
-              editable={false}
-            />
-          </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Routing Code / Sort Code (Optional)</Text>
-          <TextInput 
-            style={[styles.input, styles.inputClean]} 
-            placeholder="For international transfers"
-            placeholderTextColor={COLORS.gray400}
-            value={routingNumber}
-            onChangeText={setRoutingNumber}
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.saveBtn, loading && styles.disabledBtn]} 
-          onPress={handleSave}
-          disabled={loading}
-        >
-          <Text style={styles.saveBtnText}>{loading ? 'Linking Account...' : 'Link Bank Account'}</Text>
-        </TouchableOpacity>
-
-        <View style={styles.secureNoteRow}>
-           <CheckCircle size={14} color={COLORS.gray400} />
-           <Text style={styles.secureNoteText}>Protected by bank-grade encryption</Text>
-        </View>
-      </ScrollView>
-      <Modal visible={showBankPicker} animationType="slide" transparent>
-         <View style={styles.modalOverlay}>
-            <View style={styles.bottomSheet}>
-               <View style={styles.sheetHeader}>
-                  <Text style={styles.sheetTitle}>Select Bank</Text>
-                  <TouchableOpacity onPress={() => setShowBankPicker(false)}><X size={24} color={COLORS.black} /></TouchableOpacity>
-               </View>
-               <View style={styles.searchBox}>
-                  <Search size={20} color={COLORS.gray400} />
-                  <TextInput 
-                    placeholder="Search banks..." 
-                    style={styles.searchInput}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-               </View>
-               <FlatList 
-                 data={banks.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))}
-                 keyExtractor={item => item.code}
-                 renderItem={({ item }) => (
-                    <TouchableOpacity 
-                      style={styles.bankItem} 
-                      onPress={() => { setBankName(item.name); setBankCode(item.code); setShowBankPicker(false); }}
-                    >
-                       <Text style={styles.bankItemText}>{item.name}</Text>
-                       {bankCode === item.code && <Check size={18} color={COLORS.primary} />}
-                    </TouchableOpacity>
-                 )}
-               />
-            </View>
-         </View>
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
       </Modal>
     </SafeAreaView>
   );
 }
 
-<<<<<<< HEAD
-=======
-import { Modal, FlatList, ActivityIndicator } from 'react-native';
-
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.gray100 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   backButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: COLORS.black },
-<<<<<<< HEAD
   content: { padding: 24 },
   infoBanner: { flexDirection: 'row', backgroundColor: '#ECFDF5', padding: 16, borderRadius: 16, alignItems: 'center', gap: 12, marginBottom: 32 },
   infoBannerText: { flex: 1, fontSize: 13, color: '#065F46', lineHeight: 20, fontWeight: '600' },
-  sectionTitle: { fontSize: 12, fontWeight: '800', color: COLORS.gray400, letterSpacing: 1, marginBottom: 20 },
+  sectionTitle: { fontSize: 12, fontWeight: '800', color: COLORS.gray, letterSpacing: 1, marginBottom: 20 },
   formGroup: { marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '700', color: COLORS.black, marginBottom: 8 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgSoft, borderRadius: 16, height: 56, paddingHorizontal: 16 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.grayLight, borderRadius: 16, height: 56, paddingHorizontal: 16 },
   input: { flex: 1, fontSize: 16, fontWeight: '600', color: COLORS.black },
   saveBtn: { backgroundColor: COLORS.primary, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   saveBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
   disabledBtn: { opacity: 0.6 },
-=======
-  
-  content: { padding: 24 },
-  infoBanner: { flexDirection: 'row', backgroundColor: '#ECFDF5', padding: 16, borderRadius: 16, alignItems: 'center', gap: 12, marginBottom: 32 },
-  infoBannerText: { flex: 1, fontSize: 13, color: '#065F46', lineHeight: 20, fontWeight: '600' },
-  
-  sectionTitle: { fontSize: 13, fontWeight: '800', color: COLORS.gray400, letterSpacing: 1, marginBottom: 20 },
-  
-  formGroup: { marginBottom: 24 },
-  label: { fontSize: 14, fontWeight: '700', color: COLORS.black, marginBottom: 8 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgSoft, borderRadius: 16, height: 56, paddingHorizontal: 16 },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, fontWeight: '600', color: COLORS.black },
-  inputClean: { backgroundColor: COLORS.bgSoft, borderRadius: 16, height: 56, paddingHorizontal: 16 },
-
-  saveBtn: { backgroundColor: COLORS.primary, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  saveBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
-  disabledBtn: { opacity: 0.6 },
-
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
   secureNoteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 24, marginBottom: 40 },
-  secureNoteText: { fontSize: 12, color: COLORS.gray500, fontWeight: '600' },
+  secureNoteText: { fontSize: 12, color: COLORS.gray, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   bottomSheet: { backgroundColor: COLORS.white, height: '80%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 },
-<<<<<<< HEAD
   otpSheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: COLORS.black },
-  otpMessage: { fontSize: 14, color: COLORS.gray600, fontWeight: '600', lineHeight: 20, marginBottom: 24 },
-  otpInput: { backgroundColor: COLORS.bgSoft, borderRadius: 16, height: 64, fontSize: 28, fontWeight: '800', color: COLORS.black, letterSpacing: 12, marginBottom: 20 },
-=======
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', color: COLORS.black },
->>>>>>> 340e901 (Sync Bago mobile and backend updates)
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.bgSoft, paddingHorizontal: 16, height: 50, borderRadius: 16, marginBottom: 20 },
+  otpMessage: { fontSize: 14, color: COLORS.gray, fontWeight: '600', lineHeight: 20, marginBottom: 24 },
+  otpInput: { backgroundColor: COLORS.grayLight, borderRadius: 16, height: 64, fontSize: 28, fontWeight: '800', color: COLORS.black, letterSpacing: 12, marginBottom: 20 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.grayLight, paddingHorizontal: 16, height: 50, borderRadius: 16, marginBottom: 20 },
   searchInput: { flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.black },
-  bankItem: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: COLORS.gray100, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  bankItem: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bankItemText: { fontSize: 16, fontWeight: '700', color: COLORS.black },
 });
