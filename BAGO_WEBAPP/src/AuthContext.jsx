@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import api, { clearAuthSession, setSessionExpiredHandler } from './api';
 
 const AuthContext = createContext({});
@@ -8,19 +8,24 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
+    const authVersionRef = useRef(0);
 
     useEffect(() => {
         checkAuthStatus();
         setSessionExpiredHandler(() => {
+            authVersionRef.current += 1;
             setUser(null);
             setIsAuthenticated(false);
+            setLoading(false);
         });
     }, []);
 
     const checkAuthStatus = async () => {
+        const authVersion = authVersionRef.current;
         try {
             const response = await api.get('/api/bago/getuser');
             if (response.data.success) {
+                if (authVersion !== authVersionRef.current) return;
                 const userData = response.data.user;
                 setUser(userData);
                 setIsAuthenticated(true);
@@ -31,14 +36,17 @@ export const AuthProvider = ({ children }) => {
             console.error('Error checking auth status:', error);
         }
 
+        if (authVersion !== authVersionRef.current) return;
         setUser(null);
         setIsAuthenticated(false);
         setLoading(false);
     };
 
     const login = (userData) => {
+        authVersionRef.current += 1;
         setUser(userData);
         setIsAuthenticated(true);
+        setLoading(false);
     };
 
     // Silently refreshes user data without touching auth state on failure
@@ -59,9 +67,11 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('Logout request failed:', error);
         } finally {
+            authVersionRef.current += 1;
             clearAuthSession();
             setUser(null);
             setIsAuthenticated(false);
+            setLoading(false);
         }
     };
 
