@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api';
+import api, { setAuthSession } from '../api';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../AuthContext';
 import PhoneInput from 'react-phone-input-2';
@@ -41,6 +41,7 @@ export default function Signup() {
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
                 if (response.data.success) {
+                    setAuthSession(response.data);
                     login(response.data.user);
                     navigate('/dashboard');
                 } else {
@@ -135,6 +136,7 @@ export default function Signup() {
         try {
             const response = await api.post('/api/bago/verify-signup-otp', { signupToken, otp });
             if (response.data.success) {
+                setAuthSession(response.data);
                 login(response.data.user);
                 navigate('/dashboard');
             }

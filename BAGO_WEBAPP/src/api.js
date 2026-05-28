@@ -9,8 +9,23 @@ const api = axios.create({
     },
 });
 
-// Clear any tokens that were previously stored in localStorage during migration
-export const clearLegacyLocalStorage = () => {
+const ACCESS_TOKEN_KEY = 'bago_access_token';
+const REFRESH_TOKEN_KEY = 'bago_refresh_token';
+
+export const getStoredTokens = () => ({
+    accessToken: localStorage.getItem(ACCESS_TOKEN_KEY),
+    refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY),
+});
+
+export const setAuthSession = ({ token, accessToken, refreshToken } = {}) => {
+    const nextAccessToken = token || accessToken;
+    if (nextAccessToken) localStorage.setItem(ACCESS_TOKEN_KEY, nextAccessToken);
+    if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+};
+
+export const clearAuthSession = () => {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem('bago_access_token');
     localStorage.removeItem('bago_refresh_token');
     localStorage.removeItem('user');
@@ -47,11 +62,21 @@ function shouldSkipRefresh(originalRequest) {
 }
 
 function handleSessionExpired() {
+    clearAuthSession();
     if (_sessionExpiredHandler) _sessionExpiredHandler();
     if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login?reason=session_expired';
     }
 }
+
+api.interceptors.request.use((config) => {
+    const { accessToken } = getStoredTokens();
+    if (accessToken && !config.headers?.Authorization) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+    return config;
+});
 
 api.interceptors.response.use(
     (response) => response,
@@ -76,16 +101,17 @@ api.interceptors.response.use(
 
         originalRequest._retry = true;
         try {
-            // Refresh token is sent automatically via HttpOnly cookie
+            const { refreshToken } = getStoredTokens();
             refreshPromise ||= axios.post(
                 `${api.defaults.baseURL}/api/bago/refresh-token`,
-                {},
+                refreshToken ? { refreshToken } : {},
                 { withCredentials: true },
             ).finally(() => {
                 refreshPromise = null;
             });
 
-            await refreshPromise;
+            const refreshResponse = await refreshPromise;
+            setAuthSession(refreshResponse.data);
             return api(originalRequest);
         } catch (refreshError) {
             // Both tokens are expired/missing — session is dead

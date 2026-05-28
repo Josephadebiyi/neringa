@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import api from '../api';
+import api, { setAuthSession } from '../api';
 import { useGoogleLogin } from '@react-oauth/google';
 import { AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
@@ -34,6 +34,7 @@ export default function Login() {
         try {
             const response = await api.post('/api/bago/signin', { email, password });
             if (response.data.success) {
+                setAuthSession(response.data);
                 login(response.data.user);
                 navigate(redirectPath);
             } else {
@@ -60,6 +61,7 @@ export default function Login() {
             try {
                 const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
                 if (response.data.success) {
+                    setAuthSession(response.data);
                     login(response.data.user);
                     navigate(redirectPath);
                 } else {

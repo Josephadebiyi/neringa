@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api, { clearLegacyLocalStorage, setSessionExpiredHandler } from './api';
+import api, { clearAuthSession, setSessionExpiredHandler } from './api';
 
 const AuthContext = createContext({});
 
@@ -10,7 +10,6 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        clearLegacyLocalStorage();
         checkAuthStatus();
         setSessionExpiredHandler(() => {
             setUser(null);
@@ -60,6 +59,7 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('Logout request failed:', error);
         } finally {
+            clearAuthSession();
             setUser(null);
             setIsAuthenticated(false);
         }
