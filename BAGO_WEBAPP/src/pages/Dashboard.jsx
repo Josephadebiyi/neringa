@@ -179,7 +179,7 @@ export default function Dashboard() {
         </div>
     );
 
-    if (loading || kycLoading) return (
+    if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-[#F8F6F3]">
             <div className="flex flex-col items-center gap-6">
                 <div className="relative">
