@@ -796,7 +796,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       if (picked == null) return;
       file = File(picked.path);
     } else {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         withData: false,

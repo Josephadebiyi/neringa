@@ -43,7 +43,7 @@ dependencies:
   image_picker: ^1.1.2
 
   # File picker (PDF + documents)
-  file_picker: ^8.1.7
+  file_picker: ^11.0.2
 
   # Fonts (Plus Jakarta Sans via google_fonts)
   google_fonts: ^6.2.1

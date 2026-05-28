@@ -71,6 +71,7 @@ void main() async {
 }
 
 void _logRuntimeConfig() {
+  if (!kDebugMode) return;
   const backendUrl = ApiConstants.baseUrl;
   const overrideUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
   const defaultSource = 'default Render URL';

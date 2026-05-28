@@ -42,7 +42,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   // router is passed in so this works even after the widget is unmounted.
   void _go(GoRouter router, String target) {
     if (_hasNavigated) return;
-    debugPrint('🚀 Splash navigating to: $target');
     _hasNavigated = true;
     _failsafeTimer?.cancel();
     _authSubscription?.close();
@@ -52,7 +51,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _handleAuthState(AuthState authState) {
-    debugPrint('🔑 _handleAuthState: isInitialising=${authState.isInitialising} isLoggedIn=${authState.isLoggedIn} _hasNavigated=$_hasNavigated');
     if (_hasNavigated || authState.isInitialising) return;
 
     // Capture router NOW (before async gap) — GoRouter lives beyond this widget.
@@ -61,7 +59,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     Future<void>(() async {
       if (_hasNavigated || _isReplaySplash) return;
       final target = await _resolveInitialRoute(authState);
-      debugPrint('🗺 Resolved route: $target');
       if (_hasNavigated) return;
       _go(router, target);
     });
