@@ -18,6 +18,13 @@ import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 let tokenCache = { accessToken: null, expiresAt: 0 };
 
 const allowedPaymentMethods = new Set(['paypal_wallet', 'apple_pay', 'google_pay', 'card']);
+const africanPayoutCurrencies = new Set([
+  'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
+  'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
+  'MRU', 'MUR', 'MWK', 'MZN', 'NAD', 'NGN', 'RWF', 'SCR', 'SDG', 'SLE',
+  'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
+  'ZWL',
+]);
 
 function resolveUserId(req) {
   return req.user?.id || req.user?._id;
@@ -572,6 +579,12 @@ export async function savePayPalPayoutSettings(req, res) {
 
     if (!paypalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail)) {
       return res.status(400).json({ success: false, message: 'A valid PayPal email address is required.' });
+    }
+    if (africanPayoutCurrencies.has(payoutCurrency)) {
+      return res.status(400).json({
+        success: false,
+        message: `${payoutCurrency} payouts must use Paystack/bank transfer, not PayPal.`,
+      });
     }
     if (!confirmed) {
       return res.status(400).json({ success: false, message: 'Please confirm that the PayPal account belongs to you.' });

@@ -21,6 +21,50 @@ class PayoutMethodsScreen extends ConsumerStatefulWidget {
 }
 
 class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
+  static const _africanPayoutCurrencies = {
+    'AOA',
+    'BIF',
+    'BWP',
+    'CDF',
+    'CVE',
+    'DJF',
+    'DZD',
+    'EGP',
+    'ERN',
+    'ETB',
+    'GHS',
+    'GMD',
+    'GNF',
+    'KES',
+    'KMF',
+    'LRD',
+    'LSL',
+    'LYD',
+    'MAD',
+    'MGA',
+    'MRU',
+    'MUR',
+    'MWK',
+    'MZN',
+    'NAD',
+    'NGN',
+    'RWF',
+    'SCR',
+    'SDG',
+    'SLE',
+    'SOS',
+    'SSP',
+    'STN',
+    'SZL',
+    'TZS',
+    'UGX',
+    'XAF',
+    'XOF',
+    'ZAR',
+    'ZMW',
+    'ZWL',
+  };
+
   final _emailController = TextEditingController();
   final _currencyController = TextEditingController();
   bool _confirmed = false;
@@ -30,9 +74,11 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   void initState() {
     super.initState();
     final user = ref.read(authProvider).user;
-    _currencyController.text = UserCurrencyHelper.resolve(user).isEmpty
-        ? 'USD'
-        : UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.resolve(user).toUpperCase();
+    _currencyController.text =
+        _africanPayoutCurrencies.contains(currency) || currency.isEmpty
+            ? 'USD'
+            : currency;
   }
 
   @override
@@ -44,13 +90,23 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
+    final payoutCurrency = _currencyController.text.trim().toUpperCase();
+    if (_africanPayoutCurrencies.contains(payoutCurrency)) {
+      AppSnackBar.show(
+        context,
+        message:
+            '$payoutCurrency payouts must use Paystack/bank transfer, not PayPal.',
+        type: SnackBarType.error,
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await ApiService.instance.post(
         ApiConstants.paypalPayoutSettings,
         data: {
           'paypalEmail': _emailController.text.trim(),
-          'payoutCurrency': _currencyController.text.trim().toUpperCase(),
+          'payoutCurrency': payoutCurrency,
           'confirmed': _confirmed,
         },
       );
@@ -119,6 +175,14 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             'Travelers are paid only after delivery is completed, the sender confirms delivery, the dispute window is clear, and KYC is approved.',
             style: AppTextStyles.bodyMd.copyWith(
               color: AppColors.gray600,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'African payout currencies use Paystack/bank transfer. PayPal payout currency must be non-African, for example USD, EUR, GBP, CAD, or AUD.',
+            style: AppTextStyles.bodySm.copyWith(
+              color: AppColors.gray500,
               height: 1.45,
             ),
           ),
