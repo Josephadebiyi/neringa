@@ -428,7 +428,7 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
 export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
   const upper = currency.toUpperCase();
-  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'stripe';
+  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'paypal';
   await withTransaction(async (client) => {
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = FALSE,
@@ -471,7 +471,7 @@ export async function activateEarningCurrency(userId, currency) {
 export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote) {
   await ensureEarningCurrencyColumns();
   const upper = newCurrency.toUpperCase();
-  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'stripe';
+  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'paypal';
 
   await withTransaction(async (client) => {
     if (settleBalance) {
@@ -704,7 +704,7 @@ export async function createOrUpdateAppleProfile({
 
   // Create new user
   const fallbackPassword = await bcrypt.hash(Math.random().toString(36).slice(-20), 10);
-  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'stripe';
+  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'paypal';
   const preferredCurrency = country === 'Nigeria' ? 'NGN' : 'USD';
 
   const user = await createProfileWithWallet({
@@ -782,7 +782,7 @@ export async function createOrUpdateGoogleProfile({
   }
 
   const fallbackPassword = await bcrypt.hash(Math.random().toString(36).slice(-20), 10);
-  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'stripe';
+  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'paypal';
   const preferredCurrency = country === 'Nigeria' ? 'NGN' : 'USD';
 
   const user = await createProfileWithWallet({

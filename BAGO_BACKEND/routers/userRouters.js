@@ -13,14 +13,6 @@ import { createPackage, updatePackage, deletePackage } from '../controllers/Pack
 import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
-import {
-  attachPaymentMethod,
-  createCustomerPaymentIntent,
-  createSetupIntent,
-  deletePaymentMethod,
-  finalizeCustomerPaymentIntent,
-  listPaymentMethods,
-} from '../controllers/postgresPaymentMethodController.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
 import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus, syncDojahResult } from '../controllers/DojahController.js';
@@ -237,12 +229,9 @@ userRouter.post('/user/request-email-change', isAuthenticated, requestEmailChang
 userRouter.post('/user/verify-email-change', isAuthenticated, verifyEmailChange);
 userRouter.post('/user/request-phone-change', isAuthenticated, requestPhoneChange);
 userRouter.post('/user/verify-phone-change', isAuthenticated, verifyPhoneChange);
-userRouter.get('/payment-methods', isAuthenticated, requireKycVerification, listPaymentMethods);
-userRouter.post('/payment-methods/attach', isAuthenticated, requireKycVerification, attachPaymentMethod);
-userRouter.post('/payment-methods/setup-intent', isAuthenticated, requireKycVerification, createSetupIntent);
-userRouter.post('/payment-methods/payment-intent', isAuthenticated, requireKycVerification, createCustomerPaymentIntent);
-userRouter.post('/payment-methods/finalize-payment', isAuthenticated, requireKycVerification, finalizeCustomerPaymentIntent);
-userRouter.delete('/payment-methods/:paymentMethodId', isAuthenticated, requireKycVerification, deletePaymentMethod);
+userRouter.get('/payment-methods', isAuthenticated, requireKycVerification, (_req, res) => {
+  res.json({ success: true, data: { cards: [], provider: 'paypal' } });
+});
 
 // 💳 Paystack Routes
 userRouter.get('/paystack/banks', isAuthenticated, requireKycVerification, getPaystackBanks);

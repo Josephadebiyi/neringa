@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -98,7 +97,7 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
               const SizedBox(height: 40),
               isAfrican
                   ? _PaystackSetup(currency: currency)
-                  : _StripeSetup(currency: currency),
+                  : _PayPalSetup(currency: currency),
               const Spacer(),
               TextButton(
                 onPressed: () => context.go('/home'),
@@ -695,69 +694,19 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
 }
 
 // ---------------------------------------------------------------------------
-// Stripe flow (non-African currencies)
+// PayPal flow (non-African currencies)
 // ---------------------------------------------------------------------------
-class _StripeSetup extends ConsumerStatefulWidget {
-  const _StripeSetup({required this.currency});
+class _PayPalSetup extends StatelessWidget {
+  const _PayPalSetup({required this.currency});
   final String currency;
-
-  @override
-  ConsumerState<_StripeSetup> createState() => _StripeSetupState();
-}
-
-class _StripeSetupState extends ConsumerState<_StripeSetup> {
-  bool _isLoading = false;
-
-  Future<void> _startStripeOnboarding() async {
-    setState(() => _isLoading = true);
-    try {
-      final response = await ApiService.instance
-          .post(ApiConstants.stripeConnectOnboard, data: {});
-      final data = response.data;
-      final url = data is Map
-          ? (data['url']?.toString() ??
-              data['onboarding_url']?.toString() ??
-              data['link']?.toString())
-          : null;
-      if (url == null || url.isEmpty) {
-        throw Exception('No onboarding URL received');
-      }
-      final uri = Uri.parse(url);
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        throw Exception('Could not open browser');
-      }
-      if (mounted) {
-        AppSnackBar.show(context,
-            message: 'Complete Stripe setup in your browser, then return here.',
-            type: SnackBarType.info);
-        setState(() => _isLoading = false);
-      }
-    } on DioException catch (e) {
-      if (mounted) {
-        final msg = e.response?.data is Map
-            ? (e.response!.data['message'] ??
-                'Could not start Stripe onboarding')
-            : 'Could not start Stripe onboarding';
-        AppSnackBar.show(context,
-            message: msg.toString(), type: SnackBarType.error);
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _infoChip('Payout account (${widget.currency})',
-            Icons.credit_card_outlined, const Color(0xFF635BFF)),
+        _infoChip('PayPal payouts ($currency)', Icons.alternate_email_rounded,
+            AppColors.primary),
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(20),
@@ -769,27 +718,26 @@ class _StripeSetupState extends ConsumerState<_StripeSetup> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Fast, secure payouts worldwide',
+              Text('Fast, secure PayPal payouts',
                   style: AppTextStyles.labelMd.copyWith(
                       color: AppColors.white, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              _stripeFeature('Bank transfers in 40+ countries'),
-              _stripeFeature('Payments in your local currency'),
-              _stripeFeature('Secure & encrypted'),
-              _stripeFeature('Setup takes under 5 minutes'),
+              _paypalFeature('Add your PayPal email'),
+              _paypalFeature('Choose preferred payout currency'),
+              _paypalFeature('Payouts release after confirmed delivery'),
+              _paypalFeature('KYC approval required before payout'),
             ],
           ),
         ),
         const SizedBox(height: 32),
         AppButton(
-          label: 'Set Up Stripe Payouts',
-          isLoading: _isLoading,
-          onPressed: _isLoading ? null : _startStripeOnboarding,
+          label: 'Set Up PayPal Payouts',
+          onPressed: () => context.push('/profile/payout-methods'),
         ),
         const SizedBox(height: 12),
         Center(
           child: Text(
-            'Stripe will ask you to sign in or create an account — this is normal. Complete the steps to enable payouts.',
+            'Your PayPal email is stored for payouts only. Bago sends payouts after delivery is completed and cleared.',
             style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
             textAlign: TextAlign.center,
           ),
@@ -798,12 +746,12 @@ class _StripeSetupState extends ConsumerState<_StripeSetup> {
     );
   }
 
-  Widget _stripeFeature(String text) {
+  Widget _paypalFeature(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, color: Color(0xFF635BFF), size: 18),
+          const Icon(Icons.check_circle, color: AppColors.primary, size: 18),
           const SizedBox(width: 10),
           Text(text,
               style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray300)),

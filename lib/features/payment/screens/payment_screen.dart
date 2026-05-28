@@ -1,10 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
@@ -13,9 +11,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
-import '../../../shared/services/app_settings_service.dart';
-import '../../payment/services/payment_service.dart';
-import '../../shipments/services/shipment_service.dart';
+import '../services/payment_service.dart';
 import '../services/shipment_checkout_service.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -30,17 +26,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final _checkoutService = ShipmentCheckoutService.instance;
   bool _isLoadingDraft = true;
   bool _isPaying = false;
-  bool _isSavingCard = false;
-  bool _isProcessingPayment = false;
-  String _processingMessage = 'Processing your payment...';
+  String _selectedMethod = 'paypal_wallet';
   Map<String, dynamic>? _draft;
-  bool _isLoadingCards = false;
-  List<SavedPaymentMethod> _savedCards = const [];
-  String? _selectedCardId;
-  bool _isCheckingApplePay = false;
-  bool _isApplePayAvailable = false;
-
-  static const _supportedBrands = {'visa', 'mastercard'};
 
   @override
   void initState() {
@@ -52,245 +39,55 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final draft = widget.extra ?? await _checkoutService.loadDraft();
     if (!mounted) return;
     setState(() {
-      _draft = draft;
+      _draft = draft == null ? null : {...draft, 'provider': 'paypal'};
       _isLoadingDraft = false;
     });
-    await _refreshStripeCards();
-    await _refreshApplePayAvailability();
   }
 
-  Future<void> _refreshStripeCards() async {
-    final draft = _draft;
-    final provider = draft?['provider']?.toString().toLowerCase() ?? 'stripe';
-    if (draft == null || provider != 'stripe') {
-      if (!mounted) return;
-      setState(() {
-        _savedCards = const [];
-        _selectedCardId = null;
-        _isLoadingCards = false;
-      });
-      return;
-    }
-
-    setState(() => _isLoadingCards = true);
-    try {
-      final response = await PaymentService.instance.getSavedPaymentMethods();
-      final cards = response.cards
-          .where((card) => _isSupportedBrand(card.brand))
-          .toList();
-      if (!mounted) return;
-      setState(() {
-        _savedCards = cards;
-        _selectedCardId = cards.any((card) => card.id == _selectedCardId)
-            ? _selectedCardId
-            : (cards.isNotEmpty ? cards.first.id : null);
-        _isLoadingCards = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _savedCards = const [];
-        _selectedCardId = null;
-        _isLoadingCards = false;
-      });
-    }
-  }
-
-  Future<void> _refreshApplePayAvailability() async {
-    final draft = _draft;
-    if (!_supportsApplePayForDraft(draft)) {
-      if (!mounted) return;
-      setState(() {
-        _isCheckingApplePay = false;
-        _isApplePayAvailable = false;
-      });
-      return;
-    }
-
-    if (mounted) {
-      setState(() => _isCheckingApplePay = true);
-    }
-
-    try {
-      final isSupported = await Stripe.instance.isPlatformPaySupported();
-      if (!mounted) return;
-      setState(() {
-        _isApplePayAvailable = isSupported;
-        _isCheckingApplePay = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isApplePayAvailable = false;
-        _isCheckingApplePay = false;
-      });
-    }
-  }
-
-  Future<void> _addCardFromCheckout() async {
-    final added = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _CheckoutAddCardSheet(
-        isBusy: _isSavingCard,
-        onManageCards: () async {
-          await context.push('/profile/payment-methods');
-          await _refreshStripeCards();
-        },
-        onSave: _saveCardFromCheckout,
+  List<_PaymentChoice> get _availableMethods {
+    final choices = <_PaymentChoice>[
+      const _PaymentChoice(
+        id: 'paypal_wallet',
+        label: 'PayPal',
+        description: 'Pay with your PayPal wallet.',
+        icon: Icons.account_balance_wallet_outlined,
       ),
-    );
+      const _PaymentChoice(
+        id: 'card',
+        label: 'Credit or debit card',
+        description: 'Use PayPal secure card checkout.',
+        icon: Icons.credit_card_rounded,
+      ),
+    ];
 
-    if (!mounted || added != true) return;
-    AppSnackBar.show(
-      context,
-      message: 'Card saved successfully.',
-      type: SnackBarType.success,
-    );
-  }
-
-  Future<bool> _saveCardFromCheckout() async {
-    if (!await _ensureStripeReady()) {
-      if (!mounted) return false;
-      AppSnackBar.show(
-        context,
-        message:
-            'Card payments are currently unavailable. Please try again later or contact support.',
-        type: SnackBarType.error,
-      );
-      return false;
-    }
-
-    final existingIds = _savedCards.map((card) => card.id).toSet();
-    final billingEmail = _draft?['customerEmail']?.toString().trim() ?? '';
-
-    setState(() => _isSavingCard = true);
-    try {
-      final billingDetails = BillingDetails(
-        email: billingEmail.isEmpty ? null : billingEmail,
-      );
-
-      final setupSession =
-          await PaymentService.instance.createCardSetupSession();
-      final setupIntent = await Stripe.instance.confirmSetupIntent(
-        paymentIntentClientSecret: setupSession.setupIntentClientSecret,
-        params: PaymentMethodParams.card(
-          paymentMethodData: PaymentMethodData(
-            billingDetails: billingDetails,
-          ),
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      choices.insert(
+        0,
+        const _PaymentChoice(
+          id: 'apple_pay',
+          label: 'Apple Pay',
+          description: 'Shown only on supported Apple devices.',
+          icon: Icons.apple_rounded,
         ),
       );
-      final setupStatus = setupIntent.status.toLowerCase();
-      if (setupStatus != 'succeeded' && setupStatus != 'success') {
-        throw StateError('Card setup was not completed. Please try again.');
-      }
-
-      if (setupIntent.paymentMethodId.isEmpty) {
-        throw StateError('Card setup could not be completed.');
-      }
-
-      final attachedCard = await PaymentService.instance.attachPaymentMethod(
-        setupIntent.paymentMethodId,
-      );
-
-      final allCards = await _waitForSavedCards(
-        existingIds: existingIds,
-        expectedPaymentMethodId: attachedCard.id,
-      );
-      final addedCard = allCards.cast<SavedPaymentMethod?>().firstWhere(
-            (card) => card != null && !existingIds.contains(card.id),
-            orElse: () => null,
-          );
-
-      if (addedCard == null) {
-        throw StateError(
-          'Card was verified but is not visible yet. Pull to refresh and try again.',
-        );
-      }
-
-      if (!_isSupportedBrand(addedCard.brand)) {
-        await PaymentService.instance.deleteSavedPaymentMethod(addedCard.id);
-        throw StateError('Only Visa and Mastercard are supported right now.');
-      }
-
-      if (!mounted) return false;
-      setState(() {
-        _savedCards = allCards;
-        _selectedCardId = addedCard.id;
-      });
-      return true;
-    } on StripeException catch (e) {
-      if (!mounted) return false;
-      AppSnackBar.show(
-        context,
-        message: e.error.localizedMessage ?? 'Card setup was cancelled.',
-        type: SnackBarType.error,
-      );
-      return false;
-    } on StripeConfigException {
-      if (!mounted) return false;
-      AppSnackBar.show(
-        context,
-        message:
-            'Card payments are currently unavailable. Please try again later or contact support.',
-        type: SnackBarType.error,
-      );
-      return false;
-    } catch (e) {
-      if (!mounted) return false;
-      AppSnackBar.show(
-        context,
-        message: e.toString().replaceFirst('Bad state: ', ''),
-        type: SnackBarType.error,
-      );
-      return false;
-    } finally {
-      if (mounted) {
-        setState(() => _isSavingCard = false);
-      }
     }
-  }
-
-  Future<List<SavedPaymentMethod>> _waitForSavedCards({
-    required Set<String> existingIds,
-    required String? expectedPaymentMethodId,
-  }) async {
-    List<SavedPaymentMethod> latestCards = _savedCards;
-
-    for (var attempt = 0; attempt < 4; attempt += 1) {
-      final response = await PaymentService.instance.getSavedPaymentMethods();
-      latestCards = response.cards
-          .where((card) => _isSupportedBrand(card.brand))
-          .toList();
-
-      final foundExpected = expectedPaymentMethodId != null &&
-          expectedPaymentMethodId.isNotEmpty &&
-          latestCards.any((card) => card.id == expectedPaymentMethodId);
-      final foundNew =
-          latestCards.any((card) => !existingIds.contains(card.id));
-
-      if (foundExpected || foundNew) {
-        return latestCards;
-      }
-
-      await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      choices.insert(
+        0,
+        const _PaymentChoice(
+          id: 'google_pay',
+          label: 'Google Pay',
+          description: 'Shown only on supported Android devices.',
+          icon: Icons.g_mobiledata_rounded,
+        ),
+      );
     }
-
-    return latestCards;
+    return choices;
   }
 
-  bool _supportsApplePayForDraft(Map<String, dynamic>? draft) {
-    if (draft == null || kIsWeb) return false;
-    if (defaultTargetPlatform != TargetPlatform.iOS) return false;
-    final provider = draft['provider']?.toString().toLowerCase() ?? 'stripe';
-    if (provider != 'stripe') return false;
-    return ApiConstants.stripeApplePayMerchantIdentifier.isNotEmpty;
-  }
-
-  Future<void> _pay({bool useApplePay = false}) async {
+  Future<void> _pay() async {
     final draft = _draft;
-    if (draft == null) return;
+    if (draft == null || _isPaying) return;
 
     if (_checkoutService.isExpired(draft)) {
       await _checkoutService.clearDraft();
@@ -305,286 +102,70 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
-    final processingStartedAt = DateTime.now();
-    setState(() {
-      _isPaying = true;
-      _isProcessingPayment = true;
-      _processingMessage = 'Preparing your secure payment...';
-    });
-    final provider = draft['provider']?.toString().toLowerCase() ?? 'stripe';
-    bool paymentCompleted = draft['paymentCompleted'] == true;
-    String? paymentReference = draft['paymentReference']?.toString();
+    setState(() => _isPaying = true);
     try {
-      final amount = _asDouble(draft['totalAmount']);
-      final currency = draft['currency']?.toString().trim() ?? '';
-      if (currency.isEmpty) {
+      final order = await PaymentService.instance.createPayPalOrder(
+        packageId: draft['packageId']?.toString(),
+        tripId: draft['tripId']?.toString(),
+        shipmentId: draft['shipmentId']?.toString(),
+        paymentMethod: _selectedMethod,
+        currency: draft['currency']?.toString() ?? 'USD',
+        insurance: draft['insurance'] == true,
+        insuranceCost: _asDouble(draft['insuranceAmount']),
+      );
+
+      final approvalUrl = order.authorizationUrl;
+      final orderId = order.reference;
+      if (approvalUrl == null || approvalUrl.isEmpty || orderId == null) {
+        throw StateError('PayPal checkout could not start.');
+      }
+
+      final approved = await _presentPayPalCheckout(approvalUrl);
+      if (!approved) {
+        throw StateError('Payment was cancelled before it could be completed.');
+      }
+
+      final captured = await PaymentService.instance.capturePayPalOrder(
+        orderId: orderId,
+        shipmentId: draft['shipmentId']?.toString(),
+      );
+      if (!captured.success) {
         throw StateError(
-            'Shipment currency is missing. Please restart the shipment flow from the traveler details page.');
-      }
-
-      if (!paymentCompleted) {
-        final init = await PaymentService.instance.initializePayment(
-          packageId: draft['packageId'].toString(),
-          tripId: draft['tripId'].toString(),
-          provider: provider,
-          currency: currency,
-          amount: amount,
-          customerEmail: draft['customerEmail']?.toString() ?? '',
-          expiresAt: DateTime.parse(draft['expiresAt'].toString()),
-          metadata: {
-            'insurance': draft['insurance'] == true,
-            'insuranceCost': _asDouble(draft['insuranceAmount']),
-            if (draft['estimatedDeparture'] != null)
-              'estimatedDeparture': draft['estimatedDeparture'].toString(),
-            if (draft['estimatedArrival'] != null)
-              'estimatedArrival': draft['estimatedArrival'].toString(),
-          },
+          captured.message ?? 'PayPal payment could not be verified.',
         );
-
-        paymentReference = init.reference;
-
-        if (provider == 'stripe') {
-          _updateProcessingMessage('Contacting your bank...');
-          final clientSecret = init.clientSecret;
-          if (clientSecret == null || clientSecret.isEmpty) {
-            throw StateError('Stripe checkout could not start.');
-          }
-          if (useApplePay) {
-            paymentCompleted = await _payWithApplePay(
-              clientSecret,
-              currency: currency,
-              totalAmount: amount,
-              shippingAmount: _asDouble(draft['shippingAmount']),
-              insuranceAmount: _asDouble(draft['insuranceAmount']),
-            );
-          } else {
-            final selectedCardId = _selectedCardId;
-            if (selectedCardId == null || selectedCardId.isEmpty) {
-              throw StateError('Add a saved card before paying.');
-            }
-            paymentCompleted = await _payWithSavedStripeCard(
-              clientSecret,
-              paymentMethodId: selectedCardId,
-            );
-          }
-        } else {
-          _updateProcessingMessage('Opening secure checkout...');
-          final authorizationUrl = init.authorizationUrl;
-          final reference = init.reference;
-          if (authorizationUrl == null ||
-              authorizationUrl.isEmpty ||
-              reference == null ||
-              reference.isEmpty) {
-            throw StateError('Paystack checkout could not start.');
-          }
-          paymentCompleted = await _presentPaystackCheckout(authorizationUrl);
-          if (paymentCompleted) {
-            final verify =
-                await PaymentService.instance.verifyPaystackPayment(reference);
-            paymentCompleted = verify.success;
-            if (!paymentCompleted) {
-              throw StateError(
-                  verify.message ?? 'Payment verification failed.');
-            }
-            paymentReference = verify.reference ?? reference;
-          }
-        }
       }
 
-      if (paymentCompleted && draft['requestSent'] != true) {
-        await _finalizePaidShipmentDraft(
-          draft,
-          paymentReference: paymentReference,
-          provider: provider,
-        );
-
-        final updatedDraft = {
-          ...draft,
-          'requestSent': true,
-          'paymentCompleted': true,
-          if (paymentReference != null) 'paymentReference': paymentReference,
-        };
-        await _checkoutService.saveDraft(updatedDraft);
-      }
-
+      await _checkoutService.clearDraft();
       if (!mounted) return;
-
-      if (paymentCompleted) {
-        await _ensureProcessingStateVisible(processingStartedAt);
-        await _checkoutService.clearDraft();
-        if (!mounted) return;
-        context.go('/order-success', extra: {
-          ...draft,
-          if (paymentReference != null) 'paymentReference': paymentReference,
-        });
-      } else {
-        final updatedDraft = {
-          ...draft,
-          'paymentCompleted': paymentCompleted,
-          if (paymentReference != null) 'paymentReference': paymentReference,
-          'paymentProvider': provider,
-          'lastPaymentError':
-              'Your payment was not completed. Please try again.',
-        };
-        await _ensureProcessingStateVisible(processingStartedAt);
-        await _checkoutService.saveDraft(updatedDraft);
-        if (!mounted) return;
-        context.go('/payment-failed', extra: updatedDraft);
-      }
-    } on StripeException catch (e) {
-      final recovered = await _recoverPaidStripeShipment(
-        draft,
-        paymentReference: paymentReference,
-        provider: provider,
-        paymentCompleted: paymentCompleted,
-      );
-      if (recovered) {
-        await _ensureProcessingStateVisible(processingStartedAt);
-        await _checkoutService.clearDraft();
-        if (!mounted) return;
-        context.go('/order-success', extra: {
-          ...draft,
-          if (paymentReference != null) 'paymentReference': paymentReference,
-        });
-        return;
-      }
+      context.go('/order-success', extra: {
+        ...draft,
+        'provider': 'paypal',
+        'paymentReference': orderId,
+        'request': captured.request,
+      });
+    } catch (error) {
       final updatedDraft = {
         ...draft,
-        'paymentCompleted': paymentCompleted,
-        if (paymentReference != null) 'paymentReference': paymentReference,
-        'paymentProvider': provider,
-        'lastPaymentError': _buildPaymentFailureMessage(e),
+        'provider': 'paypal',
+        'paymentProvider': 'paypal',
+        'lastPaymentError': _failureMessage(error),
       };
-      await _ensureProcessingStateVisible(processingStartedAt);
-      await _checkoutService.saveDraft(updatedDraft);
-      if (!mounted) return;
-      context.go('/payment-failed', extra: updatedDraft);
-    } catch (e) {
-      final recovered = await _recoverPaidStripeShipment(
-        draft,
-        paymentReference: paymentReference,
-        provider: provider,
-        paymentCompleted: paymentCompleted,
-      );
-      if (recovered) {
-        await _ensureProcessingStateVisible(processingStartedAt);
-        await _checkoutService.clearDraft();
-        if (!mounted) return;
-        context.go('/order-success', extra: {
-          ...draft,
-          if (paymentReference != null) 'paymentReference': paymentReference,
-        });
-        return;
-      }
-      final updatedDraft = {
-        ...draft,
-        'paymentCompleted': paymentCompleted,
-        if (paymentReference != null) 'paymentReference': paymentReference,
-        'paymentProvider': provider,
-        'lastPaymentError': _buildPaymentFailureMessage(e),
-      };
-      await _ensureProcessingStateVisible(processingStartedAt);
       await _checkoutService.saveDraft(updatedDraft);
       if (!mounted) return;
       context.go('/payment-failed', extra: updatedDraft);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isPaying = false;
-          _isProcessingPayment = false;
-          _processingMessage = 'Processing your payment...';
-        });
-      }
+      if (mounted) setState(() => _isPaying = false);
     }
   }
 
-  Future<bool> _ensureStripeReady() async {
-    Future<bool> applyCurrentKey() async {
-      var key = '';
-      try {
-        key = Stripe.publishableKey;
-      } on StripeConfigException {
-        key = '';
-      }
-      if (key.isEmpty && ApiConstants.stripePublishableKey.isNotEmpty) {
-        Stripe.publishableKey = ApiConstants.stripePublishableKey;
-      }
-      try {
-        await Stripe.instance.applySettings();
-        return true;
-      } on StripeConfigException {
-        return false;
-      }
-    }
-
-    if (await applyCurrentKey()) return true;
-    await AppSettingsService.instance.fetchPublicSettings(refresh: true);
-    return applyCurrentKey();
-  }
-
-  Future<bool> _recoverPaidStripeShipment(
-    Map<String, dynamic> draft, {
-    required String? paymentReference,
-    required String provider,
-    required bool paymentCompleted,
-  }) async {
-    if (provider != 'stripe' ||
-        !paymentCompleted ||
-        paymentReference == null ||
-        paymentReference.isEmpty) {
-      return false;
-    }
-
-    try {
-      return await _finalizePaidShipmentDraft(
-        draft,
-        paymentReference: paymentReference,
-        provider: provider,
-      );
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> _finalizePaidShipmentDraft(
-    Map<String, dynamic> draft, {
-    required String? paymentReference,
-    required String provider,
-  }) async {
-    if (draft['requestSent'] == true) return true;
-    if (paymentReference == null || paymentReference.isEmpty) return false;
-
-    _updateProcessingMessage('Finalizing your shipment...');
-    try {
-      await ShipmentService.instance.sendPackageRequest(
-        travelerId: draft['travelerId'].toString(),
-        packageId: draft['packageId'].toString(),
-        tripId: draft['tripId'].toString(),
-        amount: _asDouble(draft['totalAmount']),
-        currency: draft['currency']?.toString() ?? 'USD',
-        insurance: draft['insurance'] == true,
-        insuranceCost: _asDouble(draft['insuranceAmount']),
-        estimatedDeparture: draft['estimatedDeparture']?.toString(),
-        estimatedArrival: draft['estimatedArrival']?.toString(),
-        paymentReference: paymentReference,
-        paymentProvider: provider,
-        message: draft['message']?.toString(),
-      );
-    } catch (error) {
-      if (provider != 'stripe') rethrow;
-      _updateProcessingMessage('Finalizing your shipment...');
-      final recovered =
-          await PaymentService.instance.finalizeStripePaidShipment(
-        paymentReference,
-      );
-      if (!recovered.success) {
-        throw StateError(
-          recovered.message ??
-              'Payment is confirmed, but the shipment could not be finalized yet.',
-        );
-      }
-    }
-    return true;
+  Future<bool> _presentPayPalCheckout(String approvalUrl) async {
+    return (await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _PayPalCheckoutSheet(approvalUrl: approvalUrl),
+        )) ??
+        false;
   }
 
   double _asDouble(dynamic value) {
@@ -592,194 +173,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  Future<bool> _payWithSavedStripeCard(
-    String clientSecret, {
-    required String paymentMethodId,
-  }) async {
-    debugPrint(
-        '[PaymentScreen] Confirming payment with saved card $paymentMethodId');
-    var paymentIntent = await Stripe.instance.confirmPayment(
-      paymentIntentClientSecret: clientSecret,
-      data: PaymentMethodParams.cardFromMethodId(
-        paymentMethodData: PaymentMethodDataCardFromMethod(
-          paymentMethodId: paymentMethodId,
-        ),
-      ),
-    );
-
-    debugPrint('[PaymentScreen] Payment status=${paymentIntent.status}');
-    if (paymentIntent.status == PaymentIntentsStatus.RequiresAction) {
-      _updateProcessingMessage('Waiting for bank verification...');
-      paymentIntent = await Stripe.instance.handleNextAction(clientSecret);
-      debugPrint(
-          '[PaymentScreen] Next action payment status=${paymentIntent.status}');
-    }
-
-    return paymentIntent.status == PaymentIntentsStatus.Succeeded ||
-        paymentIntent.status == PaymentIntentsStatus.Processing;
-  }
-
-  Future<bool> _payWithApplePay(
-    String clientSecret, {
-    required String currency,
-    required double totalAmount,
-    required double shippingAmount,
-    required double insuranceAmount,
-  }) async {
-    if (!_isApplePayAvailable) {
-      throw StateError('Apple Pay is not available on this device yet.');
-    }
-
-    final paymentIntent = await Stripe.instance.confirmPlatformPayPaymentIntent(
-      clientSecret: clientSecret,
-      confirmParams: PlatformPayConfirmParams.applePay(
-        applePay: ApplePayParams(
-          merchantCountryCode: ApiConstants.stripeApplePayMerchantCountryCode,
-          currencyCode: currency.toUpperCase(),
-          cartItems: [
-            ApplePayCartSummaryItem.immediate(
-              label: 'Shipping',
-              amount: shippingAmount.toStringAsFixed(2),
-            ),
-            if (insuranceAmount > 0)
-              ApplePayCartSummaryItem.immediate(
-                label: 'Insurance',
-                amount: insuranceAmount.toStringAsFixed(2),
-              ),
-            ApplePayCartSummaryItem.immediate(
-              label: 'Bago',
-              amount: totalAmount.toStringAsFixed(2),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    return paymentIntent.status == PaymentIntentsStatus.Succeeded ||
-        paymentIntent.status == PaymentIntentsStatus.Processing;
-  }
-
-  bool _isSupportedBrand(String brand) =>
-      _supportedBrands.contains(brand.trim().toLowerCase());
-
-  Future<bool> _presentPaystackCheckout(String authorizationUrl) async {
-    return (await showModalBottomSheet<bool>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) =>
-              _PaystackCheckoutSheet(authorizationUrl: authorizationUrl),
-        )) ??
-        false;
-  }
-
-  void _updateProcessingMessage(String message) {
-    if (!mounted) return;
-    setState(() => _processingMessage = message);
-  }
-
-  Future<void> _ensureProcessingStateVisible(DateTime startedAt) async {
-    const minimumVisible = Duration(milliseconds: 1400);
-    final elapsed = DateTime.now().difference(startedAt);
-    if (elapsed < minimumVisible) {
-      await Future<void>.delayed(minimumVisible - elapsed);
-    }
-  }
-
-  String _buildPaymentFailureMessage(Object error) {
-    if (error is StateError) {
-      return _mapPaymentMessage(error.message.toString().toLowerCase()) ??
-          'We could not continue secure payment right now. Please try again in a few minutes.';
-    }
-
-    if (error is StripeConfigException) {
-      return 'Card payments are currently unavailable. Please try again later or contact support.';
-    }
-
-    if (error is StripeException) {
-      final stripeError = error.error;
-      final rawParts = <String>[
-        stripeError.code.name,
-        stripeError.declineCode ?? '',
-        stripeError.localizedMessage ?? '',
-        stripeError.message ?? '',
-        error.toString(),
-      ].join(' ').toLowerCase();
-
-      final mappedMessage = _mapStripeMessage(rawParts);
-      if (mappedMessage != null) {
-        return mappedMessage;
-      }
-
-      return 'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
-    }
-
-    final raw = error.toString();
+  String _failureMessage(Object error) {
+    final raw = error.toString().replaceFirst('Bad state: ', '');
     final normalized = raw.toLowerCase();
-    return _mapStripeMessage(normalized) ??
-        _mapPaymentMessage(normalized) ??
-        'We could not complete this payment right now. Please try again in a few minutes.';
-  }
-
-  String? _mapStripeMessage(String raw) {
-    if (raw.contains('stripeconfigexception') ||
-        raw.contains('publishable key is not set')) {
-      return 'Card payments are currently unavailable. Please try again later or contact support.';
-    }
-    if (raw.contains('insufficient_funds')) {
-      return 'Your card has insufficient funds. Try another card or contact your bank.';
-    }
-    if (raw.contains('card_declined') || raw.contains('generic_decline')) {
-      return 'Your bank declined this card. Try another card or contact your bank.';
-    }
-    if (raw.contains('incorrect_cvc') || raw.contains('invalid_cvc')) {
-      return 'The security code is incorrect. Please check it and try again.';
-    }
-    if (raw.contains('expired_card')) {
-      return 'This card has expired. Please use a different card.';
-    }
-    if (raw.contains('incorrect_number') || raw.contains('invalid_number')) {
-      return 'The card number looks incorrect. Please check it and try again.';
-    }
-    if (raw.contains('authentication_required') ||
-        raw.contains('three_d_secure') ||
-        raw.contains('3d secure') ||
-        raw.contains('requires_action')) {
-      return 'This card needs bank verification. Please complete the verification step to continue.';
-    }
-    if (raw.contains('processing_error')) {
-      return 'We could not process this card right now. Please try again in a moment.';
-    }
-    if (raw.contains('canceled') || raw.contains('cancelled')) {
+    if (normalized.contains('cancel')) {
       return 'Payment was cancelled before it could be completed.';
     }
-    if (raw.contains('network')) {
-      return 'We could not reach the payment network. Please check your connection and try again.';
+    if (normalized.contains('amount') || normalized.contains('currency')) {
+      return 'We could not verify the PayPal payment amount. If you were charged, we will reconcile it automatically.';
     }
-    return null;
-  }
-
-  String? _mapPaymentMessage(String raw) {
-    if (raw.contains('payment checkout could not start') ||
-        raw.contains('stripe checkout could not start') ||
-        raw.contains('paystack checkout could not start') ||
-        raw.contains('payment service not configured') ||
-        raw.contains('publishable key') ||
-        raw.contains('secret key') ||
-        raw.contains('stripe is not configured')) {
-      return 'Secure payment is temporarily unavailable. Please try again in a few minutes.';
+    if (normalized.contains('not configured')) {
+      return 'PayPal checkout is temporarily unavailable. Please try again in a few minutes.';
     }
-    if (raw.contains('payment verification failed') ||
-        raw.contains('could not verify stripe payment') ||
-        raw.contains('payment could not be verified') ||
-        raw.contains('payment is not complete') ||
-        raw.contains('payment amount does not match') ||
-        raw.contains('payment currency does not match') ||
-        raw.contains('shipment could not be started') ||
-        raw.contains('shipment is being finalized')) {
-      return 'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
-    }
-    return null;
+    return raw.isEmpty
+        ? 'We could not complete this payment right now. Please try again.'
+        : raw;
   }
 
   @override
@@ -803,332 +211,279 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     }
 
-    final currency = draft['currency']?.toString().trim() ?? '';
-    if (currency.isEmpty) {
-      return BagoSubPageScaffold(
-        title: l10n.paymentReviewTitle,
-        child: BagoInfoBanner(
-          icon: Icons.payments_outlined,
-          message: l10n.shipmentCurrencyMissing,
-        ),
-      );
-    }
-    final provider = draft['provider']?.toString() ?? 'stripe';
-    final isStripe = provider.toLowerCase() == 'stripe';
-    final supportsApplePay = _supportsApplePayForDraft(draft);
-    final canUseApplePay = supportsApplePay && _isApplePayAvailable;
+    final currency = draft['currency']?.toString().trim() ?? 'USD';
     final totalAmount = _asDouble(draft['totalAmount']);
     final shippingAmount = _asDouble(draft['shippingAmount']);
     final insuranceAmount = _asDouble(draft['insuranceAmount']);
-    final expiresAt = DateTime.tryParse(draft['expiresAt']?.toString() ?? '');
     final isExpired = _checkoutService.isExpired(draft);
+    final methods = _availableMethods;
 
     return BagoSubPageScaffold(
-      title: l10n.paymentReviewTitle,
+      title: 'Choose payment method',
       backFallbackPath: '/shipments',
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppCard(
-                padding: const EdgeInsets.all(24),
-                borderRadius: 24,
-                showBorder: true,
-                child: Column(
-                  children: [
-                    Text(
-                      l10n.totalAmount,
-                      style: AppTextStyles.labelSm.copyWith(
-                        color: AppColors.gray400,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$currency ${totalAmount.toStringAsFixed(2)}',
-                      style: AppTextStyles.displayLg.copyWith(
-                        color: AppColors.black,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Divider(color: AppColors.gray200),
-                    const SizedBox(height: 20),
-                    _SummaryRow(
-                        label: l10n.shippingFee,
-                        value:
-                            '$currency ${shippingAmount.toStringAsFixed(2)}'),
-                    const SizedBox(height: 12),
-                    _SummaryRow(
-                        label: l10n.insurance,
-                        value:
-                            '$currency ${insuranceAmount.toStringAsFixed(2)}'),
-                    const SizedBox(height: 12),
-                    _SummaryRow(
-                      label: l10n.route,
-                      value:
-                          '${draft['fromLocation']} → ${draft['toLocation']}',
-                    ),
-                    const SizedBox(height: 12),
-                    _SummaryRow(
-                      label: l10n.receiver,
-                      value: draft['receiverName']?.toString() ??
-                          l10n.receiverFallback,
-                    ),
-                  ],
+          AppCard(
+            padding: const EdgeInsets.all(24),
+            borderRadius: 24,
+            showBorder: true,
+            child: Column(
+              children: [
+                Text(
+                  l10n.totalAmount,
+                  style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.gray400,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              AppCard(
-                padding: const EdgeInsets.all(18),
-                borderRadius: 20,
-                showBorder: true,
-                borderColor: provider == 'paystack'
-                    ? AppColors.success
-                    : AppColors.primary,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: provider == 'paystack'
-                            ? AppColors.successLight
-                            : AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        provider == 'paystack'
-                            ? Icons.account_balance_wallet_outlined
-                            : Icons.credit_card_rounded,
-                        color: provider == 'paystack'
-                            ? AppColors.success
-                            : AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.securePayment,
-                            style: AppTextStyles.labelMd
-                                .copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            provider == 'paystack'
-                                ? l10n.paystackSecureHelp
-                                : l10n.stripeSecureHelp,
-                            style: AppTextStyles.muted(AppTextStyles.bodySm),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  '$currency ${totalAmount.toStringAsFixed(2)}',
+                  style: AppTextStyles.displayLg.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              if (isStripe) ...[
                 const SizedBox(height: 20),
-                if (supportsApplePay)
-                  AppCard(
-                    padding: const EdgeInsets.all(18),
-                    borderRadius: 20,
-                    showBorder: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Apple Pay',
-                          style: AppTextStyles.labelMd.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          canUseApplePay
-                              ? 'Pay in one tap with your iPhone wallet.'
-                              : (_isCheckingApplePay
-                                  ? 'Checking Apple Pay availability...'
-                                  : 'Configure your Apple Pay merchant ID and supported device wallet to enable this option.'),
-                          style: AppTextStyles.muted(AppTextStyles.bodySm),
-                        ),
-                        const SizedBox(height: 14),
-                        if (_isCheckingApplePay)
-                          const Center(child: AppLoading())
-                        else if (canUseApplePay)
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: PlatformPayButton(
-                              type: PlatformButtonType.buy,
-                              appearance: PlatformButtonStyle.black,
-                              onPressed: () => _pay(useApplePay: true),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                if (supportsApplePay) const SizedBox(height: 20),
-                AppCard(
-                  padding: const EdgeInsets.all(18),
-                  borderRadius: 20,
-                  showBorder: true,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            l10n.paymentMethod,
-                            style: AppTextStyles.labelMd
-                                .copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: _isPaying || _isSavingCard
-                                ? null
-                                : _addCardFromCheckout,
-                            child: Text(l10n.addCardTitle),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (_isLoadingCards)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: AppLoading()),
-                        )
-                      else if (_savedCards.isEmpty)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l10n.noSavedCardsYet,
-                              style: AppTextStyles.muted(AppTextStyles.bodySm),
-                            ),
-                            const SizedBox(height: 16),
-                            AppButton(
-                              label: l10n.addCardTitle,
-                              icon: const Icon(Icons.add_rounded, size: 18),
-                              onPressed: _isPaying || _isSavingCard
-                                  ? null
-                                  : _addCardFromCheckout,
-                            ),
-                          ],
-                        )
-                      else
-                        Column(
-                          children: _savedCards
-                              .map(
-                                (card) => Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: _CheckoutCardTile(
-                                    card: card,
-                                    isSelected: card.id == _selectedCardId,
-                                    onTap: _isPaying
-                                        ? null
-                                        : () => setState(
-                                            () => _selectedCardId = card.id),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                    ],
-                  ),
+                const Divider(color: AppColors.gray200),
+                const SizedBox(height: 20),
+                _SummaryRow(
+                  label: l10n.shippingFee,
+                  value: '$currency ${shippingAmount.toStringAsFixed(2)}',
+                ),
+                const SizedBox(height: 12),
+                _SummaryRow(
+                  label: l10n.insurance,
+                  value: '$currency ${insuranceAmount.toStringAsFixed(2)}',
+                ),
+                const SizedBox(height: 12),
+                _SummaryRow(
+                  label: l10n.route,
+                  value: '${draft['fromLocation']} -> ${draft['toLocation']}',
                 ),
               ],
-              const SizedBox(height: 20),
-              BagoInfoBanner(
-                icon: Icons.lock_outline_rounded,
-                message: l10n.shipmentPendingUntilConfirmed,
-              ),
-              if (isExpired)
-                BagoInfoBanner(
-                  icon: Icons.timer_off_outlined,
-                  color: AppColors.error,
-                  backgroundColor: AppColors.errorLight,
-                  message: l10n.paymentDraftExpired,
-                )
-              else if (expiresAt != null)
-                BagoInfoBanner(
-                  icon: Icons.lock_outline_rounded,
-                  message:
-                      l10n.paymentCanBeResumedUntil(_formatExpiry(expiresAt)),
-                )
-              else
-                BagoInfoBanner(
-                  icon: Icons.lock_outline_rounded,
-                  message: l10n.shipmentPendingUntilConfirmed,
-                ),
-              const SizedBox(height: 24),
-              AppButton(
-                label: l10n.pay,
-                isLoading: _isPaying,
-                isDisabled: isExpired ||
-                    (isStripe && !_isLoadingCards && _savedCards.isEmpty),
-                onPressed: isExpired ? null : _pay,
-              ),
-            ],
+            ),
           ),
-          if (_isProcessingPayment)
-            Positioned.fill(
-              child: AbsorbPointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.92),
-                  ),
-                  child: Center(
-                    child: AppCard(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 24),
-                      borderRadius: 28,
-                      showBorder: true,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                            width: 34,
-                            height: 34,
-                            child: CircularProgressIndicator(
-                              color: AppColors.primary,
-                              strokeWidth: 3,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          Text(
-                            l10n.processingPayment,
-                            style: AppTextStyles.labelLg
-                                .copyWith(fontWeight: FontWeight.w800),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _processingMessage,
-                            style: AppTextStyles.muted(AppTextStyles.bodySm),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+          const SizedBox(height: 24),
+          Text(
+            'Payment method',
+            style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          ...methods.map(
+            (choice) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _PaymentChoiceTile(
+                choice: choice,
+                selected: _selectedMethod == choice.id,
+                onTap: _isPaying
+                    ? null
+                    : () => setState(() => _selectedMethod = choice.id),
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          BagoInfoBanner(
+            icon: Icons.lock_outline_rounded,
+            message:
+                'PayPal securely handles wallet, card, Apple Pay, Google Pay, and bank authentication. Bago only confirms the final captured amount from the backend.',
+          ),
+          if (isExpired)
+            BagoInfoBanner(
+              icon: Icons.timer_off_outlined,
+              color: AppColors.error,
+              backgroundColor: AppColors.errorLight,
+              message: l10n.paymentDraftExpired,
+            ),
+          const SizedBox(height: 24),
+          AppButton(
+            label: _buttonLabel(_selectedMethod),
+            icon: const Icon(Icons.lock_outline_rounded, size: 18),
+            isLoading: _isPaying,
+            isDisabled: isExpired,
+            onPressed: isExpired ? null : _pay,
+          ),
         ],
       ),
     );
   }
 
-  String _formatExpiry(DateTime value) {
-    final local = value.toLocal();
-    final hh = local.hour.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} $hh:$mm';
+  String _buttonLabel(String method) {
+    switch (method) {
+      case 'apple_pay':
+        return 'Continue with Apple Pay';
+      case 'google_pay':
+        return 'Continue with Google Pay';
+      case 'card':
+        return 'Pay by card';
+      default:
+        return 'Continue with PayPal';
+    }
+  }
+}
+
+class _PaymentChoice {
+  const _PaymentChoice({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+
+  final String id;
+  final String label;
+  final String description;
+  final IconData icon;
+}
+
+class _PaymentChoiceTile extends StatelessWidget {
+  const _PaymentChoiceTile({
+    required this.choice,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _PaymentChoice choice;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AppCard(
+        padding: const EdgeInsets.all(16),
+        borderRadius: 18,
+        showBorder: true,
+        borderColor: selected ? AppColors.primary : AppColors.gray200,
+        color: selected ? AppColors.primarySoft : AppColors.white,
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : AppColors.gray100,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                choice.icon,
+                color: selected ? AppColors.white : AppColors.gray600,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    choice.label,
+                    style: AppTextStyles.labelMd.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    choice.description,
+                    style: AppTextStyles.muted(AppTextStyles.bodySm),
+                  ),
+                ],
+              ),
+            ),
+            Radio<bool>(
+              value: true,
+              groupValue: selected,
+              onChanged: onTap == null ? null : (_) => onTap?.call(),
+              activeColor: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PayPalCheckoutSheet extends StatefulWidget {
+  const _PayPalCheckoutSheet({required this.approvalUrl});
+  final String approvalUrl;
+
+  @override
+  State<_PayPalCheckoutSheet> createState() => _PayPalCheckoutSheetState();
+}
+
+class _PayPalCheckoutSheetState extends State<_PayPalCheckoutSheet> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) => setState(() => _loading = true),
+          onPageFinished: (_) => setState(() => _loading = false),
+          onNavigationRequest: (request) {
+            final url = request.url;
+            if (url.contains('/api/payments/paypal/return')) {
+              Navigator.of(context).pop(true);
+              return NavigationDecision.prevent;
+            }
+            if (url.contains('/api/payments/paypal/cancel')) {
+              Navigator.of(context).pop(false);
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.approvalUrl));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.92,
+      maxChildSize: 0.96,
+      minChildSize: 0.6,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'PayPal checkout',
+                        style: AppTextStyles.labelLg.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              if (_loading) const LinearProgressIndicator(minHeight: 2),
+              Expanded(child: WebViewWidget(controller: _controller)),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -1161,269 +516,6 @@ class _SummaryRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CheckoutCardTile extends StatelessWidget {
-  const _CheckoutCardTile({
-    required this.card,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final SavedPaymentMethod card;
-  final bool isSelected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = card.brand.trim().toLowerCase();
-    final brandLabel = brand == 'mastercard' ? 'Mastercard' : 'Visa';
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.gray200,
-            width: isSelected ? 1.6 : 1,
-          ),
-          color: isSelected ? AppColors.primarySoft : AppColors.white,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.credit_card_rounded,
-              color: isSelected ? AppColors.primary : AppColors.gray500,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$brandLabel •••• ${card.last4}',
-                    style: AppTextStyles.labelMd
-                        .copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Expires ${card.expMonth.toString().padLeft(2, '0')}/${card.expYear}',
-                    style: AppTextStyles.muted(AppTextStyles.bodySm),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: isSelected ? AppColors.primary : AppColors.gray300,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CheckoutAddCardSheet extends StatefulWidget {
-  const _CheckoutAddCardSheet({
-    required this.isBusy,
-    required this.onManageCards,
-    required this.onSave,
-  });
-
-  final bool isBusy;
-  final VoidCallback onManageCards;
-  final Future<bool> Function() onSave;
-
-  @override
-  State<_CheckoutAddCardSheet> createState() => _CheckoutAddCardSheetState();
-}
-
-class _CheckoutAddCardSheetState extends State<_CheckoutAddCardSheet> {
-  CardFieldInputDetails? _cardDetails;
-  bool _isSubmitting = false;
-
-  Future<void> _handleSave() async {
-    if (_isSubmitting || widget.isBusy) return;
-    if (_cardDetails?.complete != true) {
-      AppSnackBar.show(
-        context,
-        message: AppLocalizations.of(context).enterValidSupportedCard,
-        type: SnackBarType.error,
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    final saved = await widget.onSave();
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
-    if (saved) {
-      Navigator.of(context).pop(true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return SafeArea(
-      child: AnimatedPadding(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 16),
-        child: Material(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(28),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.addCardTitle,
-                  style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  l10n.addCardDescription,
-                  style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.gray500,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  height: 292,
-                  child: CardFormField(
-                    autofocus: true,
-                    enablePostalCode: false,
-                    style: CardFormStyle(
-                      backgroundColor: AppColors.gray50,
-                      borderColor: AppColors.gray200,
-                      borderRadius: 14,
-                      borderWidth: 1,
-                      cursorColor: AppColors.primary,
-                      fontSize: 16,
-                      placeholderColor: AppColors.gray400,
-                      textColor: Colors.black,
-                      textErrorColor: AppColors.error,
-                    ),
-                    onCardChanged: (details) {
-                      if (!mounted) return;
-                      setState(() => _cardDetails = details);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AppButton(
-                  label: _isSubmitting || widget.isBusy
-                      ? l10n.savingCard
-                      : l10n.saveCard,
-                  icon: const Icon(Icons.credit_card_rounded, size: 18),
-                  onPressed:
-                      _isSubmitting || widget.isBusy ? null : _handleSave,
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: _isSubmitting || widget.isBusy
-                      ? null
-                      : () {
-                          Navigator.of(context).pop();
-                          widget.onManageCards();
-                        },
-                  child: Text(l10n.manageAllCards),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaystackCheckoutSheet extends StatefulWidget {
-  const _PaystackCheckoutSheet({required this.authorizationUrl});
-
-  final String authorizationUrl;
-
-  @override
-  State<_PaystackCheckoutSheet> createState() => _PaystackCheckoutSheetState();
-}
-
-class _PaystackCheckoutSheetState extends State<_PaystackCheckoutSheet> {
-  late final WebViewController _controller;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (_) {
-            if (mounted) setState(() => _isLoading = false);
-          },
-          onNavigationRequest: (request) {
-            final url = request.url.toLowerCase();
-            if (url.contains('/payment/callback')) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop(true);
-                }
-              });
-              return NavigationDecision.prevent;
-            }
-            return NavigationDecision.navigate;
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.authorizationUrl));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Container(
-        height: MediaQuery.sizeOf(context).height * 0.9,
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Complete Paystack Payment',
-                      style: AppTextStyles.h3
-                          .copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            if (_isLoading) const LinearProgressIndicator(minHeight: 2),
-            Expanded(child: WebViewWidget(controller: _controller)),
-          ],
-        ),
-      ),
     );
   }
 }

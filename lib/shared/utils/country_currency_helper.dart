@@ -317,7 +317,7 @@ class CurrencyConversionHelper {
       case 'ZAR':
         return 'paystack';
       default:
-        return 'stripe';
+        return 'paypal';
     }
   }
 

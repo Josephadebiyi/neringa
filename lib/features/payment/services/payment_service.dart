@@ -122,17 +122,17 @@ class PaymentService {
     Map<String, dynamic> metadata = const {},
   }) async {
     final normalizedProvider = provider.toLowerCase().trim();
-    if (normalizedProvider == 'stripe') {
-      return _initializeStripePayment(
+    if (normalizedProvider == 'paypal') {
+      return createPayPalOrder(
         packageId: packageId,
         tripId: tripId,
+        paymentMethod: metadata['paymentMethod']?.toString() ?? 'paypal_wallet',
         currency: currency,
-        amount: amount,
-        customerEmail: customerEmail,
-        metadata: metadata,
+        insurance: metadata['insurance'] == true,
+        insuranceCost:
+            double.tryParse(metadata['insuranceCost']?.toString() ?? '') ?? 0,
       );
     }
-
     return _initializePaystackPayment(
       packageId: packageId,
       tripId: tripId,
@@ -144,53 +144,74 @@ class PaymentService {
     );
   }
 
-  Future<PaymentResult> _initializeStripePayment({
-    required String packageId,
-    required String tripId,
+  Future<PaymentResult> createPayPalOrder({
+    String? shipmentId,
+    String? packageId,
+    String? tripId,
+    required String paymentMethod,
     required String currency,
-    required double amount,
-    required String customerEmail,
-    Map<String, dynamic> metadata = const {},
+    bool insurance = false,
+    double insuranceCost = 0,
   }) async {
     try {
       final response = await _api.post(
-        '${ApiConstants.paymentMethods}/payment-intent',
+        ApiConstants.paypalCreateOrder,
         data: {
-          'packageId': packageId,
-          'tripId': tripId,
-          'amount': amount,
+          if (shipmentId != null && shipmentId.isNotEmpty)
+            'shipmentId': shipmentId,
+          if (packageId != null && packageId.isNotEmpty) 'packageId': packageId,
+          if (tripId != null && tripId.isNotEmpty) 'tripId': tripId,
+          'paymentMethod': paymentMethod,
           'currency': currency,
-          'travellerName': customerEmail,
-          'travellerEmail': customerEmail,
-          'customerEmail': customerEmail,
-          ...metadata,
+          'insurance': insurance,
+          'insuranceCost': insuranceCost,
         },
       );
       final data = _extractMap(response.data);
-      final clientSecret = _firstString(
-        data,
-        const ['clientSecret', 'client_secret', 'clientsecret'],
-      );
-
-      if (clientSecret == null || clientSecret.isEmpty) {
-        throw StateError('Stripe payment intent could not be created.');
+      final orderId = _firstString(data, const ['orderId', 'id']);
+      final approvalUrl =
+          _firstString(data, const ['approvalUrl', 'approval_url']);
+      if (orderId == null || approvalUrl == null || approvalUrl.isEmpty) {
+        throw StateError('PayPal checkout could not start.');
       }
-
       return PaymentResult(
         success: true,
-        provider: 'stripe',
-        message: data['message']?.toString(),
-        reference: _firstString(
-          data,
-          const ['paymentIntentId', 'payment_intent_id', 'id', 'reference'],
-        ),
-        clientSecret: clientSecret,
-        customerId: _firstString(data, const ['customerId', 'customer_id']),
-        customerEphemeralKeySecret: _firstString(
-          data,
-          const ['customerEphemeralKeySecret', 'customer_ephemeral_key_secret'],
-        ),
+        provider: 'paypal',
+        reference: orderId,
+        authorizationUrl: approvalUrl,
         raw: data,
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<PaidShipmentFinalization> capturePayPalOrder({
+    required String orderId,
+    String? shipmentId,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.paypalCaptureOrder,
+        data: {
+          'orderId': orderId,
+          if (shipmentId != null && shipmentId.isNotEmpty)
+            'shipmentId': shipmentId,
+        },
+      );
+      final data = _extractMap(response.data);
+      final requestRaw = data['request'];
+      return PaidShipmentFinalization(
+        success: response.data is Map
+            ? ((response.data as Map)['success'] == true ||
+                data['success'] == true)
+            : data['success'] == true,
+        message: data['message']?.toString(),
+        request: requestRaw is Map<String, dynamic>
+            ? requestRaw
+            : requestRaw is Map
+                ? Map<String, dynamic>.from(requestRaw)
+                : null,
       );
     } on DioException catch (e) {
       throw ApiService.parseError(e);
@@ -266,30 +287,6 @@ class PaymentService {
         return SavedPaymentMethod.fromJson(Map<String, dynamic>.from(cardRaw));
       }
       throw StateError('Card could not be saved.');
-    } on DioException catch (e) {
-      throw _parsePaymentMethodsError(e);
-    }
-  }
-
-  Future<PaidShipmentFinalization> finalizeStripePaidShipment(
-    String paymentReference,
-  ) async {
-    try {
-      final response = await _api.post(
-        '${ApiConstants.paymentMethods}/finalize-payment',
-        data: {'paymentReference': paymentReference},
-      );
-      final data = _extractMap(response.data);
-      final requestRaw = data['request'];
-      return PaidShipmentFinalization(
-        success: data['success'] == true && requestRaw is Map,
-        message: data['message']?.toString(),
-        request: requestRaw is Map<String, dynamic>
-            ? requestRaw
-            : requestRaw is Map
-                ? Map<String, dynamic>.from(requestRaw)
-                : null,
-      );
     } on DioException catch (e) {
       throw _parsePaymentMethodsError(e);
     }

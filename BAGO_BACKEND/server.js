@@ -14,7 +14,6 @@ import cloudinary from 'cloudinary';
 import multer from 'multer';
 import { messageController } from './controllers/MessageController.js';
 import AdminRouter from './AdminRouter/AdminRouter.js';
-import Stripe from 'stripe';
 import priceRoutes from "./AdminRouter/priceperkgRoute.js";
 import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
@@ -22,7 +21,15 @@ import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
-import { handleStripeWebhook } from './controllers/postgresPaymentMethodController.js';
+import {
+  capturePayPalOrder,
+  createPayPalOrder,
+  paypalCancel,
+  paypalReturn,
+  paypalWebhook,
+  savePayPalPayoutSettings,
+  sendPayPalPayout,
+} from './controllers/PayPalController.js';
 
 
 dotenv.config();
@@ -70,17 +77,6 @@ const io = new Server(httpServer, {
   pingTimeout: 60000,
   pingInterval: 25000,
 });
-
-// ✅ Initialize Stripe (optional - will be null if no key provided)
-let stripe = null;
-const stripeKey = process.env.STRIPE_SECRET_KEY;
-if (stripeKey && stripeKey !== 'your_stripe_secret_key' && stripeKey.startsWith('sk_')) {
-  stripe = new Stripe(stripeKey);
-  console.log('✅ Stripe initialized successfully');
-} else {
-  console.warn('⚠️ STRIPE_SECRET_KEY not set or invalid - Stripe features disabled');
-  console.warn('   To enable Stripe: Get your key from https://dashboard.stripe.com/apikeys');
-}
 
 // Initialize Resend (optional)
 export let resend = null;
@@ -175,68 +171,6 @@ ensureSupportTable();
 startEscrowAutoRelease();
 startCurrencyRateSync();
 
-// create or return an existing Stripe account id for a user
-async function createStripeAccountForUser(user, { restartIncomplete = true } = {}) {
-  if (!stripe) {
-    console.warn('❌ createStripeAccountForUser failed: Stripe not configured');
-    throw new Error('Stripe not configured');
-  }
-  if (!user) throw new Error('User required');
-
-  const existingAccountId = user.stripeConnectAccountId || user.stripe_connect_account_id;
-  if (existingAccountId) {
-    try {
-      const existingAccount = await stripe.accounts.retrieve(existingAccountId);
-      const isComplete = existingAccount.charges_enabled === true && existingAccount.payouts_enabled === true;
-      if (isComplete) {
-        return existingAccountId;
-      }
-      if (!restartIncomplete && existingAccount.type === 'express') {
-        return existingAccountId;
-      }
-      console.warn(`⚠️ Replacing incomplete Stripe ${existingAccount.type} account for user ${user.id}`);
-    } catch (err) {
-      console.warn(`⚠️ Saved Stripe account ${existingAccountId} could not be retrieved: ${err.message}`);
-    }
-  }
-
-  try {
-    const payoutCountry = (user.payout_country || user.country || '').toString().trim().toUpperCase();
-    const accountParams = {
-      type: 'express',
-      email: user.email,
-      capabilities: { transfers: { requested: true } },
-    };
-    if (/^[A-Z]{2}$/.test(payoutCountry)) {
-      accountParams.country = payoutCountry;
-    }
-
-    const account = await stripe.accounts.create({
-      ...accountParams,
-    });
-
-    await pgQuery(
-      `UPDATE public.profiles
-       SET stripe_connect_account_id = $2,
-           stripe_account_id = $2,
-           payout_provider = 'stripe',
-           payout_method_status = 'onboarding',
-           stripe_onboarding_status = 'created',
-           updated_at = NOW()
-       WHERE id = $1`,
-      [user.id, account.id]
-    );
-
-    console.log(`✅ Created Stripe account ${account.id} for user ${user.id}`);
-    return account.id;
-  } catch (err) {
-    console.error('❌ Stripe Account Creation Error:', err.message);
-    throw err;
-  }
-}
-
-
-
 // ✅ Middleware setup
 app.use(
   cors({
@@ -269,8 +203,6 @@ cloudinary.v2.config({
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
 app.use(express.json({ limit: '10mb', strict: true }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -430,6 +362,9 @@ authRoutes.forEach(route => app.use(route, authLimiter));
   '/api/bago/withdrawFunds',
   '/api/bago/paystack/initialize',
   '/api/bago/paystack/add-bank',
+  '/api/payments/paypal/create-order',
+  '/api/payments/paypal/capture-order',
+  '/api/payouts/paypal/send',
 ].forEach(route => app.use(route, sensitiveLimiter));
 
 // ✅ Make io accessible to routers
@@ -543,6 +478,15 @@ app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 
+// ✅ PayPal checkout and payouts
+app.post('/api/payments/paypal/create-order', isAuthenticated, createPayPalOrder);
+app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrder);
+app.post('/api/payouts/paypal/settings', isAuthenticated, savePayPalPayoutSettings);
+app.post('/api/payouts/paypal/send', isAuthenticated, sendPayPalPayout);
+app.post('/api/webhooks/paypal', paypalWebhook);
+app.get('/api/payments/paypal/return', paypalReturn);
+app.get('/api/payments/paypal/cancel', paypalCancel);
+
 // ✅ IP-based location and currency detection
 app.get('/api/location/detect', async (req, res) => {
   try {
@@ -553,7 +497,7 @@ app.get('/api/location/detect', async (req, res) => {
       success: true,
       ip,
       location,
-      recommendedGateway: location.countryCode && ['NG', 'GH', 'ZA', 'KE'].includes(location.countryCode) ? 'paystack' : 'stripe'
+      recommendedGateway: 'paypal'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -567,483 +511,8 @@ app.get('/health', (req, res) => {
 });
 
 
-// ✅ Stripe Payment Intent Route (Standard Payment)
-app.post('/api/payment/create-intent', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({ error: 'Payment service not configured' });
-  }
-
-  const { amount, travellerName, travellerEmail, currency = 'usd' } = req.body;
-  const paymentCurrency = String(currency || 'usd').toLowerCase();
-
-
-  try {
-    if (!amount) {
-      console.warn('⚠️ Missing required parameter: amount');
-      return res.status(400).json({ error: 'Missing required parameter: amount.' });
-    }
-
-    const stripeAmount = Math.round(Number(amount) * 100);
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: stripeAmount,
-      currency: paymentCurrency,
-      receipt_email: travellerEmail, // ✅ this is what Stripe dashboard uses
-      metadata: { travellerName },   // optional for reference
-      automatic_payment_methods: { enabled: true },
-    });
-
-
-    // PaymentIntent created — client secret returned in response, not logged
-
-    res.status(200).json({
-      success: true,
-      data: {
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-        currency: paymentCurrency,
-      },
-    });
-  } catch (error) {
-    console.error('❌ Stripe Payment Intent Error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-// ✅ STRIPE CONNECT - Onboarding
-app.post('/api/stripe/connect/onboard', isAuthenticated, async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({ success: false, message: 'Payment service not configured' });
-  }
-  try {
-    const userId = req.user.id || req.user._id;
-    const email = req.user.email || req.body.email;
-    if (!userId || !email) return res.status(400).json({ success: false, message: 'User email is required' });
-
-    const user = await queryOne(`SELECT * FROM public.profiles WHERE id = $1`, [userId]);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-    const stripeAccountId = await createStripeAccountForUser(
-      { ...user, _id: user.id, stripeConnectAccountId: user.stripe_connect_account_id },
-      { restartIncomplete: req.body?.restartIncomplete === true || req.body?.restart_incomplete === true },
-    );
-    const account = await stripe.accounts.retrieve(stripeAccountId);
-
-    if (account.type === 'express' && account.details_submitted && account.payouts_enabled) {
-      await queryOne(
-        `UPDATE public.profiles
-         SET stripe_verified = true,
-             stripe_charges_enabled = $2,
-             stripe_payouts_enabled = true,
-             stripe_onboarding_status = 'completed',
-             payout_provider = 'stripe',
-             payout_method_status = 'connected',
-             updated_at = NOW()
-         WHERE id = $1
-         RETURNING id`,
-        [userId, account.charges_enabled === true],
-      );
-      return res.json({
-        success: true,
-        connected: true,
-        verified: true,
-        mode: 'connected',
-        message: 'Stripe payout setup is complete.',
-      });
-    }
-
-    // create account link for onboarding
-    let backendUrl = process.env.BACKEND_URL;
-    if (!backendUrl) {
-      const host = req.get('host');
-      const protocol = req.protocol;
-      backendUrl = `${protocol}://${host}/api/stripe`;
-    } else {
-      backendUrl = backendUrl.endsWith('/api/stripe') ? backendUrl : `${backendUrl}/api/stripe`;
-    }
-    const accountLink = await stripe.accountLinks.create({
-      account: stripeAccountId,
-      return_url: `${backendUrl.replace('/api/stripe', '')}/api/stripe/onboarding/complete?userId=${userId}`,
-      refresh_url: `${backendUrl.replace('/api/stripe', '')}/api/stripe/onboarding/refresh?userId=${userId}`,
-      type: 'account_onboarding',
-    });
-
-    res.json({
-      success: true,
-      url: accountLink.url,
-      onboarding_url: accountLink.url,
-      mode: 'onboarding',
-    });
-  } catch (error) {
-    console.error('❌ Stripe Onboarding Error:', error);
-    res.status(500).json({
-      success: false,
-      code: 'STRIPE_ONBOARDING_FAILED',
-      message: 'Stripe setup could not be completed. You can try again, choose another supported payout provider, or contact support.',
-      actions: ['try_stripe_again', 'choose_another_provider', 'contact_support'],
-    });
-  }
-});
-
-
-
-
-// ✅ STRIPE CONNECT - Onboarding Complete
-app.get('/api/stripe/onboarding/complete', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).send('Payment service not configured');
-  }
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).send('Missing userId');
-
-    const user = await queryOne(`SELECT id, email, stripe_connect_account_id FROM public.profiles WHERE id = $1`, [userId]);
-    if (!user || !user.stripe_connect_account_id)
-      return res.status(404).send('User or Stripe account not found');
-
-    const account = await stripe.accounts.retrieve(user.stripe_connect_account_id);
-
-    const verified = account.charges_enabled === true && account.payouts_enabled === true;
-    await queryOne(
-      `UPDATE public.profiles
-       SET stripe_verified = $2,
-           stripe_charges_enabled = $3,
-           stripe_payouts_enabled = $4,
-           stripe_onboarding_status = $5,
-           payout_provider = 'stripe',
-           payout_method_status = $6,
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING id`,
-      [
-        userId,
-        verified,
-        account.charges_enabled === true,
-        account.payouts_enabled === true,
-        verified ? 'completed' : 'incomplete',
-        verified ? 'connected' : 'onboarding',
-      ],
-    );
-
-    console.log(`✅ Stripe onboarding completed for user ${user.email} (Verified: ${verified})`);
-
-    // Detect frontend URL dynamically if not in production
-    let frontendUrl = process.env.FRONTEND_URL;
-    if (!frontendUrl) {
-      const referer = req.headers.referer || '';
-      if (referer.includes('localhost') || referer.includes('127.0.0.1')) {
-        frontendUrl = 'http://localhost:5173';
-      } else {
-        frontendUrl = 'https://sendwithbago.com';
-      }
-    }
-    const redirectUrl = `${frontendUrl}/dashboard?stripe=success`;
-
-    res.send(`
-       <!DOCTYPE html>
-       <html>
-         <head>
-           <meta charset="utf-8">
-           <meta name="viewport" content="width=device-width, initial-scale=1">
-           <title>Bago — Onboarding Complete</title>
-           <style>
-             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-             body {
-               font-family: 'Inter', system-ui, sans-serif;
-               background-color: #F8F6F3;
-               margin: 0;
-               display: flex;
-               align-items: center;
-               justify-content: center;
-               height: 100vh;
-               color: #054752;
-             }
-             .card {
-               background: white;
-               padding: 48px;
-               border-radius: 32px;
-               box-shadow: 0 20px 50px rgba(5, 71, 82, 0.05);
-               max-width: 480px;
-               width: 90%;
-               text-align: center;
-               border: 1px solid rgba(5, 71, 82, 0.05);
-             }
-             .logo {
-               height: 48px;
-               margin-bottom: 32px;
-             }
-             .icon-circle {
-               width: 80px;
-               height: 80px;
-               background: #ECFDED;
-               color: #16A34A;
-               border-radius: 50%;
-               display: flex;
-               align-items: center;
-               justify-content: center;
-               font-size: 40px;
-               margin: 0 auto 24px;
-             }
-             h1 {
-               font-size: 24px;
-               font-weight: 800;
-               margin: 0 0 12px;
-               color: #054752;
-             }
-             p {
-               font-size: 16px;
-               color: #708c91;
-               margin: 0 0 32px;
-               line-height: 1.6;
-             }
-             .btn {
-               background: #5845D8;
-               color: white;
-               text-decoration: none;
-               padding: 16px 32px;
-               border-radius: 16px;
-               font-weight: 700;
-               display: block;
-               transition: transform 0.2s;
-               cursor: pointer;
-               border: none;
-             }
-             .btn:active { transform: scale(0.98); }
-           </style>
-         </head>
-         <body>
-           <div class="card">
-             <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" class="logo" alt="Bago">
-             <div class="icon-circle">✓</div>
-             <h1>Payout Settings Enabled</h1>
-             <p>Your Stripe account has been linked successfully. You can now receive payouts from your earnings.</p>
-             <button onclick="window.location.href='${redirectUrl}'" class="btn">Return to Bago</button>
-           </div>
-           <script>
-              setTimeout(() => {
-                window.location.href = '${redirectUrl}';
-              }, 3000);
-           </script>
-         </body>
-       </html>
-     `);
-
-  } catch (error) {
-    console.error('❌ Stripe Onboarding Complete Error:', error);
-    res.status(500).send('Error completing onboarding.');
-  }
-});
-
-
-// ⚠️ STRIPE CONNECT - Onboarding Refresh (expired/cancelled)
-app.get('/api/stripe/onboarding/refresh', async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).send('Missing userId');
-
-    const user = await queryOne(`SELECT id, email FROM public.profiles WHERE id = $1`, [userId]);
-    if (!user) return res.status(404).send('User not found');
-
-    await queryOne(`UPDATE public.profiles SET stripe_verified = false, updated_at = NOW() WHERE id = $1 RETURNING id`, [userId]);
-
-    console.log(`⚠️ Stripe onboarding refresh triggered for user ${user.email}`);
-
-    res.send(`
-       <!DOCTYPE html>
-       <html>
-         <head>
-           <meta charset="utf-8">
-           <meta name="viewport" content="width=device-width, initial-scale=1">
-           <title>Bago — Session Expired</title>
-           <style>
-             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-             body {
-               font-family: 'Inter', system-ui, sans-serif;
-               background-color: #F8F6F3;
-               margin: 0;
-               display: flex;
-               align-items: center;
-               justify-content: center;
-               height: 100vh;
-               color: #054752;
-             }
-             .card {
-               background: white;
-               padding: 48px;
-               border-radius: 32px;
-               box-shadow: 0 20px 50px rgba(5, 71, 82, 0.05);
-               max-width: 480px;
-               width: 90%;
-               text-align: center;
-               border: 1px solid rgba(5, 71, 82, 0.05);
-             }
-             .logo {
-               height: 48px;
-               margin-bottom: 32px;
-             }
-             .icon-circle {
-               width: 80px;
-               height: 80px;
-               background: #FEF2F2;
-               color: #EF4444;
-               border-radius: 50%;
-               display: flex;
-               align-items: center;
-               justify-content: center;
-               font-size: 40px;
-               margin: 0 auto 24px;
-             }
-             h1 {
-               font-size: 24px;
-               font-weight: 800;
-               margin: 0 0 12px;
-               color: #054752;
-             }
-             p {
-               font-size: 16px;
-               color: #708c91;
-               margin: 0 0 32px;
-               line-height: 1.6;
-             }
-             .btn {
-               background: #5845D8;
-               color: white;
-               text-decoration: none;
-               padding: 16px 32px;
-               border-radius: 16px;
-               font-weight: 700;
-               display: block;
-               transition: transform 0.2s;
-               cursor: pointer;
-               border: none;
-             }
-             .btn:active { transform: scale(0.98); }
-           </style>
-         </head>
-         <body>
-           <div class="card">
-             <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" class="logo" alt="Bago">
-             <div class="icon-circle">!</div>
-             <h1>Session Interrupted</h1>
-             <p>The onboarding session expired or was cancelled. Your progress won't be saved until you complete the link.</p>
-             <button onclick="window.close()" class="btn">Return to App</button>
-           </div>
-         </body>
-       </html>
-    `);
-  } catch (error) {
-    console.error('❌ Stripe Onboarding Refresh Error:', error);
-    res.status(500).send('Error handling onboarding refresh.');
-  }
-});
-
-
-
-// ✅ STRIPE CONNECT - Check Account Status & Save Verification
-app.get('/api/stripe/connect/status/:userId', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({ message: 'Payment service not configured' });
-  }
-  try {
-    const { userId } = req.params;
-    const user = await queryOne(`SELECT id, email, stripe_connect_account_id FROM public.profiles WHERE id = $1`, [userId]);
-    if (!user?.stripe_connect_account_id)
-      return res.status(400).json({ message: 'User not connected to Stripe' });
-
-    const account = await stripe.accounts.retrieve(user.stripe_connect_account_id);
-
-    // ✅ Save verification & payout status in DB
-    const verified = account.charges_enabled && account.payouts_enabled;
-    await queryOne(
-      `UPDATE public.profiles
-       SET stripe_verified = $2,
-           stripe_charges_enabled = $3,
-           stripe_payouts_enabled = $4,
-           stripe_onboarding_status = $5,
-           payout_provider = 'stripe',
-           payout_method_status = $6,
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING id`,
-      [
-        userId,
-        verified,
-        account.charges_enabled === true,
-        account.payouts_enabled === true,
-        verified ? 'completed' : 'incomplete',
-        verified ? 'connected' : 'onboarding',
-      ],
-    );
-
-    res.json({
-      success: true,
-      verified,
-      charges_enabled: account.charges_enabled === true,
-      payouts_enabled: account.payouts_enabled === true,
-      payout_method_status: verified ? 'connected' : 'onboarding',
-      account,
-    });
-  } catch (error) {
-    console.error('❌ Stripe Status Error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
 app.get('/', async (req, res) => {
   res.json({ success: true, message: "Bago API is running", version: "1.0.0" });
-});
-
-// ✅ STRIPE CONNECT - Platform Fee (10%) + Transfer to Traveller
-app.post('/api/stripe/connect/transfer', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({ message: 'Payment service not configured' });
-  }
-  try {
-    const { userId, totalAmount } = req.body;
-    if (!userId || !totalAmount)
-      return res.status(400).json({ message: 'userId and totalAmount are required' });
-
-    const user = await queryOne(
-      `SELECT id, email, stripe_connect_account_id, available_balance FROM public.profiles WHERE id = $1`,
-      [userId]
-    );
-    if (!user?.stripe_connect_account_id)
-      return res.status(400).json({ message: 'User not connected to Stripe' });
-
-    // Check if user has sufficient balance
-    if ((user.available_balance || 0) < totalAmount) {
-      return res.status(400).json({ message: 'Insufficient balance for withdrawal' });
-    }
-
-    // 10% platform fee → keep 10%, send 90%
-    const amount = Math.round(Number(totalAmount) * 100);
-    const userAmount = Math.round(amount * 0.9);
-    const platformFee = amount - userAmount;
-
-    const transfer = await stripe.transfers.create({
-      amount: userAmount,
-      currency: 'usd',
-      destination: user.stripe_connect_account_id,
-      description: `Traveller payout for ${user.email}`,
-      metadata: { platformFee: (platformFee / 100).toFixed(2) },
-    });
-
-    // Deduct from user balance
-    await queryOne(
-      `UPDATE public.profiles SET available_balance = available_balance - $2, updated_at = NOW() WHERE id = $1 RETURNING id`,
-      [userId, totalAmount]
-    );
-
-    res.json({
-      success: true,
-      message: `Transfer successful. Platform fee: $${(platformFee / 100).toFixed(2)}`,
-      transfer,
-    });
-  } catch (error) {
-    console.error('❌ Stripe Transfer Error:', error);
-    res.status(500).json({ message: error.message });
-  }
 });
 
 

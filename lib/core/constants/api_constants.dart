@@ -13,25 +13,8 @@ class ApiConstants {
     defaultValue: '',
   );
 
-  // Payment keys — baked-in publishable key (safe to ship in client builds).
-  // Override at build time with --dart-define=STRIPE_PUBLISHABLE_KEY=pk_... if needed.
-  static const String stripePublishableKey = String.fromEnvironment(
-    'STRIPE_PUBLISHABLE_KEY',
-    defaultValue: String.fromEnvironment(
-      'STRIPE_KEY',
-      defaultValue:
-          'pk_live_51SIm5SPvb8NSyluxt0PHddQMCZtzszO7huOR46DEiwX1rS96322QQUkhsTUUOTMeZSK4QVZOPcuP7uyzQG3xuQOW00J76dIWVe',
-    ),
-  );
-  static const String stripeApplePayMerchantIdentifier = String.fromEnvironment(
-    'STRIPE_APPLE_PAY_MERCHANT_ID',
-    defaultValue: 'merchant.com.deracali.boltexponativewind',
-  );
-  static const String stripeApplePayMerchantCountryCode =
-      String.fromEnvironment(
-    'STRIPE_APPLE_PAY_COUNTRY_CODE',
-    defaultValue: 'NG',
-  );
+  // PayPal checkout is created and captured by the backend. The PayPal client
+  // secret must never be shipped in Flutter builds.
   static const String paystackPublicKey =
       String.fromEnvironment('PAYSTACK_KEY', defaultValue: '');
 
@@ -144,7 +127,8 @@ class ApiConstants {
   // Backend: POST /withdrawFunds
   static const String withdrawFunds = '/api/bago/withdrawFunds';
   static const String paymentMethods = '/api/bago/payment-methods';
-  static const String createPaymentIntent = '/api/payment/create-intent';
+  static const String paypalCreateOrder = '/api/payments/paypal/create-order';
+  static const String paypalCaptureOrder = '/api/payments/paypal/capture-order';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';
@@ -157,7 +141,7 @@ class ApiConstants {
   static const String paystackAddBank = '/api/bago/paystack/add-bank';
   static const String paystackVerifyBankOtp =
       '/api/bago/paystack/verify-bank-otp';
-  static const String stripeConnectOnboard = '/api/stripe/connect/onboard';
+  static const String paypalPayoutSettings = '/api/payouts/paypal/settings';
 
   // ---------------------------------------------------------------------------
   // Messaging

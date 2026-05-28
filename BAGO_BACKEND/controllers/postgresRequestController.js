@@ -1,6 +1,5 @@
 import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail } from '../services/emailNotifications.js';
 import PDFDocument from 'pdfkit';
-import Stripe from 'stripe';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
   confirmShipmentReceived,
@@ -38,14 +37,6 @@ import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingCon
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
-
-let stripeClient = null;
-function getStripeClient() {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey || !stripeKey.startsWith('sk_')) return null;
-  if (!stripeClient) stripeClient = new Stripe(stripeKey);
-  return stripeClient;
-}
 
 function normalizePaymentProvider(paymentInfo = {}) {
   return String(paymentInfo.gateway || paymentInfo.method || paymentInfo.provider || '').toLowerCase();
@@ -124,24 +115,14 @@ async function refundPaidShipmentRequest(request) {
   const reference = getPaymentReference(paymentInfo);
   const previousRefundStatus = paymentInfo.refund?.status;
 
-  if (!reference || !['stripe', 'paystack'].includes(provider)) {
+  if (!reference || !['paystack'].includes(provider)) {
     return null;
   }
   if (['succeeded', 'pending'].includes(previousRefundStatus)) {
     return paymentInfo.refund || null;
   }
 
-  let refund;
-  if (provider === 'stripe') {
-    const stripe = getStripeClient();
-    if (!stripe) throw new Error('Stripe is not configured.');
-    refund = await stripe.refunds.create(
-      { payment_intent: reference },
-      { idempotencyKey: `shipment-refund-${request.id}-${reference}` },
-    );
-  } else {
-    refund = await refundPaystackPayment(reference);
-  }
+  const refund = await refundPaystackPayment(reference);
 
   const refundInfo = {
     status: provider === 'paystack' ? (refund.status || 'pending') : (refund.status || 'succeeded'),
@@ -544,30 +525,31 @@ export async function RequestPackage(req, res) {
         if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
-      } else if (provider === 'stripe') {
-        const stripe = getStripeClient();
-        if (!stripe) {
-          return res.status(503).json({ message: 'Stripe is not configured.', success: false });
+      } else if (provider === 'paypal') {
+        const paypalPayment = await queryOne(
+          `
+            select id, amount, currency, status
+            from public.payments
+            where paypal_order_id = $1
+              and user_id = $2
+              and status = 'paid'
+            order by updated_at desc
+            limit 1
+          `,
+          [paymentReference, senderId],
+        );
+        if (!paypalPayment) {
+          return res.status(402).json({ message: 'PayPal payment could not be verified. Please complete payment first.', success: false });
         }
-        try {
-          const paymentIntent = await stripe.paymentIntents.retrieve(paymentReference);
-          const statusOk = ['succeeded', 'processing'].includes(paymentIntent.status);
-          const verifiedAmount = Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
-          const agreedAmount = Number(amount);
-          const paymentCurrency = String(paymentIntent.currency || '').toUpperCase();
-          const agreedCurrency = String(currency || 'USD').toUpperCase();
-          if (!statusOk) {
-            return res.status(402).json({ message: 'Stripe payment is not complete.', success: false });
-          }
-          if (paymentCurrency !== agreedCurrency) {
-            return res.status(402).json({ message: 'Stripe payment currency does not match the shipment currency.', success: false });
-          }
-          if (verifiedAmount < agreedAmount * 0.98) {
-            return res.status(402).json({ message: 'Stripe payment amount does not match the agreed amount.', success: false });
-          }
-        } catch (stripeErr) {
-          console.error('Stripe verification error:', stripeErr.message);
-          return res.status(402).json({ message: 'Could not verify Stripe payment.', success: false });
+        const verifiedAmount = Number(paypalPayment.amount || 0);
+        const agreedAmount = Number(amount);
+        const paymentCurrency = String(paypalPayment.currency || '').toUpperCase();
+        const agreedCurrency = String(currency || 'USD').toUpperCase();
+        if (paymentCurrency !== agreedCurrency) {
+          return res.status(402).json({ message: 'PayPal payment currency does not match the shipment currency.', success: false });
+        }
+        if (verifiedAmount < agreedAmount * 0.98) {
+          return res.status(402).json({ message: 'PayPal payment amount does not match the agreed amount.', success: false });
         }
       }
     }

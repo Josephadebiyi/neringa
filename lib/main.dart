@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'app.dart';
@@ -40,22 +39,6 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-
-  // Stripe init (only when key is provided)
-  if (ApiConstants.stripePublishableKey.isNotEmpty) {
-    try {
-      Stripe.publishableKey = ApiConstants.stripePublishableKey;
-      if (ApiConstants.stripeApplePayMerchantIdentifier.isNotEmpty) {
-        Stripe.merchantIdentifier =
-            ApiConstants.stripeApplePayMerchantIdentifier;
-      }
-      await Stripe.instance
-          .applySettings()
-          .timeout(const Duration(seconds: 5), onTimeout: () {});
-    } catch (error) {
-      debugPrint('Stripe init skipped: $error');
-    }
-  }
 
   // Transparent status bar
   SystemChrome.setSystemUIOverlayStyle(
