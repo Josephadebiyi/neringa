@@ -53,6 +53,10 @@ function normalizeTripRow(row, reviews = []) {
         selectedAvatar: row.user_selected_avatar,
       }
     : null;
+  const rawStatus = (row.status || 'pending_admin_review').toString();
+  const status = ['active', 'verified'].includes(rawStatus.toLowerCase()) && row.travel_document_verified !== true
+    ? 'pending_admin_review'
+    : rawStatus;
 
   return {
     id: row.id,
@@ -73,7 +77,7 @@ function normalizeTripRow(row, reviews = []) {
     reservedKg: toNumber(row.reserved_kg),
     remainingKg: toNumber(row.available_kg),
     travelMeans: row.travel_means,
-    status: row.status,
+    status,
     request: toNumber(row.request_count),
     reviews: normalizedReviews,
     totalReviews,

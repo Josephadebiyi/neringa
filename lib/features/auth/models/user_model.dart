@@ -30,6 +30,11 @@ class UserModel {
   final bool bankAccountLinked;
   final String? stripeConnectAccountId;
   final bool stripeVerified;
+  final String? paypalEmail;
+  final String? payoutCurrency;
+  final String? payoutProvider;
+  final String? payoutStatus;
+  final String? payoutMethodStatus;
   final String? signupMethod; // 'email' | 'google' | 'apple'
   final DateTime? termsAcceptedAt;
   final String? earningCurrency;
@@ -61,6 +66,11 @@ class UserModel {
     this.bankAccountLinked = false,
     this.stripeConnectAccountId,
     this.stripeVerified = false,
+    this.paypalEmail,
+    this.payoutCurrency,
+    this.payoutProvider,
+    this.payoutStatus,
+    this.payoutMethodStatus,
     this.signupMethod,
     this.termsAcceptedAt,
     this.earningCurrency,
@@ -121,6 +131,11 @@ class UserModel {
     bool? bankAccountLinked,
     String? stripeConnectAccountId,
     bool? stripeVerified,
+    String? paypalEmail,
+    String? payoutCurrency,
+    String? payoutProvider,
+    String? payoutStatus,
+    String? payoutMethodStatus,
     String? signupMethod,
     DateTime? termsAcceptedAt,
     String? walletCurrency,
@@ -154,6 +169,11 @@ class UserModel {
       stripeConnectAccountId:
           stripeConnectAccountId ?? this.stripeConnectAccountId,
       stripeVerified: stripeVerified ?? this.stripeVerified,
+      paypalEmail: paypalEmail ?? this.paypalEmail,
+      payoutCurrency: payoutCurrency ?? this.payoutCurrency,
+      payoutProvider: payoutProvider ?? this.payoutProvider,
+      payoutStatus: payoutStatus ?? this.payoutStatus,
+      payoutMethodStatus: payoutMethodStatus ?? this.payoutMethodStatus,
       signupMethod: signupMethod ?? this.signupMethod,
       termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
       earningCurrency: earningCurrency ?? this.earningCurrency,
@@ -207,6 +227,16 @@ class UserModel {
             json['stripe_connect_account_id']?.toString(),
         stripeVerified:
             json['stripeVerified'] == true || json['stripe_verified'] == true,
+        paypalEmail:
+            json['paypalEmail']?.toString() ?? json['paypal_email']?.toString(),
+        payoutCurrency: json['payoutCurrency']?.toString() ??
+            json['payout_currency']?.toString(),
+        payoutProvider: json['payoutProvider']?.toString() ??
+            json['payout_provider']?.toString(),
+        payoutStatus: json['payoutStatus']?.toString() ??
+            json['payout_status']?.toString(),
+        payoutMethodStatus: json['payoutMethodStatus']?.toString() ??
+            json['payout_method_status']?.toString(),
         signupMethod: json['signupMethod']?.toString() ??
             json['signup_method']?.toString(),
         preferredCurrency: json['preferredCurrency']?.toString() ??
@@ -245,6 +275,11 @@ class UserModel {
         'rating_count': ratingCount,
         'stripeConnectAccountId': stripeConnectAccountId,
         'stripeVerified': stripeVerified,
+        'paypal_email': paypalEmail,
+        'payout_currency': payoutCurrency,
+        'payout_provider': payoutProvider,
+        'payout_status': payoutStatus,
+        'payout_method_status': payoutMethodStatus,
         'signupMethod': signupMethod,
         'earning_currency': earningCurrency,
         'earning_currency_locked': earningCurrencyLocked,

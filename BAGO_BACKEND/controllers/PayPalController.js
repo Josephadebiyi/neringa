@@ -10,7 +10,7 @@ import {
   getShipmentRequestById,
   getTripById,
 } from '../lib/postgres/shipping.js';
-import { findProfileById } from '../lib/postgres/profiles.js';
+import { activateEarningCurrency, findProfileById } from '../lib/postgres/profiles.js';
 import { sendNewRequestToTravelerEmail } from '../services/emailNotifications.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
@@ -108,6 +108,25 @@ async function paypalRequest(method, path, data, headers = {}) {
     },
   });
   return response.data;
+}
+
+export async function createPayPalEmailPayout({ receiverEmail, amount, currency, reference, note }) {
+  return paypalRequest('post', '/v1/payments/payouts', {
+    sender_batch_header: {
+      sender_batch_id: String(reference || `bago-${Date.now()}`).slice(0, 64),
+      email_subject: 'Your Bago payout is on the way',
+      email_message: note || 'Bago has sent your payout.',
+    },
+    items: [
+      {
+        recipient_type: 'EMAIL',
+        receiver: receiverEmail,
+        amount: { value: toAmount(amount).toFixed(2), currency: normalizeCurrency(currency) },
+        note: note || 'Bago payout',
+        sender_item_id: String(reference || Date.now()).slice(0, 64),
+      },
+    ],
+  });
 }
 
 async function ensurePayPalTables() {
@@ -591,6 +610,8 @@ export async function savePayPalPayoutSettings(req, res) {
       return res.status(400).json({ success: false, message: 'Please confirm that the PayPal account belongs to you.' });
     }
 
+    await activateEarningCurrency(profile.id, payoutCurrency);
+
     const user = await queryOne(
       `
         update public.profiles
@@ -649,21 +670,12 @@ export async function sendPayPalPayout(req, res) {
     const amount = toAmount(Math.max(0, Number(request.amount || 0) - Number(request.insurance_cost || 0) - (Number(request.amount || 0) * getCommissionRate())));
     const currency = normalizeCurrency(request.payout_currency || request.currency);
     const senderBatchId = `bago-${shipmentId}-${Date.now()}`.slice(0, 64);
-    const payout = await paypalRequest('post', '/v1/payments/payouts', {
-      sender_batch_header: {
-        sender_batch_id: senderBatchId,
-        email_subject: 'Your Bago payout is on the way',
-        email_message: 'Bago has sent your shipment payout.',
-      },
-      items: [
-        {
-          recipient_type: 'EMAIL',
-          receiver: request.paypal_email,
-          amount: { value: amount.toFixed(2), currency },
-          note: `Bago payout for shipment ${request.tracking_number || shipmentId}`,
-          sender_item_id: shipmentId,
-        },
-      ],
+    const payout = await createPayPalEmailPayout({
+      receiverEmail: request.paypal_email,
+      amount,
+      currency,
+      reference: senderBatchId,
+      note: `Bago payout for shipment ${request.tracking_number || shipmentId}`,
     });
 
     const item = payout.items?.[0] || {};
@@ -901,6 +913,8 @@ export async function verifyPayPalPayoutOtp(req, res) {
     if (pending.otp !== otp) {
       return res.status(400).json({ success: false, message: 'Incorrect code. Please try again.' });
     }
+
+    await activateEarningCurrency(profile.id, pending.currency);
 
     const user = await queryOne(
       `update public.profiles

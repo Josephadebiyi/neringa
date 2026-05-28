@@ -15,6 +15,7 @@ export function isTripPubliclyVisible(snapshot) {
 
   return (
     ['active', 'verified'].includes(status) &&
+    snapshot.travelDocumentVerified === true &&
     snapshot.availableKg > 0 &&
     !Number.isNaN(departureDate.getTime()) &&
     departureDate >= today &&
@@ -61,6 +62,7 @@ export async function buildTripCapacitySnapshot(executor, tripId, { lockTrip = f
         t.arrival_date,
         t.price_per_kg,
         t.currency,
+        t.travel_document_verified,
         COALESCE(NULLIF(t.total_kg, 0), GREATEST(COALESCE(t.available_kg, 0) + COALESCE(t.sold_kg, 0) + COALESCE(t.reserved_kg, 0), COALESCE(t.available_kg, 0))) AS total_kg,
         p.kyc_status
       FROM public.trips t
@@ -106,6 +108,7 @@ export async function buildTripCapacitySnapshot(executor, tripId, { lockTrip = f
     tripId: trip.id,
     userId: trip.user_id,
     status: trip.status,
+    travelDocumentVerified: trip.travel_document_verified,
     kycStatus: trip.kyc_status,
     departureDate: trip.departure_date,
     arrivalDate: trip.arrival_date,

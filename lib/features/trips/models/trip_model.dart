@@ -176,7 +176,7 @@ class TripModel {
           JsonParser.parseDoubleFirst(json, ['reservedKg', 'reserved_kg']),
       pricePerKg:
           JsonParser.parseDoubleFirst(json, ['pricePerKg', 'price_per_kg']),
-      status: json['status']?.toString() ?? 'active',
+      status: json['status']?.toString() ?? 'pending_admin_review',
       travelMeans: JsonParser.parseStr(json, 'travelMeans',
           altKey: 'travel_means', fallback: 'Flight'),
       currency: json['currency']?.toString() ??

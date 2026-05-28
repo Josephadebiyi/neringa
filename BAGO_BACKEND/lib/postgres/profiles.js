@@ -3,6 +3,14 @@ import bcrypt from 'bcrypt';
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
 
+const AFRICAN_PAYOUT_CURRENCIES = new Set([
+  'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
+  'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
+  'MRU', 'MUR', 'MWK', 'MZN', 'NAD', 'NGN', 'RWF', 'SCR', 'SDG', 'SLE',
+  'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
+  'ZWL',
+]);
+
 // Ensure earning_currency columns exist — runs once at startup, not lazily
 let _earningCurrencyEnsured = false;
 async function ensureEarningCurrencyColumns() {
@@ -10,7 +18,12 @@ async function ensureEarningCurrencyColumns() {
   await query(`
     ALTER TABLE public.profiles
       ADD COLUMN IF NOT EXISTS earning_currency TEXT,
-      ADD COLUMN IF NOT EXISTS earning_currency_locked BOOLEAN NOT NULL DEFAULT FALSE
+      ADD COLUMN IF NOT EXISTS earning_currency_locked BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS paypal_email TEXT,
+      ADD COLUMN IF NOT EXISTS payout_currency TEXT,
+      ADD COLUMN IF NOT EXISTS payout_status TEXT,
+      ADD COLUMN IF NOT EXISTS payout_provider TEXT,
+      ADD COLUMN IF NOT EXISTS payout_method_status TEXT
   `);
   await query(`
     UPDATE public.profiles
@@ -55,6 +68,11 @@ function normalizeProfileRow(row) {
     stripeConnectAccountId: row.stripe_connect_account_id,
     stripeVerified: row.stripe_verified,
     paystackRecipientCode: row.paystack_recipient_code,
+    paypalEmail: row.paypal_email,
+    payoutCurrency: row.payout_currency,
+    payoutStatus: row.payout_status,
+    payoutProvider: row.payout_provider,
+    payoutMethodStatus: row.payout_method_status,
     bankDetails: row.bank_details || {},
     payoutMethod: row.payout_method,
     pushTokens: row.push_tokens || [],
@@ -109,6 +127,11 @@ const baseSelect = `
     p.stripe_connect_account_id,
     p.stripe_verified,
     p.paystack_recipient_code,
+    p.paypal_email,
+    p.payout_currency,
+    p.payout_status,
+    p.payout_provider,
+    p.payout_method_status,
     p.bank_details,
     p.payout_method,
     p.payment_gateway,
@@ -428,7 +451,7 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
 export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
   const upper = currency.toUpperCase();
-  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'paypal';
+  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
   await withTransaction(async (client) => {
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = FALSE,
@@ -471,7 +494,7 @@ export async function activateEarningCurrency(userId, currency) {
 export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote) {
   await ensureEarningCurrencyColumns();
   const upper = newCurrency.toUpperCase();
-  const paymentGateway = ['NGN', 'GHS', 'KES', 'ZAR'].includes(upper) ? 'paystack' : 'paypal';
+  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
 
   await withTransaction(async (client) => {
     if (settleBalance) {

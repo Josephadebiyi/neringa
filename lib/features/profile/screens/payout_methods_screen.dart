@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/utils/user_currency_helper.dart';
@@ -66,7 +68,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   };
 
   final _emailController = TextEditingController();
-  final _currencyController = TextEditingController();
+  String _selectedCurrency = 'USD';
   bool _confirmed = false;
   bool _saving = false;
 
@@ -75,22 +77,24 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     super.initState();
     final user = ref.read(authProvider).user;
     final currency = UserCurrencyHelper.resolve(user).toUpperCase();
-    _currencyController.text =
-        _africanPayoutCurrencies.contains(currency) || currency.isEmpty
-            ? 'USD'
-            : currency;
+    _selectedCurrency =
+        CurrencyConversionHelper.supportedCurrencyCodes.contains(currency)
+            ? currency
+            : 'USD';
   }
 
   @override
   void dispose() {
     _emailController.dispose();
-    _currencyController.dispose();
     super.dispose();
   }
 
+  bool get _usesPaystack =>
+      _africanPayoutCurrencies.contains(_selectedCurrency.toUpperCase());
+
   Future<void> _save() async {
     if (_saving) return;
-    final payoutCurrency = _currencyController.text.trim().toUpperCase();
+    final payoutCurrency = _selectedCurrency.toUpperCase();
     if (_africanPayoutCurrencies.contains(payoutCurrency)) {
       AppSnackBar.show(
         context,
@@ -102,6 +106,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
     setState(() => _saving = true);
     try {
+      await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
       await ApiService.instance.post(
         ApiConstants.paypalPayoutSettings,
         data: {
@@ -114,7 +119,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'PayPal payout settings saved.',
+        message:
+            'PayPal payout settings saved. Wallet currency updated to $payoutCurrency.',
         type: SnackBarType.success,
       );
     } on DioException catch (error) {
@@ -124,6 +130,32 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         message: ApiService.parseError(error),
         type: SnackBarType.error,
       );
+    } catch (error) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: error.toString().replaceFirst('Exception: ', ''),
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _continueWithPaystack() async {
+    if (_saving) return;
+    final payoutCurrency = _selectedCurrency.toUpperCase();
+    setState(() => _saving = true);
+    try {
+      await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message:
+            'Wallet currency updated to $payoutCurrency. Add your bank for Paystack payouts.',
+        type: SnackBarType.success,
+      );
+      context.push('/profile/add-bank');
     } catch (error) {
       if (!mounted) return;
       AppSnackBar.show(
@@ -167,7 +199,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           ),
           const SizedBox(height: 18),
           Text(
-            'PayPal payouts',
+            'Payout settings',
             style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
@@ -180,51 +212,100 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            'African payout currencies use Paystack/bank transfer. PayPal payout currency must be non-African, for example USD, EUR, GBP, CAD, or AUD.',
+            'Choose the currency you want paid out in. African currencies use Paystack bank transfer. Other currencies use PayPal.',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.gray500,
               height: 1.45,
             ),
           ),
           const SizedBox(height: 24),
-          TextField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
+          DropdownButtonFormField<String>(
+            initialValue: _selectedCurrency,
+            items: CurrencyConversionHelper.supportedCurrencyCodes
+                .map((currency) => DropdownMenuItem(
+                      value: currency,
+                      child: Text(currency),
+                    ))
+                .toList(),
+            onChanged: _saving
+                ? null
+                : (value) => setState(() {
+                      _selectedCurrency = value ?? 'USD';
+                      _confirmed = false;
+                    }),
             decoration: const InputDecoration(
-              labelText: 'PayPal email address',
+              labelText: 'Payout currency',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _currencyController,
-            textCapitalization: TextCapitalization.characters,
-            maxLength: 3,
-            decoration: const InputDecoration(
-              labelText: 'Preferred payout currency',
-              border: OutlineInputBorder(),
-              counterText: '',
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.gray50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
             ),
-          ),
-          const SizedBox(height: 16),
-          CheckboxListTile(
-            value: _confirmed,
-            onChanged: (value) => setState(() => _confirmed = value == true),
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: Text(
-              'I confirm this PayPal account belongs to me and can receive payouts.',
-              style: AppTextStyles.bodyMd,
+            child: Row(
+              children: [
+                Icon(
+                  _usesPaystack
+                      ? Icons.account_balance_rounded
+                      : Icons.alternate_email_rounded,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _usesPaystack
+                        ? '$_selectedCurrency payouts will use Paystack bank transfer.'
+                        : '$_selectedCurrency payouts will use PayPal.',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.gray700,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
-          AppButton(
-            label: 'Save PayPal payout settings',
-            icon: const Icon(Icons.check_rounded, size: 18),
-            isLoading: _saving,
-            onPressed: _save,
-          ),
+          if (_usesPaystack) ...[
+            AppButton(
+              label: 'Set up Paystack bank payout',
+              icon: const Icon(Icons.account_balance_rounded, size: 18),
+              isLoading: _saving,
+              onPressed: _continueWithPaystack,
+            ),
+          ] else ...[
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'PayPal email address',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              value: _confirmed,
+              onChanged: (value) => setState(() => _confirmed = value == true),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(
+                'I confirm this PayPal account belongs to me and can receive payouts.',
+                style: AppTextStyles.bodyMd,
+              ),
+            ),
+            const SizedBox(height: 24),
+            AppButton(
+              label: 'Save PayPal payout settings',
+              icon: const Icon(Icons.check_rounded, size: 18),
+              isLoading: _saving,
+              onPressed: _save,
+            ),
+          ],
         ],
       ),
     );

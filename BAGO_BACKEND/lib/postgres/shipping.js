@@ -79,6 +79,11 @@ function normalizePackage(row) {
 
 function normalizeTrip(row) {
   if (!row) return null;
+  const rawStatus = (row.trip_status || row.status || 'pending_admin_review').toString();
+  const status = ['active', 'verified'].includes(rawStatus.toLowerCase()) && row.travel_document_verified !== true
+    ? 'pending_admin_review'
+    : rawStatus;
+
   return {
     _id: row.trip_id || row.id,
     id: row.trip_id || row.id,
@@ -95,11 +100,12 @@ function normalizeTrip(row) {
     reservedKg: toNumber(row.reserved_kg),
     remainingKg: toNumber(row.available_kg),
     travelMeans: row.travel_means,
-    status: row.trip_status || row.status,
+    status,
     pricePerKg: toNumber(row.price_per_kg),
     currency: row.trip_currency || row.currency,
     landmark: row.landmark,
     travelDocument: row.travel_document_url,
+    travelDocumentVerified: row.travel_document_verified,
     createdAt: row.trip_created_at || row.created_at,
     updatedAt: row.trip_updated_at || row.updated_at,
     activeShipmentCount: toNumber(row.active_shipment_count),
@@ -331,6 +337,7 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
   await ensureTripCapacityColumns({ query });
   const conditions = [
     "t.status in ('verified', 'active')",
+    'coalesce(t.travel_document_verified, false) = true',
     "date(t.departure_date) >= current_date",
     "greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) > 0",
   ];
@@ -399,6 +406,7 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
         t.currency as trip_currency,
         t.landmark,
         t.travel_document_url,
+        t.travel_document_verified,
         t.created_at as trip_created_at,
         t.updated_at as trip_updated_at,
         p.first_name,
@@ -509,6 +517,7 @@ export async function getTripById(id) {
              coalesce(trip_stats.reserved_kg, 0) as reserved_kg,
              t.travel_means, t.status,
              t.price_per_kg, t.currency as trip_currency, t.landmark, t.travel_document_url,
+             t.travel_document_verified,
              t.created_at as trip_created_at, t.updated_at as trip_updated_at,
              p.first_name, p.last_name, p.email, p.image_url, p.kyc_status, p.selected_avatar,
              trip_stats.active_shipment_count,

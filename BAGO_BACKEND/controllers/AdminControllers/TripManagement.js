@@ -98,7 +98,13 @@ export const updateTripStatus = async (req, res) => {
     const updatedRow = await queryOne(
       `
         update public.trips
-        set status = $2, updated_at = timezone('utc', now())
+        set status = $2,
+            travel_document_verified = case
+              when $2 in ('verified', 'active') then true
+              when $2 in ('pending_admin_review', 'declined', 'cancelled') then false
+              else travel_document_verified
+            end,
+            updated_at = timezone('utc', now())
         where id = $1
         returning id
       `,

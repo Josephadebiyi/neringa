@@ -27,17 +27,49 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   bool _balanceLoading = true;
   bool _submitting = false;
 
-  static const _africanCurrencies = [
-    'NGN',
+  static const _africanCurrencies = {
+    'AOA',
+    'BIF',
+    'BWP',
+    'CDF',
+    'CVE',
+    'DJF',
+    'DZD',
+    'EGP',
+    'ERN',
+    'ETB',
     'GHS',
+    'GMD',
+    'GNF',
     'KES',
-    'ZAR',
+    'KMF',
+    'LRD',
+    'LSL',
+    'LYD',
+    'MAD',
+    'MGA',
+    'MRU',
+    'MUR',
+    'MWK',
+    'MZN',
+    'NAD',
+    'NGN',
+    'RWF',
+    'SCR',
+    'SDG',
+    'SLE',
+    'SOS',
+    'SSP',
+    'STN',
+    'SZL',
     'TZS',
     'UGX',
-    'RWF',
-    'EGP',
-    'MAD'
-  ];
+    'XAF',
+    'XOF',
+    'ZAR',
+    'ZMW',
+    'ZWL',
+  };
 
   @override
   void initState() {
@@ -160,9 +192,12 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
     final minimumAmount =
         CurrencyConversionHelper.minimumWithdrawalForCurrency(currency);
-    final isAfrican = _africanCurrencies.contains(currency);
+    final isAfrican = _africanCurrencies.contains(currency.toUpperCase());
     final hasBankLinked = user?.bankAccountLinked == true;
-    final hasPayoutMethod = isAfrican ? hasBankLinked : false;
+    final hasPaypalLinked = (user?.paypalEmail?.isNotEmpty ?? false) &&
+        (user?.payoutStatus?.toLowerCase() == 'active' ||
+            user?.payoutMethodStatus?.toLowerCase() == 'connected');
+    final hasPayoutMethod = isAfrican ? hasBankLinked : hasPaypalLinked;
     final canWithdraw =
         hasPayoutMethod && !_submitting && _balance >= minimumAmount;
 
@@ -287,7 +322,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                           Text(
                             isAfrican
                                 ? 'Please link a bank account before withdrawing.'
-                                : 'Please connect your Stripe account to receive payouts.',
+                                : 'Please add your PayPal payout email before withdrawing.',
                             style: AppTextStyles.bodySm.copyWith(
                                 color: const Color(0xFF92400E), height: 1.4),
                           ),
@@ -396,19 +431,22 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               decoration: BoxDecoration(
                   color: AppColors.primarySoft,
                   borderRadius: BorderRadius.circular(16)),
-              child: const Column(
+              child: Column(
                 children: [
-                  _InfoLine(
+                  const _InfoLine(
                       label: 'Processing time', value: '1-3 business days'),
-                  SizedBox(height: 8),
-                  _InfoLine(
+                  const SizedBox(height: 8),
+                  const _InfoLine(
                       label: 'Transaction fee', value: 'No fee from Bago'),
-                  SizedBox(height: 8),
-                  _InfoLine(label: 'Method', value: 'Bank Transfer'),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   _InfoLine(
+                    label: 'Method',
+                    value: isAfrican ? 'Paystack bank transfer' : 'PayPal',
+                  ),
+                  const SizedBox(height: 8),
+                  const _InfoLine(
                       label: 'Bago commission',
-                      value: '10% — already deducted from earnings'),
+                      value: '20% — already deducted from earnings'),
                 ],
               ),
             ),

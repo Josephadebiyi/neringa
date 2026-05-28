@@ -7,6 +7,7 @@ import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { updatePreferredCurrency, findProfileById } from '../lib/postgres/profiles.js';
 import { initiateTransfer } from '../services/paystackService.js';
+import { createPayPalEmailPayout } from './PayPalController.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -187,7 +188,7 @@ export const edit = async (req, res, next) => {
     // Convert wallet balance when currency changes
     if (updateKeys.includes('preferredCurrency') && updates.preferredCurrency) {
       const newCurrency = updates.preferredCurrency.toUpperCase();
-      const paymentGateway = ['NGN', 'GHS', 'KES'].includes(newCurrency) ? 'paystack' : 'paypal';
+      const paymentGateway = PAYSTACK_PAYOUT_CURRENCIES.includes(newCurrency) ? 'paystack' : 'paypal';
       await updatePreferredCurrency(userId, newCurrency, paymentGateway, oldPreferredCurrency);
     }
 
@@ -274,7 +275,13 @@ export const addFunds = async (req, res) => {
 
 const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
 const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 2);
-const PAYSTACK_PAYOUT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'];
+const PAYSTACK_PAYOUT_CURRENCIES = [
+  'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
+  'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
+  'MRU', 'MUR', 'MWK', 'MZN', 'NAD', 'NGN', 'RWF', 'SCR', 'SDG', 'SLE',
+  'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
+  'ZWL',
+];
 
 function payoutMethodForCurrency(currency = 'USD') {
   return PAYSTACK_PAYOUT_CURRENCIES.includes(String(currency).toUpperCase()) ? 'bank' : 'paypal';
@@ -292,6 +299,7 @@ export const withdrawFunds = async (req, res) => {
     const account = await queryOne(
       `SELECT
           p.paypal_email,
+          p.payout_currency,
           p.payout_status,
           p.paystack_recipient_code,
           wa.id as wallet_id,
@@ -328,6 +336,12 @@ export const withdrawFunds = async (req, res) => {
 
     if (selectedMethod === 'paypal' && (!account.paypal_email || account.payout_status !== 'active')) {
       return res.status(400).json({ success: false, message: 'Add an active PayPal payout email before withdrawing.' });
+    }
+    if (selectedMethod === 'paypal' && account.payout_currency && String(account.payout_currency).toUpperCase() !== walletCurrency) {
+      return res.status(400).json({
+        success: false,
+        message: `Your PayPal payout currency is ${account.payout_currency}. Update payout settings to withdraw ${walletCurrency}.`,
+      });
     }
     if (selectedMethod === 'bank' && !account.paystack_recipient_code) {
       return res.status(400).json({ success: false, message: 'Add and verify a bank account before withdrawing.' });
@@ -409,11 +423,22 @@ export const withdrawFunds = async (req, res) => {
           [userId, reference, JSON.stringify({ transferCode: result.transferCode })]
         );
       } else {
+        const payout = await createPayPalEmailPayout({
+          receiverEmail: account.paypal_email,
+          amount: Number(amount),
+          currency: walletCurrency,
+          reference,
+          note: 'Bago wallet withdrawal',
+        });
         await pgQuery(
           `UPDATE public.wallet_transactions
            SET status = 'processing', metadata = metadata || $3::jsonb
            WHERE user_id = $1 AND metadata->>'reference' = $2`,
-          [userId, reference, JSON.stringify({ paypalEmail: account.paypal_email })]
+          [userId, reference, JSON.stringify({
+            paypalEmail: account.paypal_email,
+            payoutBatchId: payout.batch_header?.payout_batch_id,
+            payoutItemId: payout.items?.[0]?.payout_item_id || payout.items?.[0]?.payout_item?.payout_item_id,
+          })]
         );
       }
     } catch (payoutError) {
