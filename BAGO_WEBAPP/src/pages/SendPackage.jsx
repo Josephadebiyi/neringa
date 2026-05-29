@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -46,17 +46,13 @@ const parseLocationData = (locationStr) => {
 };
 
 const AFRICAN_PAYOUT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'];
-const STRIPE_PUBLISHABLE_KEY =
-    import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
-    import.meta.env.VITE_STRIPE_KEY ||
-    'pk_live_51SIm5SPvb8NSyluxt0PHddQMCZtzszO7huOR46DEiwX1rS96322QQUkhsTUUOTMeZSK4QVZOPcuP7uyzQG3xuQOW00J76dIWVe';
 const PAYMENT_UNAVAILABLE_MESSAGE =
     'Secure payment is temporarily unavailable. Please try again in a few minutes.';
 const PAYMENT_PENDING_MESSAGE =
     'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
 
 const providerForCurrency = (value) => (
-    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'stripe'
+    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'paypal'
 );
 
 const showPaymentError = (setError, message = PAYMENT_UNAVAILABLE_MESSAGE, error = null) => {
@@ -65,27 +61,6 @@ const showPaymentError = (setError, message = PAYMENT_UNAVAILABLE_MESSAGE, error
     }
     setError(message);
 };
-
-const loadStripeJs = () => new Promise((resolve, reject) => {
-    if (window.Stripe) {
-        resolve(window.Stripe);
-        return;
-    }
-
-    const existing = document.querySelector('script[src="https://js.stripe.com/v3/"]');
-    if (existing) {
-        existing.addEventListener('load', () => resolve(window.Stripe));
-        existing.addEventListener('error', reject);
-        return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://js.stripe.com/v3/';
-    script.async = true;
-    script.onload = () => resolve(window.Stripe);
-    script.onerror = reject;
-    document.body.appendChild(script);
-});
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -129,11 +104,7 @@ export default function SendPackage() {
     const [exchangeRates, setExchangeRates] = useState(null);
     const [quote, setQuote] = useState(null);
     const [pendingPayment, setPendingPayment] = useState(null);
-    const [stripeReady, setStripeReady] = useState(false);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
-    const stripeRef = useRef(null);
-    const elementsRef = useRef(null);
-    const paymentElementRef = useRef(null);
 
     // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
@@ -323,59 +294,6 @@ export default function SendPackage() {
     const totalCost = (shippingCost + insuranceCost).toFixed(2);
     const paymentProvider = providerForCurrency(currency);
 
-    useEffect(() => {
-        let cancelled = false;
-
-        const mountStripePaymentElement = async () => {
-            if (!pendingPayment || pendingPayment.provider !== 'stripe' || !pendingPayment.clientSecret || !paymentElementRef.current) return;
-            setStripeReady(false);
-
-            try {
-                const publishableKey = STRIPE_PUBLISHABLE_KEY;
-                if (!publishableKey) {
-                    showPaymentError(setError);
-                    return;
-                }
-
-                const Stripe = await loadStripeJs();
-                if (cancelled) return;
-
-                const stripe = Stripe(publishableKey);
-                const elements = stripe.elements({
-                    clientSecret: pendingPayment.clientSecret,
-                    appearance: {
-                        theme: 'stripe',
-                        variables: {
-                            colorPrimary: '#5845D8',
-                            borderRadius: '12px',
-                            fontFamily: 'Inter, system-ui, sans-serif',
-                        },
-                    },
-                });
-                const paymentElement = elements.create('payment');
-                paymentElement.mount(paymentElementRef.current);
-
-                stripeRef.current = stripe;
-                elementsRef.current = elements;
-                setStripeReady(true);
-            } catch (err) {
-                if (!cancelled) showPaymentError(setError, PAYMENT_UNAVAILABLE_MESSAGE, err);
-            }
-        };
-
-        mountStripePaymentElement();
-
-        return () => {
-            cancelled = true;
-            if (paymentElementRef.current) {
-                paymentElementRef.current.innerHTML = '';
-            }
-            stripeRef.current = null;
-            elementsRef.current = null;
-            setStripeReady(false);
-        };
-    }, [pendingPayment]);
-
     const createShipmentRequestAfterPayment = async ({ packageId, paymentReference, provider }) => {
         const requestResponse = await api.post('/api/bago/RequestPackage', {
             travelerId: selectedTrip.user,
@@ -398,33 +316,28 @@ export default function SendPackage() {
         }
     };
 
-    const handleConfirmStripePayment = async () => {
-        if (!pendingPayment || !stripeRef.current || !elementsRef.current) return;
+    const handleCapturePayPalPayment = async () => {
+        if (!pendingPayment?.orderId) return;
         setPaymentProcessing(true);
         setError('');
         try {
-            const { error: stripeError, paymentIntent } = await stripeRef.current.confirmPayment({
-                elements: elementsRef.current,
-                redirect: 'if_required',
-                confirmParams: {
-                    return_url: `${window.location.origin}/shipping-success`,
-                },
+            const capture = await api.post('/api/payments/paypal/capture-order', {
+                orderId: pendingPayment.orderId,
             });
-
-            if (stripeError) {
-                showPaymentError(setError, PAYMENT_PENDING_MESSAGE, stripeError);
+            if (!capture.data?.success) {
+                showPaymentError(setError, capture.data?.message || PAYMENT_PENDING_MESSAGE, capture.data);
                 return;
             }
 
-            if (!['succeeded', 'processing'].includes(paymentIntent?.status)) {
-                showPaymentError(setError, 'Payment was not completed. Please try again.');
-                return;
-            }
-
-            await createShipmentRequestAfterPayment({
-                packageId: pendingPayment.packageId,
-                paymentReference: paymentIntent.id,
-                provider: 'stripe',
+            setPendingPayment(null);
+            navigate('/shipping-success', {
+                state: {
+                    requestId: capture.data?.data?.request?.id || capture.data?.data?.request?._id,
+                    trackingNumber: capture.data?.data?.request?.trackingNumber,
+                    amount: Number(totalCost),
+                    currency,
+                    paymentMethod: 'paypal',
+                },
             });
         } catch (err) {
             showPaymentError(setError, PAYMENT_PENDING_MESSAGE, err);
@@ -534,27 +447,28 @@ export default function SendPackage() {
                 if (packageResponse.status === 201) {
                     const packageId = packageResponse.data.package._id;
 
-                    if (paymentProvider === 'stripe') {
-                        const paymentResponse = await api.post('/api/bago/payment-methods/payment-intent', {
+                    if (paymentProvider === 'paypal') {
+                        const paymentResponse = await api.post('/api/payments/paypal/create-order', {
                             packageId,
                             tripId: selectedTrip._id,
-                            amount: Number(totalCost),
+                            paymentMethod: 'paypal_wallet',
                             currency,
-                            customerEmail: user?.email || '',
-                            travellerEmail: user?.email || '',
-                            travellerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || '',
                             insurance: formData.insuranceProtection,
                             insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
-                            estimatedDeparture: selectedTrip.departureDate,
-                            estimatedArrival: selectedTrip.arrivalDate,
                         });
 
                         const paymentData = paymentResponse.data?.data || {};
+                        const approvalUrl = paymentData.approvalUrl || paymentResponse.data?.approvalUrl;
+                        const orderId = paymentData.orderId || paymentResponse.data?.orderId;
+                        if (!approvalUrl || !orderId) {
+                            throw new Error('PayPal checkout could not start.');
+                        }
+                        window.open(approvalUrl, '_blank', 'noopener,noreferrer');
                         setPendingPayment({
-                            provider: 'stripe',
+                            provider: 'paypal',
                             packageId,
-                            clientSecret: paymentData.clientSecret,
-                            paymentIntentId: paymentData.paymentIntentId,
+                            orderId,
+                            authorizationUrl: approvalUrl,
                         });
                         return;
                     }
@@ -622,44 +536,31 @@ export default function SendPackage() {
                             </div>
                         </div>
 
-                        {pendingPayment.provider === 'stripe' ? (
-                            <div className="space-y-5">
-                                <div ref={paymentElementRef} className="min-h-[120px]" />
+                        <div className="space-y-4">
+                            <p className="text-sm text-[#6B7280] font-medium">
+                                {pendingPayment.provider === 'paypal'
+                                    ? 'PayPal opened in a new tab. Complete checkout there, then return here to confirm payment. PayPal securely handles wallet, card, Apple Pay, and Google Pay when available.'
+                                    : 'Paystack opened in a new tab. Complete checkout there, then return here to verify payment and send the request.'}
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <a
+                                    href={pendingPayment.authorizationUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center justify-center px-8 py-4 bg-white border border-gray-100 text-[#012126] rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-all"
+                                >
+                                    Reopen checkout
+                                </a>
                                 <button
                                     type="button"
-                                    onClick={handleConfirmStripePayment}
-                                    disabled={!stripeReady || paymentProcessing}
-                                    className="w-full md:w-auto px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                    onClick={pendingPayment.provider === 'paypal' ? handleCapturePayPalPayment : handleVerifyPaystackPayment}
+                                    disabled={paymentProcessing}
+                                    className="inline-flex items-center justify-center px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all disabled:opacity-50"
                                 >
-                                    {paymentProcessing ? <RefreshCw className="animate-spin" size={16} /> : <CreditCard size={16} />}
-                                    Pay and send request
+                                    {paymentProcessing ? 'Checking...' : pendingPayment.provider === 'paypal' ? 'Confirm PayPal payment' : 'Verify and send request'}
                                 </button>
                             </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <p className="text-sm text-[#6B7280] font-medium">
-                                    Paystack opened in a new tab. Complete checkout there, then return here to verify payment and send the request.
-                                </p>
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <a
-                                        href={pendingPayment.authorizationUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center justify-center px-8 py-4 bg-white border border-gray-100 text-[#012126] rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-all"
-                                    >
-                                        Reopen checkout
-                                    </a>
-                                    <button
-                                        type="button"
-                                        onClick={handleVerifyPaystackPayment}
-                                        disabled={paymentProcessing}
-                                        className="inline-flex items-center justify-center px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all disabled:opacity-50"
-                                    >
-                                        {paymentProcessing ? 'Checking...' : 'Verify and send request'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </div>
                 )}
 

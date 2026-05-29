@@ -154,9 +154,6 @@ class PaymentFailedScreen extends StatelessWidget {
     if (normalized.contains('canceled') || normalized.contains('cancelled')) {
       return l10n.paymentCancelledMessage;
     }
-    if (normalized.startsWith('stripeexception(')) {
-      return l10n.paymentCouldNotCompleteGeneric;
-    }
     if (normalized.contains('internal server') ||
         normalized.contains('vite') ||
         normalized.contains('publishable key') ||

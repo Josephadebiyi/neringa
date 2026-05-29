@@ -20,11 +20,11 @@ export default function Earnings({ user, checkAuthStatus }) {
     const walletCurrency = (user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
     const isAfricanCurrency = africanCurrencies.includes(walletCurrency);
 
-    const hasStripe = !!user?.stripeConnectAccountId && user?.stripeVerified;
+    const hasPayPal = !!(user?.paypalEmail || user?.paypal_email);
     const hasBank = !!user?.bankDetails?.accountNumber;
 
     // Default method based on logic
-    const [method, setMethod] = useState(isAfricanCurrency ? 'bank' : 'stripe');
+    const [method, setMethod] = useState(isAfricanCurrency ? 'bank' : 'paypal');
 
     useEffect(() => {
         setBalance(user?.walletBalance ?? user?.balance ?? 0);
@@ -68,8 +68,8 @@ export default function Earnings({ user, checkAuthStatus }) {
             setStatus({ type: 'error', message: t('addBankDetailsFirst') });
             return;
         }
-        if (method === 'stripe' && !hasStripe) {
-            setStatus({ type: 'error', message: t('addStripeDetailsFirst') });
+        if (method === 'paypal' && !hasPayPal) {
+            setStatus({ type: 'error', message: 'Please add your PayPal payout email in Settings first.' });
             return;
         }
 
@@ -80,7 +80,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                 amount: Number(withdrawAmount),
                 method: method,
                 currency: walletCurrency,
-                description: `Withdrawal via ${method === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}`
+                description: `Withdrawal via ${method === 'bank' ? 'Bank Transfer' : 'PayPal'}`
             });
             if (res.data.success) {
                 setStatus({ type: 'success', message: t('withdrawalRequestSubmitted') });
@@ -146,11 +146,11 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     </div>
                                 </div>
                             ) : (
-                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasStripe ? 'bg-white/5 border-white/10 text-white' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasPayPal ? 'bg-white/5 border-white/10 text-white' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
                                     <CreditCard size={18} />
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest">Stripe Connect</p>
-                                        <p className="text-[8px] opacity-60 font-bold uppercase">{hasStripe ? 'Account Verified' : 'Not Connected'}</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest">PayPal Payouts</p>
+                                        <p className="text-[8px] opacity-60 font-bold uppercase">{hasPayPal ? 'Account Connected' : 'Not Connected'}</p>
                                     </div>
                                 </div>
                             )}
@@ -299,16 +299,16 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 space-y-4">
                                     <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] uppercase tracking-widest">
                                         <div className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">✓</div>
-                                        Stripe Connect
+                                        PayPal Payouts
                                     </h4>
                                     <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-4 uppercase tracking-wide">
-                                        Required for payouts in USD, EUR, GBP.
+                                        Required for payouts in USD, EUR, GBP and other non-African currencies.
                                     </p>
                                     <button 
                                         onClick={() => { setShowPayoutModal(false); navigate('/dashboard?tab=settings'); }}
                                         className="w-full py-4 bg-[#5845D8] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10"
                                     >
-                                        {hasStripe ? 'View Stripe Account' : 'Connect Stripe'}
+                                        {hasPayPal ? 'Update PayPal Account' : 'Connect PayPal'}
                                         <ArrowRight size={14} />
                                     </button>
                                 </div>

@@ -201,25 +201,24 @@ export default function Settings({ user, checkAuthStatus }) {
     const [bankLoading, setBankLoading] = useState(false);
     const [showBankOtp, setShowBankOtp] = useState(false);
     const [bankOtp, setBankOtp] = useState('');
-    const [stripeVerified, setStripeVerified] = useState(user?.stripeVerified || false);
-    const [stripeLoading, setStripeLoading] = useState(false);
-    const [stripeSetupFailed, setStripeSetupFailed] = useState(false);
+    const [paypalEmail, setPaypalEmail] = useState(user?.paypalEmail || user?.paypal_email || '');
+    const [paypalLoading, setPaypalLoading] = useState(false);
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
     const [phoneSuccess, setPhoneSuccess] = useState(false);
 
     useEffect(() => {
-        if (user?._id) {
-            checkStripeStatus();
-        }
         if (user?.earningCurrency || user?.preferredCurrency) {
             setPreferredCurrency(user.earningCurrency || user.preferredCurrency);
+        }
+        if (user?.paypalEmail || user?.paypal_email) {
+            setPaypalEmail(user.paypalEmail || user.paypal_email);
         }
         if (user?.phone) {
             setPhone(user.phone);
         }
-    }, [user?._id, user?.preferredCurrency, user?.phone]);
+    }, [user?._id, user?.preferredCurrency, user?.phone, user?.paypalEmail, user?.paypal_email]);
 
     // Re-sync name and DOB when user data updates (e.g. after identity verification)
     useEffect(() => {
@@ -231,45 +230,6 @@ export default function Settings({ user, checkAuthStatus }) {
             } catch { /* ignore invalid date */ }
         }
     }, [user?.firstName, user?.lastName, user?.dateOfBirth]);
-
-    const checkStripeStatus = async () => {
-        try {
-            const res = await api.get(`/api/stripe/connect/status/${user?._id || user?.id}`);
-            if (res.data.success) {
-                setStripeVerified(res.data.verified);
-            }
-        } catch (err) {
-        }
-    };
-
-    const handleStripeConnect = async () => {
-        setStripeLoading(true);
-        setStripeSetupFailed(false);
-        try {
-            const res = await api.post('/api/stripe/connect/onboard', {
-                userId: user?._id || user?.id,
-                email: user?.email,
-                restartIncomplete: true
-            });
-            if (res.data.success && res.data.connected) {
-                setStripeVerified(true);
-                await checkAuthStatus?.();
-                return;
-            }
-            if (res.data.success && res.data.url) {
-                window.location.href = res.data.url;
-                return;
-            }
-            throw new Error(res.data?.message || 'Stripe setup could not be completed.');
-        } catch (err) {
-            const msg = err.response?.data?.message || 'Stripe setup could not be completed. You can try again, choose another supported payout provider, or contact support.';
-            setError(msg);
-            setStripeSetupFailed(true);
-        } finally {
-            setStripeLoading(false);
-        }
-    };
-
 
     const handleSendPhoneOtp = async (e) => {
         e.preventDefault();
@@ -306,7 +266,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR'];
     const isAfricanCurrency = africanCurrencies.includes(preferredCurrency?.toUpperCase());
     const showBankOption = isAfricanCurrency;
-    const showStripeOption = !isAfricanCurrency;
+    const showPayPalOption = !isAfricanCurrency;
 
     useEffect(() => {
         if (!showBankOption) return;
@@ -411,6 +371,31 @@ export default function Settings({ user, checkAuthStatus }) {
             setError(err.response?.data?.message || 'Could not verify bank OTP.');
         } finally {
             setBankLoading(false);
+        }
+    };
+
+    const handleSavePayPal = async () => {
+        setError('');
+        setSuccessMessage('');
+        if (!paypalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail)) {
+            setError('Enter a valid PayPal email address.');
+            return;
+        }
+        setPaypalLoading(true);
+        try {
+            const res = await api.post('/api/payouts/paypal/settings', {
+                paypalEmail: paypalEmail.trim().toLowerCase(),
+                payoutCurrency: preferredCurrency || user?.preferredCurrency || 'USD',
+                confirmed: true,
+            });
+            if (res.data?.success) {
+                setSuccessMessage('PayPal payout account saved.');
+                await checkAuthStatus?.();
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Could not save PayPal payout settings.');
+        } finally {
+            setPaypalLoading(false);
         }
     };
 
@@ -681,58 +666,47 @@ export default function Settings({ user, checkAuthStatus }) {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {showStripeOption && (
+                    {showPayPalOption && (
                         <div className="space-y-6">
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col justify-between group hover:border-[#5845D8]/20 transition-all">
                                 <div>
                                     <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">
                                         <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">1</span>
-                                        Stripe Connect
+                                        PayPal Payouts
                                     </h4>
                                     <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-6 uppercase tracking-wide opacity-70">
-                                        {t('stripeConnectDesc')}
+                                        Payouts in {preferredCurrency || 'USD'} are sent to your PayPal account after delivery is completed and cleared.
                                     </p>
                                 </div>
 
-                                {stripeVerified ? (
+                                {(user?.paypalEmail || user?.paypal_email) && (
                                     <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
                                             <Check size={14} strokeWidth={4} />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">{t('accountConnected')}</p>
-                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{t('readyForPayouts')}</p>
+                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">PayPal connected</p>
+                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{user?.paypalEmail || user?.paypal_email}</p>
                                         </div>
                                         <ShieldCheck className="text-green-500/50" size={18} />
                                     </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <button
-                                            onClick={handleStripeConnect}
-                                            disabled={stripeLoading}
-                                            className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
-                                        >
-                                            {stripeLoading ? <RefreshCw className="animate-spin" size={14} /> : (
-                                                <>{stripeSetupFailed ? 'Try Stripe Again' : t('connectStripe')} <ShieldCheck size={16} /></>
-                                            )}
-                                        </button>
-                                        {stripeSetupFailed && (
-                                            <div className="rounded-2xl border border-red-100 bg-red-50/70 p-3 space-y-2">
-                                                <p className="text-[9px] font-bold text-red-700 leading-relaxed">
-                                                    Stripe setup could not be completed. You can try again, choose another supported payout provider, or contact support.
-                                                </p>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                    <button onClick={() => setStripeSetupFailed(false)} className="rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase tracking-widest text-[#012126] border border-red-100">
-                                                        Choose Another Provider
-                                                    </button>
-                                                    <button onClick={() => navigate('/support')} className="rounded-xl bg-[#012126] px-3 py-2 text-[8px] font-black uppercase tracking-widest text-white">
-                                                        Contact Support
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
                                 )}
+                                <div className="space-y-3 mt-4">
+                                    <input
+                                        type="email"
+                                        value={paypalEmail}
+                                        onChange={(e) => setPaypalEmail(e.target.value)}
+                                        placeholder="paypal@example.com"
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm"
+                                    />
+                                    <button
+                                        onClick={handleSavePayPal}
+                                        disabled={paypalLoading}
+                                        className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
+                                    >
+                                        {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>Save PayPal Payout <ShieldCheck size={16} /></>}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}

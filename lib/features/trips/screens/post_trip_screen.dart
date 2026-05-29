@@ -143,6 +143,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
 
     try {
       final freshUser = await AuthService.instance.getProfile();
+      if (freshUser.acceptedTerms == true) {
+        _termsAccepted = true;
+        if (freshUser.hasPassedKyc == true) _step = 1;
+      }
       final backendCurrency = UserCurrencyHelper.resolve(freshUser);
       if (backendCurrency.isNotEmpty) {
         if (!mounted) return;
@@ -920,8 +924,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
             // ── Step content ─────────────────────────────────────────────
             Expanded(child: _buildStep(currentCurrency)),
 
-            // ── Footer button (hidden on location steps — tap-to-select advances automatically) ──
-            if (_step != 1 && _step != 2)
+            // ── Footer button ───────────────────────────────────────────
+            // Create mode advances automatically after a city selection. Edit mode
+            // keeps the button visible so a prefilled trip can move through every step.
+            if (_isEditMode || (_step != 1 && _step != 2))
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                 child: SizedBox(

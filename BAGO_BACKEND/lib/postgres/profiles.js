@@ -23,7 +23,9 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS payout_currency TEXT,
       ADD COLUMN IF NOT EXISTS payout_status TEXT,
       ADD COLUMN IF NOT EXISTS payout_provider TEXT,
-      ADD COLUMN IF NOT EXISTS payout_method_status TEXT
+      ADD COLUMN IF NOT EXISTS payout_method_status TEXT,
+      ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS accepted_terms_at TIMESTAMPTZ
   `);
   await query(`
     UPDATE public.profiles
@@ -73,6 +75,8 @@ function normalizeProfileRow(row) {
     payoutStatus: row.payout_status,
     payoutProvider: row.payout_provider,
     payoutMethodStatus: row.payout_method_status,
+    acceptedTerms: row.accepted_terms ?? false,
+    acceptedTermsAt: row.accepted_terms_at,
     bankDetails: row.bank_details || {},
     payoutMethod: row.payout_method,
     pushTokens: row.push_tokens || [],
@@ -132,6 +136,8 @@ const baseSelect = `
     p.payout_status,
     p.payout_provider,
     p.payout_method_status,
+    COALESCE(p.accepted_terms, false) AS accepted_terms,
+    p.accepted_terms_at,
     p.bank_details,
     p.payout_method,
     p.payment_gateway,

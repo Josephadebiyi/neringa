@@ -25,7 +25,6 @@ config.resolver.unstable_enableSymlinks = true;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   // List of native-only modules that should be mocked on web
   const nativeOnlyModules = [
-    '@stripe/stripe-react-native',
     'expo-local-authentication',
     'expo-notifications',
   ];

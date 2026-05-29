@@ -68,13 +68,6 @@
           "icon": "./assets/icon.png",
           "color": "#5C4BFD"
         }
-      ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "",
-          "enableGooglePay": false
-        }
       ]
     ],
     "extra": {

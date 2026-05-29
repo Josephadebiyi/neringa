@@ -406,7 +406,7 @@ const FAQSection = () => {
         },
         {
             q: "How do I get paid as a courier?",
-            a: "Upon successful delivery and recipient confirmation, funds are released to your Bago wallet immediately. You can withdraw to your bank via Stripe or Paystack."
+            a: "Upon successful delivery and recipient confirmation, funds are released to your Bago wallet immediately. You can withdraw to your bank via PayPal or Paystack."
         },
         {
             q: "What items can I send?",

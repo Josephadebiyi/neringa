@@ -87,7 +87,6 @@ export default {
           color: '#5C4BFD',
         },
       ],
-      ['@stripe/stripe-react-native', {}],
       ['expo-image-picker', {
         photosPermission: 'Allow $(PRODUCT_NAME) to access your photos',
         cameraPermission: 'Allow $(PRODUCT_NAME) to access your camera'

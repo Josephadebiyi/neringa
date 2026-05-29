@@ -80,7 +80,7 @@ export default function Footer() {
                 </div>
                 <div className="flex flex-wrap justify-center gap-10">
                     <p className="hover:text-[#012126] transition-colors cursor-default">Global Logistics Network</p>
-                    <p className="hover:text-[#012126] transition-colors cursor-default">Secure Payments by Stripe & Paystack</p>
+                    <p className="hover:text-[#012126] transition-colors cursor-default">Secure Payments by PayPal & Paystack</p>
                     <p className="text-[#5845D8]">Secure System Active</p>
                 </div>
             </div>

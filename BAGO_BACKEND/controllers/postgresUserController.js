@@ -119,6 +119,10 @@ function buildUserResponse(user) {
     payout_method_status: user.payoutMethodStatus || (user.paystackRecipientCode || user.paypalEmail ? 'connected' : null),
     bankAccountLinked: Boolean(user.paystackRecipientCode) || Boolean(user.paypalEmail),
     bank_account_linked: Boolean(user.paystackRecipientCode) || Boolean(user.paypalEmail),
+    acceptedTerms: user.acceptedTerms ?? false,
+    accepted_terms: user.acceptedTerms ?? false,
+    acceptedTermsAt: user.acceptedTermsAt || null,
+    accepted_terms_at: user.acceptedTermsAt || null,
   };
 }
 
@@ -590,6 +594,41 @@ export async function getUser(req, res) {
     res.status(200).json({ success: true, user: buildUserResponse(user) });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function acceptTerms(req, res) {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const row = await queryOne(
+      `
+        update public.profiles
+        set accepted_terms = true,
+            accepted_terms_at = coalesce(accepted_terms_at, timezone('utc', now())),
+            updated_at = timezone('utc', now())
+        where id = $1
+        returning id, accepted_terms, accepted_terms_at
+      `,
+      [userId],
+    );
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      acceptedTerms: row.accepted_terms,
+      accepted_terms: row.accepted_terms,
+      acceptedTermsAt: row.accepted_terms_at,
+      accepted_terms_at: row.accepted_terms_at,
+    });
+  } catch (error) {
+    console.error('acceptTerms error:', error);
+    return res.status(500).json({ success: false, message: 'Could not accept terms' });
   }
 }
 

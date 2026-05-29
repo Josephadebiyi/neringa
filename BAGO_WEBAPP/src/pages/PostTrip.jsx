@@ -123,6 +123,7 @@ export default function PostTrip() {
     const [error, setError] = useState('');
     const [kycStatus, setKycStatus] = useState('');
     const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
+    const [termsAlreadyAccepted, setTermsAlreadyAccepted] = useState(user?.acceptedTerms === true);
 
     const [formData, setFormData] = useState({
         originCountry: '',
@@ -146,6 +147,10 @@ export default function PostTrip() {
         const saved = localStorage.getItem('pending_trip_post');
         if (saved) {
             try { setFormData(JSON.parse(saved)); } catch (e) { }
+        }
+        if (user?.acceptedTerms === true) {
+            setTermsAlreadyAccepted(true);
+            setFormData(prev => ({ ...prev, termsAccepted: true }));
         }
 
         const detectLocation = async () => {
@@ -228,7 +233,7 @@ export default function PostTrip() {
             return;
         }
 
-        if (!formData.termsAccepted) {
+        if (!termsAlreadyAccepted && !formData.termsAccepted) {
             setError('You must agree to the Terms and Conditions.');
             return;
         }
@@ -273,6 +278,10 @@ export default function PostTrip() {
         setLoading(true);
         setError('');
         try {
+            if (!termsAlreadyAccepted && formData.termsAccepted) {
+                await api.post('/api/bago/user/accept-terms', {});
+                setTermsAlreadyAccepted(true);
+            }
             const res = await api.post('/api/bago/AddAtrip', {
                 fromLocation: `${formData.originCity}, ${formData.originCountry}`,
                 fromCountry: formData.originCountry,
@@ -556,23 +565,34 @@ export default function PostTrip() {
                                 )}
 
                                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className="relative">
-                                            <input
-                                                type="checkbox"
-                                                name="termsAccepted"
-                                                checked={formData.termsAccepted}
-                                                onChange={handleChange}
-                                                className="hidden"
-                                            />
-                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${formData.termsAccepted ? 'bg-[#5845D8] border-[#5845D8] shadow-lg shadow-[#5845D8]/20' : 'border-gray-100 bg-gray-50 group-hover:border-[#5845D8]/20'}`}>
-                                                {formData.termsAccepted && <CheckCircle size={14} className="text-white" />}
+                                    {termsAlreadyAccepted ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center">
+                                                <CheckCircle size={14} className="text-white" />
                                             </div>
+                                            <span className="text-[10px] font-black text-green-700 uppercase tracking-widest">
+                                                Terms already accepted
+                                            </span>
                                         </div>
-                                        <span className="text-[10px] font-black text-[#012126] uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
-                                            {t('agreeToTermsPrefix') || 'I agree to the'} <Link to="/terms" className="text-[#5845D8] underline">{t('termsAndConditions') || 'Terms & Conditions'}</Link>
-                                        </span>
-                                    </label>
+                                    ) : (
+                                        <label className="flex items-center gap-3 cursor-pointer group">
+                                            <div className="relative">
+                                                <input
+                                                    type="checkbox"
+                                                    name="termsAccepted"
+                                                    checked={formData.termsAccepted}
+                                                    onChange={handleChange}
+                                                    className="hidden"
+                                                />
+                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${formData.termsAccepted ? 'bg-[#5845D8] border-[#5845D8] shadow-lg shadow-[#5845D8]/20' : 'border-gray-100 bg-gray-50 group-hover:border-[#5845D8]/20'}`}>
+                                                    {formData.termsAccepted && <CheckCircle size={14} className="text-white" />}
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] font-black text-[#012126] uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
+                                                {t('agreeToTermsPrefix') || 'I agree to the'} <Link to="/terms" className="text-[#5845D8] underline">{t('termsAndConditions') || 'Terms & Conditions'}</Link>
+                                            </span>
+                                        </label>
+                                    )}
 
                                     <button
                                         type="submit"

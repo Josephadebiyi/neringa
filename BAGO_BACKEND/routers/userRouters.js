@@ -1,6 +1,6 @@
 import express from 'express';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
-import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, logout, revokeAllSessions, getWallet, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
+import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewToRequest, DeleteTrip } from '../controllers/AddaTripController.js';
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
@@ -116,6 +116,8 @@ userRouter.post('/refresh-token', async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         kycStatus: user.kycStatus,
+        acceptedTerms: user.acceptedTerms ?? false,
+        accepted_terms: user.acceptedTerms ?? false,
       },
     });
   } catch (error) {
@@ -137,6 +139,7 @@ userRouter.post('/:tripId/reviews', isAuthenticated, requireKycVerification, Add
 userRouter.get("/MyTrips", isAuthenticated, requireKycVerification, MyTrips)
 userRouter.get("/Trip/:id", isAuthenticated, requireKycVerification, GetTripById)
 userRouter.get("/getuser", isAuthenticated, getUser)
+userRouter.post("/user/accept-terms", isAuthenticated, acceptTerms)
 userRouter.get("/getTravelers", getTravelers)
 userRouter.get("/get-settings", getCurrentSetting)
 userRouter.get("/Profile", isAuthenticated, Profile)

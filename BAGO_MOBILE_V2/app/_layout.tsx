@@ -5,19 +5,12 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import config from '../lib/config';
 
 // Conditionally load native-only modules
-let StripeProvider: any = null;
 let addNotificationReceivedListener: any = null;
 let addNotificationResponseReceivedListener: any = null;
 
 if (Platform.OS !== 'web') {
-  try {
-    StripeProvider = require('@stripe/stripe-react-native').StripeProvider;
-  } catch (e) {
-    console.warn('Stripe not available:', e);
-  }
   try {
     const notif = require('../lib/notifications');
     addNotificationReceivedListener = notif.addNotificationReceivedListener;
@@ -35,14 +28,6 @@ try {
 } catch (e) {}
 
 function AppContent({ children }: { children: React.ReactNode }) {
-  // Wrap with StripeProvider only on native
-  if (StripeProvider && Platform.OS !== 'web') {
-    return (
-      <StripeProvider publishableKey={config.stripeKey}>
-        {children}
-      </StripeProvider>
-    );
-  }
   return <>{children}</>;
 }
 
