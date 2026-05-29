@@ -60,10 +60,23 @@ window.addEventListener("unhandledrejection", (event) => {
       : typeof reason === "string"
         ? reason
         : JSON.stringify(reason, null, 2);
-  renderFatalShell(
-    "A background admin request failed before the interface could finish loading.",
-    details,
-  );
+  console.error("Unhandled admin background request:", reason);
+
+  const message = reason instanceof Error ? reason.message : String(reason || "");
+  const isRequestFailure =
+    message.includes("Unable to reach the server") ||
+    message.includes("Request failed") ||
+    message.includes("Server error") ||
+    message.includes("Unauthorized") ||
+    message.includes("Invalid credentials") ||
+    message.includes("Failed to fetch");
+
+  if (!isRequestFailure) {
+    renderFatalShell(
+      "The admin interface hit an unexpected startup error. Reload the page to try again.",
+      details,
+    );
+  }
 });
 
 try {
