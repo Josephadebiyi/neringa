@@ -740,6 +740,9 @@ import {
   paystackWebhook,
 } from './controllers/PaystackController.js';
 
+// ✅ Braintree Controller
+import { getClientToken, braintreeCheckout } from './controllers/BraintreeController.js';
+
 // ✅ IP Geolocation Service
 import { getLocationFromIP, getClientIP } from './services/ipGeolocation.js';
 
