@@ -591,11 +591,12 @@ schema('/api/paystack/withdraw', {
   max: { amount: 20, currency: 3 },
 });
 schema('/api/payments/paypal/create-order', {
-  allowed: ['shipmentId', 'paymentMethod', 'currency'],
-  required: ['shipmentId', 'paymentMethod', 'currency'],
-  strings: ['shipmentId', 'paymentMethod', 'currency'],
+  allowed: ['shipmentId', 'packageId', 'tripId', 'paymentMethod', 'currency', 'insurance', 'insuranceCost'],
+  required: ['paymentMethod', 'currency'],
+  strings: ['shipmentId', 'packageId', 'tripId', 'paymentMethod', 'currency'],
+  stringOrNumbers: ['insuranceCost'],
   enums: { paymentMethod: ['paypal_wallet', 'apple_pay', 'google_pay', 'card'] },
-  max: { shipmentId: 80, paymentMethod: 32, currency: 3 },
+  max: { shipmentId: 80, packageId: 80, tripId: 80, paymentMethod: 32, currency: 3 },
 });
 schema('/api/payments/paypal/capture-order', {
   allowed: ['orderId', 'shipmentId'],
