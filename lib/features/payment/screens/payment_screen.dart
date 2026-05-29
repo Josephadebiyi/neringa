@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/services/storage_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
@@ -114,15 +117,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
         insuranceCost: _asDouble(draft['insuranceAmount']),
       );
 
-      final approvalUrl = order.authorizationUrl;
       final orderId = order.reference;
-      if (approvalUrl == null || approvalUrl.isEmpty || orderId == null) {
+      if (orderId == null) {
         throw StateError('PayPal checkout could not start.');
       }
 
-      final approved = await _presentPayPalCheckout(
-        _fundedUrl(approvalUrl, _selectedMethod),
-      );
+      final token = await StorageService.instance.getAccessToken() ?? '';
+      final checkoutUrl =
+          '${ApiConstants.baseUrl}/checkout/paypal?orderId=${Uri.encodeComponent(orderId)}&token=${Uri.encodeComponent(token)}';
+
+      final approved = await _presentPayPalCheckout(checkoutUrl);
       if (!approved) {
         throw StateError('Payment was cancelled before it could be completed.');
       }
@@ -168,16 +172,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           builder: (_) => _PayPalCheckoutSheet(approvalUrl: approvalUrl),
         )) ??
         false;
-  }
-
-  String _fundedUrl(String url, String method) {
-    if (method == 'paypal_wallet') return url;
-    final uri = Uri.parse(url);
-    final source = method == 'apple_pay' ? 'applepay' : 'card';
-    return uri.replace(queryParameters: {
-      ...uri.queryParameters,
-      'fundingSource': source,
-    }).toString();
   }
 
   double _asDouble(dynamic value) {
@@ -441,11 +435,12 @@ class _PayPalCheckoutSheetState extends State<_PayPalCheckoutSheet> {
           onPageFinished: (_) => setState(() => _loading = false),
           onNavigationRequest: (request) {
             final url = request.url;
-            if (url.contains('/api/payments/paypal/return')) {
+            if (url.contains('/checkout/paypal/success')) {
               Navigator.of(context).pop(true);
               return NavigationDecision.prevent;
             }
-            if (url.contains('/api/payments/paypal/cancel')) {
+            if (url.contains('/checkout/paypal/cancel') ||
+                url.contains('/api/payments/paypal/cancel')) {
               Navigator.of(context).pop(false);
               return NavigationDecision.prevent;
             }
@@ -458,43 +453,50 @@ class _PayPalCheckoutSheetState extends State<_PayPalCheckoutSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.92,
-      maxChildSize: 0.96,
-      minChildSize: 0.6,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'PayPal checkout',
-                        style: AppTextStyles.labelLg.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+    final height = MediaQuery.of(context).size.height * 0.92;
+    return Container(
+      height: height,
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Secure checkout',
+                    style: AppTextStyles.labelLg.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              if (_loading) const LinearProgressIndicator(minHeight: 2),
-              Expanded(child: WebViewWidget(controller: _controller)),
-            ],
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          if (_loading) const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: WebViewWidget(
+              controller: _controller,
+              gestureRecognizers: {
+                Factory<VerticalDragGestureRecognizer>(
+                  VerticalDragGestureRecognizer.new,
+                ),
+                Factory<HorizontalDragGestureRecognizer>(
+                  HorizontalDragGestureRecognizer.new,
+                ),
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

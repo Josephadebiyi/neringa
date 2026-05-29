@@ -619,6 +619,63 @@ export async function capturePayPalOrder(req, res) {
   }
 }
 
+export async function getPendingCheckouts(req, res) {
+  try {
+    await ensurePayPalTables();
+    const profile = await getAuthorizedProfile(req);
+
+    const rows = await query(
+      `
+        SELECT DISTINCT ON (pay.package_id)
+          pay.package_id,
+          pay.trip_id,
+          pay.amount,
+          pay.currency,
+          pay.created_at AS payment_created_at,
+          pkg.from_city,
+          pkg.from_country,
+          pkg.to_city,
+          pkg.to_country,
+          pkg.package_weight,
+          coalesce((pay.raw_response->'quote'->>'insuranceCost')::numeric, 0) AS insurance_cost
+        FROM public.payments pay
+        JOIN public.packages pkg ON pkg.id = pay.package_id
+        LEFT JOIN public.shipment_requests sr
+          ON sr.package_id = pay.package_id
+          AND sr.status NOT IN ('rejected', 'cancelled')
+        WHERE pay.user_id = $1
+          AND pay.status IN ('pending', 'failed')
+          AND pay.created_at > now() - interval '48 hours'
+          AND sr.id IS NULL
+        ORDER BY pay.package_id, pay.created_at DESC
+      `,
+      [profile.id],
+    );
+
+    return res.json({
+      success: true,
+      data: (rows || []).map(row => ({
+        packageId: row.package_id,
+        tripId: row.trip_id,
+        amount: Number(row.amount),
+        currency: row.currency,
+        fromLocation: [row.from_city, row.from_country].filter(Boolean).join(', '),
+        toLocation: [row.to_city, row.to_country].filter(Boolean).join(', '),
+        packageWeight: Number(row.package_weight || 0),
+        insurance: Number(row.insurance_cost || 0) > 0,
+        insuranceCost: Number(row.insurance_cost || 0),
+        createdAt: row.payment_created_at,
+      })),
+    });
+  } catch (error) {
+    console.error('getPendingCheckouts failed:', error.message);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: 'Could not load pending checkouts.',
+    });
+  }
+}
+
 export async function savePayPalPayoutSettings(req, res) {
   try {
     await ensurePayPalTables();

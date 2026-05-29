@@ -25,6 +25,7 @@ import { sendPushNotification, sendPushNotificationToToken } from './services/pu
 import {
   capturePayPalOrder,
   createPayPalOrder,
+  getPendingCheckouts,
   handlePayPalOAuthCallback,
   paypalCancel,
   paypalReturn,
@@ -793,6 +794,63 @@ app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 
+// ✅ Hosted PayPal JS SDK checkout page (used by mobile WebView)
+app.get('/checkout/paypal', (req, res) => {
+  const { orderId, token } = req.query;
+  if (!orderId || !token) return res.status(400).send('Invalid checkout session.');
+  const clientId = process.env.PAYPAL_CLIENT_ID || '';
+  const apiBase = process.env.API_PUBLIC_URL || process.env.BACKEND_URL || 'https://neringa.onrender.com';
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>Bago – Secure Payment</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f6f3;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:36px 20px}
+    .logo{font-size:24px;font-weight:900;color:#012126;letter-spacing:-0.5px;margin-bottom:6px}
+    .sub{font-size:13px;color:#6b7280;margin-bottom:32px}
+    #pp{width:100%;max-width:390px}
+    .err{color:#dc2626;font-size:13px;text-align:center;padding:12px 16px;background:#fef2f2;border-radius:12px;margin-top:16px;display:none;max-width:390px;width:100%}
+  </style>
+</head>
+<body>
+  <div class="logo">Bago</div>
+  <p class="sub">Secure payment powered by PayPal</p>
+  <div id="pp"></div>
+  <div id="err" class="err"></div>
+  <script src="https://www.paypal.com/sdk/js?client-id=${clientId}&intent=capture&components=buttons"></script>
+  <script>
+    var OID=${JSON.stringify(orderId)},TOK=${JSON.stringify(token)},BASE=${JSON.stringify(apiBase)};
+    function showErr(m){var e=document.getElementById('err');e.style.display='block';e.textContent=m;}
+    paypal.Buttons({
+      createOrder:function(){return OID;},
+      onApprove:async function(d){
+        try{
+          var r=await fetch(BASE+'/api/payments/paypal/capture-order',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOK},body:JSON.stringify({orderId:d.orderID})});
+          var j=await r.json();
+          if(j.success){window.location.href='/checkout/paypal/success?orderId='+encodeURIComponent(d.orderID);}
+          else{showErr(j.message||'Payment could not be completed. Please try again.');}
+        }catch(e){showErr('Network error. Please check your connection and try again.');}
+      },
+      onError:function(e){console.error(e);showErr('PayPal encountered an error. Please try again.');},
+      onCancel:function(){window.location.href='/checkout/paypal/cancel';}
+    }).render('#pp');
+  </script>
+</body>
+</html>`);
+});
+app.get('/checkout/paypal/success', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:48px 20px"><h2 style="color:#012126;font-size:20px">Payment complete</h2><p style="color:#6b7280;margin-top:8px;font-size:14px">Returning to Bago…</p></body></html>');
+});
+app.get('/checkout/paypal/cancel', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:48px 20px"><h2 style="color:#012126;font-size:20px">Payment cancelled</h2><p style="color:#6b7280;margin-top:8px;font-size:14px">Returning to Bago…</p></body></html>');
+});
+
 // ✅ PayPal checkout and payouts
 app.get('/api/config/paypal', (_req, res) => {
   res.json({
@@ -800,6 +858,17 @@ app.get('/api/config/paypal', (_req, res) => {
     mode: process.env.PAYPAL_MODE || 'live',
   });
 });
+app.get('/api/config/pricing-config', async (_req, res) => {
+  try {
+    const { getFullPricingConfig } = await import('./services/pricingService.js');
+    const config = await getFullPricingConfig();
+    const surchargeMultiplier = 1 + (config.platformCommissionPercent + config.processingFeePercent + config.fxBufferPercent) / 100;
+    res.json({ success: true, surchargeMultiplier: parseFloat(surchargeMultiplier.toFixed(4)) });
+  } catch {
+    res.json({ success: true, surchargeMultiplier: 1.26 });
+  }
+});
+app.get('/api/payments/pending-checkout', isAuthenticated, getPendingCheckouts);
 app.post('/api/payments/paypal/create-order', isAuthenticated, createPayPalOrder);
 app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrder);
 app.post('/api/payouts/paypal/settings', isAuthenticated, savePayPalPayoutSettings);
