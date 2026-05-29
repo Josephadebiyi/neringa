@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
@@ -42,6 +42,7 @@ export default function Dashboard() {
     const [chatConv, setChatConv] = useState(null); // Persist chat across tab switches
     const location = useLocation();
     const [msg, setMsg] = useState(location.state?.message || '');
+    const refreshedApprovedKycRef = useRef(false);
     const effectiveKycStatus = user?.kycStatus === 'approved' || user?.isKycCompleted
         ? 'approved'
         : kycStatus;
@@ -108,7 +109,10 @@ export default function Dashboard() {
                     ? 'approved'
                     : res.data?.kycStatus || 'not_started';
                 setKycStatus(status);
-                if (status === 'approved') await refreshUser();
+                if (status === 'approved' && !refreshedApprovedKycRef.current) {
+                    refreshedApprovedKycRef.current = true;
+                    await refreshUser();
+                }
             } catch {
                 // Fallback to old endpoint
                 const response = await api.get('/api/bago/getKyc');
