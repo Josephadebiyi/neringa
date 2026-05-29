@@ -54,6 +54,12 @@
 					<string>com.deracali.boltexponativewind</string>
 				</array>
 			</dict>
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.deracali.boltexponativewind.payments</string>
+				</array>
+			</dict>
 		</array>
 		<key>CFBundleName</key>
 		<string>Bago</string>

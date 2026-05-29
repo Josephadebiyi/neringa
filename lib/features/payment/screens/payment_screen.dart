@@ -1,14 +1,10 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_braintree/flutter_braintree.dart';
 import 'package:go_router/go_router.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../shared/services/storage_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
@@ -29,7 +25,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final _checkoutService = ShipmentCheckoutService.instance;
   bool _isLoadingDraft = true;
   bool _isPaying = false;
-  String _selectedMethod = 'paypal_wallet';
   Map<String, dynamic>? _draft;
 
   @override
@@ -42,50 +37,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final draft = widget.extra ?? await _checkoutService.loadDraft();
     if (!mounted) return;
     setState(() {
-      _draft = draft == null ? null : {...draft, 'provider': 'paypal'};
+      _draft = draft == null ? null : {...draft, 'provider': 'braintree'};
       _isLoadingDraft = false;
     });
-  }
-
-  List<_PaymentChoice> get _availableMethods {
-    final choices = <_PaymentChoice>[
-      const _PaymentChoice(
-        id: 'paypal_wallet',
-        label: 'PayPal',
-        description: 'Pay with your PayPal wallet.',
-        icon: Icons.account_balance_wallet_outlined,
-      ),
-      const _PaymentChoice(
-        id: 'card',
-        label: 'Credit or debit card',
-        description: 'Use PayPal secure card checkout.',
-        icon: Icons.credit_card_rounded,
-      ),
-    ];
-
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-      choices.insert(
-        0,
-        const _PaymentChoice(
-          id: 'apple_pay',
-          label: 'Apple Pay',
-          description: 'Shown only on supported Apple devices.',
-          icon: Icons.apple_rounded,
-        ),
-      );
-    }
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      choices.insert(
-        0,
-        const _PaymentChoice(
-          id: 'google_pay',
-          label: 'Google Pay',
-          description: 'Shown only on supported Android devices.',
-          icon: Icons.g_mobiledata_rounded,
-        ),
-      );
-    }
-    return choices;
   }
 
   Future<void> _pay() async {
@@ -107,53 +61,57 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     setState(() => _isPaying = true);
     try {
-      final order = await PaymentService.instance.createPayPalOrder(
-        packageId: draft['packageId']?.toString(),
-        tripId: draft['tripId']?.toString(),
-        shipmentId: draft['shipmentId']?.toString(),
-        paymentMethod: _selectedMethod,
-        currency: draft['currency']?.toString() ?? 'USD',
-        insurance: draft['insurance'] == true,
-        insuranceCost: _asDouble(draft['insuranceAmount']),
+      final clientToken = await PaymentService.instance.getBraintreeClientToken();
+
+      final amount = _asDouble(draft['totalAmount']);
+      final currency = draft['currency']?.toString().trim() ?? 'USD';
+
+      final request = BraintreeDropInRequest(
+        clientToken: clientToken,
+        collectDeviceData: true,
+        paypalRequest: BraintreePayPalRequest(
+          amount: amount.toStringAsFixed(2),
+          currencyCode: currency,
+          displayName: 'Bago',
+        ),
       );
 
-      final orderId = order.reference;
-      if (orderId == null) {
-        throw StateError('PayPal checkout could not start.');
-      }
-
-      final token = await StorageService.instance.getAccessToken() ?? '';
-      final checkoutUrl =
-          '${ApiConstants.baseUrl}/checkout/paypal?orderId=${Uri.encodeComponent(orderId)}&token=${Uri.encodeComponent(token)}';
-
-      final approved = await _presentPayPalCheckout(checkoutUrl);
-      if (!approved) {
+      final result = await BraintreeDropIn.start(request);
+      if (result == null) {
         throw StateError('Payment was cancelled before it could be completed.');
       }
 
-      final captured = await PaymentService.instance.capturePayPalOrder(
-        orderId: orderId,
+      final nonce = result.paymentMethodNonce.nonce;
+      final paymentMethod = _methodLabel(result.paymentMethodNonce.typeLabel);
+
+      final finalization = await PaymentService.instance.submitBraintreeNonce(
+        nonce: nonce,
+        packageId: draft['packageId']?.toString(),
+        tripId: draft['tripId']?.toString(),
         shipmentId: draft['shipmentId']?.toString(),
+        currency: currency,
+        insurance: draft['insurance'] == true,
+        insuranceCost: _asDouble(draft['insuranceAmount']),
+        paymentMethod: paymentMethod,
       );
-      if (!captured.success) {
-        throw StateError(
-          captured.message ?? 'PayPal payment could not be verified.',
-        );
+
+      if (!finalization.success) {
+        throw StateError(finalization.message ?? 'Payment could not be verified.');
       }
 
       await _checkoutService.clearDraft();
       if (!mounted) return;
       context.go('/order-success', extra: {
         ...draft,
-        'provider': 'paypal',
-        'paymentReference': orderId,
-        'request': captured.request,
+        'provider': 'braintree',
+        'paymentReference': nonce,
+        'request': finalization.request,
       });
     } catch (error) {
       final updatedDraft = {
         ...draft,
-        'provider': 'paypal',
-        'paymentProvider': 'paypal',
+        'provider': 'braintree',
+        'paymentProvider': 'braintree',
         'lastPaymentError': _failureMessage(error),
       };
       await _checkoutService.saveDraft(updatedDraft);
@@ -164,19 +122,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  Future<bool> _presentPayPalCheckout(String approvalUrl) async {
-    return (await showModalBottomSheet<bool>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => _PayPalCheckoutSheet(approvalUrl: approvalUrl),
-        )) ??
-        false;
-  }
-
   double _asDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _methodLabel(String? typeLabel) {
+    final t = (typeLabel ?? '').toLowerCase();
+    if (t.contains('apple')) return 'apple_pay';
+    if (t.contains('google')) return 'google_pay';
+    if (t.contains('paypal')) return 'paypal_wallet';
+    return 'card';
   }
 
   String _failureMessage(Object error) {
@@ -186,10 +142,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return 'Payment was cancelled before it could be completed.';
     }
     if (normalized.contains('amount') || normalized.contains('currency')) {
-      return 'We could not verify the PayPal payment amount. If you were charged, we will reconcile it automatically.';
+      return 'We could not verify the payment amount. If you were charged, we will reconcile it automatically.';
     }
     if (normalized.contains('not configured')) {
-      return 'PayPal checkout is temporarily unavailable. Please try again in a few minutes.';
+      return 'Secure checkout is temporarily unavailable. Please try again in a few minutes.';
     }
     return raw.isEmpty
         ? 'We could not complete this payment right now. Please try again.'
@@ -222,10 +178,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final shippingAmount = _asDouble(draft['shippingAmount']);
     final insuranceAmount = _asDouble(draft['insuranceAmount']);
     final isExpired = _checkoutService.isExpired(draft);
-    final methods = _availableMethods;
 
     return BagoSubPageScaffold(
-      title: 'Choose payment method',
+      title: 'Secure checkout',
       backFallbackPath: '/shipments',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,28 +228,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Payment method',
-            style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          ...methods.map(
-            (choice) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _PaymentChoiceTile(
-                choice: choice,
-                selected: _selectedMethod == choice.id,
-                onTap: _isPaying
-                    ? null
-                    : () => setState(() => _selectedMethod = choice.id),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          BagoInfoBanner(
+          const BagoInfoBanner(
             icon: Icons.lock_outline_rounded,
             message:
-                'PayPal securely handles wallet, card, Apple Pay, Google Pay, and bank authentication. Bago only confirms the final captured amount from the backend.',
+                'Braintree securely handles card, Apple Pay, Google Pay, and PayPal wallet. Choose your preferred method on the next screen.',
           ),
           if (isExpired)
             BagoInfoBanner(
@@ -305,195 +242,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           const SizedBox(height: 24),
           AppButton(
-            label: _buttonLabel(_selectedMethod),
+            label: 'Continue to payment',
             icon: const Icon(Icons.lock_outline_rounded, size: 18),
             isLoading: _isPaying,
             isDisabled: isExpired,
             onPressed: isExpired ? null : _pay,
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _buttonLabel(String method) {
-    switch (method) {
-      case 'apple_pay':
-        return 'Continue with Apple Pay';
-      case 'google_pay':
-        return 'Continue with Google Pay';
-      case 'card':
-        return 'Pay by card';
-      default:
-        return 'Continue with PayPal';
-    }
-  }
-}
-
-class _PaymentChoice {
-  const _PaymentChoice({
-    required this.id,
-    required this.label,
-    required this.description,
-    required this.icon,
-  });
-
-  final String id;
-  final String label;
-  final String description;
-  final IconData icon;
-}
-
-class _PaymentChoiceTile extends StatelessWidget {
-  const _PaymentChoiceTile({
-    required this.choice,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _PaymentChoice choice;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: AppCard(
-        padding: const EdgeInsets.all(16),
-        borderRadius: 18,
-        showBorder: true,
-        borderColor: selected ? AppColors.primary : AppColors.gray200,
-        color: selected ? AppColors.primarySoft : AppColors.white,
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : AppColors.gray100,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                choice.icon,
-                color: selected ? AppColors.white : AppColors.gray600,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    choice.label,
-                    style: AppTextStyles.labelMd.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    choice.description,
-                    style: AppTextStyles.muted(AppTextStyles.bodySm),
-                  ),
-                ],
-              ),
-            ),
-            Radio<bool>(
-              value: true,
-              groupValue: selected,
-              onChanged: onTap == null ? null : (_) => onTap?.call(),
-              activeColor: AppColors.primary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PayPalCheckoutSheet extends StatefulWidget {
-  const _PayPalCheckoutSheet({required this.approvalUrl});
-  final String approvalUrl;
-
-  @override
-  State<_PayPalCheckoutSheet> createState() => _PayPalCheckoutSheetState();
-}
-
-class _PayPalCheckoutSheetState extends State<_PayPalCheckoutSheet> {
-  late final WebViewController _controller;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (_) => setState(() => _loading = true),
-          onPageFinished: (_) => setState(() => _loading = false),
-          onNavigationRequest: (request) {
-            final url = request.url;
-            if (url.contains('/checkout/paypal/success')) {
-              Navigator.of(context).pop(true);
-              return NavigationDecision.prevent;
-            }
-            if (url.contains('/checkout/paypal/cancel') ||
-                url.contains('/api/payments/paypal/cancel')) {
-              Navigator.of(context).pop(false);
-              return NavigationDecision.prevent;
-            }
-            return NavigationDecision.navigate;
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.approvalUrl));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final height = MediaQuery.of(context).size.height * 0.92;
-    return Container(
-      height: height,
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Secure checkout',
-                    style: AppTextStyles.labelLg.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-          ),
-          if (_loading) const LinearProgressIndicator(minHeight: 2),
-          Expanded(
-            child: WebViewWidget(
-              controller: _controller,
-              gestureRecognizers: {
-                Factory<VerticalDragGestureRecognizer>(
-                  VerticalDragGestureRecognizer.new,
-                ),
-                Factory<HorizontalDragGestureRecognizer>(
-                  HorizontalDragGestureRecognizer.new,
-                ),
-              },
-            ),
           ),
         ],
       ),

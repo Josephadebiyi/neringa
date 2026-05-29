@@ -111,100 +111,47 @@ class PaymentService {
     return message;
   }
 
-  Future<PaymentResult> initializePayment({
-    required String packageId,
-    required String tripId,
-    required String provider,
-    required String currency,
-    required double amount,
-    required String customerEmail,
-    required DateTime expiresAt,
-    Map<String, dynamic> metadata = const {},
-  }) async {
-    final normalizedProvider = provider.toLowerCase().trim();
-    if (normalizedProvider == 'paypal') {
-      return createPayPalOrder(
-        packageId: packageId,
-        tripId: tripId,
-        paymentMethod: metadata['paymentMethod']?.toString() ?? 'paypal_wallet',
-        currency: currency,
-        insurance: metadata['insurance'] == true,
-        insuranceCost:
-            double.tryParse(metadata['insuranceCost']?.toString() ?? '') ?? 0,
-      );
-    }
-    return _initializePaystackPayment(
-      packageId: packageId,
-      tripId: tripId,
-      currency: currency,
-      amount: amount,
-      customerEmail: customerEmail,
-      expiresAt: expiresAt,
-      metadata: metadata,
-    );
-  }
-
-  Future<PaymentResult> createPayPalOrder({
-    String? shipmentId,
-    String? packageId,
-    String? tripId,
-    required String paymentMethod,
-    required String currency,
-    bool insurance = false,
-    double insuranceCost = 0,
-  }) async {
+  Future<String> getBraintreeClientToken() async {
     try {
-      final response = await _api.post(
-        ApiConstants.paypalCreateOrder,
-        data: {
-          if (shipmentId != null && shipmentId.isNotEmpty)
-            'shipmentId': shipmentId,
-          if (packageId != null && packageId.isNotEmpty) 'packageId': packageId,
-          if (tripId != null && tripId.isNotEmpty) 'tripId': tripId,
-          'paymentMethod': paymentMethod,
-          'currency': currency,
-          'insurance': insurance,
-          'insuranceCost': insuranceCost,
-        },
-      );
+      final response = await _api.get(ApiConstants.braintreeClientToken);
       final data = _extractMap(response.data);
-      final orderId = _firstString(data, const ['orderId', 'id']);
-      final approvalUrl =
-          _firstString(data, const ['approvalUrl', 'approval_url']);
-      if (orderId == null || approvalUrl == null || approvalUrl.isEmpty) {
-        throw StateError('PayPal checkout could not start.');
-      }
-      return PaymentResult(
-        success: true,
-        provider: 'paypal',
-        reference: orderId,
-        authorizationUrl: approvalUrl,
-        raw: data,
-      );
+      final token = data['clientToken']?.toString() ?? '';
+      if (token.isEmpty) throw StateError('Could not get payment token.');
+      return token;
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
   }
 
-  Future<PaidShipmentFinalization> capturePayPalOrder({
-    required String orderId,
+  Future<PaidShipmentFinalization> submitBraintreeNonce({
+    required String nonce,
     String? shipmentId,
+    String? packageId,
+    String? tripId,
+    required String currency,
+    bool insurance = false,
+    double insuranceCost = 0,
+    String paymentMethod = 'card',
   }) async {
     try {
       final response = await _api.post(
-        ApiConstants.paypalCaptureOrder,
+        ApiConstants.braintreeCheckout,
         data: {
-          'orderId': orderId,
-          if (shipmentId != null && shipmentId.isNotEmpty)
-            'shipmentId': shipmentId,
+          'paymentMethodNonce': nonce,
+          if (shipmentId != null && shipmentId.isNotEmpty) 'shipmentId': shipmentId,
+          if (packageId != null && packageId.isNotEmpty) 'packageId': packageId,
+          if (tripId != null && tripId.isNotEmpty) 'tripId': tripId,
+          'currency': currency,
+          'insurance': insurance,
+          'insuranceCost': insuranceCost,
+          'paymentMethod': paymentMethod,
         },
       );
       final data = _extractMap(response.data);
       final requestRaw = data['request'];
       return PaidShipmentFinalization(
         success: response.data is Map
-            ? ((response.data as Map)['success'] == true ||
-                data['success'] == true)
+            ? ((response.data as Map)['success'] == true || data['success'] == true)
             : data['success'] == true,
         message: data['message']?.toString(),
         request: requestRaw is Map<String, dynamic>
@@ -297,53 +244,6 @@ class PaymentService {
       await _api.delete('${ApiConstants.paymentMethods}/$paymentMethodId');
     } on DioException catch (e) {
       throw _parsePaymentMethodsError(e);
-    }
-  }
-
-  Future<PaymentResult> _initializePaystackPayment({
-    required String packageId,
-    required String tripId,
-    required String currency,
-    required double amount,
-    required String customerEmail,
-    required DateTime expiresAt,
-    Map<String, dynamic> metadata = const {},
-  }) async {
-    try {
-      final response = await _api.post(
-        ApiConstants.paystackInitialize,
-        data: {
-          'packageId': packageId,
-          'tripId': tripId,
-          'provider': 'paystack',
-          'currency': currency,
-          'amount': amount,
-          'customerEmail': customerEmail,
-          'expiresAt': expiresAt.toIso8601String(),
-          'metadata': metadata,
-        },
-      );
-      final data = _extractMap(response.data);
-      return PaymentResult(
-        success: true,
-        provider: 'paystack',
-        message: data['message']?.toString(),
-        reference: _firstString(
-          data,
-          const ['reference', 'paymentReference', 'data.reference'],
-        ),
-        authorizationUrl: _firstString(
-          data,
-          const [
-            'authorizationUrl',
-            'authorization_url',
-            'data.authorization_url'
-          ],
-        ),
-        raw: data,
-      );
-    } on DioException catch (e) {
-      throw ApiService.parseError(e);
     }
   }
 

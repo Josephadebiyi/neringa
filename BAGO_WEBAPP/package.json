@@ -12,6 +12,7 @@
         "@paypal/react-paypal-js": "9.2.0",
         "@react-oauth/google": "^0.13.4",
         "axios": "^1.7.4",
+        "braintree-web-drop-in": "1.46.1",
         "dojah-kyc-sdk-react": "0.0.6",
         "framer-motion": "^10.16.4",
         "leaflet": "^1.9.4",

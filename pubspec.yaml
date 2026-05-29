@@ -67,6 +67,9 @@ dependencies:
   # Native splash control
   flutter_native_splash: ^2.4.4
 
+  # Braintree native payment (card, Apple Pay, Google Pay, PayPal wallet)
+  flutter_braintree: ^4.0.0
+
   # WebView (for KYC / Paystack)
   # Native Dojah KYC SDK (local patched copy — fixes SDKInitViewController early-resolve bug)
   dojah_kyc_sdk_flutter:

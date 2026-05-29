@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import dropin from 'braintree-web-drop-in';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -53,7 +53,7 @@ const PAYMENT_PENDING_MESSAGE =
     'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
 
 const providerForCurrency = (value) => (
-    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'paypal'
+    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'braintree'
 );
 
 const showPaymentError = (setError, message = PAYMENT_UNAVAILABLE_MESSAGE, error = null) => {
@@ -106,8 +106,9 @@ export default function SendPackage() {
     const [quote, setQuote] = useState(null);
     const [pendingPayment, setPendingPayment] = useState(null);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
-    const [paypalClientId, setPaypalClientId] = useState('');
-    const [paypalReadyPackage, setPaypalReadyPackage] = useState(null);
+    const [braintreeClientToken, setBraintreeClientToken] = useState('');
+    const [braintreeReadyPackage, setBraintreeReadyPackage] = useState(null);
+    const dropinInstanceRef = useRef(null);
 
     // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
@@ -194,10 +195,30 @@ export default function SendPackage() {
     }, [isAuthenticated, navigate]);
 
     useEffect(() => {
-        api.get('/api/config/paypal')
-            .then(r => setPaypalClientId(r.data?.clientId || ''))
+        api.get('/api/payments/braintree/client-token')
+            .then(r => setBraintreeClientToken(r.data?.clientToken || ''))
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        if (!braintreeReadyPackage || !braintreeClientToken) return;
+        let instance = null;
+        dropin.create({
+            authorization: braintreeClientToken,
+            container: '#bt-dropin-container',
+            paypal: {
+                flow: 'checkout',
+                amount: Number(totalCost).toFixed(2),
+                currency,
+            },
+        }).then(inst => {
+            instance = inst;
+            dropinInstanceRef.current = inst;
+        }).catch(err => {
+            showPaymentError(setError, PAYMENT_UNAVAILABLE_MESSAGE, err);
+        });
+        return () => { instance?.teardown(); dropinInstanceRef.current = null; };
+    }, [braintreeReadyPackage, braintreeClientToken]);
 
     useEffect(() => {
         if (user?.preferredCurrency && !selectedTrip) {
@@ -324,63 +345,42 @@ export default function SendPackage() {
         }
     };
 
-    const handleCapturePayPalPayment = async () => {
-        if (!pendingPayment?.orderId) return;
+    const handleBraintreePay = useCallback(async () => {
+        const instance = dropinInstanceRef.current;
+        if (!instance || !braintreeReadyPackage) return;
         setPaymentProcessing(true);
         setError('');
         try {
-            const capture = await api.post('/api/payments/paypal/capture-order', {
-                orderId: pendingPayment.orderId,
+            const { nonce } = await instance.requestPaymentMethod();
+            const response = await api.post('/api/payments/braintree/checkout', {
+                paymentMethodNonce: nonce,
+                packageId: braintreeReadyPackage.packageId,
+                tripId: braintreeReadyPackage.tripId,
+                currency: braintreeReadyPackage.currency,
+                insurance: braintreeReadyPackage.insurance,
+                insuranceCost: braintreeReadyPackage.insuranceCost,
             });
-            if (!capture.data?.success) {
-                showPaymentError(setError, capture.data?.message || PAYMENT_PENDING_MESSAGE, capture.data);
+            if (!response.data?.success) {
+                showPaymentError(setError, response.data?.message || PAYMENT_UNAVAILABLE_MESSAGE, response.data);
                 return;
             }
-
-            setPendingPayment(null);
+            setBraintreeReadyPackage(null);
+            const req = response.data?.data?.request;
             navigate('/shipping-success', {
                 state: {
-                    requestId: capture.data?.data?.request?.id || capture.data?.data?.request?._id,
-                    trackingNumber: capture.data?.data?.request?.trackingNumber,
+                    requestId: req?.id || req?._id,
+                    trackingNumber: req?.trackingNumber,
                     amount: Number(totalCost),
                     currency,
-                    paymentMethod: 'paypal',
+                    paymentMethod: 'braintree',
                 },
             });
         } catch (err) {
-            showPaymentError(setError, PAYMENT_PENDING_MESSAGE, err);
+            showPaymentError(setError, PAYMENT_UNAVAILABLE_MESSAGE, err);
         } finally {
             setPaymentProcessing(false);
         }
-    };
-
-    const handlePayPalApprove = useCallback(async (data) => {
-        setPaymentProcessing(true);
-        setError('');
-        try {
-            const capture = await api.post('/api/payments/paypal/capture-order', {
-                orderId: data.orderID,
-            });
-            if (!capture.data?.success) {
-                showPaymentError(setError, capture.data?.message || PAYMENT_PENDING_MESSAGE, capture.data);
-                return;
-            }
-            setPaypalReadyPackage(null);
-            navigate('/shipping-success', {
-                state: {
-                    requestId: capture.data?.data?.request?.id || capture.data?.data?.request?._id,
-                    trackingNumber: capture.data?.data?.request?.trackingNumber,
-                    amount: Number(totalCost),
-                    currency,
-                    paymentMethod: 'paypal',
-                },
-            });
-        } catch (err) {
-            showPaymentError(setError, PAYMENT_PENDING_MESSAGE, err);
-        } finally {
-            setPaymentProcessing(false);
-        }
-    }, [totalCost, currency, navigate]);
+    }, [braintreeReadyPackage, totalCost, currency, navigate]);
 
     const handleVerifyPaystackPayment = async () => {
         if (!pendingPayment?.reference) return;
@@ -483,8 +483,8 @@ export default function SendPackage() {
                 if (packageResponse.status === 201) {
                     const packageId = packageResponse.data.package._id;
 
-                    if (paymentProvider === 'paypal') {
-                        setPaypalReadyPackage({
+                    if (paymentProvider === 'braintree') {
+                        setBraintreeReadyPackage({
                             packageId,
                             tripId: selectedTrip._id,
                             insurance: formData.insuranceProtection,
@@ -543,7 +543,7 @@ export default function SendPackage() {
                 </div>
 
 
-                {paypalReadyPackage && (
+                {braintreeReadyPackage && (
                     <div className="bg-white border border-[#5845D8]/15 rounded-[28px] p-6 md:p-8 mb-8 shadow-[0_18px_45px_rgba(88,69,216,0.08)]">
                         <div className="flex items-start gap-4 mb-6">
                             <div className="w-11 h-11 bg-[#5845D8]/10 text-[#5845D8] rounded-2xl flex items-center justify-center shrink-0">
@@ -556,33 +556,18 @@ export default function SendPackage() {
                                 </p>
                             </div>
                         </div>
-                        {paypalClientId ? (
-                            <PayPalScriptProvider options={{
-                                'client-id': paypalClientId,
-                                currency: paypalReadyPackage.currency,
-                                intent: 'capture',
-                                components: 'buttons',
-                            }}>
-                                <PayPalButtons
-                                    style={{ layout: 'vertical', shape: 'rect', label: 'pay' }}
-                                    createOrder={async () => {
-                                        const response = await api.post('/api/payments/paypal/create-order', {
-                                            packageId: paypalReadyPackage.packageId,
-                                            tripId: paypalReadyPackage.tripId,
-                                            paymentMethod: 'paypal_wallet',
-                                            currency: paypalReadyPackage.currency,
-                                            insurance: paypalReadyPackage.insurance,
-                                            insuranceCost: paypalReadyPackage.insuranceCost,
-                                        });
-                                        const orderId = response.data?.data?.orderId;
-                                        if (!orderId) throw new Error('PayPal checkout could not start.');
-                                        return orderId;
-                                    }}
-                                    onApprove={handlePayPalApprove}
-                                    onError={(err) => showPaymentError(setError, 'PayPal encountered an error. Please try again.', err)}
-                                    onCancel={() => setError('Payment was cancelled.')}
-                                />
-                            </PayPalScriptProvider>
+                        {braintreeClientToken ? (
+                            <>
+                                <div id="bt-dropin-container" className="mb-4" />
+                                <button
+                                    type="button"
+                                    onClick={handleBraintreePay}
+                                    disabled={paymentProcessing}
+                                    className="w-full inline-flex items-center justify-center px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all disabled:opacity-50"
+                                >
+                                    {paymentProcessing ? 'Processing...' : `Pay ${currency} ${Number(totalCost).toFixed(2)}`}
+                                </button>
+                            </>
                         ) : (
                             <div className="flex items-center justify-center py-8">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5845D8]" />
@@ -590,7 +575,7 @@ export default function SendPackage() {
                         )}
                         <button
                             type="button"
-                            onClick={() => setPaypalReadyPackage(null)}
+                            onClick={() => setBraintreeReadyPackage(null)}
                             className="mt-4 text-sm text-[#6B7280] hover:text-[#012126] font-medium transition-colors"
                         >
                             ← Go back and change details
@@ -614,9 +599,7 @@ export default function SendPackage() {
 
                         <div className="space-y-4">
                             <p className="text-sm text-[#6B7280] font-medium">
-                                {pendingPayment.provider === 'paypal'
-                                    ? 'PayPal opened in a new tab. Complete checkout there, then return here to confirm payment. PayPal securely handles wallet, card, Apple Pay, and Google Pay when available.'
-                                    : 'Paystack opened in a new tab. Complete checkout there, then return here to verify payment and send the request.'}
+                                Paystack opened in a new tab. Complete checkout there, then return here to verify payment and send the request.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <a
@@ -629,11 +612,11 @@ export default function SendPackage() {
                                 </a>
                                 <button
                                     type="button"
-                                    onClick={pendingPayment.provider === 'paypal' ? handleCapturePayPalPayment : handleVerifyPaystackPayment}
+                                    onClick={handleVerifyPaystackPayment}
                                     disabled={paymentProcessing}
                                     className="inline-flex items-center justify-center px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all disabled:opacity-50"
                                 >
-                                    {paymentProcessing ? 'Checking...' : pendingPayment.provider === 'paypal' ? 'Confirm PayPal payment' : 'Verify and send request'}
+                                    {paymentProcessing ? 'Checking...' : 'Verify and send request'}
                                 </button>
                             </div>
                         </div>
