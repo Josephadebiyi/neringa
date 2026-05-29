@@ -284,6 +284,26 @@ async function buildCheckoutQuote({ profile, shipmentId, packageId, tripId, curr
 }
 
 async function finalizePayPalShipmentPayment(payment, capture) {
+  if (payment.shipment_id) {
+    const request = await getShipmentRequestById(payment.shipment_id);
+    if (!request) return null;
+    await holdEscrowForPaidRequest({
+      requestId: payment.shipment_id,
+      providerReference: payment.paypal_order_id,
+      provider: 'paypal',
+    });
+    await query(
+      `
+        update public.payments
+        set raw_response = raw_response || $2::jsonb,
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [payment.id, { capture, requestId: payment.shipment_id }],
+    );
+    return getShipmentRequestById(payment.shipment_id);
+  }
+
   const packageDoc = await getPackageById(payment.package_id);
   const tripDoc = await getTripById(payment.trip_id);
   if (!packageDoc || !tripDoc?.userId) return null;
@@ -759,23 +779,80 @@ export async function paypalWebhook(req, res) {
 
     const resource = event.resource || {};
     const type = String(event.event_type || '').toUpperCase();
+    const relatedOrderId = resource.supplementary_data?.related_ids?.order_id;
 
     if (type === 'PAYMENT.CAPTURE.COMPLETED') {
+      const captureAmount = Number(resource.amount?.value || 0);
+      const captureCurrency = normalizeCurrency(resource.amount?.currency_code);
+      const payment = await queryOne(
+        `
+          select *
+          from public.payments
+          where paypal_capture_id = $1
+             or paypal_order_id = $2
+          order by updated_at desc
+          limit 1
+        `,
+        [resource.id, relatedOrderId],
+      );
+
+      if (payment) {
+        const expectedAmount = Number(payment.amount || 0);
+        const expectedCurrency = normalizeCurrency(payment.currency);
+        if (
+          resource.status &&
+          String(resource.status).toUpperCase() === 'COMPLETED' &&
+          captureCurrency === expectedCurrency &&
+          captureAmount >= expectedAmount * 0.98
+        ) {
+          const updatedPayment = await queryOne(
+            `
+              update public.payments
+              set status = 'paid',
+                  paypal_capture_id = coalesce($1, paypal_capture_id),
+                  raw_response = raw_response || $2::jsonb,
+                  updated_at = timezone('utc', now())
+              where id = $3
+              returning *
+            `,
+            [resource.id, { webhook: event }, payment.id],
+          );
+          await finalizePayPalShipmentPayment(updatedPayment, { webhook: event });
+        } else {
+          await query(
+            `
+              update public.payments
+              set status = 'failed',
+                  raw_response = raw_response || $2::jsonb,
+                  updated_at = timezone('utc', now())
+              where id = $1
+            `,
+            [payment.id, { webhook: event, mismatch: { captureAmount, captureCurrency, expectedAmount, expectedCurrency } }],
+          );
+        }
+      } else {
+        await query(
+          `
+            update public.payments
+            set status = 'paid',
+                paypal_capture_id = coalesce($1, paypal_capture_id),
+                raw_response = raw_response || $2::jsonb,
+                updated_at = timezone('utc', now())
+            where paypal_capture_id = $1 or paypal_order_id = $3
+          `,
+          [resource.id, { webhook: event }, relatedOrderId],
+        );
+      }
+    } else if (type === 'PAYMENT.CAPTURE.DENIED' || type === 'PAYMENT.CAPTURE.DECLINED' || type === 'PAYMENT.CAPTURE.FAILED') {
       await query(
         `
           update public.payments
-          set status = 'paid',
-              paypal_capture_id = coalesce($1, paypal_capture_id),
+          set status = 'failed',
               raw_response = raw_response || $2::jsonb,
               updated_at = timezone('utc', now())
           where paypal_capture_id = $1 or paypal_order_id = $3
         `,
-        [resource.id, { webhook: event }, resource.supplementary_data?.related_ids?.order_id],
-      );
-    } else if (type === 'PAYMENT.CAPTURE.DENIED' || type === 'PAYMENT.CAPTURE.DECLINED') {
-      await query(
-        `update public.payments set status = 'failed', raw_response = raw_response || $2::jsonb, updated_at = timezone('utc', now()) where paypal_capture_id = $1`,
-        [resource.id, { webhook: event }],
+        [resource.id, { webhook: event }, relatedOrderId],
       );
     } else if (type === 'PAYMENT.CAPTURE.REFUNDED') {
       await query(
