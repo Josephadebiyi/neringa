@@ -989,9 +989,13 @@ export async function handlePayPalOAuthCallback(req, res) {
   const appScheme = process.env.APP_SCHEME || 'com.bago.mobile';
   const deepLinkBase = `${appScheme}://paypal-callback`;
 
+  const deepLink = (params) => {
+    res.status(302).setHeader('Location', `${deepLinkBase}?${params}`).end();
+  };
+
   const { code, state, error: oauthError } = req.query;
   if (oauthError || !code || !state) {
-    return res.redirect(`${deepLinkBase}?status=failed&reason=cancelled`);
+    return deepLink('status=failed&reason=cancelled');
   }
 
   try {
@@ -999,11 +1003,11 @@ export async function handlePayPalOAuthCallback(req, res) {
       `select id, paypal_oauth_state, preferred_currency, payout_currency from public.profiles where paypal_oauth_state->>'state' = $1`,
       [state],
     );
-    if (!profile) return res.redirect(`${deepLinkBase}?status=failed&reason=invalid_state`);
+    if (!profile) return deepLink('status=failed&reason=invalid_state');
 
     const stateData = profile.paypal_oauth_state;
     if (new Date() > new Date(stateData.expiresAt)) {
-      return res.redirect(`${deepLinkBase}?status=failed&reason=expired`);
+      return deepLink('status=failed&reason=expired');
     }
 
     const backendUrl = process.env.API_PUBLIC_URL || process.env.BACKEND_URL || 'https://neringa.onrender.com';
@@ -1026,10 +1030,10 @@ export async function handlePayPalOAuthCallback(req, res) {
     const paypalPayerId = userInfoRes.data.payer_id || userInfoRes.data.sub || null;
 
     if (!paypalEmail) {
-      return res.redirect(`${deepLinkBase}?status=failed&reason=no_email`);
+      return deepLink('status=failed&reason=no_email');
     }
     if (africanPayoutCurrencies.has(normalizeCurrency(profile.payout_currency || profile.preferred_currency || 'USD'))) {
-      return res.redirect(`${deepLinkBase}?status=failed&reason=wrong_currency`);
+      return deepLink('status=failed&reason=wrong_currency');
     }
 
     const payoutCurrency = normalizeCurrency(profile.payout_currency || profile.preferred_currency || 'USD');
@@ -1049,10 +1053,10 @@ export async function handlePayPalOAuthCallback(req, res) {
       [profile.id, paypalEmail, paypalPayerId, payoutCurrency],
     );
 
-    return res.redirect(`${deepLinkBase}?status=success&email=${encodeURIComponent(paypalEmail)}`);
+    return deepLink(`status=success&email=${encodeURIComponent(paypalEmail)}`);
   } catch (error) {
     console.error('handlePayPalOAuthCallback error:', error.response?.data || error.message);
-    return res.redirect(`${deepLinkBase}?status=failed&reason=server_error`);
+    return deepLink('status=failed&reason=server_error');
   }
 }
 
