@@ -105,20 +105,22 @@ export const updateTripStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Trip status is required' });
     }
 
+    const travelDocumentVerified = nextStatus === 'active'
+      ? true
+      : ['pending_admin_review', 'declined', 'cancelled'].includes(nextStatus)
+        ? false
+        : null;
+
     const updatedRow = await queryOne(
       `
         update public.trips
         set status = $2,
-            travel_document_verified = case
-              when $2 = 'active' then true
-              when $2 in ('pending_admin_review', 'declined', 'cancelled') then false
-              else travel_document_verified
-            end,
+            travel_document_verified = coalesce($3, travel_document_verified),
             updated_at = timezone('utc', now())
         where id = $1
         returning id
       `,
-      [id, nextStatus],
+      [id, nextStatus, travelDocumentVerified],
     );
 
     if (!updatedRow) {
