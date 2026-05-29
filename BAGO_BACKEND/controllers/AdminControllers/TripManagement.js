@@ -94,13 +94,23 @@ export const updateTripStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, reason } = req.body;
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const nextStatus = ['verified', 'approved', 'live', 'active'].includes(normalizedStatus)
+      ? 'active'
+      : ['pending', 'pending_review', 'admin_review', 'pending_admin_review'].includes(normalizedStatus)
+        ? 'pending_admin_review'
+        : normalizedStatus;
+
+    if (!nextStatus) {
+      return res.status(400).json({ success: false, message: 'Trip status is required' });
+    }
 
     const updatedRow = await queryOne(
       `
         update public.trips
         set status = $2,
             travel_document_verified = case
-              when $2 in ('verified', 'active') then true
+              when $2 = 'active' then true
               when $2 in ('pending_admin_review', 'declined', 'cancelled') then false
               else travel_document_verified
             end,
@@ -108,7 +118,7 @@ export const updateTripStatus = async (req, res) => {
         where id = $1
         returning id
       `,
-      [id, status],
+      [id, nextStatus],
     );
 
     if (!updatedRow) {
@@ -121,7 +131,7 @@ export const updateTripStatus = async (req, res) => {
     const userEmail = trip.user?.email;
     const userName = trip.user?.firstName || 'Traveler';
 
-    if ((status === 'verified' || status === 'active') && trip.userId) {
+    if (nextStatus === 'active' && trip.userId) {
       await sendPushNotification(
         trip.userId,
         'Trip Approved!',
@@ -130,7 +140,7 @@ export const updateTripStatus = async (req, res) => {
       if (userEmail) {
         await sendTripApprovedEmail(userEmail, userName, trip);
       }
-    } else if (status === 'declined' && trip.userId) {
+    } else if (nextStatus === 'declined' && trip.userId) {
       await sendPushNotification(
         trip.userId,
         'Trip Declined',

@@ -10,7 +10,6 @@ import '../../../shared/utils/name_formatter.dart';
 import '../../../shared/utils/trip_price_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_loading.dart';
-import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/auth_required_modal.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../trips/models/trip_model.dart';
@@ -318,18 +317,18 @@ class _TripCard extends ConsumerWidget {
       decimals: 0,
     );
     final rating = trip.averageRating;
-     Future<void> startShipment() async {
-       final user = ref.read(authProvider).user;
+    Future<void> startShipment() async {
+      final user = ref.read(authProvider).user;
 
-       if (!context.mounted) return;
+      if (!context.mounted) return;
 
-       if (user == null) {
-         showAuthRequiredModal(context);
-         return;
-       }
+      if (user == null) {
+        showAuthRequiredModal(context);
+        return;
+      }
 
-       context.push('/request-shipment/${trip.id}', extra: trip);
-     }
+      context.push('/request-shipment/${trip.id}', extra: trip);
+    }
 
     return GestureDetector(
       onTap: startShipment,
@@ -394,7 +393,7 @@ class _TripCard extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              formatFrontendStatus(trip.status),
+                              formatTripStatusLabel(trip.status),
                               style: AppTextStyles.caption
                                   .copyWith(color: AppColors.success),
                             ),

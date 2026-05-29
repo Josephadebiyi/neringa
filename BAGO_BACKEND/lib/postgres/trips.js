@@ -32,6 +32,17 @@ function normalizeReviewRow(row) {
   };
 }
 
+function normalizeTripStatus(row) {
+  const rawStatus = (row?.status || 'pending_admin_review').toString().toLowerCase();
+  if (['active', 'verified', 'approved', 'live'].includes(rawStatus)) {
+    return row?.travel_document_verified === true ? 'active' : 'pending';
+  }
+  if (['pending_admin_review', 'pending_review', 'admin_review'].includes(rawStatus)) {
+    return 'pending';
+  }
+  return rawStatus;
+}
+
 function normalizeTripRow(row, reviews = []) {
   if (!row) return null;
 
@@ -53,10 +64,7 @@ function normalizeTripRow(row, reviews = []) {
         selectedAvatar: row.user_selected_avatar,
       }
     : null;
-  const rawStatus = (row.status || 'pending_admin_review').toString();
-  const status = ['active', 'verified'].includes(rawStatus.toLowerCase()) && row.travel_document_verified !== true
-    ? 'pending_admin_review'
-    : rawStatus;
+  const status = normalizeTripStatus(row);
 
   return {
     id: row.id,

@@ -1201,7 +1201,7 @@ class _TripCard extends StatelessWidget {
           Row(
             children: [
               _StatusDot(
-                  label: formatFrontendStatus(trip.status),
+                  label: formatTripStatusLabel(trip.status),
                   color: _tripStatusColor(trip.status)),
               const Spacer(),
               _InfoChip(label: '${bookedKg.toStringAsFixed(0)} booked'),

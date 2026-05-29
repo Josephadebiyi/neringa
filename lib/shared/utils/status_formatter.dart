@@ -40,12 +40,41 @@ String formatFrontendStatus(String? rawStatus) {
       return 'Delivered';
     case 'cancelled':
       return 'Cancelled';
+    case 'awaiting_sender_confirmation':
+      return 'Awaiting Confirmation';
     default:
+      if (normalized.contains('_')) return 'Pending';
       return normalized
           .split('_')
           .where((part) => part.isNotEmpty)
           .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
           .join(' ');
+  }
+}
+
+String formatTripStatusLabel(String? rawStatus) {
+  final normalized = rawStatus?.trim().toLowerCase() ?? '';
+
+  switch (normalized) {
+    case 'pending':
+    case 'pending_admin_review':
+    case 'pending_review':
+    case 'admin_review':
+      return 'Pending';
+    case 'active':
+    case 'verified':
+    case 'approved':
+    case 'live':
+      return 'Live';
+    case 'completed':
+      return 'Completed';
+    case 'declined':
+    case 'rejected':
+      return 'Declined';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return formatFrontendStatus(rawStatus);
   }
 }
 

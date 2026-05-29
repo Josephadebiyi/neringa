@@ -278,7 +278,11 @@ export default function Trips() {
                                                         trip.status === 'declined' ? 'bg-red-50 text-red-600 border-red-100' :
                                                         'bg-gray-50 text-gray-400 border-gray-100'
                                                     }`}>
-                                                        {trip.status === 'pending_admin_review' ? 'Review Required' : trip.status}
+                                                        {trip.status === 'pending_admin_review' || trip.status === 'pending'
+                                                            ? 'Pending'
+                                                            : trip.status === 'verified' || trip.status === 'active'
+                                                                ? 'Live'
+                                                                : trip.status}
                                                     </span>
                                                     {trip.travelDocument && trip.travelDocument.trim() !== '' && (
                                                         <button
@@ -329,7 +333,7 @@ export default function Trips() {
                                                             <button
                                                                 onClick={async () => {
                                                                     if (!confirm('Approve and verify this trip?')) return;
-                                                                    const res = await updateTripStatus(trip._id, 'verified');
+                                                                    const res = await updateTripStatus(trip._id, 'active');
                                                                     if (res.success) fetchTrips();
                                                                 }}
                                                                 className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-[10px] font-black uppercase hover:bg-green-100"

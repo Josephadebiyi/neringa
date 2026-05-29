@@ -107,13 +107,6 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
     LatLng? to = await g.geocode(toLocation.city, toLocation.country);
     to ??= await g.geocode(toLocation.city);
 
-    debugPrint(
-      '[JourneyMap] from="${fromLocation.city}, ${fromLocation.country}" -> $from',
-    );
-    debugPrint(
-      '[JourneyMap] to="${toLocation.city}, ${toLocation.country}" -> $to',
-    );
-
     if (!mounted) return;
     if (from == null || to == null) {
       setState(() {

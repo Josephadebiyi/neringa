@@ -31,7 +31,9 @@ class TripService {
   Future<List<TripModel>> getMyTrips() async {
     try {
       final res = await _api.get(ApiConstants.myTrips);
-      return ResponseParser.parseList(res.data, ['trips']).map(TripModel.fromJson).toList();
+      return ResponseParser.parseList(res.data, ['trips'])
+          .map(TripModel.fromJson)
+          .toList();
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -48,7 +50,8 @@ class TripService {
         if (raw.isEmpty) return {};
         final parts = raw.split(',');
         final city = parts.first.trim();
-        final country = parts.length > 1 ? parts.sublist(1).join(',').trim() : '';
+        final country =
+            parts.length > 1 ? parts.sublist(1).join(',').trim() : '';
         return {
           if (raw.isNotEmpty) 'from': raw,
           if (city.isNotEmpty) 'fromLocation': city,
@@ -61,7 +64,8 @@ class TripService {
         if (raw.isEmpty) return {};
         final parts = raw.split(',');
         final city = parts.first.trim();
-        final country = parts.length > 1 ? parts.sublist(1).join(',').trim() : '';
+        final country =
+            parts.length > 1 ? parts.sublist(1).join(',').trim() : '';
         return {
           if (raw.isNotEmpty) 'to': raw,
           if (city.isNotEmpty) 'toLocation': city,
@@ -79,7 +83,8 @@ class TripService {
         ApiConstants.searchTrips,
         queryParameters: queryParameters,
       );
-      return ResponseParser.parseList(res.data, ['trips', 'travelers', 'findUsers'])
+      return ResponseParser.parseList(
+              res.data, ['trips', 'travelers', 'findUsers'])
           .map(TripModel.fromJson)
           .toList();
     } on DioException catch (e) {
@@ -91,8 +96,7 @@ class TripService {
     try {
       final res = await _api.get('${ApiConstants.trips}/$tripId');
       final data = res.data as Map<String, dynamic>;
-      return TripModel.fromJson(
-          ResponseParser.parseModel(data, ['trip']));
+      return TripModel.fromJson(ResponseParser.parseModel(data, ['trip']));
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -107,15 +111,17 @@ class TripService {
     required double availableKg,
     required double pricePerKg,
     required String currency,
-    String travelMeans = 'Flight', // must match backend enum: Flight, Bus, Train, Car, Ship
+    String travelMeans =
+        'Flight', // must match backend enum: Flight, Bus, Train, Car, Ship
     String? arrivalDate,
     String? landmark,
     File? travelDocument,
   }) async {
     try {
-      final resolvedArrivalDate = (arrivalDate != null && arrivalDate.trim().isNotEmpty)
-          ? arrivalDate.trim()
-          : departureDate;
+      final resolvedArrivalDate =
+          (arrivalDate != null && arrivalDate.trim().isNotEmpty)
+              ? arrivalDate.trim()
+              : departureDate;
       final resolvedFromLocation = '$fromLocation, $fromCountry';
       final resolvedToLocation = '$toLocation, $toCountry';
       final resolvedLandmark = (landmark != null && landmark.trim().isNotEmpty)
@@ -140,15 +146,6 @@ class TripService {
         if (travelDocument != null)
           'travelDocument': await _encodeTravelDocument(travelDocument),
       };
-      // Temporary submit trace so we can compare the Flutter payload with the backend validator.
-      // Avoid logging the full base64 document.
-      final debugBody = Map<String, dynamic>.from(body);
-      if (debugBody['travelDocument'] is String) {
-        debugBody['travelDocument'] = '[base64:${(debugBody['travelDocument'] as String).length} chars]';
-      }
-      // ignore: avoid_print
-      print('TRIP SERVICE CREATE BODY: $debugBody');
-
       final res = await _api.post(
         ApiConstants.createTrip,
         data: body,
@@ -184,10 +181,12 @@ class TripService {
             ? '$fromLocation, $fromCountry'
             : fromLocation;
       }
-      if ((payload['fromCity']?.toString().trim().isEmpty ?? true) && fromLocation.isNotEmpty) {
+      if ((payload['fromCity']?.toString().trim().isEmpty ?? true) &&
+          fromLocation.isNotEmpty) {
         payload['fromCity'] = fromLocation;
       }
-      if ((payload['toCity']?.toString().trim().isEmpty ?? true) && toLocation.isNotEmpty) {
+      if ((payload['toCity']?.toString().trim().isEmpty ?? true) &&
+          toLocation.isNotEmpty) {
         payload['toCity'] = toLocation;
       }
       if ((payload['transportMode']?.toString().trim().isEmpty ?? true)) {
@@ -196,12 +195,6 @@ class TripService {
           payload['transportMode'] = travelMeans;
         }
       }
-      final debugPayload = Map<String, dynamic>.from(payload);
-      if (debugPayload['travelDocument'] is String) {
-        debugPayload['travelDocument'] = '[base64:${(debugPayload['travelDocument'] as String).length} chars]';
-      }
-      // ignore: avoid_print
-      print('TRIP SERVICE UPDATE BODY: $debugPayload');
       final res = await _api.put(
         '${ApiConstants.trips}/$tripId',
         data: payload,
@@ -232,5 +225,4 @@ class TripService {
       throw ApiService.parseError(e);
     }
   }
-
 }

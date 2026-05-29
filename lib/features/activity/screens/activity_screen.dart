@@ -585,7 +585,7 @@ class _TripCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 _StatusBadge(
-                  label: formatFrontendStatus(trip.status),
+                  label: formatTripStatusLabel(trip.status),
                   color: statusColor,
                 ),
               ],

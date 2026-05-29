@@ -213,7 +213,7 @@ class _TripBody extends StatelessWidget {
               children: [
                 _TripInfoRow(
                     label: l10n.statusLabel,
-                    value: formatFrontendStatus(trip.status)),
+                    value: formatTripStatusLabel(trip.status)),
                 _TripInfoRow(
                     label: l10n.travelTypeLabel, value: trip.travelMeans),
                 _TripInfoRow(

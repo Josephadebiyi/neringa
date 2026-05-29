@@ -134,8 +134,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       await _kycOverlay.invokeMethod('show');
     } catch (_) {}
 
-    debugPrint('Dojah launch: country=${widget.countryCode}');
-
     String result;
     try {
       result = await DojahKyc.launch(
@@ -160,7 +158,6 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
           },
         ),
       ).timeout(const Duration(minutes: 15));
-      debugPrint('Dojah result: $result');
     } on TimeoutException {
       try {
         await _kycOverlay.invokeMethod('hide');

@@ -50,7 +50,6 @@ class DojahFlutterSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
 
     override fun onMethodCall(call: MethodCall, result: Result) {
-        print("onMethodCall -> called!")
         this.result = result
         if (call.method == "launch-dojah") {
 
@@ -74,7 +73,6 @@ class DojahFlutterSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 result?.success(e.message)
             }
         } else {
-            print("NOT_IMPLEMENT -> else case")
             result?.notImplemented()
         }
     }
@@ -103,11 +101,9 @@ class DojahFlutterSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode == 1001) {
-            Log.d("DojahFlutterSdkPlugin", "Got Result: $data")
             if (resultCode == RESULT_OK) {
                 data?.getStringExtra(DOJAH_RESULT_KEY)?.let {
                     result?.success(it)
-                    Log.d("DojahFlutterSdkPlugin", "Got Result: $it")
                 }
             } else {
                 result?.success(DOJAH_CLOSED_RESULT)

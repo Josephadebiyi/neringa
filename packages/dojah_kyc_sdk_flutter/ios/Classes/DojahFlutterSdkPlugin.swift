@@ -107,8 +107,6 @@ public class DojahFlutterSdkPlugin: NSObject, FlutterPlugin {
                 guard let self = self else { return }
                 let vcName = String(describing: vc)
                 
-                print("Dojah visible controller: \(vcName)")
-                
                 if vcName.contains("DojahWidget.SDKInitViewController") {
                     if self.prevController != nil {
                         self.scheduleResolveAfterCompletedFlow()

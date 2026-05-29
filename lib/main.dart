@@ -78,12 +78,9 @@ void _logRuntimeConfig() {
   final source =
       overrideUrl.isNotEmpty ? 'API_BASE_URL dart-define' : defaultSource;
 
-  debugPrint('Bago backend: $backendUrl ($source)');
-  if (ApiConstants.supabaseUrl.isNotEmpty) {
-    debugPrint('Supabase URL configured for Flutter client.');
-  }
   if (kDebugMode) {
     debugPrint(
-        'Tip: run with --dart-define=API_BASE_URL=http://127.0.0.1:9005 for local backend.');
+      'Backend configured from $source (${backendUrl.isEmpty ? 'empty' : 'set'}).',
+    );
   }
 }

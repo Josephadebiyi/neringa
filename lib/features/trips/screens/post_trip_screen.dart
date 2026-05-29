@@ -557,27 +557,6 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       final departureIso = _parseDateTimeToISO();
       // Full selection (may include hub like "Heathrow Airport, London, United Kingdom")
       final landmark = _from.isNotEmpty ? _from : '$fromCity, $fromCountry';
-      final debugPayload = <String, dynamic>{
-        'mode': _isEditMode ? 'edit' : 'create',
-        'fromLocation': fromCity,
-        'fromCountry': fromCountry,
-        'fromCity': fromCity,
-        'toLocation': toCity,
-        'toCountry': toCountry,
-        'toCity': toCity,
-        'departureDate': departureIso,
-        'arrivalDate': departureIso,
-        'availableKg': _capacity.toDouble(),
-        'pricePerKg': price,
-        'currency': currency,
-        'travelMeans': travelMeans,
-        'transportMode': travelMeans,
-        'landmark': landmark,
-        'existingTravelDocument': _existingTravelDocument?.isNotEmpty == true,
-        'newTravelDocumentPath': _travelDocumentFile?.path,
-      };
-      debugPrint('TRIP SUBMIT PAYLOAD: $debugPayload');
-
       if (_isEditMode) {
         await TripService.instance.updateTrip(
           widget.tripId!,

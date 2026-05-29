@@ -77,12 +77,20 @@ function normalizePackage(row) {
   };
 }
 
+function normalizeTripStatus(row) {
+  const rawStatus = (row?.trip_status || row?.status || 'pending_admin_review').toString().toLowerCase();
+  if (['active', 'verified', 'approved', 'live'].includes(rawStatus)) {
+    return row?.travel_document_verified === true ? 'active' : 'pending';
+  }
+  if (['pending_admin_review', 'pending_review', 'admin_review'].includes(rawStatus)) {
+    return 'pending';
+  }
+  return rawStatus;
+}
+
 function normalizeTrip(row) {
   if (!row) return null;
-  const rawStatus = (row.trip_status || row.status || 'pending_admin_review').toString();
-  const status = ['active', 'verified'].includes(rawStatus.toLowerCase()) && row.travel_document_verified !== true
-    ? 'pending_admin_review'
-    : rawStatus;
+  const status = normalizeTripStatus(row);
 
   return {
     _id: row.trip_id || row.id,

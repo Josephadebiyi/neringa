@@ -76,7 +76,7 @@ class TripModel {
         'upcoming',
       ].contains(status.toLowerCase());
 
-  String get statusLabel => formatFrontendStatus(status);
+  String get statusLabel => formatTripStatusLabel(status);
   double get remainingKg => availableKg;
   bool get isPubliclyVisible =>
       ['active', 'verified'].contains(status.toLowerCase()) && availableKg > 0;
