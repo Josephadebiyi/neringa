@@ -120,7 +120,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         throw StateError('PayPal checkout could not start.');
       }
 
-      final approved = await _presentPayPalCheckout(approvalUrl);
+      final approved = await _presentPayPalCheckout(
+        _fundedUrl(approvalUrl, _selectedMethod),
+      );
       if (!approved) {
         throw StateError('Payment was cancelled before it could be completed.');
       }
@@ -166,6 +168,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
           builder: (_) => _PayPalCheckoutSheet(approvalUrl: approvalUrl),
         )) ??
         false;
+  }
+
+  String _fundedUrl(String url, String method) {
+    if (method == 'paypal_wallet') return url;
+    final uri = Uri.parse(url);
+    final source = method == 'apple_pay' ? 'applepay' : 'card';
+    return uri.replace(queryParameters: {
+      ...uri.queryParameters,
+      'fundingSource': source,
+    }).toString();
   }
 
   double _asDouble(dynamic value) {

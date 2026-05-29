@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -105,6 +106,8 @@ export default function SendPackage() {
     const [quote, setQuote] = useState(null);
     const [pendingPayment, setPendingPayment] = useState(null);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
+    const [paypalClientId, setPaypalClientId] = useState('');
+    const [paypalReadyPackage, setPaypalReadyPackage] = useState(null);
 
     // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
@@ -183,13 +186,18 @@ export default function SendPackage() {
         if (!isAuthenticated) {
             navigate('/login');
         } else if (!selectedTrip) {
-            // Require traveler selection from search results before opening this form
             navigate('/search', { replace: true });
         } else {
             checkVerificationStatus();
             loadExchangeRates();
         }
     }, [isAuthenticated, navigate]);
+
+    useEffect(() => {
+        api.get('/api/config/paypal')
+            .then(r => setPaypalClientId(r.data?.clientId || ''))
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (user?.preferredCurrency && !selectedTrip) {
@@ -346,6 +354,34 @@ export default function SendPackage() {
         }
     };
 
+    const handlePayPalApprove = useCallback(async (data) => {
+        setPaymentProcessing(true);
+        setError('');
+        try {
+            const capture = await api.post('/api/payments/paypal/capture-order', {
+                orderId: data.orderID,
+            });
+            if (!capture.data?.success) {
+                showPaymentError(setError, capture.data?.message || PAYMENT_PENDING_MESSAGE, capture.data);
+                return;
+            }
+            setPaypalReadyPackage(null);
+            navigate('/shipping-success', {
+                state: {
+                    requestId: capture.data?.data?.request?.id || capture.data?.data?.request?._id,
+                    trackingNumber: capture.data?.data?.request?.trackingNumber,
+                    amount: Number(totalCost),
+                    currency,
+                    paymentMethod: 'paypal',
+                },
+            });
+        } catch (err) {
+            showPaymentError(setError, PAYMENT_PENDING_MESSAGE, err);
+        } finally {
+            setPaymentProcessing(false);
+        }
+    }, [totalCost, currency, navigate]);
+
     const handleVerifyPaystackPayment = async () => {
         if (!pendingPayment?.reference) return;
         setPaymentProcessing(true);
@@ -448,27 +484,12 @@ export default function SendPackage() {
                     const packageId = packageResponse.data.package._id;
 
                     if (paymentProvider === 'paypal') {
-                        const paymentResponse = await api.post('/api/payments/paypal/create-order', {
+                        setPaypalReadyPackage({
                             packageId,
                             tripId: selectedTrip._id,
-                            paymentMethod: 'paypal_wallet',
-                            currency,
                             insurance: formData.insuranceProtection,
                             insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
-                        });
-
-                        const paymentData = paymentResponse.data?.data || {};
-                        const approvalUrl = paymentData.approvalUrl || paymentResponse.data?.approvalUrl;
-                        const orderId = paymentData.orderId || paymentResponse.data?.orderId;
-                        if (!approvalUrl || !orderId) {
-                            throw new Error('PayPal checkout could not start.');
-                        }
-                        window.open(approvalUrl, '_blank', 'noopener,noreferrer');
-                        setPendingPayment({
-                            provider: 'paypal',
-                            packageId,
-                            orderId,
-                            authorizationUrl: approvalUrl,
+                            currency,
                         });
                         return;
                     }
@@ -521,6 +542,61 @@ export default function SendPackage() {
                     <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
                 </div>
 
+
+                {paypalReadyPackage && (
+                    <div className="bg-white border border-[#5845D8]/15 rounded-[28px] p-6 md:p-8 mb-8 shadow-[0_18px_45px_rgba(88,69,216,0.08)]">
+                        <div className="flex items-start gap-4 mb-6">
+                            <div className="w-11 h-11 bg-[#5845D8]/10 text-[#5845D8] rounded-2xl flex items-center justify-center shrink-0">
+                                <CreditCard size={22} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-[#012126] tracking-tight">Complete secure payment</h2>
+                                <p className="text-sm text-[#6B7280] font-medium mt-1">
+                                    Pay {currency} {Number(totalCost).toFixed(2)} to send your request to the traveler.
+                                </p>
+                            </div>
+                        </div>
+                        {paypalClientId ? (
+                            <PayPalScriptProvider options={{
+                                'client-id': paypalClientId,
+                                currency: paypalReadyPackage.currency,
+                                intent: 'capture',
+                                components: 'buttons',
+                            }}>
+                                <PayPalButtons
+                                    style={{ layout: 'vertical', shape: 'rect', label: 'pay' }}
+                                    createOrder={async () => {
+                                        const response = await api.post('/api/payments/paypal/create-order', {
+                                            packageId: paypalReadyPackage.packageId,
+                                            tripId: paypalReadyPackage.tripId,
+                                            paymentMethod: 'paypal_wallet',
+                                            currency: paypalReadyPackage.currency,
+                                            insurance: paypalReadyPackage.insurance,
+                                            insuranceCost: paypalReadyPackage.insuranceCost,
+                                        });
+                                        const orderId = response.data?.data?.orderId;
+                                        if (!orderId) throw new Error('PayPal checkout could not start.');
+                                        return orderId;
+                                    }}
+                                    onApprove={handlePayPalApprove}
+                                    onError={(err) => showPaymentError(setError, 'PayPal encountered an error. Please try again.', err)}
+                                    onCancel={() => setError('Payment was cancelled.')}
+                                />
+                            </PayPalScriptProvider>
+                        ) : (
+                            <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5845D8]" />
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setPaypalReadyPackage(null)}
+                            className="mt-4 text-sm text-[#6B7280] hover:text-[#012126] font-medium transition-colors"
+                        >
+                            ← Go back and change details
+                        </button>
+                    </div>
+                )}
 
                 {pendingPayment && (
                     <div className="bg-white border border-[#5845D8]/15 rounded-[28px] p-6 md:p-8 mb-8 shadow-[0_18px_45px_rgba(88,69,216,0.08)]">

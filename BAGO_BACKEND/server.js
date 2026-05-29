@@ -36,7 +36,6 @@ import {
   verifyPayPalPayoutOtp,
 } from './controllers/PayPalController.js';
 
-
 dotenv.config();
 
 // Fail fast if critical secrets are missing or misconfigured
@@ -795,6 +794,12 @@ app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 
 // ✅ PayPal checkout and payouts
+app.get('/api/config/paypal', (_req, res) => {
+  res.json({
+    clientId: process.env.PAYPAL_CLIENT_ID || '',
+    mode: process.env.PAYPAL_MODE || 'live',
+  });
+});
 app.post('/api/payments/paypal/create-order', isAuthenticated, createPayPalOrder);
 app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrder);
 app.post('/api/payouts/paypal/settings', isAuthenticated, savePayPalPayoutSettings);
