@@ -31,6 +31,16 @@ function resolveUserId(req) {
   return req.user?.id || req.user?._id;
 }
 
+function hashOtp(otp) {
+  return crypto.createHash('sha256').update(String(otp)).digest('hex');
+}
+
+function otpHashMatches(storedHash, otp) {
+  const calculatedHash = hashOtp(otp);
+  if (!storedHash || storedHash.length !== calculatedHash.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash));
+}
+
 function paypalBaseUrl() {
   return String(process.env.PAYPAL_MODE || 'sandbox').toLowerCase() === 'live'
     ? 'https://api-m.paypal.com'
@@ -659,6 +669,10 @@ export async function savePayPalPayoutSettings(req, res) {
 export async function sendPayPalPayout(req, res) {
   try {
     await ensurePayPalTables();
+    const callerId = resolveUserId(req);
+    if (!callerId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
     const shipmentId = String(req.body?.shipmentId || '').trim();
     if (!shipmentId) {
       return res.status(400).json({ success: false, message: 'Shipment id is required.' });
@@ -674,6 +688,9 @@ export async function sendPayPalPayout(req, res) {
       [shipmentId],
     );
     if (!request) return res.status(404).json({ success: false, message: 'Shipment not found.' });
+    if (String(request.traveler_id) !== String(callerId)) {
+      return res.status(403).json({ success: false, message: 'You can only request payout for your own shipment.' });
+    }
     if (request.status !== 'completed' || request.sender_received !== true) {
       return res.status(400).json({ success: false, message: 'Shipment is not ready for payout.' });
     }
@@ -1055,7 +1072,7 @@ export async function sendPayPalPayoutOtp(req, res) {
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
     await query(
@@ -1066,7 +1083,7 @@ export async function sendPayPalPayoutOtp(req, res) {
       `update public.profiles
        set paypal_pending_setup = $2, updated_at = timezone('utc', now())
        where id = $1`,
-      [profile.id, JSON.stringify({ email: paypalEmail, currency: payoutCurrency, otp, expiresAt })],
+      [profile.id, JSON.stringify({ email: paypalEmail, currency: payoutCurrency, otpHash: hashOtp(otp), expiresAt })],
     );
 
     if (!resend?.emails?.send) {
@@ -1125,13 +1142,17 @@ export async function verifyPayPalPayoutOtp(req, res) {
     );
 
     const pending = row?.paypal_pending_setup;
-    if (!pending?.otp || !pending?.email) {
+    if ((!pending?.otpHash && !pending?.otp) || !pending?.email) {
       return res.status(400).json({ success: false, message: 'No pending PayPal verification found. Please start again.' });
     }
     if (new Date() > new Date(pending.expiresAt)) {
       return res.status(400).json({ success: false, message: 'Code has expired. Please request a new one.' });
     }
-    if (pending.otp !== otp) {
+    const otpMatches = pending.otpHash
+      ? otpHashMatches(pending.otpHash, otp)
+      : pending.otp === otp;
+
+    if (!otpMatches) {
       return res.status(400).json({ success: false, message: 'Incorrect code. Please try again.' });
     }
 

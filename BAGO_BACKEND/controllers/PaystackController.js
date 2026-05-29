@@ -21,6 +21,7 @@ import {
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 import { Resend } from 'resend';
+import crypto from 'crypto';
 
 let resend = null;
 try { resend = new Resend(process.env.RESEND_API_KEY); } catch (e) {}
@@ -33,6 +34,16 @@ function normalizeBankPayload(body = {}) {
   };
 }
 
+function hashOtp(otp) {
+  return crypto.createHash('sha256').update(String(otp)).digest('hex');
+}
+
+function otpHashMatches(storedHash, otp) {
+  const calculatedHash = hashOtp(otp);
+  if (!storedHash || storedHash.length !== calculatedHash.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash));
+}
+
 /**
  * Initialize Paystack payment
  * POST /api/paystack/initialize
@@ -43,7 +54,7 @@ export const initializePaystackPayment = async (req, res) => {
     const user = req.user; // already a Postgres profile from isAuthenticated
 
     // Generate unique reference
-    const reference = `BAGO-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const reference = `BAGO-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     const paymentMetadata = {
       userId: user.id,
@@ -173,7 +184,7 @@ export const addBankAccount = async (req, res) => {
     }
 
     const currency = (req.body?.currency || req.body?.walletCurrency || req.body?.preferredCurrency || user.preferred_currency || 'NGN').toString().toUpperCase();
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
     await pgQuery(
@@ -191,7 +202,7 @@ export const addBankAccount = async (req, res) => {
           accountNumber,
           accountName: accountInfo.accountName,
           currency,
-          pendingOtp: otp,
+          pendingOtpHash: hashOtp(otp),
           otpExpiresAt: expiresAt.toISOString(),
         }),
       ]
@@ -236,7 +247,6 @@ export const addBankAccount = async (req, res) => {
       requiresOtp: true,
       accountName: accountInfo.accountName,
       message: `A 6-digit confirmation code has been sent to ${user.email}`,
-      ...(req.headers['x-debug-bank-otp'] === 'true' ? { debugOtp: otp } : {}),
     });
   } catch (error) {
     console.error('Add bank account error:', error);
@@ -267,7 +277,7 @@ export const verifyBankOTP = async (req, res) => {
       ? JSON.parse(profile.bank_details)
       : profile?.bank_details || {};
 
-    if (!profile || !bankDetails.pendingOtp) {
+    if (!profile || (!bankDetails.pendingOtpHash && !bankDetails.pendingOtp)) {
       return res.status(400).json({ success: false, message: 'No pending bank account. Please start over.' });
     }
 
@@ -275,7 +285,11 @@ export const verifyBankOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: 'OTP has expired. Please start over.' });
     }
 
-    if (bankDetails.pendingOtp !== otp) {
+    const otpMatches = bankDetails.pendingOtpHash
+      ? otpHashMatches(bankDetails.pendingOtpHash, otp)
+      : bankDetails.pendingOtp === otp;
+
+    if (!otpMatches) {
       return res.status(400).json({ success: false, message: 'Invalid OTP. Please try again.' });
     }
 
@@ -345,7 +359,8 @@ export const withdrawFundsPaystack = async (req, res) => {
     const { amount } = req.body;
     const user = req.user;
 
-    if (!amount || amount <= 0) {
+    const withdrawalAmount = Number(amount);
+    if (!Number.isFinite(withdrawalAmount) || withdrawalAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Valid amount is required' });
     }
 
@@ -366,30 +381,37 @@ export const withdrawFundsPaystack = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No bank account linked. Please add a bank account first.' });
     }
 
-    if ((profile.available_balance || 0) < amount) {
+    if ((profile.available_balance || 0) < withdrawalAmount) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
-    const reference = `BAGO-WD-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const reference = `BAGO-WD-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+
+    const debit = await queryOne(
+      `UPDATE public.profiles
+       SET available_balance = available_balance - $2, updated_at = NOW()
+       WHERE id = $1 AND available_balance >= $2
+       RETURNING available_balance`,
+      [user.id, withdrawalAmount],
+    );
+    if (!debit) {
+      return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
 
     const result = await initiateTransfer({
-      amount,
+      amount: withdrawalAmount,
       recipientCode: profile.paystack_recipient_code,
       reference,
       reason: 'Bago wallet withdrawal',
     });
 
     if (!result.success) {
+      await pgQuery(
+        `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+        [user.id, withdrawalAmount],
+      );
       return res.status(400).json({ success: false, message: result.message || 'Transfer failed' });
     }
-
-    // Deduct from available balance
-    await pgQuery(
-      `UPDATE public.profiles
-       SET available_balance = available_balance - $2, updated_at = NOW()
-       WHERE id = $1`,
-      [user.id, amount]
-    );
 
     return res.status(200).json({
       success: true,

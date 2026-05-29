@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import fetch from 'node-fetch';
+import crypto from 'crypto';
 import userRouter from './routers/userRouters.js';
 import cloudinary from 'cloudinary';
 import multer from 'multer';
@@ -48,6 +49,10 @@ for (const key of _requiredSecrets) {
 }
 if (process.env.ADMIN_SECRET_KEY === process.env.JWT_SECRET) {
   console.error('FATAL: ADMIN_SECRET_KEY must differ from JWT_SECRET. Refusing to start.');
+  process.exit(1);
+}
+if (String(process.env.PAYPAL_MODE || '').toLowerCase() === 'live' && !process.env.PAYPAL_WEBHOOK_ID) {
+  console.error('FATAL: PAYPAL_WEBHOOK_ID must be set when PAYPAL_MODE=live. Refusing to start.');
   process.exit(1);
 }
 
@@ -366,9 +371,15 @@ authRoutes.forEach(route => app.use(route, authLimiter));
   '/api/bago/withdrawFunds',
   '/api/bago/paystack/initialize',
   '/api/bago/paystack/add-bank',
+  '/api/paystack/add-bank',
+  '/api/paystack/verify-bank-otp',
+  '/api/paystack/withdraw',
   '/api/payments/paypal/create-order',
   '/api/payments/paypal/capture-order',
   '/api/payouts/paypal/send',
+  '/api/payouts/paypal/send-otp',
+  '/api/payouts/paypal/verify-otp',
+  '/send-otp',
 ].forEach(route => app.use(route, sensitiveLimiter));
 
 // ✅ Make io accessible to routers
@@ -417,6 +428,8 @@ import {
 import { startCurrencyRateSync } from './cron/currencyCron.js';
 
 import { isAuthenticated } from './Auth/UserAuthentication.js';
+import { adminAuthenticated } from './Auth/AdminAuthentication.js';
+import { requireKycVerification } from './middleware/kycMiddleware.js';
 
 // ✅ Paystack Controller
 import {
@@ -472,7 +485,7 @@ app.get('/api/currency/rates', getAllExchangeRates);
 app.post('/api/currency/quote', getPaymentQuote);
 
 // ✅ Paystack endpoints (for African users)
-app.post('/api/paystack/initialize', isAuthenticated, initializePaystackPayment);
+app.post('/api/paystack/initialize', isAuthenticated, requireKycVerification, initializePaystackPayment);
 app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
 app.post('/api/paystack/add-bank', isAuthenticated, addBankAccount);
 app.post('/api/paystack/verify-bank-otp', isAuthenticated, verifyBankOTP);
@@ -576,13 +589,14 @@ app.get('/api/detect-currency', async (req, res) => {
   }
 });
 
-// ✅ Register Token (legacy endpoint — also accepts userId in body for unauthenticated calls)
-app.post('/api/bago/register-token', async (req, res) => {
-  const { userId, token, deviceToken, pushToken } = req.body;
+// ✅ Register Token
+app.post('/api/bago/register-token', isAuthenticated, async (req, res) => {
+  const { token, deviceToken, pushToken } = req.body;
+  const userId = req.user?.id || req.user?._id;
   const resolvedToken = token || deviceToken || pushToken;
 
-  if (!userId || !resolvedToken) {
-    return res.status(400).json({ error: 'userId and token required' });
+  if (!resolvedToken) {
+    return res.status(400).json({ error: 'token required' });
   }
 
   try {
@@ -680,82 +694,11 @@ app.get("/banks", async (req, res) => {
 // 2️⃣  CREATE RECIPIENT
 // -----------------------------
 // server.js (or wherever your route is)
-app.post("/create-recipient", async (req, res) => {
-  try {
-
-    const { userId, name, account_number, bank_code } = req.body;
-    if (!userId || !name || !account_number || !bank_code) {
-      console.warn('[server] missing fields:', { userId, name, account_number, bank_code });
-      return res.status(400).json({ success: false, message: "Missing required fields" });
-    }
-
-    const user = await queryOne(`SELECT id, email FROM public.profiles WHERE id = $1`, [userId]);
-    if (!user) {
-      console.warn('[server] user not found:', userId);
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    const paystackBody = {
-      type: "nuban",
-      name,
-      account_number,
-      bank_code,
-      currency: "NGN",
-    };
-
-
-    // ensure headers include your Paystack secret
-    const paystackHeaders = {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
-      'Content-Type': 'application/json',
-    };
-
-    const resp = await fetch("https://api.paystack.co/transferrecipient", {
-      method: "POST",
-      headers: paystackHeaders,
-      body: JSON.stringify(paystackBody),
-    });
-
-    const raw = await resp.text();
-
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch (parseErr) {
-      console.error('[server] failed to parse paystack response as JSON:', parseErr);
-      return res.status(502).json({
-        success: false,
-        message: 'Invalid response from Paystack (not JSON).',
-        raw: raw.slice(0, 1000),
-      });
-    }
-
-    // If Paystack returned an error-like response
-    if (!data.status) {
-      console.warn('[server] paystack responded with failure:', data);
-      return res.status(400).json({
-        success: false,
-        message: 'Paystack API error',
-        paystack: data,
-      });
-    }
-
-    // Save recipient code to user
-    await queryOne(
-      `UPDATE public.profiles SET paystack_recipient_code = $2, updated_at = NOW() WHERE id = $1 RETURNING id`,
-      [userId, data.data.recipient_code]
-    );
-
-    // Return a consistent payload to client — include both shapes so client can handle either
-    return res.json({
-      success: true,
-      status: true,
-      recipient: data.data, // recipient resource from paystack
-    });
-  } catch (err) {
-    console.error('[server] create-recipient exception:', err);
-    return res.status(500).json({ success: false, message: err.message });
-  }
+app.post("/create-recipient", async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: "This legacy payout endpoint is disabled. Use /api/paystack/add-bank.",
+  });
 });
 
 
@@ -770,7 +713,7 @@ app.post("/send-otp", isAuthenticated, async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await queryOne(
@@ -873,59 +816,11 @@ app.post("/send-otp", isAuthenticated, async (req, res) => {
 
 
 
-app.post("/verify-otp", async (req, res) => {
-  try {
-    const { userId, code, amount } = req.body;
-    const user = await queryOne(
-      `SELECT id, otp_code, otp_expires_at, paystack_recipient_code FROM public.profiles WHERE id = $1`,
-      [userId]
-    );
-
-    if (!user || !user.otp_code)
-      return res.status(400).json({ success: false, message: "OTP not found" });
-
-    if (new Date() > new Date(user.otp_expires_at))
-      return res.status(400).json({ success: false, message: "OTP expired" });
-
-    if (user.otp_code !== code)
-      return res.status(400).json({ success: false, message: "Invalid OTP" });
-
-    // OTP is valid → clear it
-    await queryOne(
-      `UPDATE public.profiles SET otp_code = NULL, otp_expires_at = NULL, updated_at = NOW() WHERE id = $1 RETURNING id`,
-      [userId]
-    );
-
-    // Proceed to Paystack transfer
-    if (!user.paystack_recipient_code)
-      return res.status(400).json({ success: false, message: "Recipient not set up" });
-
-    const otpPaystackHeaders = {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
-      'Content-Type': 'application/json',
-    };
-
-    const resp = await fetch("https://api.paystack.co/transfer", {
-      method: "POST",
-      headers: otpPaystackHeaders,
-      body: JSON.stringify({
-        source: "balance",
-        reason: "User withdrawal",
-        amount: Math.round(amount * 100),
-        recipient: user.paystack_recipient_code,
-      }),
-    });
-
-    const data = await resp.json();
-    if (!data.status) {
-      return res.status(400).json({ success: false, message: data.message });
-    }
-
-    res.json({ success: true, message: "Withdrawal successful", data: data.data });
-  } catch (err) {
-    console.error("verify-otp error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
+app.post("/verify-otp", async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: "This legacy withdrawal endpoint is disabled. Use /api/paystack/withdraw.",
+  });
 });
 
 
@@ -935,79 +830,27 @@ app.post("/verify-otp", async (req, res) => {
 // -----------------------------
 // 3️⃣  INITIATE TRANSFER (PAYOUT)
 // -----------------------------
-app.post("/transfer", async (req, res) => {
-  try {
-    const { userId, amount, reason = "Wallet Payout" } = req.body;
-    if (!userId || !amount)
-      return res.status(400).json({ success: false, message: "userId and amount required" });
-
-    const user = await queryOne(
-      `SELECT id, paystack_recipient_code FROM public.profiles WHERE id = $1`,
-      [userId]
-    );
-    if (!user?.paystack_recipient_code)
-      return res.status(400).json({ success: false, message: "Recipient not created yet" });
-
-    const sendAmount = toKobo(amount);
-
-    const transferBody = {
-      source: "balance",
-      amount: sendAmount,
-      recipient: user.paystack_recipient_code,
-      reason,
-      currency: "NGN",
-    };
-
-    const transferHeaders = {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET}`,
-      'Content-Type': 'application/json',
-    };
-
-    const resp = await fetch("https://api.paystack.co/transfer", {
-      method: "POST",
-      headers: transferHeaders,
-      body: JSON.stringify(transferBody),
-    });
-
-    const data = await resp.json();
-    if (!data.status)
-      return res.status(400).json({ success: false, message: data.message, data });
-
-    res.json({ success: true, transfer: data.data });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
+app.post("/transfer", async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: "This legacy transfer endpoint is disabled. Use authenticated payout APIs.",
+  });
 });
 
 // -----------------------------
 // 4️⃣  FINALIZE TRANSFER (if OTP enabled)
 // -----------------------------
-app.post("/transfer/finalize", async (req, res) => {
-  try {
-    const { transfer_code, otp } = req.body;
-    if (!transfer_code || !otp)
-      return res.status(400).json({ success: false, message: "transfer_code and otp required" });
-
-    const resp = await fetch("https://api.paystack.co/transfer/finalize_transfer", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ transfer_code, otp }),
-    });
-
-    const data = await resp.json();
-    if (!data.status)
-      return res.status(400).json({ success: false, message: data.message, data });
-
-    res.json({ success: true, transfer: data.data });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
+app.post("/transfer/finalize", async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: "This legacy transfer finalize endpoint is disabled.",
+  });
 });
 
 // -----------------------------
 // 5️⃣  CHECK BALANCE
 // -----------------------------
-app.get("/balance", async (req, res) => {
+app.get("/balance", adminAuthenticated, async (req, res) => {
   try {
     const resp = await fetch("https://api.paystack.co/balance", {
       method: "GET",
@@ -1100,14 +943,9 @@ app.get("/api/payment/verify/:reference", async (req, res) => {
 });
 
 // Admin: Manually approve KYC (for testing)
-app.post("/api/bago/kyc/admin-approve", async (req, res) => {
+app.post("/api/bago/kyc/admin-approve", adminAuthenticated, async (req, res) => {
   try {
-    const { userId, adminKey } = req.body;
-
-    // Simple admin key check (you should use proper admin auth)
-    if (adminKey !== 'bago_admin_2024') {
-      return res.status(403).json({ success: false, message: "Unauthorized" });
-    }
+    const { userId } = req.body;
 
     const updated = await queryOne(
       `UPDATE public.profiles SET kyc_status = 'approved', kyc_verified_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id`,
@@ -1123,10 +961,9 @@ app.post("/api/bago/kyc/admin-approve", async (req, res) => {
 });
 
 // Update KYC status manually (for webhook simulation)
-app.post("/api/bago/kyc/update-status", async (req, res) => {
+app.post("/api/bago/kyc/update-status", adminAuthenticated, async (req, res) => {
   try {
-    const userId = req.cookies.userId;
-    const { status } = req.body;
+    const { userId, status } = req.body;
 
     if (!userId) {
       return res.status(401).json({ success: false, message: "User not authenticated" });
@@ -1773,7 +1610,7 @@ app.get("/api/shipping/label/:requestId", isAuthenticated, async (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 // Push notification diagnostic (temporary — remove after testing)
 // ────────────────────────────────────────────────────────────────────────────
-app.get('/api/bago/push-diag/tokens', async (req, res) => {
+app.get('/api/bago/push-diag/tokens', adminAuthenticated, async (req, res) => {
   try {
     const result = await pgQuery(
       `SELECT id, email, first_name, last_name, array_length(push_tokens, 1) as token_count, push_tokens
@@ -1800,7 +1637,7 @@ app.get('/api/bago/push-diag/tokens', async (req, res) => {
   }
 });
 
-app.post('/api/bago/push-diag/test', async (req, res) => {
+app.post('/api/bago/push-diag/test', adminAuthenticated, async (req, res) => {
   try {
     let { userId, email, title, body } = req.body;
 
