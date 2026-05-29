@@ -33,6 +33,7 @@ class UserModel {
   final String? paypalEmail;
   final String? payoutCurrency;
   final String? payoutProvider;
+  final String? payoutMethod;
   final String? payoutStatus;
   final String? payoutMethodStatus;
   final String? signupMethod; // 'email' | 'google' | 'apple'
@@ -69,6 +70,7 @@ class UserModel {
     this.paypalEmail,
     this.payoutCurrency,
     this.payoutProvider,
+    this.payoutMethod,
     this.payoutStatus,
     this.payoutMethodStatus,
     this.signupMethod,
@@ -134,6 +136,7 @@ class UserModel {
     String? paypalEmail,
     String? payoutCurrency,
     String? payoutProvider,
+    String? payoutMethod,
     String? payoutStatus,
     String? payoutMethodStatus,
     String? signupMethod,
@@ -172,6 +175,7 @@ class UserModel {
       paypalEmail: paypalEmail ?? this.paypalEmail,
       payoutCurrency: payoutCurrency ?? this.payoutCurrency,
       payoutProvider: payoutProvider ?? this.payoutProvider,
+      payoutMethod: payoutMethod ?? this.payoutMethod,
       payoutStatus: payoutStatus ?? this.payoutStatus,
       payoutMethodStatus: payoutMethodStatus ?? this.payoutMethodStatus,
       signupMethod: signupMethod ?? this.signupMethod,
@@ -233,6 +237,8 @@ class UserModel {
             json['payout_currency']?.toString(),
         payoutProvider: json['payoutProvider']?.toString() ??
             json['payout_provider']?.toString(),
+        payoutMethod: json['payoutMethod']?.toString() ??
+            json['payout_method']?.toString(),
         payoutStatus: json['payoutStatus']?.toString() ??
             json['payout_status']?.toString(),
         payoutMethodStatus: json['payoutMethodStatus']?.toString() ??
@@ -278,6 +284,7 @@ class UserModel {
         'paypal_email': paypalEmail,
         'payout_currency': payoutCurrency,
         'payout_provider': payoutProvider,
+        'payout_method': payoutMethod,
         'payout_status': payoutStatus,
         'payout_method_status': payoutMethodStatus,
         'signupMethod': signupMethod,
