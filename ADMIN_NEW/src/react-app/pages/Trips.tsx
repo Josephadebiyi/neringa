@@ -62,6 +62,7 @@ function formatPayoutStatus(raw: string | undefined): string {
 export default function Trips() {
     const [trips, setTrips] = useState<Trip[]>([]);
     const [loading, setLoading] = useState(true);
+    const [actionError, setActionError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTrips, setSelectedTrips] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -133,6 +134,21 @@ export default function Trips() {
         }
     };
 
+    const handleTripStatusUpdate = async (tripId: string, status: string, reason?: string) => {
+        try {
+            setActionError(null);
+            const res = await updateTripStatus(tripId, status, reason);
+            if (!res?.success) {
+                throw new Error(res?.message || 'Trip status could not be updated.');
+            }
+            await fetchTrips();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Trip status could not be updated.';
+            setActionError(message);
+            console.error('Failed to update trip status:', error);
+        }
+    };
+
     const getTravelIcon = (means: string) => {
         switch ((means ?? '').toLowerCase()) {
             case 'airplane': return <Plane className="w-4 h-4" />;
@@ -177,6 +193,16 @@ export default function Trips() {
                     </button>
                 )}
             </div>
+
+            {/* Filters */}
+            {actionError && (
+                <div className="flex items-start justify-between gap-4 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm font-bold text-red-700">
+                    <span>{actionError}</span>
+                    <button type="button" onClick={() => setActionError(null)} className="text-red-400 hover:text-red-700">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -333,8 +359,7 @@ export default function Trips() {
                                                             <button
                                                                 onClick={async () => {
                                                                     if (!confirm('Approve and verify this trip?')) return;
-                                                                    const res = await updateTripStatus(trip._id, 'active');
-                                                                    if (res.success) fetchTrips();
+                                                                    await handleTripStatusUpdate(trip._id, 'active');
                                                                 }}
                                                                 className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-[10px] font-black uppercase hover:bg-green-100"
                                                             >
@@ -344,8 +369,7 @@ export default function Trips() {
                                                                 onClick={async () => {
                                                                     const reason = prompt('Enter reason for decline:');
                                                                     if (reason === null) return;
-                                                                    const res = await updateTripStatus(trip._id, 'declined', reason);
-                                                                    if (res.success) fetchTrips();
+                                                                    await handleTripStatusUpdate(trip._id, 'declined', reason);
                                                                 }}
                                                                 className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black uppercase hover:bg-red-100"
                                                             >

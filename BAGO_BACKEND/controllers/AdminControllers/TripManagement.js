@@ -132,23 +132,35 @@ export const updateTripStatus = async (req, res) => {
     const userName = trip.user?.firstName || 'Traveler';
 
     if (nextStatus === 'active' && trip.userId) {
-      await sendPushNotification(
-        trip.userId,
-        'Trip Approved!',
-        `Your trip from ${trip.fromLocation} to ${trip.toLocation} has been approved and is now live.`,
-      );
-      if (userEmail) {
-        await sendTripApprovedEmail(userEmail, userName, trip);
-      }
+      Promise.allSettled([
+        sendPushNotification(
+          trip.userId,
+          'Trip Approved!',
+          `Your trip from ${trip.fromLocation} to ${trip.toLocation} has been approved and is now live.`,
+        ),
+        userEmail ? sendTripApprovedEmail(userEmail, userName, trip) : Promise.resolve(),
+      ]).then((results) => {
+        results.forEach((result) => {
+          if (result.status === 'rejected') {
+            console.error('Trip approval notification failed:', result.reason);
+          }
+        });
+      });
     } else if (nextStatus === 'declined' && trip.userId) {
-      await sendPushNotification(
-        trip.userId,
-        'Trip Declined',
-        `Your trip from ${trip.fromLocation} to ${trip.toLocation} was declined. Please check your travel documents and try again.`,
-      );
-      if (userEmail) {
-        await sendTripDeclinedEmail(userEmail, userName, trip, reason);
-      }
+      Promise.allSettled([
+        sendPushNotification(
+          trip.userId,
+          'Trip Declined',
+          `Your trip from ${trip.fromLocation} to ${trip.toLocation} was declined. Please check your travel documents and try again.`,
+        ),
+        userEmail ? sendTripDeclinedEmail(userEmail, userName, trip, reason) : Promise.resolve(),
+      ]).then((results) => {
+        results.forEach((result) => {
+          if (result.status === 'rejected') {
+            console.error('Trip decline notification failed:', result.reason);
+          }
+        });
+      });
     }
 
     res.status(200).json({
