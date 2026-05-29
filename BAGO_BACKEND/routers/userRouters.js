@@ -55,7 +55,7 @@ userRouter.post('/refresh-token', async (req, res) => {
     }
 
     const jwt = (await import('jsonwebtoken')).default;
-    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+    const refreshSecret = process.env.JWT_REFRESH_SECRET;
     const decoded = jwt.verify(refreshToken, refreshSecret);
 
     // Validate token exists and hasn't been revoked

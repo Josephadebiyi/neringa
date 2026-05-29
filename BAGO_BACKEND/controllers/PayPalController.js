@@ -579,7 +579,7 @@ export async function capturePayPalOrder(req, res) {
       );
       return res.status(402).json({ success: false, message: 'PayPal payment is not complete.' });
     }
-    if (capturedCurrency !== expectedCurrency || capturedAmount < expectedAmount * 0.98) {
+    if (capturedCurrency !== expectedCurrency || capturedAmount < expectedAmount - 0.10) {
       await query(
         `update public.payments set status = 'failed', raw_response = raw_response || $2::jsonb, updated_at = timezone('utc', now()) where id = $1`,
         [payment.id, { capture, mismatch: { capturedAmount, capturedCurrency, expectedAmount, expectedCurrency } }],
@@ -704,7 +704,13 @@ export async function sendPayPalPayout(req, res) {
       return res.status(400).json({ success: false, message: 'Traveler does not have active PayPal payout settings.' });
     }
 
-    const amount = toAmount(Math.max(0, Number(request.amount || 0) - Number(request.insurance_cost || 0) - (Number(request.amount || 0) * getCommissionRate())));
+    const ledger = await queryOne(
+      `select converted_traveler_earning, traveler_earning_amount from public.shipment_ledgers where shipment_id = $1 limit 1`,
+      [request.id],
+    ).catch(() => null);
+    const amount = ledger?.converted_traveler_earning
+      ? toAmount(ledger.converted_traveler_earning)
+      : toAmount(Math.max(0, Number(request.amount || 0) - Number(request.insurance_cost || 0) - (Number(request.amount || 0) * getCommissionRate())));
     const currency = normalizeCurrency(request.payout_currency || request.currency);
     const senderBatchId = `bago-${shipmentId}-${Date.now()}`.slice(0, 64);
     const payout = await createPayPalEmailPayout({

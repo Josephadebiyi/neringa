@@ -132,7 +132,8 @@ function signUserToken(user) {
     process.env.JWT_SECRET,
     { expiresIn: '7d' },
   );
-  const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+  const refreshSecret = process.env.JWT_REFRESH_SECRET;
+  if (!refreshSecret) throw new Error('JWT_REFRESH_SECRET is not configured.');
   const refreshToken = jwt.sign(
     { id: user.id, email: user.email },
     refreshSecret,

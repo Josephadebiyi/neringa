@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { query as pgQuery } from "../lib/postgres/db.js";
+import { query as pgQuery, withTransaction } from "../lib/postgres/db.js";
 import { convertCurrency } from "../services/currencyConverter.js";
 
 export const startEscrowAutoRelease = () => {
@@ -51,23 +51,23 @@ export const startEscrowAutoRelease = () => {
         }
         if (amount <= 0) continue;
 
-        // Transfer escrow → traveler available balance (wallet_accounts is source of truth)
-        await pgQuery(
-          `UPDATE public.wallet_accounts
-           SET escrow_balance = GREATEST(0, escrow_balance - $2),
-               available_balance = available_balance + $2,
-               updated_at = NOW()
-           WHERE user_id = $1`,
-          [req.traveler_id, amount]
-        );
-
-        // Mark request as auto-released
-        await pgQuery(
-          `UPDATE public.shipment_requests
-           SET auto_released = true, updated_at = NOW()
-           WHERE id = $1`,
-          [req.id]
-        );
+        // Transfer escrow → available balance and mark as auto-released atomically
+        await withTransaction(async (client) => {
+          await client.query(
+            `UPDATE public.wallet_accounts
+             SET escrow_balance = GREATEST(0, escrow_balance - $2),
+                 available_balance = available_balance + $2,
+                 updated_at = NOW()
+             WHERE user_id = $1`,
+            [req.traveler_id, amount],
+          );
+          await client.query(
+            `UPDATE public.shipment_requests
+             SET auto_released = true, updated_at = NOW()
+             WHERE id = $1 AND (auto_released IS NULL OR auto_released = false)`,
+            [req.id],
+          );
+        });
 
         console.log(`💸 Auto-released $${amount} for request ${req.id}`);
       }

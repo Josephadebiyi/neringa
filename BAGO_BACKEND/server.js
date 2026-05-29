@@ -40,7 +40,7 @@ import {
 dotenv.config();
 
 // Fail fast if critical secrets are missing or misconfigured
-const _requiredSecrets = ['JWT_SECRET', 'ADMIN_SECRET_KEY'];
+const _requiredSecrets = ['JWT_SECRET', 'ADMIN_SECRET_KEY', 'JWT_REFRESH_SECRET'];
 for (const key of _requiredSecrets) {
   if (!process.env[key]) {
     console.error(`FATAL: Environment variable ${key} is not set. Refusing to start.`);
