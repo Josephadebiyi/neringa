@@ -206,20 +206,20 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Google Users Card */}
+        {/* Registered Users Card */}
         <div className="premium-card p-6 border-l-4 border-l-[#F59E0B]">
           <div className="flex justify-between items-start">
             <div className="stats-icon-container bg-[#F59E0B]/10 text-[#F59E0B]">
               <Users className="w-7 h-7" />
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Google Auth</p>
-              <h3 className="text-2xl font-black text-[#1e2749] mt-1">{(stats?.googleUsers || 0).toLocaleString()}</h3>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Registered Users</p>
+              <h3 className="text-2xl font-black text-[#1e2749] mt-1">{(stats?.totalUsers || 0).toLocaleString()}</h3>
             </div>
           </div>
           <div className="mt-4 flex items-center gap-2">
-            <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">Verified</span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">via google</span>
+            <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg">{(stats?.googleUsers || 0).toLocaleString()}</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">google signups</span>
           </div>
         </div>
 
@@ -379,4 +379,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

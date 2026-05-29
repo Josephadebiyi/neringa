@@ -191,6 +191,7 @@ export const addBankAccount = async (req, res) => {
       `UPDATE public.profiles
        SET bank_details = $2,
            payout_provider = 'paystack',
+           payout_method = 'paystack',
            payout_method_status = 'otp_pending',
            updated_at = NOW()
        WHERE id = $1`,
@@ -325,6 +326,7 @@ export const verifyBankOTP = async (req, res) => {
        SET paystack_recipient_code = $2,
            bank_details = $3,
            payout_provider = 'paystack',
+           payout_method = 'paystack',
            payout_method_status = 'connected',
            updated_at = NOW()
        WHERE id = $1`,

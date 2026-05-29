@@ -23,6 +23,7 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS payout_currency TEXT,
       ADD COLUMN IF NOT EXISTS payout_status TEXT,
       ADD COLUMN IF NOT EXISTS payout_provider TEXT,
+      ADD COLUMN IF NOT EXISTS payout_method TEXT,
       ADD COLUMN IF NOT EXISTS payout_method_status TEXT,
       ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS accepted_terms_at TIMESTAMPTZ

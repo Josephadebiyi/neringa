@@ -646,6 +646,7 @@ export async function savePayPalPayoutSettings(req, res) {
       `
         update public.profiles
         set payout_provider = 'paypal',
+            payout_method = 'paypal',
             paypal_email = $2,
             payout_currency = $3,
             payout_status = 'active',
@@ -1042,6 +1043,7 @@ export async function handlePayPalOAuthCallback(req, res) {
     await query(
       `update public.profiles
        set payout_provider = 'paypal',
+           payout_method = 'paypal',
            paypal_email = $2,
            paypal_payer_id = $3,
            payout_currency = $4,
@@ -1171,6 +1173,7 @@ export async function verifyPayPalPayoutOtp(req, res) {
     const user = await queryOne(
       `update public.profiles
        set payout_provider = 'paypal',
+           payout_method = 'paypal',
            paypal_email = $2,
            payout_currency = $3,
            payout_status = 'active',

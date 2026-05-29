@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -71,6 +74,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   String _selectedCurrency = 'USD';
   bool _confirmed = false;
   bool _saving = false;
+  bool _connectingPayPal = false;
 
   @override
   void initState() {
@@ -81,6 +85,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         CurrencyConversionHelper.supportedCurrencyCodes.contains(currency)
             ? currency
             : 'USD';
+    _hydrateFromUser(user);
   }
 
   @override
@@ -91,6 +96,88 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
   bool get _usesPaystack =>
       _africanPayoutCurrencies.contains(_selectedCurrency.toUpperCase());
+
+  void _hydrateFromUser(user) {
+    final existingEmail = user?.paypalEmail?.trim() ?? '';
+    if (existingEmail.isNotEmpty && _emailController.text.trim().isEmpty) {
+      _emailController.text = existingEmail;
+      _confirmed = true;
+    }
+    final payoutCurrency = user?.payoutCurrency?.toString().toUpperCase();
+    if (payoutCurrency != null &&
+        CurrencyConversionHelper.supportedCurrencyCodes
+            .contains(payoutCurrency)) {
+      _selectedCurrency = payoutCurrency;
+    }
+  }
+
+  bool _hasConnectedPayPal(user) {
+    final email = user?.paypalEmail?.trim() ?? '';
+    final payoutStatus = user?.payoutStatus?.trim().toLowerCase() ?? '';
+    final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
+    return email.isNotEmpty &&
+        (payoutStatus == 'active' || methodStatus == 'connected');
+  }
+
+  Future<void> _connectWithPayPal() async {
+    if (_connectingPayPal || _saving) return;
+    final payoutCurrency = _selectedCurrency.toUpperCase();
+    if (_africanPayoutCurrencies.contains(payoutCurrency)) {
+      AppSnackBar.show(
+        context,
+        message:
+            '$payoutCurrency payouts must use Paystack/bank transfer, not PayPal.',
+        type: SnackBarType.error,
+      );
+      return;
+    }
+
+    setState(() => _connectingPayPal = true);
+    try {
+      await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
+      final response = await ApiService.instance.get(
+        ApiConstants.paypalPayoutOAuthStart,
+      );
+      final data = response.data as Map<String, dynamic>;
+      final oauthUrl = data['oauthUrl']?.toString();
+      if (oauthUrl == null || oauthUrl.isEmpty) {
+        throw Exception('Could not start PayPal login.');
+      }
+
+      final launched = await launchUrl(
+        Uri.parse(oauthUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw Exception('Could not open PayPal login.');
+      }
+
+      unawaited(Future<void>.delayed(const Duration(seconds: 3), () async {
+        await ref.read(authProvider.notifier).refreshProfile();
+        final refreshed = ref.read(authProvider).user;
+        if (!mounted) return;
+        setState(() {
+          _hydrateFromUser(refreshed);
+        });
+      }));
+    } on DioException catch (error) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: ApiService.parseError(error),
+        type: SnackBarType.error,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: error.toString().replaceFirst('Exception: ', ''),
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _connectingPayPal = false);
+    }
+  }
 
   Future<void> _save() async {
     if (_saving) return;
@@ -170,6 +257,19 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      final previousEmail = previous?.user?.paypalEmail;
+      final nextEmail = next.user?.paypalEmail;
+      final previousStatus = previous?.user?.payoutMethodStatus;
+      final nextStatus = next.user?.payoutMethodStatus;
+      if (previousEmail != nextEmail || previousStatus != nextStatus) {
+        setState(() => _hydrateFromUser(next.user));
+      }
+    });
+
+    final user = ref.watch(authProvider).user;
+    final hasConnectedPayPal = _hasConnectedPayPal(user);
+
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -278,6 +378,44 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
               onPressed: _continueWithPaystack,
             ),
           ] else ...[
+            if (hasConnectedPayPal) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFFDF5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF059669),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'PayPal connected: ${user?.paypalEmail}',
+                        style: AppTextStyles.bodyMd.copyWith(
+                          color: const Color(0xFF047857),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            AppButton(
+              label: hasConnectedPayPal
+                  ? 'Reconnect PayPal account'
+                  : 'Connect with PayPal',
+              icon: const Icon(Icons.login_rounded, size: 18),
+              isLoading: _connectingPayPal,
+              onPressed: _connectWithPayPal,
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
