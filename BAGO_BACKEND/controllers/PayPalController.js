@@ -784,7 +784,8 @@ export async function paypalWebhook(req, res) {
       );
     } else if (type.startsWith('PAYMENT.PAYOUTS-ITEM.')) {
       const status = type.endsWith('SUCCEEDED') ? 'completed' : type.endsWith('FAILED') ? 'failed' : 'processing';
-      await query(
+      const failureReason = resource.errors?.message || null;
+      const payout = await queryOne(
         `
           update public.payouts
           set status = $2,
@@ -792,9 +793,33 @@ export async function paypalWebhook(req, res) {
               raw_response = raw_response || $4::jsonb,
               updated_at = timezone('utc', now())
           where payout_item_id = $1
+          returning traveler_id, amount, currency
         `,
-        [resource.payout_item_id, status, resource.errors?.message || null, { webhook: event }],
+        [resource.payout_item_id, status, failureReason, { webhook: event }],
       );
+
+      if (payout && status === 'failed') {
+        const userFaultCodes = new Set([
+          'RECEIVER_ACCOUNT_NOT_FOUND', 'RECEIVER_ACCOUNT_CANNOT_ACCEPT_PAYOUTS',
+          'INVALID_RECIPIENT', 'RECEIVER_ACCOUNT_LOCKED', 'RECEIVER_UNREGISTERED',
+          'RECEIVER_ACCOUNT_UNCONFIRMED',
+        ]);
+        const isUserFault = userFaultCodes.has(resource.errors?.name || '');
+        const displayAmount = `${payout.currency} ${Number(payout.amount).toFixed(2)}`;
+        const userMessage = isUserFault
+          ? `Your payout of ${displayAmount} failed — the linked PayPal account may not exist or cannot receive payments. Please update your PayPal payout account and contact support.`
+          : `Your payout of ${displayAmount} could not be processed. Our team has been notified and will review it. Contact support if this continues.`;
+        await Promise.allSettled([
+          createNotification({
+            userId: payout.traveler_id,
+            title: 'Payout failed',
+            body: userMessage,
+            type: 'payout_failed',
+            payload: { isUserFault },
+          }),
+          sendPushNotification(payout.traveler_id, 'Payout failed', userMessage, { type: 'payout_failed', isUserFault }),
+        ]);
+      }
     }
 
     return res.status(200).json({ received: true });
@@ -810,6 +835,125 @@ export function paypalReturn(_req, res) {
 
 export function paypalCancel(_req, res) {
   res.send('<html><body><script>window.close();</script><p>Payment cancelled. You can return to Bago.</p></body></html>');
+}
+
+/**
+ * GET /api/payouts/paypal/oauth/start
+ * Returns a PayPal OAuth URL so the user can log in and link their account.
+ */
+export async function startPayPalOAuth(req, res) {
+  try {
+    if (!paypalConfigured()) {
+      return res.status(503).json({ success: false, message: 'PayPal is not configured.' });
+    }
+    const profile = await getAuthorizedProfile(req);
+
+    await query(`
+      alter table public.profiles
+        add column if not exists paypal_oauth_state jsonb,
+        add column if not exists paypal_payer_id text
+    `).catch(() => {});
+
+    const state = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    await query(
+      `update public.profiles set paypal_oauth_state = $2, updated_at = timezone('utc', now()) where id = $1`,
+      [profile.id, { state, expiresAt }],
+    );
+
+    const isLive = String(process.env.PAYPAL_MODE || 'sandbox').toLowerCase() === 'live';
+    const authBase = isLive ? 'https://www.paypal.com' : 'https://www.sandbox.paypal.com';
+    const backendUrl = process.env.API_PUBLIC_URL || process.env.BACKEND_URL || 'https://neringa.onrender.com';
+    const redirectUri = `${backendUrl}/api/payouts/paypal/oauth/callback`;
+
+    const oauthUrl = new URL(`${authBase}/signin/authorize`);
+    oauthUrl.searchParams.set('client_id', process.env.PAYPAL_CLIENT_ID);
+    oauthUrl.searchParams.set('response_type', 'code');
+    oauthUrl.searchParams.set('scope', 'openid email https://uri.paypal.com/services/paypalattributes');
+    oauthUrl.searchParams.set('redirect_uri', redirectUri);
+    oauthUrl.searchParams.set('state', state);
+
+    return res.json({ success: true, oauthUrl: oauthUrl.toString(), redirectUri });
+  } catch (error) {
+    console.error('startPayPalOAuth error:', error.message);
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Could not start PayPal login.' });
+  }
+}
+
+/**
+ * GET /api/payouts/paypal/oauth/callback
+ * PayPal redirects here after the user logs in. Exchanges the code, saves the
+ * PayPal email, then redirects back to the app via deep link.
+ */
+export async function handlePayPalOAuthCallback(req, res) {
+  const appScheme = process.env.APP_SCHEME || 'com.bago.mobile';
+  const deepLinkBase = `${appScheme}://paypal-callback`;
+
+  const { code, state, error: oauthError } = req.query;
+  if (oauthError || !code || !state) {
+    return res.redirect(`${deepLinkBase}?status=failed&reason=cancelled`);
+  }
+
+  try {
+    const profile = await queryOne(
+      `select id, paypal_oauth_state, preferred_currency, payout_currency from public.profiles where paypal_oauth_state->>'state' = $1`,
+      [state],
+    );
+    if (!profile) return res.redirect(`${deepLinkBase}?status=failed&reason=invalid_state`);
+
+    const stateData = profile.paypal_oauth_state;
+    if (new Date() > new Date(stateData.expiresAt)) {
+      return res.redirect(`${deepLinkBase}?status=failed&reason=expired`);
+    }
+
+    const backendUrl = process.env.API_PUBLIC_URL || process.env.BACKEND_URL || 'https://neringa.onrender.com';
+    const redirectUri = `${backendUrl}/api/payouts/paypal/oauth/callback`;
+    const credentials = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
+
+    const tokenRes = await axios.post(
+      `${paypalBaseUrl()}/v1/oauth2/token`,
+      new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }).toString(),
+      { headers: { Authorization: `Basic ${credentials}`, 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    const userToken = tokenRes.data.access_token;
+
+    const userInfoRes = await axios.get(
+      `${paypalBaseUrl()}/v1/identity/openidconnect/userinfo?schema=openid`,
+      { headers: { Authorization: `Bearer ${userToken}` } },
+    );
+
+    const paypalEmail = String(userInfoRes.data.email || '').trim().toLowerCase();
+    const paypalPayerId = userInfoRes.data.payer_id || userInfoRes.data.sub || null;
+
+    if (!paypalEmail) {
+      return res.redirect(`${deepLinkBase}?status=failed&reason=no_email`);
+    }
+    if (africanPayoutCurrencies.has(normalizeCurrency(profile.payout_currency || profile.preferred_currency || 'USD'))) {
+      return res.redirect(`${deepLinkBase}?status=failed&reason=wrong_currency`);
+    }
+
+    const payoutCurrency = normalizeCurrency(profile.payout_currency || profile.preferred_currency || 'USD');
+    await activateEarningCurrency(profile.id, payoutCurrency);
+
+    await query(
+      `update public.profiles
+       set payout_provider = 'paypal',
+           paypal_email = $2,
+           paypal_payer_id = $3,
+           payout_currency = $4,
+           payout_status = 'active',
+           payout_method_status = 'connected',
+           paypal_oauth_state = null,
+           updated_at = timezone('utc', now())
+       where id = $1`,
+      [profile.id, paypalEmail, paypalPayerId, payoutCurrency],
+    );
+
+    return res.redirect(`${deepLinkBase}?status=success&email=${encodeURIComponent(paypalEmail)}`);
+  } catch (error) {
+    console.error('handlePayPalOAuthCallback error:', error.response?.data || error.message);
+    return res.redirect(`${deepLinkBase}?status=failed&reason=server_error`);
+  }
 }
 
 /**

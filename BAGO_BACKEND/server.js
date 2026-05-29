@@ -24,12 +24,14 @@ import { sendPushNotification, sendPushNotificationToToken } from './services/pu
 import {
   capturePayPalOrder,
   createPayPalOrder,
+  handlePayPalOAuthCallback,
   paypalCancel,
   paypalReturn,
   paypalWebhook,
   savePayPalPayoutSettings,
   sendPayPalPayout,
   sendPayPalPayoutOtp,
+  startPayPalOAuth,
   verifyPayPalPayoutOtp,
 } from './controllers/PayPalController.js';
 
@@ -487,6 +489,8 @@ app.post('/api/payouts/paypal/settings', isAuthenticated, savePayPalPayoutSettin
 app.post('/api/payouts/paypal/send', isAuthenticated, sendPayPalPayout);
 app.post('/api/payouts/paypal/send-otp', isAuthenticated, sendPayPalPayoutOtp);
 app.post('/api/payouts/paypal/verify-otp', isAuthenticated, verifyPayPalPayoutOtp);
+app.get('/api/payouts/paypal/oauth/start', isAuthenticated, startPayPalOAuth);
+app.get('/api/payouts/paypal/oauth/callback', handlePayPalOAuthCallback);
 app.post('/api/webhooks/paypal', paypalWebhook);
 app.get('/api/payments/paypal/return', paypalReturn);
 app.get('/api/payments/paypal/cancel', paypalCancel);

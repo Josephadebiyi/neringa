@@ -764,40 +764,50 @@ async function handleSuccessfulTransfer(data) {
 
 async function handleFailedTransfer(data) {
   try {
-    const { reference } = data;
+    const { reference, gateway_response, reason } = data;
+    const failureReason = gateway_response || reason || 'Transfer declined';
+
+    const userFaultPattern = /invalid account|account not found|invalid recipient|recipient not found|account number|no such account|dormant account/i;
+    const isUserFault = userFaultPattern.test(failureReason);
+
     const tx = await queryOne(
       `SELECT user_id, amount, currency FROM public.wallet_transactions
        WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
       [reference]
     );
     if (tx) {
-      // Restore balance and mark failed
       await pgQuery(
         `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
         [tx.user_id, tx.amount]
       );
       await pgQuery(
-        `UPDATE public.wallet_transactions SET status = 'failed' WHERE type = 'withdrawal' AND metadata->>'reference' = $1`,
-        [reference]
+        `UPDATE public.wallet_transactions
+         SET status = 'failed',
+             metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{failure_reason}', $2::jsonb)
+         WHERE type = 'withdrawal' AND metadata->>'reference' = $1`,
+        [reference, JSON.stringify(failureReason)]
       );
       const displayAmount = `${tx.currency} ${Number(tx.amount).toFixed(2)}`;
+      const userMessage = isUserFault
+        ? `Your withdrawal of ${displayAmount} failed — your bank account details may be incorrect. Please update your payout account and try again. Your balance has been restored.`
+        : `Your withdrawal of ${displayAmount} could not be processed. Your balance has been restored. Please contact support if this continues.`;
       await Promise.allSettled([
         createNotification({
           userId: tx.user_id,
           title: 'Withdrawal failed',
-          body: `Your withdrawal of ${displayAmount} could not be processed. Your balance has been restored.`,
+          body: userMessage,
           type: 'withdrawal_failed',
-          payload: { reference },
+          payload: { reference, isUserFault },
         }),
         sendPushNotification(
           tx.user_id,
           'Withdrawal failed',
-          `Your withdrawal of ${displayAmount} failed. Your balance has been restored.`,
-          { type: 'withdrawal_failed', reference }
+          userMessage,
+          { type: 'withdrawal_failed', reference, isUserFault }
         ),
       ]);
     }
-    console.log(`❌ Transfer failed: ${reference}`);
+    console.log(`❌ Transfer failed: ${reference} — ${failureReason}`);
   } catch (error) {
     console.error('Handle failed transfer error:', error);
   }

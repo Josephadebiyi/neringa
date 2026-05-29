@@ -41,7 +41,13 @@ export default {
     return res.data;
   },
 
-  // PayPal payout — step 1: send OTP to the PayPal email
+  // PayPal payout — OAuth connect: starts the PayPal login flow
+  async startPayPalOAuth(): Promise<{ success: boolean; oauthUrl: string; redirectUri: string }> {
+    const res = await api.get('/api/payouts/paypal/oauth/start');
+    return res.data;
+  },
+
+  // PayPal payout — step 1: send OTP to the PayPal email (kept for fallback / admin use)
   async sendPayPalPayoutOtp(paypalEmail: string, payoutCurrency: string) {
     const res = await api.post('/api/payouts/paypal/send-otp', { paypalEmail, payoutCurrency });
     return res.data;
