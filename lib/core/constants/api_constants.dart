@@ -142,6 +142,8 @@ class ApiConstants {
   static const String paystackVerifyBankOtp =
       '/api/bago/paystack/verify-bank-otp';
   static const String paypalPayoutSettings = '/api/payouts/paypal/settings';
+  static const String paypalPayoutSendOtp = '/api/payouts/paypal/send-otp';
+  static const String paypalPayoutVerifyOtp = '/api/payouts/paypal/verify-otp';
   static const String paypalPayoutOAuthStart =
       '/api/payouts/paypal/oauth/start';
 

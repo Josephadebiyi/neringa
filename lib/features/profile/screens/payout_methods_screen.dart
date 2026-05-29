@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -27,55 +24,19 @@ class PayoutMethodsScreen extends ConsumerStatefulWidget {
 
 class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   static const _africanPayoutCurrencies = {
-    'AOA',
-    'BIF',
-    'BWP',
-    'CDF',
-    'CVE',
-    'DJF',
-    'DZD',
-    'EGP',
-    'ERN',
-    'ETB',
-    'GHS',
-    'GMD',
-    'GNF',
-    'KES',
-    'KMF',
-    'LRD',
-    'LSL',
-    'LYD',
-    'MAD',
-    'MGA',
-    'MRU',
-    'MUR',
-    'MWK',
-    'MZN',
-    'NAD',
-    'NGN',
-    'RWF',
-    'SCR',
-    'SDG',
-    'SLE',
-    'SOS',
-    'SSP',
-    'STN',
-    'SZL',
-    'TZS',
-    'UGX',
-    'XAF',
-    'XOF',
-    'ZAR',
-    'ZMW',
+    'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
+    'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
+    'MRU', 'MUR', 'MWK', 'MZN', 'NAD', 'NGN', 'RWF', 'SCR', 'SDG', 'SLE',
+    'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
     'ZWL',
   };
 
   final _emailController = TextEditingController();
+  final _otpController = TextEditingController();
   String _selectedCurrency = 'USD';
-  bool _confirmed = false;
   bool _saving = false;
-  bool _connectingPayPal = false;
   bool _editing = false;
+  bool _showOtp = false;
 
   @override
   void initState() {
@@ -92,6 +53,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   @override
   void dispose() {
     _emailController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -120,11 +82,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       _hasConnectedPayPal(user) || _hasConnectedPaystack(user);
 
   void _hydrateFromUser(user) {
-    final existingEmail = user?.paypalEmail?.trim() ?? '';
-    if (existingEmail.isNotEmpty) {
-      _emailController.text = existingEmail;
-      _confirmed = true;
-    }
     final payoutCurrency = user?.payoutCurrency?.toString().toUpperCase();
     if (payoutCurrency != null &&
         CurrencyConversionHelper.supportedCurrencyCodes
@@ -133,48 +90,38 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
   }
 
-  Future<void> _connectWithPayPal() async {
-    if (_connectingPayPal || _saving) return;
+  Future<void> _sendOtp() async {
+    if (_saving) return;
+    final email = _emailController.text.trim().toLowerCase();
     final payoutCurrency = _selectedCurrency.toUpperCase();
     if (_africanPayoutCurrencies.contains(payoutCurrency)) {
       AppSnackBar.show(
         context,
-        message:
-            '$payoutCurrency payouts must use Paystack/bank transfer, not PayPal.',
+        message: '$payoutCurrency payouts must use Paystack/bank transfer, not PayPal.',
         type: SnackBarType.error,
       );
       return;
     }
-
-    setState(() => _connectingPayPal = true);
+    if (email.isEmpty || !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      AppSnackBar.show(
+        context,
+        message: 'Enter a valid PayPal email address.',
+        type: SnackBarType.error,
+      );
+      return;
+    }
+    setState(() => _saving = true);
     try {
-      await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
-      final response = await ApiService.instance.get(
-        ApiConstants.paypalPayoutOAuthStart,
+      await ApiService.instance.post(
+        ApiConstants.paypalPayoutSendOtp,
+        data: {'paypalEmail': email, 'payoutCurrency': payoutCurrency},
       );
-      final data = response.data as Map<String, dynamic>;
-      final oauthUrl = data['oauthUrl']?.toString();
-      if (oauthUrl == null || oauthUrl.isEmpty) {
-        throw Exception('Could not start PayPal login.');
-      }
-
-      final launched = await launchUrl(
-        Uri.parse(oauthUrl),
-        mode: LaunchMode.externalApplication,
+      setState(() => _showOtp = true);
+      AppSnackBar.show(
+        context,
+        message: 'Verification code sent to $email',
+        type: SnackBarType.success,
       );
-      if (!launched) {
-        throw Exception('Could not open PayPal login.');
-      }
-
-      unawaited(Future<void>.delayed(const Duration(seconds: 3), () async {
-        await ref.read(authProvider.notifier).refreshProfile();
-        final refreshed = ref.read(authProvider).user;
-        if (!mounted) return;
-        setState(() {
-          _hydrateFromUser(refreshed);
-          if (_hasConnectedPayPal(refreshed)) _editing = false;
-        });
-      }));
     } on DioException catch (error) {
       if (!mounted) return;
       AppSnackBar.show(
@@ -190,40 +137,38 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         type: SnackBarType.error,
       );
     } finally {
-      if (mounted) setState(() => _connectingPayPal = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _verifyOtp() async {
     if (_saving) return;
-    final payoutCurrency = _selectedCurrency.toUpperCase();
-    if (_africanPayoutCurrencies.contains(payoutCurrency)) {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6 || !RegExp(r'^\d{6}$').hasMatch(otp)) {
       AppSnackBar.show(
         context,
-        message:
-            '$payoutCurrency payouts must use Paystack/bank transfer, not PayPal.',
+        message: 'Enter the 6-digit code sent to your email.',
         type: SnackBarType.error,
       );
       return;
     }
     setState(() => _saving = true);
     try {
-      await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
       await ApiService.instance.post(
-        ApiConstants.paypalPayoutSettings,
-        data: {
-          'paypalEmail': _emailController.text.trim(),
-          'payoutCurrency': payoutCurrency,
-          'confirmed': _confirmed,
-        },
+        ApiConstants.paypalPayoutVerifyOtp,
+        data: {'otp': otp},
       );
       await ref.read(authProvider.notifier).refreshProfile();
       if (!mounted) return;
-      setState(() => _editing = false);
+      setState(() {
+        _showOtp = false;
+        _otpController.clear();
+        _editing = false;
+        _hydrateFromUser(ref.read(authProvider).user);
+      });
       AppSnackBar.show(
         context,
-        message:
-            'PayPal payout settings saved. Wallet currency updated to $payoutCurrency.',
+        message: 'PayPal payout account verified and saved.',
         type: SnackBarType.success,
       );
     } on DioException catch (error) {
@@ -346,25 +291,29 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             paypalEmail: user?.paypalEmail,
             currency: user?.payoutCurrency ?? user?.walletCurrency,
             status: user?.payoutMethodStatus ?? user?.payoutStatus,
-            isRefreshing: _saving || _connectingPayPal,
+            isRefreshing: _saving,
             onRefresh: () async {
               await ref.read(authProvider.notifier).refreshProfile();
               if (!mounted) return;
               setState(() => _hydrateFromUser(ref.read(authProvider).user));
             },
-            onChange: () => setState(() => _editing = true),
+            onChange: () => setState(() {
+              _editing = true;
+              _showOtp = false;
+              _otpController.clear();
+            }),
           ),
           if (!showSetup) ...[
             const SizedBox(height: 16),
             AppButton(
-              label: hasConnectedPayPal
-                  ? 'Reconnect PayPal account'
-                  : 'Update payout method',
+              label: 'Update payout method',
               icon: const Icon(Icons.edit_rounded, size: 18),
-              isLoading: _connectingPayPal,
-              onPressed: hasConnectedPayPal
-                  ? _connectWithPayPal
-                  : () => setState(() => _editing = true),
+              isLoading: _saving,
+              onPressed: () => setState(() {
+                _editing = true;
+                _showOtp = false;
+                _otpController.clear();
+              }),
             ),
           ],
           if (showSetup) ...[
@@ -381,7 +330,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                   ? null
                   : (value) => setState(() {
                         _selectedCurrency = value ?? 'USD';
-                        _confirmed = false;
+                        _showOtp = false;
+                        _otpController.clear();
                       }),
               decoration: const InputDecoration(
                 labelText: 'Payout currency',
@@ -428,72 +378,73 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                 onPressed: _continueWithPaystack,
               ),
             ] else ...[
-              if (hasConnectedPayPal) ...[
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFFDF5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        color: Color(0xFF059669),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'PayPal connected: ${user?.paypalEmail}',
-                          style: AppTextStyles.bodyMd.copyWith(
-                            color: const Color(0xFF047857),
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
+              if (!_showOtp) ...[
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _sendOtp(),
+                  decoration: const InputDecoration(
+                    labelText: 'PayPal email address',
+                    hintText: 'paypal@example.com',
+                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
+                AppButton(
+                  label: hasConnectedPayPal
+                      ? 'Update PayPal email'
+                      : 'Save PayPal email',
+                  icon: const Icon(Icons.send_rounded, size: 18),
+                  isLoading: _saving,
+                  onPressed: _sendOtp,
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.gray50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Text(
+                    'Enter the 6-digit code sent to ${_emailController.text.trim()}',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.gray700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _otpController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  maxLength: 6,
+                  textAlign: TextAlign.center,
+                  onSubmitted: (_) => _verifyOtp(),
+                  style: AppTextStyles.h2.copyWith(letterSpacing: 12),
+                  decoration: const InputDecoration(
+                    hintText: '000000',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppButton(
+                  label: 'Verify & save',
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  isLoading: _saving,
+                  onPressed: _verifyOtp,
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => setState(() {
+                    _showOtp = false;
+                    _otpController.clear();
+                  }),
+                  child: const Text('Back — change email'),
+                ),
               ],
-              AppButton(
-                label: hasConnectedPayPal
-                    ? 'Reconnect PayPal account'
-                    : 'Connect with PayPal',
-                icon: const Icon(Icons.login_rounded, size: 18),
-                isLoading: _connectingPayPal,
-                onPressed: _connectWithPayPal,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'PayPal email address',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                value: _confirmed,
-                onChanged: (value) =>
-                    setState(() => _confirmed = value == true),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: Text(
-                  'I confirm this PayPal account belongs to me and can receive payouts.',
-                  style: AppTextStyles.bodyMd,
-                ),
-              ),
-              const SizedBox(height: 24),
-              AppButton(
-                label: 'Save PayPal payout settings',
-                icon: const Icon(Icons.check_rounded, size: 18),
-                isLoading: _saving,
-                onPressed: _save,
-              ),
             ],
           ],
         ],

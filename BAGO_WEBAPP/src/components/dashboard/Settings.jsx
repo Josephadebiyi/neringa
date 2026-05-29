@@ -201,9 +201,11 @@ export default function Settings({ user, checkAuthStatus }) {
     const [bankLoading, setBankLoading] = useState(false);
     const [showBankOtp, setShowBankOtp] = useState(false);
     const [bankOtp, setBankOtp] = useState('');
-    const [paypalEmail, setPaypalEmail] = useState(user?.paypalEmail || user?.paypal_email || '');
+    const [paypalEmail, setPaypalEmail] = useState('');
     const [paypalLoading, setPaypalLoading] = useState(false);
     const [editingPayout, setEditingPayout] = useState(false);
+    const [showPaypalOtp, setShowPaypalOtp] = useState(false);
+    const [paypalOtp, setPaypalOtp] = useState('');
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
@@ -212,9 +214,6 @@ export default function Settings({ user, checkAuthStatus }) {
     useEffect(() => {
         if (user?.earningCurrency || user?.preferredCurrency) {
             setPreferredCurrency(user.earningCurrency || user.preferredCurrency);
-        }
-        if (user?.paypalEmail || user?.paypal_email) {
-            setPaypalEmail(user.paypalEmail || user.paypal_email);
         }
         if (user?.phone) {
             setPhone(user.phone);
@@ -415,7 +414,7 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    const handleSavePayPal = async () => {
+    const handleSendPayPalOtp = async () => {
         setError('');
         setSuccessMessage('');
         if (!paypalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail)) {
@@ -424,37 +423,40 @@ export default function Settings({ user, checkAuthStatus }) {
         }
         setPaypalLoading(true);
         try {
-            const res = await api.post('/api/payouts/paypal/settings', {
+            await api.post('/api/payouts/paypal/send-otp', {
                 paypalEmail: paypalEmail.trim().toLowerCase(),
                 payoutCurrency: preferredCurrency || user?.preferredCurrency || 'USD',
-                confirmed: true,
             });
-            if (res.data?.success) {
-                setSuccessMessage('PayPal payout account saved.');
-                await checkAuthStatus?.();
-            }
+            setShowPaypalOtp(true);
+            setSuccessMessage(`Verification code sent to ${paypalEmail.trim().toLowerCase()}`);
         } catch (err) {
-            setError(err.response?.data?.message || 'Could not save PayPal payout settings.');
+            setError(err.response?.data?.message || 'Could not send verification code.');
         } finally {
             setPaypalLoading(false);
         }
     };
 
-    const handleConnectPayPal = async () => {
+    const handleVerifyPayPalOtp = async () => {
         setError('');
         setSuccessMessage('');
+        if (!paypalOtp || !/^\d{6}$/.test(paypalOtp)) {
+            setError('Enter the 6-digit code sent to your email.');
+            return;
+        }
         setPaypalLoading(true);
         try {
-            if (!earningLocked && preferredCurrency) {
-                await api.post('/api/bago/activate-earning', { currency: preferredCurrency });
+            const res = await api.post('/api/payouts/paypal/verify-otp', { otp: paypalOtp.trim() });
+            if (res.data?.success) {
+                setShowPaypalOtp(false);
+                setPaypalOtp('');
+                setEditingPayout(false);
+                setSuccessMessage('PayPal payout account verified and saved.');
+                await checkAuthStatus?.();
             }
-            const res = await api.get('/api/payouts/paypal/oauth/start?returnTo=web');
-            const oauthUrl = res.data?.oauthUrl || res.data?.url;
-            if (!oauthUrl) throw new Error('Could not start PayPal login.');
-            window.location.href = oauthUrl;
         } catch (err) {
+            setError(err.response?.data?.message || 'Invalid code. Please try again.');
+        } finally {
             setPaypalLoading(false);
-            setError(err.response?.data?.message || err.message || 'Could not start PayPal login.');
         }
     };
 
@@ -739,35 +741,20 @@ export default function Settings({ user, checkAuthStatus }) {
                                 </div>
 
                                 {hasPayPalPayout && (
-                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all">
+                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all mb-4">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
                                             <Check size={14} strokeWidth={4} />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">PayPal connected</p>
+                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Currently saved</p>
                                             <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{savedPayPalEmail}</p>
                                         </div>
                                         <ShieldCheck className="text-green-500/50" size={18} />
                                     </div>
                                 )}
                                 <div className="space-y-3 mt-4">
-                                    <button
-                                        type="button"
-                                        onClick={handleConnectPayPal}
-                                        disabled={paypalLoading}
-                                        className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
-                                    >
-                                        {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>{hasPayPalPayout ? 'Reconnect PayPal' : 'Connect PayPal'} <ShieldCheck size={16} /></>}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditingPayout((value) => !value)}
-                                        className="w-full border border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8]/5 transition-all"
-                                    >
-                                        {editingPayout ? 'Hide manual email' : 'Edit manually'}
-                                    </button>
-                                    {editingPayout && (
-                                        <div className="space-y-3 pt-2">
+                                    {!showPaypalOtp ? (
+                                        <>
                                             <input
                                                 type="email"
                                                 value={paypalEmail}
@@ -777,13 +764,41 @@ export default function Settings({ user, checkAuthStatus }) {
                                             />
                                             <button
                                                 type="button"
-                                                onClick={handleSavePayPal}
+                                                onClick={handleSendPayPalOtp}
                                                 disabled={paypalLoading}
-                                                className="w-full bg-[#012126] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
                                             >
-                                                {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>Save PayPal Email <Check size={14} /></>}
+                                                {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>{hasPayPalPayout ? 'Update PayPal Email' : 'Save PayPal Email'} <ShieldCheck size={16} /></>}
                                             </button>
-                                        </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">Enter the 6-digit code sent to {paypalEmail}</p>
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                maxLength={6}
+                                                value={paypalOtp}
+                                                onChange={(e) => setPaypalOtp(e.target.value.replace(/\D/g, ''))}
+                                                placeholder="000000"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[18px] font-black text-[#012126] shadow-sm tracking-[0.4em] text-center"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleVerifyPayPalOtp}
+                                                disabled={paypalLoading}
+                                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
+                                            >
+                                                {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>Verify & Save <Check size={14} /></>}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setShowPaypalOtp(false); setPaypalOtp(''); setSuccessMessage(''); }}
+                                                className="w-full border border-gray-200 text-gray-400 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-gray-50 transition-all"
+                                            >
+                                                Back
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             </div>
