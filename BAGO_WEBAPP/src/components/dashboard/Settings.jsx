@@ -203,6 +203,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const [bankOtp, setBankOtp] = useState('');
     const [paypalEmail, setPaypalEmail] = useState(user?.paypalEmail || user?.paypal_email || '');
     const [paypalLoading, setPaypalLoading] = useState(false);
+    const [editingPayout, setEditingPayout] = useState(false);
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
@@ -263,10 +264,30 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR'];
+    const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'EGP', 'MAD', 'TND', 'UGX', 'TZS', 'XOF', 'XAF', 'RWF', 'ETB', 'MWK', 'BWP', 'MUR'];
     const isAfricanCurrency = africanCurrencies.includes(preferredCurrency?.toUpperCase());
     const showBankOption = isAfricanCurrency;
     const showPayPalOption = !isAfricanCurrency;
+    const savedPayPalEmail = user?.paypalEmail || user?.paypal_email || '';
+    const bankDetails = user?.bankDetails || user?.bank_details || {};
+    const payoutProvider = String(user?.payoutProvider || user?.payout_provider || '').toLowerCase();
+    const payoutMethod = String(user?.payoutMethod || user?.payout_method || '').toLowerCase();
+    const payoutStatus = String(user?.payoutStatus || user?.payout_status || '').toLowerCase();
+    const payoutMethodStatus = String(user?.payoutMethodStatus || user?.payout_method_status || '').toLowerCase();
+    const hasPayPalPayout = Boolean(savedPayPalEmail) && (
+        payoutProvider === 'paypal' ||
+        payoutMethod === 'paypal' ||
+        payoutStatus === 'active' ||
+        payoutMethodStatus === 'connected'
+    );
+    const hasBankPayout = Boolean(
+        user?.bankAccountLinked ||
+        user?.bank_account_linked ||
+        bankDetails?.recipientCode ||
+        bankDetails?.recipient_code ||
+        bankDetails?.accountNumber ||
+        bankDetails?.account_number
+    );
 
     useEffect(() => {
         if (!showBankOption) return;
@@ -275,6 +296,26 @@ export default function Settings({ user, checkAuthStatus }) {
             .then((res) => setBanks(res.data?.banks || res.data?.data || []))
             .catch(() => setBanks([]));
     }, [showBankOption, preferredCurrency]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const paypalResult = params.get('paypal');
+        if (!paypalResult) return;
+
+        if (paypalResult === 'success') {
+            setSuccessMessage('PayPal payout account connected.');
+            setEditingPayout(false);
+            checkAuthStatus?.();
+        } else {
+            setError('PayPal connection was not completed.');
+        }
+
+        params.delete('paypal');
+        params.delete('email');
+        params.delete('reason');
+        const nextQuery = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`);
+    }, [checkAuthStatus]);
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -396,6 +437,24 @@ export default function Settings({ user, checkAuthStatus }) {
             setError(err.response?.data?.message || 'Could not save PayPal payout settings.');
         } finally {
             setPaypalLoading(false);
+        }
+    };
+
+    const handleConnectPayPal = async () => {
+        setError('');
+        setSuccessMessage('');
+        setPaypalLoading(true);
+        try {
+            if (!earningLocked && preferredCurrency) {
+                await api.post('/api/bago/activate-earning', { currency: preferredCurrency });
+            }
+            const res = await api.get('/api/payouts/paypal/oauth/start?returnTo=web');
+            const oauthUrl = res.data?.oauthUrl || res.data?.url;
+            if (!oauthUrl) throw new Error('Could not start PayPal login.');
+            window.location.href = oauthUrl;
+        } catch (err) {
+            setPaypalLoading(false);
+            setError(err.response?.data?.message || err.message || 'Could not start PayPal login.');
         }
     };
 
@@ -679,33 +738,53 @@ export default function Settings({ user, checkAuthStatus }) {
                                     </p>
                                 </div>
 
-                                {(user?.paypalEmail || user?.paypal_email) && (
+                                {hasPayPalPayout && (
                                     <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
                                             <Check size={14} strokeWidth={4} />
                                         </div>
                                         <div className="flex-1">
                                             <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">PayPal connected</p>
-                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{user?.paypalEmail || user?.paypal_email}</p>
+                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{savedPayPalEmail}</p>
                                         </div>
                                         <ShieldCheck className="text-green-500/50" size={18} />
                                     </div>
                                 )}
                                 <div className="space-y-3 mt-4">
-                                    <input
-                                        type="email"
-                                        value={paypalEmail}
-                                        onChange={(e) => setPaypalEmail(e.target.value)}
-                                        placeholder="paypal@example.com"
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm"
-                                    />
                                     <button
-                                        onClick={handleSavePayPal}
+                                        type="button"
+                                        onClick={handleConnectPayPal}
                                         disabled={paypalLoading}
                                         className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
                                     >
-                                        {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>Save PayPal Payout <ShieldCheck size={16} /></>}
+                                        {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>{hasPayPalPayout ? 'Reconnect PayPal' : 'Connect PayPal'} <ShieldCheck size={16} /></>}
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingPayout((value) => !value)}
+                                        className="w-full border border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8]/5 transition-all"
+                                    >
+                                        {editingPayout ? 'Hide manual email' : 'Edit manually'}
+                                    </button>
+                                    {editingPayout && (
+                                        <div className="space-y-3 pt-2">
+                                            <input
+                                                type="email"
+                                                value={paypalEmail}
+                                                onChange={(e) => setPaypalEmail(e.target.value)}
+                                                placeholder="paypal@example.com"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleSavePayPal}
+                                                disabled={paypalLoading}
+                                                className="w-full bg-[#012126] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                                            >
+                                                {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>Save PayPal Email <Check size={14} /></>}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -718,6 +797,20 @@ export default function Settings({ user, checkAuthStatus }) {
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
                                     Bank Transfer ({preferredCurrency})
                                 </h4>
+                                {hasBankPayout && (
+                                    <div className="mb-4 flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
+                                        <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
+                                            <Check size={14} strokeWidth={4} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Bank payout connected</p>
+                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">
+                                                {bankDetails?.bankName || bankDetails?.bank_name || bankName || 'Paystack bank transfer'}
+                                            </p>
+                                        </div>
+                                        <ShieldCheck className="text-green-500/50" size={18} />
+                                    </div>
+                                )}
                                 <div className="space-y-2.5">
                                     <select
                                         value={bankCode}

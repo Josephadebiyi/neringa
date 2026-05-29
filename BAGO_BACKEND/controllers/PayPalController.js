@@ -957,9 +957,10 @@ export async function startPayPalOAuth(req, res) {
 
     const state = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const returnTo = String(req.query?.returnTo || '').toLowerCase() === 'web' ? 'web' : 'app';
     await query(
       `update public.profiles set paypal_oauth_state = $2, updated_at = timezone('utc', now()) where id = $1`,
-      [profile.id, { state, expiresAt }],
+      [profile.id, { state, expiresAt, returnTo }],
     );
 
     const isLive = String(process.env.PAYPAL_MODE || 'sandbox').toLowerCase() === 'live';
@@ -993,6 +994,10 @@ export async function handlePayPalOAuthCallback(req, res) {
   const deepLink = (params) => {
     res.status(302).setHeader('Location', `${deepLinkBase}?${params}`).end();
   };
+  const webReturn = (params) => {
+    const frontendUrl = (process.env.WEBAPP_URL || process.env.FRONTEND_URL || 'https://sendwithbago.com').replace(/\/+$/, '');
+    res.status(302).setHeader('Location', `${frontendUrl}/dashboard?tab=settings&${params}`).end();
+  };
 
   const { code, state, error: oauthError } = req.query;
   if (oauthError || !code || !state) {
@@ -1007,8 +1012,9 @@ export async function handlePayPalOAuthCallback(req, res) {
     if (!profile) return deepLink('status=failed&reason=invalid_state');
 
     const stateData = profile.paypal_oauth_state;
+    const finish = (params) => stateData?.returnTo === 'web' ? webReturn(params) : deepLink(params);
     if (new Date() > new Date(stateData.expiresAt)) {
-      return deepLink('status=failed&reason=expired');
+      return finish('paypal=failed&reason=expired');
     }
 
     const backendUrl = process.env.API_PUBLIC_URL || process.env.BACKEND_URL || 'https://neringa.onrender.com';
@@ -1031,10 +1037,10 @@ export async function handlePayPalOAuthCallback(req, res) {
     const paypalPayerId = userInfoRes.data.payer_id || userInfoRes.data.sub || null;
 
     if (!paypalEmail) {
-      return deepLink('status=failed&reason=no_email');
+      return finish('paypal=failed&reason=no_email');
     }
     if (africanPayoutCurrencies.has(normalizeCurrency(profile.payout_currency || profile.preferred_currency || 'USD'))) {
-      return deepLink('status=failed&reason=wrong_currency');
+      return finish('paypal=failed&reason=wrong_currency');
     }
 
     const payoutCurrency = normalizeCurrency(profile.payout_currency || profile.preferred_currency || 'USD');
@@ -1055,7 +1061,7 @@ export async function handlePayPalOAuthCallback(req, res) {
       [profile.id, paypalEmail, paypalPayerId, payoutCurrency],
     );
 
-    return deepLink(`status=success&email=${encodeURIComponent(paypalEmail)}`);
+    return finish(`paypal=success&email=${encodeURIComponent(paypalEmail)}`);
   } catch (error) {
     console.error('handlePayPalOAuthCallback error:', error.response?.data || error.message);
     return deepLink('status=failed&reason=server_error');

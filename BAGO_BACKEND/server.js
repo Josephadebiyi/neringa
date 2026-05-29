@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readdir, readFile } from 'fs/promises';
@@ -318,26 +318,33 @@ app.use((req, res, next) => {
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 500, // Increased for mobile app usage (multiple API calls per screen)
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many requests. Please try again in 15 minutes.' },
+  message: { success: false, code: 'RATE_LIMITED', message: 'Too many requests. Please try again in 15 minutes.' },
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.email || req.body?.userName || req.body?.username || '').toLowerCase()}`,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many attempts. Please try again in 15 minutes.' },
+  message: { success: false, code: 'RATE_LIMITED', message: 'Too many attempts. Please try again in 15 minutes.' },
   skipSuccessfulRequests: true,
 });
 
 const sensitiveLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5,
+  keyGenerator: (req) => {
+    const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const tokenHash = auth ? crypto.createHash('sha256').update(auth).digest('hex').slice(0, 24) : '';
+    return tokenHash || ipKeyGenerator(req.ip);
+  },
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many attempts on a sensitive operation. Please try again in 1 hour.' },
+  message: { success: false, code: 'RATE_LIMITED', message: 'Too many attempts on a sensitive operation. Please try again in 1 hour.' },
 });
 
 // Apply global limiter to all routes
@@ -381,6 +388,297 @@ authRoutes.forEach(route => app.use(route, authLimiter));
   '/api/payouts/paypal/verify-otp',
   '/send-otp',
 ].forEach(route => app.use(route, sensitiveLimiter));
+
+const publicSchemaLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, code: 'RATE_LIMITED', message: 'Too many requests. Please slow down and try again.' },
+});
+
+const ensureJsonObject = (req, res, next) => {
+  if (!['POST', 'PUT', 'PATCH'].includes(req.method)) return next();
+  if (!req.is('application/json')) return next();
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ success: false, message: 'Expected a JSON object payload.' });
+  }
+  return next();
+};
+
+const validateBody = ({
+  allowed = [],
+  required = [],
+  strings = [],
+  stringOrNumbers = [],
+  booleans = [],
+  numbers = [],
+  objects = [],
+  arrays = [],
+  enums = {},
+  max = {},
+}) => (req, res, next) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) return next();
+
+  const allowedSet = new Set(allowed);
+  const unexpected = Object.keys(req.body).filter((key) => !allowedSet.has(key));
+  if (unexpected.length) {
+    return res.status(400).json({
+      success: false,
+      message: `Unexpected field(s): ${unexpected.join(', ')}`,
+    });
+  }
+
+  for (const field of required) {
+    const value = req.body[field];
+    if (value === undefined || value === null || value === '') {
+      return res.status(400).json({ success: false, message: `${field} is required.` });
+    }
+  }
+
+  for (const field of strings) {
+    const value = req.body[field];
+    if (value !== undefined && value !== null && typeof value !== 'string') {
+      return res.status(400).json({ success: false, message: `${field} must be a string.` });
+    }
+    if (typeof value === 'string' && value.length > (max[field] || 500)) {
+      return res.status(400).json({ success: false, message: `${field} is too long.` });
+    }
+  }
+
+  for (const field of stringOrNumbers) {
+    const value = req.body[field];
+    if (value !== undefined && value !== null && typeof value !== 'string' && typeof value !== 'number') {
+      return res.status(400).json({ success: false, message: `${field} must be a string or number.` });
+    }
+    if (typeof value === 'string' && value.length > (max[field] || 100)) {
+      return res.status(400).json({ success: false, message: `${field} is too long.` });
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      return res.status(400).json({ success: false, message: `${field} must be a finite number.` });
+    }
+  }
+
+  for (const field of booleans) {
+    const value = req.body[field];
+    if (value !== undefined && typeof value !== 'boolean') {
+      return res.status(400).json({ success: false, message: `${field} must be true or false.` });
+    }
+  }
+
+  for (const field of numbers) {
+    const value = req.body[field];
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) {
+      return res.status(400).json({ success: false, message: `${field} must be a finite number.` });
+    }
+  }
+
+  for (const field of objects) {
+    const value = req.body[field];
+    if (value !== undefined && (typeof value !== 'object' || value === null || Array.isArray(value))) {
+      return res.status(400).json({ success: false, message: `${field} must be an object.` });
+    }
+  }
+
+  for (const field of arrays) {
+    const value = req.body[field];
+    if (value !== undefined && !Array.isArray(value)) {
+      return res.status(400).json({ success: false, message: `${field} must be an array.` });
+    }
+    if (Array.isArray(value) && value.length > (max[field] || 100)) {
+      return res.status(400).json({ success: false, message: `${field} has too many items.` });
+    }
+  }
+
+  for (const [field, values] of Object.entries(enums)) {
+    const value = req.body[field];
+    if (value !== undefined && !values.includes(value)) {
+      return res.status(400).json({ success: false, message: `${field} is invalid.` });
+    }
+  }
+
+  return next();
+};
+
+// Schema-based validation for public/high-risk JSON endpoints. This rejects
+// unexpected fields early while keeping existing multipart/upload flows intact.
+const schema = (path, options) => app.use(path, publicSchemaLimiter, ensureJsonObject, validateBody(options));
+schema('/api/bago/signin', {
+  allowed: ['email', 'password'],
+  required: ['email', 'password'],
+  strings: ['email', 'password'],
+  max: { email: 254, password: 256 },
+});
+schema('/api/bago/signup', {
+  allowed: ['email', 'password', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
+  required: ['email', 'password'],
+  strings: ['email', 'password', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
+  max: { email: 254, password: 256, firstName: 80, lastName: 80, fullName: 160, phone: 40, country: 80, currency: 3, referralCode: 32, role: 24 },
+});
+schema('/api/Adminbaggo/AdminLogin', {
+  allowed: ['email', 'userName', 'username', 'password'],
+  required: ['password'],
+  strings: ['email', 'userName', 'username', 'password'],
+  max: { email: 254, userName: 120, username: 120, password: 256 },
+});
+schema('/api/Adminbaggo/AdminSignup', {
+  allowed: ['email', 'userName', 'username', 'password', 'fullName'],
+  required: ['password'],
+  strings: ['email', 'userName', 'username', 'password', 'fullName'],
+  max: { email: 254, userName: 120, username: 120, password: 256, fullName: 160 },
+});
+schema('/api/routes/calculate-price', {
+  allowed: ['routeId', 'weightKg', 'userCountryCode'],
+  required: ['routeId', 'weightKg'],
+  strings: ['routeId', 'userCountryCode'],
+  stringOrNumbers: ['weightKg'],
+  max: { routeId: 80, weightKg: 20, userCountryCode: 3 },
+});
+schema('/api/packages/calculate-price', {
+  allowed: ['fromCity', 'fromCountryCode', 'toCity', 'toCountryCode', 'weightKg'],
+  required: ['fromCity', 'fromCountryCode', 'toCity', 'toCountryCode'],
+  strings: ['fromCity', 'fromCountryCode', 'toCity', 'toCountryCode'],
+  stringOrNumbers: ['weightKg'],
+  max: { fromCity: 120, fromCountryCode: 3, toCity: 120, toCountryCode: 3, weightKg: 20 },
+});
+schema('/api/routes/trip-pricing', {
+  allowed: ['fromCity', 'fromCountryCode', 'toCity', 'toCountryCode', 'weightKg'],
+  required: ['fromCity', 'fromCountryCode', 'toCity', 'toCountryCode'],
+  strings: ['fromCity', 'fromCountryCode', 'toCity', 'toCountryCode'],
+  stringOrNumbers: ['weightKg'],
+  max: { fromCity: 120, fromCountryCode: 3, toCity: 120, toCountryCode: 3, weightKg: 20 },
+});
+schema('/api/items/validate', {
+  allowed: ['description', 'category', 'value'],
+  required: ['description', 'category'],
+  strings: ['description', 'category'],
+  stringOrNumbers: ['value'],
+  max: { description: 1000, category: 80, value: 30 },
+});
+schema('/api/currency/quote', {
+  allowed: ['weight', 'travelerPricePerKg', 'travelerCurrency', 'senderCurrency'],
+  required: ['weight', 'travelerPricePerKg', 'travelerCurrency', 'senderCurrency'],
+  strings: ['travelerCurrency', 'senderCurrency'],
+  stringOrNumbers: ['weight', 'travelerPricePerKg'],
+  max: { weight: 20, travelerPricePerKg: 20, travelerCurrency: 3, senderCurrency: 3 },
+});
+schema('/api/paystack/initialize', {
+  allowed: ['amount', 'currency', 'requestId', 'packageId', 'tripId', 'customerEmail', 'expiresAt', 'metadata'],
+  required: ['amount'],
+  strings: ['currency', 'requestId', 'packageId', 'tripId', 'customerEmail', 'expiresAt'],
+  stringOrNumbers: ['amount'],
+  objects: ['metadata'],
+  max: { amount: 20, currency: 3, requestId: 80, packageId: 80, tripId: 80, customerEmail: 254, expiresAt: 80 },
+});
+schema('/api/paystack/add-bank', {
+  allowed: ['accountNumber', 'bankCode', 'bankName', 'currency', 'walletCurrency', 'preferredCurrency'],
+  required: ['accountNumber', 'bankCode'],
+  strings: ['accountNumber', 'bankCode', 'bankName', 'currency', 'walletCurrency', 'preferredCurrency'],
+  max: { accountNumber: 32, bankCode: 32, bankName: 120, currency: 3, walletCurrency: 3, preferredCurrency: 3 },
+});
+schema('/api/paystack/verify-bank-otp', {
+  allowed: ['otp'],
+  required: ['otp'],
+  strings: ['otp'],
+  max: { otp: 12 },
+});
+schema('/api/paystack/withdraw', {
+  allowed: ['amount', 'currency'],
+  required: ['amount'],
+  stringOrNumbers: ['amount'],
+  strings: ['currency'],
+  max: { amount: 20, currency: 3 },
+});
+schema('/api/payments/paypal/create-order', {
+  allowed: ['shipmentId', 'paymentMethod', 'currency'],
+  required: ['shipmentId', 'paymentMethod', 'currency'],
+  strings: ['shipmentId', 'paymentMethod', 'currency'],
+  enums: { paymentMethod: ['paypal_wallet', 'apple_pay', 'google_pay', 'card'] },
+  max: { shipmentId: 80, paymentMethod: 32, currency: 3 },
+});
+schema('/api/payments/paypal/capture-order', {
+  allowed: ['orderId', 'shipmentId'],
+  required: ['orderId', 'shipmentId'],
+  strings: ['orderId', 'shipmentId'],
+  max: { orderId: 120, shipmentId: 80 },
+});
+schema('/api/payouts/paypal/settings', {
+  allowed: ['paypalEmail', 'payoutCurrency', 'confirmed'],
+  required: ['paypalEmail', 'payoutCurrency', 'confirmed'],
+  strings: ['paypalEmail', 'payoutCurrency'],
+  booleans: ['confirmed'],
+  max: { paypalEmail: 254, payoutCurrency: 3 },
+});
+schema('/api/payouts/paypal/send', {
+  allowed: ['shipmentId'],
+  required: ['shipmentId'],
+  strings: ['shipmentId'],
+  max: { shipmentId: 80 },
+});
+schema('/api/payouts/paypal/send-otp', {
+  allowed: ['paypalEmail', 'payoutCurrency'],
+  required: ['paypalEmail', 'payoutCurrency'],
+  strings: ['paypalEmail', 'payoutCurrency'],
+  max: { paypalEmail: 254, payoutCurrency: 3 },
+});
+schema('/api/payouts/paypal/verify-otp', {
+  allowed: ['otp'],
+  required: ['otp'],
+  strings: ['otp'],
+  max: { otp: 12 },
+});
+schema('/api/bago/register-token', {
+  allowed: ['token', 'deviceToken', 'pushToken'],
+  strings: ['token', 'deviceToken', 'pushToken'],
+  max: { token: 512, deviceToken: 512, pushToken: 512 },
+});
+schema('/api/payment/initialize', {
+  allowed: ['amount', 'email', 'currency', 'mobile_money'],
+  required: ['amount', 'email'],
+  strings: ['email', 'currency'],
+  stringOrNumbers: ['amount'],
+  objects: ['mobile_money'],
+  max: { email: 254, currency: 3 },
+});
+schema('/api/bago/kyc/admin-approve', {
+  allowed: ['userId'],
+  required: ['userId'],
+  strings: ['userId'],
+  max: { userId: 80 },
+});
+schema('/api/bago/kyc/update-status', {
+  allowed: ['userId', 'status'],
+  required: ['userId', 'status'],
+  strings: ['userId', 'status'],
+  enums: { status: ['approved', 'pending', 'declined'] },
+  max: { userId: 80, status: 20 },
+});
+schema('/api/bago/delete-account', {
+  allowed: ['reason', 'improvement'],
+  strings: ['reason', 'improvement'],
+  max: { reason: 500, improvement: 1000 },
+});
+schema('/api/bago/user/currency', {
+  allowed: ['currency'],
+  required: ['currency'],
+  strings: ['currency'],
+  max: { currency: 3 },
+});
+schema('/api/shipment/assess', {
+  allowed: ['tripId', 'item', 'senderCountry'],
+  required: ['tripId', 'item'],
+  strings: ['tripId', 'senderCountry'],
+  objects: ['item'],
+  max: { tripId: 80, senderCountry: 3 },
+});
+schema('/api/shipment/quick-check', {
+  allowed: ['trips', 'item'],
+  required: ['trips', 'item'],
+  arrays: ['trips'],
+  objects: ['item'],
+  max: { trips: 100 },
+});
 
 // ✅ Make io accessible to routers
 app.set('io', io);
@@ -868,7 +1166,7 @@ app.get("/balance", adminAuthenticated, async (req, res) => {
 
 
 
-app.post("/api/payment/initialize", async (req, res) => {
+app.post("/api/payment/initialize", isAuthenticated, requireKycVerification, async (req, res) => {
   try {
     const { amount, email, currency = "NGN", mobile_money } = req.body;
 
@@ -917,7 +1215,7 @@ app.post("/api/payment/initialize", async (req, res) => {
 
 
 
-app.get("/api/payment/verify/:reference", async (req, res) => {
+app.get("/api/payment/verify/:reference", isAuthenticated, async (req, res) => {
   const { reference } = req.params;
 
   try {
