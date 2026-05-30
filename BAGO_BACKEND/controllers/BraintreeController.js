@@ -65,6 +65,7 @@ export async function braintreeCheckout(req, res) {
     currency = 'USD',
     insurance = false,
     insuranceCost = 0,
+    shippingAmount: clientShippingAmount,
     paymentMethod = 'card',
   } = req.body;
 
@@ -88,7 +89,11 @@ export async function braintreeCheckout(req, res) {
       return res.status(404).json({ success: false, message: 'Trip not found.' });
     }
 
-    const shippingAmount = packageDoc?.price ?? 0;
+    // Shipping amount: use client-provided value (includes surcharge + FX conversion)
+    // Fall back to package price if available, or trip rate × weight as last resort
+    const shippingAmount = Number(clientShippingAmount) > 0
+      ? Number(clientShippingAmount)
+      : (packageDoc?.price ?? (tripDoc && packageDoc ? tripDoc.pricePerKg * packageDoc.packageWeight : 0));
     const insAmount = parseBooleanFlag(insurance) ? Number(insuranceCost || 0) : 0;
     const totalAmount = shippingAmount + insAmount;
 
@@ -103,9 +108,9 @@ export async function braintreeCheckout(req, res) {
     });
 
     if (!saleResult.success) {
-      const msg = saleResult.message || saleResult.transaction?.processorResponseText || 'Payment declined.';
-      console.error('❌ Braintree sale failed:', msg);
-      return res.status(402).json({ success: false, message: msg });
+      const declineMsg = saleResult.message || saleResult.transaction?.processorResponseText || 'Payment declined.';
+      console.error('❌ Braintree sale failed:', declineMsg);
+      return res.status(402).json({ success: false, message: declineMsg });
     }
 
     const transactionId = saleResult.transaction.id;

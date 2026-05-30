@@ -94,6 +94,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         currency: currency,
         insurance: draft['insurance'] == true,
         insuranceCost: _asDouble(draft['insuranceAmount']),
+        shippingAmount: _asDouble(draft['shippingAmount']),
         paymentMethod: paymentMethod,
       );
       if (!finalization.success) {

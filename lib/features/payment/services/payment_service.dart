@@ -131,6 +131,7 @@ class PaymentService {
     required String currency,
     bool insurance = false,
     double insuranceCost = 0,
+    double shippingAmount = 0,
     String paymentMethod = 'card',
   }) async {
     try {
@@ -144,6 +145,7 @@ class PaymentService {
           'currency': currency,
           'insurance': insurance,
           'insuranceCost': insuranceCost,
+          if (shippingAmount > 0) 'shippingAmount': shippingAmount,
           'paymentMethod': paymentMethod,
         },
       );

@@ -34,8 +34,10 @@ TripPriceDisplay formatTripPriceForViewer(
     );
   }
 
+  // Always use at least 2 decimal places for fractional per-kg amounts
+  final baseEffectiveDecimals = senderPricePerKg < 10 ? 2 : decimals;
   final baseLabel =
-      '$resolvedBaseCurrency ${senderPricePerKg.toStringAsFixed(decimals)}/kg';
+      '$resolvedBaseCurrency ${senderPricePerKg.toStringAsFixed(baseEffectiveDecimals)}/kg';
 
   if (preferredCurrency.isEmpty ||
       preferredCurrency == resolvedBaseCurrency ||
