@@ -43,7 +43,8 @@ export async function getClientToken(_req, res) {
     return res.json({ success: true, clientToken: response.clientToken });
   } catch (err) {
     const env = (process.env.BRAINTREE_ENVIRONMENT || 'sandbox').toLowerCase();
-    console.error('❌ Braintree client token error [env=%s merchant=%s]:', env, process.env.BRAINTREE_MERCHANT_ID, err);
+    const pubKeyHint = (process.env.BRAINTREE_PUBLIC_KEY || '').slice(0, 4) || '(not set)';
+    console.error('❌ Braintree client token error [env=%s merchant=%s pubKey starts with=%s]:', env, process.env.BRAINTREE_MERCHANT_ID, pubKeyHint, err.message);
     return res.status(500).json({ success: false, message: 'Could not start secure checkout.' });
   }
 }
