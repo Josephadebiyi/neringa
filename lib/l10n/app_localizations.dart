@@ -2889,6 +2889,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please set your preferred currency in profile settings before managing payout methods.'**
   String get setCurrencyFirst;
+
+  /// No description provided for @activityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get activityTitle;
+
+  /// No description provided for @activityTabTrips.
+  ///
+  /// In en, this message translates to:
+  /// **'Trips'**
+  String get activityTabTrips;
+
+  /// No description provided for @activityTabShipments.
+  ///
+  /// In en, this message translates to:
+  /// **'Shipments'**
+  String get activityTabShipments;
+
+  /// No description provided for @activityTabRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests'**
+  String get activityTabRequests;
+
+  /// No description provided for @noTripsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No trips yet'**
+  String get noTripsYet;
+
+  /// No description provided for @postATripSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Post a trip to start earning by carrying packages.'**
+  String get postATripSubtitle;
+
+  /// No description provided for @searchTripsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by route, date or status...'**
+  String get searchTripsHint;
+
+  /// No description provided for @kgFreeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{kg} kg free'**
+  String kgFreeLabel(Object kg);
+
+  /// No description provided for @activeShipmentsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {1 active shipment} other {{count} active shipments}}'**
+  String activeShipmentsCount(int count);
+
+  /// No description provided for @noShipmentsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No shipments yet'**
+  String get noShipmentsYet;
+
+  /// No description provided for @searchShipmentsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by package, city or traveler...'**
+  String get searchShipmentsHint;
+
+  /// No description provided for @activeShipmentsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get activeShipmentsSection;
+
+  /// No description provided for @pastShipmentsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Past'**
+  String get pastShipmentsSection;
+
+  /// No description provided for @pendingPriceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending price'**
+  String get pendingPriceLabel;
+
+  /// No description provided for @noRequestsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No requests yet'**
+  String get noRequestsYet;
+
+  /// No description provided for @noRequestsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When you send or receive shipment requests, they\'ll show here.'**
+  String get noRequestsSubtitle;
+
+  /// No description provided for @searchRequestsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name or package...'**
+  String get searchRequestsHint;
+
+  /// No description provided for @shipmentRequestFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Shipment request'**
+  String get shipmentRequestFallback;
+
+  /// No description provided for @fromSenderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'From sender'**
+  String get fromSenderLabel;
+
+  /// No description provided for @withCarrierLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'With carrier'**
+  String get withCarrierLabel;
+
+  /// No description provided for @noResultsFor.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String noResultsFor(Object query);
 }
 
 class _AppLocalizationsDelegate

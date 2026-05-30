@@ -1536,4 +1536,81 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get setCurrencyFirst =>
       'Bitte lege deine bevorzugte Währung in den Profileinstellungen fest, bevor du Auszahlungsmethoden verwaltest.';
+
+  @override
+  String get activityTitle => 'Activity';
+
+  @override
+  String get activityTabTrips => 'Trips';
+
+  @override
+  String get activityTabShipments => 'Shipments';
+
+  @override
+  String get activityTabRequests => 'Requests';
+
+  @override
+  String get noTripsYet => 'No trips yet';
+
+  @override
+  String get postATripSubtitle =>
+      'Post a trip to start earning by carrying packages.';
+
+  @override
+  String get searchTripsHint => 'Search by route, date or status...';
+
+  @override
+  String kgFreeLabel(Object kg) {
+    return '$kg kg free';
+  }
+
+  @override
+  String activeShipmentsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count active shipments',
+      one: '1 active shipment',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get noShipmentsYet => 'No shipments yet';
+
+  @override
+  String get searchShipmentsHint => 'Search by package, city or traveler...';
+
+  @override
+  String get activeShipmentsSection => 'Active';
+
+  @override
+  String get pastShipmentsSection => 'Past';
+
+  @override
+  String get pendingPriceLabel => 'Pending price';
+
+  @override
+  String get noRequestsYet => 'No requests yet';
+
+  @override
+  String get noRequestsSubtitle =>
+      'When you send or receive shipment requests, they\'ll show here.';
+
+  @override
+  String get searchRequestsHint => 'Search by name or package...';
+
+  @override
+  String get shipmentRequestFallback => 'Shipment request';
+
+  @override
+  String get fromSenderLabel => 'From sender';
+
+  @override
+  String get withCarrierLabel => 'With carrier';
+
+  @override
+  String noResultsFor(Object query) {
+    return 'No results for \"$query\"';
+  }
 }

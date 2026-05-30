@@ -566,5 +566,44 @@
   "searchHelpHint": "Search help topics...",
   "noRatingsYet": "You haven't left any ratings yet.",
   "setCurrencyFirst": "Please set your preferred currency in profile settings before managing payout methods.",
-  "addMiniBio": "Add a mini bio"
+  "addMiniBio": "Add a mini bio",
+
+  "activityTitle": "Activity",
+  "activityTabTrips": "Trips",
+  "activityTabShipments": "Shipments",
+  "activityTabRequests": "Requests",
+
+  "noTripsYet": "No trips yet",
+  "postATripSubtitle": "Post a trip to start earning by carrying packages.",
+  "searchTripsHint": "Search by route, date or status...",
+  "travelModeBus": "Bus",
+  "travelModeCar": "Car",
+  "travelModeShip": "Ship",
+  "travelModeTrain": "Train",
+  "travelModeFlight": "Flight",
+  "kgFreeLabel": "{kg} kg free",
+  "@kgFreeLabel": { "placeholders": { "kg": {} } },
+  "activeShipmentsCount": "{count, plural, one {1 active shipment} other {{count} active shipments}}",
+  "@activeShipmentsCount": { "placeholders": { "count": { "type": "int" } } },
+
+  "noShipmentsYet": "No shipments yet",
+  "findTraveler": "Find a Traveler",
+  "searchShipmentsHint": "Search by package, city or traveler...",
+  "activeShipmentsSection": "Active",
+  "pastShipmentsSection": "Past",
+  "packageDetailsTitle": "Package Details",
+  "pendingPriceLabel": "Pending price",
+
+  "noRequestsYet": "No requests yet",
+  "noRequestsSubtitle": "When you send or receive shipment requests, they'll show here.",
+  "searchRequestsHint": "Search by name or package...",
+  "shipmentRequestFallback": "Shipment request",
+  "travelerLabel": "Traveler",
+  "senderLabel": "Sender",
+  "fromSenderLabel": "From sender",
+  "withCarrierLabel": "With carrier",
+  "trackShipmentTitle": "Track Shipment",
+
+  "noResultsFor": "No results for \"{query}\"",
+  "@noResultsFor": { "placeholders": { "query": {} } }
 }
