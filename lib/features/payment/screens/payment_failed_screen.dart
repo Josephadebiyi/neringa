@@ -89,7 +89,7 @@ class PaymentFailedScreen extends StatelessWidget {
                   if (confirmed != true) return;
                   await ShipmentCheckoutService.instance.clearDraft();
                   if (!context.mounted) return;
-                  context.go('/shipments');
+                  context.go('/activity');
                 },
               ),
               const SizedBox(height: 12),
@@ -166,6 +166,6 @@ class PaymentFailedScreen extends StatelessWidget {
       return l10n.paymentCouldNotCompleteGeneric;
     }
 
-    return raw;
+    return l10n.paymentCouldNotCompleteGeneric;
   }
 }

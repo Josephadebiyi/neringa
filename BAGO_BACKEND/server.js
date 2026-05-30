@@ -384,6 +384,7 @@ authRoutes.forEach(route => app.use(route, authLimiter));
   '/api/payouts/paypal/send-otp',
   '/api/payouts/paypal/verify-otp',
   '/send-otp',
+  '/api/payments/braintree/checkout',
 ].forEach(route => app.use(route, sensitiveLimiter));
 
 const publicSchemaLimiter = rateLimit({
@@ -1977,4 +1978,21 @@ app.use((req, res, next) => {
     });
   }
   next();
+});
+
+// Global Express error handler — catches any error thrown inside a route handler
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('Unhandled route error:', err);
+  const status = err.statusCode || err.status || 500;
+  res.status(status).json({ success: false, message: err.message || 'An unexpected error occurred.' });
+});
+
+// Catch unhandled promise rejections so the process does not crash
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
 });
