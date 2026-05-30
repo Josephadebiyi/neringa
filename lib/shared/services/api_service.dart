@@ -206,8 +206,13 @@ class _AuthInterceptor extends Interceptor {
         return handler.next(err);
       }
 
-      final dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
-      final refreshRes = await dio.post(
+      final refreshDio = Dio(BaseOptions(
+        baseUrl: ApiConstants.baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 10),
+      ));
+      final refreshRes = await refreshDio.post(
         ApiConstants.refreshToken,
         data: {'refreshToken': refreshToken},
       );
@@ -223,7 +228,7 @@ class _AuthInterceptor extends Interceptor {
 
         // Retry the original request with new token
         err.requestOptions.headers['Authorization'] = 'Bearer $newToken';
-        final retryResponse = await dio.fetch(err.requestOptions);
+        final retryResponse = await refreshDio.fetch(err.requestOptions);
         _isRefreshing = false;
         return handler.resolve(retryResponse);
       }

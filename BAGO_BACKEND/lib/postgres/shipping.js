@@ -719,13 +719,22 @@ export async function listRequestsForTrip(tripId) {
 }
 
 export async function listIncomingRequestsForTraveler(travelerId) {
-  const result = await query(`${requestSelect} where sr.traveler_id = $1 order by sr.created_at desc`, [travelerId]);
+  // Exclude pending requests older than 30 minutes — these are payment drafts that never completed.
+  const result = await query(
+    `${requestSelect} where sr.traveler_id = $1
+     and not (sr.status = 'pending' and sr.created_at < now() - interval '30 minutes')
+     order by sr.created_at desc`,
+    [travelerId],
+  );
   return result.rows.map(normalizeRequest);
 }
 
 export async function listRequestsForUser(userId) {
+  // Exclude pending requests older than 30 minutes — these are payment drafts that never completed.
   const result = await query(
-    `${requestSelect} where (sr.sender_id = $1 or sr.traveler_id = $1) order by sr.created_at desc`,
+    `${requestSelect} where (sr.sender_id = $1 or sr.traveler_id = $1)
+     and not (sr.status = 'pending' and sr.created_at < now() - interval '30 minutes')
+     order by sr.created_at desc`,
     [userId],
   );
   return result.rows.map(normalizeRequest);

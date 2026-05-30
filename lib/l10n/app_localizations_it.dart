@@ -1534,79 +1534,121 @@ class AppLocalizationsIt extends AppLocalizations {
       'Imposta la tua valuta preferita nelle impostazioni del profilo prima di gestire i metodi di pagamento.';
 
   @override
-  String get activityTitle => 'Activity';
+  String get activityTitle => 'Attività';
 
   @override
-  String get activityTabTrips => 'Trips';
+  String get activityTabTrips => 'Viaggi';
 
   @override
-  String get activityTabShipments => 'Shipments';
+  String get activityTabShipments => 'Spedizioni';
 
   @override
-  String get activityTabRequests => 'Requests';
+  String get activityTabRequests => 'Richieste';
 
   @override
-  String get noTripsYet => 'No trips yet';
+  String get noTripsYet => 'Nessun viaggio ancora';
+
+  @override
+  String get postATripCta => 'Pubblica un viaggio';
 
   @override
   String get postATripSubtitle =>
-      'Post a trip to start earning by carrying packages.';
+      'Pubblica un viaggio per iniziare a guadagnare trasportando pacchi.';
 
   @override
-  String get searchTripsHint => 'Search by route, date or status...';
+  String get noShipmentsYet => 'Nessuna spedizione ancora';
 
   @override
-  String kgFreeLabel(Object kg) {
-    return '$kg kg free';
-  }
+  String get sendAPackageCta => 'Invia un pacco';
+
+  @override
+  String get sendAPackageSubtitle => 'Invia un pacco e traccialo qui.';
+
+  @override
+  String get noRequestsYet => 'Nessuna richiesta ancora';
+
+  @override
+  String get noRequestsSubtitle =>
+      'Quando invii o ricevi richieste di spedizione, appariranno qui.';
+
+  @override
+  String get incomingRequestsLabel => 'Richieste in arrivo';
+
+  @override
+  String get sentRequestsLabel => 'Richieste inviate';
+
+  @override
+  String get fromSenderLabel => 'Dal mittente';
+
+  @override
+  String get withCarrierLabel => 'Con il corriere';
+
+  @override
+  String get pendingPriceLabel => 'Prezzo in attesa';
+
+  @override
+  String get shipmentRequestFallback => 'Richiesta di spedizione';
 
   @override
   String activeShipmentsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count active shipments',
-      one: '1 active shipment',
+      other: '$count spedizioni attive',
+      one: '1 spedizione attiva',
     );
     return '$_temp0';
   }
 
   @override
-  String get noShipmentsYet => 'No shipments yet';
+  String kgFreeLabel(Object kg) {
+    return '$kg kg liberi';
+  }
 
   @override
-  String get searchShipmentsHint => 'Search by package, city or traveler...';
+  String get ratingsAndReviewsTitle => 'Valutazioni e recensioni';
 
   @override
-  String get activeShipmentsSection => 'Active';
+  String get noReviewsYet => 'Nessuna recensione ancora';
 
   @override
-  String get pastShipmentsSection => 'Past';
+  String get noReviewsSubtitle =>
+      'Le recensioni di mittenti e viaggiatori appariranno qui.';
 
   @override
-  String get pendingPriceLabel => 'Pending price';
+  String reviewsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count recensioni',
+      one: '1 recensione',
+    );
+    return '$_temp0';
+  }
 
   @override
-  String get noRequestsYet => 'No requests yet';
+  String get requestsSectionCarry => 'Pacchi da trasportare';
 
   @override
-  String get noRequestsSubtitle =>
-      'When you send or receive shipment requests, they\'ll show here.';
+  String get requestsSectionSending => 'Le mie richieste di spedizione';
 
   @override
-  String get searchRequestsHint => 'Search by name or package...';
-
-  @override
-  String get shipmentRequestFallback => 'Shipment request';
-
-  @override
-  String get fromSenderLabel => 'From sender';
-
-  @override
-  String get withCarrierLabel => 'With carrier';
+  String get searchRequestsHint => 'Cerca per nome o pacco...';
 
   @override
   String noResultsFor(Object query) {
-    return 'No results for \"$query\"';
+    return 'Nessun risultato per \"$query\"';
   }
+
+  @override
+  String get activeShipmentsSection => 'Attivo';
+
+  @override
+  String get pastShipmentsSection => 'Passato';
+
+  @override
+  String get searchTripsHint => 'Cerca per percorso, data o stato...';
+
+  @override
+  String get searchShipmentsHint => 'Cerca per pacco, città o viaggiatore...';
 }

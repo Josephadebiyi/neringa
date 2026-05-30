@@ -51,7 +51,9 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
         ref.read(shipmentProvider.notifier).loadMyPackages(),
         ref.read(shipmentProvider.notifier).loadMyRequestHistory(),
         ref.read(shipmentProvider.notifier).loadIncomingRequests(),
-      ]);
+      ]).timeout(const Duration(seconds: 12), onTimeout: () => []);
+    } catch (_) {
+      // Silently swallow — individual loaders store their own errors in state.
     } finally {
       if (mounted) {
         setState(() => _preloading = false);
@@ -349,7 +351,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               const SizedBox(height: 8),
               ...active.map((pkg) => _PackageCard(
                     package: pkg,
-                    onTap: () => context.push('/shipment-details/${pkg.id}'),
+                    onTap: () => context.push('/shipment-details/${pkg.id}', extra: pkg),
                   )),
               if (past.isNotEmpty) const SizedBox(height: 12),
             ],
@@ -360,7 +362,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               ],
               ...past.map((pkg) => _PackageCard(
                     package: pkg,
-                    onTap: () => context.push('/shipment-details/${pkg.id}'),
+                    onTap: () => context.push('/shipment-details/${pkg.id}', extra: pkg),
                   )),
             ],
           ],
@@ -425,8 +427,9 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
       );
     }
 
-    final filtered =
-        state.incomingRequests.where((r) => _matches(r, _query)).toList();
+    final filtered = state.incomingRequests
+        .where((r) => r.id.isNotEmpty && _matches(r, _query))
+        .toList();
 
     // Sort: pending first, then by most recent (descending)
     filtered.sort((a, b) {

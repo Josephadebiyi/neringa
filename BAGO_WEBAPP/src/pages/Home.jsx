@@ -551,17 +551,6 @@ const TripTypeSection = () => {
 
     return (
         <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-10 pb-20">
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-[#012126] text-center mb-10 tracking-tighter leading-[0.9]">
-                {(() => {
-                    const title = t('tripTypeTitle') || 'How are you shipping today?';
-                    const words = title.split(' ');
-                    return words.map((word, i) =>
-                        i === words.length - 1
-                            ? <span key={i} className="opacity-20 text-gray-400">{word}</span>
-                            : <React.Fragment key={i}>{word} </React.Fragment>
-                    );
-                })()}
-            </h2>
             <DiscountPromo inside />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {[

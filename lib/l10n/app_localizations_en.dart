@@ -1537,16 +1537,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noTripsYet => 'No trips yet';
 
   @override
+  String get postATripCta => 'Post a Trip';
+
+  @override
   String get postATripSubtitle =>
       'Post a trip to start earning by carrying packages.';
 
   @override
-  String get searchTripsHint => 'Search by route, date or status...';
+  String get noShipmentsYet => 'No shipments yet';
 
   @override
-  String kgFreeLabel(Object kg) {
-    return '$kg kg free';
-  }
+  String get sendAPackageCta => 'Send a Package';
+
+  @override
+  String get sendAPackageSubtitle => 'Send a package and track it here.';
+
+  @override
+  String get noRequestsYet => 'No requests yet';
+
+  @override
+  String get noRequestsSubtitle =>
+      'When you send or receive shipment requests, they\'ll show here.';
+
+  @override
+  String get incomingRequestsLabel => 'Incoming requests';
+
+  @override
+  String get sentRequestsLabel => 'Sent requests';
+
+  @override
+  String get fromSenderLabel => 'From sender';
+
+  @override
+  String get withCarrierLabel => 'With carrier';
+
+  @override
+  String get pendingPriceLabel => 'Pending price';
+
+  @override
+  String get shipmentRequestFallback => 'Shipment request';
 
   @override
   String activeShipmentsCount(int count) {
@@ -1560,10 +1589,44 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get noShipmentsYet => 'No shipments yet';
+  String kgFreeLabel(Object kg) {
+    return '$kg kg free';
+  }
 
   @override
-  String get searchShipmentsHint => 'Search by package, city or traveler...';
+  String get ratingsAndReviewsTitle => 'Ratings & Reviews';
+
+  @override
+  String get noReviewsYet => 'No reviews yet';
+
+  @override
+  String get noReviewsSubtitle =>
+      'Reviews from senders and travelers will appear here.';
+
+  @override
+  String reviewsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count reviews',
+      one: '1 review',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get requestsSectionCarry => 'Packages to carry';
+
+  @override
+  String get requestsSectionSending => 'My shipping requests';
+
+  @override
+  String get searchRequestsHint => 'Search by name or package...';
+
+  @override
+  String noResultsFor(Object query) {
+    return 'No results for \"$query\"';
+  }
 
   @override
   String get activeShipmentsSection => 'Active';
@@ -1572,29 +1635,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pastShipmentsSection => 'Past';
 
   @override
-  String get pendingPriceLabel => 'Pending price';
+  String get searchTripsHint => 'Search by route, date or status...';
 
   @override
-  String get noRequestsYet => 'No requests yet';
-
-  @override
-  String get noRequestsSubtitle =>
-      'When you send or receive shipment requests, they\'ll show here.';
-
-  @override
-  String get searchRequestsHint => 'Search by name or package...';
-
-  @override
-  String get shipmentRequestFallback => 'Shipment request';
-
-  @override
-  String get fromSenderLabel => 'From sender';
-
-  @override
-  String get withCarrierLabel => 'With carrier';
-
-  @override
-  String noResultsFor(Object query) {
-    return 'No results for \"$query\"';
-  }
+  String get searchShipmentsHint => 'Search by package, city or traveler...';
 }

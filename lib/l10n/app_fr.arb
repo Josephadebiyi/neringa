@@ -556,5 +556,57 @@
   "searchHelpHint": "Rechercher des rubriques d'aide...",
   "noRatingsYet": "Vous n'avez pas encore laissé d'avis.",
   "setCurrencyFirst": "Veuillez définir votre devise préférée dans les paramètres de profil avant de gérer les méthodes de paiement.",
-  "addMiniBio": "Ajouter une mini bio"
+  "addMiniBio": "Ajouter une mini bio",
+  "activityTitle": "Activité",
+  "activityTabTrips": "Voyages",
+  "activityTabShipments": "Expéditions",
+  "activityTabRequests": "Demandes",
+  "noTripsYet": "Aucun voyage pour l'instant",
+  "postATripCta": "Publier un voyage",
+  "postATripSubtitle": "Publiez un voyage pour commencer à gagner en transportant des colis.",
+  "noShipmentsYet": "Aucune expédition pour l'instant",
+  "sendAPackageCta": "Envoyer un colis",
+  "sendAPackageSubtitle": "Envoyez un colis et suivez-le ici.",
+  "noRequestsYet": "Aucune demande pour l'instant",
+  "noRequestsSubtitle": "Quand vous envoyez ou recevez des demandes d'expédition, elles apparaîtront ici.",
+  "incomingRequestsLabel": "Demandes entrantes",
+  "sentRequestsLabel": "Demandes envoyées",
+  "fromSenderLabel": "De l'expéditeur",
+  "withCarrierLabel": "Avec le transporteur",
+  "pendingPriceLabel": "Prix en attente",
+  "shipmentRequestFallback": "Demande d'expédition",
+  "activeShipmentsCount": "{count, plural, one {1 expédition active} other {{count} expéditions actives}}",
+  "@activeShipmentsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "kgFreeLabel": "{kg} kg libres",
+  "@kgFreeLabel": {
+    "placeholders": {
+      "kg": {}
+    }
+  },
+  "ratingsAndReviewsTitle": "Notes & Avis",
+  "noReviewsYet": "Aucun avis pour l'instant",
+  "noReviewsSubtitle": "Les avis des expéditeurs et des voyageurs apparaîtront ici.",
+  "reviewsCount": "{count, plural, one {1 avis} other {{count} avis}}",
+  "@reviewsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "requestsSectionCarry": "Colis à transporter",
+  "requestsSectionSending": "Mes demandes d'expédition",
+  "searchRequestsHint": "Rechercher par nom ou colis...",
+  "noResultsFor": "Aucun résultat pour \"{query}\"",
+  "@noResultsFor": {
+    "placeholders": {
+      "query": {}
+    }
+  },
+  "activeShipmentsSection": "Actif",
+  "pastShipmentsSection": "Passé",
+  "searchTripsHint": "Rechercher par itinéraire, date ou statut...",
+  "searchShipmentsHint": "Rechercher par colis, ville ou voyageur..."
 }

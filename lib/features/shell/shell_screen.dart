@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/model_enums.dart';
-import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/auth_required_modal.dart';
 import '../auth/providers/auth_provider.dart';
@@ -34,18 +33,15 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   bool _requestPopupVisible = false;
   Set<String> _knownPendingRequestIds = {};
 
-  List<_TabItem> _senderTabs(AppLocalizations l10n) => [
-    _TabItem(icon: Icons.home_rounded, label: l10n.navHome, path: '/home'),
-    _TabItem(icon: Icons.inbox_rounded, label: l10n.navShipments, path: '/shipments'),
-    _TabItem(icon: Icons.chat_bubble_outline_rounded, label: l10n.navMessages, path: '/messages'),
-    _TabItem(icon: Icons.person_outline_rounded, label: l10n.navProfile, path: '/profile'),
-  ];
+  // Publish tab has an empty path — it's an action, not a destination.
+  static const _publishPath = '';
 
-  List<_TabItem> _carrierTabs(AppLocalizations l10n) => [
-    _TabItem(icon: Icons.home_rounded, label: l10n.navHome, path: '/home'),
-    _TabItem(icon: Icons.luggage_rounded, label: l10n.navTrips, path: '/trips'),
-    _TabItem(icon: Icons.chat_bubble_outline_rounded, label: l10n.navMessages, path: '/messages'),
-    _TabItem(icon: Icons.person_outline_rounded, label: l10n.navProfile, path: '/profile'),
+  List<_TabItem> _tabs() => [
+    const _TabItem(icon: Icons.search_rounded, label: 'Search', path: '/home'),
+    const _TabItem(icon: Icons.add_circle_rounded, label: 'Publish', path: _publishPath),
+    const _TabItem(icon: Icons.local_shipping_rounded, label: 'Activity', path: '/activity'),
+    const _TabItem(icon: Icons.chat_bubble_outline_rounded, label: 'Inbox', path: '/messages'),
+    const _TabItem(icon: Icons.person_outline_rounded, label: 'Profile', path: '/profile'),
   ];
 
   @override
@@ -67,17 +63,13 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   int _currentIndex(BuildContext context, List<_TabItem> tabs) {
     final loc = GoRouterState.of(context).matchedLocation;
     for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].path.isEmpty) continue; // Publish is an action, not a destination
       if (loc.startsWith(tabs[i].path)) return i;
     }
     return 0;
   }
 
   void _ensurePolling() {
-    final isCarrier = ref.read(authProvider).user?.isCarrier ?? false;
-    if (!isCarrier) {
-      _stopPolling();
-      return;
-    }
     if (_pollTimer != null || _bootstrapScheduled) return;
 
     _bootstrapScheduled = true;
@@ -103,14 +95,6 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     });
   }
 
-  void _stopPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _bootstrapScheduled = false;
-    _requestPopupVisible = false;
-    _knownPendingRequestIds = {};
-  }
-
   Future<void> _primeUnreadMessages() async {
     if (!mounted) return;
     final isLoggedIn = ref.read(authProvider).isLoggedIn;
@@ -124,8 +108,6 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
   Future<void> _primeIncomingRequests({bool initialSnapshot = false}) async {
     if (!mounted) return;
-    final isCarrier = ref.read(authProvider).user?.isCarrier ?? false;
-    if (!isCarrier) return;
 
     try {
       final incoming = await ref.read(shipmentProvider.notifier).refreshIncomingRequests();
@@ -356,24 +338,19 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final isCarrier = ref.watch(authProvider).user?.isCarrier ?? false;
     final unreadCount = ref.watch(
       messageProvider.select((state) => state.unreadCount),
     );
     final incomingRequests = ref.watch(
       shipmentProvider.select((state) => state.incomingRequests),
     );
-    final tabs = isCarrier ? _carrierTabs(l10n) : _senderTabs(l10n);
+    final tabs = _tabs();
     final currentIndex = _currentIndex(context, tabs);
-    final hasPendingTravelerRequests = isCarrier &&
-        incomingRequests.any((request) => request.status == RequestStatus.pending);
+    final pendingCount = incomingRequests
+        .where((r) => r.status == RequestStatus.pending)
+        .length;
 
-    if (isCarrier) {
-      _ensurePolling();
-    } else {
-      _stopPolling();
-    }
+    _ensurePolling();
     _ensureMessagePolling();
 
     return Scaffold(
@@ -404,37 +381,39 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             unselectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             onTap: (i) {
-                final path = tabs[i].path;
+                final tab = tabs[i];
                 final isLoggedIn = ref.read(authProvider).isLoggedIn;
-                if (!isLoggedIn && path != '/home') {
+                // Publish tab — action, not destination
+                if (tab.path.isEmpty) {
+                  if (!isLoggedIn) {
+                    showAuthRequiredModal(context);
+                    return;
+                  }
+                  context.push('/post-trip');
+                  return;
+                }
+                if (!isLoggedIn && tab.path != '/home') {
                   showAuthRequiredModal(context);
                   return;
                 }
-                context.go(path);
+                context.go(tab.path);
               },
-            items: tabs
-                .asMap()
-                .map(
-                  (index, tab) {
-                    final isMessagesTab = tab.path == '/messages';
-                    final isRequestsTab = tab.path == '/trips' || tab.path == '/shipments';
-                    final pendingCount = incomingRequests.where((r) => r.status == RequestStatus.pending).length;
-                    return MapEntry(
-                      index,
-                      BottomNavigationBarItem(
-                      icon: _NavTabIcon(
-                        icon: tab.icon,
-                        showBadge: (isRequestsTab && hasPendingTravelerRequests) ||
-                            (isMessagesTab && unreadCount > 0),
-                        badgeCount: isMessagesTab ? unreadCount : (isRequestsTab ? pendingCount : 0),
-                      ),
-                      label: tab.label,
-                    ),
-                    );
-                  },
-                )
-                .values
-                .toList(),
+            items: tabs.map((tab) {
+                final isInboxTab = tab.path == '/messages';
+                final isActivityTab = tab.path == '/activity';
+                final isPublishTab = tab.path.isEmpty;
+                return BottomNavigationBarItem(
+                  icon: isPublishTab
+                      ? const Icon(Icons.add_circle_rounded)
+                      : _NavTabIcon(
+                          icon: tab.icon,
+                          showBadge: (isActivityTab && pendingCount > 0) ||
+                              (isInboxTab && unreadCount > 0),
+                          badgeCount: isInboxTab ? unreadCount : (isActivityTab ? pendingCount : 0),
+                        ),
+                  label: tab.label,
+                );
+              }).toList(),
           ),
         ),
       ),

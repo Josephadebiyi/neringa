@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -65,7 +64,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(shipmentProvider.notifier).loadMyPackages();
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
       ref.read(shipmentProvider.notifier).loadIncomingRequests();
-      _fetchLiveEscrow();
     });
   }
 
@@ -186,25 +184,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ]
         : [
             _ServiceItem(
-                title: l10n.serviceSendPackage,
-                description: l10n.serviceSendPackageDesc,
+                title: l10n.findTraveler,
+                description: 'Search available travelers on your route.',
                 color: const Color(0xFFEEEBFF),
                 icon: Icons.send_rounded,
                 route: '/create-shipment',
                 isPrimary: true,
                 onTap: () => _showFindTravelerSheet(context)),
             _ServiceItem(
-                title: l10n.serviceBuyItems,
-                description: l10n.serviceBuyItemsDesc,
+                title: l10n.servicePublishTrip,
+                description: l10n.servicePublishTripDesc,
                 color: const Color(0xFFF1F5FF),
-                icon: Icons.shopping_bag_outlined,
-                route: '/services/buy-items'),
-            _ServiceItem(
-                title: l10n.serviceGiftItems,
-                description: l10n.serviceGiftItemsDesc,
-                color: const Color(0xFFFFF1F1),
-                icon: Icons.favorite_border_rounded,
-                route: '/services/gift-items'),
+                icon: Icons.flight_takeoff_rounded,
+                route: '/post-trip'),
           ];
     final firstName = user?.fullName.split(' ').first ?? l10n.homeFallbackUser;
     final avatarLetter =
@@ -290,18 +282,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 16),
 
                 // ── Hero ────────────────────────────────────────────────
-isCarrier
-                     ? _CarrierHero(
-                         balance: UserCurrencyHelper.convertWalletBalance(
-                           balance: user?.walletBalance ?? 0,
-                           walletCurrency: user?.walletCurrency ?? 'USD',
-                           viewerCurrency: UserCurrencyHelper.resolve(user),
-                         ),
-                         pendingEarnings: carrierEarnings,
-                         currency: UserCurrencyHelper.resolve(user),
-                         onPostTrip: () => context.push('/post-trip'),
-                         onWithdraw: () => context.push('/profile/withdraw'),
-                       )
+                isCarrier
+                    ? _CarrierHero(
+                        balance: UserCurrencyHelper.convertWalletBalance(
+                          balance: user?.walletBalance ?? 0,
+                          walletCurrency: user?.walletCurrency ?? 'USD',
+                          viewerCurrency: UserCurrencyHelper.resolve(user),
+                        ),
+                        pendingEarnings: carrierEarnings,
+                        currency: UserCurrencyHelper.resolve(user),
+                        onPostTrip: () => context.push('/post-trip'),
+                        onWithdraw: () => context.push('/profile/withdraw'),
+                      )
                     : _SenderHero(
                         from: _from,
                         to: _to,
@@ -399,9 +391,8 @@ isCarrier
                   final activityPackages = isCarrier
                       ? const <PackageModel>[]
                       : shipmentState.activePackages.take(8).toList();
-                  final activityLoading = isCarrier
-                      ? tripState.isLoading
-                      : shipmentState.isLoading;
+                  final activityLoading =
+                      isCarrier ? tripState.isLoading : shipmentState.isLoading;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,13 +402,16 @@ isCarrier
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            isCarrier ? l10n.tripActivityShort : l10n.recentActivity,
+                            isCarrier
+                                ? l10n.tripActivityShort
+                                : l10n.recentActivity,
                             style: AppTextStyles.h3.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.black),
                           ),
                           GestureDetector(
-                            onTap: () => context.go(isCarrier ? '/requests' : '/shipments'),
+                            onTap: () => context
+                                .go(isCarrier ? '/requests' : '/shipments'),
                             child: Text(
                               'See all',
                               style: AppTextStyles.bodySm.copyWith(
@@ -433,8 +427,8 @@ isCarrier
                         requests: activityRequests,
                         packages: activityPackages,
                         isLoading: activityLoading,
-                        onViewAll: () => context
-                            .go(isCarrier ? '/requests' : '/shipments'),
+                        onViewAll: () =>
+                            context.go(isCarrier ? '/requests' : '/shipments'),
                       ),
                     ],
                   );
@@ -780,57 +774,16 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   }
 
   Future<void> _search(String q) async {
-    if (q.length < 2) {
-      setState(() => _results = []);
+    final trimmed = q.trim();
+    if (trimmed.length < 2) {
+      if (mounted) setState(() => _results = []);
       return;
     }
-    setState(() => _loading = true);
-    try {
-      final dio = Dio();
-      final languageCode = Localizations.localeOf(context).languageCode;
-      final res = await dio.get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'q': q,
-          'format': 'json',
-          'addressdetails': 1,
-          'limit': 15,
-          'accept-language': languageCode,
-        },
-        options:
-            Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
-      );
-      final seen = <String>{};
-      final list = <_Location>[];
-      for (final item in res.data as List) {
-        final addr = item['address'] as Map<String, dynamic>;
-        // Pick best city name from multiple possible keys
-        final city = addr['city'] ??
-            addr['town'] ??
-            addr['municipality'] ??
-            addr['county'] ??
-            addr['village'] ??
-            addr['suburb'] ??
-            (item['display_name'] as String).split(',').first.trim();
-        final country = addr['country'] as String? ?? '';
-        final code = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
-        final key = '${city.toString().toLowerCase()},$code';
-        if (!seen.contains(key) &&
-            city.toString().isNotEmpty &&
-            country.isNotEmpty) {
-          seen.add(key);
-          list.add(_Location(
-              name: '${city.toString().trim()}, $country', countryCode: code));
-        }
-        if (list.length >= 8) break;
-      }
-      if (mounted)
-        setState(() {
-          _results = list;
-          _loading = false;
-        });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _results = [_Location(name: trimmed, countryCode: 'xx')];
+        _loading = false;
+      });
     }
   }
 
@@ -842,115 +795,116 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardHeight),
       child: Container(
-      height: (screenHeight * 0.55).clamp(300.0, screenHeight * 0.55),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 10),
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-                color: AppColors.gray200,
-                borderRadius: BorderRadius.circular(2)),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-            child: Row(
-              children: [
-                Expanded(
-                    child: Text(l10n.globalLocationSearch,
-                        style: AppTextStyles.h3
-                            .copyWith(fontWeight: FontWeight.w800))),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close, size: 24),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              height: 50,
+        height: (screenHeight * 0.55).clamp(300.0, screenHeight * 0.55),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F8),
-                  borderRadius: BorderRadius.circular(16)),
+                  color: AppColors.gray200,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Row(
                 children: [
-                  const Icon(Icons.search, color: AppColors.gray400, size: 20),
-                  const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
-                      controller: _ctrl,
-                      autofocus: true,
-                      textAlignVertical: TextAlignVertical.center,
-                      style: AppTextStyles.bodyMd
-                          .copyWith(fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        hintText: widget.hintText,
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onChanged: (v) {
-                        _debounce?.cancel();
-                        _debounce = Timer(const Duration(milliseconds: 400),
-                            () => _search(v));
-                      },
-                    ),
+                      child: Text(l10n.globalLocationSearch,
+                          style: AppTextStyles.h3
+                              .copyWith(fontWeight: FontWeight.w800))),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.close, size: 24),
                   ),
-                  if (_loading)
-                    const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppColors.primary)),
                 ],
               ),
             ),
-          ),
-          Expanded(
-            child: _results.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        l10n.searchCityAirport,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMd.copyWith(
-                            color: AppColors.gray500,
-                            fontWeight: FontWeight.w500),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                height: 50,
+                decoration: BoxDecoration(
+                    color: const Color(0xFFF7F7F8),
+                    borderRadius: BorderRadius.circular(16)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search,
+                        color: AppColors.gray400, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _ctrl,
+                        autofocus: true,
+                        textAlignVertical: TextAlignVertical.center,
+                        style: AppTextStyles.bodyMd
+                            .copyWith(fontWeight: FontWeight.w600),
+                        decoration: InputDecoration(
+                          hintText: widget.hintText,
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onChanged: (v) {
+                          _debounce?.cancel();
+                          _debounce = Timer(const Duration(milliseconds: 400),
+                              () => _search(v));
+                        },
                       ),
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: _results.length,
-                    itemBuilder: (_, i) {
-                      final loc = _results[i];
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 4),
-                        leading: Text(_flagEmoji(loc.countryCode),
-                            style: const TextStyle(fontSize: 28)),
-                        title: Text(loc.name,
-                            style: AppTextStyles.bodyMd
-                                .copyWith(fontWeight: FontWeight.w700)),
-                        onTap: () {
-                          widget.onSelect(loc.name);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+                    if (_loading)
+                      const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.primary)),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: _results.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          l10n.searchCityAirport,
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.bodyMd.copyWith(
+                              color: AppColors.gray500,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _results.length,
+                      itemBuilder: (_, i) {
+                        final loc = _results[i];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 4),
+                          leading: Text(_flagEmoji(loc.countryCode),
+                              style: const TextStyle(fontSize: 28)),
+                          title: Text(loc.name,
+                              style: AppTextStyles.bodyMd
+                                  .copyWith(fontWeight: FontWeight.w700)),
+                          onTap: () {
+                            widget.onSelect(loc.name);
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1327,7 +1281,8 @@ class _RecentActivityList extends StatelessWidget {
 
   IconData _statusIcon(String s) {
     if (s == 'completed' || s == 'delivered') return Icons.check_circle_rounded;
-    if (s == 'intransit' || s == 'in_transit') return Icons.flight_takeoff_rounded;
+    if (s == 'intransit' || s == 'in_transit')
+      return Icons.flight_takeoff_rounded;
     if (s == 'delivering') return Icons.local_shipping_rounded;
     if (s == 'accepted') return Icons.handshake_rounded;
     if (s == 'matched') return Icons.inventory_rounded;
@@ -1356,7 +1311,20 @@ class _RecentActivityList extends StatelessWidget {
       if (d == today) return 'Today';
       if (d == today.subtract(const Duration(days: 1))) return 'Yesterday';
       if (today.difference(d).inDays < 7) return 'This Week';
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       return '${months[dt.month - 1]} ${dt.year}';
     } catch (_) {
       return 'Earlier';
@@ -1375,7 +1343,8 @@ class _RecentActivityList extends StatelessWidget {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   children: [
                     Container(
@@ -1391,25 +1360,49 @@ class _RecentActivityList extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(height: 13, width: 120, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                          Container(
+                              height: 13,
+                              width: 120,
+                              decoration: BoxDecoration(
+                                  color: AppColors.gray100,
+                                  borderRadius: BorderRadius.circular(6))),
                           const SizedBox(height: 6),
-                          Container(height: 11, width: 80, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                          Container(
+                              height: 11,
+                              width: 80,
+                              decoration: BoxDecoration(
+                                  color: AppColors.gray100,
+                                  borderRadius: BorderRadius.circular(6))),
                         ],
                       ),
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Container(height: 13, width: 60, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                        Container(
+                            height: 13,
+                            width: 60,
+                            decoration: BoxDecoration(
+                                color: AppColors.gray100,
+                                borderRadius: BorderRadius.circular(6))),
                         const SizedBox(height: 6),
-                        Container(height: 11, width: 40, decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(6))),
+                        Container(
+                            height: 11,
+                            width: 40,
+                            decoration: BoxDecoration(
+                                color: AppColors.gray100,
+                                borderRadius: BorderRadius.circular(6))),
                       ],
                     ),
                   ],
                 ),
               ),
               if (i < 2)
-                const Divider(height: 1, indent: 72, endIndent: 16, color: Color(0xFFF5F5F7)),
+                const Divider(
+                    height: 1,
+                    indent: 72,
+                    endIndent: 16,
+                    color: Color(0xFFF5F5F7)),
             ],
           );
         }),
@@ -1417,7 +1410,8 @@ class _RecentActivityList extends StatelessWidget {
     );
   }
 
-  Widget _buildRow(BuildContext context, _RecentActivityEntry item, {required bool isLast}) {
+  Widget _buildRow(BuildContext context, _RecentActivityEntry item,
+      {required bool isLast}) {
     final route = [item.fromLocation, item.toLocation]
         .where((e) => e != null && e.isNotEmpty)
         .join(' → ');
@@ -1485,15 +1479,16 @@ class _RecentActivityList extends StatelessWidget {
                   ),
                 const SizedBox(height: 3),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.10),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     _statusLabel(item.status),
-                    style: AppTextStyles.caption.copyWith(
-                        color: color, fontWeight: FontWeight.w700),
+                    style: AppTextStyles.caption
+                        .copyWith(color: color, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -1578,11 +1573,13 @@ class _RecentActivityList extends StatelessWidget {
                 Text(
                   group,
                   style: AppTextStyles.labelSm.copyWith(
-                      color: AppColors.gray500, fontWeight: FontWeight.w700,
+                      color: AppColors.gray500,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: 0.2),
                 ),
                 const SizedBox(width: 8),
-                Expanded(child: Divider(color: const Color(0xFFF0F0F2), height: 1)),
+                Expanded(
+                    child: Divider(color: const Color(0xFFF0F0F2), height: 1)),
               ],
             ),
           ),
@@ -1606,7 +1603,9 @@ class _RecentActivityList extends StatelessWidget {
                       isLast: i == grouped[group]!.length - 1),
                   if (i < grouped[group]!.length - 1)
                     const Divider(
-                        height: 1, indent: 72, endIndent: 16,
+                        height: 1,
+                        indent: 72,
+                        endIndent: 16,
                         color: Color(0xFFF5F5F7)),
                 ],
               ],
@@ -1800,7 +1799,7 @@ class _ServiceItem {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Find Traveler Sheet (from home "Send Package" button)
+// Find Traveler Sheet
 // ─────────────────────────────────────────────────────────────────────────────
 class _FindTravelerSheet extends StatefulWidget {
   const _FindTravelerSheet();
@@ -1822,9 +1821,17 @@ class _FindTravelerSheetState extends State<_FindTravelerSheet> {
       backgroundColor: Colors.transparent,
       builder: (_) => _LocationPickerSheet(
         title: isFrom ? 'Departure City' : 'Destination City',
-        hintText: isFrom ? 'Search departure city…' : 'Search destination city…',
+        hintText:
+            isFrom ? 'Search departure city…' : 'Search destination city…',
         onSelect: (value) {
-          if (mounted) setState(() { if (isFrom) { _from = value; } else { _to = value; } });
+          if (mounted)
+            setState(() {
+              if (isFrom) {
+                _from = value;
+              } else {
+                _to = value;
+              }
+            });
         },
       ),
     );
@@ -1845,8 +1852,22 @@ class _FindTravelerSheetState extends State<_FindTravelerSheet> {
       ),
     );
     if (picked != null && mounted) {
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      setState(() => _date = '${months[picked.month - 1]} ${picked.day}, ${picked.year}');
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
+      setState(() =>
+          _date = '${months[picked.month - 1]} ${picked.day}, ${picked.year}');
     }
   }
 
@@ -1871,21 +1892,27 @@ class _FindTravelerSheetState extends State<_FindTravelerSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
-      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+          24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
             child: Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: AppColors.gray200, borderRadius: BorderRadius.circular(2)),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: AppColors.gray200,
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
           const SizedBox(height: 20),
-          Text('Find a Traveler', style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
+          Text('Find a Traveler',
+              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
-          Text('Enter your route to see available travelers.', style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+          Text('Enter your route to see available travelers.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
           const SizedBox(height: 20),
           Container(
             decoration: BoxDecoration(
@@ -1901,14 +1928,22 @@ class _FindTravelerSheetState extends State<_FindTravelerSheet> {
                   hasValue: _from.isNotEmpty,
                   onTap: () => _pickCity(true),
                 ),
-                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                const Divider(
+                    height: 1,
+                    color: AppColors.border,
+                    indent: 20,
+                    endIndent: 20),
                 _SheetRouteRow(
                   icon: Icons.location_on_rounded,
                   label: _to.isEmpty ? 'Destination city' : _to,
                   hasValue: _to.isNotEmpty,
                   onTap: () => _pickCity(false),
                 ),
-                const Divider(height: 1, color: AppColors.border, indent: 20, endIndent: 20),
+                const Divider(
+                    height: 1,
+                    color: AppColors.border,
+                    indent: 20,
+                    endIndent: 20),
                 _SheetRouteRow(
                   icon: Icons.calendar_month_rounded,
                   label: _date.isEmpty ? 'Any date (optional)' : _date,
@@ -1931,7 +1966,9 @@ class _FindTravelerSheetState extends State<_FindTravelerSheet> {
                 shape: const StadiumBorder(),
                 elevation: 0,
               ),
-              child: Text('Search Travelers', style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+              child: Text('Search Travelers',
+                  style: AppTextStyles.labelLg.copyWith(
+                      color: Colors.white, fontWeight: FontWeight.w800)),
             ),
           ),
         ],
@@ -1941,7 +1978,11 @@ class _FindTravelerSheetState extends State<_FindTravelerSheet> {
 }
 
 class _SheetRouteRow extends StatelessWidget {
-  const _SheetRouteRow({required this.icon, required this.label, required this.hasValue, required this.onTap});
+  const _SheetRouteRow(
+      {required this.icon,
+      required this.label,
+      required this.hasValue,
+      required this.onTap});
   final IconData icon;
   final String label;
   final bool hasValue;
@@ -1949,26 +1990,29 @@ class _SheetRouteRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(20),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Icon(icon, color: hasValue ? AppColors.primary : AppColors.gray400, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: AppTextStyles.bodyMd.copyWith(
-                color: hasValue ? AppColors.black : AppColors.gray400,
-                fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon,
+                  color: hasValue ? AppColors.primary : AppColors.gray400,
+                  size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: hasValue ? AppColors.black : AppColors.gray400,
+                    fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
               ),
-            ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.gray300, size: 20),
+            ],
           ),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.gray300, size: 20),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }

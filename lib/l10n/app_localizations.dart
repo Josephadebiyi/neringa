@@ -2920,29 +2920,17 @@ abstract class AppLocalizations {
   /// **'No trips yet'**
   String get noTripsYet;
 
+  /// No description provided for @postATripCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Post a Trip'**
+  String get postATripCta;
+
   /// No description provided for @postATripSubtitle.
   ///
   /// In en, this message translates to:
   /// **'Post a trip to start earning by carrying packages.'**
   String get postATripSubtitle;
-
-  /// No description provided for @searchTripsHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Search by route, date or status...'**
-  String get searchTripsHint;
-
-  /// No description provided for @kgFreeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'{kg} kg free'**
-  String kgFreeLabel(Object kg);
-
-  /// No description provided for @activeShipmentsCount.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, one {1 active shipment} other {{count} active shipments}}'**
-  String activeShipmentsCount(int count);
 
   /// No description provided for @noShipmentsYet.
   ///
@@ -2950,29 +2938,17 @@ abstract class AppLocalizations {
   /// **'No shipments yet'**
   String get noShipmentsYet;
 
-  /// No description provided for @searchShipmentsHint.
+  /// No description provided for @sendAPackageCta.
   ///
   /// In en, this message translates to:
-  /// **'Search by package, city or traveler...'**
-  String get searchShipmentsHint;
+  /// **'Send a Package'**
+  String get sendAPackageCta;
 
-  /// No description provided for @activeShipmentsSection.
+  /// No description provided for @sendAPackageSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Active'**
-  String get activeShipmentsSection;
-
-  /// No description provided for @pastShipmentsSection.
-  ///
-  /// In en, this message translates to:
-  /// **'Past'**
-  String get pastShipmentsSection;
-
-  /// No description provided for @pendingPriceLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Pending price'**
-  String get pendingPriceLabel;
+  /// **'Send a package and track it here.'**
+  String get sendAPackageSubtitle;
 
   /// No description provided for @noRequestsYet.
   ///
@@ -2986,17 +2962,17 @@ abstract class AppLocalizations {
   /// **'When you send or receive shipment requests, they\'ll show here.'**
   String get noRequestsSubtitle;
 
-  /// No description provided for @searchRequestsHint.
+  /// No description provided for @incomingRequestsLabel.
   ///
   /// In en, this message translates to:
-  /// **'Search by name or package...'**
-  String get searchRequestsHint;
+  /// **'Incoming requests'**
+  String get incomingRequestsLabel;
 
-  /// No description provided for @shipmentRequestFallback.
+  /// No description provided for @sentRequestsLabel.
   ///
   /// In en, this message translates to:
-  /// **'Shipment request'**
-  String get shipmentRequestFallback;
+  /// **'Sent requests'**
+  String get sentRequestsLabel;
 
   /// No description provided for @fromSenderLabel.
   ///
@@ -3010,11 +2986,101 @@ abstract class AppLocalizations {
   /// **'With carrier'**
   String get withCarrierLabel;
 
+  /// No description provided for @pendingPriceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending price'**
+  String get pendingPriceLabel;
+
+  /// No description provided for @shipmentRequestFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Shipment request'**
+  String get shipmentRequestFallback;
+
+  /// No description provided for @activeShipmentsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {1 active shipment} other {{count} active shipments}}'**
+  String activeShipmentsCount(int count);
+
+  /// No description provided for @kgFreeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{kg} kg free'**
+  String kgFreeLabel(Object kg);
+
+  /// No description provided for @ratingsAndReviewsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ratings & Reviews'**
+  String get ratingsAndReviewsTitle;
+
+  /// No description provided for @noReviewsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No reviews yet'**
+  String get noReviewsYet;
+
+  /// No description provided for @noReviewsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews from senders and travelers will appear here.'**
+  String get noReviewsSubtitle;
+
+  /// No description provided for @reviewsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {1 review} other {{count} reviews}}'**
+  String reviewsCount(int count);
+
+  /// No description provided for @requestsSectionCarry.
+  ///
+  /// In en, this message translates to:
+  /// **'Packages to carry'**
+  String get requestsSectionCarry;
+
+  /// No description provided for @requestsSectionSending.
+  ///
+  /// In en, this message translates to:
+  /// **'My shipping requests'**
+  String get requestsSectionSending;
+
+  /// No description provided for @searchRequestsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name or package...'**
+  String get searchRequestsHint;
+
   /// No description provided for @noResultsFor.
   ///
   /// In en, this message translates to:
   /// **'No results for \"{query}\"'**
   String noResultsFor(Object query);
+
+  /// No description provided for @activeShipmentsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get activeShipmentsSection;
+
+  /// No description provided for @pastShipmentsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Past'**
+  String get pastShipmentsSection;
+
+  /// No description provided for @searchTripsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by route, date or status...'**
+  String get searchTripsHint;
+
+  /// No description provided for @searchShipmentsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by package, city or traveler...'**
+  String get searchShipmentsHint;
 }
 
 class _AppLocalizationsDelegate

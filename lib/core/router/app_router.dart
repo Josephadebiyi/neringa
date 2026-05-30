@@ -47,6 +47,7 @@ import '../../features/settings/screens/language_settings_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/shell/shell_screen.dart';
 import '../../features/shipments/screens/request_shipment_screen.dart';
+import '../../features/shipments/models/package_model.dart';
 import '../../features/shipments/models/request_model.dart';
 import '../../features/shipments/screens/shipment_details_screen.dart';
 import '../../features/shipments/screens/shipment_request_screen.dart';
@@ -265,7 +266,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/shipment-details/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          return ShipmentDetailsScreen(shipmentId: id);
+          final pkg = state.extra is PackageModel ? state.extra as PackageModel : null;
+          return ShipmentDetailsScreen(shipmentId: id, preloadedPackage: pkg);
         },
       ),
       GoRoute(

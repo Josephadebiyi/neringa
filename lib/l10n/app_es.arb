@@ -556,5 +556,57 @@
   "searchHelpHint": "Buscar temas de ayuda...",
   "noRatingsYet": "Aún no has dejado ninguna valoración.",
   "setCurrencyFirst": "Establece tu moneda preferida en la configuración de perfil antes de gestionar los métodos de pago.",
-  "addMiniBio": "Añadir una mini bio"
+  "addMiniBio": "Añadir una mini bio",
+  "activityTitle": "Actividad",
+  "activityTabTrips": "Viajes",
+  "activityTabShipments": "Envíos",
+  "activityTabRequests": "Solicitudes",
+  "noTripsYet": "Aún no hay viajes",
+  "postATripCta": "Publicar un viaje",
+  "postATripSubtitle": "Publica un viaje para empezar a ganar llevando paquetes.",
+  "noShipmentsYet": "Aún no hay envíos",
+  "sendAPackageCta": "Enviar un paquete",
+  "sendAPackageSubtitle": "Envía un paquete y rastréalo aquí.",
+  "noRequestsYet": "Aún no hay solicitudes",
+  "noRequestsSubtitle": "Cuando envíes o recibas solicitudes de envío, aparecerán aquí.",
+  "incomingRequestsLabel": "Solicitudes entrantes",
+  "sentRequestsLabel": "Solicitudes enviadas",
+  "fromSenderLabel": "Del remitente",
+  "withCarrierLabel": "Con transportista",
+  "pendingPriceLabel": "Precio pendiente",
+  "shipmentRequestFallback": "Solicitud de envío",
+  "activeShipmentsCount": "{count, plural, one {1 envío activo} other {{count} envíos activos}}",
+  "@activeShipmentsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "kgFreeLabel": "{kg} kg libres",
+  "@kgFreeLabel": {
+    "placeholders": {
+      "kg": {}
+    }
+  },
+  "ratingsAndReviewsTitle": "Valoraciones y reseñas",
+  "noReviewsYet": "Aún no hay reseñas",
+  "noReviewsSubtitle": "Las reseñas de remitentes y viajeros aparecerán aquí.",
+  "reviewsCount": "{count, plural, one {1 reseña} other {{count} reseñas}}",
+  "@reviewsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "requestsSectionCarry": "Paquetes a transportar",
+  "requestsSectionSending": "Mis solicitudes de envío",
+  "searchRequestsHint": "Buscar por nombre o paquete...",
+  "noResultsFor": "Sin resultados para \"{query}\"",
+  "@noResultsFor": {
+    "placeholders": {
+      "query": {}
+    }
+  },
+  "activeShipmentsSection": "Activo",
+  "pastShipmentsSection": "Pasado",
+  "searchTripsHint": "Buscar por ruta, fecha o estado...",
+  "searchShipmentsHint": "Buscar por paquete, ciudad o viajero..."
 }

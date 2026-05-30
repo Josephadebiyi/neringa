@@ -45,7 +45,7 @@ class OrderSuccessScreen extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 40),
-              AppButton(label: l10n.viewShipments, onPressed: () => context.go('/shipments')),
+              AppButton(label: l10n.viewShipments, onPressed: () => context.go('/activity')),
               const SizedBox(height: 12),
               AppButton(label: l10n.backToHome, variant: AppButtonVariant.outline, onPressed: () => context.go('/home')),
             ],

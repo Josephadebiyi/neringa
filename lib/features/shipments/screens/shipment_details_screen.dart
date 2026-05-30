@@ -19,8 +19,9 @@ import '../services/bago_shipping_pdf_service.dart';
 import '../services/shipment_service.dart';
 
 class ShipmentDetailsScreen extends ConsumerStatefulWidget {
-  const ShipmentDetailsScreen({super.key, required this.shipmentId});
+  const ShipmentDetailsScreen({super.key, required this.shipmentId, this.preloadedPackage});
   final String shipmentId;
+  final PackageModel? preloadedPackage;
 
   @override
   ConsumerState<ShipmentDetailsScreen> createState() =>
@@ -35,7 +36,9 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
+    _future = widget.preloadedPackage != null
+        ? Future.value(widget.preloadedPackage!)
+        : ShipmentService.instance.getPackageDetails(widget.shipmentId);
   }
 
   @override
@@ -79,8 +82,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                     AppButton(
                       label: l10n.retry,
                       onPressed: () => setState(() {
-                        _future = ShipmentService.instance
-                            .getPackageDetails(widget.shipmentId);
+                        _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
                       }),
                     ),
                   ],
