@@ -368,7 +368,23 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
           final fromLocation = draft['fromLocation']?.toString() ?? 'Pickup';
           final toLocation = draft['toLocation']?.toString() ?? 'Destination';
 
-          return AppCard(
+          return Dismissible(
+            key: ValueKey(draft['expiresAt'] ?? 'draft'),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 24),
+              decoration: BoxDecoration(
+                color: AppColors.accentCoral,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28),
+            ),
+            confirmDismiss: (_) async {
+              await _checkoutService.clearDraft();
+              return false;
+            },
+            child: AppCard(
             padding: const EdgeInsets.all(18),
             borderColor: AppColors.primary,
             showBorder: true,
@@ -508,6 +524,7 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
                 ),
               ],
             ),
+          ),
           );
         },
       ),
