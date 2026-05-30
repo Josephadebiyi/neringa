@@ -266,7 +266,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     return BagoSubPageScaffold(
       title: 'Secure checkout',
-      backFallbackPath: '/shipments',
+      backFallbackPath: '/activity',
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

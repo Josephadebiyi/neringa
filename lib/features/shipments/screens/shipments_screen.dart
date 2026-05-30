@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -614,10 +613,11 @@ class _TripsList extends ConsumerWidget {
     final sentActiveRequests = activeTab
         ? shipmentState.myRequests
             .where((r) =>
-                r.status == RequestStatus.pending ||
+                r.id.isNotEmpty &&
+                (r.status == RequestStatus.pending ||
                 r.status == RequestStatus.accepted ||
                 r.status == RequestStatus.intransit ||
-                r.status == RequestStatus.delivering)
+                r.status == RequestStatus.delivering))
             .toList()
         : const <RequestModel>[];
     final sentHistoryRequests = !activeTab
@@ -2116,53 +2116,16 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
   }
 
   Future<void> _search(String q) async {
-    if (q.length < 2) {
-      setState(() => _results = []);
+    final trimmed = q.trim();
+    if (trimmed.length < 2) {
+      if (mounted) setState(() => _results = []);
       return;
     }
-    setState(() => _loading = true);
-    try {
-      final res = await Dio().get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'q': q,
-          'format': 'json',
-          'addressdetails': 1,
-          'limit': 15
-        },
-        options:
-            Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'}),
-      );
-      final seen = <String>{};
-      final list = <_CityResult>[];
-      for (final item in res.data as List) {
-        final addr = item['address'] as Map<String, dynamic>;
-        final city = addr['city'] ??
-            addr['town'] ??
-            addr['municipality'] ??
-            addr['county'] ??
-            addr['village'] ??
-            (item['display_name'] as String).split(',').first.trim();
-        final country = addr['country'] as String? ?? '';
-        final code = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
-        final key = '${city.toString().toLowerCase()},$code';
-        if (!seen.contains(key) &&
-            city.toString().isNotEmpty &&
-            country.isNotEmpty) {
-          seen.add(key);
-          list.add(_CityResult(
-              display: '${city.toString().trim()}, $country',
-              countryCode: code));
-        }
-        if (list.length >= 8) break;
-      }
-      if (mounted)
-        setState(() {
-          _results = list;
-          _loading = false;
-        });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _results = [_CityResult(display: trimmed, countryCode: 'xx')];
+        _loading = false;
+      });
     }
   }
 
