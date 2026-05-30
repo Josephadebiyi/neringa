@@ -57,12 +57,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _loadDraft() async {
-    final draft = widget.extra ?? await _checkoutService.loadDraft();
-    if (!mounted) return;
-    setState(() {
-      _draft = draft == null ? null : {...draft, 'provider': 'braintree'};
-      _isLoadingDraft = false;
-    });
+    try {
+      final draft = widget.extra ??
+          await _checkoutService
+              .loadDraft()
+              .timeout(const Duration(seconds: 6), onTimeout: () => null);
+      if (!mounted) return;
+      setState(() {
+        _draft = draft == null ? null : {...draft, 'provider': 'braintree'};
+        _isLoadingDraft = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingDraft = false);
+    }
   }
 
   bool _guardDraft() {
@@ -240,9 +247,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final l10n = AppLocalizations.of(context);
 
     if (_isLoadingDraft) {
-      return const Scaffold(
-        backgroundColor: AppColors.backgroundOff,
-        body: Center(child: AppLoading()),
+      return BagoSubPageScaffold(
+        title: 'Secure checkout',
+        backFallbackPath: '/activity',
+        child: const Center(child: AppLoading()),
       );
     }
 
