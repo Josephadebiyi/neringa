@@ -14,6 +14,7 @@ import '../../../shared/services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shipments/models/package_model.dart';
 import '../../shipments/models/request_model.dart';
+import '../../../core/utils/model_enums.dart';
 import '../../shipments/providers/shipment_provider.dart';
 import '../../trips/providers/trip_provider.dart';
 
@@ -386,8 +387,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // ── Recent Activity — below the banner ────────────────────
                 Builder(builder: (context) {
                   final activityRequests = isCarrier
-                      ? shipmentState.incomingRequests.take(8).toList()
-                      : shipmentState.myRequests.take(8).toList();
+                      ? shipmentState.incomingRequests
+                          .where((r) => r.id.isNotEmpty && r.status != RequestStatus.pending)
+                          .take(8)
+                          .toList()
+                      : shipmentState.myRequests
+                          .where((r) => r.id.isNotEmpty && r.status != RequestStatus.pending)
+                          .take(8)
+                          .toList();
                   final activityPackages = isCarrier
                       ? const <PackageModel>[]
                       : shipmentState.activePackages.take(8).toList();

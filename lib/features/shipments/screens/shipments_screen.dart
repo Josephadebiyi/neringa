@@ -371,7 +371,8 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
           return Dismissible(
             key: ValueKey(draft['expiresAt'] ?? 'draft'),
             direction: DismissDirection.endToStart,
-            background: Container(
+            background: const SizedBox.shrink(),
+            secondaryBackground: Container(
               alignment: Alignment.centerRight,
               padding: const EdgeInsets.only(right: 24),
               decoration: BoxDecoration(

@@ -501,15 +501,51 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
 
           // Pricing
           _InfoCard(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Text('Agreed Price',
-                    style: AppTextStyles.labelMd
-                        .copyWith(fontWeight: FontWeight.w700)),
-                Text('${req.currency} ${req.agreedPrice.toStringAsFixed(2)}',
-                    style: AppTextStyles.h3.copyWith(
-                        color: AppColors.primary, fontWeight: FontWeight.w900)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Shipping Price',
+                        style: AppTextStyles.labelMd
+                            .copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      '${req.currency} ${(req.agreedPrice - req.insuranceCost).toStringAsFixed(2)}',
+                      style: AppTextStyles.h3.copyWith(
+                          color: AppColors.primary, fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+                if (req.insurance && req.insuranceCost > 0) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Insurance',
+                          style: AppTextStyles.bodySm.copyWith(
+                              color: AppColors.gray500, fontWeight: FontWeight.w600)),
+                      Text(
+                        '+ ${req.currency} ${req.insuranceCost.toStringAsFixed(2)}',
+                        style: AppTextStyles.bodySm.copyWith(
+                            color: AppColors.gray600, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16, color: AppColors.gray100),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Paid',
+                          style: AppTextStyles.labelMd.copyWith(
+                              color: AppColors.gray700, fontWeight: FontWeight.w700)),
+                      Text(
+                        '${req.currency} ${req.agreedPrice.toStringAsFixed(2)}',
+                        style: AppTextStyles.labelMd.copyWith(
+                            color: AppColors.black, fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
