@@ -42,7 +42,8 @@ export async function getClientToken(_req, res) {
     const response = await getGateway().clientToken.generate({});
     return res.json({ success: true, clientToken: response.clientToken });
   } catch (err) {
-    console.error('❌ Braintree client token error:', err.message);
+    const env = (process.env.BRAINTREE_ENVIRONMENT || 'sandbox').toLowerCase();
+    console.error('❌ Braintree client token error [env=%s merchant=%s]:', env, process.env.BRAINTREE_MERCHANT_ID, err);
     return res.status(500).json({ success: false, message: 'Could not start secure checkout.' });
   }
 }

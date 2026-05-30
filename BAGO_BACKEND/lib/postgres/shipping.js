@@ -968,16 +968,28 @@ export async function getPublicTrackingByNumber(trackingNumber) {
 }
 
 export async function listRecentOrdersForUser(userId) {
-  const result = await query(
-    `
-      ${requestSelect}
-      where sr.sender_id = $1 or sr.traveler_id = $1
-      order by sr.created_at desc
-    `,
-    [userId],
-  );
+  const [requestsResult, draftsResult] = await Promise.all([
+    query(
+      `${requestSelect} where sr.sender_id = $1 or sr.traveler_id = $1 order by sr.created_at desc`,
+      [userId],
+    ),
+    // Packages the user created that have no associated shipment request yet (pre-payment drafts)
+    query(
+      `select p.*,
+              pr.first_name as sender_first_name, pr.last_name as sender_last_name,
+              pr.email as sender_email, pr.image_url as sender_image_url
+       from public.packages p
+       left join public.profiles pr on pr.id = p.user_id
+       where p.user_id = $1
+         and not exists (
+           select 1 from public.shipment_requests sr where sr.package_id = p.id
+         )
+       order by p.created_at desc`,
+      [userId],
+    ),
+  ]);
 
-  return result.rows.map((row) => {
+  const requests = requestsResult.rows.map((row) => {
     const request = normalizeRequest(row);
     const { movementTracking, ...safeRequest } = request;
     return {
@@ -989,6 +1001,55 @@ export async function listRecentOrdersForUser(userId) {
       role: request.senderId === userId ? 'sender' : 'traveler',
     };
   });
+
+  const drafts = draftsResult.rows.map((row) => {
+    const pkg = normalizePackage(row);
+    return {
+      _id: row.id,
+      id: row.id,
+      senderId: userId,
+      travelerId: null,
+      carrierId: null,
+      packageId: row.id,
+      tripId: null,
+      sender: {
+        _id: userId, id: userId,
+        firstName: row.sender_first_name, lastName: row.sender_last_name,
+        email: row.sender_email, avatar: row.sender_image_url, image: row.sender_image_url,
+      },
+      traveler: null, carrier: null,
+      package: pkg,
+      trip: null,
+      trackingNumber: null,
+      image: row.image_url || null,
+      senderProof: null, travelerProof: null,
+      senderReceived: false,
+      handoverPin: null, handoverPinUsed: false,
+      amount: 0, agreedPrice: 0,
+      currency: row.currency || '',
+      status: 'draft',
+      insurance: false, insuranceCost: 0, insurancePolicyId: null,
+      paymentInfo: {},
+      estimatedDeparture: null, estimatedArrival: null,
+      dispute: null,
+      termsAccepted: false, termsAcceptedAt: null,
+      createdAt: row.created_at, updatedAt: row.updated_at,
+      senderName: `${row.sender_first_name || ''} ${row.sender_last_name || ''}`.trim(),
+      senderEmail: row.sender_email || null,
+      travelerName: null, travelerEmail: null,
+      carrierName: null, carrierAvatar: null,
+      conversationId: null,
+      role: 'sender',
+      originCity: row.from_city || null,
+      originCountry: row.from_country || null,
+      destinationCity: row.to_city || null,
+      destinationCountry: row.to_country || null,
+    };
+  });
+
+  return [...requests, ...drafts].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+  );
 }
 
 export async function listCompletedRequestsByUser(userId) {

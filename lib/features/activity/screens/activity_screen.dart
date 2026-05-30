@@ -631,15 +631,23 @@ class _PackageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDraft = package.status == PackageStatus.draft;
     return GestureDetector(
-      onTap: onTap,
+      onTap: isDraft
+          ? () => context.go('/payment')
+          : onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.gray100),
+          border: Border.all(
+            color: isDraft
+                ? const Color(0xFF9CA3AF).withValues(alpha: 0.4)
+                : AppColors.gray100,
+            width: isDraft ? 1.5 : 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -658,11 +666,20 @@ class _PackageCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
+                    color: isDraft
+                        ? const Color(0xFF9CA3AF).withValues(alpha: 0.1)
+                        : AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.inventory_2_outlined,
-                      color: AppColors.primary, size: 20),
+                  child: Icon(
+                    isDraft
+                        ? Icons.pending_outlined
+                        : Icons.inventory_2_outlined,
+                    color: isDraft
+                        ? const Color(0xFF9CA3AF)
+                        : AppColors.primary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -728,6 +745,32 @@ class _PackageCard extends StatelessWidget {
                   ),
               ],
             ),
+            if (isDraft) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9CA3AF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.payment_rounded,
+                        size: 15, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Awaiting payment — tap to continue',
+                      style: AppTextStyles.labelSm.copyWith(
+                        color: const Color(0xFF6B7280),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

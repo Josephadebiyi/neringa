@@ -342,6 +342,8 @@ class PackageModel {
 
   static PackageStatus _statusFromRequest(String? status) {
     switch (status?.toLowerCase()) {
+      case 'draft':
+        return PackageStatus.draft;
       case 'accepted':
         return PackageStatus.matched;
       case 'intransit':

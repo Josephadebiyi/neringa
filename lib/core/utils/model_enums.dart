@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 enum PackageStatus {
+  draft,
   pending,
   matched,
   inTransit,
@@ -8,6 +9,7 @@ enum PackageStatus {
   cancelled;
 
   static PackageStatus fromString(String? s) => switch (s) {
+        'draft' => PackageStatus.draft,
         'matched' => PackageStatus.matched,
         'in_transit' => PackageStatus.inTransit,
         'delivered' => PackageStatus.delivered,
@@ -16,6 +18,7 @@ enum PackageStatus {
       };
 
   String get label => switch (this) {
+        PackageStatus.draft => 'Draft',
         PackageStatus.pending => 'Pending',
         PackageStatus.matched => 'Matched',
         PackageStatus.inTransit => 'In Transit',
@@ -24,6 +27,7 @@ enum PackageStatus {
       };
 
   String get apiValue => switch (this) {
+        PackageStatus.draft => 'draft',
         PackageStatus.pending => 'pending',
         PackageStatus.matched => 'matched',
         PackageStatus.inTransit => 'in_transit',
@@ -32,6 +36,7 @@ enum PackageStatus {
       };
 
   Color get color => switch (this) {
+        PackageStatus.draft     => const Color(0xFF9CA3AF),
         PackageStatus.pending   => const Color(0xFFF59E0B),
         PackageStatus.matched   => const Color(0xFF3B82F6),
         PackageStatus.inTransit => const Color(0xFF8B5CF6),
@@ -40,6 +45,7 @@ enum PackageStatus {
       };
 
   bool get isActive =>
+      this == PackageStatus.draft ||
       this == PackageStatus.pending ||
       this == PackageStatus.matched ||
       this == PackageStatus.inTransit;
