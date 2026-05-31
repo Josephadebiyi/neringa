@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 
@@ -348,12 +349,24 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    _usesPaystack
-                        ? Icons.account_balance_rounded
-                        : Icons.alternate_email_rounded,
-                    color: AppColors.primary,
-                  ),
+                  if (_usesPaystack)
+                    const Icon(Icons.account_balance_rounded,
+                        color: AppColors.primary)
+                  else
+                    Container(
+                      width: 68,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: SvgPicture.asset(
+                        'assets/images/paypal.svg',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -384,10 +397,22 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _sendOtp(),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'PayPal email address',
                     hintText: 'paypal@example.com',
-                    border: OutlineInputBorder(),
+                    filled: true,
+                    fillColor: AppColors.gray100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                          color: AppColors.primary, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                   ),
                 ),
                 const SizedBox(height: 16),

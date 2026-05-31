@@ -25,6 +25,8 @@ class PackageModel {
   final String? travelerId;
   final double price;
   final bool insurance;
+  final double insuranceCost;
+  final String? insurancePolicyId;
   final String createdAt;
   final String updatedAt;
   final String? receiverName;
@@ -64,6 +66,8 @@ class PackageModel {
     this.travelerId,
     required this.price,
     required this.insurance,
+    this.insuranceCost = 0.0,
+    this.insurancePolicyId,
     required this.createdAt,
     required this.updatedAt,
     this.receiverName,
@@ -190,6 +194,8 @@ class PackageModel {
           _mapValue(json['package'], 'pricePerKg'),
         ]),
         insurance: json['insurance'] == true,
+        insuranceCost: (json['insuranceCost'] as num?)?.toDouble() ?? (json['insurance_cost'] as num?)?.toDouble() ?? 0.0,
+        insurancePolicyId: json['insurance_policy_id']?.toString() ?? json['insurancePolicyId']?.toString(),
         createdAt: _firstString([
           json['createdAt'],
           _mapValue(json['dates'], 'created'),

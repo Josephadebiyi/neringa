@@ -37,6 +37,7 @@ import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingCon
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
+import { refundBraintreeTransaction } from './BraintreeController.js';
 
 function normalizePaymentProvider(paymentInfo = {}) {
   return String(paymentInfo.gateway || paymentInfo.method || paymentInfo.provider || '').toLowerCase();
@@ -115,14 +116,16 @@ async function refundPaidShipmentRequest(request) {
   const reference = getPaymentReference(paymentInfo);
   const previousRefundStatus = paymentInfo.refund?.status;
 
-  if (!reference || !['paystack'].includes(provider)) {
+  if (!reference || !['paystack', 'braintree'].includes(provider)) {
     return null;
   }
   if (['succeeded', 'pending'].includes(previousRefundStatus)) {
     return paymentInfo.refund || null;
   }
 
-  const refund = await refundPaystackPayment(reference);
+  const refund = provider === 'braintree'
+    ? await refundBraintreeTransaction(reference)
+    : await refundPaystackPayment(reference);
 
   const refundInfo = {
     status: provider === 'paystack' ? (refund.status || 'pending') : (refund.status || 'succeeded'),
@@ -801,8 +804,8 @@ export async function updateRequestStatus(req, res) {
         payload: { requestId, status: statusLabel, location },
       });
 
-      // Purchase MyCover.ai insurance policy when traveler starts the shipment (fire-and-forget)
-      if (status === 'intransit' && updatedRequest.insurance && updatedRequest.insuranceCost > 0) {
+      // Purchase MyCover.ai insurance policy when traveler accepts — fire-and-forget
+      if (status === 'accepted' && updatedRequest.insurance && updatedRequest.insuranceCost > 0) {
         purchaseMyCoverPolicy(updatedRequest).catch(e =>
           console.error('MyCover policy purchase failed:', e.message)
         );

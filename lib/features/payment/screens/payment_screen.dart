@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_braintree/flutter_braintree.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -35,11 +36,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoadingDraft = true;
+  bool _isLoadingSavedCards = false;
   bool _isPayingCard = false;
   bool _isPayingApple = false;
+  bool _isPayingPayPal = false;
+  bool _isPayingSaved = false;
   Map<String, dynamic>? _draft;
+  List<SavedPaymentMethod> _savedCards = [];
+  // null = show new card form; non-null = selected saved card id
+  String? _selectedCardId;
 
-  bool get _isPaying => _isPayingCard || _isPayingApple;
+  bool get _isPaying =>
+      _isPayingCard || _isPayingApple || _isPayingPayPal || _isPayingSaved;
 
   @override
   void initState() {
@@ -67,8 +75,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _draft = draft == null ? null : {...draft, 'provider': 'braintree'};
         _isLoadingDraft = false;
       });
+      if (_draft != null) _loadSavedCards();
     } catch (_) {
       if (mounted) setState(() => _isLoadingDraft = false);
+    }
+  }
+
+  Future<void> _loadSavedCards() async {
+    setState(() => _isLoadingSavedCards = true);
+    try {
+      final response = await PaymentService.instance.getSavedPaymentMethods();
+      if (!mounted) return;
+      setState(() {
+        _savedCards = response.cards;
+        _isLoadingSavedCards = false;
+        if (_savedCards.isNotEmpty) _selectedCardId = _savedCards.first.id;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingSavedCards = false);
     }
   }
 
@@ -165,9 +189,104 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (error) {
       if (!mounted) return;
       final msg = _failureMessage(error);
-      AppSnackBar.show(context, message: msg, type: SnackBarType.error);
+      if (msg.isNotEmpty) {
+        AppSnackBar.show(context, message: msg, type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _isPayingCard = false);
+    }
+  }
+
+  Future<void> _payWithSavedCard() async {
+    if (!_guardDraft()) return;
+    final cardId = _selectedCardId;
+    if (cardId == null) return;
+
+    final draft = _draft!;
+    final currency = draft['currency']?.toString().trim() ?? 'USD';
+
+    setState(() => _isPayingSaved = true);
+    try {
+      final finalization = await PaymentService.instance.submitBraintreeNonce(
+        nonce: '',
+        paymentMethodToken: cardId,
+        packageId: draft['packageId']?.toString(),
+        tripId: draft['tripId']?.toString(),
+        shipmentId: draft['shipmentId']?.toString(),
+        currency: currency,
+        insurance: draft['insurance'] == true,
+        insuranceCost: _asDouble(draft['insuranceAmount']),
+        shippingAmount: _asDouble(draft['shippingAmount']),
+        paymentMethod: 'card',
+      );
+      if (!finalization.success) {
+        throw StateError(
+            finalization.message ?? 'Payment could not be verified.');
+      }
+      await _checkoutService.clearDraft();
+      if (!mounted) return;
+      context.go('/order-success', extra: {
+        ...draft,
+        'provider': 'braintree',
+        'paymentReference': cardId,
+        'request': finalization.request,
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final msg = _failureMessage(error);
+      if (msg.isNotEmpty) {
+        AppSnackBar.show(context, message: msg, type: SnackBarType.error);
+      } else {
+        final updatedDraft = {
+          ...draft,
+          'provider': 'braintree',
+          'paymentProvider': 'braintree',
+          'lastPaymentError': 'Payment failed.',
+        };
+        await _checkoutService.saveDraft(updatedDraft);
+        if (!mounted) return;
+        context.go('/payment-failed', extra: updatedDraft);
+      }
+    } finally {
+      if (mounted) setState(() => _isPayingSaved = false);
+    }
+  }
+
+  Future<void> _payWithPayPal() async {
+    if (!_guardDraft()) return;
+
+    final draft = _draft!;
+    final amount = _asDouble(draft['totalAmount']);
+    final currency = draft['currency']?.toString().trim() ?? 'USD';
+
+    setState(() => _isPayingPayPal = true);
+    try {
+      final clientToken =
+          await PaymentService.instance.getBraintreeClientToken();
+
+      final request = BraintreeDropInRequest(
+        clientToken: clientToken,
+        collectDeviceData: true,
+        cardEnabled: false,
+        venmoEnabled: false,
+        paypalRequest: BraintreePayPalRequest(
+          amount: amount.toStringAsFixed(2),
+          currencyCode: currency,
+          displayName: 'Bago',
+        ),
+      );
+
+      final result = await BraintreeDropIn.start(request);
+      if (result == null) return;
+      await _submitNonce(result.paymentMethodNonce.nonce, 'paypal');
+    } catch (error) {
+      if (!mounted) return;
+      final msg = _failureMessage(error);
+      if (msg.isNotEmpty) {
+        AppSnackBar.show(context, message: msg, type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _isPayingPayPal = false);
     }
   }
 
@@ -210,15 +329,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       final result = await BraintreeDropIn.start(request);
-      if (result == null) {
-        // User cancelled Apple Pay sheet — not an error
-        return;
-      }
+      if (result == null) return;
       await _submitNonce(result.paymentMethodNonce.nonce, 'apple_pay');
     } catch (error) {
       if (!mounted) return;
       final msg = _failureMessage(error);
-      AppSnackBar.show(context, message: msg, type: SnackBarType.error);
+      if (msg.isNotEmpty) {
+        AppSnackBar.show(context, message: msg, type: SnackBarType.error);
+      }
     } finally {
       if (mounted) setState(() => _isPayingApple = false);
     }
@@ -271,6 +389,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final insuranceAmount = _asDouble(draft['insuranceAmount']);
     final isExpired = _checkoutService.isExpired(draft);
     final isIOS = Platform.isIOS;
+    final hasSavedCards = _savedCards.isNotEmpty;
+    final showCardForm = _selectedCardId == null;
 
     return BagoSubPageScaffold(
       title: 'Secure checkout',
@@ -335,113 +455,194 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ],
 
             if (!isExpired) ...[
-              // ── Apple Pay (iOS only) ──────────────────────────────────
-              if (isIOS) ...[
+              // ── Saved cards ───────────────────────────────────────────
+              if (_isLoadingSavedCards)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: AppLoading()),
+                )
+              else if (hasSavedCards) ...[
                 const SizedBox(height: 24),
+                Text(
+                  'Saved cards',
+                  style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.gray600,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ..._savedCards.map(
+                  (card) => _SavedCardTile(
+                    card: card,
+                    isSelected: _selectedCardId == card.id,
+                    isDisabled: _isPaying,
+                    onTap: () => setState(() => _selectedCardId = card.id),
+                  ),
+                ),
+                _NewCardTile(
+                  isSelected: showCardForm,
+                  isDisabled: _isPaying,
+                  onTap: () => setState(() => _selectedCardId = null),
+                ),
+              ],
+
+              // ── Pay with saved card button ────────────────────────────
+              if (hasSavedCards && !showCardForm) ...[
+                const SizedBox(height: 20),
+                AppButton(
+                  label: 'Pay $currency ${totalAmount.toStringAsFixed(2)}',
+                  icon: const Icon(Icons.lock_outline_rounded, size: 18),
+                  isLoading: _isPayingSaved,
+                  isDisabled: _isPaying,
+                  onPressed: _payWithSavedCard,
+                ),
+              ],
+
+              // ── New card form ─────────────────────────────────────────
+              if (showCardForm) ...[
+                const SizedBox(height: 20),
+                if (hasSavedCards) ...[
+                  Text(
+                    'New card details',
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.gray600,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ] else ...[
+                  Row(
+                    children: [
+                      Text(
+                        'Card details',
+                        style: AppTextStyles.labelSm.copyWith(
+                          color: AppColors.gray600,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      const _VisaLogo(),
+                      const SizedBox(width: 6),
+                      const _MastercardLogo(),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CardField(
+                        controller: _cardNumberCtrl,
+                        label: 'Card number',
+                        hint: '1234 5678 9012 3456',
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [_CardNumberFormatter()],
+                        validator: (v) {
+                          final digits = (v ?? '').replaceAll(' ', '');
+                          if (digits.length < 13) {
+                            return 'Enter a valid card number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _CardField(
+                              controller: _expiryCtrl,
+                              label: 'Expiry',
+                              hint: 'MM/YY',
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [_ExpiryFormatter()],
+                              validator: (v) {
+                                final parts = (v ?? '').split('/');
+                                if (parts.length != 2 ||
+                                    parts[0].length != 2 ||
+                                    parts[1].length != 2) {
+                                  return 'MM/YY';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _CardField(
+                              controller: _cvvCtrl,
+                              label: 'CVV',
+                              hint: '•••',
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(4),
+                              ],
+                              obscureText: true,
+                              validator: (v) {
+                                if ((v ?? '').length < 3) return 'Invalid';
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _CardField(
+                        controller: _cardholderCtrl,
+                        label: 'Cardholder name (optional)',
+                        hint: 'Name on card',
+                        keyboardType: TextInputType.name,
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      const SizedBox(height: 24),
+                      AppButton(
+                        label:
+                            'Pay $currency ${totalAmount.toStringAsFixed(2)}',
+                        icon: const Icon(Icons.lock_outline_rounded, size: 18),
+                        isLoading: _isPayingCard,
+                        isDisabled: _isPaying,
+                        onPressed: _payWithCard,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // ── Alternate payment methods ─────────────────────────────
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  const Expanded(child: Divider(color: AppColors.gray200)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'or pay with',
+                      style: AppTextStyles.labelSm
+                          .copyWith(color: AppColors.gray400),
+                    ),
+                  ),
+                  const Expanded(child: Divider(color: AppColors.gray200)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _PayPalButton(
+                isLoading: _isPayingPayPal,
+                isDisabled: _isPaying,
+                onPressed: _payWithPayPal,
+              ),
+              if (isIOS) ...[
+                const SizedBox(height: 12),
                 _ApplePayButton(
                   isLoading: _isPayingApple,
                   isDisabled: _isPaying,
                   onPressed: _payWithApplePay,
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    const Expanded(child: Divider(color: AppColors.gray200)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'or pay by card',
-                        style: AppTextStyles.labelSm
-                            .copyWith(color: AppColors.gray400),
-                      ),
-                    ),
-                    const Expanded(child: Divider(color: AppColors.gray200)),
-                  ],
-                ),
               ],
-
-              // ── Card form ─────────────────────────────────────────────
-              const SizedBox(height: 20),
-              Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CardField(
-                      controller: _cardNumberCtrl,
-                      label: 'Card number',
-                      hint: '1234 5678 9012 3456',
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [_CardNumberFormatter()],
-                      validator: (v) {
-                        final digits =
-                            (v ?? '').replaceAll(' ', '');
-                        if (digits.length < 13) {
-                          return 'Enter a valid card number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _CardField(
-                            controller: _expiryCtrl,
-                            label: 'Expiry',
-                            hint: 'MM/YY',
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [_ExpiryFormatter()],
-                            validator: (v) {
-                              final parts = (v ?? '').split('/');
-                              if (parts.length != 2 ||
-                                  parts[0].length != 2 ||
-                                  parts[1].length != 2) {
-                                return 'MM/YY';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _CardField(
-                            controller: _cvvCtrl,
-                            label: 'CVV',
-                            hint: '•••',
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
-                            ],
-                            obscureText: true,
-                            validator: (v) {
-                              if ((v ?? '').length < 3) return 'Invalid';
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _CardField(
-                      controller: _cardholderCtrl,
-                      label: 'Cardholder name (optional)',
-                      hint: 'Name on card',
-                      keyboardType: TextInputType.name,
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                    const SizedBox(height: 24),
-                    AppButton(
-                      label: 'Pay $currency ${totalAmount.toStringAsFixed(2)}',
-                      icon: const Icon(Icons.lock_outline_rounded, size: 18),
-                      isLoading: _isPayingCard,
-                      isDisabled: _isPaying,
-                      onPressed: _payWithCard,
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -450,10 +651,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       size: 13, color: AppColors.gray400),
                   const SizedBox(width: 4),
                   Text(
-                    'Secured by Braintree',
+                    'Secure checkout',
                     style: AppTextStyles.labelXs
                         .copyWith(color: AppColors.gray400),
                   ),
+                  const SizedBox(width: 10),
+                  const _VisaLogo(),
+                  const SizedBox(width: 6),
+                  const _MastercardLogo(),
                 ],
               ),
             ],
@@ -461,6 +666,242 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Saved card tile ───────────────────────────────────────────────────────────
+
+class _SavedCardTile extends StatelessWidget {
+  const _SavedCardTile({
+    required this.card,
+    required this.isSelected,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  final SavedPaymentMethod card;
+  final bool isSelected;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isDisabled ? null : onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primarySoft : AppColors.gray50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.credit_card_rounded,
+              size: 20,
+              color: isSelected ? AppColors.primary : AppColors.gray500,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                card.label,
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: isSelected ? AppColors.primary : AppColors.gray800,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '${card.expMonth.toString().padLeft(2, '0')}/${card.expYear.toString().substring(card.expYear.toString().length > 2 ? card.expYear.toString().length - 2 : 0)}',
+              style: AppTextStyles.labelSm.copyWith(
+                color: AppColors.gray500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? AppColors.primary : Colors.transparent,
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : AppColors.gray400,
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check_rounded,
+                      size: 12, color: Colors.white)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── New card tile ─────────────────────────────────────────────────────────────
+
+class _NewCardTile extends StatelessWidget {
+  const _NewCardTile({
+    required this.isSelected,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  final bool isSelected;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isDisabled ? null : onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primarySoft : AppColors.gray50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.add_card_rounded,
+              size: 20,
+              color: isSelected ? AppColors.primary : AppColors.gray500,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Use a new card',
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: isSelected ? AppColors.primary : AppColors.gray800,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? AppColors.primary : Colors.transparent,
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : AppColors.gray400,
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check_rounded,
+                      size: 12, color: Colors.white)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── PayPal button ─────────────────────────────────────────────────────────────
+
+class _PayPalButton extends StatelessWidget {
+  const _PayPalButton({
+    required this.onPressed,
+    required this.isLoading,
+    required this.isDisabled,
+  });
+  final VoidCallback onPressed;
+  final bool isLoading;
+  final bool isDisabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isDisabled || isLoading ? null : onPressed,
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          color: isDisabled
+              ? AppColors.gray200
+              : const Color(0xFF003087),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: isLoading
+            ? const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _PayPalLogo(muted: isDisabled),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Pay with PayPal',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _PayPalLogo extends StatelessWidget {
+  const _PayPalLogo({this.muted = false});
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Text(
+          'P',
+          style: TextStyle(
+            color: muted ? AppColors.gray400 : const Color(0xFF009CDE),
+            fontWeight: FontWeight.w900,
+            fontSize: 22,
+            height: 1,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 6, top: 3),
+          child: Text(
+            'P',
+            style: TextStyle(
+              color: muted ? AppColors.gray300 : Colors.white70,
+              fontWeight: FontWeight.w900,
+              fontSize: 22,
+              height: 1,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -634,6 +1075,36 @@ class _ExpiryFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+// ── Card brand logos ──────────────────────────────────────────────────────────
+
+class _VisaLogo extends StatelessWidget {
+  const _VisaLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      'assets/images/visa.svg',
+      width: 38,
+      height: 24,
+      fit: BoxFit.contain,
+    );
+  }
+}
+
+class _MastercardLogo extends StatelessWidget {
+  const _MastercardLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      'assets/images/mastercard.svg',
+      width: 38,
+      height: 24,
+      fit: BoxFit.contain,
     );
   }
 }

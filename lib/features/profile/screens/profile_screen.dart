@@ -108,6 +108,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         initials: initials,
                         email: user?.email ?? '',
                         phone: user?.phone,
+                        bio: user?.bio,
                         isVerified: isVerified,
                         phoneVerified: user?.phoneVerified ?? false,
                         kycStatus: user?.kycStatus,
@@ -209,6 +210,7 @@ class _AboutTab extends StatelessWidget {
     required this.initials,
     required this.email,
     required this.phone,
+    this.bio,
     required this.isVerified,
     required this.phoneVerified,
     required this.kycStatus,
@@ -223,6 +225,7 @@ class _AboutTab extends StatelessWidget {
   final String initials;
   final String email;
   final String? phone;
+  final String? bio;
   final bool isVerified;
   final bool phoneVerified;
   final String? kycStatus;
@@ -427,8 +430,52 @@ class _AboutTab extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         BagoSectionLabel(l10n.aboutYouSection),
+        if (bio != null && bio!.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.gray100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MY BIO',
+                  style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.gray500,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  bio!,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.black,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => context.push('/profile/edit-bio'),
+                  child: Text(
+                    'Edit bio',
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         BagoMenuGroup(
           children: [
+            if (bio == null || bio!.isEmpty)
             BagoMenuItem(
               label: l10n.addMiniBio,
               leading: const Icon(Icons.add_rounded, color: AppColors.primary),
@@ -496,12 +543,6 @@ class _AccountTab extends StatelessWidget {
               leading: const Icon(Icons.star_border_rounded,
                   color: AppColors.gray600),
               onTap: () => context.push('/profile/ratings'),
-            ),
-            BagoMenuItem(
-              label: l10n.savedRoutes,
-              leading:
-                  const Icon(Icons.route_outlined, color: AppColors.gray600),
-              onTap: () => context.push('/profile/saved-routes'),
               showDivider: false,
             ),
           ],

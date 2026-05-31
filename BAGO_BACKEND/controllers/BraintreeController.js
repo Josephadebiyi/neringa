@@ -228,6 +228,17 @@ async function finalizeShipmentPayment(payment, transactionId) {
   return request;
 }
 
+export async function refundBraintreeTransaction(transactionId) {
+  if (!braintreeConfigured()) {
+    throw new Error('Braintree is not configured.');
+  }
+  const result = await getGateway().transaction.refund(transactionId);
+  if (!result.success) {
+    throw new Error(result.message || 'Braintree refund failed.');
+  }
+  return result.transaction;
+}
+
 export async function getClientToken(_req, res) {
   if (!braintreeConfigured()) {
     return res.status(503).json({ success: false, message: 'Braintree is not configured.' });

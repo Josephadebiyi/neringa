@@ -25,6 +25,7 @@ class TripModel {
   final String updatedAt;
   final String? carrierName;
   final String? carrierAvatar;
+  final String? carrierBio;
   final double? escrowBalance;
   final int activeShipmentCount;
   final String bookingStatusSummary;
@@ -58,6 +59,7 @@ class TripModel {
     required this.updatedAt,
     this.carrierName,
     this.carrierAvatar,
+    this.carrierBio,
     this.escrowBalance,
     this.activeShipmentCount = 0,
     this.bookingStatusSummary = 'No active bookings',
@@ -105,6 +107,7 @@ class TripModel {
     String? updatedAt,
     String? carrierName,
     String? carrierAvatar,
+    String? carrierBio,
     double? escrowBalance,
     int? activeShipmentCount,
     String? bookingStatusSummary,
@@ -138,6 +141,7 @@ class TripModel {
       updatedAt: updatedAt ?? this.updatedAt,
       carrierName: carrierName ?? this.carrierName,
       carrierAvatar: carrierAvatar ?? this.carrierAvatar,
+      carrierBio: carrierBio ?? this.carrierBio,
       escrowBalance: escrowBalance ?? this.escrowBalance,
       activeShipmentCount: activeShipmentCount ?? this.activeShipmentCount,
       bookingStatusSummary: bookingStatusSummary ?? this.bookingStatusSummary,
@@ -195,6 +199,7 @@ class TripModel {
           : json['carrierName']?.toString(),
       carrierAvatar:
           user?['avatar']?.toString() ?? json['carrierAvatar']?.toString(),
+      carrierBio: user?['bio']?.toString() ?? json['carrierBio']?.toString(),
       escrowBalance: JsonParser.parseDouble(json, 'escrowBalance') == 0.0
           ? null
           : JsonParser.parseDouble(json, 'escrowBalance'),

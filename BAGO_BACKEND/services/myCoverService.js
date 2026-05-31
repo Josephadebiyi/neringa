@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { query, queryOne } from '../lib/postgres/db.js';
+import { query } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 
 const MYCOVER_SECRET_KEY = process.env.MYCOVER_SECRET_KEY;
@@ -28,19 +28,39 @@ export async function purchaseMyCoverPolicy(request) {
     return request.insurancePolicyId;
   }
 
-  const sender = await findProfileById(request.senderId);
+  const [sender, traveler] = await Promise.all([
+    findProfileById(request.senderId),
+    findProfileById(request.travelerId),
+  ]);
   if (!sender) throw new Error(`MyCover: sender profile not found for id ${request.senderId}`);
 
   const today = new Date();
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 30);
+  // Policy covers from acceptance through estimated arrival + 7-day buffer
+  const endDate = request.estimatedArrival
+    ? new Date(new Date(request.estimatedArrival).getTime() + 7 * 24 * 60 * 60 * 1000)
+    : new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  const fromRoute = [request.package?.fromCity, request.package?.fromCountry].filter(Boolean).join(', ') || 'N/A';
+  const toRoute = [request.package?.toCity, request.package?.toCountry].filter(Boolean).join(', ') || 'N/A';
+  const shipmentDescription = [
+    request.package?.description || 'Goods in transit',
+    `Route: ${fromRoute} → ${toRoute}`,
+    request.trackingNumber ? `Ref: ${request.trackingNumber}` : null,
+    `Weight: ${request.package?.packageWeight || 0}kg`,
+  ].filter(Boolean).join(' | ');
 
   const payload = {
     product_id: MYCOVER_PRODUCT_ID,
+    // Primary policyholder — sender
     first_name: sender.firstName || request.senderName?.split(' ')[0] || 'N/A',
     last_name: sender.lastName || request.senderName?.split(' ').slice(1).join(' ') || 'N/A',
     email: sender.email || request.senderEmail,
     phone: sender.phone || '',
+    // Carrier / traveler details
+    carrier_first_name: traveler?.firstName || request.travelerName?.split(' ')[0] || 'N/A',
+    carrier_last_name: traveler?.lastName || request.travelerName?.split(' ').slice(1).join(' ') || 'N/A',
+    carrier_email: traveler?.email || request.travelerEmail || '',
+    carrier_phone: traveler?.phone || '',
     start_date: isoDate(today),
     end_date: isoDate(endDate),
     // Bago uses human travelers, not vehicles. These fields are required by the
@@ -48,8 +68,19 @@ export async function purchaseMyCoverPolicy(request) {
     vehicle_type: 'others',
     vehicle_plate_number: 'N/A',
     amount: Math.round((request.package?.value || request.insuranceCost || 0) * 100),
-    description: request.package?.description || 'Goods in transit',
+    description: shipmentDescription,
     currency: request.currency || 'NGN',
+    // Additional metadata for MyCover's records
+    metadata: {
+      requestId: request.id,
+      trackingNumber: request.trackingNumber,
+      fromRoute,
+      toRoute,
+      packageWeight: request.package?.packageWeight,
+      declaredValue: request.package?.value,
+      senderEmail: sender.email,
+      carrierEmail: traveler?.email,
+    },
   };
 
   let responseData;

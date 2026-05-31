@@ -541,6 +541,11 @@ class _ShipmentBody extends StatelessWidget {
                   '${package.currency} ${package.value.toStringAsFixed(2)}'),
               _Row(l10n.insurance,
                   package.insurance ? l10n.yesLabel : l10n.noLabel),
+              if (package.insurance && package.insuranceCost > 0)
+                _Row('Insurance cost',
+                    '${package.currency.isNotEmpty ? package.currency : ''} ${package.insuranceCost.toStringAsFixed(2)}'),
+              if (package.insurancePolicyId != null)
+                _Row('Policy status', 'Active — covered'),
               if (package.description.isNotEmpty)
                 _Row(l10n.descriptionLabel, package.description),
               if (package.senderName?.isNotEmpty == true)

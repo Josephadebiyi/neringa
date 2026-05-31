@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class PaymentsRefundsScreen extends ConsumerStatefulWidget {
   const PaymentsRefundsScreen({super.key});
@@ -21,6 +26,7 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
   double _escrow = 0;
   String _currency = 'USD';
   bool _loading = true;
+  bool _generating = false;
 
   @override
   void initState() {
@@ -47,6 +53,153 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
     }
   }
 
+  Future<void> _downloadStatement() async {
+    if (_generating) return;
+    setState(() => _generating = true);
+    try {
+      final user = ref.read(authProvider).user;
+      final logoBytes = await rootBundle.load('assets/images/bago-logo.png');
+      final logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
+
+      final doc = pw.Document();
+      final now = DateTime.now();
+      final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          header: (ctx) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Image(logoImage, width: 80, height: 32, fit: pw.BoxFit.contain),
+                  pw.Text('BANK STATEMENT',
+                      style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold,
+                          color: const PdfColor.fromInt(0xFF141428))),
+                ],
+              ),
+              pw.SizedBox(height: 4),
+              pw.Divider(color: const PdfColor.fromInt(0xFF141428), thickness: 1.5),
+              pw.SizedBox(height: 4),
+            ],
+          ),
+          build: (ctx) => [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(
+                color: const PdfColor.fromInt(0xFF0D0E12),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('ACCOUNT HOLDER',
+                      style: pw.TextStyle(fontSize: 9, color: PdfColors.white,
+                          fontWeight: pw.FontWeight.bold, letterSpacing: 1)),
+                  pw.SizedBox(height: 4),
+                  pw.Text(user?.fullName ?? 'Bago User',
+                      style: pw.TextStyle(fontSize: 16, color: PdfColors.white,
+                          fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 2),
+                  pw.Text(user?.email ?? '',
+                      style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey)),
+                  pw.SizedBox(height: 12),
+                  pw.Row(children: [
+                    _pdfBalanceBox('Available Balance', '$_currency ${_available.toStringAsFixed(2)}',
+                        const PdfColor.fromInt(0xFF34D399)),
+                    pw.SizedBox(width: 16),
+                    _pdfBalanceBox('In Escrow', '$_currency ${_escrow.toStringAsFixed(2)}',
+                        const PdfColor.fromInt(0xFFFBBF24)),
+                  ]),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 12),
+            pw.Text('Statement generated: $dateStr at $timeStr',
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey)),
+            pw.SizedBox(height: 20),
+            pw.Text('TRANSACTION HISTORY',
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold,
+                    letterSpacing: 1, color: const PdfColor.fromInt(0xFF141428))),
+            pw.SizedBox(height: 8),
+            if (_transactions.isEmpty)
+              pw.Text('No transactions found.',
+                  style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey))
+            else
+              pw.TableHelper.fromTextArray(
+                headers: ['Date', 'Description', 'Type', 'Amount', 'Status'],
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9,
+                    color: PdfColors.white),
+                headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF141428)),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                cellAlignments: {
+                  0: pw.Alignment.centerLeft,
+                  1: pw.Alignment.centerLeft,
+                  2: pw.Alignment.center,
+                  3: pw.Alignment.centerRight,
+                  4: pw.Alignment.center,
+                },
+                data: _transactions.map((tx) {
+                  final type = (tx['type'] as String?) ?? '';
+                  final isCredit = type == 'earning' || type == 'escrow_release' || type == 'refund';
+                  final isEscrow = type == 'escrow_hold';
+                  final amount = tx['amount'] ?? '';
+                  final currency = (tx['currency'] as String?) ?? _currency;
+                  final createdAt = (tx['created_at'] as String?) ?? '';
+                  final dateLabel = createdAt.length >= 10 ? createdAt.substring(0, 10) : createdAt;
+                  final title = isEscrow ? 'Held in Escrow'
+                      : isCredit ? (type == 'earning' ? 'Shipment Earning'
+                          : type == 'escrow_release' ? 'Escrow Released' : 'Refund')
+                      : (tx['description'] as String?)?.isNotEmpty == true
+                          ? tx['description'] : 'Transaction';
+                  final amtStr = '${isCredit ? '+' : isEscrow ? '' : '-'}$currency $amount';
+                  return [dateLabel, title, type, amtStr, (tx['status'] as String?) ?? ''];
+                }).toList(),
+              ),
+            pw.SizedBox(height: 40),
+            pw.Center(
+              child: pw.Column(children: [
+                pw.Text('Generated by Bago · bagoapp.com',
+                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey)),
+                pw.Text('This is an official statement of your Bago wallet activity.',
+                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey)),
+              ]),
+            ),
+          ],
+        ),
+      );
+
+      await Printing.sharePdf(
+        bytes: await doc.save(),
+        filename: 'bago_statement_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not generate statement: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  pw.Widget _pdfBalanceBox(String label, String value, PdfColor color) {
+    return pw.Expanded(
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Text(label, style: pw.TextStyle(fontSize: 8, color: PdfColors.white,
+            fontWeight: pw.FontWeight.bold, letterSpacing: 0.5)),
+        pw.SizedBox(height: 4),
+        pw.Text(value, style: pw.TextStyle(fontSize: 13, color: color,
+            fontWeight: pw.FontWeight.bold)),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -66,7 +219,14 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
         title: Text(l10n.paymentsRefunds, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         actions: [
-          IconButton(icon: const Icon(Icons.download_rounded, color: AppColors.primary), onPressed: () {}),
+          _generating
+              ? const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+              : IconButton(
+                  icon: const Icon(Icons.download_rounded, color: AppColors.primary),
+                  onPressed: _downloadStatement),
         ],
       ),
       body: _loading

@@ -441,6 +441,18 @@ class _TripCard extends ConsumerWidget {
                               .copyWith(color: AppColors.gray600)),
                     ],
                   ),
+                  if (trip.carrierBio != null && trip.carrierBio!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      trip.carrierBio!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.gray600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

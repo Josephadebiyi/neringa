@@ -62,6 +62,7 @@ function normalizeTripRow(row, reviews = []) {
         image: row.user_image_url,
         avatar: row.user_image_url,
         selectedAvatar: row.user_selected_avatar,
+        bio: row.user_bio || null,
       }
     : null;
   const status = normalizeTripStatus(row);
@@ -140,6 +141,7 @@ const baseTripSelect = `
     p.email as user_email,
     p.image_url as user_image_url,
     p.selected_avatar as user_selected_avatar,
+    p.bio as user_bio,
     trip_stats.active_shipment_count,
     trip_stats.booking_status_summary,
     (coalesce(trip_stats.sold_kg, 0) * coalesce(t.price_per_kg, 0)) as gross_sales,
