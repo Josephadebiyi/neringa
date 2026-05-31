@@ -42,6 +42,7 @@ class PostTripScreen extends ConsumerStatefulWidget {
 
 class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   int _step = 0;
+  int _minStep = 0; // steps below this are skipped in back navigation
   bool _loading = false;
   bool _showSuccess = false;
   bool _isEditMode = false;
@@ -132,7 +133,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     final user = ref.read(authProvider).user;
     final kycPassed = user?.hasPassedKyc == true;
     final termsAccepted = user?.acceptedTerms == true;
-    if (kycPassed && termsAccepted) _step = 1;
+    if (kycPassed && termsAccepted) {
+      _step = 1;
+      _minStep = 1;
+    }
     if (termsAccepted) _termsAccepted = true;
 
     if (_isEditMode && _lockedCurrency.trim().isNotEmpty) {
@@ -145,7 +149,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       final freshUser = await AuthService.instance.getProfile();
       if (freshUser.acceptedTerms == true) {
         _termsAccepted = true;
-        if (freshUser.hasPassedKyc == true) _step = 1;
+        if (freshUser.hasPassedKyc == true) {
+          _step = 1;
+          _minStep = 1;
+        }
       }
       final backendCurrency = UserCurrencyHelper.resolve(freshUser);
       if (backendCurrency.isNotEmpty) {
@@ -503,7 +510,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   }
 
   void _back() {
-    if (_step > 0) {
+    if (_step > _minStep) {
       setState(() => _step--);
     } else {
       if (context.canPop()) {

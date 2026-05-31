@@ -9,6 +9,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/utils/status_formatter.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
+import '../../payment/services/shipment_checkout_service.dart';
 import '../../shipments/models/package_model.dart';
 import '../../shipments/models/request_model.dart';
 import '../../shipments/providers/shipment_provider.dart';
@@ -270,6 +271,22 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
     super.dispose();
   }
 
+  // Navigate drafts to payment only if a matching checkout draft exists locally;
+  // otherwise fall back to the shipment-details screen.
+  void _onPackageTap(PackageModel pkg) async {
+    if (pkg.status != PackageStatus.draft) {
+      context.push('/shipment-details/${pkg.id}', extra: pkg);
+      return;
+    }
+    final draft = await ShipmentCheckoutService.instance.loadDraft();
+    if (!mounted) return;
+    if (draft != null && draft['packageId'] == pkg.id) {
+      context.push('/payment', extra: draft);
+    } else {
+      context.push('/shipment-details/${pkg.id}', extra: pkg);
+    }
+  }
+
   bool _matches(PackageModel p, String q) {
     if (q.isEmpty) return true;
     final lower = q.toLowerCase();
@@ -311,8 +328,17 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
       );
     }
 
-    final filtered =
-        state.myPackages.where((p) => _matches(p, _query)).toList();
+    final filtered = state.myPackages.where((p) {
+      // Hide draft packages that have been pending for more than 20 minutes.
+      if (p.status == PackageStatus.draft) {
+        final createdAt = DateTime.tryParse(p.createdAt);
+        if (createdAt != null &&
+            DateTime.now().difference(createdAt).inMinutes >= 20) {
+          return false;
+        }
+      }
+      return _matches(p, _query);
+    }).toList();
     final active = filtered.where((p) => p.isActive).toList();
     final past = filtered.where((p) => !p.isActive).toList();
 
@@ -351,7 +377,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               const SizedBox(height: 8),
               ...active.map((pkg) => _PackageCard(
                     package: pkg,
-                    onTap: () => context.push('/shipment-details/${pkg.id}', extra: pkg),
+                    onTap: () => _onPackageTap(pkg),
                   )),
               if (past.isNotEmpty) const SizedBox(height: 12),
             ],
@@ -362,7 +388,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               ],
               ...past.map((pkg) => _PackageCard(
                     package: pkg,
-                    onTap: () => context.push('/shipment-details/${pkg.id}', extra: pkg),
+                    onTap: () => _onPackageTap(pkg),
                   )),
             ],
           ],
@@ -477,6 +503,20 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
                   role: 'carrier',
                   onTap: () =>
                       context.push('/shipment-request/${r.id}', extra: r),
+                  onAccept: r.status == RequestStatus.pending
+                      ? () async {
+                          await ref
+                              .read(shipmentProvider.notifier)
+                              .acceptRequest(r.id);
+                        }
+                      : null,
+                  onReject: r.status == RequestStatus.pending
+                      ? () async {
+                          await ref
+                              .read(shipmentProvider.notifier)
+                              .rejectRequest(r.id);
+                        }
+                      : null,
                 )),
         ],
       ),
@@ -636,9 +676,7 @@ class _PackageCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final isDraft = package.status == PackageStatus.draft;
     return GestureDetector(
-      onTap: isDraft
-          ? () => context.go('/payment')
-          : onTap,
+      onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
@@ -781,18 +819,33 @@ class _PackageCard extends StatelessWidget {
   }
 }
 
-class _RequestCard extends StatelessWidget {
+class _RequestCard extends StatefulWidget {
   const _RequestCard({
     required this.request,
     required this.role,
     required this.onTap,
+    this.onAccept,
+    this.onReject,
   });
   final RequestModel request;
   final String role;
   final VoidCallback onTap;
+  final Future<void> Function()? onAccept;
+  final Future<void> Function()? onReject;
+
+  @override
+  State<_RequestCard> createState() => _RequestCardState();
+}
+
+class _RequestCardState extends State<_RequestCard> {
+  bool _accepting = false;
+  bool _rejecting = false;
 
   @override
   Widget build(BuildContext context) {
+    final request = widget.request;
+    final role = widget.role;
+    final onTap = widget.onTap;
     final l10n = AppLocalizations.of(context);
     final title = request.packageTitle?.isNotEmpty == true
         ? request.packageTitle!
@@ -918,6 +971,58 @@ class _RequestCard extends StatelessWidget {
                   ),
               ],
             ),
+            // For carrier: pending requests show inline Accept/Reject buttons
+            if (isIncoming &&
+                request.status == RequestStatus.pending &&
+                (widget.onAccept != null || widget.onReject != null)) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (widget.onReject != null)
+                    Expanded(
+                      child: _InlineActionButton(
+                        label: 'Reject',
+                        icon: Icons.close_rounded,
+                        foreground: AppColors.error,
+                        background: AppColors.errorLight,
+                        isLoading: _rejecting,
+                        isDisabled: _accepting || _rejecting,
+                        onTap: () async {
+                          setState(() => _rejecting = true);
+                          try {
+                            await widget.onReject!();
+                          } catch (_) {
+                          } finally {
+                            if (mounted) setState(() => _rejecting = false);
+                          }
+                        },
+                      ),
+                    ),
+                  if (widget.onAccept != null && widget.onReject != null)
+                    const SizedBox(width: 10),
+                  if (widget.onAccept != null)
+                    Expanded(
+                      child: _InlineActionButton(
+                        label: 'Accept',
+                        icon: Icons.check_rounded,
+                        foreground: Colors.white,
+                        background: AppColors.primary,
+                        isLoading: _accepting,
+                        isDisabled: _accepting || _rejecting,
+                        onTap: () async {
+                          setState(() => _accepting = true);
+                          try {
+                            await widget.onAccept!();
+                          } catch (_) {
+                          } finally {
+                            if (mounted) setState(() => _accepting = false);
+                          }
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ],
             // For sender: accepted/in-transit requests show a Track button
             if (!isIncoming &&
                 (request.status == RequestStatus.accepted ||
@@ -958,6 +1063,64 @@ class _RequestCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InlineActionButton extends StatelessWidget {
+  const _InlineActionButton({
+    required this.label,
+    required this.icon,
+    required this.foreground,
+    required this.background,
+    required this.isLoading,
+    required this.isDisabled,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final Color foreground;
+  final Color background;
+  final bool isLoading;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isDisabled ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isDisabled ? AppColors.gray100 : background,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: isLoading
+            ? Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: foreground,
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 15, color: isDisabled ? AppColors.gray400 : foreground),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: isDisabled ? AppColors.gray400 : foreground,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

@@ -123,7 +123,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc.startsWith('/trip-details') ||
           loc.startsWith('/legal') ||
           loc.startsWith('/help');
-      if (loc == '/') return null;
+      // Splash screen: stay while initialising, leave once auth is resolved.
+      if (loc == '/') {
+        return isInitialising ? null : '/home';
+      }
       if (isInitialising) return null;
 
       if (!isLoggedIn && !isAuthRoute && !isOnboarding && !isGuestAllowed)

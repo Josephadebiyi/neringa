@@ -125,6 +125,7 @@ class PaymentService {
 
   Future<PaidShipmentFinalization> submitBraintreeNonce({
     required String nonce,
+    String? paymentMethodToken, // Braintree vault token for stored cards
     String? shipmentId,
     String? packageId,
     String? tripId,
@@ -138,7 +139,9 @@ class PaymentService {
       final response = await _api.post(
         ApiConstants.braintreeCheckout,
         data: {
-          'paymentMethodNonce': nonce,
+          if (nonce.isNotEmpty) 'paymentMethodNonce': nonce,
+          if (paymentMethodToken != null && paymentMethodToken.isNotEmpty)
+            'paymentMethodToken': paymentMethodToken,
           if (shipmentId != null && shipmentId.isNotEmpty) 'shipmentId': shipmentId,
           if (packageId != null && packageId.isNotEmpty) 'packageId': packageId,
           if (tripId != null && tripId.isNotEmpty) 'tripId': tripId,
@@ -232,6 +235,23 @@ class PaymentService {
       );
       final data = _extractMap(response.data);
       final cardRaw = data['card'];
+      if (cardRaw is Map) {
+        return SavedPaymentMethod.fromJson(Map<String, dynamic>.from(cardRaw));
+      }
+      throw StateError('Card could not be saved.');
+    } on DioException catch (e) {
+      throw _parsePaymentMethodsError(e);
+    }
+  }
+
+  Future<SavedPaymentMethod> vaultBraintreeCard(String nonce) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.braintreeVault,
+        data: {'nonce': nonce},
+      );
+      final data = _extractMap(response.data);
+      final cardRaw = data['card'] ?? data['paymentMethod'] ?? data;
       if (cardRaw is Map) {
         return SavedPaymentMethod.fromJson(Map<String, dynamic>.from(cardRaw));
       }

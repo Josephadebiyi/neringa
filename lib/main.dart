@@ -2,37 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/constants/api_constants.dart';
 import 'firebase_options.dart';
 import 'shared/services/push_notification_service.dart';
+import 'shared/services/storage_service.dart';
 import 'shared/services/supabase_service.dart';
 import 'shared/services/app_settings_service.dart';
 
 void main() async {
-  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-              options: DefaultFirebaseOptions.currentPlatform)
-          .timeout(const Duration(seconds: 8), onTimeout: () => Firebase.app());
-    }
-  } on FirebaseException catch (error) {
-    if (error.code != 'duplicate-app') {
-      debugPrint('Firebase init failed, continuing startup: $error');
-    } else {
-      debugPrint('Firebase already initialized, continuing startup.');
-    }
-  } catch (error) {
-    debugPrint('Firebase init error, continuing startup: $error');
-  }
+  // On a fresh install the iOS keychain persists from prior installs and can
+  // contain stale / corrupt data that makes SecureStorage hang on first read.
+  // Detect a fresh install via SharedPreferences (sandbox, wiped on delete)
+  // and flush the keychain once so startup is clean.
+  await _clearKeychainOnFreshInstall();
 
-  _logRuntimeConfig();
+  // Firebase runs in the background — do NOT await it.
+  // On iOS the app uses APNs directly (not Firebase Messaging), so there is
+  // no reason to block app startup on Firebase initialisation.
+  _initFirebase();
 
   // Lock to portrait
   await SystemChrome.setPreferredOrientations([
@@ -56,10 +49,6 @@ void main() async {
     ),
   );
 
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    FlutterNativeSplash.remove();
-  });
-
   // Run non-critical init after the first frame is rendered
   SupabaseService.init().catchError((e) {
     debugPrint('Supabase init error: $e');
@@ -70,17 +59,30 @@ void main() async {
   });
 }
 
-void _logRuntimeConfig() {
-  if (!kDebugMode) return;
-  const backendUrl = ApiConstants.baseUrl;
-  const overrideUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-  const defaultSource = 'default Render URL';
-  final source =
-      overrideUrl.isNotEmpty ? 'API_BASE_URL dart-define' : defaultSource;
-
-  if (kDebugMode) {
-    debugPrint(
-      'Backend configured from $source (${backendUrl.isEmpty ? 'empty' : 'set'}).',
-    );
+/// Clears keychain on the first launch after a fresh install.
+/// SharedPreferences lives in the app sandbox (wiped on delete), so the flag
+/// is absent after reinstall even though the keychain still has old data.
+Future<void> _clearKeychainOnFreshInstall() async {
+  try {
+    final prefs = await SharedPreferences.getInstance()
+        .timeout(const Duration(seconds: 3), onTimeout: () => throw Exception('prefs timeout'));
+    const key = 'app_installed_v1';
+    if (prefs.getBool(key) != true) {
+      await StorageService.instance.clearAll()
+          .timeout(const Duration(seconds: 3), onTimeout: () {});
+      await prefs.setBool(key, true);
+      debugPrint('Fresh install: keychain cleared.');
+    }
+  } catch (e) {
+    debugPrint('Fresh install check failed (non-fatal): $e');
   }
+}
+
+void _initFirebase() {
+  if (Firebase.apps.isNotEmpty) return;
+  Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
+      .catchError((e) {
+    debugPrint('Firebase init error (non-fatal): $e');
+    return Firebase.apps.isNotEmpty ? Firebase.app() : throw e;
+  });
 }

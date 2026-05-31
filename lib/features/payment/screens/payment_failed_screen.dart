@@ -94,7 +94,7 @@ class PaymentFailedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: () => context.go('/shipments'),
+                onPressed: () => context.go('/activity'),
                 child: Text(
                   l10n.backToMyShipments,
                   style: AppTextStyles.labelMd.copyWith(

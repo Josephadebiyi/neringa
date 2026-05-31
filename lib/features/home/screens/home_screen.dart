@@ -15,6 +15,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../shipments/models/package_model.dart';
 import '../../shipments/models/request_model.dart';
 import '../../../core/utils/model_enums.dart';
+import '../../payment/services/shipment_checkout_service.dart';
 import '../../shipments/providers/shipment_provider.dart';
 import '../../trips/providers/trip_provider.dart';
 
@@ -397,7 +398,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           .toList();
                   final activityPackages = isCarrier
                       ? const <PackageModel>[]
-                      : shipmentState.activePackages.take(8).toList();
+                      : shipmentState.activePackages.where((p) {
+                          if (p.status == PackageStatus.draft) {
+                            final createdAt = DateTime.tryParse(p.createdAt);
+                            if (createdAt != null &&
+                                DateTime.now().difference(createdAt).inMinutes >= 20) {
+                              return false;
+                            }
+                          }
+                          return true;
+                        }).take(8).toList();
                   final activityLoading =
                       isCarrier ? tripState.isLoading : shipmentState.isLoading;
 
@@ -417,8 +427,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 color: AppColors.black),
                           ),
                           GestureDetector(
-                            onTap: () => context
-                                .go(isCarrier ? '/requests' : '/shipments'),
+                            onTap: () => context.go('/activity'),
                             child: Text(
                               'See all',
                               style: AppTextStyles.bodySm.copyWith(
@@ -434,8 +443,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         requests: activityRequests,
                         packages: activityPackages,
                         isLoading: activityLoading,
-                        onViewAll: () =>
-                            context.go(isCarrier ? '/requests' : '/shipments'),
+                        onViewAll: () => context.go('/activity'),
                       ),
                     ],
                   );
@@ -1428,12 +1436,22 @@ class _RecentActivityList extends StatelessWidget {
     final color = _statusColor(item.status);
 
     return InkWell(
-      onTap: () {
+      onTap: () async {
         if (item.request != null) {
           context.push('/shipment-request/${item.id}', extra: item.request);
           return;
         }
-        context.push('/shipment-details/${item.id}');
+        // For draft packages, try to go straight to payment if a matching
+        // local checkout draft exists; otherwise show shipment details.
+        if (item.status == 'draft' && item.package != null) {
+          final draft = await ShipmentCheckoutService.instance.loadDraft();
+          if (!context.mounted) return;
+          if (draft != null && draft['packageId'] == item.package!.id) {
+            context.push('/payment', extra: draft);
+            return;
+          }
+        }
+        context.push('/shipment-details/${item.id}', extra: item.package);
       },
       borderRadius: isLast
           ? const BorderRadius.vertical(bottom: Radius.circular(20))
@@ -1701,6 +1719,7 @@ class _RecentActivityEntry {
     this.toLocation,
     this.requestId,
     this.request,
+    this.package,
   });
 
   final String id;
@@ -1714,6 +1733,7 @@ class _RecentActivityEntry {
   final String? toLocation;
   final String? requestId;
   final RequestModel? request;
+  final PackageModel? package;
 
   factory _RecentActivityEntry.fromRequest(RequestModel request) =>
       _RecentActivityEntry(
@@ -1742,6 +1762,7 @@ class _RecentActivityEntry {
         fromLocation: package.fromCity,
         toLocation: package.toCity,
         requestId: package.requestId,
+        package: package,
       );
 }
 

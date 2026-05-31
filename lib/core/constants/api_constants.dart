@@ -130,6 +130,7 @@ class ApiConstants {
   // Braintree checkout
   static const String braintreeClientToken = '/api/payments/braintree/client-token';
   static const String braintreeCheckout = '/api/payments/braintree/checkout';
+  static const String braintreeVault = '/api/payments/braintree/vault';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';

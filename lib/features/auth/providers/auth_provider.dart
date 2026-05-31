@@ -89,7 +89,10 @@ class AuthNotifier extends Notifier<AuthState> {
       }
 
       // Restore from local cache instantly — unblocks splash without waiting for network.
-      final cachedUser = await _service.restoreSession(validateWithBackend: false);
+      // Cap at 3 s so slow keychain reads on iOS don't block startup indefinitely.
+      final cachedUser = await _service
+          .restoreSession(validateWithBackend: false)
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
       state = state.copyWith(user: cachedUser, isInitialising: false);
 
       if (cachedUser != null) {
