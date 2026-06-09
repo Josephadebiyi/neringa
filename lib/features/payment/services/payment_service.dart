@@ -200,7 +200,7 @@ class PaymentService {
     try {
       final response = await _api.get(ApiConstants.paypalConfig);
       final data = response.data;
-      if (data is Map) return Map<String, dynamic>.from(data as Map);
+      if (data is Map) return Map<String, dynamic>.from(data);
       return {};
     } on DioException catch (e) {
       throw ApiService.parseError(e);
@@ -275,6 +275,40 @@ class PaymentService {
                 ? Map<String, dynamic>.from(requestRaw)
                 : null,
       );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<({String authorizationUrl, String reference})> initializePaystackPayment({
+    required String packageId,
+    required String tripId,
+    required double amount,
+    required String currency,
+    bool insurance = false,
+    double insuranceCost = 0,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.paystackInitialize,
+        data: {
+          'amount': amount,
+          'currency': currency,
+          'packageId': packageId,
+          'tripId': tripId,
+          'metadata': {
+            'insurance': insurance,
+            'insuranceCost': insuranceCost,
+          },
+        },
+      );
+      final data = _extractMap(response.data);
+      final url = data['authorizationUrl']?.toString() ?? '';
+      final ref = data['reference']?.toString() ?? '';
+      if (url.isEmpty) {
+        throw StateError(data['message']?.toString() ?? 'Payment initialization failed.');
+      }
+      return (authorizationUrl: url, reference: ref);
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_paypal_native/flutter_paypal_native.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_paypal_native/models/custom/currency_code.dart';
 import 'package:flutter_paypal_native/models/custom/environment.dart';
 import 'package:flutter_paypal_native/models/custom/order_callback.dart';
@@ -14,6 +15,8 @@ import 'package:pay/pay.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../shared/services/storage_service.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
@@ -44,6 +47,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // Apple Pay payment client — created after draft loads with correct currency
   Pay? _payClient;
 
+  bool get _usePaystack {
+    if (_draft == null) return false;
+    final currency = _asString(_draft!['currency'], 'USD');
+    return _checkoutService.providerForCurrency(currency) == 'paystack';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,10 +78,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isLoadingDraft = false;
       });
       if (draft != null) {
-        await Future.wait([
-          _initSdk(draft),
-          _initApplePay(draft),
-        ]);
+        final currency = _asString(draft['currency'], 'USD');
+        if (_checkoutService.providerForCurrency(currency) == 'paystack') {
+          if (mounted) setState(() => _isSdkReady = true);
+        } else {
+          await Future.wait([
+            _initSdk(draft),
+            _initApplePay(draft),
+          ]);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -165,73 +179,126 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  // ── Card info sheet ───────────────────────────────────────────────────────
+  // ── In-app card checkout (PayPal hosted card fields via WebView) ──────────
 
-  void _showCardInfo(BuildContext ctx) {
-    showModalBottomSheet(
-      context: ctx,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.gray200,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(children: [
-              const Icon(Icons.credit_card_rounded, size: 24),
-              const SizedBox(width: 10),
-              Text('Paying by card',
-                  style: AppTextStyles.h3
-                      .copyWith(fontWeight: FontWeight.w700)),
-            ]),
-            const SizedBox(height: 12),
-            Text(
-              "You'll be taken to PayPal's secure checkout. On that page, tap \"Pay with a Debit or Credit Card\" to pay without a PayPal account.",
-              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray600),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Visa, Mastercard, Amex and Discover are accepted.',
-              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _startPayPalCheckout();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.black,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: const Text('Continue to Card Payment',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700)),
-              ),
-            ),
-          ],
+  Future<void> _startCardWebView() async {
+    if (_isProcessing || _draft == null || !_isSdkReady) return;
+    final draft = _draft!;
+    final currency = _asString(draft['currency'], 'USD');
+    final amount = _asDouble(draft['totalAmount']);
+    final packageId = draft['packageId']?.toString() ?? '';
+    final tripId = draft['tripId']?.toString() ?? '';
+    final insurance = draft['insurance'] == true;
+    final insuranceCost = _asDouble(draft['insuranceAmount']);
+
+    final token = await StorageService.instance.getAccessToken() ?? '';
+    if (!mounted) return;
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/api/payments/paypal/checkout').replace(
+      queryParameters: {
+        'packageId': packageId,
+        'tripId': tripId,
+        'currency': currency,
+        'amount': amount.toStringAsFixed(2),
+        'insurance': insurance.toString(),
+        'insuranceCost': insuranceCost.toStringAsFixed(2),
+        'mode': 'app',
+        'token': token,
+      },
+    ).toString();
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _PaymentWebView(
+          url: url,
+          title: 'Card payment',
+          jsChannelName: 'FlutterBago',
         ),
       ),
     );
+
+    if (!mounted || result == null) return;
+    final type = result['type']?.toString() ?? '';
+    if (type == 'success') {
+      final orderId = result['orderId']?.toString() ?? '';
+      if (orderId.isNotEmpty) await _captureOrder(orderId);
+    } else if (type == 'error') {
+      _failWithDraft('card', result['message']?.toString() ?? 'Card payment failed.');
+    }
+  }
+
+  // ── Paystack checkout (African currencies) ────────────────────────────────
+
+  Future<void> _startPaystackCheckout() async {
+    if (_isProcessing || _draft == null) return;
+    setState(() => _isProcessing = true);
+    try {
+      final draft = _draft!;
+      final currency = _asString(draft['currency'], 'NGN');
+      final amount = _asDouble(draft['totalAmount']);
+      final packageId = draft['packageId']?.toString() ?? '';
+      final tripId = draft['tripId']?.toString() ?? '';
+      final insurance = draft['insurance'] == true;
+      final insuranceCost = _asDouble(draft['insuranceAmount']);
+
+      final init = await _paymentService.initializePaystackPayment(
+        packageId: packageId,
+        tripId: tripId,
+        amount: amount,
+        currency: currency,
+        insurance: insurance,
+        insuranceCost: insuranceCost,
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _PaymentWebView(
+            url: init.authorizationUrl,
+            title: 'Paystack checkout',
+            callbackUrlPattern: '/payment/callback',
+          ),
+        ),
+      );
+
+      if (!mounted || result == null) return;
+      if (result['type'] == 'callback') {
+        final ref = result['reference']?.toString();
+        await _verifyPaystack(ref?.isNotEmpty == true ? ref! : init.reference);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isProcessing = false);
+      _failWithDraft('paystack', e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _verifyPaystack(String reference) async {
+    if (!mounted || reference.isEmpty) return;
+    setState(() => _isProcessing = true);
+    try {
+      final draft = _draft!;
+      final result = await _paymentService.verifyPaystackPayment(reference);
+      if (!mounted) return;
+      if (result.success) {
+        _checkoutService.clearDraft();
+        context.go('/order-success', extra: {
+          ...draft,
+          'provider': 'paystack',
+          'paymentReference': reference,
+          'request': null,
+        });
+      } else {
+        _failWithDraft('paystack', result.message ?? 'Payment verification failed.');
+      }
+    } catch (e) {
+      _failWithDraft('paystack', e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   // ── PayPal wallet / card-via-PayPal checkout ──────────────────────────────
@@ -481,8 +548,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
           // ── Payment options ──────────────────────────────────────────────
           if (!isExpired) ...[
-            // Loading spinner while PayPal SDK initialises
-            if (!_isSdkReady && _initError == null)
+            if (_usePaystack) ...[
+              // Paystack — African currencies (NGN / GHS / KES / ZAR)
+              _PaymentOptionButton(
+                icon: Icons.payment_rounded,
+                label: 'Pay with Paystack',
+                subtitle: 'Cards, bank transfer & mobile money',
+                isLoading: _isProcessing,
+                color: const Color(0xFF00C3E3),
+                onTap: _startPaystackCheckout,
+              ),
+            ] else if (!_isSdkReady && _initError == null)
               const Center(child: AppLoading())
             else if (_isSdkReady) ...[
 
@@ -525,13 +601,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const SizedBox(height: 12),
               ],
 
-              // Debit / Credit card via PayPal
+              // Debit / Credit card — opens PayPal hosted card form in WebView
               _PaymentOptionButton(
                 icon: Icons.credit_card_rounded,
                 label: 'Pay with Debit / Credit Card',
                 subtitle: 'No PayPal account needed',
                 isLoading: _isProcessing,
-                onTap: () => _showCardInfo(context),
+                onTap: _startCardWebView,
               ),
               const SizedBox(height: 10),
 
@@ -564,16 +640,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   size: 13, color: AppColors.gray400),
               const SizedBox(width: 4),
               Text(
-                'Secured by PayPal',
+                _usePaystack ? 'Secured by Paystack' : 'Secured by PayPal',
                 style:
                     AppTextStyles.labelXs.copyWith(color: AppColors.gray400),
               ),
-              const SizedBox(width: 10),
-              SvgPicture.asset('assets/images/visa.svg',
-                  width: 38, height: 24, fit: BoxFit.contain),
-              const SizedBox(width: 6),
-              SvgPicture.asset('assets/images/mastercard.svg',
-                  width: 38, height: 24, fit: BoxFit.contain),
+              if (!_usePaystack) ...[
+                const SizedBox(width: 10),
+                SvgPicture.asset('assets/images/visa.svg',
+                    width: 38, height: 24, fit: BoxFit.contain),
+                const SizedBox(width: 6),
+                SvgPicture.asset('assets/images/mastercard.svg',
+                    width: 38, height: 24, fit: BoxFit.contain),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -701,6 +779,101 @@ class _SummaryRow extends StatelessWidget {
                   color: AppColors.black, fontWeight: FontWeight.w700)),
         ),
       ],
+    );
+  }
+}
+
+// ── In-app WebView for card and Paystack payments ─────────────────────────────
+
+class _PaymentWebView extends StatefulWidget {
+  const _PaymentWebView({
+    required this.url,
+    required this.title,
+    this.jsChannelName,
+    this.callbackUrlPattern,
+  });
+
+  final String url;
+  final String title;
+  // Set to receive JS postMessage from PayPal card checkout page
+  final String? jsChannelName;
+  // Set to intercept Paystack callback redirect (e.g. '/payment/callback')
+  final String? callbackUrlPattern;
+
+  @override
+  State<_PaymentWebView> createState() => _PaymentWebViewState();
+}
+
+class _PaymentWebViewState extends State<_PaymentWebView> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageStarted: (_) {
+          if (mounted) setState(() => _isLoading = true);
+        },
+        onPageFinished: (_) {
+          if (mounted) setState(() => _isLoading = false);
+        },
+        onNavigationRequest: _onNavigationRequest,
+      ));
+
+    if (widget.jsChannelName != null) {
+      _controller.addJavaScriptChannel(
+        widget.jsChannelName!,
+        onMessageReceived: _onJsMessage,
+      );
+    }
+
+    _controller.loadRequest(Uri.parse(widget.url));
+  }
+
+  NavigationDecision _onNavigationRequest(NavigationRequest request) {
+    final pattern = widget.callbackUrlPattern;
+    if (pattern != null && request.url.contains(pattern)) {
+      final uri = Uri.tryParse(request.url);
+      final ref = uri?.queryParameters['reference'] ??
+          uri?.queryParameters['trxref'] ??
+          '';
+      Navigator.of(context).pop({'type': 'callback', 'reference': ref});
+      return NavigationDecision.prevent;
+    }
+    return NavigationDecision.navigate;
+  }
+
+  void _onJsMessage(JavaScriptMessage message) {
+    try {
+      final data = jsonDecode(message.message) as Map<String, dynamic>;
+      final type = data['type']?.toString() ?? '';
+      if (type == 'success' || type == 'error' || type == 'cancel') {
+        Navigator.of(context).pop(data);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title,
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700)),
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.black,
+        elevation: 0,
+        surfaceTintColor: Colors.white,
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(child: AppLoading()),
+        ],
+      ),
     );
   }
 }
