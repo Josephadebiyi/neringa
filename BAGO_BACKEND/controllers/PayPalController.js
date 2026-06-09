@@ -454,6 +454,14 @@ export async function createPayPalOrder(req, res) {
     if (!allowedPaymentMethods.has(paymentMethod)) {
       return res.status(400).json({ success: false, message: 'Unsupported PayPal payment method.' });
     }
+    console.info('[payments] create PayPal order', {
+      userId: profile.id,
+      paymentMethod,
+      shipmentId: req.body?.shipmentId || null,
+      packageId: req.body?.packageId || null,
+      tripId: req.body?.tripId || null,
+      currency: req.body?.currency || null,
+    });
 
     const quote = await buildCheckoutQuote({
       profile,
@@ -550,6 +558,13 @@ export async function capturePayPalOrder(req, res) {
     if (!orderId) {
       return res.status(400).json({ success: false, message: 'PayPal order id is required.' });
     }
+    console.info('[payments] capture PayPal order', {
+      userId: profile.id,
+      orderId,
+      shipmentId: req.body?.shipmentId || null,
+      packageId: req.body?.packageId || null,
+      tripId: req.body?.tripId || null,
+    });
 
     let payment = await queryOne(
       `select * from public.payments where paypal_order_id = $1 and user_id = $2`,
@@ -684,6 +699,13 @@ export async function captureApplePayOrder(req, res) {
     if (!applePayToken || !pkgId || !trpId) {
       return res.status(400).json({ success: false, message: 'Missing required payment fields.' });
     }
+    console.info('[payments] capture Apple Pay order', {
+      userId: profile.id,
+      packageId: pkgId,
+      tripId: trpId,
+      currency: currency || null,
+      hasToken: Boolean(applePayToken),
+    });
 
     // Extract encrypted payment fields. Flutter's pay package sends the
     // decoded token body directly, while native PKPaymentToken wrappers use

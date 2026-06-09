@@ -613,10 +613,21 @@ schema('/api/payments/paypal/create-order', {
   max: { shipmentId: 80, packageId: 80, tripId: 80, paymentMethod: 32, currency: 3 },
 });
 schema('/api/payments/paypal/capture-order', {
-  allowed: ['orderId', 'shipmentId'],
-  required: ['orderId', 'shipmentId'],
-  strings: ['orderId', 'shipmentId'],
-  max: { orderId: 120, shipmentId: 80 },
+  allowed: ['orderId', 'shipmentId', 'packageId', 'tripId', 'currency', 'insurance', 'insuranceCost'],
+  required: ['orderId'],
+  strings: ['orderId', 'shipmentId', 'packageId', 'tripId', 'currency'],
+  booleans: ['insurance'],
+  stringOrNumbers: ['insuranceCost'],
+  max: { orderId: 120, shipmentId: 80, packageId: 80, tripId: 80, currency: 3, insuranceCost: 20 },
+});
+schema('/api/payments/paypal/apple-pay/capture', {
+  allowed: ['applePayToken', 'packageId', 'tripId', 'currency', 'insurance', 'insuranceCost'],
+  required: ['applePayToken', 'packageId', 'tripId'],
+  strings: ['packageId', 'tripId', 'currency'],
+  booleans: ['insurance'],
+  stringOrNumbers: ['insuranceCost'],
+  objects: ['applePayToken'],
+  max: { packageId: 80, tripId: 80, currency: 3, insuranceCost: 20 },
 });
 schema('/api/payouts/paypal/settings', {
   allowed: ['paypalEmail', 'payoutCurrency', 'confirmed'],
