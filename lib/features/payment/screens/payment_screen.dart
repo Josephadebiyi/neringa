@@ -388,12 +388,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
     try {
+      debugPrint('Apple Pay: native authorization returned a token payload.');
       final draft = _draft!;
       final tokenJson =
           result['paymentMethodData']?['tokenizationData']?['token'];
-      if (tokenJson == null) throw Exception('Apple Pay token missing.');
+      if (tokenJson == null) {
+        throw Exception('Apple Pay token missing from native result.');
+      }
       final token = tokenJson is String ? jsonDecode(tokenJson) : tokenJson;
 
+      debugPrint('Apple Pay: sending token to backend capture endpoint.');
       final captureResult = await _paymentService.captureApplePayOrder(
         applePayToken: token,
         packageId: draft['packageId']?.toString() ?? '',
@@ -405,6 +409,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (!mounted) return;
       if (captureResult.success) {
+        debugPrint('Apple Pay: backend capture succeeded.');
         _checkoutService.clearDraft();
         context.go('/order-success', extra: {
           ...draft,
@@ -413,14 +418,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'request': captureResult.request,
         });
       } else {
+        debugPrint('Apple Pay: backend capture failed: '
+            '${captureResult.message ?? 'No message'}');
         _failWithDraft(
-            'apple_pay', captureResult.message ?? 'Apple Pay payment failed.');
+          'apple_pay',
+          'Apple Pay backend capture failed: '
+              '${captureResult.message ?? 'No message returned.'}',
+        );
       }
     } catch (e) {
-      _failWithDraft('apple_pay', e.toString().replaceFirst('Exception: ', ''));
+      debugPrint('Apple Pay: failed before success navigation: $e');
+      _failWithDraft(
+        'apple_pay',
+        'Apple Pay app error: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  void _onApplePayError(Object? error) {
+    if (!mounted || _isProcessing) return;
+    final message = error?.toString().trim();
+    debugPrint('Apple Pay: native selector failed before backend call: '
+        '${message?.isNotEmpty == true ? message : 'Unknown native error'}');
+    _failWithDraft(
+      'apple_pay',
+      'Apple Pay native error before backend call: '
+          '${message?.isNotEmpty == true ? message : 'Unknown native error'}',
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -652,6 +678,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       height: 60,
                       onPaymentResult:
                           _isProcessing ? (_) {} : _onApplePayResult,
+                      onError: _onApplePayError,
                       loadingIndicator: const Center(child: AppLoading()),
                     ),
                   ),
@@ -914,6 +941,11 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
     try {
       final data = jsonDecode(message.message) as Map<String, dynamic>;
       final type = data['type']?.toString() ?? '';
+      if (type == 'debug') {
+        debugPrint('Payment WebView: ${data['stage'] ?? 'unknown'} '
+            '${data['message'] ?? ''}');
+        return;
+      }
       if (type == 'success' || type == 'error' || type == 'cancel') {
         Navigator.of(context).pop(data);
       }

@@ -1350,6 +1350,7 @@ function notifyFlutter(type, data) {
 }
 
 async function createOrder(paymentMethod) {
+  notifyFlutter('debug', { stage: 'create-order:start', paymentMethod });
   const res = await fetch(backend + '/api/payments/paypal/create-order', {
     method: 'POST',
     headers: authHeaders,
@@ -1359,11 +1360,16 @@ async function createOrder(paymentMethod) {
       insurance, insuranceCost, paymentMethod })
   });
   const data = await res.json();
-  if (!data.success) throw new Error(data.message || 'Could not create order');
+  if (!data.success) {
+    notifyFlutter('debug', { stage: 'create-order:failed', message: data.message || 'Could not create order' });
+    throw new Error(data.message || 'Could not create order');
+  }
+  notifyFlutter('debug', { stage: 'create-order:success', orderId: data.data.orderId });
   return data.data.orderId;
 }
 
 async function captureOrder(orderId) {
+  notifyFlutter('debug', { stage: 'capture-order:start', orderId });
   const res = await fetch(backend + '/api/payments/paypal/capture-order', {
     method: 'POST',
     headers: authHeaders,
@@ -1371,7 +1377,11 @@ async function captureOrder(orderId) {
     body: JSON.stringify({ orderId })
   });
   const data = await res.json();
-  if (!data.success) throw new Error(data.message || 'Payment could not be captured');
+  if (!data.success) {
+    notifyFlutter('debug', { stage: 'capture-order:failed', message: data.message || 'Payment could not be captured' });
+    throw new Error(data.message || 'Payment could not be captured');
+  }
+  notifyFlutter('debug', { stage: 'capture-order:success', orderId });
   return data.data;
 }
 
@@ -1381,6 +1391,7 @@ const cardField = paypal.CardFields({
   createOrder: () => createOrder('card'),
   onApprove: async ({ orderID }) => {
     try {
+      notifyFlutter('debug', { stage: 'card:onApprove', orderId: orderID });
       const result = await captureOrder(orderID);
       notifyFlutter('success', { orderId: orderID, request: result.request || null });
       if (mode !== 'app') window.location.href = '/shipping-success';
@@ -1395,6 +1406,7 @@ const cardField = paypal.CardFields({
     const msg = err?.message || 'Card payment failed';
     showError('card-err', msg);
     setLoading('card-pay-btn', false);
+    notifyFlutter('debug', { stage: 'card:onError', message: msg });
     notifyFlutter('error', { message: msg });
   },
   style: {
@@ -1417,8 +1429,10 @@ if (cardField.isEligible()) {
   cardField.NumberField().render('#card-number-field');
   cardField.ExpiryField().render('#card-expiry-field');
   cardField.CVVField().render('#card-cvv-field');
+  notifyFlutter('debug', { stage: 'card-fields:ready' });
 } else {
   document.querySelector('.card').style.display = 'none';
+  notifyFlutter('debug', { stage: 'card-fields:not-eligible' });
   notifyFlutter('error', { message: 'Card payment is not available right now. Please try another card or payment method.' });
 }
 
@@ -1426,9 +1440,13 @@ window.submitCard = function() {
   hideError('card-err');
   setLoading('card-pay-btn', true);
   const name = document.getElementById('card-name-input').value.trim();
+  notifyFlutter('debug', { stage: 'card-submit:clicked' });
   cardField.submit(name ? { cardholderName: name } : {}).catch(e => {
-    showError('card-err', e.message || 'Please check your card details');
+    const msg = e.message || 'Please check your card details';
+    showError('card-err', msg);
     setLoading('card-pay-btn', false);
+    notifyFlutter('debug', { stage: 'card-submit:failed-before-create-order', message: msg });
+    notifyFlutter('error', { message: 'Card form error before backend call: ' + msg });
   });
 };
 
