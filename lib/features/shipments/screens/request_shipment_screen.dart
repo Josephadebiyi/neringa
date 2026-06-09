@@ -62,7 +62,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     if (country != null && mounted) {
       setState(() => _receiverPhoneCountry = country);
     }
-  };
+  }
 
   static const _categories = [
     ('Documents', Icons.description_outlined),
