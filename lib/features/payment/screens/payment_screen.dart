@@ -175,11 +175,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (draft == null || !_isSdkReady || _isProcessing) return;
     final amount = _asDouble(draft['totalAmount']);
     final packageId = draft['packageId']?.toString() ?? '';
+    final currency = _asString(draft['currency'], 'USD');
     _plugin
       ..removeAllPurchaseItems()
       ..addPurchaseUnit(FPayPalPurchaseUnit(
         referenceId: packageId,
         amount: amount,
+        currencyCode: _toCurrencyCode(currency),
       ))
       ..makeOrder(action: FPayPalUserAction.payNow);
   }
