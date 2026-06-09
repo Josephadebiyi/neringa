@@ -685,8 +685,11 @@ export async function captureApplePayOrder(req, res) {
       return res.status(400).json({ success: false, message: 'Missing required payment fields.' });
     }
 
-    // Extract encrypted payment fields from the iOS PKPaymentToken structure
-    const paymentData = applePayToken.paymentData;
+    // Extract encrypted payment fields. Flutter's pay package sends the
+    // decoded token body directly, while native PKPaymentToken wrappers use
+    // { paymentData: ... }. Accept both so valid Apple Pay tokens do not fail
+    // before PayPal is even contacted.
+    const paymentData = applePayToken.paymentData || applePayToken;
     const header = paymentData?.header;
     if (!paymentData?.data || !header?.ephemeralPublicKey || !header?.transactionId) {
       return res.status(400).json({ success: false, message: 'Invalid Apple Pay token structure.' });
@@ -776,10 +779,15 @@ export async function captureApplePayOrder(req, res) {
       data: { orderId, captureId: captureUnit.id, request },
     });
   } catch (error) {
-    console.error('Apple Pay capture failed:', error.response?.data || error.message);
+    const paypalError = error.response?.data;
+    console.error('Apple Pay capture failed:', paypalError || error.message);
+    const paypalIssue =
+      paypalError?.details?.[0]?.description ||
+      paypalError?.details?.[0]?.issue ||
+      paypalError?.message;
     return res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message || 'Apple Pay payment could not be completed.',
+      message: paypalIssue || error.message || 'Apple Pay payment could not be completed.',
     });
   }
 }
@@ -1170,6 +1178,7 @@ export function servePayPalCheckoutPage(req, res) {
   const mode = String(req.query.mode || 'app'); // 'app' = Flutter WebView, 'web' = browser
   const checkout = String(req.query.checkout || '').toLowerCase();
   const cardOnly = checkout === 'card';
+  const cardFormOnly = mode === 'app' || cardOnly;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1179,14 +1188,16 @@ export function servePayPalCheckoutPage(req, res) {
 <title>Secure checkout</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f8;-webkit-font-smoothing:antialiased}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6fb;-webkit-font-smoothing:antialiased}
 body{padding:16px}
-.card{background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card{background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 3px rgba(17,24,39,.05)}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 label{display:block;font-size:13px;font-weight:600;color:#6b7280;margin-bottom:8px}
-.field-wrap{background:#f5f5f5;border:1.5px solid #e5e7eb;border-radius:12px;height:50px;display:flex;align-items:center;padding:0 14px;transition:border-color .15s}
-.field-wrap.focused{border-color:#5845D8}
-#card-name-input{width:100%;border:none;background:transparent;font-size:15px;font-weight:500;color:#111;outline:none}
+.field-wrap{background:#f8fafc;border:1.5px solid #e3e7ef;border-radius:14px;height:52px;display:flex;align-items:center;padding:0 14px;transition:border-color .15s,background .15s;overflow:hidden}
+.field-wrap:focus-within{border-color:#5845D8;background:#fff}
+.field-wrap>div{width:100%;height:100%;display:flex;align-items:center}
+.field-wrap iframe{border:0!important;outline:0!important;box-shadow:none!important}
+#card-name-input{width:100%;border:none;background:transparent;font-size:15px;font-weight:500;color:#111;outline:none;box-shadow:none}
 #card-name-input::placeholder{color:#9ca3af;font-weight:400}
 .section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .section-title{font-size:15px;font-weight:700;color:#111827}
@@ -1246,18 +1257,12 @@ label{display:block;font-size:13px;font-weight:600;color:#6b7280;margin-bottom:8
   <div class="err" id="card-err"></div>
 </div>
 
-<div class="divider"><div class="div-line"></div><span class="div-text">or pay with</span><div class="div-line"></div></div>
+${cardFormOnly ? '' : '<div class="divider"><div class="div-line"></div><span class="div-text">or pay with</span><div class="div-line"></div></div>'}
 
 <!-- PayPal button rendered here by SDK -->
 <div id="paypal-btn-container"></div>
 
-<!-- Apple Pay -->
-<div id="apple-section">
-  <button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">
-    <svg width="16" height="20" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-167.2-47.5c-62.2-10.1-155.5-83.9-165.6-229.1v-42.6c6.4-40.3 25.3-83.6 55.7-103.7 30.4-20.1 71.1-29.9 102.8-29.9 70.2 0 111.4 27.9 200.5 27.9 86.8 0 138.8-27.9 202.4-27.9 60.6 0 119.8 37.8 162.5 85.8zm-192-175.9c-34.4 41.8-66.6 92.6-66.6 148.1 0 5.4.3 10.8.9 16.3.2.8.4 1.6.6 2.4.6 0 1.2.1 1.8.1 27.4 0 58.8-9.3 82.6-27.6 21-16.2 46.5-51.5 46.5-96.4C661.9 166.5 596 146 596 146s-53 2.4-118.7 45.6c-10.8 7.1-21.3 15.6-31.3 25.5"/></svg>
-    Pay
-  </button>
-</div>
+${cardFormOnly ? '' : '<div id="apple-section"><button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">Pay with Apple Pay</button></div>'}
 
 <div class="footer">
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -1276,6 +1281,7 @@ const insuranceCost = parseFloat(P.get('insuranceCost') || '${insuranceCost}') |
 const mode       = P.get('mode') || '${mode}';
 const checkout   = (P.get('checkout') || '${checkout}').toLowerCase();
 const cardOnly   = checkout === 'card';
+const cardFormOnly = mode === 'app' || cardOnly;
 const backend    = '${backendUrl}';
 
 const authHeaders = {'Content-Type':'application/json', 'Authorization': 'Bearer ' + token};
@@ -1370,8 +1376,17 @@ const cardField = paypal.CardFields({
     notifyFlutter('error', { message: msg });
   },
   style: {
-    input: { 'font-size': '15px', 'font-family': '-apple-system, BlinkMacSystemFont, sans-serif', color: '#111827', padding: '0' },
-    ':focus': { color: '#111827' },
+    input: {
+      'font-size': '15px',
+      'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
+      color: '#111827',
+      padding: '0',
+      border: 'none',
+      outline: 'none',
+      'box-shadow': 'none',
+      background: 'transparent',
+    },
+    ':focus': { color: '#111827', outline: 'none', border: 'none', 'box-shadow': 'none' },
     '.invalid': { color: '#dc2626' },
   },
 });
@@ -1423,7 +1438,7 @@ if (!cardOnly && mode !== 'app') {
 
 // ── Apple Pay ─────────────────────────────────────────────────────────────────
 
-if (!cardOnly && window.ApplePaySession && paypal.Applepay) {
+if (!cardFormOnly && window.ApplePaySession && paypal.Applepay) {
   const applepay = paypal.Applepay();
   applepay.config().then(config => {
     if (!config.isEligible) return;

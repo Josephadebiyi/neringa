@@ -590,8 +590,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ] else if (!_isSdkReady && _initError == null)
               const Center(child: AppLoading())
             else if (_isSdkReady) ...[
-              // Apple Pay — only shown when device supports it
+              Text(
+                'Choose payment method',
+                style: AppTextStyles.h3.copyWith(
+                  color: AppColors.black,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Debit / Credit card — opens a card-only hosted form
+              _PaymentOptionButton(
+                icon: Icons.credit_card_rounded,
+                label: 'Debit / Credit Card',
+                subtitle: 'Visa, Mastercard and supported cards',
+                isLoading: _isProcessing,
+                color: AppColors.primary,
+                onTap: _startCardWebView,
+              ),
+
+              // Apple Pay — app-level option only, not repeated inside card form
               if (_applePayAvailable && _payClient != null) ...[
+                const SizedBox(height: 10),
                 ApplePayButton(
                   paymentConfiguration:
                       PaymentConfiguration.fromJsonString(jsonEncode({
@@ -624,19 +644,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   onPaymentResult: _isProcessing ? (_) {} : _onApplePayResult,
                   loadingIndicator: const Center(child: AppLoading()),
                 ),
-                const SizedBox(height: 12),
-                _OrDivider(),
-                const SizedBox(height: 12),
               ],
-
-              // Debit / Credit card — opens PayPal hosted card form in WebView
-              _PaymentOptionButton(
-                icon: Icons.credit_card_rounded,
-                label: 'Pay with Debit / Credit Card',
-                subtitle: 'No PayPal account needed',
-                isLoading: _isProcessing,
-                onTap: _startCardWebView,
-              ),
               const SizedBox(height: 10),
 
               // PayPal wallet
@@ -649,7 +657,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       size: 20,
                       color: Colors.white),
                 ),
-                label: 'Pay with PayPal',
+                label: 'PayPal',
                 subtitle: 'Use your PayPal balance or saved cards',
                 isLoading: _isProcessing,
                 color: const Color(0xFF003087),
@@ -685,25 +693,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 16),
         ],
       ),
-    );
-  }
-}
-
-// ── Or divider ────────────────────────────────────────────────────────────────
-
-class _OrDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: AppColors.gray200)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('or',
-              style: AppTextStyles.labelSm.copyWith(color: AppColors.gray400)),
-        ),
-        const Expanded(child: Divider(color: AppColors.gray200)),
-      ],
     );
   }
 }
