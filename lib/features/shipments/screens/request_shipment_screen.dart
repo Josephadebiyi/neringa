@@ -56,6 +56,14 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   CountryCurrencyData _receiverPhoneCountry =
       CurrencyConversionHelper.countryByCode('US')!;
 
+  void _applyDestinationCountry(TripModel trip) {
+    final country = CurrencyConversionHelper.countryByName(trip.toCountry) ??
+        CurrencyConversionHelper.countryByCode(trip.toCountry);
+    if (country != null && mounted) {
+      setState(() => _receiverPhoneCountry = country);
+    }
+  };
+
   static const _categories = [
     ('Documents', Icons.description_outlined),
     ('Clothing', Icons.checkroom_outlined),
@@ -69,7 +77,11 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   void initState() {
     super.initState();
     _currentTrip = widget.initialTrip;
-    if (_currentTrip == null) _loadTrip();
+    if (_currentTrip != null) {
+      _applyDestinationCountry(_currentTrip!);
+    } else {
+      _loadTrip();
+    }
 
     final d = widget.preFilledData;
     if (d != null) {
@@ -101,6 +113,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           _currentTrip = trip;
           _loadError = null;
         });
+        _applyDestinationCountry(trip);
       }
     } catch (e) {
       if (mounted) setState(() => _loadError = e.toString());
@@ -167,6 +180,20 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         _deliveryAddressCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
           message: 'Please fill in all receiver details.',
+          type: SnackBarType.error);
+      return;
+    }
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(_receiverEmailCtrl.text.trim())) {
+      AppSnackBar.show(context,
+          message: 'Enter a valid email address for the receiver.',
+          type: SnackBarType.error);
+      return;
+    }
+    final phoneDigits = _receiverPhoneCtrl.text.trim().replaceAll(RegExp(r'\D'), '');
+    if (phoneDigits.length < 5 || phoneDigits.length > 15) {
+      AppSnackBar.show(context,
+          message: 'Enter a valid phone number (5–15 digits, numbers only).',
           type: SnackBarType.error);
       return;
     }
