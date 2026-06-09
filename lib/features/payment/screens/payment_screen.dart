@@ -606,7 +606,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               // Debit / Credit card — opens a card-only hosted form
               _PaymentOptionButton(
                 icon: Icons.credit_card_rounded,
-                label: 'Debit / Credit Card',
+                label: 'Card',
                 subtitle: 'Visa, Mastercard and supported cards',
                 isLoading: _isProcessing,
                 color: AppColors.primary,
@@ -616,50 +616,56 @@ class _PaymentScreenState extends State<PaymentScreen> {
               // Apple Pay — app-level option only, not repeated inside card form
               if (_applePayAvailable && _payClient != null) ...[
                 const SizedBox(height: 10),
-                ApplePayButton(
-                  paymentConfiguration:
-                      PaymentConfiguration.fromJsonString(jsonEncode({
-                    'provider': 'apple_pay',
-                    'data': {
-                      'merchantIdentifier':
-                          'merchant.com.deracali.boltexponativewind',
-                      'displayName': 'Bago',
-                      'merchantCapabilities': ['3DS'],
-                      'supportedNetworks': [
-                        'visa',
-                        'masterCard',
-                        'amex',
-                        'discover'
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    height: 60,
+                    width: double.infinity,
+                    child: ApplePayButton(
+                      paymentConfiguration:
+                          PaymentConfiguration.fromJsonString(jsonEncode({
+                        'provider': 'apple_pay',
+                        'data': {
+                          'merchantIdentifier':
+                              'merchant.com.deracali.boltexponativewind',
+                          'displayName': 'Bago',
+                          'merchantCapabilities': ['3DS'],
+                          'supportedNetworks': [
+                            'visa',
+                            'masterCard',
+                            'amex',
+                            'discover'
+                          ],
+                          'countryCode': 'US',
+                          'currencyCode': currency,
+                        },
+                      })),
+                      paymentItems: [
+                        PaymentItem(
+                          label: 'Bago Shipment',
+                          amount: totalAmount.toStringAsFixed(2),
+                          status: PaymentItemStatus.final_price,
+                        ),
                       ],
-                      'countryCode': 'US',
-                      'currencyCode': currency,
-                    },
-                  })),
-                  paymentItems: [
-                    PaymentItem(
-                      label: 'Bago Shipment',
-                      amount: totalAmount.toStringAsFixed(2),
-                      status: PaymentItemStatus.final_price,
+                      style: ApplePayButtonStyle.black,
+                      type: ApplePayButtonType.buy,
+                      height: 60,
+                      onPaymentResult:
+                          _isProcessing ? (_) {} : _onApplePayResult,
+                      loadingIndicator: const Center(child: AppLoading()),
                     ),
-                  ],
-                  style: ApplePayButtonStyle.black,
-                  type: ApplePayButtonType.buy,
-                  height: 54,
-                  onPaymentResult: _isProcessing ? (_) {} : _onApplePayResult,
-                  loadingIndicator: const Center(child: AppLoading()),
+                  ),
                 ),
               ],
               const SizedBox(height: 10),
 
               // PayPal wallet
               _PaymentOptionButton(
-                customIcon: Image.asset(
-                  'assets/images/paypal-logo.png',
-                  height: 18,
-                  errorBuilder: (_, __, ___) => const Icon(
-                      Icons.account_balance_wallet_outlined,
-                      size: 20,
-                      color: Colors.white),
+                customIcon: SvgPicture.asset(
+                  'assets/images/paypal.svg',
+                  width: 30,
+                  height: 22,
+                  fit: BoxFit.contain,
                 ),
                 label: 'PayPal',
                 subtitle: 'Use your PayPal balance or saved cards',
@@ -724,53 +730,91 @@ class _PaymentOptionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = color ?? AppColors.black;
+    final accent = color ?? AppColors.black;
     return SizedBox(
       width: double.infinity,
-      height: 64,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: bg,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: bg.withValues(alpha: 0.6),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2.5, color: Colors.white),
-              )
-            : Row(
-                children: [
-                  if (customIcon != null)
-                    customIcon!
-                  else if (icon != null)
-                    Icon(icon, size: 22, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      height: 60,
+      child: Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: isLoading ? null : onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.gray200),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: isLoading
+                ? Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: accent,
+                      ),
+                    ),
+                  )
+                : Row(
                     children: [
-                      Text(label,
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                      Text(subtitle,
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.75))),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child:
+                            customIcon ?? Icon(icon, size: 22, color: accent),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.labelMd.copyWith(
+                                color: AppColors.gray900,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.labelXs.copyWith(
+                                color: AppColors.gray500,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 22,
+                        color: AppColors.gray400,
+                      ),
                     ],
                   ),
-                ],
-              ),
+          ),
+        ),
       ),
     );
   }
