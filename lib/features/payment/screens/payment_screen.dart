@@ -390,12 +390,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       debugPrint('Apple Pay: native authorization returned a token payload.');
       final draft = _draft!;
-      final tokenJson =
-          result['paymentMethodData']?['tokenizationData']?['token'];
-      if (tokenJson == null) {
+      // pay_ios returns { "token": "<paymentData JSON>", "transactionIdentifier": ..., "paymentMethod": ... }
+      // The payment data is at the top-level "token" key, not Google Pay's paymentMethodData path.
+      final tokenRaw = result['token'];
+      if (tokenRaw == null) {
         throw Exception('Apple Pay token missing from native result.');
       }
-      final token = tokenJson is String ? jsonDecode(tokenJson) : tokenJson;
+      final token = tokenRaw is String ? jsonDecode(tokenRaw) as Map<String, dynamic> : tokenRaw as Map<String, dynamic>;
 
       debugPrint('Apple Pay: sending token to backend capture endpoint.');
       final captureResult = await _paymentService.captureApplePayOrder(
