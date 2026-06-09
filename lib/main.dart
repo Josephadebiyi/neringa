@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
-import 'core/constants/api_constants.dart';
 import 'firebase_options.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/storage_service.dart';
@@ -16,32 +14,9 @@ import 'shared/services/app_settings_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // On a fresh install the iOS keychain persists from prior installs and can
-  // contain stale / corrupt data that makes SecureStorage hang on first read.
-  // Detect a fresh install via SharedPreferences (sandbox, wiped on delete)
-  // and flush the keychain once so startup is clean.
-  await _clearKeychainOnFreshInstall();
-
-  // Firebase runs in the background — do NOT await it.
-  // On iOS the app uses APNs directly (not Firebase Messaging), so there is
-  // no reason to block app startup on Firebase initialisation.
-  _initFirebase();
-
-  // Lock to portrait
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // Transparent status bar
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
-
-  PushNotificationService.instance.startListening();
+  // Keep the native launch screen from being held by plugin or keychain work.
+  // Render Flutter first, then do non-critical startup setup after frame one.
+  _applySystemUi();
 
   runApp(
     const ProviderScope(
@@ -49,11 +24,43 @@ void main() async {
     ),
   );
 
-  // Run non-critical init after the first frame is rendered
-  SupabaseService.init().catchError((e) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _finishStartup();
+  });
+}
+
+void _applySystemUi() {
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]).timeout(const Duration(seconds: 2)).catchError((e) {
+    debugPrint('Orientation setup skipped: $e');
+  });
+}
+
+void _finishStartup() {
+  _clearKeychainOnFreshInstall().catchError((e) {
+    debugPrint('Fresh install cleanup error: $e');
+  });
+  _initFirebase();
+  try {
+    PushNotificationService.instance.startListening();
+  } catch (e) {
+    debugPrint('Push listener setup error: $e');
+  }
+  SupabaseService.init().timeout(const Duration(seconds: 5)).catchError((e) {
     debugPrint('Supabase init error: $e');
   });
-  AppSettingsService.instance.fetchPublicSettings().catchError((e) {
+  AppSettingsService.instance
+      .fetchPublicSettings()
+      .timeout(const Duration(seconds: 6))
+      .catchError((e) {
     debugPrint('AppSettings fetch error: $e');
     return AppSettingsService.fallbackSnapshot;
   });
@@ -64,11 +71,13 @@ void main() async {
 /// is absent after reinstall even though the keychain still has old data.
 Future<void> _clearKeychainOnFreshInstall() async {
   try {
-    final prefs = await SharedPreferences.getInstance()
-        .timeout(const Duration(seconds: 3), onTimeout: () => throw Exception('prefs timeout'));
+    final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => throw Exception('prefs timeout'));
     const key = 'app_installed_v1';
     if (prefs.getBool(key) != true) {
-      await StorageService.instance.clearAll()
+      await StorageService.instance
+          .clearAll()
           .timeout(const Duration(seconds: 3), onTimeout: () {});
       await prefs.setBool(key, true);
       debugPrint('Fresh install: keychain cleared.');
@@ -81,8 +90,8 @@ Future<void> _clearKeychainOnFreshInstall() async {
 void _initFirebase() {
   if (Firebase.apps.isNotEmpty) return;
   Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
+      .then<void>((_) {})
       .catchError((e) {
     debugPrint('Firebase init error (non-fatal): $e');
-    return Firebase.apps.isNotEmpty ? Firebase.app() : throw e;
   });
 }
