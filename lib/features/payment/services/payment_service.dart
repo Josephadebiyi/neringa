@@ -269,6 +269,53 @@ class PaymentService {
     }
   }
 
+  Future<Map<String, dynamic>> getPayPalConfig() async {
+    try {
+      final response = await _api.get(ApiConstants.paypalConfig);
+      final data = response.data;
+      if (data is Map) return Map<String, dynamic>.from(data as Map);
+      return {};
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<PaidShipmentFinalization> capturePayPalOrder({
+    required String orderId,
+    required String packageId,
+    required String tripId,
+    required String currency,
+    bool insurance = false,
+    double insuranceCost = 0,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.paypalCaptureOrder,
+        data: {
+          'orderId': orderId,
+          'packageId': packageId,
+          'tripId': tripId,
+          'currency': currency,
+          'insurance': insurance,
+          'insuranceCost': insuranceCost,
+        },
+      );
+      final data = _extractMap(response.data);
+      final requestRaw = data['request'];
+      return PaidShipmentFinalization(
+        success: data['success'] == true,
+        message: data['message']?.toString(),
+        request: requestRaw is Map<String, dynamic>
+            ? requestRaw
+            : requestRaw is Map
+                ? Map<String, dynamic>.from(requestRaw)
+                : null,
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<PaymentResult> verifyPaystackPayment(String reference) async {
     try {
       final response =

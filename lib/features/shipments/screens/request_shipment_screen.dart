@@ -251,7 +251,18 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final package = await ShipmentService.instance.createPackage(
+      // Reuse existing draft package if same trip, to avoid duplicate drafts on retry
+      final existingDraft = await ShipmentCheckoutService.instance.loadDraft();
+      final reusePackageId = (existingDraft != null &&
+              existingDraft['tripId']?.toString() == trip.id &&
+              (existingDraft['packageId']?.toString().isNotEmpty ?? false) &&
+              !ShipmentCheckoutService.instance.isExpired(existingDraft))
+          ? existingDraft['packageId'].toString()
+          : null;
+
+      final package = reusePackageId != null
+          ? null
+          : await ShipmentService.instance.createPackage(
         category: _category,
         size: 'medium',
         weight: weight,
@@ -275,7 +286,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       final draft = <String, dynamic>{
         'tripId': trip.id,
         'travelerId': trip.userId,
-        'packageId': package.id,
+        'packageId': reusePackageId ?? package!.id,
         'currency': currency,
         'provider': provider,
         'tripCurrency': trip.currency,

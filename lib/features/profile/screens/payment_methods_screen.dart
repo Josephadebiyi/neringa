@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_braintree/flutter_braintree.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -373,46 +372,14 @@ class _AddCardSheetState extends State<_AddCardSheet> {
   }
 
   Future<void> _save() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    setState(() => _saving = true);
-    try {
-      final clientToken = await PaymentService.instance.getBraintreeClientToken();
-      final rawNumber = _numberCtrl.text.replaceAll(' ', '');
-      final parts = _expiryCtrl.text.split('/');
-      final nonce = await Braintree.tokenizeCreditCard(
-        clientToken,
-        BraintreeCreditCardRequest(
-          cardNumber: rawNumber,
-          expirationMonth: parts[0],
-          expirationYear: '20${parts[1]}',
-          cvv: _cvvCtrl.text.trim(),
-          cardholderName: _nameCtrl.text.trim().isNotEmpty
-              ? _nameCtrl.text.trim()
-              : null,
-        ),
+    // Cards are managed securely through PayPal checkout — no manual entry needed.
+    if (mounted) {
+      AppSnackBar.show(
+        context,
+        message: 'Cards are saved automatically when you pay with PayPal.',
+        type: SnackBarType.info,
       );
-      if (nonce == null) {
-        throw StateError('Card could not be tokenized. Please check your details.');
-      }
-      final saved = await PaymentService.instance.vaultBraintreeCard(nonce.nonce);
-      if (mounted) {
-        widget.onAdded(saved);
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        final msg = e
-            .toString()
-            .replaceFirst('Exception: ', '')
-            .replaceFirst('Bad state: ', '');
-        AppSnackBar.show(
-          context,
-          message: msg.isNotEmpty ? msg : 'Could not save card.',
-          type: SnackBarType.error,
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
+      Navigator.pop(context);
     }
   }
 

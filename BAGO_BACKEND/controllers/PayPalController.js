@@ -549,12 +549,45 @@ export async function capturePayPalOrder(req, res) {
       return res.status(400).json({ success: false, message: 'PayPal order id is required.' });
     }
 
-    const payment = await queryOne(
+    let payment = await queryOne(
       `select * from public.payments where paypal_order_id = $1 and user_id = $2`,
       [orderId, profile.id],
     );
     if (!payment) {
-      return res.status(404).json({ success: false, message: 'PayPal order was not found.' });
+      // SDK-created order (flutter_paypal_native): validate & create record on the fly
+      const pkgId = String(req.body?.packageId || '').trim();
+      const trpId = String(req.body?.tripId || '').trim();
+      if (!pkgId || !trpId) {
+        return res.status(404).json({ success: false, message: 'PayPal order was not found.' });
+      }
+      const ppOrder = await paypalRequest('get', `/v2/checkout/orders/${encodeURIComponent(orderId)}`, null);
+      const ppStatus = String(ppOrder.status || '').toUpperCase();
+      if (ppStatus !== 'APPROVED' && ppStatus !== 'COMPLETED') {
+        return res.status(402).json({ success: false, message: 'PayPal order has not been approved yet.' });
+      }
+      const ppAmount = toAmount(ppOrder.purchase_units?.[0]?.amount?.value || 0);
+      const ppCurrency = normalizeCurrency(ppOrder.purchase_units?.[0]?.amount?.currency_code);
+      const quote = await buildCheckoutQuote({
+        profile, packageId: pkgId, tripId: trpId,
+        currency: ppCurrency,
+        insurance: req.body?.insurance,
+        insuranceCost: req.body?.insuranceCost,
+      });
+      if (Math.abs(ppAmount - quote.amount) > 0.05) {
+        return res.status(400).json({ success: false, message: 'Payment amount mismatch. Please retry.' });
+      }
+      payment = await queryOne(
+        `insert into public.payments
+           (user_id, package_id, trip_id, provider, payment_method,
+            paypal_order_id, amount, currency, commission_amount, traveler_amount, status, raw_response)
+         values ($1,$2,$3,'paypal','paypal_wallet',$4,$5,$6,$7,$8,'pending',$9)
+         on conflict (paypal_order_id) do update
+           set updated_at = timezone('utc', now())
+         returning *`,
+        [profile.id, pkgId, trpId, orderId,
+         quote.amount, quote.currency, quote.commissionAmount, quote.travelerAmount,
+         { ppOrder, quote }],
+      );
     }
     if (payment.status === 'paid' && payment.shipment_id) {
       return res.json({

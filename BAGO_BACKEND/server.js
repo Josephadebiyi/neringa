@@ -806,7 +806,11 @@ app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrd
 
 // ✅ PayPal public config (client-id is a public key, safe to expose)
 app.get('/api/config/paypal', (_req, res) => {
-  res.json({ success: true, clientId: process.env.PAYPAL_CLIENT_ID || '' });
+  res.json({
+    success: true,
+    clientId: process.env.PAYPAL_CLIENT_ID || '',
+    isSandbox: String(process.env.PAYPAL_MODE || 'sandbox').toLowerCase() !== 'live',
+  });
 });
 
 // ✅ PayPal payouts and shared config

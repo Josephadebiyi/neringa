@@ -36,16 +36,16 @@
 @import firebase_messaging;
 #endif
 
-#if __has_include(<flutter_braintree/FlutterBraintreePlugin.h>)
-#import <flutter_braintree/FlutterBraintreePlugin.h>
-#else
-@import flutter_braintree;
-#endif
-
 #if __has_include(<flutter_native_splash/FlutterNativeSplashPlugin.h>)
 #import <flutter_native_splash/FlutterNativeSplashPlugin.h>
 #else
 @import flutter_native_splash;
+#endif
+
+#if __has_include(<flutter_paypal_native/FlutterPaypalNativePlugin.h>)
+#import <flutter_paypal_native/FlutterPaypalNativePlugin.h>
+#else
+@import flutter_paypal_native;
 #endif
 
 #if __has_include(<flutter_secure_storage/FlutterSecureStoragePlugin.h>)
@@ -122,8 +122,8 @@
   [FilePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FilePickerPlugin"]];
   [FLTFirebaseCorePlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTFirebaseCorePlugin"]];
   [FLTFirebaseMessagingPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTFirebaseMessagingPlugin"]];
-  [FlutterBraintreePlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterBraintreePlugin"]];
   [FlutterNativeSplashPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterNativeSplashPlugin"]];
+  [FlutterPaypalNativePlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterPaypalNativePlugin"]];
   [FlutterSecureStoragePlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterSecureStoragePlugin"]];
   [GeolocatorPlugin registerWithRegistrar:[registry registrarForPlugin:@"GeolocatorPlugin"]];
   [FLTGoogleSignInPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTGoogleSignInPlugin"]];

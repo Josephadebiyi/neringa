@@ -132,6 +132,7 @@ class ApiConstants {
   static const String braintreeCheckout = '/api/payments/braintree/checkout';
   static const String braintreeVault = '/api/payments/braintree/vault';
   // PayPal checkout (card + PayPal wallet + Apple Pay)
+  static const String paypalConfig = '/api/config/paypal';
   static const String paypalCheckout = '/api/payments/paypal/checkout';
   static const String paypalCreateOrder = '/api/payments/paypal/create-order';
   static const String paypalCaptureOrder = '/api/payments/paypal/capture-order';
