@@ -313,18 +313,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // ── PayPal wallet / card-via-PayPal checkout ──────────────────────────────
 
   // ── Shared failure helper ─────────────────────────────────────────────────
-  // Refreshes expiresAt on every failure so the draft stays reusable and no
-  // duplicate packages are created when the user retries.
+  // Keep the original expiry on failure so repeated attempts reuse the same
+  // shipment draft without extending its 30-minute window.
   void _failWithDraft(String provider, String errorMsg) {
     if (!mounted) return;
+    final existingExpiresAt = _draft?['expiresAt']?.toString();
     final fresh = {
       ...(_draft ?? {}),
       'provider': provider,
       'lastPaymentError': errorMsg,
-      'expiresAt': DateTime.now()
-          .add(ShipmentCheckoutService.draftLifetime)
-          .toIso8601String(),
+      'expiresAt': existingExpiresAt?.isNotEmpty == true
+          ? existingExpiresAt
+          : DateTime.now()
+              .add(ShipmentCheckoutService.draftLifetime)
+              .toIso8601String(),
     };
+    _draft = fresh;
     _checkoutService.saveDraft(fresh);
     context.go('/payment-failed', extra: fresh);
   }

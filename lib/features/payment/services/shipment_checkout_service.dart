@@ -10,8 +10,8 @@ class ShipmentCheckoutService {
   static final ShipmentCheckoutService instance = ShipmentCheckoutService._();
 
   static const _draftKey = 'shipment_checkout_draft';
-  static const Duration draftLifetime = Duration(hours: 24);
-  static const int draftLifetimeHours = 24;
+  static const Duration draftLifetime = Duration(minutes: 30);
+  static const int draftLifetimeMinutes = 30;
 
   final StorageService _storage = StorageService.instance;
   final ValueNotifier<int> draftVersion = ValueNotifier<int>(0);

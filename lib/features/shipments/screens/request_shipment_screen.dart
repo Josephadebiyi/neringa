@@ -183,14 +183,16 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           type: SnackBarType.error);
       return;
     }
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
+    final emailRegex =
+        RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
     if (!emailRegex.hasMatch(_receiverEmailCtrl.text.trim())) {
       AppSnackBar.show(context,
           message: 'Enter a valid email address for the receiver.',
           type: SnackBarType.error);
       return;
     }
-    final phoneDigits = _receiverPhoneCtrl.text.trim().replaceAll(RegExp(r'\D'), '');
+    final phoneDigits =
+        _receiverPhoneCtrl.text.trim().replaceAll(RegExp(r'\D'), '');
     if (phoneDigits.length < 5 || phoneDigits.length > 15) {
       AppSnackBar.show(context,
           message: 'Enter a valid phone number (5–15 digits, numbers only).',
@@ -247,41 +249,55 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final totalAmount = shippingAmount + insuranceAmount;
     final provider =
         ShipmentCheckoutService.instance.providerForCurrency(currency);
-    final expiresAt = DateTime.now().add(ShipmentCheckoutService.draftLifetime);
+    final receiverName = _receiverNameCtrl.text.trim();
+    final receiverEmail = _receiverEmailCtrl.text.trim();
+    final receiverPhone =
+        '${_receiverPhoneCountry.dialCode}${_receiverPhoneCtrl.text.trim()}';
+    final deliveryAddress = _deliveryAddressCtrl.text.trim();
 
     setState(() => _isSubmitting = true);
     try {
-      // Reuse existing draft package if same trip, to avoid duplicate drafts on retry
+      // Reuse the existing draft package for the same shipment while its
+      // 30-minute checkout window is still valid.
       final existingDraft = await ShipmentCheckoutService.instance.loadDraft();
-      final reusePackageId = (existingDraft != null &&
-              existingDraft['tripId']?.toString() == trip.id &&
-              (existingDraft['packageId']?.toString().isNotEmpty ?? false) &&
-              !ShipmentCheckoutService.instance.isExpired(existingDraft))
-          ? existingDraft['packageId'].toString()
+      final reusableDraft = _isReusableDraftForCurrentShipment(
+        existingDraft,
+        trip,
+        weight: weight,
+        receiverName: receiverName,
+        receiverEmail: receiverEmail,
+        receiverPhone: receiverPhone,
+        deliveryAddress: deliveryAddress,
+      )
+          ? existingDraft
           : null;
+      final reusePackageId = reusableDraft?['packageId'].toString();
+      final expiresAt = reusableDraft?['expiresAt']?.toString() ??
+          DateTime.now()
+              .add(ShipmentCheckoutService.draftLifetime)
+              .toIso8601String();
 
       final package = reusePackageId != null
           ? null
           : await ShipmentService.instance.createPackage(
-        category: _category,
-        size: 'medium',
-        weight: weight,
-        value: declaredValue,
-        fromCountry: trip.fromCountry,
-        fromCity: trip.fromLocation,
-        toCountry: trip.toCountry,
-        toCity: trip.toLocation,
-        pickupAddress: trip.fromLocation,
-        deliveryAddress: _deliveryAddressCtrl.text.trim(),
-        receiverName: _receiverNameCtrl.text.trim(),
-        receiverPhone:
-            '${_receiverPhoneCountry.dialCode}${_receiverPhoneCtrl.text.trim()}',
-        receiverEmail: _receiverEmailCtrl.text.trim(),
-        description: _messageCtrl.text.trim(),
-        images: _itemImage != null ? [_itemImage!] : [],
-        insurance: _insurance,
-        currency: currency,
-      );
+              category: _category,
+              size: 'medium',
+              weight: weight,
+              value: declaredValue,
+              fromCountry: trip.fromCountry,
+              fromCity: trip.fromLocation,
+              toCountry: trip.toCountry,
+              toCity: trip.toLocation,
+              pickupAddress: trip.fromLocation,
+              deliveryAddress: deliveryAddress,
+              receiverName: receiverName,
+              receiverPhone: receiverPhone,
+              receiverEmail: receiverEmail,
+              description: _messageCtrl.text.trim(),
+              images: _itemImage != null ? [_itemImage!] : [],
+              insurance: _insurance,
+              currency: currency,
+            );
 
       final draft = <String, dynamic>{
         'tripId': trip.id,
@@ -297,17 +313,19 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         'totalAmount': totalAmount,
         'insurance': _insurance,
         'weight': weight,
-        'receiverName': _receiverNameCtrl.text.trim(),
-        'receiverEmail': _receiverEmailCtrl.text.trim(),
+        'receiverName': receiverName,
+        'receiverEmail': receiverEmail,
+        'receiverPhone': receiverPhone,
+        'deliveryAddress': deliveryAddress,
         'fromLocation': trip.fromLocation,
         'toLocation': trip.toLocation,
         'carrierName': trip.carrierName,
         'category': _category,
         'message': _messageCtrl.text.trim(),
-        'customerEmail': user?.email ?? _receiverEmailCtrl.text.trim(),
+        'customerEmail': user?.email ?? receiverEmail,
         'estimatedDeparture': trip.departureDate,
         'estimatedArrival': trip.arrivalDate,
-        'expiresAt': expiresAt.toIso8601String(),
+        'expiresAt': expiresAt,
         'requestSent': false,
       };
 
@@ -339,6 +357,42 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     return message.contains('identity verification') ||
         message.contains('kyc') ||
         message.contains('verification_required');
+  }
+
+  bool _isReusableDraftForCurrentShipment(
+    Map<String, dynamic>? draft,
+    TripModel trip, {
+    required double weight,
+    required String receiverName,
+    required String receiverEmail,
+    required String receiverPhone,
+    required String deliveryAddress,
+  }) {
+    if (draft == null ||
+        ShipmentCheckoutService.instance.isExpired(draft) ||
+        draft['tripId']?.toString() != trip.id ||
+        (draft['packageId']?.toString().isNotEmpty ?? false) == false) {
+      return false;
+    }
+
+    return _sameNumber(draft['weight'], weight) &&
+        _sameText(draft['receiverName'], receiverName) &&
+        _sameText(draft['receiverEmail'], receiverEmail) &&
+        _sameText(draft['receiverPhone'], receiverPhone) &&
+        _sameText(draft['deliveryAddress'], deliveryAddress) &&
+        _sameText(draft['category'], _category) &&
+        _sameText(draft['message'], _messageCtrl.text.trim());
+  }
+
+  bool _sameText(dynamic stored, String current) =>
+      (stored?.toString().trim() ?? '') == current.trim();
+
+  bool _sameNumber(dynamic stored, double current) {
+    final storedNumber = stored is num
+        ? stored.toDouble()
+        : double.tryParse(stored?.toString() ?? '');
+    if (storedNumber == null) return false;
+    return (storedNumber - current).abs() < 0.001;
   }
 
   @override
