@@ -23,6 +23,9 @@ import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from '
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 import {
+  createPayPalOrder,
+  capturePayPalOrder,
+  servePayPalCheckoutPage,
   getPendingCheckouts,
   handlePayPalOAuthCallback,
   paypalWebhook,
@@ -792,9 +795,19 @@ app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 
-// ✅ Braintree checkout (replaces PayPal checkout — PayPal is kept for payouts only)
+// ✅ Braintree checkout (legacy — kept for backward compatibility)
 app.get('/api/payments/braintree/client-token', isAuthenticated, getClientToken);
 app.post('/api/payments/braintree/checkout', isAuthenticated, braintreeCheckout);
+
+// ✅ PayPal checkout (card + PayPal wallet + Apple Pay)
+app.get('/api/payments/paypal/checkout', servePayPalCheckoutPage);
+app.post('/api/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPayPalOrder);
+app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrder);
+
+// ✅ PayPal public config (client-id is a public key, safe to expose)
+app.get('/api/config/paypal', (_req, res) => {
+  res.json({ success: true, clientId: process.env.PAYPAL_CLIENT_ID || '' });
+});
 
 // ✅ PayPal payouts and shared config
 app.get('/api/config/pricing-config', async (_req, res) => {

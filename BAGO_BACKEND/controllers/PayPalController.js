@@ -987,6 +987,316 @@ export async function paypalWebhook(req, res) {
   }
 }
 
+export function servePayPalCheckoutPage(req, res) {
+  const {
+    packageId = '',
+    tripId = '',
+    shipmentId = '',
+    insurance = 'false',
+    insuranceCost = '0',
+    fromLocation = '',
+    toLocation = '',
+    // token is passed by Flutter WebView so JS can call backend with auth
+    token = '',
+  } = req.query;
+
+  const clientId = process.env.PAYPAL_CLIENT_ID || '';
+  const backendUrl = (process.env.API_PUBLIC_URL || process.env.BACKEND_URL || 'https://neringa.onrender.com').replace(/\/+$/, '');
+  const mode = String(req.query.mode || 'app'); // 'app' = Flutter WebView, 'web' = browser
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Secure checkout</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f8;-webkit-font-smoothing:antialiased}
+body{padding:16px}
+.card{background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:13px;font-weight:600;color:#6b7280;margin-bottom:8px}
+.field-wrap{background:#f5f5f5;border:1.5px solid #e5e7eb;border-radius:12px;height:50px;display:flex;align-items:center;padding:0 14px;transition:border-color .15s}
+.field-wrap.focused{border-color:#5845D8}
+#card-name-input{width:100%;border:none;background:transparent;font-size:15px;font-weight:500;color:#111;outline:none}
+#card-name-input::placeholder{color:#9ca3af;font-weight:400}
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:15px;font-weight:700;color:#111827}
+.logos{display:flex;gap:8px;align-items:center}
+.pay-btn{width:100%;height:56px;background:#5845D8;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:16px;transition:opacity .2s}
+.pay-btn:disabled{opacity:.6;cursor:not-allowed}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 0}
+.div-line{flex:1;height:1px;background:#e5e7eb}
+.div-text{font-size:13px;color:#9ca3af;white-space:nowrap}
+.pp-btn{width:100%;height:56px;background:#003087;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
+.ap-btn{width:100%;height:56px;background:#000;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:12px;-webkit-appearance:none;-apple-pay-button-type:plain;-apple-pay-button-style:black}
+.footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;padding-bottom:20px}
+.footer-txt{font-size:12px;color:#9ca3af}
+.err{background:#fee2e2;color:#dc2626;padding:12px 16px;border-radius:10px;font-size:13px;margin-top:12px;display:none}
+.spin{display:inline-block;width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#apple-section{display:none}
+</style>
+</head>
+<body>
+
+<!-- Card details section -->
+<div class="card">
+  <div class="section-hd">
+    <span class="section-title">Card details</span>
+    <div class="logos">
+      <svg width="38" height="24" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="38" height="24" rx="4" fill="#1A1F71"/><text x="5" y="16" font-family="Arial" font-size="10" font-weight="bold" fill="#F7B731">VISA</text></svg>
+      <svg width="38" height="24" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="38" height="24" rx="4" fill="#fff" stroke="#e5e7eb"/><circle cx="15" cy="12" r="7" fill="#EB001B"/><circle cx="23" cy="12" r="7" fill="#F79E1B"/><path d="M19 6.8a7 7 0 010 10.4A7 7 0 0119 6.8z" fill="#FF5F00"/></svg>
+    </div>
+  </div>
+
+  <label>Card number</label>
+  <div class="field-wrap" id="number-wrap"><div id="card-number-field" style="width:100%;height:100%"></div></div>
+
+  <div class="row2" style="margin-top:12px">
+    <div>
+      <label>Expiry</label>
+      <div class="field-wrap" id="expiry-wrap"><div id="card-expiry-field" style="width:100%;height:100%"></div></div>
+    </div>
+    <div>
+      <label>CVV</label>
+      <div class="field-wrap" id="cvv-wrap"><div id="card-cvv-field" style="width:100%;height:100%"></div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:12px">
+    <label>Cardholder name (optional)</label>
+    <div class="field-wrap">
+      <input id="card-name-input" type="text" placeholder="Name on card" autocomplete="cc-name">
+    </div>
+  </div>
+
+  <button class="pay-btn" id="card-pay-btn" onclick="submitCard()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <span id="pay-label">Pay</span>
+  </button>
+  <div class="err" id="card-err"></div>
+</div>
+
+<div class="divider"><div class="div-line"></div><span class="div-text">or pay with</span><div class="div-line"></div></div>
+
+<!-- PayPal button rendered here by SDK -->
+<div id="paypal-btn-container"></div>
+
+<!-- Apple Pay -->
+<div id="apple-section">
+  <button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">
+    <svg width="16" height="20" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-167.2-47.5c-62.2-10.1-155.5-83.9-165.6-229.1v-42.6c6.4-40.3 25.3-83.6 55.7-103.7 30.4-20.1 71.1-29.9 102.8-29.9 70.2 0 111.4 27.9 200.5 27.9 86.8 0 138.8-27.9 202.4-27.9 60.6 0 119.8 37.8 162.5 85.8zm-192-175.9c-34.4 41.8-66.6 92.6-66.6 148.1 0 5.4.3 10.8.9 16.3.2.8.4 1.6.6 2.4.6 0 1.2.1 1.8.1 27.4 0 58.8-9.3 82.6-27.6 21-16.2 46.5-51.5 46.5-96.4C661.9 166.5 596 146 596 146s-53 2.4-118.7 45.6c-10.8 7.1-21.3 15.6-31.3 25.5"/></svg>
+    Pay
+  </button>
+</div>
+
+<div class="footer">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  <span class="footer-txt">Secure checkout</span>
+</div>
+
+<script src="https://www.paypal.com/sdk/js?client-id=${clientId}&components=buttons,card-fields,applepay&intent=capture"></script>
+<script>
+const P = new URLSearchParams(location.search);
+const token      = P.get('token') || '${token}';
+const packageId  = P.get('packageId') || '${packageId}';
+const tripId     = P.get('tripId') || '${tripId}';
+const shipmentId = P.get('shipmentId') || '${shipmentId}';
+const insurance  = P.get('insurance') === 'true';
+const insuranceCost = parseFloat(P.get('insuranceCost') || '${insuranceCost}') || 0;
+const mode       = P.get('mode') || '${mode}';
+const backend    = '${backendUrl}';
+
+const authHeaders = {'Content-Type':'application/json', 'Authorization': 'Bearer ' + token};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  if (loading) {
+    btn.innerHTML = '<span class="spin"></span>';
+  }
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideError(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+
+function updatePayLabel() {
+  const el = document.getElementById('pay-label');
+  if (!el) return;
+  const amt = parseFloat(P.get('amount') || '0');
+  const cur = P.get('currency') || 'USD';
+  if (amt > 0) el.textContent = 'Pay ' + cur + ' ' + amt.toFixed(2);
+  else el.textContent = 'Pay';
+}
+updatePayLabel();
+
+function notifyFlutter(type, data) {
+  try {
+    if (window.FlutterBago) {
+      window.FlutterBago.postMessage(JSON.stringify({type, ...data}));
+    }
+  } catch(e) {}
+}
+
+async function createOrder(paymentMethod) {
+  const res = await fetch(backend + '/api/payments/paypal/create-order', {
+    method: 'POST',
+    headers: authHeaders,
+    credentials: 'include',
+    body: JSON.stringify({ packageId, tripId, shipmentId: shipmentId || undefined,
+      currency: P.get('currency') || 'USD',
+      insurance, insuranceCost, paymentMethod })
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message || 'Could not create order');
+  return data.data.orderId;
+}
+
+async function captureOrder(orderId) {
+  const res = await fetch(backend + '/api/payments/paypal/capture-order', {
+    method: 'POST',
+    headers: authHeaders,
+    credentials: 'include',
+    body: JSON.stringify({ orderId })
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message || 'Payment could not be captured');
+  return data.data;
+}
+
+// ── Card fields ───────────────────────────────────────────────────────────────
+
+const cardField = paypal.CardFields({
+  createOrder: () => createOrder('card'),
+  onApprove: async ({ orderID }) => {
+    try {
+      const result = await captureOrder(orderID);
+      notifyFlutter('success', { orderId: orderID, request: result.request || null });
+      if (mode !== 'app') window.location.href = '/shipping-success';
+    } catch(e) {
+      showError('card-err', e.message);
+      setLoading('card-pay-btn', false);
+      document.getElementById('card-pay-btn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span id="pay-label">Retry</span>';
+      notifyFlutter('error', { message: e.message });
+    }
+  },
+  onError: (err) => {
+    const msg = err?.message || 'Card payment failed';
+    showError('card-err', msg);
+    setLoading('card-pay-btn', false);
+    notifyFlutter('error', { message: msg });
+  },
+  style: {
+    input: { 'font-size': '15px', 'font-family': '-apple-system, BlinkMacSystemFont, sans-serif', color: '#111827', padding: '0' },
+    ':focus': { color: '#111827' },
+    '.invalid': { color: '#dc2626' },
+  },
+});
+
+if (cardField.isEligible()) {
+  cardField.NumberField().render('#card-number-field');
+  cardField.ExpiryField().render('#card-expiry-field');
+  cardField.CVVField().render('#card-cvv-field');
+} else {
+  document.querySelector('.card').style.display = 'none';
+}
+
+window.submitCard = function() {
+  hideError('card-err');
+  setLoading('card-pay-btn', true);
+  const name = document.getElementById('card-name-input').value.trim();
+  cardField.submit(name ? { cardholderName: name } : {}).catch(e => {
+    showError('card-err', e.message || 'Please check your card details');
+    setLoading('card-pay-btn', false);
+  });
+};
+
+// ── PayPal button (web only — popup windows are not supported in WKWebView) ───
+
+if (mode !== 'app') {
+  paypal.Buttons({
+    createOrder: () => createOrder('paypal_wallet'),
+    onApprove: async ({ orderID }) => {
+      try {
+        const result = await captureOrder(orderID);
+        notifyFlutter('success', { orderId: orderID, request: result.request || null });
+        window.location.href = '/shipping-success';
+      } catch(e) {
+        alert(e.message);
+      }
+    },
+    onError: (err) => { if (mode !== 'app') alert(err?.message || 'PayPal payment failed'); },
+    onCancel: () => {},
+    style: { layout: 'horizontal', color: 'blue', shape: 'rect', label: 'pay', height: 56, tagline: false },
+  }).render('#paypal-btn-container');
+} else {
+  // In-app: hide the PayPal wallet section — card fields and Apple Pay are used instead
+  const ppSection = document.getElementById('paypal-btn-container');
+  if (ppSection) ppSection.style.display = 'none';
+  const divider = document.querySelector('.divider');
+  if (divider) divider.style.display = 'none';
+}
+
+// ── Apple Pay ─────────────────────────────────────────────────────────────────
+
+if (window.ApplePaySession && paypal.Applepay) {
+  const applepay = paypal.Applepay();
+  applepay.config().then(config => {
+    if (!config.isEligible) return;
+    document.getElementById('apple-section').style.display = 'block';
+    window.startApplePay = async function() {
+      const orderId = await createOrder('apple_pay').catch(e => { notifyFlutter('error', {message: e.message}); return null; });
+      if (!orderId) return;
+      const session = new ApplePaySession(3, {
+        countryCode: config.countryCode || 'US',
+        currencyCode: P.get('currency') || 'USD',
+        merchantCapabilities: config.merchantCapabilities || ['supports3DS'],
+        supportedNetworks: config.supportedNetworks || ['visa','masterCard','amex'],
+        total: { label: 'Bago', amount: (parseFloat(P.get('amount') || '0')).toFixed(2) }
+      });
+      session.onvalidatemerchant = async (e) => {
+        const { merchantSession } = await applepay.validateMerchant({ validationUrl: e.validationURL, orderId });
+        session.completeMerchantValidation(merchantSession);
+      };
+      session.onpaymentauthorized = async (e) => {
+        try {
+          await applepay.confirmOrder({ orderId, token: e.payment.token, billingContact: e.payment.billingContact });
+          const result = await captureOrder(orderId);
+          session.completePayment(ApplePaySession.STATUS_SUCCESS);
+          notifyFlutter('success', { orderId, request: result.request || null });
+          if (mode !== 'app') window.location.href = '/shipping-success';
+        } catch(err) {
+          session.completePayment(ApplePaySession.STATUS_FAILURE);
+          notifyFlutter('error', { message: err.message });
+        }
+      };
+      session.begin();
+    };
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(html);
+}
+
 export function paypalReturn(_req, res) {
   res.send('<html><body><script>window.close();</script><p>Payment approved. You can return to Bago.</p></body></html>');
 }

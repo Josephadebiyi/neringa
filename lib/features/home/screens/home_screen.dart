@@ -1,6 +1,6 @@
 import 'dart:async';
-
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart' show Dio, Options;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,8 +24,9 @@ import '../../trips/providers/trip_provider.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 class _Location {
   final String name;
+  final String country;
   final String countryCode;
-  const _Location({required this.name, required this.countryCode});
+  const _Location({required this.name, required this.country, required this.countryCode});
 }
 
 String _flagEmoji(String code) {
@@ -791,14 +792,55 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   Future<void> _search(String q) async {
     final trimmed = q.trim();
     if (trimmed.length < 2) {
-      if (mounted) setState(() => _results = []);
-      return;
-    }
-    if (mounted) {
-      setState(() {
-        _results = [_Location(name: trimmed, countryCode: 'xx')];
+      if (mounted) setState(() {
+        _results = [];
         _loading = false;
       });
+      return;
+    }
+    if (mounted) setState(() => _loading = true);
+    try {
+      final dio = Dio();
+      final response = await dio.get<List<dynamic>>(
+        'https://nominatim.openstreetmap.org/search',
+        queryParameters: {
+          'q': trimmed,
+          'format': 'jsonv2',
+          'addressdetails': 1,
+          'limit': 10,
+        },
+        options: Options(headers: {'User-Agent': 'BagoApp/1.0'}),
+      );
+      final items = response.data ?? [];
+
+      final seen = <String>{};
+      final results = <_Location>[];
+      for (final item in items) {
+        final map = item as Map<String, dynamic>;
+        final address = (map['address'] as Map?)?.cast<String, dynamic>() ?? {};
+        final city = address['city']?.toString() ??
+            address['town']?.toString() ??
+            address['village']?.toString() ??
+            address['municipality']?.toString() ??
+            address['county']?.toString() ??
+            '';
+        final country = address['country']?.toString() ?? '';
+        final code = address['country_code']?.toString() ?? '';
+        if (city.isEmpty) continue;
+        final key = '$city|$code';
+        if (seen.contains(key)) continue;
+        seen.add(key);
+        results.add(_Location(name: city, country: country, countryCode: code));
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
     }
   }
 
@@ -910,6 +952,11 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                           title: Text(loc.name,
                               style: AppTextStyles.bodyMd
                                   .copyWith(fontWeight: FontWeight.w700)),
+                          subtitle: loc.country.isNotEmpty
+                              ? Text(loc.country,
+                                  style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.gray500))
+                              : null,
                           onTap: () {
                             widget.onSelect(loc.name);
                             Navigator.pop(context);

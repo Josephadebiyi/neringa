@@ -127,10 +127,14 @@ class ApiConstants {
   // Backend: POST /withdrawFunds
   static const String withdrawFunds = '/api/bago/withdrawFunds';
   static const String paymentMethods = '/api/bago/payment-methods';
-  // Braintree checkout
+  // Braintree checkout (legacy)
   static const String braintreeClientToken = '/api/payments/braintree/client-token';
   static const String braintreeCheckout = '/api/payments/braintree/checkout';
   static const String braintreeVault = '/api/payments/braintree/vault';
+  // PayPal checkout (card + PayPal wallet + Apple Pay)
+  static const String paypalCheckout = '/api/payments/paypal/checkout';
+  static const String paypalCreateOrder = '/api/payments/paypal/create-order';
+  static const String paypalCaptureOrder = '/api/payments/paypal/capture-order';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';

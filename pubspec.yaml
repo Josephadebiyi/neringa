@@ -76,7 +76,7 @@ dependencies:
   dojah_kyc_sdk_flutter:
     path: packages/dojah_kyc_sdk_flutter
 
-  webview_flutter: ^4.11.0
+  webview_flutter: ^4.13.0
 
   # URL launcher
   url_launcher: ^6.3.1
