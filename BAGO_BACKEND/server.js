@@ -862,6 +862,13 @@ app.get('/', async (req, res) => {
 });
 
 
+// Serve Apple Pay domain verification file for PayPal merchant registration
+app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res) => {
+  const filePath = path.join(__dirname, '.well-known', 'apple-developer-merchantid-domain-association');
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.sendFile(filePath);
+});
+
 // Serve admin panel from /admin
 const adminDist = path.join(__dirname, '../ADMIN_NEW/dist');
 app.use('/admin', express.static(adminDist));
