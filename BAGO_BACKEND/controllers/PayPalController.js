@@ -578,18 +578,36 @@ export async function capturePayPalOrder(req, res) {
       if (Math.abs(ppAmount - quote.amount) > 0.05) {
         return res.status(400).json({ success: false, message: 'Payment amount mismatch. Please retry.' });
       }
-      payment = await queryOne(
-        `insert into public.payments
-           (user_id, package_id, trip_id, provider, payment_method,
-            paypal_order_id, amount, currency, commission_amount, traveler_amount, status, raw_response)
-         values ($1,$2,$3,'paypal','paypal_wallet',$4,$5,$6,$7,$8,'pending',$9)
-         on conflict (paypal_order_id) do update
-           set updated_at = timezone('utc', now())
-         returning *`,
-        [profile.id, pkgId, trpId, orderId,
-         quote.amount, quote.currency, quote.commissionAmount, quote.travelerAmount,
-         { ppOrder, quote }],
+      // Reuse any existing pending record for the same package+trip to avoid
+      // duplicate payment rows on every retry attempt
+      const existingPending = await queryOne(
+        `select id from public.payments
+         where package_id = $1 and trip_id = $2 and user_id = $3 and status = 'pending'
+         order by created_at desc limit 1`,
+        [pkgId, trpId, profile.id],
       );
+      if (existingPending) {
+        payment = await queryOne(
+          `update public.payments
+           set paypal_order_id = $2, raw_response = raw_response || $3::jsonb,
+               updated_at = timezone('utc', now())
+           where id = $1 returning *`,
+          [existingPending.id, orderId, { ppOrder, quote }],
+        );
+      } else {
+        payment = await queryOne(
+          `insert into public.payments
+             (user_id, package_id, trip_id, provider, payment_method,
+              paypal_order_id, amount, currency, commission_amount, traveler_amount, status, raw_response)
+           values ($1,$2,$3,'paypal','paypal_wallet',$4,$5,$6,$7,$8,'pending',$9)
+           on conflict (paypal_order_id) do update
+             set updated_at = timezone('utc', now())
+           returning *`,
+          [profile.id, pkgId, trpId, orderId,
+           quote.amount, quote.currency, quote.commissionAmount, quote.travelerAmount,
+           { ppOrder, quote }],
+        );
+      }
     }
     if (payment.status === 'paid' && payment.shipment_id) {
       return res.json({
@@ -721,20 +739,34 @@ export async function captureApplePayOrder(req, res) {
       return res.status(402).json({ success: false, message: 'Apple Pay payment could not be completed.' });
     }
 
-    // Create payment record
-    const payment = await queryOne(
-      `insert into public.payments
-         (user_id, package_id, trip_id, provider, payment_method,
-          paypal_order_id, paypal_capture_id, amount, currency,
-          commission_amount, traveler_amount, status, raw_response)
-       values ($1,$2,$3,'paypal','apple_pay',$4,$5,$6,$7,$8,$9,'paid',$10)
-       on conflict (paypal_order_id) do update
-         set status = 'paid', updated_at = timezone('utc', now())
-       returning *`,
-      [profile.id, pkgId, trpId, orderId, captureUnit.id,
-       quote.amount, quote.currency, quote.commissionAmount, quote.travelerAmount,
-       { order, capture }],
+    // Reuse existing pending record for this package+trip to avoid duplicates on retry
+    const existingApplePending = await queryOne(
+      `select id from public.payments
+       where package_id = $1 and trip_id = $2 and user_id = $3 and status = 'pending'
+       order by created_at desc limit 1`,
+      [pkgId, trpId, profile.id],
     );
+    const payment = existingApplePending
+      ? await queryOne(
+          `update public.payments
+           set paypal_order_id = $2, paypal_capture_id = $3, status = 'paid',
+               raw_response = raw_response || $4::jsonb, updated_at = timezone('utc', now())
+           where id = $1 returning *`,
+          [existingApplePending.id, orderId, captureUnit.id, { order, capture }],
+        )
+      : await queryOne(
+          `insert into public.payments
+             (user_id, package_id, trip_id, provider, payment_method,
+              paypal_order_id, paypal_capture_id, amount, currency,
+              commission_amount, traveler_amount, status, raw_response)
+           values ($1,$2,$3,'paypal','apple_pay',$4,$5,$6,$7,$8,$9,'paid',$10)
+           on conflict (paypal_order_id) do update
+             set status = 'paid', updated_at = timezone('utc', now())
+           returning *`,
+          [profile.id, pkgId, trpId, orderId, captureUnit.id,
+           quote.amount, quote.currency, quote.commissionAmount, quote.travelerAmount,
+           { order, capture }],
+        );
 
     const request = await finalizePayPalShipmentPayment(payment, capture);
 

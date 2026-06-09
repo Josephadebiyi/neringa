@@ -154,15 +154,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ? data.reason
                 : 'Payment failed. Please try again.';
             final fullMsg = sdkError.isNotEmpty ? '$msg\n[$sdkError]' : msg;
-            if (mounted) {
-              final updatedDraft = {
-                ...(_draft ?? {}),
-                'provider': 'paypal',
-                'lastPaymentError': fullMsg,
-              };
-              _checkoutService.saveDraft(updatedDraft);
-              context.go('/payment-failed', extra: updatedDraft);
-            }
+            _failWithDraft('paypal', fullMsg);
           },
         ),
       );
@@ -244,6 +236,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── PayPal wallet / card-via-PayPal checkout ──────────────────────────────
 
+  // ── Shared failure helper ─────────────────────────────────────────────────
+  // Refreshes expiresAt on every failure so the draft stays reusable and no
+  // duplicate packages are created when the user retries.
+  void _failWithDraft(String provider, String errorMsg) {
+    if (!mounted) return;
+    final fresh = {
+      ...(_draft ?? {}),
+      'provider': provider,
+      'lastPaymentError': errorMsg,
+      'expiresAt': DateTime.now()
+          .add(ShipmentCheckoutService.draftLifetime)
+          .toIso8601String(),
+    };
+    _checkoutService.saveDraft(fresh);
+    context.go('/payment-failed', extra: fresh);
+  }
+
   void _startPayPalCheckout() {
     final draft = _draft;
     if (draft == null || !_isSdkReady || _isProcessing) return;
@@ -283,21 +292,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'request': result.request,
         });
       } else {
-        final msg = result.message ?? 'Payment could not be completed.';
-        final updatedDraft = {...draft, 'provider': 'paypal', 'lastPaymentError': msg};
-        _checkoutService.saveDraft(updatedDraft);
-        context.go('/payment-failed', extra: updatedDraft);
+        _failWithDraft('paypal', result.message ?? 'Payment could not be completed.');
       }
     } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceFirst('Exception: ', '');
-      final updatedDraft = {
-        ...(_draft ?? {}),
-        'provider': 'paypal',
-        'lastPaymentError': msg,
-      };
-      _checkoutService.saveDraft(updatedDraft);
-      context.go('/payment-failed', extra: updatedDraft);
+      _failWithDraft('paypal', e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -310,7 +308,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _isProcessing = true);
     try {
       final draft = _draft!;
-      // Extract raw Apple Pay token from the pay package result
       final tokenJson =
           result['paymentMethodData']?['tokenizationData']?['token'];
       if (tokenJson == null) throw Exception('Apple Pay token missing.');
@@ -335,25 +332,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'request': captureResult.request,
         });
       } else {
-        final msg = captureResult.message ?? 'Apple Pay payment failed.';
-        final updatedDraft = {
-          ...draft,
-          'provider': 'apple_pay',
-          'lastPaymentError': msg,
-        };
-        _checkoutService.saveDraft(updatedDraft);
-        context.go('/payment-failed', extra: updatedDraft);
+        _failWithDraft('apple_pay', captureResult.message ?? 'Apple Pay payment failed.');
       }
     } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceFirst('Exception: ', '');
-      final updatedDraft = {
-        ...(_draft ?? {}),
-        'provider': 'apple_pay',
-        'lastPaymentError': msg,
-      };
-      _checkoutService.saveDraft(updatedDraft);
-      context.go('/payment-failed', extra: updatedDraft);
+      _failWithDraft('apple_pay', e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
