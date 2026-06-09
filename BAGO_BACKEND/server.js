@@ -181,9 +181,15 @@ startEscrowAutoRelease();
 startCurrencyRateSync();
 
 // Apple Pay domain verification — must be before all middleware and auth
-app.get('/.well-known/apple-developer-merchantid-domain-association', (_req, res) => {
-  res.setHeader('Content-Type', 'application/octet-stream');
-  res.sendFile(path.join(__dirname, '.well-known', 'apple-developer-merchantid-domain-association'));
+app.get('/.well-known/apple-developer-merchantid-domain-association', async (_req, res) => {
+  try {
+    const filePath = path.join(__dirname, '.well-known', 'apple-developer-merchantid-domain-association');
+    const data = await readFile(filePath);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.end(data);
+  } catch (e) {
+    res.status(404).send('File not found: ' + e.message);
+  }
 });
 
 // ✅ Middleware setup
