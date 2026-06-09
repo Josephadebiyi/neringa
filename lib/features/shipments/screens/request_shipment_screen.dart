@@ -42,7 +42,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   final _itemValueCtrl = TextEditingController();
   final _receiverNameCtrl = TextEditingController();
   final _receiverPhoneCtrl = TextEditingController();
-  final _receiverEmailCtrl = TextEditingController();
   final _deliveryAddressCtrl = TextEditingController();
   final _messageCtrl = TextEditingController();
   final _picker = ImagePicker();
@@ -127,7 +126,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     _itemValueCtrl.dispose();
     _receiverNameCtrl.dispose();
     _receiverPhoneCtrl.dispose();
-    _receiverEmailCtrl.dispose();
     _deliveryAddressCtrl.dispose();
     _messageCtrl.dispose();
     super.dispose();
@@ -176,18 +174,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     }
     if (_receiverNameCtrl.text.trim().isEmpty ||
         _receiverPhoneCtrl.text.trim().isEmpty ||
-        _receiverEmailCtrl.text.trim().isEmpty ||
         _deliveryAddressCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
           message: 'Please fill in all receiver details.',
-          type: SnackBarType.error);
-      return;
-    }
-    final emailRegex =
-        RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
-    if (!emailRegex.hasMatch(_receiverEmailCtrl.text.trim())) {
-      AppSnackBar.show(context,
-          message: 'Enter a valid email address for the receiver.',
           type: SnackBarType.error);
       return;
     }
@@ -250,7 +239,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final provider =
         ShipmentCheckoutService.instance.providerForCurrency(currency);
     final receiverName = _receiverNameCtrl.text.trim();
-    final receiverEmail = _receiverEmailCtrl.text.trim();
     final receiverPhone =
         '${_receiverPhoneCountry.dialCode}${_receiverPhoneCtrl.text.trim()}';
     final deliveryAddress = _deliveryAddressCtrl.text.trim();
@@ -265,7 +253,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         trip,
         weight: weight,
         receiverName: receiverName,
-        receiverEmail: receiverEmail,
         receiverPhone: receiverPhone,
         deliveryAddress: deliveryAddress,
       )
@@ -292,7 +279,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               deliveryAddress: deliveryAddress,
               receiverName: receiverName,
               receiverPhone: receiverPhone,
-              receiverEmail: receiverEmail,
+              receiverEmail: '',
               description: _messageCtrl.text.trim(),
               images: _itemImage != null ? [_itemImage!] : [],
               insurance: _insurance,
@@ -314,7 +301,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         'insurance': _insurance,
         'weight': weight,
         'receiverName': receiverName,
-        'receiverEmail': receiverEmail,
         'receiverPhone': receiverPhone,
         'deliveryAddress': deliveryAddress,
         'fromLocation': trip.fromLocation,
@@ -322,7 +308,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         'carrierName': trip.carrierName,
         'category': _category,
         'message': _messageCtrl.text.trim(),
-        'customerEmail': user?.email ?? receiverEmail,
+        'customerEmail': user?.email ?? '',
         'estimatedDeparture': trip.departureDate,
         'estimatedArrival': trip.arrivalDate,
         'expiresAt': expiresAt,
@@ -364,7 +350,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     TripModel trip, {
     required double weight,
     required String receiverName,
-    required String receiverEmail,
     required String receiverPhone,
     required String deliveryAddress,
   }) {
@@ -377,7 +362,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
     return _sameNumber(draft['weight'], weight) &&
         _sameText(draft['receiverName'], receiverName) &&
-        _sameText(draft['receiverEmail'], receiverEmail) &&
         _sameText(draft['receiverPhone'], receiverPhone) &&
         _sameText(draft['deliveryAddress'], deliveryAddress) &&
         _sameText(draft['category'], _category) &&
@@ -546,13 +530,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               controller: _receiverPhoneCtrl,
               country: _receiverPhoneCountry,
               onPickCountry: _showReceiverCountryPicker,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _receiverEmailCtrl,
-              label: 'Email address',
-              hint: 'receiver@example.com',
-              keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 12),
             AppTextField(
@@ -1355,38 +1332,85 @@ class _PhoneRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      GestureDetector(
-        onTap: onPickCountry,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'Phone number',
+            style: AppTextStyles.labelSm.copyWith(
+              color: AppColors.gray600,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Container(
+          height: 56,
           decoration: BoxDecoration(
             color: const Color(0xFFF7F7F8),
             border: Border.all(color: AppColors.border, width: 1.5),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(country.flag, style: const TextStyle(fontSize: 18)),
-            const SizedBox(width: 8),
-            Text(country.dialCode,
-                style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.black, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 6),
-            const Icon(Icons.keyboard_arrow_down_rounded,
-                color: AppColors.gray400, size: 20),
-          ]),
+          child: Row(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onPickCountry,
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(14),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(country.flag,
+                            style: const TextStyle(fontSize: 18)),
+                        const SizedBox(width: 7),
+                        Text(
+                          country.dialCode,
+                          style: AppTextStyles.bodyMd.copyWith(
+                            color: AppColors.black,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.gray400,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Container(width: 1, height: 28, color: AppColors.gray200),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.phone,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '800 000 0000',
+                    hintStyle:
+                        AppTextStyles.bodyMd.copyWith(color: AppColors.gray400),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: AppTextField(
-          controller: controller,
-          label: 'Phone number',
-          hint: '800 000 0000',
-          keyboardType: TextInputType.phone,
-        ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 

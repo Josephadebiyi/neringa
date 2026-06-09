@@ -14,7 +14,8 @@ import {
     ArrowRight,
     MapPin,
     CreditCard,
-    RefreshCw
+    RefreshCw,
+    Phone
 } from 'lucide-react';
 import api from '../api';
 import { locations } from '../utils/countries';
@@ -126,7 +127,6 @@ export default function SendPackage() {
         category: 'other',
         receiverName: '',
         receiverPhone: '',
-        receiverEmail: '',
         imagePreview: null,
         height: '',
         termsAccepted: [false, false, false]
@@ -476,7 +476,7 @@ export default function SendPackage() {
                     recipient_details: {
                         receiver_name: formData.receiverName.trim(),
                         receiver_phone: formData.receiverPhone.trim(),
-                        receiver_email: formData.receiverEmail.trim()
+                        receiver_email: ''
                     }
                 });
 
@@ -813,32 +813,22 @@ export default function SendPackage() {
                                         onChange={handleChange}
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('receiverPhoneLabel')}</label>
-                                    <input
-                                        required
-                                        type="tel"
-                                        name="receiverPhone"
-                                        placeholder="+1 234 567 890"
-                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-                                        value={formData.receiverPhone}
-                                        onChange={handleChange}
-                                    />
-                                </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('receiverEmailLabel') || 'Receiver Email Address'}</label>
-                                    <input
-                                        required
-                                        type="email"
-                                        name="receiverEmail"
-                                        placeholder="receiver@example.com"
-                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-                                        value={formData.receiverEmail}
-                                        onChange={handleChange}
-                                    />
-                                    <p className="mt-1.5 text-[9px] font-medium text-gray-400 ml-1 uppercase tracking-wider">
-                                        {t('receiverEmailInfo') || 'The receiver will be notified via email when the shipment starts'}
-                                    </p>
+                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('receiverPhoneLabel')}</label>
+                                    <div className="flex items-center rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white focus-within:bg-white focus-within:border-[#5845D8]/30 focus-within:shadow-sm transition-all overflow-hidden">
+                                        <div className="h-[50px] w-[52px] flex items-center justify-center text-gray-400 border-r border-gray-100 bg-white/60">
+                                            <Phone size={18} />
+                                        </div>
+                                        <input
+                                            required
+                                            type="tel"
+                                            name="receiverPhone"
+                                            placeholder="+1 234 567 890"
+                                            className="w-full px-4 py-3.5 outline-none text-[14px] font-bold tracking-tight bg-transparent text-[#012126]"
+                                            value={formData.receiverPhone}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
