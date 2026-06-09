@@ -1,7 +1,3 @@
-# MIME types — must come before rewrite rules
-AddType image/svg+xml .svg
-AddType image/svg+xml .svgz
-
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
