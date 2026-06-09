@@ -2,7 +2,6 @@ import Flutter
 import UIKit
 import UserNotifications
 import GoogleSignIn
-import PayPalCheckout
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -33,7 +32,6 @@ import PayPalCheckout
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
-    if Checkout.handleApprovalSessionURLCallback(url) { return true }
     return GIDSignIn.sharedInstance.handle(url)
   }
 

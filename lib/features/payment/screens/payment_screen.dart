@@ -105,14 +105,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
           },
           onSuccess: (data) => _captureOrder(data.orderId ?? ''),
           onError: (data) {
+            final sdkError = data.error.isNotEmpty ? data.error : '';
             final msg = data.reason.isNotEmpty
                 ? data.reason
                 : 'Payment failed. Please try again.';
+            final fullMsg = sdkError.isNotEmpty ? '$msg\n[$sdkError]' : msg;
             if (mounted) {
               final updatedDraft = {
                 ...(_draft ?? {}),
                 'provider': 'paypal',
-                'lastPaymentError': msg,
+                'lastPaymentError': fullMsg,
               };
               _checkoutService.saveDraft(updatedDraft);
               context.go('/payment-failed', extra: updatedDraft);
