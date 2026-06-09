@@ -1168,6 +1168,8 @@ export function servePayPalCheckoutPage(req, res) {
   const clientId = process.env.PAYPAL_CLIENT_ID || '';
   const backendUrl = (process.env.API_PUBLIC_URL || process.env.BACKEND_URL || 'https://neringa.onrender.com').replace(/\/+$/, '');
   const mode = String(req.query.mode || 'app'); // 'app' = Flutter WebView, 'web' = browser
+  const checkout = String(req.query.checkout || '').toLowerCase();
+  const cardOnly = checkout === 'card';
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1272,6 +1274,8 @@ const shipmentId = P.get('shipmentId') || '${shipmentId}';
 const insurance  = P.get('insurance') === 'true';
 const insuranceCost = parseFloat(P.get('insuranceCost') || '${insuranceCost}') || 0;
 const mode       = P.get('mode') || '${mode}';
+const checkout   = (P.get('checkout') || '${checkout}').toLowerCase();
+const cardOnly   = checkout === 'card';
 const backend    = '${backendUrl}';
 
 const authHeaders = {'Content-Type':'application/json', 'Authorization': 'Bearer ' + token};
@@ -1378,6 +1382,7 @@ if (cardField.isEligible()) {
   cardField.CVVField().render('#card-cvv-field');
 } else {
   document.querySelector('.card').style.display = 'none';
+  notifyFlutter('error', { message: 'Card payment is not available right now. Please try another card or payment method.' });
 }
 
 window.submitCard = function() {
@@ -1392,7 +1397,7 @@ window.submitCard = function() {
 
 // ── PayPal button (web only — popup windows are not supported in WKWebView) ───
 
-if (mode !== 'app') {
+if (!cardOnly && mode !== 'app') {
   paypal.Buttons({
     createOrder: () => createOrder('paypal_wallet'),
     onApprove: async ({ orderID }) => {
@@ -1409,7 +1414,7 @@ if (mode !== 'app') {
     style: { layout: 'horizontal', color: 'blue', shape: 'rect', label: 'pay', height: 56, tagline: false },
   }).render('#paypal-btn-container');
 } else {
-  // In-app: hide the PayPal wallet section — card fields and Apple Pay are used instead
+  // In-app/card-only: hide the PayPal wallet section so card checkout never opens PayPal login.
   const ppSection = document.getElementById('paypal-btn-container');
   if (ppSection) ppSection.style.display = 'none';
   const divider = document.querySelector('.divider');
@@ -1418,7 +1423,7 @@ if (mode !== 'app') {
 
 // ── Apple Pay ─────────────────────────────────────────────────────────────────
 
-if (window.ApplePaySession && paypal.Applepay) {
+if (!cardOnly && window.ApplePaySession && paypal.Applepay) {
   const applepay = paypal.Applepay();
   applepay.config().then(config => {
     if (!config.isEligible) return;

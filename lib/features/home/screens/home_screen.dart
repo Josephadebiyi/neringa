@@ -26,7 +26,8 @@ class _Location {
   final String name;
   final String country;
   final String countryCode;
-  const _Location({required this.name, required this.country, required this.countryCode});
+  const _Location(
+      {required this.name, required this.country, required this.countryCode});
 }
 
 String _flagEmoji(String code) {
@@ -61,9 +62,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!ref.read(authProvider).isLoggedIn) return;
+      final authState = ref.read(authProvider);
+      if (!authState.isLoggedIn) return;
       ref.read(authProvider.notifier).refreshProfile();
-      ref.read(tripProvider.notifier).loadMyTrips();
+      if (authState.user?.isCarrier ?? false) {
+        ref.read(tripProvider.notifier).loadMyTrips();
+      }
       ref.read(shipmentProvider.notifier).loadMyPackages();
       ref.read(shipmentProvider.notifier).loadMyRequestHistory();
       ref.read(shipmentProvider.notifier).loadIncomingRequests();
@@ -335,7 +339,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ],
                   const SizedBox(height: 10),
-                  _LiveTripCount(),
+                  const _LiveTripCount(),
                 ],
 
                 if (isCarrier) ...[
@@ -390,25 +394,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Builder(builder: (context) {
                   final activityRequests = isCarrier
                       ? shipmentState.incomingRequests
-                          .where((r) => r.id.isNotEmpty && r.status != RequestStatus.pending)
+                          .where((r) =>
+                              r.id.isNotEmpty &&
+                              r.status != RequestStatus.pending)
                           .take(8)
                           .toList()
                       : shipmentState.myRequests
-                          .where((r) => r.id.isNotEmpty && r.status != RequestStatus.pending)
+                          .where((r) =>
+                              r.id.isNotEmpty &&
+                              r.status != RequestStatus.pending)
                           .take(8)
                           .toList();
                   final activityPackages = isCarrier
                       ? const <PackageModel>[]
-                      : shipmentState.activePackages.where((p) {
-                          if (p.status == PackageStatus.draft) {
-                            final createdAt = DateTime.tryParse(p.createdAt);
-                            if (createdAt != null &&
-                                DateTime.now().difference(createdAt).inMinutes >= 20) {
-                              return false;
+                      : shipmentState.activePackages
+                          .where((p) {
+                            if (p.status == PackageStatus.draft) {
+                              final createdAt = DateTime.tryParse(p.createdAt);
+                              if (createdAt != null &&
+                                  DateTime.now()
+                                          .difference(createdAt)
+                                          .inMinutes >=
+                                      20) {
+                                return false;
+                              }
                             }
-                          }
-                          return true;
-                        }).take(8).toList();
+                            return true;
+                          })
+                          .take(8)
+                          .toList();
                   final activityLoading =
                       isCarrier ? tripState.isLoading : shipmentState.isLoading;
 
@@ -792,10 +806,11 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   Future<void> _search(String q) async {
     final trimmed = q.trim();
     if (trimmed.length < 2) {
-      if (mounted) setState(() {
-        _results = [];
-        _loading = false;
-      });
+      if (mounted)
+        setState(() {
+          _results = [];
+          _loading = false;
+        });
       return;
     }
     if (mounted) setState(() => _loading = true);
@@ -954,8 +969,8 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                                   .copyWith(fontWeight: FontWeight.w700)),
                           subtitle: loc.country.isNotEmpty
                               ? Text(loc.country,
-                                  style: AppTextStyles.caption.copyWith(
-                                      color: AppColors.gray500))
+                                  style: AppTextStyles.caption
+                                      .copyWith(color: AppColors.gray500))
                               : null,
                           onTap: () {
                             widget.onSelect(loc.name);
@@ -1814,19 +1829,14 @@ class _RecentActivityEntry {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Live Trip Count — replaces fake "8 travelers" with real DB count
+// Availability hint for senders. Keep this independent from shared search state
+// so the home screen never leaks a previous backend search/count.
 // ─────────────────────────────────────────────────────────────────────────────
-class _LiveTripCount extends ConsumerWidget {
+class _LiveTripCount extends StatelessWidget {
   const _LiveTripCount();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Pull the count of available trips from the trip provider
-    final tripState = ref.watch(tripProvider);
-    final tripCount = tripState.searchResults.isNotEmpty
-        ? tripState.searchResults.length
-        : tripState.activeTrips.length;
-
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Container(
@@ -1838,9 +1848,7 @@ class _LiveTripCount extends ConsumerWidget {
         const SizedBox(width: 7),
         Flexible(
           child: Text(
-            tripCount > 0
-                ? '$tripCount listed trips available now'
-                : 'Trips available for booking',
+            'Trips available for booking',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.gray500,
               fontWeight: FontWeight.w600,

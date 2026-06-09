@@ -116,8 +116,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
 
       final client = Pay({
-        PayProvider.apple_pay:
-            PaymentConfiguration.fromJsonString(configJson),
+        PayProvider.apple_pay: PaymentConfiguration.fromJsonString(configJson),
       });
 
       final available = await client.userCanPay(PayProvider.apple_pay);
@@ -157,8 +156,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           onCancel: () {
             if (mounted) {
               AppSnackBar.show(context,
-                  message: 'Payment cancelled.',
-                  type: SnackBarType.warning);
+                  message: 'Payment cancelled.', type: SnackBarType.warning);
             }
           },
           onSuccess: (data) => _captureOrder(data.orderId ?? ''),
@@ -194,7 +192,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final token = await StorageService.instance.getAccessToken() ?? '';
     if (!mounted) return;
 
-    final url = Uri.parse('${ApiConstants.baseUrl}/api/payments/paypal/checkout').replace(
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/api/payments/paypal/checkout')
+            .replace(
       queryParameters: {
         'packageId': packageId,
         'tripId': tripId,
@@ -203,6 +203,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'insurance': insurance.toString(),
         'insuranceCost': insuranceCost.toStringAsFixed(2),
         'mode': 'app',
+        'checkout': 'card',
         'token': token,
       },
     ).toString();
@@ -222,9 +223,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final type = result['type']?.toString() ?? '';
     if (type == 'success') {
       final orderId = result['orderId']?.toString() ?? '';
-      if (orderId.isNotEmpty) await _captureOrder(orderId);
+      _checkoutService.clearDraft();
+      context.go('/order-success', extra: {
+        ...draft,
+        'provider': 'card',
+        'paymentReference': orderId,
+        'request': result['request'],
+      });
     } else if (type == 'error') {
-      _failWithDraft('card', result['message']?.toString() ?? 'Card payment failed.');
+      _failWithDraft(
+          'card', result['message']?.toString() ?? 'Card payment failed.');
     }
   }
 
@@ -292,7 +300,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'request': null,
         });
       } else {
-        _failWithDraft('paystack', result.message ?? 'Payment verification failed.');
+        _failWithDraft(
+            'paystack', result.message ?? 'Payment verification failed.');
       }
     } catch (e) {
       _failWithDraft('paystack', e.toString().replaceFirst('Exception: ', ''));
@@ -359,7 +368,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'request': result.request,
         });
       } else {
-        _failWithDraft('paypal', result.message ?? 'Payment could not be completed.');
+        _failWithDraft(
+            'paypal', result.message ?? 'Payment could not be completed.');
       }
     } catch (e) {
       _failWithDraft('paypal', e.toString().replaceFirst('Exception: ', ''));
@@ -399,7 +409,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'request': captureResult.request,
         });
       } else {
-        _failWithDraft('apple_pay', captureResult.message ?? 'Apple Pay payment failed.');
+        _failWithDraft(
+            'apple_pay', captureResult.message ?? 'Apple Pay payment failed.');
       }
     } catch (e) {
       _failWithDraft('apple_pay', e.toString().replaceFirst('Exception: ', ''));
@@ -422,24 +433,42 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   FPayPalCurrencyCode _toCurrencyCode(String currency) {
     switch (currency.toUpperCase()) {
-      case 'EUR': return FPayPalCurrencyCode.eur;
-      case 'GBP': return FPayPalCurrencyCode.gbp;
-      case 'CAD': return FPayPalCurrencyCode.cad;
-      case 'AUD': return FPayPalCurrencyCode.aud;
-      case 'JPY': return FPayPalCurrencyCode.jpy;
-      case 'CHF': return FPayPalCurrencyCode.chf;
-      case 'SEK': return FPayPalCurrencyCode.sek;
-      case 'NOK': return FPayPalCurrencyCode.nok;
-      case 'DKK': return FPayPalCurrencyCode.dkk;
-      case 'SGD': return FPayPalCurrencyCode.sgd;
-      case 'HKD': return FPayPalCurrencyCode.hkd;
-      case 'NZD': return FPayPalCurrencyCode.nzd;
-      case 'MXN': return FPayPalCurrencyCode.mxn;
-      case 'BRL': return FPayPalCurrencyCode.brl;
-      case 'PLN': return FPayPalCurrencyCode.pln;
-      case 'MYR': return FPayPalCurrencyCode.myr;
-      case 'PHP': return FPayPalCurrencyCode.php;
-      default:    return FPayPalCurrencyCode.usd;
+      case 'EUR':
+        return FPayPalCurrencyCode.eur;
+      case 'GBP':
+        return FPayPalCurrencyCode.gbp;
+      case 'CAD':
+        return FPayPalCurrencyCode.cad;
+      case 'AUD':
+        return FPayPalCurrencyCode.aud;
+      case 'JPY':
+        return FPayPalCurrencyCode.jpy;
+      case 'CHF':
+        return FPayPalCurrencyCode.chf;
+      case 'SEK':
+        return FPayPalCurrencyCode.sek;
+      case 'NOK':
+        return FPayPalCurrencyCode.nok;
+      case 'DKK':
+        return FPayPalCurrencyCode.dkk;
+      case 'SGD':
+        return FPayPalCurrencyCode.sgd;
+      case 'HKD':
+        return FPayPalCurrencyCode.hkd;
+      case 'NZD':
+        return FPayPalCurrencyCode.nzd;
+      case 'MXN':
+        return FPayPalCurrencyCode.mxn;
+      case 'BRL':
+        return FPayPalCurrencyCode.brl;
+      case 'PLN':
+        return FPayPalCurrencyCode.pln;
+      case 'MYR':
+        return FPayPalCurrencyCode.myr;
+      case 'PHP':
+        return FPayPalCurrencyCode.php;
+      default:
+        return FPayPalCurrencyCode.usd;
     }
   }
 
@@ -561,7 +590,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ] else if (!_isSdkReady && _initError == null)
               const Center(child: AppLoading())
             else if (_isSdkReady) ...[
-
               // Apple Pay — only shown when device supports it
               if (_applePayAvailable && _payClient != null) ...[
                 ApplePayButton(
@@ -616,9 +644,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 customIcon: Image.asset(
                   'assets/images/paypal-logo.png',
                   height: 18,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.account_balance_wallet_outlined,
-                          size: 20, color: Colors.white),
+                  errorBuilder: (_, __, ___) => const Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 20,
+                      color: Colors.white),
                 ),
                 label: 'Pay with PayPal',
                 subtitle: 'Use your PayPal balance or saved cards',
@@ -641,8 +670,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const SizedBox(width: 4),
               Text(
                 _usePaystack ? 'Secured by Paystack' : 'Secured by PayPal',
-                style:
-                    AppTextStyles.labelXs.copyWith(color: AppColors.gray400),
+                style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400),
               ),
               if (!_usePaystack) ...[
                 const SizedBox(width: 10),
@@ -672,8 +700,7 @@ class _OrDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text('or',
-              style:
-                  AppTextStyles.labelSm.copyWith(color: AppColors.gray400)),
+              style: AppTextStyles.labelSm.copyWith(color: AppColors.gray400)),
         ),
         const Expanded(child: Divider(color: AppColors.gray200)),
       ],
@@ -870,8 +897,7 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(child: AppLoading()),
+          if (_isLoading) const Center(child: AppLoading()),
         ],
       ),
     );
