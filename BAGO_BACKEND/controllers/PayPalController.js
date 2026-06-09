@@ -654,6 +654,104 @@ export async function capturePayPalOrder(req, res) {
   }
 }
 
+export async function captureApplePayOrder(req, res) {
+  try {
+    await ensurePayPalTables();
+    const profile = await getAuthorizedProfile(req);
+
+    const { applePayToken, packageId, tripId, currency, insurance, insuranceCost } = req.body || {};
+    const pkgId = String(packageId || '').trim();
+    const trpId = String(tripId || '').trim();
+
+    if (!applePayToken || !pkgId || !trpId) {
+      return res.status(400).json({ success: false, message: 'Missing required payment fields.' });
+    }
+
+    // Extract encrypted payment fields from the iOS PKPaymentToken structure
+    const paymentData = applePayToken.paymentData;
+    const header = paymentData?.header;
+    if (!paymentData?.data || !header?.ephemeralPublicKey || !header?.transactionId) {
+      return res.status(400).json({ success: false, message: 'Invalid Apple Pay token structure.' });
+    }
+
+    // Build expected quote to validate amount
+    const quote = await buildCheckoutQuote({
+      profile, packageId: pkgId, tripId: trpId,
+      currency, insurance, insuranceCost,
+    });
+
+    // Step 1: Create PayPal order with the expected amount
+    const order = await paypalRequest('post', '/v2/checkout/orders', {
+      intent: 'CAPTURE',
+      purchase_units: [{
+        reference_id: pkgId,
+        amount: {
+          currency_code: quote.currency,
+          value: quote.amount.toFixed(2),
+        },
+      }],
+    });
+    const orderId = order.id;
+    if (!orderId) {
+      return res.status(500).json({ success: false, message: 'Could not create PayPal order for Apple Pay.' });
+    }
+
+    // Step 2: Confirm payment source with the Apple Pay token
+    await paypalRequest('post', `/v2/checkout/orders/${encodeURIComponent(orderId)}/confirm-payment-source`, {
+      payment_source: {
+        apple_pay: {
+          token: {
+            id: header.transactionId,
+            type: 'APPLE_PAY',
+            encrypted_key: header.publicKeyHash,
+            ephemeral_key: header.ephemeralPublicKey,
+            cipher_text: paymentData.data,
+            signature: paymentData.signature,
+          },
+        },
+      },
+    });
+
+    // Step 3: Capture the order
+    const capture = await paypalRequest('post', `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {});
+    const captureUnit = capture.purchase_units?.[0]?.payments?.captures?.[0];
+    const captureStatus = String(captureUnit?.status || capture.status || '').toUpperCase();
+
+    if (captureStatus !== 'COMPLETED') {
+      return res.status(402).json({ success: false, message: 'Apple Pay payment could not be completed.' });
+    }
+
+    // Create payment record
+    const payment = await queryOne(
+      `insert into public.payments
+         (user_id, package_id, trip_id, provider, payment_method,
+          paypal_order_id, paypal_capture_id, amount, currency,
+          commission_amount, traveler_amount, status, raw_response)
+       values ($1,$2,$3,'paypal','apple_pay',$4,$5,$6,$7,$8,$9,'paid',$10)
+       on conflict (paypal_order_id) do update
+         set status = 'paid', updated_at = timezone('utc', now())
+       returning *`,
+      [profile.id, pkgId, trpId, orderId, captureUnit.id,
+       quote.amount, quote.currency, quote.commissionAmount, quote.travelerAmount,
+       { order, capture }],
+    );
+
+    const request = await finalizePayPalShipmentPayment(payment, capture);
+
+    return res.json({
+      success: true,
+      message: 'Apple Pay payment captured and shipment funded.',
+      data: { orderId, captureId: captureUnit.id, request },
+    });
+  } catch (error) {
+    console.error('Apple Pay capture failed:', error.response?.data || error.message);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Apple Pay payment could not be completed.',
+    });
+  }
+}
+
 export async function getPendingCheckouts(req, res) {
   try {
     await ensurePayPalTables();

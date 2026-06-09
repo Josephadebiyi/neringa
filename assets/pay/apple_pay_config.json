@@ -1,0 +1,11 @@
+{
+  "provider": "apple_pay",
+  "data": {
+    "merchantIdentifier": "merchant.com.deracali.boltexponativewind",
+    "displayName": "Bago",
+    "merchantCapabilities": ["3DS"],
+    "supportedNetworks": ["visa", "masterCard", "amex", "discover"],
+    "countryCode": "US",
+    "currencyCode": "USD"
+  }
+}

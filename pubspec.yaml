@@ -68,8 +68,11 @@ dependencies:
   # Native splash control
   flutter_native_splash: ^2.4.4
 
-  # PayPal native mobile checkout SDK (card, PayPal wallet, Apple Pay)
+  # PayPal native mobile checkout SDK
   flutter_paypal_native: ^2.0.0
+
+  # Native Apple Pay (PassKit) — processed via PayPal backend
+  pay: ^2.0.0
 
   # WebView (for KYC / Paystack)
   # Native Dojah KYC SDK (local patched copy — fixes SDKInitViewController early-resolve bug)
@@ -138,3 +141,4 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/pay/

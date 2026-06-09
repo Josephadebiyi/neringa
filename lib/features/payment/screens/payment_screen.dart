@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_paypal_native/flutter_paypal_native.dart';
 import 'package:flutter_paypal_native/models/custom/currency_code.dart';
@@ -7,6 +9,7 @@ import 'package:flutter_paypal_native/models/custom/purchase_unit.dart';
 import 'package:flutter_paypal_native/models/custom/user_action.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pay/pay.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -34,8 +37,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoadingDraft = true;
   bool _isSdkReady = false;
   bool _isProcessing = false;
+  bool _applePayAvailable = false;
   Map<String, dynamic>? _draft;
   String? _initError;
+
+  // Apple Pay payment client — created after draft loads with correct currency
+  Pay? _payClient;
 
   @override
   void initState() {
@@ -45,7 +52,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   void dispose() {
-    // Reset callbacks when leaving so they don't fire after dispose
     _plugin.setPayPalOrderCallback(
         callback: FPayPalOrderCallback(onSuccess: (_) {}));
     super.dispose();
@@ -62,7 +68,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _draft = draft;
         _isLoadingDraft = false;
       });
-      if (draft != null) await _initSdk(draft);
+      if (draft != null) {
+        await Future.wait([
+          _initSdk(draft),
+          _initApplePay(draft),
+        ]);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -70,6 +81,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _initError = e.toString();
         });
       }
+    }
+  }
+
+  Future<void> _initApplePay(Map<String, dynamic> draft) async {
+    try {
+      final currency = _asString(draft['currency'], 'USD');
+
+      // Build config dynamically so currency matches the order
+      final configJson = jsonEncode({
+        'provider': 'apple_pay',
+        'data': {
+          'merchantIdentifier': 'merchant.com.deracali.boltexponativewind',
+          'displayName': 'Bago',
+          'merchantCapabilities': ['3DS'],
+          'supportedNetworks': ['visa', 'masterCard', 'amex', 'discover'],
+          'countryCode': 'US',
+          'currencyCode': currency,
+        },
+      });
+
+      final client = Pay({
+        PayProvider.apple_pay:
+            PaymentConfiguration.fromJsonString(configJson),
+      });
+
+      final available = await client.userCanPay(PayProvider.apple_pay);
+      if (!mounted) return;
+      setState(() {
+        _payClient = client;
+        _applePayAvailable = available;
+      });
+    } catch (_) {
+      // Apple Pay not available on this device — PayPal/card still work
     }
   }
 
@@ -129,6 +173,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  // ── PayPal wallet / card-via-PayPal checkout ──────────────────────────────
+
+  void _startPayPalCheckout() {
+    final draft = _draft;
+    if (draft == null || !_isSdkReady || _isProcessing) return;
+    final amount = _asDouble(draft['totalAmount']);
+    final packageId = draft['packageId']?.toString() ?? '';
+    final currency = _asString(draft['currency'], 'USD');
+    _plugin
+      ..removeAllPurchaseItems()
+      ..addPurchaseUnit(FPayPalPurchaseUnit(
+        referenceId: packageId,
+        amount: amount,
+        currencyCode: _toCurrencyCode(currency),
+      ))
+      ..makeOrder(action: FPayPalUserAction.payNow);
+  }
+
   Future<void> _captureOrder(String orderId) async {
     if (_isProcessing || orderId.isEmpty) return;
     setState(() => _isProcessing = true);
@@ -172,21 +234,63 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  void _startPayment() {
-    final draft = _draft;
-    if (draft == null || !_isSdkReady || _isProcessing) return;
-    final amount = _asDouble(draft['totalAmount']);
-    final packageId = draft['packageId']?.toString() ?? '';
-    final currency = _asString(draft['currency'], 'USD');
-    _plugin
-      ..removeAllPurchaseItems()
-      ..addPurchaseUnit(FPayPalPurchaseUnit(
-        referenceId: packageId,
-        amount: amount,
-        currencyCode: _toCurrencyCode(currency),
-      ))
-      ..makeOrder(action: FPayPalUserAction.payNow);
+  // ── Apple Pay ─────────────────────────────────────────────────────────────
+
+  Future<void> _onApplePayResult(Map<String, dynamic> result) async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      final draft = _draft!;
+      // Extract raw Apple Pay token from the pay package result
+      final tokenJson =
+          result['paymentMethodData']?['tokenizationData']?['token'];
+      if (tokenJson == null) throw Exception('Apple Pay token missing.');
+      final token = tokenJson is String ? jsonDecode(tokenJson) : tokenJson;
+
+      final captureResult = await _paymentService.captureApplePayOrder(
+        applePayToken: token,
+        packageId: draft['packageId']?.toString() ?? '',
+        tripId: draft['tripId']?.toString() ?? '',
+        currency: _asString(draft['currency'], 'USD'),
+        insurance: draft['insurance'] == true,
+        insuranceCost: _asDouble(draft['insuranceAmount']),
+      );
+
+      if (!mounted) return;
+      if (captureResult.success) {
+        _checkoutService.clearDraft();
+        context.go('/order-success', extra: {
+          ...draft,
+          'provider': 'apple_pay',
+          'paymentReference': captureResult.orderId ?? '',
+          'request': captureResult.request,
+        });
+      } else {
+        final msg = captureResult.message ?? 'Apple Pay payment failed.';
+        final updatedDraft = {
+          ...draft,
+          'provider': 'apple_pay',
+          'lastPaymentError': msg,
+        };
+        _checkoutService.saveDraft(updatedDraft);
+        context.go('/payment-failed', extra: updatedDraft);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      final updatedDraft = {
+        ...(_draft ?? {}),
+        'provider': 'apple_pay',
+        'lastPaymentError': msg,
+      };
+      _checkoutService.saveDraft(updatedDraft);
+      context.go('/payment-failed', extra: updatedDraft);
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   double _asDouble(dynamic value) {
     if (value is num) return value.toDouble();
@@ -200,44 +304,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   FPayPalCurrencyCode _toCurrencyCode(String currency) {
     switch (currency.toUpperCase()) {
-      case 'EUR':
-        return FPayPalCurrencyCode.eur;
-      case 'GBP':
-        return FPayPalCurrencyCode.gbp;
-      case 'CAD':
-        return FPayPalCurrencyCode.cad;
-      case 'AUD':
-        return FPayPalCurrencyCode.aud;
-      case 'JPY':
-        return FPayPalCurrencyCode.jpy;
-      case 'CHF':
-        return FPayPalCurrencyCode.chf;
-      case 'SEK':
-        return FPayPalCurrencyCode.sek;
-      case 'NOK':
-        return FPayPalCurrencyCode.nok;
-      case 'DKK':
-        return FPayPalCurrencyCode.dkk;
-      case 'SGD':
-        return FPayPalCurrencyCode.sgd;
-      case 'HKD':
-        return FPayPalCurrencyCode.hkd;
-      case 'NZD':
-        return FPayPalCurrencyCode.nzd;
-      case 'MXN':
-        return FPayPalCurrencyCode.mxn;
-      case 'BRL':
-        return FPayPalCurrencyCode.brl;
-      case 'PLN':
-        return FPayPalCurrencyCode.pln;
-      case 'MYR':
-        return FPayPalCurrencyCode.myr;
-      case 'PHP':
-        return FPayPalCurrencyCode.php;
-      default:
-        return FPayPalCurrencyCode.usd;
+      case 'EUR': return FPayPalCurrencyCode.eur;
+      case 'GBP': return FPayPalCurrencyCode.gbp;
+      case 'CAD': return FPayPalCurrencyCode.cad;
+      case 'AUD': return FPayPalCurrencyCode.aud;
+      case 'JPY': return FPayPalCurrencyCode.jpy;
+      case 'CHF': return FPayPalCurrencyCode.chf;
+      case 'SEK': return FPayPalCurrencyCode.sek;
+      case 'NOK': return FPayPalCurrencyCode.nok;
+      case 'DKK': return FPayPalCurrencyCode.dkk;
+      case 'SGD': return FPayPalCurrencyCode.sgd;
+      case 'HKD': return FPayPalCurrencyCode.hkd;
+      case 'NZD': return FPayPalCurrencyCode.nzd;
+      case 'MXN': return FPayPalCurrencyCode.mxn;
+      case 'BRL': return FPayPalCurrencyCode.brl;
+      case 'PLN': return FPayPalCurrencyCode.pln;
+      case 'MYR': return FPayPalCurrencyCode.myr;
+      case 'PHP': return FPayPalCurrencyCode.php;
+      default:    return FPayPalCurrencyCode.usd;
     }
   }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -312,8 +400,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const SizedBox(height: 12),
                 _SummaryRow(
                   label: l10n.route,
-                  value:
-                      '${draft['fromLocation']} → ${draft['toLocation']}',
+                  value: '${draft['fromLocation']} → ${draft['toLocation']}',
                 ),
               ],
             ),
@@ -339,24 +426,86 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ],
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          // ── Pay button ──────────────────────────────────────────────────
+          // ── Payment options ──────────────────────────────────────────────
           if (!isExpired) ...[
+            // Loading spinner while PayPal SDK initialises
             if (!_isSdkReady && _initError == null)
               const Center(child: AppLoading())
-            else if (_isSdkReady)
-              _PayPalButton(
-                label: 'Pay $currency ${totalAmount.toStringAsFixed(2)}',
+            else if (_isSdkReady) ...[
+
+              // Apple Pay — only shown when device supports it
+              if (_applePayAvailable && _payClient != null) ...[
+                ApplePayButton(
+                  paymentConfiguration:
+                      PaymentConfiguration.fromJsonString(jsonEncode({
+                    'provider': 'apple_pay',
+                    'data': {
+                      'merchantIdentifier':
+                          'merchant.com.deracali.boltexponativewind',
+                      'displayName': 'Bago',
+                      'merchantCapabilities': ['3DS'],
+                      'supportedNetworks': [
+                        'visa',
+                        'masterCard',
+                        'amex',
+                        'discover'
+                      ],
+                      'countryCode': 'US',
+                      'currencyCode': currency,
+                    },
+                  })),
+                  paymentItems: [
+                    PaymentItem(
+                      label: 'Bago Shipment',
+                      amount: totalAmount.toStringAsFixed(2),
+                      status: PaymentItemStatus.final_price,
+                    ),
+                  ],
+                  style: ApplePayButtonStyle.black,
+                  type: ApplePayButtonType.buy,
+                  height: 54,
+                  onPaymentResult: _isProcessing ? (_) {} : _onApplePayResult,
+                  loadingIndicator: const Center(child: AppLoading()),
+                ),
+                const SizedBox(height: 12),
+                _OrDivider(),
+                const SizedBox(height: 12),
+              ],
+
+              // Debit / Credit card via PayPal
+              _PaymentOptionButton(
+                icon: Icons.credit_card_rounded,
+                label: 'Pay with Debit / Credit Card',
+                subtitle: 'No PayPal account needed',
                 isLoading: _isProcessing,
-                onTap: _startPayment,
+                onTap: _startPayPalCheckout,
               ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 10),
+
+              // PayPal wallet
+              _PaymentOptionButton(
+                customIcon: Image.asset(
+                  'assets/images/paypal-logo.png',
+                  height: 18,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.account_balance_wallet_outlined,
+                          size: 20, color: Colors.white),
+                ),
+                label: 'Pay with PayPal',
+                subtitle: 'Use your PayPal balance or saved cards',
+                isLoading: _isProcessing,
+                color: const Color(0xFF003087),
+                onTap: _startPayPalCheckout,
+              ),
+            ],
+            const SizedBox(height: 16),
           ],
 
           const Spacer(),
 
-          // ── Secure footer ───────────────────────────────────────────────
+          // ── Secure footer ────────────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -364,9 +513,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   size: 13, color: AppColors.gray400),
               const SizedBox(width: 4),
               Text(
-                'Secure checkout · Powered by PayPal',
-                style: AppTextStyles.labelXs
-                    .copyWith(color: AppColors.gray400),
+                'Secured by PayPal',
+                style:
+                    AppTextStyles.labelXs.copyWith(color: AppColors.gray400),
               ),
               const SizedBox(width: 10),
               SvgPicture.asset('assets/images/visa.svg',
@@ -383,59 +532,93 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
-// ── PayPal pay button ─────────────────────────────────────────────────────────
+// ── Or divider ────────────────────────────────────────────────────────────────
 
-class _PayPalButton extends StatelessWidget {
-  const _PayPalButton({
+class _OrDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: AppColors.gray200)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('or',
+              style:
+                  AppTextStyles.labelSm.copyWith(color: AppColors.gray400)),
+        ),
+        const Expanded(child: Divider(color: AppColors.gray200)),
+      ],
+    );
+  }
+}
+
+// ── Payment option button ─────────────────────────────────────────────────────
+
+class _PaymentOptionButton extends StatelessWidget {
+  const _PaymentOptionButton({
     required this.label,
+    required this.subtitle,
     required this.isLoading,
     required this.onTap,
+    this.icon,
+    this.customIcon,
+    this.color,
   });
+
   final String label;
+  final String subtitle;
   final bool isLoading;
   final VoidCallback onTap;
+  final IconData? icon;
+  final Widget? customIcon;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final bg = color ?? AppColors.black;
     return SizedBox(
       width: double.infinity,
-      height: 58,
+      height: 64,
       child: ElevatedButton(
         onPressed: isLoading ? null : onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF003087),
+          backgroundColor: bg,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFF003087).withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          disabledBackgroundColor: bg.withValues(alpha: 0.6),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
         ),
         child: isLoading
             ? const SizedBox(
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
-                ),
+                    strokeWidth: 2.5, color: Colors.white),
               )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset(
-                    'assets/images/paypal-logo.png',
-                    height: 20,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
+                  if (customIcon != null)
+                    customIcon!
+                  else if (icon != null)
+                    Icon(icon, size: 22, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                      Text(subtitle,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.75))),
+                    ],
                   ),
                 ],
               ),
@@ -456,23 +639,15 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.bodyMd.copyWith(
-              color: AppColors.gray600,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: Text(label,
+              style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.gray600, fontWeight: FontWeight.w600)),
         ),
         Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: AppTextStyles.labelMd.copyWith(
-              color: AppColors.black,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          child: Text(value,
+              textAlign: TextAlign.right,
+              style: AppTextStyles.labelMd.copyWith(
+                  color: AppColors.black, fontWeight: FontWeight.w700)),
         ),
       ],
     );

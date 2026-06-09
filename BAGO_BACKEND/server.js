@@ -25,6 +25,7 @@ import { sendPushNotification, sendPushNotificationToToken } from './services/pu
 import {
   createPayPalOrder,
   capturePayPalOrder,
+  captureApplePayOrder,
   servePayPalCheckoutPage,
   getPendingCheckouts,
   handlePayPalOAuthCallback,
@@ -815,6 +816,7 @@ app.post('/api/payments/braintree/checkout', isAuthenticated, braintreeCheckout)
 app.get('/api/payments/paypal/checkout', servePayPalCheckoutPage);
 app.post('/api/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPayPalOrder);
 app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrder);
+app.post('/api/payments/paypal/apple-pay/capture', isAuthenticated, captureApplePayOrder);
 
 // ✅ PayPal public config (client-id is a public key, safe to expose)
 app.get('/api/config/paypal', (_req, res) => {

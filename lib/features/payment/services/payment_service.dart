@@ -84,11 +84,13 @@ class PaidShipmentFinalization {
     required this.success,
     this.message,
     this.request,
+    this.orderId,
   });
 
   final bool success;
   final String? message;
   final Map<String, dynamic>? request;
+  final String? orderId;
 }
 
 class PaymentService {
@@ -230,6 +232,43 @@ class PaymentService {
       return PaidShipmentFinalization(
         success: data['success'] == true,
         message: data['message']?.toString(),
+        request: requestRaw is Map<String, dynamic>
+            ? requestRaw
+            : requestRaw is Map
+                ? Map<String, dynamic>.from(requestRaw)
+                : null,
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<PaidShipmentFinalization> captureApplePayOrder({
+    required Map<String, dynamic> applePayToken,
+    required String packageId,
+    required String tripId,
+    required String currency,
+    bool insurance = false,
+    double insuranceCost = 0,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.applePayCapture,
+        data: {
+          'applePayToken': applePayToken,
+          'packageId': packageId,
+          'tripId': tripId,
+          'currency': currency,
+          'insurance': insurance,
+          'insuranceCost': insuranceCost,
+        },
+      );
+      final data = _extractMap(response.data);
+      final requestRaw = data['request'];
+      return PaidShipmentFinalization(
+        success: data['success'] == true,
+        message: data['message']?.toString(),
+        orderId: data['orderId']?.toString(),
         request: requestRaw is Map<String, dynamic>
             ? requestRaw
             : requestRaw is Map
