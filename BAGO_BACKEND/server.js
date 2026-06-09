@@ -180,6 +180,12 @@ ensureSupportTable();
 startEscrowAutoRelease();
 startCurrencyRateSync();
 
+// Apple Pay domain verification — must be before all middleware and auth
+app.get('/.well-known/apple-developer-merchantid-domain-association', (_req, res) => {
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.sendFile(path.join(__dirname, '.well-known', 'apple-developer-merchantid-domain-association'));
+});
+
 // ✅ Middleware setup
 app.use(
   cors({
@@ -861,13 +867,6 @@ app.get('/', async (req, res) => {
   res.json({ success: true, message: "Bago API is running", version: "1.0.0" });
 });
 
-
-// Serve Apple Pay domain verification file for PayPal merchant registration
-app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res) => {
-  const filePath = path.join(__dirname, '.well-known', 'apple-developer-merchantid-domain-association');
-  res.setHeader('Content-Type', 'application/octet-stream');
-  res.sendFile(filePath);
-});
 
 // Serve admin panel from /admin
 const adminDist = path.join(__dirname, '../ADMIN_NEW/dist');
