@@ -173,6 +173,75 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  // ── Card info sheet ───────────────────────────────────────────────────────
+
+  void _showCardInfo(BuildContext ctx) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.gray200,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(children: [
+              const Icon(Icons.credit_card_rounded, size: 24),
+              const SizedBox(width: 10),
+              Text('Paying by card',
+                  style: AppTextStyles.h3
+                      .copyWith(fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 12),
+            Text(
+              "You'll be taken to PayPal's secure checkout. On that page, tap \"Pay with a Debit or Credit Card\" to pay without a PayPal account.",
+              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Visa, Mastercard, Amex and Discover are accepted.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _startPayPalCheckout();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                child: const Text('Continue to Card Payment',
+                    style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── PayPal wallet / card-via-PayPal checkout ──────────────────────────────
 
   void _startPayPalCheckout() {
@@ -480,7 +549,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 label: 'Pay with Debit / Credit Card',
                 subtitle: 'No PayPal account needed',
                 isLoading: _isProcessing,
-                onTap: _startPayPalCheckout,
+                onTap: () => _showCardInfo(context),
               ),
               const SizedBox(height: 10),
 
