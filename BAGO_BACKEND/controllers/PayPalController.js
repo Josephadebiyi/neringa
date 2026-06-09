@@ -204,7 +204,9 @@ async function ensurePayPalTables() {
     alter table public.profiles
       add column if not exists paypal_email text,
       add column if not exists payout_currency text,
-      add column if not exists payout_status text
+      add column if not exists payout_status text,
+      add column if not exists payout_provider text,
+      add column if not exists payout_method_status text
   `);
 }
 

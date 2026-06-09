@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -344,44 +343,11 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-// ── Add card bottom sheet ─────────────────────────────────────────────────────
+// ── Add card info sheet ───────────────────────────────────────────────────────
 
-class _AddCardSheet extends StatefulWidget {
+class _AddCardSheet extends StatelessWidget {
   const _AddCardSheet({required this.onAdded});
   final void Function(SavedPaymentMethod) onAdded;
-
-  @override
-  State<_AddCardSheet> createState() => _AddCardSheetState();
-}
-
-class _AddCardSheetState extends State<_AddCardSheet> {
-  final _formKey = GlobalKey<FormState>();
-  final _numberCtrl = TextEditingController();
-  final _expiryCtrl = TextEditingController();
-  final _cvvCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _numberCtrl.dispose();
-    _expiryCtrl.dispose();
-    _cvvCtrl.dispose();
-    _nameCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    // Cards are managed securely through PayPal checkout — no manual entry needed.
-    if (mounted) {
-      AppSnackBar.show(
-        context,
-        message: 'Cards are saved automatically when you pay with PayPal.',
-        type: SnackBarType.info,
-      );
-      Navigator.pop(context);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -390,220 +356,50 @@ class _AddCardSheetState extends State<_AddCardSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 8,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: 8, bottom: 20),
-                decoration: BoxDecoration(
-                  color: AppColors.gray200,
-                  borderRadius: BorderRadius.circular(99),
-                ),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 8, bottom: 24),
+              decoration: BoxDecoration(
+                color: AppColors.gray200,
+                borderRadius: BorderRadius.circular(99),
               ),
             ),
-            Text(
-              'Add a Card',
-              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+          ),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 20),
-            _CardInputField(
-              controller: _numberCtrl,
-              label: 'Card number',
-              hint: '1234 5678 9012 3456',
-              keyboardType: TextInputType.number,
-              inputFormatters: [_CardNumberFormatter()],
-              validator: (v) =>
-                  (v ?? '').replaceAll(' ', '').length < 13
-                      ? 'Enter a valid card number'
-                      : null,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _CardInputField(
-                    controller: _expiryCtrl,
-                    label: 'Expiry',
-                    hint: 'MM/YY',
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [_ExpiryFormatter()],
-                    validator: (v) {
-                      final p = (v ?? '').split('/');
-                      return (p.length != 2 ||
-                              p[0].length != 2 ||
-                              p[1].length != 2)
-                          ? 'MM/YY'
-                          : null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _CardInputField(
-                    controller: _cvvCtrl,
-                    label: 'CVV',
-                    hint: '•••',
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(4),
-                    ],
-                    obscureText: true,
-                    validator: (v) =>
-                        (v ?? '').length < 3 ? 'Invalid CVV' : null,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _CardInputField(
-              controller: _nameCtrl,
-              label: 'Cardholder name (optional)',
-              hint: 'Name on card',
-              keyboardType: TextInputType.name,
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 24),
-            AppButton(
-              label: 'Save Card',
-              icon: const Icon(Icons.lock_outline_rounded, size: 18),
-              isLoading: _saving,
-              isDisabled: _saving,
-              onPressed: _save,
-            ),
-          ],
-        ),
+            child: const Icon(Icons.credit_card_rounded,
+                size: 32, color: AppColors.primary),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Cards via PayPal',
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Your card is entered securely inside the PayPal checkout sheet when you make a payment. PayPal can save it to your wallet for faster future payments.',
+            style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          AppButton(
+            label: 'Got it',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Shared card input field ───────────────────────────────────────────────────
-
-class _CardInputField extends StatelessWidget {
-  const _CardInputField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    this.keyboardType = TextInputType.text,
-    this.inputFormatters,
-    this.validator,
-    this.obscureText = false,
-    this.textCapitalization = TextCapitalization.none,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final TextInputType keyboardType;
-  final List<TextInputFormatter>? inputFormatters;
-  final FormFieldValidator<String>? validator;
-  final bool obscureText;
-  final TextCapitalization textCapitalization;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.labelSm.copyWith(
-            color: AppColors.gray600,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          validator: validator,
-          obscureText: obscureText,
-          textCapitalization: textCapitalization,
-          style: AppTextStyles.bodyMd.copyWith(
-            color: AppColors.black,
-            fontWeight: FontWeight.w600,
-            letterSpacing: obscureText ? 2 : 0.5,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: AppTextStyles.bodyMd.copyWith(
-              color: AppColors.gray300,
-              fontWeight: FontWeight.w400,
-            ),
-            filled: true,
-            fillColor: AppColors.gray100,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Formatters ────────────────────────────────────────────────────────────────
-
-class _CardNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final capped = digits.length > 16 ? digits.substring(0, 16) : digits;
-    final buffer = StringBuffer();
-    for (int i = 0; i < capped.length; i++) {
-      if (i > 0 && i % 4 == 0) buffer.write(' ');
-      buffer.write(capped[i]);
-    }
-    final formatted = buffer.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class _ExpiryFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final capped = digits.length > 4 ? digits.substring(0, 4) : digits;
-    final formatted = capped.length > 2
-        ? '${capped.substring(0, 2)}/${capped.substring(2)}'
-        : capped;
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}

@@ -111,64 +111,6 @@ class PaymentService {
     return message;
   }
 
-  Future<String> getBraintreeClientToken() async {
-    try {
-      final response = await _api.get(ApiConstants.braintreeClientToken);
-      final data = _extractMap(response.data);
-      final token = data['clientToken']?.toString() ?? '';
-      if (token.isEmpty) throw StateError('Could not get payment token.');
-      return token;
-    } on DioException catch (e) {
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<PaidShipmentFinalization> submitBraintreeNonce({
-    required String nonce,
-    String? paymentMethodToken, // Braintree vault token for stored cards
-    String? shipmentId,
-    String? packageId,
-    String? tripId,
-    required String currency,
-    bool insurance = false,
-    double insuranceCost = 0,
-    double shippingAmount = 0,
-    String paymentMethod = 'card',
-  }) async {
-    try {
-      final response = await _api.post(
-        ApiConstants.braintreeCheckout,
-        data: {
-          if (nonce.isNotEmpty) 'paymentMethodNonce': nonce,
-          if (paymentMethodToken != null && paymentMethodToken.isNotEmpty)
-            'paymentMethodToken': paymentMethodToken,
-          if (shipmentId != null && shipmentId.isNotEmpty) 'shipmentId': shipmentId,
-          if (packageId != null && packageId.isNotEmpty) 'packageId': packageId,
-          if (tripId != null && tripId.isNotEmpty) 'tripId': tripId,
-          'currency': currency,
-          'insurance': insurance,
-          'insuranceCost': insuranceCost,
-          if (shippingAmount > 0) 'shippingAmount': shippingAmount,
-          'paymentMethod': paymentMethod,
-        },
-      );
-      final data = _extractMap(response.data);
-      final requestRaw = data['request'];
-      return PaidShipmentFinalization(
-        success: response.data is Map
-            ? ((response.data as Map)['success'] == true || data['success'] == true)
-            : data['success'] == true,
-        message: data['message']?.toString(),
-        request: requestRaw is Map<String, dynamic>
-            ? requestRaw
-            : requestRaw is Map
-                ? Map<String, dynamic>.from(requestRaw)
-                : null,
-      );
-    } on DioException catch (e) {
-      throw ApiService.parseError(e);
-    }
-  }
 
   Future<SavedPaymentMethodsResponse> getSavedPaymentMethods() async {
     try {
@@ -235,23 +177,6 @@ class PaymentService {
       );
       final data = _extractMap(response.data);
       final cardRaw = data['card'];
-      if (cardRaw is Map) {
-        return SavedPaymentMethod.fromJson(Map<String, dynamic>.from(cardRaw));
-      }
-      throw StateError('Card could not be saved.');
-    } on DioException catch (e) {
-      throw _parsePaymentMethodsError(e);
-    }
-  }
-
-  Future<SavedPaymentMethod> vaultBraintreeCard(String nonce) async {
-    try {
-      final response = await _api.post(
-        ApiConstants.braintreeVault,
-        data: {'nonce': nonce},
-      );
-      final data = _extractMap(response.data);
-      final cardRaw = data['card'] ?? data['paymentMethod'] ?? data;
       if (cardRaw is Map) {
         return SavedPaymentMethod.fromJson(Map<String, dynamic>.from(cardRaw));
       }
