@@ -1247,6 +1247,8 @@ export function servePayPalCheckoutPage(req, res) {
   const cardOnly = checkout === 'card';
   const cardFormOnly = mode === 'app' || cardOnly;
 
+  const googlePayEnvironment = String(process.env.PAYPAL_MODE || 'sandbox').toLowerCase() === 'live' ? 'PRODUCTION' : 'TEST';
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1276,12 +1278,14 @@ label{display:block;font-size:13px;font-weight:600;color:#6b7280;margin-bottom:8
 .div-text{font-size:13px;color:#9ca3af;white-space:nowrap}
 .pp-btn{width:100%;height:56px;background:#003087;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
 .ap-btn{width:100%;height:56px;background:#000;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:12px;-webkit-appearance:none;-apple-pay-button-type:plain;-apple-pay-button-style:black}
+.wallet-grid{display:grid;gap:12px;margin-bottom:12px}
+.wallet-btn-wrap{min-height:52px}
 .footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;padding-bottom:20px}
 .footer-txt{font-size:12px;color:#9ca3af}
 .err{background:#fee2e2;color:#dc2626;padding:12px 16px;border-radius:10px;font-size:13px;margin-top:12px;display:none}
 .spin{display:inline-block;width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-#apple-section{display:none}
+#apple-section,#googlepay-section{display:none}
 </style>
 </head>
 <body>
@@ -1329,14 +1333,15 @@ ${cardFormOnly ? '' : '<div class="divider"><div class="div-line"></div><span cl
 <!-- PayPal button rendered here by SDK -->
 <div id="paypal-btn-container"></div>
 
-${cardFormOnly ? '' : '<div id="apple-section"><button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">Pay with Apple Pay</button></div>'}
+${cardFormOnly ? '' : '<div class="wallet-grid"><div id="apple-section"><button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">Pay with Apple Pay</button></div><div id="googlepay-section" class="wallet-btn-wrap"></div></div>'}
 
 <div class="footer">
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
   <span class="footer-txt">Secure checkout</span>
 </div>
 
-<script src="https://www.paypal.com/sdk/js?client-id=${clientId}&components=buttons,card-fields,applepay&intent=capture"></script>
+<script src="https://pay.google.com/gp/p/js/pay.js"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=${clientId}&components=buttons,card-fields,applepay,googlepay&intent=capture"></script>
 <script>
 const P = new URLSearchParams(location.search);
 const token      = P.get('token') || '${token}';
@@ -1350,6 +1355,7 @@ const checkout   = (P.get('checkout') || '${checkout}').toLowerCase();
 const cardOnly   = checkout === 'card';
 const cardFormOnly = mode === 'app' || cardOnly;
 const backend    = '${backendUrl}';
+const googlePayEnvironment = '${googlePayEnvironment}';
 
 const authHeaders = {'Content-Type':'application/json', 'Authorization': 'Bearer ' + token};
 
@@ -1556,6 +1562,68 @@ if (!cardFormOnly && window.ApplePaySession && paypal.Applepay) {
       };
       session.begin();
     };
+  }).catch(() => {});
+}
+
+// ── Google Pay ────────────────────────────────────────────────────────────────
+
+if (!cardFormOnly && window.google?.payments?.api && paypal.Googlepay) {
+  const googlepay = paypal.Googlepay();
+  let paymentsClient = null;
+
+  function getGooglePaymentsClient() {
+    if (!paymentsClient) {
+      paymentsClient = new google.payments.api.PaymentsClient({ environment: googlePayEnvironment });
+    }
+    return paymentsClient;
+  }
+
+  googlepay.config().then(config => {
+    const allowedPaymentMethods = config.allowedPaymentMethods || [];
+    const client = getGooglePaymentsClient();
+    return client.isReadyToPay({
+      apiVersion: config.apiVersion || 2,
+      apiVersionMinor: config.apiVersionMinor || 0,
+      allowedPaymentMethods,
+    }).then(response => ({ response, config, client, allowedPaymentMethods }));
+  }).then(({ response, config, client, allowedPaymentMethods }) => {
+    if (!response.result) return;
+    const section = document.getElementById('googlepay-section');
+    if (!section) return;
+    section.style.display = 'block';
+    const button = client.createButton({
+      buttonColor: 'black',
+      buttonType: 'pay',
+      buttonRadius: 14,
+      onClick: async () => {
+        const orderId = await createOrder('google_pay').catch(e => { notifyFlutter('error', { message: e.message }); return null; });
+        if (!orderId) return;
+        const amount = (parseFloat(P.get('amount') || '0') || 0).toFixed(2);
+        const paymentDataRequest = {
+          apiVersion: config.apiVersion || 2,
+          apiVersionMinor: config.apiVersionMinor || 0,
+          allowedPaymentMethods,
+          merchantInfo: config.merchantInfo,
+          transactionInfo: {
+            countryCode: config.countryCode || 'US',
+            currencyCode: P.get('currency') || 'USD',
+            totalPriceStatus: 'FINAL',
+            totalPrice: amount,
+          },
+        };
+        try {
+          const paymentData = await client.loadPaymentData(paymentDataRequest);
+          await googlepay.confirmOrder({ orderId, paymentMethodData: paymentData.paymentMethodData });
+          const result = await captureOrder(orderId);
+          notifyFlutter('success', { orderId, request: result.request || null });
+          if (mode !== 'app') window.location.href = '/shipping-success';
+        } catch (err) {
+          notifyFlutter('error', { message: err.message || 'Google Pay failed' });
+          if (mode !== 'app') alert(err.message || 'Google Pay failed');
+        }
+      },
+    });
+    section.appendChild(button);
   }).catch(() => {});
 }
 </script>

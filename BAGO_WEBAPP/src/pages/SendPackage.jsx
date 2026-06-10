@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/style.css';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -17,7 +19,7 @@ import {
     Phone
 } from 'lucide-react';
 import api, { getStoredTokens } from '../api';
-import { locations } from '../utils/countries';
+import { countries, locations } from '../utils/countries';
 import { calculateInsurance, fetchExchangeRates } from '../utils/insuranceCalculator';
 
 const getCountryFromCity = (cityName) => {
@@ -55,6 +57,30 @@ const PAYMENT_PENDING_MESSAGE =
 const providerForCurrency = (value) => (
     AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'paypal'
 );
+
+const ITEM_CATEGORIES = [
+    { value: 'Documents', label: 'Documents', icon: FileText },
+    { value: 'Electronics', label: 'Electronics', icon: CreditCard },
+    { value: 'Clothing', label: 'Clothing', icon: User },
+    { value: 'Food', label: 'Food', icon: Package },
+    { value: 'Fragile', label: 'Fragile', icon: AlertCircle },
+    { value: 'Other', label: 'Other', icon: Package },
+];
+
+const COUNTRY_ALIASES = {
+    UK: 'United Kingdom',
+    USA: 'United States',
+    US: 'United States',
+};
+
+const countryIsoFromName = (name) => {
+    const normalized = COUNTRY_ALIASES[String(name || '').trim()] || String(name || '').trim();
+    const match = countries.find(c =>
+        c.label.toLowerCase() === normalized.toLowerCase() ||
+        c.value.toLowerCase() === normalized.toLowerCase()
+    );
+    return (match?.value || 'US').toLowerCase();
+};
 
 const showPaymentError = (setError, message = PAYMENT_UNAVAILABLE_MESSAGE, error = null) => {
     if (error) {
@@ -106,6 +132,7 @@ export default function SendPackage() {
     const [quote, setQuote] = useState(null);
     const [pendingPayment, setPendingPayment] = useState(null);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
+    const [receiverPhoneCountry, setReceiverPhoneCountry] = useState('us');
 
     // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
@@ -120,7 +147,7 @@ export default function SendPackage() {
         deliveryDeadline: '',
         specialInstructions: '',
         insuranceProtection: false,
-        category: 'other',
+        category: 'Documents',
         receiverName: '',
         receiverPhone: '',
         imagePreview: null,
@@ -161,6 +188,7 @@ export default function SendPackage() {
                 toCountry,
                 deliveryDeadline: selectedTrip.departureDate || ''
             }));
+            setReceiverPhoneCountry(countryIsoFromName(toCountry));
         }
     }, [selectedTrip]);
 
@@ -287,6 +315,13 @@ export default function SendPackage() {
             ...formData,
             [name]: type === 'checkbox' ? checked : value
         });
+    };
+
+    const handleReceiverPhoneChange = (value, countryData) => {
+        setFormData(prev => ({ ...prev, receiverPhone: value }));
+        if (countryData?.countryCode) {
+            setReceiverPhoneCountry(countryData.countryCode.toLowerCase());
+        }
     };
 
     const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
@@ -588,20 +623,23 @@ export default function SendPackage() {
 
                                 <div>
                                     <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">Item Category</label>
-                                    <select
-                                        required
-                                        name="category"
-                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
-                                        value={formData.category}
-                                        onChange={handleChange}
-                                    >
-                                        <option value="documents">Documents</option>
-                                        <option value="electronics">Electronics</option>
-                                        <option value="clothing">Clothing</option>
-                                        <option value="food_perishables">Food & Perishables</option>
-                                        <option value="fragile">Fragile Items</option>
-                                        <option value="other">Other Allowed Items</option>
-                                    </select>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        {ITEM_CATEGORIES.map(({ value, label, icon: Icon }) => {
+                                            const selected = formData.category === value;
+                                            return (
+                                                <button
+                                                    key={value}
+                                                    type="button"
+                                                    onClick={() => setFormData(prev => ({ ...prev, category: value }))}
+                                                    className={`h-[76px] rounded-[14px] border flex flex-col items-center justify-center gap-1.5 transition-all ${selected ? 'bg-[#5845D8] border-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'bg-white border-gray-100 text-gray-500 hover:border-[#5845D8]/25 hover:bg-gray-50'}`}
+                                                    aria-pressed={selected}
+                                                >
+                                                    <Icon size={18} strokeWidth={2.2} />
+                                                    <span className="text-[11px] font-black tracking-tight">{label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -712,19 +750,21 @@ export default function SendPackage() {
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('receiverPhoneLabel')}</label>
-                                    <div className="flex items-center rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white focus-within:bg-white focus-within:border-[#5845D8]/30 focus-within:shadow-sm transition-all overflow-hidden">
-                                        <div className="h-[50px] w-[52px] flex items-center justify-center text-gray-400 border-r border-gray-100 bg-white/60">
-                                            <Phone size={18} />
-                                        </div>
-                                        <input
-                                            required
-                                            type="tel"
-                                            name="receiverPhone"
-                                            placeholder="+1 234 567 890"
-                                            className="w-full px-4 py-3.5 outline-none text-[14px] font-bold tracking-tight bg-transparent text-[#012126]"
+                                    <div className="relative">
+                                        <PhoneInput
+                                            country={receiverPhoneCountry}
                                             value={formData.receiverPhone}
-                                            onChange={handleChange}
+                                            onChange={handleReceiverPhoneChange}
+                                            enableSearch
+                                            disableSearchIcon
+                                            inputProps={{ name: 'receiverPhone', required: true }}
+                                            containerClass="!w-full"
+                                            inputClass="!w-full !h-[56px] !pl-[72px] !pr-4 !rounded-[14px] !border !border-gray-100 !bg-gray-50/50 focus:!bg-white focus:!border-[#5845D8]/30 !outline-none !text-[14px] !font-bold !tracking-tight !text-[#012126]"
+                                            buttonClass="!h-[56px] !w-[64px] !rounded-l-[14px] !border !border-gray-100 !border-r-0 !bg-white/70 hover:!bg-white"
+                                            dropdownClass="!rounded-2xl !border-gray-100 !shadow-xl !text-sm"
+                                            searchClass="!mx-3 !my-2 !w-[calc(100%-24px)] !rounded-xl !border-gray-100 !py-2"
                                         />
+                                        <Phone size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
                                     </div>
                                 </div>
                             </div>
