@@ -7,9 +7,9 @@ const DEFAULTS = {
   insuranceFixedAmount: 6,
   commissionPercentage: 10,
   // All-inclusive sender pricing (surcharge on top of traveler payout)
-  platformCommissionPercent: 20,
+  platformCommissionPercent: 15,
   processingFeePercent: 5,
-  fxBufferPercent: 1,
+  fxBufferPercent: 0,
   senderInsurancePercent: 0.5,
   autoVerification: false,
   baseCurrency: 'USD',

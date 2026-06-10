@@ -275,6 +275,8 @@ export const addFunds = async (req, res) => {
 
 const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
 const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 2);
+const PAYPAL_WITHDRAWAL_FEE_EUR = 2;
+const PAYSTACK_WITHDRAWAL_FEE_NGN = 200;
 const PAYSTACK_PAYOUT_CURRENCIES = [
   'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
   'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
@@ -347,6 +349,21 @@ export const withdrawFunds = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Add and verify a bank account before withdrawing.' });
     }
 
+    const withdrawalFee = selectedMethod === 'bank'
+      ? Number((walletCurrency === 'NGN'
+          ? PAYSTACK_WITHDRAWAL_FEE_NGN
+          : await convertCurrency(PAYSTACK_WITHDRAWAL_FEE_NGN, 'NGN', walletCurrency)).toFixed(2))
+      : Number((walletCurrency === 'EUR'
+          ? PAYPAL_WITHDRAWAL_FEE_EUR
+          : await convertCurrency(PAYPAL_WITHDRAWAL_FEE_EUR, 'EUR', walletCurrency)).toFixed(2));
+    const payoutAmount = Number((Number(amount) - withdrawalFee).toFixed(2));
+    if (payoutAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Withdrawal amount must be greater than the ${walletCurrency} ${withdrawalFee.toFixed(2)} withdrawal fee.`,
+      });
+    }
+
     if (Number(account.available_balance || 0) < Number(amount)) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
@@ -401,7 +418,16 @@ export const withdrawFunds = async (req, res) => {
       [
         account.wallet_id, userId, amount, walletCurrency,
         `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'PayPal'}`,
-        JSON.stringify({ method: selectedMethod, amountUsd, reference }),
+        JSON.stringify({
+          method: selectedMethod,
+          amountUsd,
+          reference,
+          requestedAmount: Number(amount),
+          withdrawalFee,
+          payoutAmount,
+          feeCurrency: walletCurrency,
+          feeRule: selectedMethod === 'bank' ? 'paystack_ngn_200' : 'paypal_eur_2',
+        }),
       ]
     );
 
@@ -409,7 +435,7 @@ export const withdrawFunds = async (req, res) => {
     try {
       if (selectedMethod === 'bank') {
         const result = await initiateTransfer({
-          amount: Number(amount),
+          amount: payoutAmount,
           recipientCode: account.paystack_recipient_code,
           currency: walletCurrency,
           reason: 'Bago wallet withdrawal',
@@ -425,7 +451,7 @@ export const withdrawFunds = async (req, res) => {
       } else {
         const payout = await createPayPalEmailPayout({
           receiverEmail: account.paypal_email,
-          amount: Number(amount),
+          amount: payoutAmount,
           currency: walletCurrency,
           reference,
           note: 'Bago wallet withdrawal',
@@ -464,6 +490,9 @@ export const withdrawFunds = async (req, res) => {
       success: true,
       message: 'Withdrawal initiated. Funds will arrive within 1–3 business days.',
       reference,
+      requestedAmount: Number(amount),
+      withdrawalFee,
+      payoutAmount,
       balance: updatedWallet.available_balance,
     });
   } catch (error) {

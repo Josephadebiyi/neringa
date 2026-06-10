@@ -887,14 +887,6 @@ export default function SendPackage() {
                                 )}
 
                                 <div className="space-y-3 border-t border-white/10 pt-6">
-                                    <div className="flex justify-between items-center text-[8px] font-black text-white/40 uppercase tracking-widest">
-                                        <span>Traveler rate</span>
-                                        <span>{currency} {(shippingCost / 1.26).toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-[8px] font-black text-white/40 uppercase tracking-widest">
-                                        <span>Platform fee (26%)</span>
-                                        <span>{currency} {(shippingCost - shippingCost / 1.26).toFixed(2)}</span>
-                                    </div>
                                     {formData.insuranceProtection && (
                                         <div className="flex justify-between items-center text-[8px] font-black text-white/40 uppercase tracking-widest">
                                             <span>Insurance (0.5%)</span>

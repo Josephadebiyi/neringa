@@ -849,10 +849,15 @@ app.get('/api/config/pricing-config', async (_req, res) => {
   try {
     const { getFullPricingConfig } = await import('./services/pricingService.js');
     const config = await getFullPricingConfig();
-    const surchargeMultiplier = 1 + (config.platformCommissionPercent + config.processingFeePercent + config.fxBufferPercent) / 100;
+    const platform = 1 + (Number(config.platformCommissionPercent || 0) / 100);
+    const processingAndFx =
+      1 +
+      (Number(config.processingFeePercent || 0) / 100) +
+      (Number(config.fxBufferPercent || 0) / 100);
+    const surchargeMultiplier = platform * processingAndFx;
     res.json({ success: true, surchargeMultiplier: parseFloat(surchargeMultiplier.toFixed(4)) });
   } catch {
-    res.json({ success: true, surchargeMultiplier: 1.26 });
+    res.json({ success: true, surchargeMultiplier: 1.2075 });
   }
 });
 app.get('/api/payments/pending-checkout', isAuthenticated, getPendingCheckouts);

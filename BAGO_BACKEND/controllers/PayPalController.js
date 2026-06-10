@@ -241,7 +241,9 @@ async function buildCheckoutQuote({ profile, shipmentId, packageId, tripId, curr
       travelerAmount = toAmount(storedTravelerPayout);
       commissionAmount = toAmount(Math.max(0, totalAmount - storedInsuranceCost - travelerAmount));
     } else {
-      const surchargeMultiplier = 1 + (platformCommissionPercent + processingFeePercent + fxBufferPercent) / 100;
+      const surchargeMultiplier =
+        (1 + platformCommissionPercent / 100) *
+        (1 + processingFeePercent / 100 + fxBufferPercent / 100);
       const amountWithoutInsurance = toAmount(totalAmount - storedInsuranceCost);
       travelerAmount = toAmount(amountWithoutInsurance / surchargeMultiplier);
       commissionAmount = toAmount(amountWithoutInsurance - travelerAmount);

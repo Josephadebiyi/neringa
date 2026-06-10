@@ -1,6 +1,7 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { findProfileById, getWalletByUserId } from './profiles.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
+import { getFullPricingConfig } from '../../services/pricingService.js';
 
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
@@ -673,9 +674,21 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       const requestCurrency = (request.currency || 'USD').toUpperCase();
       const walletCurrency = (wallet.currency || 'USD').toUpperCase();
       const rawAmount = toNumber(request.amount);
-      const commissionAmount = Number((rawAmount * getCommissionRate()).toFixed(2));
       const insuranceFee = toNumber(request.insurance_cost);
-      const travelerEarningAmount = Math.max(0, rawAmount - commissionAmount - insuranceFee);
+      const storedTravelerPayout = toNumber(request.traveler_payout);
+      let travelerEarningAmount = storedTravelerPayout;
+      if (travelerEarningAmount <= 0) {
+        const config = await getFullPricingConfig();
+        const surchargeMultiplier =
+          (1 + Number(config.platformCommissionPercent || 0) / 100) *
+          (1 +
+            Number(config.processingFeePercent || 0) / 100 +
+            Number(config.fxBufferPercent || 0) / 100);
+        travelerEarningAmount = Number(((rawAmount - insuranceFee) / surchargeMultiplier).toFixed(2));
+      }
+      const commissionAmount = toNumber(request.platform_commission ?? Math.max(0, rawAmount - insuranceFee - travelerEarningAmount));
+      const paymentProcessingFee = toNumber(request.processing_fee);
+      const conversionFee = toNumber(request.fx_buffer);
       const escrowAmount = requestCurrency !== walletCurrency
         ? await convertCurrency(travelerEarningAmount, requestCurrency, walletCurrency)
         : travelerEarningAmount;
@@ -688,7 +701,9 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
         walletCurrency,
         convertedTravelerEarning: escrowAmount,
         commissionAmount,
+        paymentProcessingFee,
         insuranceFee,
+        conversionFee,
         exchangeRate,
         travelerEarningAmount,
       });
@@ -700,7 +715,7 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       await client.query(
         `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
          values ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
-        [wallet.id, request.traveler_id, request.id, request.trip_id, escrowAmount, walletCurrency, `Escrow hold for Request ${request.tracking_number || request.id}`, { providerReference, provider, originalAmount: rawAmount, originalCurrency: requestCurrency, commissionAmount, insuranceFee, travelerEarningAmount }],
+        [wallet.id, request.traveler_id, request.id, request.trip_id, escrowAmount, walletCurrency, `Escrow hold for Request ${request.tracking_number || request.id}`, { providerReference, provider, originalAmount: rawAmount, originalCurrency: requestCurrency, commissionAmount, paymentProcessingFee, conversionFee, insuranceFee, travelerEarningAmount }],
       );
     }
 

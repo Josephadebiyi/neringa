@@ -55,7 +55,7 @@ const Navbar = () => {
     );
 };
 
-const TripCard = ({ trip, weight, surchargeMultiplier = 1.26 }) => {
+const TripCard = ({ trip, weight, surchargeMultiplier = 1.2075 }) => {
     const navigate = useNavigate();
     const { isAuthenticated, user } = useAuth();
     const { t } = useLanguage();
@@ -251,7 +251,7 @@ export default function Search() {
     const [searchParams] = useSearchParams();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [surchargeMultiplier, setSurchargeMultiplier] = useState(1.26);
+    const [surchargeMultiplier, setSurchargeMultiplier] = useState(1.2075);
 
     const findInitialLocation = (cityParam, countryParam) => {
         if (!cityParam && !countryParam) return null;

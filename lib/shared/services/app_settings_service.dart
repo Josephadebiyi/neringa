@@ -11,9 +11,9 @@ class AppSettingsSnapshot {
     required this.baseCurrency,
     required this.supportedCurrencies,
     required this.exchangeRates,
-    this.platformCommissionPercent = 20,
+    this.platformCommissionPercent = 15,
     this.processingFeePercent = 5,
-    this.fxBufferPercent = 1,
+    this.fxBufferPercent = 0,
     this.senderInsurancePercent = 0.5,
   });
 
@@ -32,9 +32,8 @@ class AppSettingsSnapshot {
   final double senderInsurancePercent;
 
   double get surchargeMultiplier =>
-      1 +
-      (platformCommissionPercent + processingFeePercent + fxBufferPercent) /
-          100;
+      (1 + platformCommissionPercent / 100) *
+      (1 + processingFeePercent / 100 + fxBufferPercent / 100);
 
   bool get usesFixedInsurance => insuranceType.toLowerCase().trim() == 'fixed';
 
@@ -79,9 +78,9 @@ class AppSettingsSnapshot {
       supportedCurrencies: supportedCurrencies,
       exchangeRates: exchangeRates,
       platformCommissionPercent:
-          _asDouble(raw['platformCommissionPercent'], fallback: 20),
+          _asDouble(raw['platformCommissionPercent'], fallback: 15),
       processingFeePercent: _asDouble(raw['processingFeePercent'], fallback: 5),
-      fxBufferPercent: _asDouble(raw['fxBufferPercent'], fallback: 1),
+      fxBufferPercent: _asDouble(raw['fxBufferPercent'], fallback: 0),
       senderInsurancePercent:
           _asDouble(raw['senderInsurancePercent'], fallback: 0.5),
     );

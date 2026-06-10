@@ -31,9 +31,9 @@ export function calculateTravelerPayout(totalPrice, commission) {
 // ── All-inclusive pricing ────────────────────────────────────────────────────
 
 const DEFAULT_PRICING_CONFIG = {
-  platformCommissionPercent: 20,
+  platformCommissionPercent: 15,
   processingFeePercent: 5,
-  fxBufferPercent: 1,
+  fxBufferPercent: 0,
   senderInsurancePercent: 0.5,
 };
 
@@ -44,7 +44,8 @@ function _toPercent(value, fallback) {
 
 /**
  * Returns all fee percentages from DB config, falling back to defaults.
- * platformCommissionPercent + processingFeePercent + fxBufferPercent = surcharge on top of traveler payout.
+ * Platform fee is charged on traveler payout. Processing buffer is charged on
+ * subtotal after platform fee. Traveler payout is never reduced.
  * senderInsurancePercent applied to declared item value when sender opts in.
  */
 export async function getFullPricingConfig() {
@@ -72,18 +73,20 @@ export async function getFullPricingConfig() {
  * Traveler receives exactly travelerPayout; sender pays travelerPayout × surchargeMultiplier.
  */
 export function calculateAllInclusivePrice(travelerPayout, config) {
-  const { platformCommissionPercent, processingFeePercent, fxBufferPercent } = config;
-  const surchargeMultiplier = 1 + (platformCommissionPercent + processingFeePercent + fxBufferPercent) / 100;
+  const { platformCommissionPercent, processingFeePercent, fxBufferPercent = 0 } = config;
   const tp = Number(travelerPayout);
-  const senderShippingFee = parseFloat((tp * surchargeMultiplier).toFixed(2));
   const platformCommission = parseFloat((tp * platformCommissionPercent / 100).toFixed(2));
-  const processingFee = parseFloat((tp * processingFeePercent / 100).toFixed(2));
-  const fxBuffer = parseFloat((tp * fxBufferPercent / 100).toFixed(2));
+  const subtotal = parseFloat((tp + platformCommission).toFixed(2));
+  const processingFee = parseFloat((subtotal * processingFeePercent / 100).toFixed(2));
+  const fxBuffer = parseFloat((subtotal * fxBufferPercent / 100).toFixed(2));
+  const senderShippingFee = parseFloat((subtotal + processingFee + fxBuffer).toFixed(2));
   const bagoNetRevenue = parseFloat((senderShippingFee - tp).toFixed(2));
+  const surchargeMultiplier = tp > 0 ? senderShippingFee / tp : 1;
 
   return {
     travelerPayout: parseFloat(tp.toFixed(2)),
     platformCommission,
+    processingBuffer: processingFee,
     processingFee,
     fxBuffer,
     senderShippingFee,
