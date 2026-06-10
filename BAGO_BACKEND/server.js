@@ -366,6 +366,19 @@ const sensitiveLimiter = rateLimit({
   message: { success: false, code: 'RATE_LIMITED', message: 'Too many attempts on a sensitive operation. Please try again in 1 hour.' },
 });
 
+const checkoutLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 80,
+  keyGenerator: (req) => {
+    const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const tokenHash = auth ? crypto.createHash('sha256').update(auth).digest('hex').slice(0, 24) : '';
+    return tokenHash || ipKeyGenerator(req.ip);
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, code: 'RATE_LIMITED', message: 'Too many checkout attempts. Please wait a moment and try again.' },
+});
+
 // Apply global limiter to all routes
 app.use(globalLimiter);
 
@@ -400,14 +413,18 @@ authRoutes.forEach(route => app.use(route, authLimiter));
   '/api/paystack/add-bank',
   '/api/paystack/verify-bank-otp',
   '/api/paystack/withdraw',
-  '/api/payments/paypal/create-order',
-  '/api/payments/paypal/capture-order',
   '/api/payouts/paypal/send',
   '/api/payouts/paypal/send-otp',
   '/api/payouts/paypal/verify-otp',
   '/send-otp',
   '/api/payments/braintree/checkout',
 ].forEach(route => app.use(route, sensitiveLimiter));
+
+[
+  '/api/payments/paypal/create-order',
+  '/api/payments/paypal/capture-order',
+  '/api/payments/paypal/apple-pay/capture',
+].forEach(route => app.use(route, checkoutLimiter));
 
 const publicSchemaLimiter = rateLimit({
   windowMs: 60 * 1000,

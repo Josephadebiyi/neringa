@@ -22,6 +22,13 @@ const loadScript = (src, id) => new Promise((resolve, reject) => {
     document.head.appendChild(script);
 });
 
+const paymentErrorMessage = (error, fallback) => (
+    error?.response?.data?.message
+    || error?.response?.data?.error
+    || error?.message
+    || fallback
+);
+
 export default function PaymentCheckout() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
@@ -71,50 +78,59 @@ export default function PaymentCheckout() {
     }, []);
 
     const createOrder = async (paymentMethod) => {
-        const response = await api.post('/api/payments/paypal/create-order', {
-            packageId: checkout.packageId,
-            tripId: checkout.tripId,
-            currency: checkout.currency,
-            insurance: checkout.insurance,
-            insuranceCost: checkout.insuranceCost,
-            paymentMethod,
-        });
-        if (!response.data?.success) {
-            throw new Error(response.data?.message || 'Could not create payment order.');
+        try {
+            setError('');
+            const response = await api.post('/api/payments/paypal/create-order', {
+                packageId: checkout.packageId,
+                tripId: checkout.tripId,
+                currency: checkout.currency,
+                insurance: checkout.insurance,
+                insuranceCost: checkout.insuranceCost,
+                paymentMethod,
+            });
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Could not create payment order.');
+            }
+            return response.data.data.orderId;
+        } catch (err) {
+            throw new Error(paymentErrorMessage(err, 'Could not create payment order.'));
         }
-        return response.data.data.orderId;
     };
 
     const captureOrder = async (orderId) => {
-        const response = await api.post('/api/payments/paypal/capture-order', {
-            orderId,
-            packageId: checkout.packageId,
-            tripId: checkout.tripId,
-            currency: checkout.currency,
-            insurance: checkout.insurance,
-            insuranceCost: checkout.insuranceCost,
-        });
-        if (!response.data?.success) {
-            throw new Error(response.data?.message || 'Payment could not be completed.');
-        }
-        const req = response.data?.data?.request;
-        navigate('/shipping-success', {
-            replace: true,
-            state: {
-                requestId: req?.id || req?._id,
-                trackingNumber: req?.trackingNumber,
-                amount: checkout.amount,
+        try {
+            const response = await api.post('/api/payments/paypal/capture-order', {
+                orderId,
+                packageId: checkout.packageId,
+                tripId: checkout.tripId,
                 currency: checkout.currency,
-                paymentMethod: 'paypal',
-            },
-        });
+                insurance: checkout.insurance,
+                insuranceCost: checkout.insuranceCost,
+            });
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Payment could not be completed.');
+            }
+            const req = response.data?.data?.request;
+            navigate('/shipping-success', {
+                replace: true,
+                state: {
+                    requestId: req?.id || req?._id,
+                    trackingNumber: req?.trackingNumber,
+                    amount: checkout.amount,
+                    currency: checkout.currency,
+                    paymentMethod: 'paypal',
+                },
+            });
+        } catch (err) {
+            throw new Error(paymentErrorMessage(err, 'Payment could not be completed.'));
+        }
     };
 
     const renderPayPalButtons = () => {
         window.paypal.Buttons({
             createOrder: () => createOrder('paypal_wallet'),
             onApprove: ({ orderID }) => captureOrder(orderID),
-            onError: (err) => setError(err?.message || 'PayPal payment failed.'),
+            onError: (err) => setError(paymentErrorMessage(err, 'PayPal payment failed.')),
             style: { layout: 'horizontal', color: 'blue', shape: 'rect', label: 'pay', height: 52, tagline: false },
         }).render('#paypal-button-container');
     };
@@ -132,6 +148,20 @@ export default function PaymentCheckout() {
                     'font-size': '15px',
                     'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
                     color: '#111827',
+                    padding: '0',
+                    border: 'none',
+                    outline: 'none',
+                    'box-shadow': 'none',
+                    background: 'transparent',
+                },
+                ':focus': {
+                    color: '#111827',
+                    outline: 'none',
+                    border: 'none',
+                    'box-shadow': 'none',
+                },
+                '.invalid': {
+                    color: '#dc2626',
                 },
             },
         });
@@ -272,13 +302,14 @@ export default function PaymentCheckout() {
                                 </div>
                                 <CreditCard className="text-[#5845D8]" size={22} />
                             </div>
+                            {error && <div className="mb-4 rounded-[14px] border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-600">{error}</div>}
                             <PaymentField label="Card number" id="card-number-field" />
                             <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                 <PaymentField label="Expiry" id="card-expiry-field" />
                                 <PaymentField label="CVV" id="card-cvv-field" />
                             </div>
                             <label className="mt-3 block text-xs font-black text-gray-500">Cardholder name (optional)</label>
-                            <input id="card-name-input" className="mt-2 h-14 w-full rounded-[14px] border border-gray-200 bg-gray-50 px-4 text-sm font-bold outline-none focus:border-[#5845D8]/40 focus:bg-white" placeholder="Name on card" autoComplete="cc-name" />
+                            <input id="card-name-input" className="mt-2 h-14 w-full rounded-[14px] border border-gray-200 bg-white px-4 text-sm font-bold outline-none transition placeholder:text-gray-400 focus:border-[#5845D8]/50 focus:shadow-[0_0_0_4px_rgba(88,69,216,0.08)]" placeholder="Name on card" autoComplete="cc-name" />
                             <button onClick={submitCard} disabled={!ready || processing} className="mt-5 flex h-14 w-full items-center justify-center rounded-[15px] bg-[#5845D8] text-base font-black text-white shadow-lg shadow-[#5845D8]/20 disabled:opacity-50">
                                 {processing ? 'Processing...' : `Pay ${checkout.currency} ${checkout.amount.toFixed(2)}`}
                             </button>
@@ -322,8 +353,6 @@ export default function PaymentCheckout() {
                         </div>
                     </aside>
                 </div>
-
-                {error && <div className="mx-auto mt-5 max-w-5xl rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-600">{error}</div>}
             </div>
         </div>
     );
@@ -333,8 +362,8 @@ function PaymentField({ label, id }) {
     return (
         <div>
             <label className="block text-xs font-black text-gray-500">{label}</label>
-            <div className="mt-2 flex h-14 items-center rounded-[14px] border border-gray-200 bg-gray-50 px-4 focus-within:border-[#5845D8]/40 focus-within:bg-white">
-                <div id={id} className="h-full w-full" />
+            <div className="mt-2 flex h-14 items-center rounded-[14px] border border-gray-200 bg-white px-4 transition focus-within:border-[#5845D8]/50 focus-within:shadow-[0_0_0_4px_rgba(88,69,216,0.08)]">
+                <div id={id} className="flex h-full w-full items-center [&>iframe]:!border-0 [&>iframe]:!shadow-none" />
             </div>
         </div>
     );
