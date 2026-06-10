@@ -390,13 +390,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     try {
       debugPrint('Apple Pay: native authorization returned a token payload.');
       final draft = _draft!;
-      // pay_ios returns { "token": "<paymentData JSON>", "transactionIdentifier": ..., "paymentMethod": ... }
-      // The payment data is at the top-level "token" key, not Google Pay's paymentMethodData path.
-      final tokenRaw = result['token'];
-      if (tokenRaw == null) {
-        throw Exception('Apple Pay token missing from native result.');
-      }
-      final token = tokenRaw is String ? jsonDecode(tokenRaw) as Map<String, dynamic> : tokenRaw as Map<String, dynamic>;
+      final token = _extractApplePayToken(result);
 
       debugPrint('Apple Pay: sending token to backend capture endpoint.');
       final captureResult = await _paymentService.captureApplePayOrder(
@@ -448,6 +442,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
       'Apple Pay native error before backend call: '
           '${message?.isNotEmpty == true ? message : 'Unknown native error'}',
     );
+  }
+
+  Map<String, dynamic> _extractApplePayToken(Map<String, dynamic> result) {
+    final nativeToken = result['token'];
+    final googleStyleToken =
+        result['paymentMethodData']?['tokenizationData']?['token'];
+    final rawToken = nativeToken ?? googleStyleToken;
+    if (rawToken == null) {
+      debugPrint('Apple Pay: native result keys: ${result.keys.join(', ')}');
+      throw Exception('Apple Pay token missing from native result.');
+    }
+
+    final decoded = rawToken is String ? jsonDecode(rawToken) : rawToken;
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    throw Exception('Apple Pay token was not a valid JSON object.');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

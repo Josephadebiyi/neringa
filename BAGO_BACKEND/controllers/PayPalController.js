@@ -766,18 +766,26 @@ export async function captureApplePayOrder(req, res) {
       return res.status(500).json({ success: false, message: 'Could not create PayPal order for Apple Pay.' });
     }
 
+    const paypalAppleToken = {
+      paymentData: {
+        version: paymentData.version,
+        data: paymentData.data,
+        signature: paymentData.signature,
+        header: {
+          ephemeralPublicKey: header.ephemeralPublicKey,
+          publicKeyHash: header.publicKeyHash,
+          transactionId: header.transactionId,
+        },
+      },
+      transactionIdentifier: applePayToken.transactionIdentifier || header.transactionId,
+      paymentMethod: applePayToken.paymentMethod || {},
+    };
+
     // Step 2: Confirm payment source with the Apple Pay token
     await paypalRequest('post', `/v2/checkout/orders/${encodeURIComponent(orderId)}/confirm-payment-source`, {
       payment_source: {
         apple_pay: {
-          token: {
-            id: header.transactionId,
-            type: 'APPLE_PAY',
-            encrypted_key: header.publicKeyHash,
-            ephemeral_key: header.ephemeralPublicKey,
-            cipher_text: paymentData.data,
-            signature: paymentData.signature,
-          },
+          token: paypalAppleToken,
         },
       },
     });
@@ -834,9 +842,13 @@ export async function captureApplePayOrder(req, res) {
       paypalError?.details?.[0]?.description ||
       paypalError?.details?.[0]?.issue ||
       paypalError?.message;
+    const debugId = paypalError?.debug_id || error.response?.headers?.['paypal-debug-id'];
     return res.status(error.statusCode || 500).json({
       success: false,
-      message: paypalIssue || error.message || 'Apple Pay payment could not be completed.',
+      message: [
+        paypalIssue || error.message || 'Apple Pay payment could not be completed.',
+        debugId ? `PayPal debug id: ${debugId}` : null,
+      ].filter(Boolean).join(' '),
     });
   }
 }
