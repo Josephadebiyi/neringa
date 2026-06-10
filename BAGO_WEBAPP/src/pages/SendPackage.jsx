@@ -86,8 +86,43 @@ const showPaymentError = (setError, message = PAYMENT_UNAVAILABLE_MESSAGE, error
     if (error) {
         console.error('[payment]', error);
     }
-    setError(message);
+    const details = error?.response?.data;
+    const backendMessage =
+        details?.message ||
+        details?.error ||
+        (Array.isArray(details?.errors) ? details.errors[0]?.message || details.errors[0] : null);
+    const statusMessage = error?.response?.status === 413
+        ? 'The item image is too large. Please upload a smaller photo and try again.'
+        : null;
+    setError(statusMessage || backendMessage || error?.message || message);
 };
+
+const resizePackageImage = (file) => new Promise((resolve, reject) => {
+    if (!file?.type?.startsWith('image/')) {
+        reject(new Error('Please upload a valid image file.'));
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the selected image.'));
+    reader.onload = () => {
+        const image = new Image();
+        image.onerror = () => reject(new Error('Could not prepare the selected image.'));
+        image.onload = () => {
+            const maxSide = 1400;
+            const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+            const width = Math.max(1, Math.round(image.width * scale));
+            const height = Math.max(1, Math.round(image.height * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.78));
+        };
+        image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+});
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -192,18 +227,19 @@ export default function SendPackage() {
         }
     }, [selectedTrip]);
 
-    const handleImageChange = (e) => {
+    const handleImageChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
+            try {
+                const imageData = await resizePackageImage(file);
                 setFormData(prev => ({
                     ...prev,
-                    packageImage: reader.result,
-                    imagePreview: reader.result
+                    packageImage: imageData,
+                    imagePreview: imageData
                 }));
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                setError(err.message || 'Could not upload this image. Please try another photo.');
+            }
         }
     };
 
@@ -428,29 +464,40 @@ export default function SendPackage() {
                     return;
                 }
 
-                const packageResponse = await api.post('/api/bago/createPackage', {
-                    from_city: formData.fromCity.trim(),
-                    from_country: formData.fromCountry.trim(),
-                    to_city: formData.toCity.trim(),
-                    to_country: formData.toCountry.trim(),
-                    package_details: {
-                        package_name: formData.packageName.trim(),
-                        package_description: formData.packageDescription.trim(),
-                        package_weight: parseFloat(formData.packageWeight) || 1,
-                        package_value: formData.packageValue || 0,
-                        package_image: formData.packageImage,
-                        category: formData.category.trim()
-                    },
-                    recipient_details: {
-                        receiver_name: formData.receiverName.trim(),
-                        receiver_phone: formData.receiverPhone.trim(),
-                        receiver_email: ''
+                let packageId = '';
+                try {
+                    const packageResponse = await api.post('/api/bago/createPackage', {
+                        from_city: formData.fromCity.trim(),
+                        from_country: formData.fromCountry.trim(),
+                        to_city: formData.toCity.trim(),
+                        to_country: formData.toCountry.trim(),
+                        package_details: {
+                            package_name: formData.packageName.trim(),
+                            package_description: formData.packageDescription.trim(),
+                            package_weight: parseFloat(formData.packageWeight) || 1,
+                            package_value: formData.packageValue || 0,
+                            package_image: formData.packageImage,
+                            category: formData.category.trim()
+                        },
+                        recipient_details: {
+                            receiver_name: formData.receiverName.trim(),
+                            receiver_phone: formData.receiverPhone.trim(),
+                            receiver_phone_country_code: receiverPhoneCountry.toUpperCase(),
+                            receiver_email: ''
+                        }
+                    });
+
+                    if (![200, 201].includes(packageResponse.status) || !packageResponse.data?.package?._id) {
+                        throw new Error(packageResponse.data?.message || 'Package could not be created.');
                     }
-                });
+                    packageId = packageResponse.data.package._id;
+                } catch (err) {
+                    showPaymentError(setError, 'We could not create this shipment request. Please check the details and try again.', err);
+                    setLoading(false);
+                    return;
+                }
 
-                if (packageResponse.status === 201) {
-                    const packageId = packageResponse.data.package._id;
-
+                try {
                     if (paymentProvider === 'paypal') {
                         const checkoutParams = new URLSearchParams({
                             packageId,
@@ -488,6 +535,10 @@ export default function SendPackage() {
 
                     window.open(authorizationUrl, '_blank', 'noopener,noreferrer');
                     setPendingPayment({ provider: 'paystack', packageId, reference, authorizationUrl });
+                    return;
+                } catch (err) {
+                    showPaymentError(setError, 'We could not continue checkout right now. Please try again in a few minutes.', err);
+                    setLoading(false);
                     return;
                 }
             } else {

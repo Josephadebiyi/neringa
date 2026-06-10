@@ -5,9 +5,31 @@
 @tailwind utilities;
 
 @layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
     body {
         @apply antialiased text-gray-800 bg-gray-50;
         font-family: 'Inter', system-ui, sans-serif;
+        touch-action: pan-x pan-y;
+    }
+
+    button,
+    a,
+    [role='button'] {
+        touch-action: manipulation;
+    }
+
+    @media (max-width: 768px) {
+        input,
+        select,
+        textarea,
+        .react-tel-input .form-control,
+        .react-tel-input .search-box {
+            font-size: 16px !important;
+        }
     }
 
     h1,
