@@ -1261,8 +1261,8 @@ html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;bac
 body{min-height:100vh;padding:22px 14px}
 .shell{width:min(100%,960px);margin:0 auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:900;color:#012126;letter-spacing:.01em}
-.brand-mark{width:34px;height:34px;border-radius:10px;background:#5845D8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{height:34px;width:auto;display:block}
 .secure-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #e4e7ec;background:#fff;border-radius:999px;padding:8px 11px;color:#667085;font-size:12px;font-weight:800}
 .layout{display:grid;grid-template-columns:minmax(0,1.08fr) 320px;gap:18px;align-items:start}
 .panel{background:#fff;border:1px solid #eaecf0;border-radius:22px;box-shadow:0 18px 42px rgba(16,24,40,.07)}
@@ -1293,6 +1293,7 @@ label{display:block;font-size:12px;font-weight:850;color:#6b7280;margin-bottom:8
 .div-text{font-size:12px;color:#9ca3af;white-space:nowrap;font-weight:850;text-transform:uppercase;letter-spacing:.12em}
 .pp-btn{width:100%;height:56px;background:#003087;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
 .ap-btn{width:100%;height:55px;background:#000;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:850;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:0;-webkit-appearance:none;-apple-pay-button-type:plain;-apple-pay-button-style:black}
+.wallet-unavailable{display:none;width:100%;border:1px dashed #d0d5dd;background:#f8fafc;color:#667085;border-radius:14px;padding:12px 14px;font-size:12px;font-weight:800;line-height:1.35}
 .wallet-grid{display:grid;gap:12px}
 .wallet-btn-wrap{min-height:52px}
 .wallet-panel{padding:18px 18px 20px}
@@ -1313,7 +1314,7 @@ label{display:block;font-size:12px;font-weight:850;color:#6b7280;margin-bottom:8
 @media (max-width:460px){
   .row2{grid-template-columns:1fr}
   .card,.summary{padding:18px}
-  .brand span:last-child{display:none}
+  .brand-logo{height:30px}
 }
 </style>
 </head>
@@ -1321,7 +1322,7 @@ label{display:block;font-size:12px;font-weight:850;color:#6b7280;margin-bottom:8
 
 <main class="shell">
   <div class="topbar">
-    <div class="brand"><span class="brand-mark">B</span><span>Bago checkout</span></div>
+    <div class="brand"><img class="brand-logo" src="/bago_logo.png" alt="Bago"></div>
     <div class="secure-chip">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       Secure payment
@@ -1380,6 +1381,7 @@ label{display:block;font-size:12px;font-weight:850;color:#6b7280;margin-bottom:8
         </div>
         <div class="wallet-grid">
           <div id="apple-section"><button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">Pay with Apple Pay</button></div>
+          <div id="apple-unavailable" class="wallet-unavailable">Apple Pay is only shown on eligible Safari/iOS devices with Apple Pay enabled.</div>
           <div id="googlepay-section" class="wallet-btn-wrap"></div>
         </div>
         <div id="paypal-btn-container"></div>

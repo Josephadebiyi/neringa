@@ -24,6 +24,7 @@ import Verify from './pages/Verify';
 import Support from './pages/Support';
 import ShippingSuccess from './pages/ShippingSuccess';
 import PaymentCallback from './pages/PaymentCallback';
+import PaymentCheckout from './pages/PaymentCheckout';
 import Test from './Test';
 
 const GOOGLE_CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
@@ -57,6 +58,7 @@ function App() {
                         <Route path="/support" element={<Support />} />
                         <Route path="/shipping-success" element={<ShippingSuccess />} />
                         <Route path="/payment/callback" element={<PaymentCallback />} />
+                        <Route path="/checkout/payment" element={<PaymentCheckout />} />
                     </Routes>
                 </BrowserRouter>
             </LanguageProvider>

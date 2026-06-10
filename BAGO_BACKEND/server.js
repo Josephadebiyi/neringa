@@ -897,6 +897,10 @@ app.get('/', async (req, res) => {
   res.json({ success: true, message: "Bago API is running", version: "1.0.0" });
 });
 
+app.use(express.static(path.join(__dirname, '../BAGO_WEBAPP/public'), {
+  index: false,
+  maxAge: '1d',
+}));
 
 // Serve admin panel from /admin
 const adminDist = path.join(__dirname, '../ADMIN_NEW/dist');

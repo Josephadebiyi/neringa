@@ -18,7 +18,7 @@ import {
     RefreshCw,
     Phone
 } from 'lucide-react';
-import api, { getStoredTokens } from '../api';
+import api from '../api';
 import { countries, locations } from '../utils/countries';
 import { calculateInsurance, fetchExchangeRates } from '../utils/insuranceCalculator';
 
@@ -452,17 +452,15 @@ export default function SendPackage() {
                     const packageId = packageResponse.data.package._id;
 
                     if (paymentProvider === 'paypal') {
-                        const { accessToken } = getStoredTokens();
-                        const checkoutUrl = new URL('/api/payments/paypal/checkout', api.defaults.baseURL);
-                        checkoutUrl.searchParams.set('packageId', packageId);
-                        checkoutUrl.searchParams.set('tripId', selectedTrip._id);
-                        checkoutUrl.searchParams.set('currency', currency);
-                        checkoutUrl.searchParams.set('amount', Number(totalCost).toFixed(2));
-                        checkoutUrl.searchParams.set('insurance', String(formData.insuranceProtection));
-                        checkoutUrl.searchParams.set('insuranceCost', String(formData.insuranceProtection ? insuranceCost : 0));
-                        checkoutUrl.searchParams.set('mode', 'web');
-                        if (accessToken) checkoutUrl.searchParams.set('token', accessToken);
-                        window.location.href = checkoutUrl.toString();
+                        const checkoutParams = new URLSearchParams({
+                            packageId,
+                            tripId: selectedTrip._id,
+                            currency,
+                            amount: Number(totalCost).toFixed(2),
+                            insurance: String(formData.insuranceProtection),
+                            insuranceCost: String(formData.insuranceProtection ? insuranceCost : 0),
+                        });
+                        navigate(`/checkout/payment?${checkoutParams.toString()}`);
                         return;
                     }
 
