@@ -1628,7 +1628,8 @@ window.startApplePay = function() {
       session.completeMerchantValidation(merchantSession);
     } catch(err) {
       session.abort();
-      notifyFlutter('error', { message: err.message });
+      const detail = err?.message || err?.name || JSON.stringify(err);
+      notifyFlutter('error', { message: 'Apple Pay validation failed: ' + detail });
     }
   };
 

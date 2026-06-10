@@ -2,6 +2,13 @@
 AddType image/svg+xml .svg
 AddType image/svg+xml .svgz
 
+# Allow .well-known directory (needed for Apple Pay domain verification)
+<IfModule mod_authz_core.c>
+  <Directory ".well-known">
+    Require all granted
+  </Directory>
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
@@ -10,7 +17,10 @@ AddType image/svg+xml .svgz
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # 2. SPA Routing - Handle Refreshes (login, dashboard, etc)
+  # 2. Serve .well-known files directly (Apple Pay domain verification)
+  RewriteRule ^\.well-known/ - [L]
+
+  # 3. SPA Routing - Handle Refreshes (login, dashboard, etc)
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
@@ -18,5 +28,5 @@ AddType image/svg+xml .svgz
   RewriteRule . /index.html [L]
 </IfModule>
 
-# Robust Fallback for refreshing sub-pages
+# Robust Fallback for refreshing sub-pages (must not override .well-known)
 FallbackResource /index.html
