@@ -150,12 +150,12 @@ export default function PaymentCheckout() {
                     'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
                     'font-weight': '700',
                     color: '#111827',
-                    padding: '0',
+                    padding: '0 16px',
                     border: 'none',
                     outline: 'none',
                     'box-shadow': 'none',
                     background: 'transparent',
-                    height: '48px',
+                    height: '56px',
                 },
                 ':focus': {
                     color: '#111827',
@@ -383,9 +383,10 @@ function PaymentField({ label, id }) {
     return (
         <div>
             <label className="block text-xs font-black text-gray-500">{label}</label>
-            <div className="mt-2 flex h-14 items-center overflow-hidden rounded-[14px] border border-gray-200 bg-[#f9fafb] px-4 transition focus-within:border-[#5845D8]/50 focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(88,69,216,0.08)]">
-                <div id={id} className="flex h-12 w-full items-center overflow-hidden [&>iframe]:!h-12 [&>iframe]:!w-full [&>iframe]:!border-0 [&>iframe]:!outline-none [&>iframe]:!shadow-none" />
-            </div>
+            <div
+                id={id}
+                className="mt-2 h-14 overflow-hidden rounded-[14px] border border-gray-200 bg-white transition focus-within:border-[#5845D8]/50 focus-within:shadow-[0_0_0_4px_rgba(88,69,216,0.08)] [&>iframe]:!block [&>iframe]:!h-14 [&>iframe]:!w-full [&>iframe]:!border-0 [&>iframe]:!outline-none [&>iframe]:!shadow-none"
+            />
         </div>
     );
 }
