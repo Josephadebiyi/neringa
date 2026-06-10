@@ -39,6 +39,7 @@ export default function PaymentCheckout() {
     const [googleReady, setGoogleReady] = useState(false);
     const cardRef = useRef(null);
     const mountedRef = useRef(false);
+    const applePayRef = useRef(null);
     const googleConfigRef = useRef(null);
     const googleClientRef = useRef(null);
 
@@ -147,12 +148,14 @@ export default function PaymentCheckout() {
                 input: {
                     'font-size': '15px',
                     'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
+                    'font-weight': '700',
                     color: '#111827',
                     padding: '0',
                     border: 'none',
                     outline: 'none',
                     'box-shadow': 'none',
                     background: 'transparent',
+                    height: '48px',
                 },
                 ':focus': {
                     color: '#111827',
@@ -180,44 +183,62 @@ export default function PaymentCheckout() {
         const applepay = window.paypal.Applepay();
         applepay.config().then((config) => {
             if (!config.isEligible) return;
+            applePayRef.current = { applepay, config };
             setAppleReady(true);
-            window.startBagoApplePay = async () => {
+        }).catch(() => {});
+    };
+
+    const startApplePay = () => {
+        const setup = applePayRef.current;
+        if (!setup || !window.ApplePaySession) return;
+        setError('');
+        let orderId = '';
+
+        try {
+            const { applepay, config } = setup;
+            const session = new window.ApplePaySession(3, {
+                countryCode: config.countryCode || 'US',
+                currencyCode: checkout.currency,
+                merchantCapabilities: config.merchantCapabilities || ['supports3DS'],
+                supportedNetworks: config.supportedNetworks || ['visa', 'masterCard', 'amex'],
+                total: { label: 'Bago', amount: checkout.amount.toFixed(2) },
+            });
+
+            session.onvalidatemerchant = async (event) => {
                 try {
-                    const orderId = await createOrder('apple_pay');
-                    const session = new window.ApplePaySession(3, {
-                        countryCode: config.countryCode || 'US',
-                        currencyCode: checkout.currency,
-                        merchantCapabilities: config.merchantCapabilities || ['supports3DS'],
-                        supportedNetworks: config.supportedNetworks || ['visa', 'masterCard', 'amex'],
-                        total: { label: 'Bago', amount: checkout.amount.toFixed(2) },
+                    orderId = await createOrder('apple_pay');
+                    const { merchantSession } = await applepay.validateMerchant({
+                        validationUrl: event.validationURL,
+                        orderId,
                     });
-                    session.onvalidatemerchant = async (event) => {
-                        const { merchantSession } = await applepay.validateMerchant({
-                            validationUrl: event.validationURL,
-                            orderId,
-                        });
-                        session.completeMerchantValidation(merchantSession);
-                    };
-                    session.onpaymentauthorized = async (event) => {
-                        try {
-                            await applepay.confirmOrder({
-                                orderId,
-                                token: event.payment.token,
-                                billingContact: event.payment.billingContact,
-                            });
-                            session.completePayment(window.ApplePaySession.STATUS_SUCCESS);
-                            await captureOrder(orderId);
-                        } catch (err) {
-                            session.completePayment(window.ApplePaySession.STATUS_FAILURE);
-                            setError(err.message || 'Apple Pay failed.');
-                        }
-                    };
-                    session.begin();
+                    session.completeMerchantValidation(merchantSession);
                 } catch (err) {
-                    setError(err.message || 'Apple Pay failed.');
+                    setError(paymentErrorMessage(err, 'Apple Pay could not start.'));
+                    session.abort();
                 }
             };
-        }).catch(() => {});
+
+            session.onpaymentauthorized = async (event) => {
+                try {
+                    if (!orderId) orderId = await createOrder('apple_pay');
+                    await applepay.confirmOrder({
+                        orderId,
+                        token: event.payment.token,
+                        billingContact: event.payment.billingContact,
+                    });
+                    session.completePayment(window.ApplePaySession.STATUS_SUCCESS);
+                    await captureOrder(orderId);
+                } catch (err) {
+                    session.completePayment(window.ApplePaySession.STATUS_FAILURE);
+                    setError(paymentErrorMessage(err, 'Apple Pay failed.'));
+                }
+            };
+
+            session.oncancel = () => setProcessing(false);
+            session.begin();
+        } catch (err) {
+            setError(paymentErrorMessage(err, 'Apple Pay failed.'));
+        }
     };
 
     const setupGooglePay = (isSandbox) => {
@@ -323,7 +344,7 @@ export default function PaymentCheckout() {
                             <h2 className="text-lg font-black tracking-tight">Wallets and PayPal</h2>
                             <p className="mt-1 text-xs font-bold text-gray-400">Apple Pay appears on eligible Safari/iOS devices.</p>
                             {appleReady ? (
-                                <button onClick={() => window.startBagoApplePay?.()} className="mt-4 h-14 w-full rounded-[14px] bg-black text-base font-black text-white">
+                                <button onClick={startApplePay} className="mt-4 h-14 w-full rounded-[14px] bg-black text-base font-black text-white">
                                     Pay with Apple Pay
                                 </button>
                             ) : (
@@ -362,8 +383,8 @@ function PaymentField({ label, id }) {
     return (
         <div>
             <label className="block text-xs font-black text-gray-500">{label}</label>
-            <div className="mt-2 flex h-14 items-center rounded-[14px] border border-gray-200 bg-white px-4 transition focus-within:border-[#5845D8]/50 focus-within:shadow-[0_0_0_4px_rgba(88,69,216,0.08)]">
-                <div id={id} className="flex h-full w-full items-center [&>iframe]:!border-0 [&>iframe]:!shadow-none" />
+            <div className="mt-2 flex h-14 items-center overflow-hidden rounded-[14px] border border-gray-200 bg-[#f9fafb] px-4 transition focus-within:border-[#5845D8]/50 focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(88,69,216,0.08)]">
+                <div id={id} className="flex h-12 w-full items-center overflow-hidden [&>iframe]:!h-12 [&>iframe]:!w-full [&>iframe]:!border-0 [&>iframe]:!outline-none [&>iframe]:!shadow-none" />
             </div>
         </div>
     );
