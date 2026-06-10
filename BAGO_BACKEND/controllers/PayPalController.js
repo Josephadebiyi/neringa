@@ -1275,11 +1275,10 @@ body{min-height:100vh;padding:22px 14px}
 .card{padding:22px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 label{display:block;font-size:12px;font-weight:850;color:#6b7280;margin-bottom:8px}
-.field-wrap{background:#f8fafc;border:1.5px solid #e3e7ef;border-radius:14px;height:54px;display:flex;align-items:center;padding:0 14px;transition:border-color .15s,background .15s,box-shadow .15s;overflow:hidden}
-.field-wrap:focus-within{border-color:#5845D8;background:#fff;box-shadow:0 0 0 4px rgba(88,69,216,.08)}
-.field-wrap>div{width:100%;height:100%;display:flex;align-items:center}
-.field-wrap iframe{border:0!important;outline:0!important;box-shadow:none!important}
-#card-name-input{width:100%;border:none;background:transparent;font-size:15px;font-weight:500;color:#111;outline:none;box-shadow:none}
+.field-wrap{background:#fff;border:1.5px solid #e3e7ef;border-radius:14px;height:54px;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.field-wrap:focus-within{border-color:#5845D8;box-shadow:0 0 0 4px rgba(88,69,216,.08)}
+.field-wrap iframe{display:block!important;width:100%!important;height:54px!important;border:0!important;outline:0!important;box-shadow:none!important}
+#card-name-input{width:100%;border:none;background:transparent;font-size:15px;font-weight:500;color:#111;outline:none;box-shadow:none;padding:0 14px;height:100%}
 #card-name-input::placeholder{color:#9ca3af;font-weight:400}
 .section-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}
 .section-title{font-size:17px;font-weight:950;color:#111827;letter-spacing:0}
@@ -1344,16 +1343,16 @@ label{display:block;font-size:12px;font-weight:850;color:#6b7280;margin-bottom:8
         </div>
 
         <label>Card number</label>
-        <div class="field-wrap" id="number-wrap"><div id="card-number-field" style="width:100%;height:100%"></div></div>
+        <div class="field-wrap" id="card-number-field"></div>
 
         <div class="row2" style="margin-top:12px">
           <div>
             <label>Expiry</label>
-            <div class="field-wrap" id="expiry-wrap"><div id="card-expiry-field" style="width:100%;height:100%"></div></div>
+            <div class="field-wrap" id="card-expiry-field"></div>
           </div>
           <div>
             <label>CVV</label>
-            <div class="field-wrap" id="cvv-wrap"><div id="card-cvv-field" style="width:100%;height:100%"></div></div>
+            <div class="field-wrap" id="card-cvv-field"></div>
           </div>
         </div>
 
@@ -1530,7 +1529,7 @@ const cardField = paypal.CardFields({
       'font-size': '15px',
       'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
       color: '#111827',
-      padding: '0',
+      padding: '0 14px',
       border: 'none',
       outline: 'none',
       'box-shadow': 'none',
@@ -1593,42 +1592,62 @@ if (!cardOnly && mode !== 'app') {
 }
 
 // ── Apple Pay ─────────────────────────────────────────────────────────────────
+// Pre-load config eagerly so startApplePay() can create the session synchronously
+// (ApplePaySession MUST be constructed within the user gesture handler, before any await).
 
+let _applePayReady = null; // { applepay, config } once loaded
 if (!cardFormOnly && window.ApplePaySession && paypal.Applepay) {
   const applepay = paypal.Applepay();
   applepay.config().then(config => {
     if (!config.isEligible) return;
+    _applePayReady = { applepay, config };
     document.getElementById('apple-section').style.display = 'block';
-    window.startApplePay = async function() {
-      const orderId = await createOrder('apple_pay').catch(e => { notifyFlutter('error', {message: e.message}); return null; });
-      if (!orderId) return;
-      const session = new ApplePaySession(3, {
-        countryCode: config.countryCode || 'US',
-        currencyCode: P.get('currency') || 'USD',
-        merchantCapabilities: config.merchantCapabilities || ['supports3DS'],
-        supportedNetworks: config.supportedNetworks || ['visa','masterCard','amex'],
-        total: { label: 'Bago', amount: (parseFloat(P.get('amount') || '0')).toFixed(2) }
-      });
-      session.onvalidatemerchant = async (e) => {
-        const { merchantSession } = await applepay.validateMerchant({ validationUrl: e.validationURL, orderId });
-        session.completeMerchantValidation(merchantSession);
-      };
-      session.onpaymentauthorized = async (e) => {
-        try {
-          await applepay.confirmOrder({ orderId, token: e.payment.token, billingContact: e.payment.billingContact });
-          const result = await captureOrder(orderId);
-          session.completePayment(ApplePaySession.STATUS_SUCCESS);
-          notifyFlutter('success', { orderId, request: result.request || null });
-          if (mode !== 'app') window.location.href = '/shipping-success';
-        } catch(err) {
-          session.completePayment(ApplePaySession.STATUS_FAILURE);
-          notifyFlutter('error', { message: err.message });
-        }
-      };
-      session.begin();
-    };
   }).catch(() => {});
 }
+
+window.startApplePay = function() {
+  if (!_applePayReady) return;
+  const { applepay, config } = _applePayReady;
+
+  // Synchronous — must happen inside the click handler before any await.
+  const session = new ApplePaySession(3, {
+    countryCode: config.countryCode || 'US',
+    currencyCode: P.get('currency') || 'USD',
+    merchantCapabilities: config.merchantCapabilities || ['supports3DS'],
+    supportedNetworks: config.supportedNetworks || ['visa', 'masterCard', 'amex'],
+    total: { label: 'Bago', amount: (parseFloat(P.get('amount') || '0')).toFixed(2) }
+  });
+
+  // orderId is obtained inside onvalidatemerchant where async is allowed.
+  let orderId = null;
+
+  session.onvalidatemerchant = async (e) => {
+    try {
+      orderId = await createOrder('apple_pay');
+      const { merchantSession } = await applepay.validateMerchant({ validationUrl: e.validationURL, orderId });
+      session.completeMerchantValidation(merchantSession);
+    } catch(err) {
+      session.abort();
+      notifyFlutter('error', { message: err.message });
+    }
+  };
+
+  session.onpaymentauthorized = async (e) => {
+    try {
+      await applepay.confirmOrder({ orderId, token: e.payment.token, billingContact: e.payment.billingContact });
+      const result = await captureOrder(orderId);
+      session.completePayment(ApplePaySession.STATUS_SUCCESS);
+      notifyFlutter('success', { orderId, request: result.request || null });
+      if (mode !== 'app') window.location.href = '/shipping-success';
+    } catch(err) {
+      session.completePayment(ApplePaySession.STATUS_FAILURE);
+      notifyFlutter('error', { message: err.message });
+    }
+  };
+
+  session.oncancel = () => notifyFlutter('cancel', {});
+  session.begin();
+};
 
 // ── Google Pay ────────────────────────────────────────────────────────────────
 
