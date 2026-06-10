@@ -1257,88 +1257,150 @@ export function servePayPalCheckoutPage(req, res) {
 <title>Secure checkout</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6fb;-webkit-font-smoothing:antialiased}
-body{padding:16px}
-.card{background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 3px rgba(17,24,39,.05)}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f6f8;color:#111827;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;padding:22px 14px}
+.shell{width:min(100%,960px);margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;color:#012126;letter-spacing:.01em}
+.brand-mark{width:34px;height:34px;border-radius:10px;background:#5845D8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
+.secure-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #e4e7ec;background:#fff;border-radius:999px;padding:8px 11px;color:#667085;font-size:12px;font-weight:800}
+.layout{display:grid;grid-template-columns:minmax(0,1.08fr) 320px;gap:18px;align-items:start}
+.panel{background:#fff;border:1px solid #eaecf0;border-radius:22px;box-shadow:0 18px 42px rgba(16,24,40,.07)}
+.summary{padding:22px;position:sticky;top:18px}
+.summary-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#8a93a3;font-weight:900;margin-bottom:7px}
+.summary-amount{font-size:34px;line-height:1;font-weight:950;color:#012126;letter-spacing:0}
+.summary-sub{margin-top:10px;font-size:13px;line-height:1.45;color:#667085;font-weight:650}
+.summary-row{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #eef0f3;margin-top:18px;padding-top:16px;font-size:13px;color:#667085;font-weight:800}
+.method-stack{display:grid;gap:14px}
+.card{padding:22px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-label{display:block;font-size:13px;font-weight:600;color:#6b7280;margin-bottom:8px}
-.field-wrap{background:#f8fafc;border:1.5px solid #e3e7ef;border-radius:14px;height:52px;display:flex;align-items:center;padding:0 14px;transition:border-color .15s,background .15s;overflow:hidden}
-.field-wrap:focus-within{border-color:#5845D8;background:#fff}
+label{display:block;font-size:12px;font-weight:850;color:#6b7280;margin-bottom:8px}
+.field-wrap{background:#f8fafc;border:1.5px solid #e3e7ef;border-radius:14px;height:54px;display:flex;align-items:center;padding:0 14px;transition:border-color .15s,background .15s,box-shadow .15s;overflow:hidden}
+.field-wrap:focus-within{border-color:#5845D8;background:#fff;box-shadow:0 0 0 4px rgba(88,69,216,.08)}
 .field-wrap>div{width:100%;height:100%;display:flex;align-items:center}
 .field-wrap iframe{border:0!important;outline:0!important;box-shadow:none!important}
 #card-name-input{width:100%;border:none;background:transparent;font-size:15px;font-weight:500;color:#111;outline:none;box-shadow:none}
 #card-name-input::placeholder{color:#9ca3af;font-weight:400}
-.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.section-title{font-size:15px;font-weight:700;color:#111827}
+.section-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}
+.section-title{font-size:17px;font-weight:950;color:#111827;letter-spacing:0}
+.section-sub{font-size:12px;color:#8a93a3;font-weight:700;margin-top:4px}
 .logos{display:flex;gap:8px;align-items:center}
-.pay-btn{width:100%;height:56px;background:#5845D8;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:16px;transition:opacity .2s}
+.pay-btn{width:100%;height:56px;background:#5845D8;color:#fff;border:none;border-radius:15px;font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:18px;transition:opacity .2s,transform .15s,background .15s;box-shadow:0 14px 26px rgba(88,69,216,.22)}
+.pay-btn:hover{background:#4b39c7;transform:translateY(-1px)}
 .pay-btn:disabled{opacity:.6;cursor:not-allowed}
-.divider{display:flex;align-items:center;gap:10px;margin:14px 0}
+.divider{display:flex;align-items:center;gap:10px;margin:2px 0}
 .div-line{flex:1;height:1px;background:#e5e7eb}
-.div-text{font-size:13px;color:#9ca3af;white-space:nowrap}
+.div-text{font-size:12px;color:#9ca3af;white-space:nowrap;font-weight:850;text-transform:uppercase;letter-spacing:.12em}
 .pp-btn{width:100%;height:56px;background:#003087;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
-.ap-btn{width:100%;height:56px;background:#000;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:12px;-webkit-appearance:none;-apple-pay-button-type:plain;-apple-pay-button-style:black}
-.wallet-grid{display:grid;gap:12px;margin-bottom:12px}
+.ap-btn{width:100%;height:55px;background:#000;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:850;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:0;-webkit-appearance:none;-apple-pay-button-type:plain;-apple-pay-button-style:black}
+.wallet-grid{display:grid;gap:12px}
 .wallet-btn-wrap{min-height:52px}
-.footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;padding-bottom:20px}
-.footer-txt{font-size:12px;color:#9ca3af}
+.wallet-panel{padding:18px 18px 20px}
+#paypal-btn-container{min-height:52px}
+.footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px}
+.footer-txt{font-size:12px;color:#8a93a3;font-weight:800}
 .err{background:#fee2e2;color:#dc2626;padding:12px 16px;border-radius:10px;font-size:13px;margin-top:12px;display:none}
 .spin{display:inline-block;width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 #apple-section,#googlepay-section{display:none}
+@media (max-width:820px){
+  body{padding:14px}
+  .layout{grid-template-columns:1fr}
+  .summary{position:static;order:-1}
+  .topbar{margin-bottom:12px}
+  .summary-amount{font-size:30px}
+}
+@media (max-width:460px){
+  .row2{grid-template-columns:1fr}
+  .card,.summary{padding:18px}
+  .brand span:last-child{display:none}
+}
 </style>
 </head>
 <body>
 
-<!-- Card details section -->
-<div class="card">
-  <div class="section-hd">
-    <span class="section-title">Card details</span>
-    <div class="logos">
-      <svg width="38" height="24" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="38" height="24" rx="4" fill="#1A1F71"/><text x="5" y="16" font-family="Arial" font-size="10" font-weight="bold" fill="#F7B731">VISA</text></svg>
-      <svg width="38" height="24" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="38" height="24" rx="4" fill="#fff" stroke="#e5e7eb"/><circle cx="15" cy="12" r="7" fill="#EB001B"/><circle cx="23" cy="12" r="7" fill="#F79E1B"/><path d="M19 6.8a7 7 0 010 10.4A7 7 0 0119 6.8z" fill="#FF5F00"/></svg>
+<main class="shell">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark">B</span><span>Bago checkout</span></div>
+    <div class="secure-chip">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Secure payment
     </div>
   </div>
 
-  <label>Card number</label>
-  <div class="field-wrap" id="number-wrap"><div id="card-number-field" style="width:100%;height:100%"></div></div>
+  <div class="layout">
+    <div class="method-stack">
+      <section class="panel card">
+        <div class="section-hd">
+          <div>
+            <div class="section-title">Card payment</div>
+            <div class="section-sub">Visa, Mastercard and supported debit cards.</div>
+          </div>
+          <div class="logos">
+            <svg width="38" height="24" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="38" height="24" rx="4" fill="#1A1F71"/><text x="5" y="16" font-family="Arial" font-size="10" font-weight="bold" fill="#F7B731">VISA</text></svg>
+            <svg width="38" height="24" viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="38" height="24" rx="4" fill="#fff" stroke="#e5e7eb"/><circle cx="15" cy="12" r="7" fill="#EB001B"/><circle cx="23" cy="12" r="7" fill="#F79E1B"/><path d="M19 6.8a7 7 0 010 10.4A7 7 0 0119 6.8z" fill="#FF5F00"/></svg>
+          </div>
+        </div>
 
-  <div class="row2" style="margin-top:12px">
-    <div>
-      <label>Expiry</label>
-      <div class="field-wrap" id="expiry-wrap"><div id="card-expiry-field" style="width:100%;height:100%"></div></div>
+        <label>Card number</label>
+        <div class="field-wrap" id="number-wrap"><div id="card-number-field" style="width:100%;height:100%"></div></div>
+
+        <div class="row2" style="margin-top:12px">
+          <div>
+            <label>Expiry</label>
+            <div class="field-wrap" id="expiry-wrap"><div id="card-expiry-field" style="width:100%;height:100%"></div></div>
+          </div>
+          <div>
+            <label>CVV</label>
+            <div class="field-wrap" id="cvv-wrap"><div id="card-cvv-field" style="width:100%;height:100%"></div></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Cardholder name (optional)</label>
+          <div class="field-wrap">
+            <input id="card-name-input" type="text" placeholder="Name on card" autocomplete="cc-name">
+          </div>
+        </div>
+
+        <button class="pay-btn" id="card-pay-btn" onclick="submitCard()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span id="pay-label">Pay</span>
+        </button>
+        <div class="err" id="card-err"></div>
+      </section>
+
+      ${cardFormOnly ? '' : `<div class="divider"><div class="div-line"></div><span class="div-text">or pay another way</span><div class="div-line"></div></div>
+      <section class="panel wallet-panel">
+        <div class="section-hd">
+          <div>
+            <div class="section-title">Wallets and PayPal</div>
+            <div class="section-sub">Apple Pay, Google Pay and PayPal are shown when available.</div>
+          </div>
+        </div>
+        <div class="wallet-grid">
+          <div id="apple-section"><button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">Pay with Apple Pay</button></div>
+          <div id="googlepay-section" class="wallet-btn-wrap"></div>
+        </div>
+        <div id="paypal-btn-container"></div>
+      </section>`}
     </div>
-    <div>
-      <label>CVV</label>
-      <div class="field-wrap" id="cvv-wrap"><div id="card-cvv-field" style="width:100%;height:100%"></div></div>
-    </div>
+
+    <aside class="panel summary">
+      <div class="summary-label">Total to pay</div>
+      <div class="summary-amount" id="summary-amount">--</div>
+      <p class="summary-sub">Final Bago checkout total. Your payment is secured until the shipment is completed.</p>
+      <div class="summary-row">
+        <span>Payment processor</span>
+        <span>PayPal</span>
+      </div>
+      <div class="footer">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a93a3" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span class="footer-txt">Encrypted checkout</span>
+      </div>
+    </aside>
   </div>
-
-  <div style="margin-top:12px">
-    <label>Cardholder name (optional)</label>
-    <div class="field-wrap">
-      <input id="card-name-input" type="text" placeholder="Name on card" autocomplete="cc-name">
-    </div>
-  </div>
-
-  <button class="pay-btn" id="card-pay-btn" onclick="submitCard()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    <span id="pay-label">Pay</span>
-  </button>
-  <div class="err" id="card-err"></div>
-</div>
-
-${cardFormOnly ? '' : '<div class="divider"><div class="div-line"></div><span class="div-text">or pay with</span><div class="div-line"></div></div>'}
-
-<!-- PayPal button rendered here by SDK -->
-<div id="paypal-btn-container"></div>
-
-${cardFormOnly ? '' : '<div class="wallet-grid"><div id="apple-section"><button class="ap-btn" id="apple-pay-btn" onclick="startApplePay()">Pay with Apple Pay</button></div><div id="googlepay-section" class="wallet-btn-wrap"></div></div>'}
-
-<div class="footer">
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-  <span class="footer-txt">Secure checkout</span>
-</div>
+</main>
 
 <script src="https://pay.google.com/gp/p/js/pay.js"></script>
 <script src="https://www.paypal.com/sdk/js?client-id=${clientId}&components=buttons,card-fields,applepay,googlepay&intent=capture"></script>
@@ -1384,11 +1446,12 @@ function hideError(id) {
 
 function updatePayLabel() {
   const el = document.getElementById('pay-label');
-  if (!el) return;
+  const summary = document.getElementById('summary-amount');
   const amt = parseFloat(P.get('amount') || '0');
   const cur = P.get('currency') || 'USD';
-  if (amt > 0) el.textContent = 'Pay ' + cur + ' ' + amt.toFixed(2);
-  else el.textContent = 'Pay';
+  const label = amt > 0 ? cur + ' ' + amt.toFixed(2) : 'Pay';
+  if (el) el.textContent = amt > 0 ? 'Pay ' + label : 'Pay';
+  if (summary) summary.textContent = label;
 }
 updatePayLabel();
 
