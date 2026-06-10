@@ -88,7 +88,7 @@ class RequestModel {
 
   bool get isPending => status == RequestStatus.pending;
   bool get isAccepted => status == RequestStatus.accepted;
-  String get statusLabel => status.label;
+  String get statusLabel => status.labelForRole(role);
   bool get awaitingSenderConfirmation =>
       (rawStatus.toLowerCase() == 'delivered' ||
           rawStatus.toLowerCase() == 'delivering' ||

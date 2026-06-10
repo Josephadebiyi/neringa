@@ -720,6 +720,12 @@ async function finalizePaystackShipmentFromMetadata(data) {
     });
   }
 
+  // Mark the package as matched so it no longer shows as a draft
+  await pgQuery(
+    `update public.packages set status = 'matched', updated_at = timezone('utc', now()) where id = $1 and status = 'draft'`,
+    [packageId],
+  ).catch(() => {});
+
   await Promise.allSettled([
     createNotification({
       userId: request.travelerId,

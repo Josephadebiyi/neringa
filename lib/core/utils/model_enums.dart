@@ -70,15 +70,20 @@ enum RequestStatus {
         _ => RequestStatus.pending,
       };
 
-  String get label => switch (this) {
-        RequestStatus.pending => 'Pending',
-        RequestStatus.accepted => 'Accepted',
-        RequestStatus.rejected => 'Rejected',
-        RequestStatus.intransit => 'In Transit',
-        RequestStatus.delivering => 'Delivering',
-        RequestStatus.completed => 'Delivered',
-        RequestStatus.cancelled => 'Cancelled',
-      };
+  String get label => labelForRole(null);
+
+  String labelForRole(String? role) {
+    final isTraveler = role?.toLowerCase() == 'traveler' || role?.toLowerCase() == 'carrier';
+    return switch (this) {
+      RequestStatus.pending => isTraveler ? 'Booking Received' : 'Awaiting Carrier',
+      RequestStatus.accepted => isTraveler ? 'Booking Confirmed' : 'Carrier Confirmed',
+      RequestStatus.rejected => isTraveler ? 'Booking Declined' : 'Request Declined',
+      RequestStatus.intransit => isTraveler ? 'Carrying Package' : 'Package In Transit',
+      RequestStatus.delivering => isTraveler ? 'Delivering Now' : 'Out for Delivery',
+      RequestStatus.completed => 'Delivered',
+      RequestStatus.cancelled => 'Cancelled',
+    };
+  }
 
   Color get color => switch (this) {
         RequestStatus.pending   => const Color(0xFFF59E0B),

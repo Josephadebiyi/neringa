@@ -189,9 +189,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert_rounded),
-            onPressed: isClosed
-                ? () => _showConversationActions(context, conv, currentUserName)
-                : null,
+            onPressed: () => _showConversationActions(context, conv, currentUserName),
           ),
         ],
       ),
@@ -454,8 +452,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       return '[${msg.timeLabel.isNotEmpty ? msg.timeLabel : msg.createdAt}] $speaker: ${msg.content}';
     }).toList();
 
+    final isClosed = conversation.isClosed == true;
     return [
-      'Shipment dispute opened from a completed shipment chat.',
+      isClosed
+          ? 'Shipment dispute opened from a completed shipment chat.'
+          : 'Shipment issue reported from an active shipment chat.',
       'Request ID: ${conversation.requestId ?? 'unknown'}',
       if ((conversation.tripId ?? '').isNotEmpty) 'Trip ID: ${conversation.tripId}',
       if ((conversation.requestStatus ?? '').isNotEmpty)
@@ -473,6 +474,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     ConversationModel? conv,
     String currentUserName,
   ) {
+    final isClosed = conv?.isClosed == true;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.white,
@@ -489,7 +491,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 leading:
                     const Icon(Icons.support_agent_rounded, color: AppColors.primary),
                 title: const Text('Contact support'),
-                subtitle: const Text('Get help with a completed shipment'),
+                subtitle: Text(isClosed
+                    ? 'Get help with a completed shipment'
+                    : 'Get help with this shipment'),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.push('/profile/support');
@@ -500,7 +504,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   leading:
                       const Icon(Icons.flag_outlined, color: AppColors.error),
                   title: const Text('Report shipment'),
-                  subtitle: const Text('Open a dispute for this request'),
+                  subtitle: Text(isClosed
+                      ? 'Open a dispute for this request'
+                      : 'Report an issue with this shipment'),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _reportShipment(

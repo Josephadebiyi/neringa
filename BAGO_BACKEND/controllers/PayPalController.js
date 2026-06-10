@@ -15,6 +15,7 @@ import { sendNewRequestToTravelerEmail } from '../services/emailNotifications.js
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 import { resend } from '../services/resendClient.js';
+import { getFullPricingConfig, calculateAllInclusivePrice } from '../services/pricingService.js';
 
 let tokenCache = { accessToken: null, expiresAt: 0 };
 
@@ -45,13 +46,6 @@ function paypalBaseUrl() {
   return String(process.env.PAYPAL_MODE || 'sandbox').toLowerCase() === 'live'
     ? 'https://api-m.paypal.com'
     : 'https://api-m.sandbox.paypal.com';
-}
-
-function getCommissionRate() {
-  const raw = process.env.BAGO_COMMISSION_RATE || process.env.BAGO_COMMISSION_PERCENT || '0.10';
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) return 0.10;
-  return parsed > 1 ? parsed / 100 : parsed;
 }
 
 function toAmount(value) {
@@ -227,6 +221,9 @@ async function getAuthorizedProfile(req) {
 }
 
 async function buildCheckoutQuote({ profile, shipmentId, packageId, tripId, currency, insurance, insuranceCost }) {
+  const pricingConfig = await getFullPricingConfig();
+  const { platformCommissionPercent, processingFeePercent, fxBufferPercent } = pricingConfig;
+
   if (shipmentId) {
     const request = await getShipmentRequestById(shipmentId);
     if (!request || request.senderId !== profile.id) {
@@ -234,20 +231,33 @@ async function buildCheckoutQuote({ profile, shipmentId, packageId, tripId, curr
       error.statusCode = 404;
       throw error;
     }
-    const commissionAmount = toAmount(Number(request.amount || 0) * getCommissionRate());
-    const travelerAmount = toAmount(Math.max(0, Number(request.amount || 0) - commissionAmount - Number(request.insuranceCost || 0)));
+    const totalAmount = toAmount(request.amount);
+    const storedInsuranceCost = toAmount(request.insuranceCost);
+    // Use stored traveler payout when available (set on new payments after this fix).
+    // Fall back to deriving from total using current surcharge config.
+    let travelerAmount, commissionAmount;
+    const storedTravelerPayout = Number(request.travelerPayout || 0);
+    if (storedTravelerPayout > 0) {
+      travelerAmount = toAmount(storedTravelerPayout);
+      commissionAmount = toAmount(Math.max(0, totalAmount - storedInsuranceCost - travelerAmount));
+    } else {
+      const surchargeMultiplier = 1 + (platformCommissionPercent + processingFeePercent + fxBufferPercent) / 100;
+      const amountWithoutInsurance = toAmount(totalAmount - storedInsuranceCost);
+      travelerAmount = toAmount(amountWithoutInsurance / surchargeMultiplier);
+      commissionAmount = toAmount(amountWithoutInsurance - travelerAmount);
+    }
     return {
       shipmentId: request.id,
       packageId: request.packageId,
       tripId: request.tripId,
       senderId: request.senderId,
       travelerId: request.travelerId,
-      amount: toAmount(request.amount),
+      amount: totalAmount,
       currency: normalizeCurrency(currency || request.currency),
       commissionAmount,
       travelerAmount,
       insurance: request.insurance,
-      insuranceCost: toAmount(request.insuranceCost),
+      insuranceCost: storedInsuranceCost,
     };
   }
 
@@ -265,17 +275,17 @@ async function buildCheckoutQuote({ profile, shipmentId, packageId, tripId, curr
     throw error;
   }
 
-  const baseAmount = toAmount(Number(packageDoc.packageWeight || 0) * Number(tripDoc.pricePerKg || 0));
+  const travelerPayout = toAmount(Number(packageDoc.packageWeight || 0) * Number(tripDoc.pricePerKg || 0));
   const validatedInsuranceCost = boolFrom(insurance) ? toAmount(insuranceCost) : 0;
-  const totalAmount = toAmount(baseAmount + validatedInsuranceCost);
+
+  const pricing = calculateAllInclusivePrice(travelerPayout, pricingConfig);
+  const totalAmount = toAmount(pricing.senderShippingFee + validatedInsuranceCost);
   if (totalAmount <= 0) {
     const error = new Error('Shipment amount could not be calculated.');
     error.statusCode = 400;
     throw error;
   }
 
-  const commissionAmount = toAmount(baseAmount * getCommissionRate());
-  const travelerAmount = toAmount(Math.max(0, totalAmount - commissionAmount - validatedInsuranceCost));
   return {
     shipmentId: null,
     packageId: packageDoc.id,
@@ -284,8 +294,13 @@ async function buildCheckoutQuote({ profile, shipmentId, packageId, tripId, curr
     travelerId: tripDoc.userId,
     amount: totalAmount,
     currency: normalizeCurrency(currency || tripDoc.currency),
-    commissionAmount,
-    travelerAmount,
+    commissionAmount: toAmount(pricing.bagoNetRevenue),
+    travelerAmount: toAmount(pricing.travelerPayout),
+    platformCommission: toAmount(pricing.platformCommission),
+    processingFee: toAmount(pricing.processingFee),
+    fxBuffer: toAmount(pricing.fxBuffer),
+    senderShippingFee: toAmount(pricing.senderShippingFee),
+    bagoNetRevenue: toAmount(pricing.bagoNetRevenue),
     insurance: boolFrom(insurance),
     insuranceCost: validatedInsuranceCost,
     estimatedDeparture: tripDoc.departureDate,
@@ -384,6 +399,12 @@ async function finalizePayPalShipmentPayment(payment, capture) {
           estimatedDeparture: tripDoc.departureDate ? new Date(tripDoc.departureDate) : null,
           estimatedArrival: tripDoc.arrivalDate ? new Date(tripDoc.arrivalDate) : null,
           termsAccepted: true,
+          travelerPayout: Number(payment.raw_response?.quote?.travelerAmount || payment.traveler_amount || 0) || null,
+          platformCommission: Number(payment.raw_response?.quote?.platformCommission || 0) || null,
+          processingFee: Number(payment.raw_response?.quote?.processingFee || 0) || null,
+          fxBuffer: Number(payment.raw_response?.quote?.fxBuffer || 0) || null,
+          senderShippingFee: Number(payment.raw_response?.quote?.senderShippingFee || 0) || null,
+          bagoNetRevenue: Number(payment.raw_response?.quote?.bagoNetRevenue || payment.commission_amount || 0) || null,
           paymentInfo: {
             method: 'paypal',
             gateway: 'paypal',
@@ -400,6 +421,12 @@ async function finalizePayPalShipmentPayment(payment, capture) {
       provider: 'paypal',
     });
   }
+
+  // Mark the package as matched so it no longer shows as a draft
+  await query(
+    `update public.packages set status = 'matched', updated_at = timezone('utc', now()) where id = $1 and status = 'draft'`,
+    [payment.package_id],
+  ).catch(() => {});
 
   await query(
     `
@@ -958,12 +985,16 @@ export async function sendPayPalPayout(req, res) {
     }
 
     const ledger = await queryOne(
-      `select converted_traveler_earning, traveler_earning_amount from public.shipment_ledgers where shipment_id = $1 limit 1`,
+      `select converted_traveler_earning, traveler_earning_amount, traveler_payout from public.shipment_ledgers where shipment_id = $1 limit 1`,
       [request.id],
     ).catch(() => null);
+    // Prefer: ledger converted earning → stored traveler_payout → derive from total
+    const storedTravelerPayout = Number(request.traveler_payout || ledger?.traveler_payout || 0);
     const amount = ledger?.converted_traveler_earning
       ? toAmount(ledger.converted_traveler_earning)
-      : toAmount(Math.max(0, Number(request.amount || 0) - Number(request.insurance_cost || 0) - (Number(request.amount || 0) * getCommissionRate())));
+      : storedTravelerPayout > 0
+        ? toAmount(storedTravelerPayout)
+        : toAmount(Math.max(0, Number(request.amount || 0) - Number(request.insurance_cost || 0)));
     const currency = normalizeCurrency(request.payout_currency || request.currency);
     const senderBatchId = `bago-${shipmentId}-${Date.now()}`.slice(0, 64);
     const payout = await createPayPalEmailPayout({
