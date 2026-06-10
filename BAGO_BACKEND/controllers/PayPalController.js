@@ -1618,13 +1618,12 @@ window.startApplePay = function() {
     total: { label: 'Bago', amount: (parseFloat(P.get('amount') || '0')).toFixed(2) }
   });
 
-  // orderId is obtained inside onvalidatemerchant where async is allowed.
+  // Merchant validation must happen before creating/confirming the PayPal order.
   let orderId = null;
 
   session.onvalidatemerchant = async (e) => {
     try {
-      orderId = await createOrder('apple_pay');
-      const { merchantSession } = await applepay.validateMerchant({ validationUrl: e.validationURL, orderId });
+      const { merchantSession } = await applepay.validateMerchant({ validationUrl: e.validationURL });
       session.completeMerchantValidation(merchantSession);
     } catch(err) {
       session.abort();
@@ -1635,6 +1634,7 @@ window.startApplePay = function() {
 
   session.onpaymentauthorized = async (e) => {
     try {
+      orderId = await createOrder('apple_pay');
       await applepay.confirmOrder({ orderId, token: e.payment.token, billingContact: e.payment.billingContact });
       const result = await captureOrder(orderId);
       session.completePayment(ApplePaySession.STATUS_SUCCESS);

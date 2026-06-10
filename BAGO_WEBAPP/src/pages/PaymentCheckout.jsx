@@ -146,7 +146,7 @@ export default function PaymentCheckout() {
             },
             style: {
                 input: {
-                    'font-size': '15px',
+                    'font-size': '16px',
                     'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
                     'font-weight': '700',
                     color: '#111827',
@@ -206,10 +206,8 @@ export default function PaymentCheckout() {
 
             session.onvalidatemerchant = async (event) => {
                 try {
-                    orderId = await createOrder('apple_pay');
                     const { merchantSession } = await applepay.validateMerchant({
                         validationUrl: event.validationURL,
-                        orderId,
                     });
                     session.completeMerchantValidation(merchantSession);
                 } catch (err) {
@@ -220,7 +218,7 @@ export default function PaymentCheckout() {
 
             session.onpaymentauthorized = async (event) => {
                 try {
-                    if (!orderId) orderId = await createOrder('apple_pay');
+                    orderId = await createOrder('apple_pay');
                     await applepay.confirmOrder({
                         orderId,
                         token: event.payment.token,

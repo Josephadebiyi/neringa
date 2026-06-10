@@ -60,10 +60,10 @@ const providerForCurrency = (value) => (
 
 const ITEM_CATEGORIES = [
     { value: 'Documents', label: 'Documents', icon: FileText },
-    { value: 'Electronics', label: 'Electronics', icon: CreditCard },
     { value: 'Clothing', label: 'Clothing', icon: User },
+    { value: 'Electronics', label: 'Electronics', icon: CreditCard },
     { value: 'Food', label: 'Food', icon: Package },
-    { value: 'Fragile', label: 'Fragile', icon: AlertCircle },
+    { value: 'Beauty', label: 'Beauty', icon: User },
     { value: 'Other', label: 'Other', icon: Package },
 ];
 
@@ -185,6 +185,7 @@ export default function SendPackage() {
         category: 'Documents',
         receiverName: '',
         receiverPhone: '',
+        deliveryAddress: '',
         imagePreview: null,
         height: '',
         termsAccepted: [false, false, false]
@@ -450,6 +451,12 @@ export default function SendPackage() {
             return;
         }
 
+        if (!formData.receiverName.trim() || !formData.receiverPhone.trim() || !formData.deliveryAddress.trim()) {
+            setError('Please fill in all receiver details.');
+            setLoading(false);
+            return;
+        }
+
         if (!formData.termsAccepted.every(Boolean)) {
             setError('You must confirm all shipping agreement items.');
             setLoading(false);
@@ -484,7 +491,9 @@ export default function SendPackage() {
                             receiver_phone: formData.receiverPhone.trim(),
                             receiver_phone_country_code: receiverPhoneCountry.toUpperCase(),
                             receiver_email: ''
-                        }
+                        },
+                        deliveryAddress: formData.deliveryAddress.trim(),
+                        specialInstructions: formData.specialInstructions.trim()
                     });
 
                     if (![200, 201].includes(packageResponse.status) || !packageResponse.data?.package?._id) {
@@ -558,9 +567,9 @@ export default function SendPackage() {
             <Navbar />
 
             <div className="max-w-[1240px] mx-auto px-6 md:px-12 py-10 font-sans">
-                <div className="mb-10">
-                    <h1 className="text-3xl font-black text-[#012126] mb-3 tracking-tight">{t('sendPackageTitle')}</h1>
-                    <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
+                <div className="mb-8">
+                    <h1 className="text-2xl md:text-3xl font-black text-[#012126] mb-2 tracking-tight">Request Shipment</h1>
+                    <p className="text-sm font-semibold text-gray-500">Confirm the item, receiver, and delivery details before payment.</p>
                 </div>
 
 
@@ -604,40 +613,38 @@ export default function SendPackage() {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     <div className="lg:col-span-2 space-y-8">
-                        {/* Package Details Section */}
-                        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                        <div className="bg-white p-5 md:p-7 rounded-[22px] shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                                     <Package size={20} />
                                 </div>
-                                <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('packageDetails')}</h2>
+                                <h2 className="text-base font-black text-[#012126] tracking-tight">Shipment Details</h2>
                             </div>
 
-                            {/* Section for Route Information (Read-Only) */}
                             {selectedTrip && (
-                                <div className="mb-10 p-6 bg-gray-50/50 rounded-2xl border border-gray-100/50">
+                                <div className="mb-7 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                                     <div className="flex items-center gap-2 mb-4">
                                         <MapPin size={16} className="text-[#5845D8]" />
-                                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Route Information (Pre-filled)</h3>
+                                        <h3 className="text-sm font-black text-[#012126]">Route</h3>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1">
-                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">From City</p>
-                                            <input readOnly value={formData.fromCity} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                            <p className="text-xs font-bold text-gray-500 ml-1">From city</p>
+                                            <input readOnly value={formData.fromCity} className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white text-sm font-bold text-gray-500 cursor-not-allowed" />
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">From Country</p>
-                                            <input readOnly value={formData.fromCountry} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                            <p className="text-xs font-bold text-gray-500 ml-1">From country</p>
+                                            <input readOnly value={formData.fromCountry} className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white text-sm font-bold text-gray-500 cursor-not-allowed" />
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">To City</p>
-                                            <input readOnly value={formData.toCity} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                            <p className="text-xs font-bold text-gray-500 ml-1">To city</p>
+                                            <input readOnly value={formData.toCity} className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white text-sm font-bold text-gray-500 cursor-not-allowed" />
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tight ml-1">To Country</p>
-                                            <input readOnly value={formData.toCountry} className="w-full px-4 py-2.5 rounded-xl border border-gray-100 bg-white/50 text-xs font-bold text-gray-400 cursor-not-allowed" />
+                                            <p className="text-xs font-bold text-gray-500 ml-1">To country</p>
+                                            <input readOnly value={formData.toCountry} className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white text-sm font-bold text-gray-500 cursor-not-allowed" />
                                         </div>
                                     </div>
                                 </div>
@@ -645,33 +652,33 @@ export default function SendPackage() {
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('itemLabel')}</label>
+                                    <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Item name</label>
                                     <input
                                         required
                                         type="text"
                                         name="packageName"
                                         placeholder={t('itemPlaceholder')}
-                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-base md:text-sm font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
                                         value={formData.packageName}
                                         onChange={handleChange}
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('descriptionLabel')}</label>
+                                    <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Item description</label>
                                     <textarea
                                         required
                                         name="packageDescription"
                                         placeholder="Describe the items inside your package..."
                                         rows="3"
-                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm resize-none"
+                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-base md:text-sm font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm resize-none"
                                         value={formData.packageDescription}
                                         onChange={handleChange}
                                     ></textarea>
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">Item Category</label>
+                                    <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Item category</label>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                         {ITEM_CATEGORIES.map(({ value, label, icon: Icon }) => {
                                             const selected = formData.category === value;
@@ -693,7 +700,7 @@ export default function SendPackage() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('weightKg') || 'Package Weight (KG)'}</label>
+                                            <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Weight</label>
                                             <input
                                                 required
                                                 type="number"
@@ -702,15 +709,13 @@ export default function SendPackage() {
                                                 max="50"
                                                 step="0.1"
                                                 placeholder="e.g. 2.5"
-                                                className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                                className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-base md:text-sm font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
                                                 value={formData.packageWeight}
                                                 onChange={handleChange}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">
-                                                {t('declarationLabel')} <span className="text-red-500">*</span>
-                                            </label>
+                                            <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Declared value</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
@@ -718,7 +723,7 @@ export default function SendPackage() {
                                                     placeholder="Estimated Value"
                                                     required
                                                     min="1"
-                                                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-base md:text-sm font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
                                                     value={formData.packageValue}
                                                     onChange={handleChange}
                                                 />
@@ -730,7 +735,7 @@ export default function SendPackage() {
 
 
                                 <div className="mt-8">
-                                    <label className="block text-[8px] font-black text-gray-400 uppercase mb-3 tracking-[0.15em] ml-1">{t('itemImage') || 'Item Image'}</label>
+                                    <label className="block text-sm font-black text-[#012126] mb-3 ml-1">Item image</label>
                                     <div className="flex flex-col md:flex-row gap-6 items-start">
                                         <div
                                             onClick={() => document.getElementById('item-image').click()}
@@ -757,16 +762,16 @@ export default function SendPackage() {
                                         <div className="flex-1 space-y-3 pt-2">
                                             <div className="flex items-start gap-2 text-gray-400">
                                                 <Info size={14} className="shrink-0 mt-0.5" />
-                                                <p className="text-[10px] font-medium leading-relaxed uppercase tracking-wider">
-                                                    {t('imageUploadTells') || 'Uploading a clear image of your item helps travelers verify content and provides security for both parties during delivery.'}
+                                                <p className="text-sm font-medium leading-relaxed text-gray-500">
+                                                    Add a clear photo so the traveler can confirm the item before pickup.
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <div className="flex items-center gap-1.5 text-green-600 font-black text-[9px] uppercase tracking-widest">
-                                                    <Check size={12} /> {t('secureStorage') || 'Secure Storage'}
+                                                <div className="flex items-center gap-1.5 text-green-600 font-black text-xs">
+                                                    <Check size={12} /> Secure storage
                                                 </div>
-                                                <div className="flex items-center gap-1.5 text-blue-600 font-black text-[9px] uppercase tracking-widest">
-                                                    <User size={12} /> {t('travelerOnly') || 'Traveler Only Access'}
+                                                <div className="flex items-center gap-1.5 text-blue-600 font-black text-xs">
+                                                    <User size={12} /> Traveler only
                                                 </div>
                                             </div>
                                         </div>
@@ -776,29 +781,29 @@ export default function SendPackage() {
                         </div>
 
                         {/* Recipient Section */}
-                        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
+                        <div className="bg-white p-5 md:p-7 rounded-[22px] shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-9 h-9 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
                                     <User size={20} />
                                 </div>
-                                <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('recipientDetails')}</h2>
+                                <h2 className="text-base font-black text-[#012126] tracking-tight">Receiver Details</h2>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('receiverNameLabel')}</label>
+                                    <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Full name</label>
                                     <input
                                         required
                                         type="text"
                                         name="receiverName"
                                         placeholder="Enter receiver's name"
-                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-base md:text-sm font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
                                         value={formData.receiverName}
                                         onChange={handleChange}
                                     />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('receiverPhoneLabel')}</label>
+                                    <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Phone number</label>
                                     <div className="relative">
                                         <PhoneInput
                                             country={receiverPhoneCountry}
@@ -808,7 +813,7 @@ export default function SendPackage() {
                                             disableSearchIcon
                                             inputProps={{ name: 'receiverPhone', required: true }}
                                             containerClass="!w-full"
-                                            inputClass="!w-full !h-[56px] !pl-[72px] !pr-4 !rounded-[14px] !border !border-gray-100 !bg-gray-50/50 focus:!bg-white focus:!border-[#5845D8]/30 !outline-none !text-[14px] !font-bold !tracking-tight !text-[#012126]"
+                                            inputClass="!w-full !h-[56px] !pl-[72px] !pr-4 !rounded-[14px] !border !border-gray-100 !bg-gray-50/50 focus:!bg-white focus:!border-[#5845D8]/30 !outline-none !text-base md:!text-sm !font-bold !tracking-tight !text-[#012126]"
                                             buttonClass="!h-[56px] !w-[64px] !rounded-l-[14px] !border !border-gray-100 !border-r-0 !bg-white/70 hover:!bg-white"
                                             dropdownClass="!rounded-2xl !border-gray-100 !shadow-xl !text-sm"
                                             searchClass="!mx-3 !my-2 !w-[calc(100%-24px)] !rounded-xl !border-gray-100 !py-2"
@@ -816,16 +821,28 @@ export default function SendPackage() {
                                         <Phone size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
                                     </div>
                                 </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Delivery address</label>
+                                    <textarea
+                                        required
+                                        name="deliveryAddress"
+                                        placeholder="Drop-off address"
+                                        rows="2"
+                                        className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-base md:text-sm font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm resize-none"
+                                        value={formData.deliveryAddress}
+                                        onChange={handleChange}
+                                    />
+                                </div>
                             </div>
                         </div>
 
                         {/* Shipping Options */}
-                        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                        <div className="bg-white p-5 md:p-7 rounded-[22px] shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
                                     <FileText size={20} />
                                 </div>
-                                <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('shippingOptions')}</h2>
+                                <h2 className="text-base font-black text-[#012126] tracking-tight">Shipping Options</h2>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -834,17 +851,17 @@ export default function SendPackage() {
                                     <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${formData.insuranceProtection ? 'bg-green-500 text-white' : 'bg-gray-100 text-transparent'}`}>
                                         <Check size={12} />
                                     </div>
-                                    <span className="text-[10px] font-black text-[#012126] uppercase tracking-tight">{t('insuranceProtection') || 'Insurance Protection'}</span>
+                                    <span className="text-sm font-black text-[#012126]">Item protection</span>
                                 </label>
                             </div>
 
                             <div>
-                                <label className="block text-[11px] font-black text-gray-500 uppercase mb-2 tracking-[0.1em] ml-1">{t('specialInstructionsLabel')} (Optional)</label>
+                                <label className="block text-sm font-black text-[#012126] mb-2 ml-1">Note to traveler</label>
                                 <textarea
                                     name="specialInstructions"
-                                    placeholder="e.g. Please handle with extra care..."
+                                    placeholder="Optional handling instructions..."
                                     rows="2"
-                                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-[14px] font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm resize-none"
+                                    className="w-full px-5 py-3.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-base md:text-sm font-bold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm resize-none"
                                     value={formData.specialInstructions}
                                     onChange={handleChange}
                                 ></textarea>
@@ -885,8 +902,8 @@ export default function SendPackage() {
                                             <p className="text-2xl font-black">{currency} {totalCost}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1.5">All-inclusive</p>
-                                            <p className="text-[10px] font-black">NO HIDDEN FEES</p>
+                                            <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1.5">Checkout</p>
+                                            <p className="text-[10px] font-black">Final total</p>
                                         </div>
                                     </div>
                                 </div>
@@ -928,7 +945,7 @@ export default function SendPackage() {
                                 disabled={loading || Boolean(pendingPayment)}
                                 className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {pendingPayment ? 'Complete payment above' : loading ? 'Processing...' : t('requestShipping')} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                {pendingPayment ? 'Complete payment above' : loading ? 'Processing...' : 'Continue to Payment'} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                             </button>
 
                             <p className="mt-6 text-[8px] font-bold text-white/30 text-center uppercase tracking-widest leading-relaxed">
