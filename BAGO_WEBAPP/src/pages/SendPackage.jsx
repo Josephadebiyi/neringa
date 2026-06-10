@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import dropin from 'braintree-web-drop-in';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -17,7 +16,7 @@ import {
     RefreshCw,
     Phone
 } from 'lucide-react';
-import api from '../api';
+import api, { getStoredTokens } from '../api';
 import { locations } from '../utils/countries';
 import { calculateInsurance, fetchExchangeRates } from '../utils/insuranceCalculator';
 
@@ -54,7 +53,7 @@ const PAYMENT_PENDING_MESSAGE =
     'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
 
 const providerForCurrency = (value) => (
-    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'braintree'
+    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'paypal'
 );
 
 const showPaymentError = (setError, message = PAYMENT_UNAVAILABLE_MESSAGE, error = null) => {
@@ -107,9 +106,6 @@ export default function SendPackage() {
     const [quote, setQuote] = useState(null);
     const [pendingPayment, setPendingPayment] = useState(null);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
-    const [braintreeClientToken, setBraintreeClientToken] = useState('');
-    const [braintreeReadyPackage, setBraintreeReadyPackage] = useState(null);
-    const dropinInstanceRef = useRef(null);
 
     // Initialize form data with empty location fields
     const [formData, setFormData] = useState({
@@ -193,32 +189,6 @@ export default function SendPackage() {
             loadExchangeRates();
         }
     }, [isAuthenticated, navigate]);
-
-    useEffect(() => {
-        api.get('/api/payments/braintree/client-token')
-            .then(r => setBraintreeClientToken(r.data?.clientToken || ''))
-            .catch(() => {});
-    }, []);
-
-    useEffect(() => {
-        if (!braintreeReadyPackage || !braintreeClientToken) return;
-        let instance = null;
-        dropin.create({
-            authorization: braintreeClientToken,
-            container: '#bt-dropin-container',
-            paypal: {
-                flow: 'checkout',
-                amount: Number(totalCost).toFixed(2),
-                currency,
-            },
-        }).then(inst => {
-            instance = inst;
-            dropinInstanceRef.current = inst;
-        }).catch(err => {
-            showPaymentError(setError, PAYMENT_UNAVAILABLE_MESSAGE, err);
-        });
-        return () => { instance?.teardown(); dropinInstanceRef.current = null; };
-    }, [braintreeReadyPackage, braintreeClientToken]);
 
     useEffect(() => {
         if (user?.preferredCurrency && !selectedTrip) {
@@ -345,43 +315,6 @@ export default function SendPackage() {
         }
     };
 
-    const handleBraintreePay = useCallback(async () => {
-        const instance = dropinInstanceRef.current;
-        if (!instance || !braintreeReadyPackage) return;
-        setPaymentProcessing(true);
-        setError('');
-        try {
-            const { nonce } = await instance.requestPaymentMethod();
-            const response = await api.post('/api/payments/braintree/checkout', {
-                paymentMethodNonce: nonce,
-                packageId: braintreeReadyPackage.packageId,
-                tripId: braintreeReadyPackage.tripId,
-                currency: braintreeReadyPackage.currency,
-                insurance: braintreeReadyPackage.insurance,
-                insuranceCost: braintreeReadyPackage.insuranceCost,
-            });
-            if (!response.data?.success) {
-                showPaymentError(setError, response.data?.message || PAYMENT_UNAVAILABLE_MESSAGE, response.data);
-                return;
-            }
-            setBraintreeReadyPackage(null);
-            const req = response.data?.data?.request;
-            navigate('/shipping-success', {
-                state: {
-                    requestId: req?.id || req?._id,
-                    trackingNumber: req?.trackingNumber,
-                    amount: Number(totalCost),
-                    currency,
-                    paymentMethod: 'braintree',
-                },
-            });
-        } catch (err) {
-            showPaymentError(setError, PAYMENT_UNAVAILABLE_MESSAGE, err);
-        } finally {
-            setPaymentProcessing(false);
-        }
-    }, [braintreeReadyPackage, totalCost, currency, navigate]);
-
     const handleVerifyPaystackPayment = async () => {
         if (!pendingPayment?.reference) return;
         setPaymentProcessing(true);
@@ -483,14 +416,18 @@ export default function SendPackage() {
                 if (packageResponse.status === 201) {
                     const packageId = packageResponse.data.package._id;
 
-                    if (paymentProvider === 'braintree') {
-                        setBraintreeReadyPackage({
-                            packageId,
-                            tripId: selectedTrip._id,
-                            insurance: formData.insuranceProtection,
-                            insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
-                            currency,
-                        });
+                    if (paymentProvider === 'paypal') {
+                        const { accessToken } = getStoredTokens();
+                        const checkoutUrl = new URL('/api/payments/paypal/checkout', api.defaults.baseURL);
+                        checkoutUrl.searchParams.set('packageId', packageId);
+                        checkoutUrl.searchParams.set('tripId', selectedTrip._id);
+                        checkoutUrl.searchParams.set('currency', currency);
+                        checkoutUrl.searchParams.set('amount', Number(totalCost).toFixed(2));
+                        checkoutUrl.searchParams.set('insurance', String(formData.insuranceProtection));
+                        checkoutUrl.searchParams.set('insuranceCost', String(formData.insuranceProtection ? insuranceCost : 0));
+                        checkoutUrl.searchParams.set('mode', 'web');
+                        if (accessToken) checkoutUrl.searchParams.set('token', accessToken);
+                        window.location.href = checkoutUrl.toString();
                         return;
                     }
 
@@ -542,46 +479,6 @@ export default function SendPackage() {
                     <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
                 </div>
 
-
-                {braintreeReadyPackage && (
-                    <div className="bg-white border border-[#5845D8]/15 rounded-[28px] p-6 md:p-8 mb-8 shadow-[0_18px_45px_rgba(88,69,216,0.08)]">
-                        <div className="flex items-start gap-4 mb-6">
-                            <div className="w-11 h-11 bg-[#5845D8]/10 text-[#5845D8] rounded-2xl flex items-center justify-center shrink-0">
-                                <CreditCard size={22} />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-black text-[#012126] tracking-tight">Complete secure payment</h2>
-                                <p className="text-sm text-[#6B7280] font-medium mt-1">
-                                    Pay {currency} {Number(totalCost).toFixed(2)} to send your request to the traveler.
-                                </p>
-                            </div>
-                        </div>
-                        {braintreeClientToken ? (
-                            <>
-                                <div id="bt-dropin-container" className="mb-4" />
-                                <button
-                                    type="button"
-                                    onClick={handleBraintreePay}
-                                    disabled={paymentProcessing}
-                                    className="w-full inline-flex items-center justify-center px-8 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all disabled:opacity-50"
-                                >
-                                    {paymentProcessing ? 'Processing...' : `Pay ${currency} ${Number(totalCost).toFixed(2)}`}
-                                </button>
-                            </>
-                        ) : (
-                            <div className="flex items-center justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5845D8]" />
-                            </div>
-                        )}
-                        <button
-                            type="button"
-                            onClick={() => setBraintreeReadyPackage(null)}
-                            className="mt-4 text-sm text-[#6B7280] hover:text-[#012126] font-medium transition-colors"
-                        >
-                            ← Go back and change details
-                        </button>
-                    </div>
-                )}
 
                 {pendingPayment && (
                     <div className="bg-white border border-[#5845D8]/15 rounded-[28px] p-6 md:p-8 mb-8 shadow-[0_18px_45px_rgba(88,69,216,0.08)]">

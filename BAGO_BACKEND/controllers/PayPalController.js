@@ -814,7 +814,7 @@ export async function captureApplePayOrder(req, res) {
            set paypal_order_id = $2, paypal_capture_id = $3, status = 'paid',
                raw_response = raw_response || $4::jsonb, updated_at = timezone('utc', now())
            where id = $1 returning *`,
-          [existingApplePending.id, orderId, captureUnit.id, { order, capture }],
+          [existingApplePending.id, orderId, captureUnit.id, { order, capture, quote }],
         )
       : await queryOne(
           `insert into public.payments
@@ -822,12 +822,12 @@ export async function captureApplePayOrder(req, res) {
               paypal_order_id, paypal_capture_id, amount, currency,
               commission_amount, traveler_amount, status, raw_response)
            values ($1,$2,$3,'paypal','apple_pay',$4,$5,$6,$7,$8,$9,'paid',$10)
-           on conflict (paypal_order_id) do update
+          on conflict (paypal_order_id) do update
              set status = 'paid', updated_at = timezone('utc', now())
            returning *`,
           [profile.id, pkgId, trpId, orderId, captureUnit.id,
            quote.amount, quote.currency, quote.commissionAmount, quote.travelerAmount,
-           { order, capture }],
+           { order, capture, quote }],
         );
 
     const request = await finalizePayPalShipmentPayment(payment, capture);

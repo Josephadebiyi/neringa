@@ -20,6 +20,8 @@ import {
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
+import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
+import { convertCurrency } from '../services/currencyConverter.js';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 
@@ -52,6 +54,51 @@ export const initializePaystackPayment = async (req, res) => {
   try {
     const { amount, currency, requestId, packageId, tripId, customerEmail, expiresAt, metadata } = req.body;
     const user = req.user; // already a Postgres profile from isAuthenticated
+    const paymentCurrency = String(currency || user.preferredCurrency || 'NGN').toUpperCase();
+    let chargeAmount = Number(amount);
+    let pricingMetadata = {};
+
+    if (packageId && tripId) {
+      const [packageDoc, tripDoc, pricingConfig] = await Promise.all([
+        getPackageById(packageId),
+        getTripById(tripId),
+        getFullPricingConfig(),
+      ]);
+      if (!packageDoc || packageDoc.userId !== user.id) {
+        return res.status(404).json({ success: false, message: 'Package not found.' });
+      }
+      if (!tripDoc?.userId) {
+        return res.status(404).json({ success: false, message: 'Trip not found.' });
+      }
+
+      const tripCurrency = String(tripDoc.currency || paymentCurrency).toUpperCase();
+      const travelerPayout = Number(packageDoc.packageWeight || 0) * Number(tripDoc.pricePerKg || 0);
+      const pricing = calculateAllInclusivePrice(travelerPayout, pricingConfig);
+      const senderShippingFee = paymentCurrency === tripCurrency
+        ? Number(pricing.senderShippingFee)
+        : await convertCurrency(pricing.senderShippingFee, tripCurrency, paymentCurrency);
+      const insuranceAccepted = parseBooleanFlag(metadata?.insurance);
+      const itemValue = Number(packageDoc.packageValue || packageDoc.package_value || 0);
+      const calculatedInsuranceCost = insuranceAccepted
+        ? Number((itemValue * (Number(pricingConfig.senderInsurancePercent || 0) / 100)).toFixed(2))
+        : 0;
+      const finalInsuranceCost = calculatedInsuranceCost > 0
+        ? calculatedInsuranceCost
+        : (insuranceAccepted ? Number(metadata?.insuranceCost || 0) : 0);
+      chargeAmount = Number((Number(senderShippingFee) + finalInsuranceCost).toFixed(2));
+      pricingMetadata = {
+        amount: chargeAmount,
+        currency: paymentCurrency,
+        insurance: insuranceAccepted,
+        insuranceCost: finalInsuranceCost,
+        travelerPayout: Number(pricing.travelerPayout || 0),
+        platformCommission: Number(pricing.platformCommission || 0),
+        processingFee: Number(pricing.processingFee || 0),
+        fxBuffer: Number(pricing.fxBuffer || 0),
+        senderShippingFee: Number(senderShippingFee || 0),
+        bagoNetRevenue: Number(pricing.bagoNetRevenue || 0),
+      };
+    }
 
     // Generate unique reference
     const reference = `BAGO-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
@@ -63,15 +110,16 @@ export const initializePaystackPayment = async (req, res) => {
       tripId: tripId || null,
       customerEmail: customerEmail || user.email || null,
       expiresAt: expiresAt || null,
-      amount: Number(amount),
-      currency: currency || user.preferredCurrency || 'NGN',
       ...metadata,
+      amount: chargeAmount,
+      currency: paymentCurrency,
+      ...pricingMetadata,
     };
 
     const result = await initializePayment({
       email: user.email,
-      amount,
-      currency: currency || user.preferredCurrency || 'NGN',
+      amount: chargeAmount,
+      currency: paymentCurrency,
       reference,
       metadata: paymentMetadata,
     });
@@ -697,6 +745,12 @@ async function finalizePaystackShipmentFromMetadata(data) {
         imageUrl: null,
         insurance: parseBooleanFlag(metadata.insurance),
         insuranceCost: Number(metadata.insuranceCost || 0),
+        travelerPayout: Number(metadata.travelerPayout || 0) || null,
+        platformCommission: Number(metadata.platformCommission || 0) || null,
+        processingFee: Number(metadata.processingFee || 0) || null,
+        fxBuffer: Number(metadata.fxBuffer || 0) || null,
+        senderShippingFee: Number(metadata.senderShippingFee || 0) || null,
+        bagoNetRevenue: Number(metadata.bagoNetRevenue || 0) || null,
         estimatedDeparture: metadata.estimatedDeparture
           ? new Date(metadata.estimatedDeparture)
           : (tripDoc.departureDate ? new Date(tripDoc.departureDate) : null),
