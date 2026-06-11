@@ -168,6 +168,36 @@ class _TripsTabState extends ConsumerState<_TripsTab> {
       return const Center(child: AppLoading());
     }
 
+    if (state.error != null && state.myTrips.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded,
+                  size: 48, color: AppColors.gray300),
+              const SizedBox(height: 16),
+              Text('Could not load trips',
+                  style:
+                      AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text(state.error!,
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              AppButton(
+                label: 'Retry',
+                onPressed: () =>
+                    ref.read(tripProvider.notifier).loadMyTrips(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final filtered = state.myTrips.where((t) => _matches(t, _query)).toList();
 
     return Stack(
@@ -565,11 +595,17 @@ class _TripCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final statusLower = trip.status.toLowerCase();
     final isActive = statusLower == 'active' || statusLower == 'open';
+    final isPendingReview = statusLower == 'pending_admin_review' ||
+        statusLower == 'pending_review' ||
+        statusLower == 'admin_review' ||
+        statusLower == 'pending';
     final statusColor = isActive
         ? const Color(0xFF10B981)
-        : statusLower == 'cancelled'
-            ? const Color(0xFF6B7280)
-            : const Color(0xFF3B82F6);
+        : isPendingReview
+            ? const Color(0xFFF59E0B)
+            : statusLower == 'cancelled'
+                ? const Color(0xFF6B7280)
+                : const Color(0xFF3B82F6);
 
     return GestureDetector(
       onTap: onTap,
@@ -659,6 +695,36 @@ class _TripCard extends StatelessWidget {
                   ),
               ],
             ),
+            if (isPendingReview) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 14, color: Color(0xFFD97706)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Under review — senders cannot see this trip yet. We\'ll activate it once approved.',
+                        style: AppTextStyles.labelXs.copyWith(
+                          color: const Color(0xFF92400E),
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

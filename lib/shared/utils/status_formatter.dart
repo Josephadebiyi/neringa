@@ -57,10 +57,11 @@ String formatTripStatusLabel(String? rawStatus) {
 
   switch (normalized) {
     case 'pending':
+      return 'Pending';
     case 'pending_admin_review':
     case 'pending_review':
     case 'admin_review':
-      return 'Pending';
+      return 'Under Review';
     case 'active':
     case 'verified':
     case 'approved':
