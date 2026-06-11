@@ -35,9 +35,6 @@ export const getTravelers = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching travelers:', error);
-    return res.status(500).json({
-      message: 'Internal server error',
-      ...(req.query?.debug === '1' ? { detail: error.message, stack: error.stack } : {}),
-    });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
