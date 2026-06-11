@@ -47,14 +47,6 @@ export async function ensureTripCapacityColumns(executor = { query }) {
   try {
     await executor.query(`ALTER TABLE public.trips DROP CONSTRAINT IF EXISTS trips_status_check`);
   } catch (_) { /* constraint may not exist or may have a different name — safe to ignore */ }
-
-  await executor.query(`
-    UPDATE public.trips
-    SET travel_document_verified = TRUE,
-        updated_at = timezone('utc', now())
-    WHERE status IN ('active', 'verified', 'approved', 'live')
-      AND COALESCE(travel_document_verified, FALSE) = FALSE
-  `);
 }
 
 export async function buildTripCapacitySnapshot(executor, tripId, { lockTrip = false } = {}) {
