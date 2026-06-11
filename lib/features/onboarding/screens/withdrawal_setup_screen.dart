@@ -97,7 +97,7 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
               const SizedBox(height: 40),
               isAfrican
                   ? _PaystackSetup(currency: currency)
-                  : _PayPalSetup(currency: currency),
+                  : _StripeExpressSetup(currency: currency),
               const Spacer(),
               TextButton(
                 onPressed: () => context.go('/home'),
@@ -694,10 +694,10 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
 }
 
 // ---------------------------------------------------------------------------
-// PayPal flow (non-African currencies)
+// Stripe Express flow (non-African currencies)
 // ---------------------------------------------------------------------------
-class _PayPalSetup extends StatelessWidget {
-  const _PayPalSetup({required this.currency});
+class _StripeExpressSetup extends StatelessWidget {
+  const _StripeExpressSetup({required this.currency});
   final String currency;
 
   @override
@@ -705,7 +705,7 @@ class _PayPalSetup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _infoChip('PayPal payouts ($currency)', Icons.alternate_email_rounded,
+        _infoChip('Stripe Express payouts ($currency)', Icons.bolt_rounded,
             AppColors.primary),
         const SizedBox(height: 20),
         Container(
@@ -718,26 +718,26 @@ class _PayPalSetup extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Fast, secure PayPal payouts',
+              Text('Fast, secure Stripe Express payouts',
                   style: AppTextStyles.labelMd.copyWith(
                       color: AppColors.white, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              _paypalFeature('Add your PayPal email'),
-              _paypalFeature('Choose preferred payout currency'),
-              _paypalFeature('Payouts release after confirmed delivery'),
-              _paypalFeature('KYC approval required before payout'),
+              _stripeFeature('Connect your Stripe Express account'),
+              _stripeFeature('Choose preferred payout currency'),
+              _stripeFeature('Payouts release after confirmed delivery'),
+              _stripeFeature('KYC approval required before payout'),
             ],
           ),
         ),
         const SizedBox(height: 32),
         AppButton(
-          label: 'Set Up PayPal Payouts',
+          label: 'Set Up Stripe Express',
           onPressed: () => context.push('/profile/payout-methods'),
         ),
         const SizedBox(height: 12),
         Center(
           child: Text(
-            'Your PayPal email is stored for payouts only. Bago sends payouts after delivery is completed and cleared.',
+            'Stripe Express securely collects payout details. Bago sends payouts after delivery is completed and cleared.',
             style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
             textAlign: TextAlign.center,
           ),
@@ -746,7 +746,7 @@ class _PayPalSetup extends StatelessWidget {
     );
   }
 
-  Widget _paypalFeature(String text) {
+  Widget _stripeFeature(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(

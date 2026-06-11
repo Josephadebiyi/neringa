@@ -134,8 +134,13 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
     setState(() => _submitting = true);
     try {
-      await ApiService.instance
-          .post(ApiConstants.withdrawFunds, data: {'amount': amount});
+      final path = _africanCurrencies.contains(currency.toUpperCase())
+          ? ApiConstants.withdrawFunds
+          : ApiConstants.stripeWithdraw;
+      await ApiService.instance.post(path, data: {
+        'amount': amount,
+        'currency': currency,
+      });
       if (mounted) {
         AppSnackBar.show(context,
             message: 'Withdrawal submitted successfully!',
@@ -194,10 +199,19 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         CurrencyConversionHelper.minimumWithdrawalForCurrency(currency);
     final isAfrican = _africanCurrencies.contains(currency.toUpperCase());
     final hasBankLinked = user?.bankAccountLinked == true;
-    final hasPaypalLinked = (user?.paypalEmail?.isNotEmpty ?? false) &&
-        (user?.payoutStatus?.toLowerCase() == 'active' ||
-            user?.payoutMethodStatus?.toLowerCase() == 'connected');
-    final hasPayoutMethod = isAfrican ? hasBankLinked : hasPaypalLinked;
+    final payoutProvider = user?.payoutProvider?.toLowerCase() ?? '';
+    final payoutMethod = user?.payoutMethod?.toLowerCase() ?? '';
+    final payoutStatus = user?.payoutStatus?.toLowerCase() ?? '';
+    final payoutMethodStatus = user?.payoutMethodStatus?.toLowerCase() ?? '';
+    final hasStripeLinked =
+        (user?.stripeConnectAccountId?.isNotEmpty ?? false) ||
+            payoutProvider == 'stripe' ||
+            payoutMethod == 'stripe_connect';
+    final hasActiveStripe = hasStripeLinked &&
+        (payoutStatus == 'active' ||
+            payoutMethodStatus == 'connected' ||
+            payoutMethodStatus == 'active');
+    final hasPayoutMethod = isAfrican ? hasBankLinked : hasActiveStripe;
     final canWithdraw =
         hasPayoutMethod && !_submitting && _balance >= minimumAmount;
 
@@ -322,7 +336,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                           Text(
                             isAfrican
                                 ? 'Please link a bank account before withdrawing.'
-                                : 'Please add your PayPal payout email before withdrawing.',
+                                : 'Please set up Stripe Express before withdrawing.',
                             style: AppTextStyles.bodySm.copyWith(
                                 color: const Color(0xFF92400E), height: 1.4),
                           ),
@@ -441,7 +455,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   const SizedBox(height: 8),
                   _InfoLine(
                     label: 'Method',
-                    value: isAfrican ? 'Paystack bank transfer' : 'PayPal',
+                    value:
+                        isAfrican ? 'Paystack bank transfer' : 'Stripe Express',
                   ),
                   const SizedBox(height: 8),
                   const _InfoLine(

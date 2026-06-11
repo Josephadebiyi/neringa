@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -25,19 +25,52 @@ class PayoutMethodsScreen extends ConsumerStatefulWidget {
 
 class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   static const _africanPayoutCurrencies = {
-    'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
-    'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
-    'MRU', 'MUR', 'MWK', 'MZN', 'NAD', 'NGN', 'RWF', 'SCR', 'SDG', 'SLE',
-    'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
+    'AOA',
+    'BIF',
+    'BWP',
+    'CDF',
+    'CVE',
+    'DJF',
+    'DZD',
+    'EGP',
+    'ERN',
+    'ETB',
+    'GHS',
+    'GMD',
+    'GNF',
+    'KES',
+    'KMF',
+    'LRD',
+    'LSL',
+    'LYD',
+    'MAD',
+    'MGA',
+    'MRU',
+    'MUR',
+    'MWK',
+    'MZN',
+    'NAD',
+    'NGN',
+    'RWF',
+    'SCR',
+    'SDG',
+    'SLE',
+    'SOS',
+    'SSP',
+    'STN',
+    'SZL',
+    'TZS',
+    'UGX',
+    'XAF',
+    'XOF',
+    'ZAR',
+    'ZMW',
     'ZWL',
   };
 
-  final _emailController = TextEditingController();
-  final _otpController = TextEditingController();
   String _selectedCurrency = 'USD';
   bool _saving = false;
   bool _editing = false;
-  bool _showOtp = false;
 
   @override
   void initState() {
@@ -51,22 +84,23 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     _hydrateFromUser(user);
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _otpController.dispose();
-    super.dispose();
-  }
-
   bool get _usesPaystack =>
       _africanPayoutCurrencies.contains(_selectedCurrency.toUpperCase());
 
-  bool _hasConnectedPayPal(user) {
-    final email = user?.paypalEmail?.trim() ?? '';
+  bool _hasConnectedStripe(user) {
+    final accountId = user?.stripeConnectAccountId?.trim() ?? '';
+    final method = user?.payoutMethod?.trim().toLowerCase() ?? '';
+    final provider = user?.payoutProvider?.trim().toLowerCase() ?? '';
     final payoutStatus = user?.payoutStatus?.trim().toLowerCase() ?? '';
     final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
-    return email.isNotEmpty &&
-        (payoutStatus == 'active' || methodStatus == 'connected');
+    final isStripe = accountId.isNotEmpty ||
+        method == 'stripe_connect' ||
+        method == 'stripe' ||
+        provider == 'stripe';
+    return isStripe &&
+        (payoutStatus == 'active' ||
+            methodStatus == 'connected' ||
+            methodStatus == 'active');
   }
 
   bool _hasConnectedPaystack(user) {
@@ -80,7 +114,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   }
 
   bool _hasAnyPayoutMethod(user) =>
-      _hasConnectedPayPal(user) || _hasConnectedPaystack(user);
+      _hasConnectedStripe(user) || _hasConnectedPaystack(user);
 
   void _hydrateFromUser(user) {
     final payoutCurrency = user?.payoutCurrency?.toString().toUpperCase();
@@ -91,85 +125,48 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
   }
 
-  Future<void> _sendOtp() async {
+  Future<void> _openStripeExpress({required bool manage}) async {
     if (_saving) return;
-    final email = _emailController.text.trim().toLowerCase();
     final payoutCurrency = _selectedCurrency.toUpperCase();
     if (_africanPayoutCurrencies.contains(payoutCurrency)) {
       AppSnackBar.show(
         context,
-        message: '$payoutCurrency payouts must use Paystack/bank transfer, not PayPal.',
-        type: SnackBarType.error,
-      );
-      return;
-    }
-    if (email.isEmpty || !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      AppSnackBar.show(
-        context,
-        message: 'Enter a valid PayPal email address.',
+        message:
+            '$payoutCurrency payouts must use Paystack/bank transfer, not Stripe Express.',
         type: SnackBarType.error,
       );
       return;
     }
     setState(() => _saving = true);
     try {
-      await ApiService.instance.post(
-        ApiConstants.paypalPayoutSendOtp,
-        data: {'paypalEmail': email, 'payoutCurrency': payoutCurrency},
+      await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
+      final response = await ApiService.instance.post<Map<String, dynamic>>(
+        manage
+            ? ApiConstants.stripeConnectDashboardLink
+            : ApiConstants.stripeConnectOnboard,
+        data: {'payoutCurrency': payoutCurrency},
       );
-      setState(() => _showOtp = true);
-      AppSnackBar.show(
-        context,
-        message: 'Verification code sent to $email',
-        type: SnackBarType.success,
+      final url = response.data?['url']?.toString();
+      if (url == null || url.isEmpty) {
+        throw Exception(response.data?['message']?.toString() ??
+            'Stripe Express setup link was not returned.');
+      }
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
       );
-    } on DioException catch (error) {
-      if (!mounted) return;
-      AppSnackBar.show(
-        context,
-        message: ApiService.parseError(error),
-        type: SnackBarType.error,
-      );
-    } catch (error) {
-      if (!mounted) return;
-      AppSnackBar.show(
-        context,
-        message: error.toString().replaceFirst('Exception: ', ''),
-        type: SnackBarType.error,
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _verifyOtp() async {
-    if (_saving) return;
-    final otp = _otpController.text.trim();
-    if (otp.length != 6 || !RegExp(r'^\d{6}$').hasMatch(otp)) {
-      AppSnackBar.show(
-        context,
-        message: 'Enter the 6-digit code sent to your email.',
-        type: SnackBarType.error,
-      );
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      await ApiService.instance.post(
-        ApiConstants.paypalPayoutVerifyOtp,
-        data: {'otp': otp},
-      );
+      if (!launched) throw Exception('Could not open Stripe Express.');
       await ref.read(authProvider.notifier).refreshProfile();
       if (!mounted) return;
       setState(() {
-        _showOtp = false;
-        _otpController.clear();
         _editing = false;
         _hydrateFromUser(ref.read(authProvider).user);
       });
       AppSnackBar.show(
         context,
-        message: 'PayPal payout account verified and saved.',
+        message: manage
+            ? 'Stripe Express dashboard opened.'
+            : 'Continue setup in Stripe Express.',
         type: SnackBarType.success,
       );
     } on DioException catch (error) {
@@ -220,17 +217,17 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (previous, next) {
-      final previousEmail = previous?.user?.paypalEmail;
-      final nextEmail = next.user?.paypalEmail;
+      final previousAccount = previous?.user?.stripeConnectAccountId;
+      final nextAccount = next.user?.stripeConnectAccountId;
       final previousStatus = previous?.user?.payoutMethodStatus;
       final nextStatus = next.user?.payoutMethodStatus;
-      if (previousEmail != nextEmail || previousStatus != nextStatus) {
+      if (previousAccount != nextAccount || previousStatus != nextStatus) {
         setState(() => _hydrateFromUser(next.user));
       }
     });
 
     final user = ref.watch(authProvider).user;
-    final hasConnectedPayPal = _hasConnectedPayPal(user);
+    final hasConnectedStripe = _hasConnectedStripe(user);
     final hasConnectedPaystack = _hasConnectedPaystack(user);
     final hasAnyPayoutMethod = _hasAnyPayoutMethod(user);
     final showSetup = _editing || !hasAnyPayoutMethod;
@@ -258,7 +255,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Icon(
-              Icons.alternate_email_rounded,
+              Icons.account_balance_wallet_outlined,
               color: AppColors.primary,
             ),
           ),
@@ -279,7 +276,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           Text(
             hasAnyPayoutMethod
                 ? 'Your saved payout method is used for cleared traveler earnings.'
-                : 'Choose the currency you want paid out in. African currencies use Paystack bank transfer. Other currencies use PayPal.',
+                : 'Choose the currency you want paid out in. African currencies use Paystack bank transfer. Other currencies use Stripe Express.',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.gray500,
               height: 1.45,
@@ -287,9 +284,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           ),
           const SizedBox(height: 24),
           _CurrentPayoutMethodCard(
-            hasPayPal: hasConnectedPayPal,
+            hasStripe: hasConnectedStripe,
             hasPaystack: hasConnectedPaystack,
-            paypalEmail: user?.paypalEmail,
+            stripeAccountId: user?.stripeConnectAccountId,
             currency: user?.payoutCurrency ?? user?.walletCurrency,
             status: user?.payoutMethodStatus ?? user?.payoutStatus,
             isRefreshing: _saving,
@@ -300,9 +297,10 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             },
             onChange: () => setState(() {
               _editing = true;
-              _showOtp = false;
-              _otpController.clear();
             }),
+            onManageStripe: hasConnectedStripe
+                ? () => _openStripeExpress(manage: true)
+                : null,
           ),
           if (!showSetup) ...[
             const SizedBox(height: 16),
@@ -312,8 +310,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
               isLoading: _saving,
               onPressed: () => setState(() {
                 _editing = true;
-                _showOtp = false;
-                _otpController.clear();
               }),
             ),
           ],
@@ -331,8 +327,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                   ? null
                   : (value) => setState(() {
                         _selectedCurrency = value ?? 'USD';
-                        _showOtp = false;
-                        _otpController.clear();
                       }),
               decoration: const InputDecoration(
                 labelText: 'Payout currency',
@@ -353,26 +347,13 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                     const Icon(Icons.account_balance_rounded,
                         color: AppColors.primary)
                   else
-                    Container(
-                      width: 68,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      child: SvgPicture.asset(
-                        'assets/images/paypal.svg',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+                    const Icon(Icons.bolt_rounded, color: AppColors.primary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _usesPaystack
                           ? '$_selectedCurrency payouts will use Paystack bank transfer.'
-                          : '$_selectedCurrency payouts will use PayPal.',
+                          : '$_selectedCurrency payouts will use Stripe Express.',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.gray700,
                         fontWeight: FontWeight.w700,
@@ -391,85 +372,30 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                 onPressed: _continueWithPaystack,
               ),
             ] else ...[
-              if (!_showOtp) ...[
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _sendOtp(),
-                  decoration: InputDecoration(
-                    labelText: 'PayPal email address',
-                    hintText: 'paypal@example.com',
-                    filled: true,
-                    fillColor: AppColors.gray100,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                          color: AppColors.primary, width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.gray50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Text(
+                  'Stripe Express securely collects your payout details and lets you manage your connected account.',
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.gray700,
+                    height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 16),
-                AppButton(
-                  label: hasConnectedPayPal
-                      ? 'Update PayPal email'
-                      : 'Save PayPal email',
-                  icon: const Icon(Icons.send_rounded, size: 18),
-                  isLoading: _saving,
-                  onPressed: _sendOtp,
-                ),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.gray50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    'Enter the 6-digit code sent to ${_emailController.text.trim()}',
-                    style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.gray700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _otpController,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  maxLength: 6,
-                  textAlign: TextAlign.center,
-                  onSubmitted: (_) => _verifyOtp(),
-                  style: AppTextStyles.h2.copyWith(letterSpacing: 12),
-                  decoration: const InputDecoration(
-                    hintText: '000000',
-                    border: OutlineInputBorder(),
-                    counterText: '',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                AppButton(
-                  label: 'Verify & save',
-                  icon: const Icon(Icons.check_rounded, size: 18),
-                  isLoading: _saving,
-                  onPressed: _verifyOtp,
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _showOtp = false;
-                    _otpController.clear();
-                  }),
-                  child: const Text('Back — change email'),
-                ),
-              ],
+              ),
+              const SizedBox(height: 16),
+              AppButton(
+                label: hasConnectedStripe
+                    ? 'Manage Stripe Express'
+                    : 'Set up Stripe Express',
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                isLoading: _saving,
+                onPressed: () => _openStripeExpress(manage: hasConnectedStripe),
+              ),
             ],
           ],
         ],
@@ -480,35 +406,37 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
 class _CurrentPayoutMethodCard extends StatelessWidget {
   const _CurrentPayoutMethodCard({
-    required this.hasPayPal,
+    required this.hasStripe,
     required this.hasPaystack,
-    required this.paypalEmail,
+    required this.stripeAccountId,
     required this.currency,
     required this.status,
     required this.isRefreshing,
     required this.onRefresh,
     required this.onChange,
+    required this.onManageStripe,
   });
 
-  final bool hasPayPal;
+  final bool hasStripe;
   final bool hasPaystack;
-  final String? paypalEmail;
+  final String? stripeAccountId;
   final String? currency;
   final String? status;
   final bool isRefreshing;
   final Future<void> Function() onRefresh;
   final VoidCallback onChange;
+  final VoidCallback? onManageStripe;
 
   @override
   Widget build(BuildContext context) {
-    final hasMethod = hasPayPal || hasPaystack;
-    final methodLabel = hasPayPal
-        ? 'PayPal'
+    final hasMethod = hasStripe || hasPaystack;
+    final methodLabel = hasStripe
+        ? 'Stripe Express'
         : hasPaystack
             ? 'Paystack bank transfer'
             : 'No payout method saved';
-    final detail = hasPayPal
-        ? paypalEmail
+    final detail = hasStripe
+        ? 'Connected account ${_shortAccountId(stripeAccountId)}'
         : hasPaystack
             ? 'Bank payout connected'
             : 'Add a payout method to receive traveler earnings.';
@@ -537,8 +465,8 @@ class _CurrentPayoutMethodCard extends StatelessWidget {
               Icon(
                 hasPaystack
                     ? Icons.account_balance_rounded
-                    : hasPayPal
-                        ? Icons.alternate_email_rounded
+                    : hasStripe
+                        ? Icons.bolt_rounded
                         : Icons.account_balance_wallet_outlined,
                 color: hasMethod ? const Color(0xFF059669) : AppColors.gray500,
               ),
@@ -558,7 +486,7 @@ class _CurrentPayoutMethodCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      detail ?? '',
+                      detail,
                       style: AppTextStyles.bodySm.copyWith(
                         color: hasMethod
                             ? const Color(0xFF047857)
@@ -615,10 +543,26 @@ class _CurrentPayoutMethodCard extends StatelessWidget {
                   label: Text(hasMethod ? 'Change' : 'Add'),
                 ),
               ),
+              if (hasStripe && onManageStripe != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: isRefreshing ? null : onManageStripe,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: const Text('Manage'),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
       ),
     );
+  }
+
+  String _shortAccountId(String? accountId) {
+    final value = accountId?.trim() ?? '';
+    if (value.length < 8) return 'saved';
+    return '...${value.substring(value.length - 6)}';
   }
 }

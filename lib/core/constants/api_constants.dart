@@ -128,7 +128,8 @@ class ApiConstants {
   static const String withdrawFunds = '/api/bago/withdrawFunds';
   static const String paymentMethods = '/api/bago/payment-methods';
   // Braintree checkout (legacy)
-  static const String braintreeClientToken = '/api/payments/braintree/client-token';
+  static const String braintreeClientToken =
+      '/api/payments/braintree/client-token';
   static const String braintreeCheckout = '/api/payments/braintree/checkout';
   static const String braintreeVault = '/api/payments/braintree/vault';
   // PayPal checkout (card + PayPal wallet + Apple Pay)
@@ -136,7 +137,8 @@ class ApiConstants {
   static const String paypalCheckout = '/api/payments/paypal/checkout';
   static const String paypalCreateOrder = '/api/payments/paypal/create-order';
   static const String paypalCaptureOrder = '/api/payments/paypal/capture-order';
-  static const String applePayCapture = '/api/payments/paypal/apple-pay/capture';
+  static const String applePayCapture =
+      '/api/payments/paypal/apple-pay/capture';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';
@@ -154,6 +156,11 @@ class ApiConstants {
   static const String paypalPayoutVerifyOtp = '/api/payouts/paypal/verify-otp';
   static const String paypalPayoutOAuthStart =
       '/api/payouts/paypal/oauth/start';
+  static const String stripePayoutStatus = '/api/payouts/status';
+  static const String stripeConnectOnboard = '/api/payouts/connect/onboard';
+  static const String stripeConnectDashboardLink =
+      '/api/payouts/connect/dashboard-link';
+  static const String stripeWithdraw = '/api/payouts/withdraw';
 
   // ---------------------------------------------------------------------------
   // Messaging
