@@ -342,7 +342,9 @@ export async function findProfileWithWallet(userId) {
 }
 
 export async function searchTravelerTrips({ currentUserId, fromLocation, toLocation, fromCountry, toCountry, date }) {
-  await ensureTripCapacityColumns({ query });
+  await ensureTripCapacityColumns({ query }).catch((error) => {
+    console.warn('Trip capacity schema check skipped during traveler search:', error.message);
+  });
   const conditions = [
     "t.status::text in ('verified', 'active', 'approved', 'live')",
     'coalesce(t.travel_document_verified, false) = true',
