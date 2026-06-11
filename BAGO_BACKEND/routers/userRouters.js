@@ -233,7 +233,7 @@ userRouter.post('/user/verify-email-change', isAuthenticated, verifyEmailChange)
 userRouter.post('/user/request-phone-change', isAuthenticated, requestPhoneChange);
 userRouter.post('/user/verify-phone-change', isAuthenticated, verifyPhoneChange);
 userRouter.get('/payment-methods', isAuthenticated, requireKycVerification, (_req, res) => {
-  res.json({ success: true, data: { cards: [], provider: 'paypal' } });
+  res.json({ success: true, data: { cards: [], provider: 'stripe' } });
 });
 
 // 💳 Paystack Routes

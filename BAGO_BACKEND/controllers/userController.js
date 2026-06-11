@@ -7,7 +7,6 @@ import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { updatePreferredCurrency, findProfileById } from '../lib/postgres/profiles.js';
 import { initiateTransfer } from '../services/paystackService.js';
-import { createPayPalEmailPayout } from './PayPalController.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -188,7 +187,7 @@ export const edit = async (req, res, next) => {
     // Convert wallet balance when currency changes
     if (updateKeys.includes('preferredCurrency') && updates.preferredCurrency) {
       const newCurrency = updates.preferredCurrency.toUpperCase();
-      const paymentGateway = PAYSTACK_PAYOUT_CURRENCIES.includes(newCurrency) ? 'paystack' : 'paypal';
+      const paymentGateway = PAYSTACK_PAYOUT_CURRENCIES.includes(newCurrency) ? 'paystack' : 'stripe';
       await updatePreferredCurrency(userId, newCurrency, paymentGateway, oldPreferredCurrency);
     }
 
@@ -275,7 +274,7 @@ export const addFunds = async (req, res) => {
 
 const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
 const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 2);
-const PAYPAL_WITHDRAWAL_FEE_EUR = 2;
+const STRIPE_CONNECT_WITHDRAWAL_FEE = 0;
 const PAYSTACK_WITHDRAWAL_FEE_NGN = 200;
 const PAYSTACK_PAYOUT_CURRENCIES = [
   'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
@@ -286,7 +285,7 @@ const PAYSTACK_PAYOUT_CURRENCIES = [
 ];
 
 function payoutMethodForCurrency(currency = 'USD') {
-  return PAYSTACK_PAYOUT_CURRENCIES.includes(String(currency).toUpperCase()) ? 'bank' : 'paypal';
+  return PAYSTACK_PAYOUT_CURRENCIES.includes(String(currency).toUpperCase()) ? 'bank' : 'stripe';
 }
 
 export const withdrawFunds = async (req, res) => {
@@ -300,9 +299,10 @@ export const withdrawFunds = async (req, res) => {
 
     const account = await queryOne(
       `SELECT
-          p.paypal_email,
           p.payout_currency,
           p.payout_status,
+          p.stripe_connect_account_id,
+          p.stripe_onboarding_complete,
           p.paystack_recipient_code,
           wa.id as wallet_id,
           wa.available_balance,
@@ -318,13 +318,13 @@ export const withdrawFunds = async (req, res) => {
     const walletCurrency = String(account.currency || 'USD').toUpperCase();
     const selectedMethod = method || payoutMethodForCurrency(walletCurrency);
 
-    if (!['paypal', 'bank'].includes(selectedMethod)) {
-      return res.status(400).json({ success: false, message: "Specify payout method: 'paypal' or 'bank'" });
+    if (!['stripe', 'bank'].includes(selectedMethod)) {
+      return res.status(400).json({ success: false, message: "Specify payout method: 'stripe' or 'bank'" });
     }
     if (selectedMethod !== payoutMethodForCurrency(walletCurrency)) {
       return res.status(400).json({
         success: false,
-        message: `${walletCurrency} withdrawals use ${payoutMethodForCurrency(walletCurrency) === 'bank' ? 'bank/Paystack' : 'PayPal'}.`,
+        message: `${walletCurrency} withdrawals use ${payoutMethodForCurrency(walletCurrency) === 'bank' ? 'bank/Paystack' : 'Stripe Connect'}.`,
       });
     }
 
@@ -336,13 +336,11 @@ export const withdrawFunds = async (req, res) => {
       });
     }
 
-    if (selectedMethod === 'paypal' && (!account.paypal_email || account.payout_status !== 'active')) {
-      return res.status(400).json({ success: false, message: 'Add an active PayPal payout email before withdrawing.' });
-    }
-    if (selectedMethod === 'paypal' && account.payout_currency && String(account.payout_currency).toUpperCase() !== walletCurrency) {
-      return res.status(400).json({
+    if (selectedMethod === 'stripe') {
+      return res.status(410).json({
         success: false,
-        message: `Your PayPal payout currency is ${account.payout_currency}. Update payout settings to withdraw ${walletCurrency}.`,
+        message: 'Use /api/payouts/withdraw for Stripe Connect withdrawals.',
+        code: 'STRIPE_WITHDRAWAL_ENDPOINT_REQUIRED',
       });
     }
     if (selectedMethod === 'bank' && !account.paystack_recipient_code) {
@@ -353,9 +351,7 @@ export const withdrawFunds = async (req, res) => {
       ? Number((walletCurrency === 'NGN'
           ? PAYSTACK_WITHDRAWAL_FEE_NGN
           : await convertCurrency(PAYSTACK_WITHDRAWAL_FEE_NGN, 'NGN', walletCurrency)).toFixed(2))
-      : Number((walletCurrency === 'EUR'
-          ? PAYPAL_WITHDRAWAL_FEE_EUR
-          : await convertCurrency(PAYPAL_WITHDRAWAL_FEE_EUR, 'EUR', walletCurrency)).toFixed(2));
+      : STRIPE_CONNECT_WITHDRAWAL_FEE;
     const payoutAmount = Number((Number(amount) - withdrawalFee).toFixed(2));
     if (payoutAmount <= 0) {
       return res.status(400).json({
@@ -417,7 +413,7 @@ export const withdrawFunds = async (req, res) => {
        VALUES ($1, $2, 'withdrawal', $3, $4, 'pending', $5, $6)`,
       [
         account.wallet_id, userId, amount, walletCurrency,
-        `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'PayPal'}`,
+        `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}`,
         JSON.stringify({
           method: selectedMethod,
           amountUsd,
@@ -426,7 +422,7 @@ export const withdrawFunds = async (req, res) => {
           withdrawalFee,
           payoutAmount,
           feeCurrency: walletCurrency,
-          feeRule: selectedMethod === 'bank' ? 'paystack_ngn_200' : 'paypal_eur_2',
+          feeRule: selectedMethod === 'bank' ? 'paystack_ngn_200' : 'stripe_connect',
         }),
       ]
     );
@@ -447,24 +443,6 @@ export const withdrawFunds = async (req, res) => {
            SET status = 'processing', metadata = metadata || $3::jsonb
            WHERE user_id = $1 AND metadata->>'reference' = $2`,
           [userId, reference, JSON.stringify({ transferCode: result.transferCode })]
-        );
-      } else {
-        const payout = await createPayPalEmailPayout({
-          receiverEmail: account.paypal_email,
-          amount: payoutAmount,
-          currency: walletCurrency,
-          reference,
-          note: 'Bago wallet withdrawal',
-        });
-        await pgQuery(
-          `UPDATE public.wallet_transactions
-           SET status = 'processing', metadata = metadata || $3::jsonb
-           WHERE user_id = $1 AND metadata->>'reference' = $2`,
-          [userId, reference, JSON.stringify({
-            paypalEmail: account.paypal_email,
-            payoutBatchId: payout.batch_header?.payout_batch_id,
-            payoutItemId: payout.items?.[0]?.payout_item_id || payout.items?.[0]?.payout_item?.payout_item_id,
-          })]
         );
       }
     } catch (payoutError) {

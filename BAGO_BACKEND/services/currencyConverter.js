@@ -180,7 +180,7 @@ export function getCurrencyByCountry(countryCode) {
 
 export function choosePaymentProcessor(currency) {
   const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'RWF', 'UGX', 'TZS'];
-  return africanCurrencies.includes(currency.toUpperCase()) ? 'paystack' : 'paypal';
+  return africanCurrencies.includes(currency.toUpperCase()) ? 'paystack' : 'stripe';
 }
 
 export async function getAllRates() {

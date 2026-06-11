@@ -23,20 +23,27 @@ import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from '
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 import {
-  createPayPalOrder,
-  capturePayPalOrder,
-  captureApplePayOrder,
-  servePayPalCheckoutPage,
-  getPendingCheckouts,
-  handlePayPalOAuthCallback,
-  paypalWebhook,
-  savePayPalPayoutSettings,
-  sendPayPalPayout,
-  sendPayPalPayoutOtp,
-  startPayPalOAuth,
-  verifyPayPalPayoutOtp,
-} from './controllers/PayPalController.js';
-import { braintreeCheckout, getClientToken } from './controllers/BraintreeController.js';
+  cancelStripeEscrow,
+  captureStripeEscrow,
+  createCardSetupIntent,
+  createStripeCustomer,
+  createStripeDashboardLink,
+  createStripePaymentIntent,
+  createStripePayout,
+  deleteSavedCard,
+  getStripePaymentMethods,
+  getStripePayoutStatus,
+  getStripeRefundStatus,
+  issueStripeRefund,
+  listSavedCards,
+  requestPayoutMethodOtp,
+  setDefaultCard,
+  startStripeConnectOnboarding,
+  stripeConnectRefresh,
+  stripeConnectReturn,
+  stripeConnectWebhook,
+  verifyPayoutMethodOtp,
+} from './controllers/StripeController.js';
 
 dotenv.config();
 
@@ -52,10 +59,6 @@ if (process.env.ADMIN_SECRET_KEY === process.env.JWT_SECRET) {
   console.error('FATAL: ADMIN_SECRET_KEY must differ from JWT_SECRET. Refusing to start.');
   process.exit(1);
 }
-if (String(process.env.PAYPAL_MODE || '').toLowerCase() === 'live' && !process.env.PAYPAL_WEBHOOK_ID) {
-  console.error('FATAL: PAYPAL_WEBHOOK_ID must be set when PAYPAL_MODE=live. Refusing to start.');
-  process.exit(1);
-}
 
 const app = express();
 const httpServer = createServer(app);
@@ -66,7 +69,7 @@ const allowedOrigins = new Set([
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL,
   process.env.WEBAPP_URL,
-  // Backend's own public URL — needed so the in-app PayPal checkout WebView
+  // Backend's own public URL — needed so in-app checkout pages served from
   // page (served from this host) can fetch /api/* without a CORS rejection
   process.env.API_PUBLIC_URL,
   process.env.BACKEND_URL,
@@ -232,7 +235,15 @@ cloudinary.v2.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-app.use(express.json({ limit: '10mb', strict: true }));
+app.use(express.json({
+  limit: '10mb',
+  strict: true,
+  verify: (req, _res, buf) => {
+    if (req.originalUrl === '/api/webhooks/stripe' || req.originalUrl === '/api/payouts/connect/webhook') {
+      req.rawBody = buf;
+    }
+  },
+}));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
 
@@ -413,17 +424,20 @@ authRoutes.forEach(route => app.use(route, authLimiter));
   '/api/paystack/add-bank',
   '/api/paystack/verify-bank-otp',
   '/api/paystack/withdraw',
-  '/api/payouts/paypal/send',
-  '/api/payouts/paypal/send-otp',
-  '/api/payouts/paypal/verify-otp',
+  '/api/payouts/connect/dashboard-link',
+  '/api/payouts/change-method/request-otp',
+  '/api/payouts/change-method/verify-otp',
+  '/api/payouts/withdraw',
+  '/api/escrow/capture',
+  '/api/escrow/cancel',
+  '/api/refunds/issue',
   '/send-otp',
-  '/api/payments/braintree/checkout',
 ].forEach(route => app.use(route, sensitiveLimiter));
 
 [
-  '/api/payments/paypal/create-order',
-  '/api/payments/paypal/capture-order',
-  '/api/payments/paypal/apple-pay/capture',
+  '/api/payments/create-intent',
+  '/api/payments/cards/setup-intent',
+  '/api/payments/cards/set-default',
 ].forEach(route => app.use(route, checkoutLimiter));
 
 const publicSchemaLimiter = rateLimit({
@@ -627,55 +641,52 @@ schema('/api/paystack/withdraw', {
   strings: ['currency'],
   max: { amount: 20, currency: 3 },
 });
-schema('/api/payments/paypal/create-order', {
-  allowed: ['shipmentId', 'packageId', 'tripId', 'paymentMethod', 'currency', 'insurance', 'insuranceCost'],
-  required: ['paymentMethod', 'currency'],
-  strings: ['shipmentId', 'packageId', 'tripId', 'paymentMethod', 'currency'],
-  stringOrNumbers: ['insuranceCost'],
-  enums: { paymentMethod: ['paypal_wallet', 'apple_pay', 'google_pay', 'card'] },
-  max: { shipmentId: 80, packageId: 80, tripId: 80, paymentMethod: 32, currency: 3 },
+schema('/api/payments/create-intent', {
+  allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
+  required: ['amount', 'currency'],
+  strings: ['currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'packageId', 'tripId', 'travelerId'],
+  booleans: ['termsAccepted'],
+  stringOrNumbers: ['amount'],
+  max: { amount: 20, currency: 3, countryCode: 2, shipmentId: 80, deliveryId: 80, paymentMethodId: 120, packageId: 80, tripId: 80, travelerId: 80 },
 });
-schema('/api/payments/paypal/capture-order', {
-  allowed: ['orderId', 'shipmentId', 'packageId', 'tripId', 'currency', 'insurance', 'insuranceCost'],
-  required: ['orderId'],
-  strings: ['orderId', 'shipmentId', 'packageId', 'tripId', 'currency'],
-  booleans: ['insurance'],
-  stringOrNumbers: ['insuranceCost'],
-  max: { orderId: 120, shipmentId: 80, packageId: 80, tripId: 80, currency: 3, insuranceCost: 20 },
+schema('/api/payments/cards/setup-intent', {
+  allowed: [],
 });
-schema('/api/payments/paypal/apple-pay/capture', {
-  allowed: ['applePayToken', 'packageId', 'tripId', 'currency', 'insurance', 'insuranceCost'],
-  required: ['applePayToken', 'packageId', 'tripId'],
-  strings: ['packageId', 'tripId', 'currency'],
-  booleans: ['insurance'],
-  stringOrNumbers: ['insuranceCost'],
-  objects: ['applePayToken'],
-  max: { packageId: 80, tripId: 80, currency: 3, insuranceCost: 20 },
+schema('/api/payments/cards/set-default', {
+  allowed: ['paymentMethodId'],
+  required: ['paymentMethodId'],
+  strings: ['paymentMethodId'],
+  max: { paymentMethodId: 120 },
 });
-schema('/api/payouts/paypal/settings', {
-  allowed: ['paypalEmail', 'payoutCurrency', 'confirmed'],
-  required: ['paypalEmail', 'payoutCurrency', 'confirmed'],
-  strings: ['paypalEmail', 'payoutCurrency'],
-  booleans: ['confirmed'],
-  max: { paypalEmail: 254, payoutCurrency: 3 },
+schema('/api/escrow/capture', {
+  allowed: ['shipmentId', 'deliveryId'],
+  strings: ['shipmentId', 'deliveryId'],
+  max: { shipmentId: 80, deliveryId: 80 },
 });
-schema('/api/payouts/paypal/send', {
-  allowed: ['shipmentId'],
-  required: ['shipmentId'],
-  strings: ['shipmentId'],
-  max: { shipmentId: 80 },
+schema('/api/escrow/cancel', {
+  allowed: ['shipmentId', 'deliveryId'],
+  strings: ['shipmentId', 'deliveryId'],
+  max: { shipmentId: 80, deliveryId: 80 },
 });
-schema('/api/payouts/paypal/send-otp', {
-  allowed: ['paypalEmail', 'payoutCurrency'],
-  required: ['paypalEmail', 'payoutCurrency'],
-  strings: ['paypalEmail', 'payoutCurrency'],
-  max: { paypalEmail: 254, payoutCurrency: 3 },
+schema('/api/refunds/issue', {
+  allowed: ['shipmentId', 'deliveryId', 'type', 'reason', 'partialAmount'],
+  strings: ['shipmentId', 'deliveryId', 'type', 'reason'],
+  stringOrNumbers: ['partialAmount'],
+  enums: { type: ['full', 'partial'], reason: ['delivery_failed', 'cancelled', 'dispute', 'other', 'requested_by_customer'] },
+  max: { shipmentId: 80, deliveryId: 80, type: 20, reason: 40, partialAmount: 20 },
 });
-schema('/api/payouts/paypal/verify-otp', {
+schema('/api/payouts/change-method/verify-otp', {
   allowed: ['otp'],
   required: ['otp'],
   strings: ['otp'],
   max: { otp: 12 },
+});
+schema('/api/payouts/withdraw', {
+  allowed: ['amount', 'currency'],
+  required: ['amount', 'currency'],
+  strings: ['currency'],
+  stringOrNumbers: ['amount'],
+  max: { amount: 20, currency: 3 },
 });
 schema('/api/bago/register-token', {
   allowed: ['token', 'deviceToken', 'pushToken'],
@@ -842,26 +853,41 @@ app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 
-// ✅ Braintree checkout (legacy — kept for backward compatibility)
-app.get('/api/payments/braintree/client-token', isAuthenticated, getClientToken);
-app.post('/api/payments/braintree/checkout', isAuthenticated, braintreeCheckout);
+// ✅ Stripe checkout, saved cards, escrow, refunds, and Connect payouts
+app.get('/api/payouts/status', isAuthenticated, getStripePayoutStatus);
+app.post('/api/payouts/connect/onboard', isAuthenticated, requireKycVerification, startStripeConnectOnboarding);
+app.get('/api/payouts/connect/return', stripeConnectReturn);
+app.get('/api/payouts/connect/refresh', stripeConnectRefresh);
+app.post('/api/payouts/connect/dashboard-link', isAuthenticated, createStripeDashboardLink);
+app.post('/api/payouts/change-method/request-otp', isAuthenticated, requestPayoutMethodOtp);
+app.post('/api/payouts/change-method/verify-otp', isAuthenticated, verifyPayoutMethodOtp);
+app.post('/api/payouts/withdraw', isAuthenticated, createStripePayout);
+app.post('/api/payments/customer/create', isAuthenticated, createStripeCustomer);
+app.post('/api/payments/cards/setup-intent', isAuthenticated, createCardSetupIntent);
+app.get('/api/payments/cards', isAuthenticated, listSavedCards);
+app.post('/api/payments/cards/set-default', isAuthenticated, setDefaultCard);
+app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, deleteSavedCard);
+app.get('/api/payments/methods', getStripePaymentMethods);
+app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, createStripePaymentIntent);
+app.post('/api/escrow/capture', isAuthenticated, captureStripeEscrow);
+app.post('/api/escrow/cancel', isAuthenticated, cancelStripeEscrow);
+app.post('/api/refunds/issue', isAuthenticated, issueStripeRefund);
+app.get('/api/refunds/status/:shipmentId', isAuthenticated, getStripeRefundStatus);
 
-// ✅ PayPal checkout (card + PayPal wallet + Apple Pay)
-app.get('/api/payments/paypal/checkout', servePayPalCheckoutPage);
-app.post('/api/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPayPalOrder);
-app.post('/api/payments/paypal/capture-order', isAuthenticated, capturePayPalOrder);
-app.post('/api/payments/paypal/apple-pay/capture', isAuthenticated, captureApplePayOrder);
+// Stripe webhook needs the raw body. express.json() is already global, so this
+// route expects deployment to exempt this path or forward raw body middleware.
+app.post('/api/payouts/connect/webhook', stripeConnectWebhook);
+app.post('/api/webhooks/stripe', stripeConnectWebhook);
 
-// ✅ PayPal public config (client-id is a public key, safe to expose)
-app.get('/api/config/paypal', (_req, res) => {
+// ✅ Shared config
+app.get('/api/config/stripe', (_req, res) => {
   res.json({
     success: true,
-    clientId: process.env.PAYPAL_CLIENT_ID || '',
-    isSandbox: String(process.env.PAYPAL_MODE || 'sandbox').toLowerCase() !== 'live',
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+    merchantIdentifier: process.env.STRIPE_APPLE_PAY_MERCHANT_ID || 'merchant.com.bago.app',
   });
 });
 
-// ✅ PayPal payouts and shared config
 app.get('/api/config/pricing-config', async (_req, res) => {
   try {
     const { getFullPricingConfig } = await import('./services/pricingService.js');
@@ -877,14 +903,6 @@ app.get('/api/config/pricing-config', async (_req, res) => {
     res.json({ success: true, surchargeMultiplier: 1.2075 });
   }
 });
-app.get('/api/payments/pending-checkout', isAuthenticated, getPendingCheckouts);
-app.post('/api/payouts/paypal/settings', isAuthenticated, savePayPalPayoutSettings);
-app.post('/api/payouts/paypal/send', isAuthenticated, sendPayPalPayout);
-app.post('/api/payouts/paypal/send-otp', isAuthenticated, sendPayPalPayoutOtp);
-app.post('/api/payouts/paypal/verify-otp', isAuthenticated, verifyPayPalPayoutOtp);
-app.get('/api/payouts/paypal/oauth/start', isAuthenticated, startPayPalOAuth);
-app.get('/api/payouts/paypal/oauth/callback', handlePayPalOAuthCallback);
-app.post('/api/webhooks/paypal', paypalWebhook);
 
 // ✅ IP-based location and currency detection
 app.get('/api/location/detect', async (req, res) => {
@@ -896,7 +914,7 @@ app.get('/api/location/detect', async (req, res) => {
       success: true,
       ip,
       location,
-      recommendedGateway: 'paypal'
+      recommendedGateway: 'stripe'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

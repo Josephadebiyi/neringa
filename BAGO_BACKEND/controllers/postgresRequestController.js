@@ -28,7 +28,7 @@ import {
   updateTravelerProof,
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
-import { queryOne, withTransaction } from '../lib/postgres/db.js';
+import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { buildTripCapacitySnapshot, syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { verifyPayment as verifyPaystackPaymentRef } from '../services/paystackService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
@@ -37,7 +37,9 @@ import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingCon
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
-import { refundBraintreeTransaction } from './BraintreeController.js';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 function normalizePaymentProvider(paymentInfo = {}) {
   return String(paymentInfo.gateway || paymentInfo.method || paymentInfo.provider || '').toLowerCase();
@@ -116,19 +118,17 @@ async function refundPaidShipmentRequest(request) {
   const reference = getPaymentReference(paymentInfo);
   const previousRefundStatus = paymentInfo.refund?.status;
 
-  if (!reference || !['paystack', 'braintree'].includes(provider)) {
+  if (!reference || provider !== 'paystack') {
     return null;
   }
   if (['succeeded', 'pending'].includes(previousRefundStatus)) {
     return paymentInfo.refund || null;
   }
 
-  const refund = provider === 'braintree'
-    ? await refundBraintreeTransaction(reference)
-    : await refundPaystackPayment(reference);
+  const refund = await refundPaystackPayment(reference);
 
   const refundInfo = {
-    status: provider === 'paystack' ? (refund.status || 'pending') : (refund.status || 'succeeded'),
+    status: refund.status || 'pending',
     provider,
     reference: refund.id || refund.reference || null,
     paymentReference: reference,
@@ -388,6 +388,7 @@ export async function RequestPackage(req, res) {
     } = req.body;
 
     const senderId = req.user.id || req.user._id;
+    let verifiedPaymentStatus = paymentStatus;
 
     if (!senderId || !travelerId || !packageId || !tripId) {
       return res.status(400).json({ message: 'All required fields must be provided' });
@@ -528,32 +529,47 @@ export async function RequestPackage(req, res) {
         if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
-      } else if (provider === 'paypal') {
-        const paypalPayment = await queryOne(
+      } else if (provider === 'stripe') {
+        let stripePayment = await queryOne(
           `
             select id, amount, currency, status
             from public.payments
-            where paypal_order_id = $1
+            where stripe_payment_intent_id = $1
               and user_id = $2
-              and status = 'paid'
+              and status in ('requires_capture', 'succeeded', 'processing', 'captured', 'paid', 'paid_escrow', 'released')
             order by updated_at desc
             limit 1
           `,
           [paymentReference, senderId],
         );
-        if (!paypalPayment) {
-          return res.status(402).json({ message: 'PayPal payment could not be verified. Please complete payment first.', success: false });
+        if (!stripePayment && process.env.STRIPE_SECRET_KEY) {
+          const paymentIntent = await stripe.paymentIntents.retrieve(paymentReference);
+          if (
+            paymentIntent.metadata?.senderId === senderId &&
+            ['requires_capture', 'succeeded', 'processing'].includes(paymentIntent.status)
+          ) {
+            stripePayment = {
+              id: paymentIntent.id,
+              amount: Number(paymentIntent.amount || 0) / 100,
+              currency: paymentIntent.currency,
+              status: paymentIntent.status,
+            };
+          }
         }
-        const verifiedAmount = Number(paypalPayment.amount || 0);
+        if (!stripePayment) {
+          return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
+        }
+        const verifiedAmount = Number(stripePayment.amount || 0);
         const agreedAmount = Number(amount);
-        const paymentCurrency = String(paypalPayment.currency || '').toUpperCase();
+        const paymentCurrency = String(stripePayment.currency || '').toUpperCase();
         const agreedCurrency = String(currency || 'USD').toUpperCase();
         if (paymentCurrency !== agreedCurrency) {
-          return res.status(402).json({ message: 'PayPal payment currency does not match the shipment currency.', success: false });
+          return res.status(402).json({ message: 'Payment currency does not match the shipment currency.', success: false });
         }
         if (verifiedAmount < agreedAmount * 0.98) {
-          return res.status(402).json({ message: 'PayPal payment amount does not match the agreed amount.', success: false });
+          return res.status(402).json({ message: 'Payment amount does not match the agreed amount.', success: false });
         }
+        verifiedPaymentStatus = stripePayment.status;
       }
     }
 
@@ -579,7 +595,7 @@ export async function RequestPackage(req, res) {
       );
     }
 
-    const newRequest = existingRequest
+    let newRequest = existingRequest
       ? await getShipmentRequestById(existingRequest.id)
       : duplicateRequest
         ? await mergePaidDuplicateRequest({
@@ -625,6 +641,45 @@ export async function RequestPackage(req, res) {
         });
 
     if (paymentReference && !duplicateRequest) {
+      if ((paymentProvider || '').toLowerCase() === 'stripe') {
+        await query(
+          `
+            update public.shipment_requests
+            set stripe_payment_intent_id = $2,
+                payment_status = $4,
+                payment_info = coalesce(payment_info, '{}'::jsonb) || $3::jsonb,
+                updated_at = timezone('utc', now())
+            where id = $1
+          `,
+          [
+            newRequest.id,
+            paymentReference,
+            {
+              method: 'stripe',
+              gateway: 'stripe',
+              status: verifiedPaymentStatus === 'processing' ? 'processing_escrow' : 'paid_escrow',
+              requestId: paymentReference,
+              paymentIntentId: paymentReference,
+            },
+            verifiedPaymentStatus === 'processing' ? 'processing_escrow' : 'paid_escrow',
+          ],
+        );
+        await query(
+          `
+            update public.payments
+            set shipment_id = $2,
+                status = $4,
+                raw_response = raw_response || $3::jsonb,
+                updated_at = timezone('utc', now())
+            where stripe_payment_intent_id = $1
+          `,
+          [paymentReference, newRequest.id, { requestId: newRequest.id, linkedAfterPayment: true }, verifiedPaymentStatus === 'processing' ? 'processing' : 'paid_escrow'],
+        ).catch((linkError) => {
+          console.warn('Stripe payment linked to shipment request but payments row update failed:', linkError.message);
+        });
+        newRequest = await getShipmentRequestById(newRequest.id);
+      }
+
       try {
         await holdEscrowForPaidRequest({
           requestId: newRequest.id,

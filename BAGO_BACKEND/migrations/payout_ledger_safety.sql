@@ -5,8 +5,6 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS stripe_onboarding_status text,
   ADD COLUMN IF NOT EXISTS stripe_charges_enabled boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS stripe_payouts_enabled boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS paypal_email text,
-  ADD COLUMN IF NOT EXISTS paypal_payout_status text,
   ADD COLUMN IF NOT EXISTS verified_first_name text,
   ADD COLUMN IF NOT EXISTS verified_middle_name text,
   ADD COLUMN IF NOT EXISTS verified_last_name text,

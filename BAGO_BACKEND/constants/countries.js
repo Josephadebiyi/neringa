@@ -29,7 +29,7 @@ export const isAfricanCountry = (country) => {
 
 // Get payment gateway based on country
 export const getPaymentGateway = (country) => {
-  return isAfricanCountry(country) ? 'paystack' : 'paypal';
+  return isAfricanCountry(country) ? 'paystack' : 'stripe';
 };
 
 // Currency codes by country (names and codes)

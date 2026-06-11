@@ -19,7 +19,6 @@ async function ensureEarningCurrencyColumns() {
     ALTER TABLE public.profiles
       ADD COLUMN IF NOT EXISTS earning_currency TEXT,
       ADD COLUMN IF NOT EXISTS earning_currency_locked BOOLEAN NOT NULL DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS paypal_email TEXT,
       ADD COLUMN IF NOT EXISTS payout_currency TEXT,
       ADD COLUMN IF NOT EXISTS payout_status TEXT,
       ADD COLUMN IF NOT EXISTS payout_provider TEXT,
@@ -71,7 +70,6 @@ function normalizeProfileRow(row) {
     stripeConnectAccountId: row.stripe_connect_account_id,
     stripeVerified: row.stripe_verified,
     paystackRecipientCode: row.paystack_recipient_code,
-    paypalEmail: row.paypal_email,
     payoutCurrency: row.payout_currency,
     payoutStatus: row.payout_status,
     payoutProvider: row.payout_provider,
@@ -132,7 +130,6 @@ const baseSelect = `
     p.stripe_connect_account_id,
     p.stripe_verified,
     p.paystack_recipient_code,
-    p.paypal_email,
     p.payout_currency,
     p.payout_status,
     p.payout_provider,
@@ -458,7 +455,7 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
 export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
   const upper = currency.toUpperCase();
-  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
+  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'stripe';
   await withTransaction(async (client) => {
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = FALSE,
@@ -501,7 +498,7 @@ export async function activateEarningCurrency(userId, currency) {
 export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote) {
   await ensureEarningCurrencyColumns();
   const upper = newCurrency.toUpperCase();
-  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
+  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'stripe';
 
   await withTransaction(async (client) => {
     if (settleBalance) {
@@ -734,7 +731,7 @@ export async function createOrUpdateAppleProfile({
 
   // Create new user
   const fallbackPassword = await bcrypt.hash(Math.random().toString(36).slice(-20), 10);
-  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'paypal';
+  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'stripe';
   const preferredCurrency = country === 'Nigeria' ? 'NGN' : 'USD';
 
   const user = await createProfileWithWallet({
@@ -812,7 +809,7 @@ export async function createOrUpdateGoogleProfile({
   }
 
   const fallbackPassword = await bcrypt.hash(Math.random().toString(36).slice(-20), 10);
-  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'paypal';
+  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'stripe';
   const preferredCurrency = country === 'Nigeria' ? 'NGN' : 'USD';
 
   const user = await createProfileWithWallet({
