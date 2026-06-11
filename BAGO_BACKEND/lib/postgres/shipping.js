@@ -341,6 +341,153 @@ export async function findProfileWithWallet(userId) {
   return normalizeProfile(row);
 }
 
+async function getTableColumns(tableName) {
+  const result = await query(
+    `
+      select column_name
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = $1
+    `,
+    [tableName],
+  );
+  return new Set(result.rows.map((row) => row.column_name));
+}
+
+function columnOrNull(columns, alias, columnName, cast = '') {
+  return columns.has(columnName) ? `t.${columnName}${cast} as ${alias}` : `null as ${alias}`;
+}
+
+function profileColumnOrNull(columns, alias, columnName) {
+  return columns.has(columnName) ? `p.${columnName} as ${alias}` : `null as ${alias}`;
+}
+
+async function searchTravelerTripsCompat({ currentUserId, fromLocation, toLocation, fromCountry, toCountry, date }) {
+  const tripColumns = await getTableColumns('trips');
+  const profileColumns = await getTableColumns('profiles');
+  const userIdColumn = tripColumns.has('user_id') ? 'user_id' : tripColumns.has('traveler_id') ? 'traveler_id' : null;
+  const availableKgExpr = tripColumns.has('available_kg')
+    ? 'coalesce(t.available_kg, 0)'
+    : tripColumns.has('remaining_kg')
+      ? 'coalesce(t.remaining_kg, 0)'
+      : '0';
+  const totalKgExpr = tripColumns.has('total_kg') ? 'coalesce(nullif(t.total_kg, 0), ' + availableKgExpr + ')' : availableKgExpr;
+  const conditions = [];
+  const params = [];
+  let index = 1;
+
+  if (tripColumns.has('status')) {
+    conditions.push("coalesce(t.status::text, 'active') in ('verified', 'active', 'approved', 'live')");
+  }
+  if (tripColumns.has('travel_document_verified')) {
+    conditions.push('coalesce(t.travel_document_verified, false) = true');
+  }
+  if (tripColumns.has('departure_date')) {
+    conditions.push('date(t.departure_date) >= current_date');
+  }
+  conditions.push(`${availableKgExpr} > 0`);
+
+  if (currentUserId && userIdColumn) {
+    conditions.push(`t.${userIdColumn} <> $${index}`);
+    params.push(currentUserId);
+    index += 1;
+  }
+
+  const addLocationFilter = ({ location, country, locationColumn, countryColumn }) => {
+    const terms = [
+      location,
+      country,
+      ...(String(location || '').split(',').map((part) => part.trim())),
+      ...(String(country || '').split(',').map((part) => part.trim())),
+    ]
+      .map((term) => String(term || '').trim())
+      .filter(Boolean);
+    const uniqueTerms = [...new Set(terms.map((term) => term.toLowerCase()))];
+    const searchableColumns = [
+      tripColumns.has(locationColumn) ? `lower(coalesce(t.${locationColumn}, ''))` : null,
+      tripColumns.has(countryColumn) ? `lower(coalesce(t.${countryColumn}, ''))` : null,
+    ].filter(Boolean);
+    if (!uniqueTerms.length || !searchableColumns.length) return;
+
+    const termClauses = [];
+    for (const term of uniqueTerms) {
+      termClauses.push(`(${searchableColumns.map((column) => `${column} like $${index}`).join(' or ')})`);
+      params.push(`%${term}%`);
+      index += 1;
+    }
+    conditions.push(`(${termClauses.join(' or ')})`);
+  };
+
+  addLocationFilter({
+    location: fromLocation,
+    country: fromCountry,
+    locationColumn: 'from_location',
+    countryColumn: 'from_country',
+  });
+  addLocationFilter({
+    location: toLocation,
+    country: toCountry,
+    locationColumn: 'to_location',
+    countryColumn: 'to_country',
+  });
+
+  if (date && tripColumns.has('departure_date')) {
+    conditions.push(`date(t.departure_date) >= date($${index})`);
+    params.push(date);
+    index += 1;
+  }
+
+  const statusSelect = tripColumns.has('status') ? 't.status::text as status' : "'active' as status";
+  const result = await query(
+    `
+      select
+        t.id,
+        ${userIdColumn ? `t.${userIdColumn}` : 'null'} as user_id,
+        ${columnOrNull(tripColumns, 'from_location', 'from_location')},
+        ${columnOrNull(tripColumns, 'from_country', 'from_country')},
+        ${columnOrNull(tripColumns, 'to_location', 'to_location')},
+        ${columnOrNull(tripColumns, 'to_country', 'to_country')},
+        ${columnOrNull(tripColumns, 'departure_date', 'departure_date')},
+        ${columnOrNull(tripColumns, 'arrival_date', 'arrival_date')},
+        ${totalKgExpr} as total_kg,
+        ${availableKgExpr} as available_kg,
+        0 as sold_kg,
+        0 as reserved_kg,
+        ${tripColumns.has('travel_means') ? 't.travel_means' : tripColumns.has('mode_of_travel') ? 't.mode_of_travel' : 'null'} as travel_means,
+        ${statusSelect},
+        ${tripColumns.has('price_per_kg') ? 't.price_per_kg' : '0'} as price_per_kg,
+        ${tripColumns.has('currency') ? 't.currency' : "'USD'"} as trip_currency,
+        ${columnOrNull(tripColumns, 'landmark', 'landmark')},
+        ${columnOrNull(tripColumns, 'travel_document_url', 'travel_document_url')},
+        ${tripColumns.has('travel_document_verified') ? 't.travel_document_verified' : 'true'} as travel_document_verified,
+        ${tripColumns.has('created_at') ? 't.created_at' : 'null'} as trip_created_at,
+        ${tripColumns.has('updated_at') ? 't.updated_at' : 'null'} as trip_updated_at,
+        ${profileColumnOrNull(profileColumns, 'first_name', 'first_name')},
+        ${profileColumnOrNull(profileColumns, 'last_name', 'last_name')},
+        ${profileColumnOrNull(profileColumns, 'email', 'email')},
+        ${profileColumnOrNull(profileColumns, 'image_url', 'image_url')},
+        ${profileColumnOrNull(profileColumns, 'kyc_status', 'kyc_status')},
+        ${profileColumnOrNull(profileColumns, 'selected_avatar', 'selected_avatar')},
+        0 as active_shipment_count,
+        'No active bookings' as booking_status_summary,
+        0 as gross_sales,
+        0 as commission_amount,
+        0 as traveler_earnings,
+        'pending' as payout_status
+      from public.trips t
+      ${userIdColumn ? `left join public.profiles p on p.id = t.${userIdColumn}` : 'left join public.profiles p on false'}
+      where ${conditions.length ? conditions.join(' and ') : 'true'}
+      order by ${tripColumns.has('departure_date') ? 't.departure_date asc,' : ''} ${tripColumns.has('created_at') ? 't.created_at desc' : 't.id'}
+      limit 200
+    `,
+    params,
+  );
+
+  const trips = result.rows.map(normalizeTrip);
+  const findUsers = trips.map((trip) => trip.user).filter(Boolean);
+  return { trips, findUsers };
+}
+
 export async function searchTravelerTrips({ currentUserId, fromLocation, toLocation, fromCountry, toCountry, date }) {
   await ensureTripCapacityColumns({ query }).catch((error) => {
     console.warn('Trip capacity schema check skipped during traveler search:', error.message);
@@ -403,8 +550,10 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
     index += 1;
   }
 
-  const result = await query(
-    `
+  let result;
+  try {
+    result = await query(
+      `
       select
         t.id,
         t.user_id,
@@ -468,8 +617,12 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
       where ${conditions.join(' and ')}
       order by t.departure_date asc, t.created_at desc
     `,
-    params,
-  );
+      params,
+    );
+  } catch (error) {
+    console.warn('Primary traveler search failed; using compatibility query:', error.message);
+    return searchTravelerTripsCompat({ currentUserId, fromLocation, toLocation, fromCountry, toCountry, date });
+  }
 
   const trips = result.rows.map(normalizeTrip);
   const findUsers = trips.map((trip) => trip.user).filter(Boolean);

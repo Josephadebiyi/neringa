@@ -33,6 +33,7 @@ export default function PaymentCheckout() {
     const navigate = useNavigate();
     const stripeRef = useRef(null);
     const elementsRef = useRef(null);
+    const expressCheckoutRef = useRef(null);
     const paymentElementRef = useRef(null);
     const paymentIntentRef = useRef(null);
     const [error, setError] = useState('');
@@ -94,9 +95,37 @@ export default function PaymentCheckout() {
                         },
                     },
                 });
+                const expressCheckout = elements.create('expressCheckout', {
+                    buttonType: { applePay: 'plain' },
+                    buttonTheme: { applePay: 'black' },
+                    buttonHeight: 48,
+                });
+                expressCheckout.on('confirm', async () => {
+                    if (processing) return;
+                    setProcessing(true);
+                    setError('');
+                    try {
+                        const result = await stripe.confirmPayment({
+                            elements,
+                            confirmParams: { return_url: window.location.href },
+                            redirect: 'if_required',
+                        });
+                        if (result.error) throw new Error(result.error.message);
+                        const confirmedIntent = result.paymentIntent || paymentIntentRef.current;
+                        await createShipment(
+                            confirmedIntent.id || confirmedIntent.paymentIntentId,
+                            confirmedIntent.payment_method_types?.[0] || 'apple_pay',
+                        );
+                    } catch (err) {
+                        setProcessing(false);
+                        setError(paymentErrorMessage(err, 'Apple Pay could not be completed.'));
+                    }
+                });
+                expressCheckout.mount('#express-checkout-element');
                 const paymentElement = elements.create('payment', { layout: 'tabs' });
                 paymentElement.mount('#payment-element');
                 elementsRef.current = elements;
+                expressCheckoutRef.current = expressCheckout;
                 paymentElementRef.current = paymentElement;
                 setReady(true);
             } catch (err) {
@@ -107,6 +136,7 @@ export default function PaymentCheckout() {
         boot();
         return () => {
             mounted = false;
+            expressCheckoutRef.current?.unmount?.();
             paymentElementRef.current?.unmount?.();
         };
     }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.amount, checkout.currency]);
@@ -206,6 +236,7 @@ export default function PaymentCheckout() {
                                 <CreditCard className="text-[#5845D8]" size={22} />
                             </div>
                             {error && <div className="mb-4 rounded-[14px] border border-red-100 bg-red-50 p-3 text-xs font-bold text-red-600">{error}</div>}
+                            <div id="express-checkout-element" className="mb-4" />
                             <div id="payment-element" className="min-h-[112px] rounded-[14px] border border-gray-200 bg-gray-50/60 p-4" />
                             <button onClick={submitPayment} disabled={!ready || processing} className="mt-5 flex h-14 w-full items-center justify-center rounded-[15px] bg-[#5845D8] text-base font-black text-white shadow-lg shadow-[#5845D8]/20 disabled:opacity-50">
                                 {processing ? 'Processing...' : `Pay ${checkout.currency} ${checkout.amount.toFixed(2)}`}
