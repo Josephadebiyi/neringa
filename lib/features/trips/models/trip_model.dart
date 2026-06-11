@@ -81,7 +81,9 @@ class TripModel {
   String get statusLabel => formatTripStatusLabel(status);
   double get remainingKg => availableKg;
   bool get isPubliclyVisible =>
-      ['active', 'verified'].contains(status.toLowerCase()) && availableKg > 0;
+      ['active', 'verified', 'approved', 'live']
+          .contains(status.toLowerCase()) &&
+      availableKg > 0;
 
   TripModel copyWith({
     String? id,

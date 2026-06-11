@@ -132,25 +132,32 @@ export default function SearchTravelersScreen() {
         }, {});
 
         // Enrich trips with user data
-        const enrichedTrips = gettravelers.map((trip: any) => ({
-          ...trip,
-          user: userMap[trip.user] || { _id: trip.user },
-        }));
+        const enrichedTrips = gettravelers.map((trip: any) => {
+          const userId = trip.userId || trip.user?._id || trip.user?.id || trip.user;
+          return {
+            ...trip,
+            user: trip.user && typeof trip.user === 'object'
+              ? trip.user
+              : userMap[userId] || { _id: userId },
+          };
+        });
 
         // Filter active trips AND exclude own trips
         const profileRes = await axios.get(`${backendomain.backendomain}/api/bago/Profile`, { withCredentials: true });
         const currentUserId = profileRes.data?.data?.findUser?._id;
 
-        const activeTrips = enrichedTrips.filter((trip: any) =>
-          trip.status === 'active' && trip.user !== currentUserId
-        );
+        const activeTrips = enrichedTrips.filter((trip: any) => {
+          const userId = trip.userId || trip.user?._id || trip.user?.id || trip.user;
+          return ['active', 'verified', 'approved', 'live'].includes(String(trip.status || '').toLowerCase())
+            && userId !== currentUserId;
+        });
 
         // Match trips to the package's route and weight
         const normalize = (str: any) => str?.trim().toLowerCase();
 
         const matched = activeTrips.filter((trip: any) => {
-          const from = normalize(trip.fromLocation);
-          const to = normalize(trip.toLocation);
+          const from = normalize(`${trip.fromLocation || ''} ${trip.fromCountry || ''}`);
+          const to = normalize(`${trip.toLocation || ''} ${trip.toCountry || ''}`);
 
           const fromMatch = !fromCity ||
             from?.includes(normalize(fromCity as string)) || from?.includes(normalize(fromCountry as string));
