@@ -201,11 +201,8 @@ export default function Settings({ user, checkAuthStatus }) {
     const [bankLoading, setBankLoading] = useState(false);
     const [showBankOtp, setShowBankOtp] = useState(false);
     const [bankOtp, setBankOtp] = useState('');
-    const [paypalEmail, setPaypalEmail] = useState('');
-    const [paypalLoading, setPaypalLoading] = useState(false);
+    const [payoutLoading, setPayoutLoading] = useState(false);
     const [editingPayout, setEditingPayout] = useState(false);
-    const [showPaypalOtp, setShowPaypalOtp] = useState(false);
-    const [paypalOtp, setPaypalOtp] = useState('');
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
@@ -218,7 +215,7 @@ export default function Settings({ user, checkAuthStatus }) {
         if (user?.phone) {
             setPhone(user.phone);
         }
-    }, [user?._id, user?.preferredCurrency, user?.phone, user?.paypalEmail, user?.paypal_email]);
+    }, [user?._id, user?.preferredCurrency, user?.phone]);
 
     // Re-sync name and DOB when user data updates (e.g. after identity verification)
     useEffect(() => {
@@ -266,16 +263,17 @@ export default function Settings({ user, checkAuthStatus }) {
     const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'EGP', 'MAD', 'TND', 'UGX', 'TZS', 'XOF', 'XAF', 'RWF', 'ETB', 'MWK', 'BWP', 'MUR'];
     const isAfricanCurrency = africanCurrencies.includes(preferredCurrency?.toUpperCase());
     const showBankOption = isAfricanCurrency;
-    const showPayPalOption = !isAfricanCurrency;
-    const savedPayPalEmail = user?.paypalEmail || user?.paypal_email || '';
+    const showConnectedPayoutOption = !isAfricanCurrency;
     const bankDetails = user?.bankDetails || user?.bank_details || {};
     const payoutProvider = String(user?.payoutProvider || user?.payout_provider || '').toLowerCase();
     const payoutMethod = String(user?.payoutMethod || user?.payout_method || '').toLowerCase();
     const payoutStatus = String(user?.payoutStatus || user?.payout_status || '').toLowerCase();
     const payoutMethodStatus = String(user?.payoutMethodStatus || user?.payout_method_status || '').toLowerCase();
-    const hasPayPalPayout = Boolean(savedPayPalEmail) && (
-        payoutProvider === 'paypal' ||
-        payoutMethod === 'paypal' ||
+    const hasConnectedPayout = Boolean(
+        user?.stripeConnectAccountId ||
+        user?.stripe_connect_account_id ||
+        payoutProvider === 'stripe' ||
+        payoutMethod === 'stripe_connect' ||
         payoutStatus === 'active' ||
         payoutMethodStatus === 'connected'
     );
@@ -295,26 +293,6 @@ export default function Settings({ user, checkAuthStatus }) {
             .then((res) => setBanks(res.data?.banks || res.data?.data || []))
             .catch(() => setBanks([]));
     }, [showBankOption, preferredCurrency]);
-
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const paypalResult = params.get('paypal');
-        if (!paypalResult) return;
-
-        if (paypalResult === 'success') {
-            setSuccessMessage('PayPal payout account connected.');
-            setEditingPayout(false);
-            checkAuthStatus?.();
-        } else {
-            setError('PayPal connection was not completed.');
-        }
-
-        params.delete('paypal');
-        params.delete('email');
-        params.delete('reason');
-        const nextQuery = params.toString();
-        window.history.replaceState({}, '', `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`);
-    }, [checkAuthStatus]);
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -414,49 +392,41 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    const handleSendPayPalOtp = async () => {
+    const handleStartConnectedPayout = async () => {
         setError('');
         setSuccessMessage('');
-        if (!paypalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail)) {
-            setError('Enter a valid PayPal email address.');
-            return;
-        }
-        setPaypalLoading(true);
+        setPayoutLoading(true);
         try {
-            await api.post('/api/payouts/paypal/send-otp', {
-                paypalEmail: paypalEmail.trim().toLowerCase(),
-                payoutCurrency: preferredCurrency || user?.preferredCurrency || 'USD',
-            });
-            setShowPaypalOtp(true);
-            setSuccessMessage(`Verification code sent to ${paypalEmail.trim().toLowerCase()}`);
+            const res = await api.post('/api/payouts/connect/onboard');
+            const url = res.data?.url || res.data?.accountLink?.url;
+            if (url) {
+                window.location.href = url;
+                return;
+            }
+            setSuccessMessage('Payout account is already set up.');
+            await checkAuthStatus?.();
         } catch (err) {
-            setError(err.response?.data?.message || 'Could not send verification code.');
+            setError(err.response?.data?.message || 'Could not start payout setup.');
         } finally {
-            setPaypalLoading(false);
+            setPayoutLoading(false);
         }
     };
 
-    const handleVerifyPayPalOtp = async () => {
+    const handleOpenPayoutDashboard = async () => {
         setError('');
         setSuccessMessage('');
-        if (!paypalOtp || !/^\d{6}$/.test(paypalOtp)) {
-            setError('Enter the 6-digit code sent to your email.');
-            return;
-        }
-        setPaypalLoading(true);
+        setPayoutLoading(true);
         try {
-            const res = await api.post('/api/payouts/paypal/verify-otp', { otp: paypalOtp.trim() });
-            if (res.data?.success) {
-                setShowPaypalOtp(false);
-                setPaypalOtp('');
-                setEditingPayout(false);
-                setSuccessMessage('PayPal payout account verified and saved.');
-                await checkAuthStatus?.();
+            const res = await api.post('/api/payouts/connect/dashboard-link');
+            if (res.data?.url) {
+                window.location.href = res.data.url;
+                return;
             }
+            setError('Could not open payout dashboard.');
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid code. Please try again.');
+            setError(err.response?.data?.message || 'Could not open payout dashboard.');
         } finally {
-            setPaypalLoading(false);
+            setPayoutLoading(false);
         }
     };
 
@@ -727,79 +697,40 @@ export default function Settings({ user, checkAuthStatus }) {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {showPayPalOption && (
+                    {showConnectedPayoutOption && (
                         <div className="space-y-6">
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col justify-between group hover:border-[#5845D8]/20 transition-all">
                                 <div>
                                     <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">
                                         <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">1</span>
-                                        PayPal Payouts
+                                        Connected Payouts
                                     </h4>
                                     <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-6 uppercase tracking-wide opacity-70">
-                                        Payouts in {preferredCurrency || 'USD'} are sent to your PayPal account after delivery is completed and cleared.
+                                        Payouts in {preferredCurrency || 'USD'} are sent to your connected payout account after delivery is completed and cleared.
                                     </p>
                                 </div>
 
-                                {hasPayPalPayout && (
+                                {hasConnectedPayout && (
                                     <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all mb-4">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
                                             <Check size={14} strokeWidth={4} />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Currently saved</p>
-                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">{savedPayPalEmail}</p>
+                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Payout account connected</p>
+                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">Ready for withdrawals</p>
                                         </div>
                                         <ShieldCheck className="text-green-500/50" size={18} />
                                     </div>
                                 )}
                                 <div className="space-y-3 mt-4">
-                                    {!showPaypalOtp ? (
-                                        <>
-                                            <input
-                                                type="email"
-                                                value={paypalEmail}
-                                                onChange={(e) => setPaypalEmail(e.target.value)}
-                                                placeholder="paypal@example.com"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleSendPayPalOtp}
-                                                disabled={paypalLoading}
-                                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
-                                            >
-                                                {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>{hasPayPalPayout ? 'Update PayPal Email' : 'Save PayPal Email'} <ShieldCheck size={16} /></>}
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">Enter the 6-digit code sent to {paypalEmail}</p>
-                                            <input
-                                                type="text"
-                                                inputMode="numeric"
-                                                maxLength={6}
-                                                value={paypalOtp}
-                                                onChange={(e) => setPaypalOtp(e.target.value.replace(/\D/g, ''))}
-                                                placeholder="000000"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[18px] font-black text-[#012126] shadow-sm tracking-[0.4em] text-center"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleVerifyPayPalOtp}
-                                                disabled={paypalLoading}
-                                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
-                                            >
-                                                {paypalLoading ? <RefreshCw className="animate-spin" size={14} /> : <>Verify & Save <Check size={14} /></>}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => { setShowPaypalOtp(false); setPaypalOtp(''); setSuccessMessage(''); }}
-                                                className="w-full border border-gray-200 text-gray-400 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-gray-50 transition-all"
-                                            >
-                                                Back
-                                            </button>
-                                        </>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={hasConnectedPayout ? handleOpenPayoutDashboard : handleStartConnectedPayout}
+                                        disabled={payoutLoading}
+                                        className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
+                                    >
+                                        {payoutLoading ? <RefreshCw className="animate-spin" size={14} /> : <>{hasConnectedPayout ? 'Manage Payout Account' : 'Set Up Payouts'} <ShieldCheck size={16} /></>}
+                                    </button>
                                 </div>
                             </div>
                         </div>

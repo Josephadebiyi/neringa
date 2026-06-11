@@ -352,41 +352,49 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
   const params = [];
   let index = 1;
 
+  const addLocationFilter = ({ location, country, locationColumn, countryColumn }) => {
+    const terms = [
+      location,
+      country,
+      ...(String(location || '').split(',').map((part) => part.trim())),
+      ...(String(country || '').split(',').map((part) => part.trim())),
+    ]
+      .map((term) => String(term || '').trim())
+      .filter(Boolean);
+    const uniqueTerms = [...new Set(terms.map((term) => term.toLowerCase()))];
+    if (!uniqueTerms.length) return;
+
+    const termClauses = [];
+    for (const term of uniqueTerms) {
+      termClauses.push(`(
+        lower(coalesce(${locationColumn}, '')) like $${index}
+        or lower(coalesce(${countryColumn}, '')) like $${index}
+      )`);
+      params.push(`%${term}%`);
+      index += 1;
+    }
+    conditions.push(`(${termClauses.join(' or ')})`);
+  };
+
   if (currentUserId) {
     conditions.push(`t.user_id <> $${index}`);
     params.push(currentUserId);
     index += 1;
   }
-  if (fromCountry) {
-    conditions.push(`(
-      lower(coalesce(t.from_country, '')) like lower($${index})
-      or lower(coalesce(t.from_location, '')) like lower($${index})
-    )`);
-    params.push(`%${fromCountry}%`);
-    index += 1;
-  } else if (fromLocation) {
-    conditions.push(`(
-      lower(t.from_location) like lower($${index})
-      or lower(coalesce(t.from_country, '')) like lower($${index})
-    )`);
-    params.push(`%${fromLocation}%`);
-    index += 1;
-  }
-  if (toCountry) {
-    conditions.push(`(
-      lower(coalesce(t.to_country, '')) like lower($${index})
-      or lower(coalesce(t.to_location, '')) like lower($${index})
-    )`);
-    params.push(`%${toCountry}%`);
-    index += 1;
-  } else if (toLocation) {
-    conditions.push(`(
-      lower(t.to_location) like lower($${index})
-      or lower(coalesce(t.to_country, '')) like lower($${index})
-    )`);
-    params.push(`%${toLocation}%`);
-    index += 1;
-  }
+
+  addLocationFilter({
+    location: fromLocation,
+    country: fromCountry,
+    locationColumn: 't.from_location',
+    countryColumn: 't.from_country',
+  });
+  addLocationFilter({
+    location: toLocation,
+    country: toCountry,
+    locationColumn: 't.to_location',
+    countryColumn: 't.to_country',
+  });
+
   if (date) {
     conditions.push(`date(t.departure_date) >= date($${index})`);
     params.push(date);

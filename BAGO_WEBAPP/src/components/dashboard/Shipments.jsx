@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import api from '../../api';
-import { Package, Clock, ChevronRight, AlertTriangle, ShieldCheck, RefreshCw, X, MessageSquare, User, CreditCard } from 'lucide-react';
+import { Package, ChevronRight, AlertTriangle, ShieldCheck, RefreshCw, X, MessageSquare, User } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function Shipments({ onNavigateToChat }) {
@@ -14,16 +13,9 @@ export default function Shipments({ onNavigateToChat }) {
     const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
     const [downloading, setDownloading] = useState(null);
     const [confirming, setConfirming] = useState(null);
-    const [pendingCheckouts, setPendingCheckouts] = useState([]);
-    const [paypalClientId, setPaypalClientId] = useState('');
-    const [resumingCheckout, setResumingCheckout] = useState(null);
-    const [paymentProcessing, setPaymentProcessing] = useState(false);
-    const [paymentError, setPaymentError] = useState('');
 
     useEffect(() => {
         fetchMyRequests();
-        fetchPendingCheckouts();
-        api.get('/api/config/paypal').then(r => setPaypalClientId(r.data?.clientId || '')).catch(() => {});
     }, []);
 
     const fetchMyRequests = async () => {
@@ -36,34 +28,6 @@ export default function Shipments({ onNavigateToChat }) {
             console.error('Failed to load shipments:', err);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchPendingCheckouts = async () => {
-        try {
-            const res = await api.get('/api/payments/pending-checkout');
-            setPendingCheckouts(res.data?.data || []);
-        } catch {
-            // silently ignore — feature degrades gracefully
-        }
-    };
-
-    const handlePayPalApprove = async (data, checkout) => {
-        setPaymentProcessing(true);
-        setPaymentError('');
-        try {
-            const capture = await api.post('/api/payments/paypal/capture-order', { orderId: data.orderID });
-            if (!capture.data?.success) {
-                setPaymentError(capture.data?.message || 'Payment could not be confirmed. Please try again.');
-                return;
-            }
-            setResumingCheckout(null);
-            setPendingCheckouts(prev => prev.filter(c => c.packageId !== checkout.packageId));
-            fetchMyRequests();
-        } catch {
-            setPaymentError('Payment could not be confirmed. Please try again.');
-        } finally {
-            setPaymentProcessing(false);
         }
     };
 
@@ -167,72 +131,6 @@ export default function Shipments({ onNavigateToChat }) {
                 <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">{t('myShipments')}</h2>
                 <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">{t('trackManageDeliveries')}</p>
             </div>
-
-            {pendingCheckouts.length > 0 && (
-                <div className="mb-6 space-y-3">
-                    <h3 className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
-                        <Clock size={12} /> Incomplete payments
-                    </h3>
-                    {pendingCheckouts.map(checkout => (
-                        <div key={checkout.packageId} className="bg-amber-50 border border-amber-200 rounded-[20px] p-5">
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                                <div>
-                                    <p className="text-xs font-black text-[#012126]">
-                                        {checkout.fromLocation} → {checkout.toLocation}
-                                    </p>
-                                    <p className="text-[11px] text-gray-500 mt-0.5">
-                                        {checkout.currency} {Number(checkout.amount).toFixed(2)} · {checkout.packageWeight} kg
-                                    </p>
-                                </div>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-amber-600 bg-amber-100 px-2 py-1 rounded-full shrink-0">
-                                    Unpaid
-                                </span>
-                            </div>
-                            {resumingCheckout?.packageId === checkout.packageId ? (
-                                <div>
-                                    {paymentError && <p className="text-xs text-red-500 mb-2">{paymentError}</p>}
-                                    {paypalClientId ? (
-                                        <PayPalScriptProvider options={{ 'client-id': paypalClientId, currency: checkout.currency, intent: 'capture', components: 'buttons' }}>
-                                            <PayPalButtons
-                                                style={{ layout: 'vertical', shape: 'rect', label: 'pay', height: 40 }}
-                                                disabled={paymentProcessing}
-                                                createOrder={async () => {
-                                                    const res = await api.post('/api/payments/paypal/create-order', {
-                                                        packageId: checkout.packageId,
-                                                        tripId: checkout.tripId,
-                                                        paymentMethod: 'paypal_wallet',
-                                                        currency: checkout.currency,
-                                                        insurance: checkout.insurance,
-                                                        insuranceCost: checkout.insuranceCost,
-                                                    });
-                                                    const orderId = res.data?.data?.orderId;
-                                                    if (!orderId) throw new Error('Could not start checkout.');
-                                                    return orderId;
-                                                }}
-                                                onApprove={(data) => handlePayPalApprove(data, checkout)}
-                                                onError={() => setPaymentError('PayPal encountered an error. Please try again.')}
-                                                onCancel={() => setPaymentError('Payment was cancelled.')}
-                                            />
-                                        </PayPalScriptProvider>
-                                    ) : (
-                                        <div className="flex justify-center py-4">
-                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5845D8]" />
-                                        </div>
-                                    )}
-                                    <button onClick={() => { setResumingCheckout(null); setPaymentError(''); }} className="mt-2 text-xs text-gray-400 hover:text-gray-600 w-full text-center">Cancel</button>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => { setResumingCheckout(checkout); setPaymentError(''); }}
-                                    className="w-full flex items-center justify-center gap-2 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-[#4838B5] transition-all"
-                                >
-                                    <CreditCard size={14} /> Complete payment
-                                </button>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
 
             {requests.length === 0 ? (
                 <div className="bg-white rounded-[24px] p-12 text-center border border-dashed border-gray-100 shadow-sm">

@@ -15,7 +15,6 @@ import {
     ArrowRight,
     MapPin,
     CreditCard,
-    RefreshCw,
     Phone
 } from 'lucide-react';
 import api from '../api';
@@ -55,7 +54,7 @@ const PAYMENT_PENDING_MESSAGE =
     'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
 
 const providerForCurrency = (value) => (
-    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'paypal'
+    AFRICAN_PAYOUT_CURRENCIES.includes(String(value || '').toUpperCase()) ? 'paystack' : 'stripe'
 );
 
 const ITEM_CATEGORIES = [
@@ -256,7 +255,7 @@ export default function SendPackage() {
     }, [isAuthenticated, navigate]);
 
     useEffect(() => {
-        if (user?.preferredCurrency && !selectedTrip) {
+        if (user?.preferredCurrency) {
             setCurrency(user.preferredCurrency);
         }
     }, [user?.preferredCurrency]);
@@ -363,8 +362,6 @@ export default function SendPackage() {
 
     const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
     const totalCost = (shippingCost + insuranceCost).toFixed(2);
-    const paymentProvider = providerForCurrency(currency);
-
     const createShipmentRequestAfterPayment = async ({ packageId, paymentReference, provider }) => {
         const requestResponse = await api.post('/api/bago/RequestPackage', {
             travelerId: selectedTrip.user,
@@ -414,6 +411,7 @@ export default function SendPackage() {
         e.preventDefault();
         setError('');
         setLoading(true);
+        const paymentProvider = providerForCurrency(user?.preferredCurrency || currency);
 
         if (kycStatus !== 'approved' && user?.kycStatus !== 'approved') {
             setError('Please verify your identity to send a package.');
@@ -507,14 +505,16 @@ export default function SendPackage() {
                 }
 
                 try {
-                    if (paymentProvider === 'paypal') {
+                    if (paymentProvider === 'stripe') {
                         const checkoutParams = new URLSearchParams({
                             packageId,
                             tripId: selectedTrip._id,
+                            travelerId: String(selectedTrip.user?._id || selectedTrip.user || ''),
                             currency,
                             amount: Number(totalCost).toFixed(2),
                             insurance: String(formData.insuranceProtection),
                             insuranceCost: String(formData.insuranceProtection ? insuranceCost : 0),
+                            estimatedDeparture: selectedTrip.departureDate || '',
                         });
                         navigate(`/checkout/payment?${checkoutParams.toString()}`);
                         return;
