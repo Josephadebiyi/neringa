@@ -231,9 +231,14 @@ class PaymentService {
       final data = _extractMap(response.data);
       final clientSecret = _firstString(data, const ['clientSecret']);
       final paymentIntentId = _firstString(data, const ['paymentIntentId']);
-      final customerId = _firstString(data, const ['customerId']);
-      final ephemeralKeySecret =
-          _firstString(data, const ['ephemeralKeySecret']);
+      final customerId =
+          _firstString(data, const ['customerId', 'customer_id']);
+      final ephemeralKeySecret = _firstString(data, const [
+        'ephemeralKeySecret',
+        'customerEphemeralKeySecret',
+        'ephemeral_key_secret',
+        'customer_ephemeral_key_secret',
+      ]);
       final publishableKey = config['publishableKey']?.toString();
       if (clientSecret == null ||
           paymentIntentId == null ||

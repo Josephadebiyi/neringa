@@ -635,6 +635,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const SizedBox(width: 6),
                 SvgPicture.asset('assets/images/mastercard.svg',
                     width: 38, height: 24, fit: BoxFit.contain),
+                if (_bizumAvailable) ...[
+                  const SizedBox(width: 6),
+                  const _BizumLogo(height: 22),
+                ],
               ],
             ],
           ),
@@ -809,12 +813,19 @@ class _CardCheckoutForm extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: Text(
-                'Pay with Bizum',
-                style: AppTextStyles.buttonMd.copyWith(
-                  color: AppColors.black,
-                  fontWeight: FontWeight.w800,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const _BizumLogo(height: 24),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Pay with Bizum',
+                    style: AppTextStyles.buttonMd.copyWith(
+                      color: AppColors.black,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -845,6 +856,92 @@ class _DividerLabel extends StatelessWidget {
         ),
         const Expanded(child: Divider(color: AppColors.gray200)),
       ],
+    );
+  }
+}
+
+class _BizumLogo extends StatelessWidget {
+  const _BizumLogo({this.height = 24});
+
+  final double height;
+
+  static const _cyan = Color(0xFF00AEEF);
+  static const _lime = Color(0xFF95C93D);
+  static const _navy = Color(0xFF17324D);
+
+  @override
+  Widget build(BuildContext context) {
+    final width = height * 3.28;
+    return Semantics(
+      label: 'Bizum',
+      image: true,
+      child: Container(
+        width: width,
+        height: height,
+        padding: EdgeInsets.symmetric(
+          horizontal: height * 0.28,
+          vertical: height * 0.12,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(height * 0.18),
+          border: Border.all(color: AppColors.gray200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: height * 0.5,
+              height: height * 0.5,
+              child: Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: _BizumDot(color: _cyan, size: height * 0.24),
+                  ),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: _BizumDot(color: _lime, size: height * 0.24),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: height * 0.12),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'bizum',
+                  maxLines: 1,
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: _navy,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BizumDot extends StatelessWidget {
+  const _BizumDot({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }

@@ -143,7 +143,7 @@ export default function PaymentCheckout() {
 
     const createPaymentIntent = async (countryCode) => {
         const response = await api.post('/api/payments/create-intent', {
-            amount: Math.round(checkout.amount * 100),
+            amount: checkout.amount,
             currency: checkout.currency,
             countryCode: countryCode || undefined,
             packageId: checkout.packageId,
