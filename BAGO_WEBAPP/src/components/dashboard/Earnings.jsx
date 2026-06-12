@@ -250,7 +250,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     <div>
                                         <p className="font-black text-[#012126] text-sm uppercase mb-0.5 tracking-tight">{tx.description || (tx.type === 'withdraw' ? t('payout') : t('earnings'))}</p>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{new Date(tx.date || tx.created_at || tx.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                             <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
                                             <span className="text-[9px] text-[#5845D8] font-black uppercase tracking-widest">{tx.type}</span>
                                         </div>

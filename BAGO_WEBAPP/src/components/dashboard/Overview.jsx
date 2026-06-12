@@ -9,22 +9,32 @@ import api from '../../api';
 const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function BarChart({ data, activeIndex }) {
+function BarChart({ data, activeIndex, accentColor = '#5845D8' }) {
     const max = Math.max(...data.map(d => d.value), 1);
+    const hasData = data.some(d => d.value > 0);
     return (
-        <div className="flex items-end gap-2 h-24 w-full">
+        <div className="flex items-end gap-1.5 h-28 w-full">
             {data.map((d, i) => {
-                const pct = Math.max((d.value / max) * 100, 4);
+                const pct = Math.max((d.value / max) * 100, hasData ? 3 : 30);
                 const isToday = i === activeIndex;
+                const hasValue = d.value > 0;
                 return (
                     <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
                         <div
-                            className={`w-full rounded-t-lg transition-all duration-700 ${
-                                isToday ? 'bg-[#5845D8] shadow-lg shadow-[#5845D8]/30' : 'bg-[#012126]/15'
+                            className={`w-full rounded-lg transition-all duration-700 ${
+                                isToday && hasValue
+                                    ? 'shadow-lg'
+                                    : hasValue
+                                    ? 'opacity-60'
+                                    : 'opacity-20'
                             }`}
-                            style={{ height: `${pct}%` }}
+                            style={{
+                                height: `${pct}%`,
+                                backgroundColor: isToday && hasValue ? accentColor : hasValue ? '#012126' : '#9CA3AF',
+                                boxShadow: isToday && hasValue ? `0 4px 14px ${accentColor}40` : 'none',
+                            }}
                         />
-                        <span className={`text-[8px] font-bold uppercase tracking-wide ${isToday ? 'text-[#5845D8]' : 'text-[#012126]/35'}`}>
+                        <span className={`text-[7px] font-black uppercase tracking-wider ${isToday ? 'text-[#5845D8]' : 'text-[#012126]/50'}`}>
                             {d.label}
                         </span>
                     </div>
@@ -76,17 +86,12 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
             return { label: DAY_LABELS[dow], value: 0, dow };
         });
         walletData.history.forEach(tx => {
-            const dow = new Date(tx.date || tx.createdAt).getDay();
+            const dow = new Date(tx.date || tx.createdAt || tx.created_at).getDay();
             const slot = days.find(d => d.dow === dow);
-            if (!slot) return;
+            if (!slot || isNaN(dow)) return;
             if (chartTab === 'earned' && tx.type !== 'withdraw') slot.value += Number(tx.amount || 0);
             if (chartTab === 'spent' && tx.type === 'withdraw') slot.value += Number(tx.amount || 0);
         });
-        // seed with sample data when no history
-        if (walletData.history.length === 0) {
-            const samples = [40, 90, 60, 140, 80, 120, 50];
-            days.forEach((d, i) => { d.value = samples[i]; });
-        }
         return days;
     })();
 
@@ -352,7 +357,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                                     </div>
                                     {/* Date */}
                                     <span className="text-[9px] font-medium text-gray-400 pl-12 md:pl-0">
-                                        {new Date(tx.date || tx.createdAt).toLocaleDateString('en-GB', {
+                                        {new Date(tx.date || tx.createdAt || tx.created_at).toLocaleDateString('en-GB', {
                                             month: 'short', day: 'numeric', year: 'numeric',
                                             hour: '2-digit', minute: '2-digit',
                                         })}
