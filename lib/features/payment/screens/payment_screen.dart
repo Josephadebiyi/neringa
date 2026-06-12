@@ -33,6 +33,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _applePaySupported = false;
   bool _bizumAvailable = false;
   String _merchantCountryCode = 'ES';
+  String _stripeMerchantIdentifier = 'merchant.com.bago.app';
   Map<String, dynamic>? _draft;
   String? _initError;
 
@@ -91,8 +92,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
       Stripe.publishableKey = publishableKey;
-      Stripe.merchantIdentifier =
-          config['merchantIdentifier']?.toString() ?? 'merchant.com.bago.app';
+      final merchantIdentifier =
+          config['merchantIdentifier']?.toString().trim().isNotEmpty == true
+              ? config['merchantIdentifier'].toString().trim()
+              : 'merchant.com.bago.app';
+      Stripe.merchantIdentifier = merchantIdentifier;
       await Stripe.instance.applySettings();
       final currency = _asString(_draft?['currency'], 'USD');
       final methods =
@@ -110,6 +114,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _isSdkReady = true;
           _applePaySupported = applePaySupported;
           _bizumAvailable = bizumAvailable;
+          _stripeMerchantIdentifier = merchantIdentifier;
           _merchantCountryCode =
               (config['merchantCountryCode']?.toString() ?? 'ES')
                   .trim()
@@ -261,10 +266,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (_isProcessing || _draft == null || !_isSdkReady) return;
     setState(() => _isProcessing = true);
     String? paymentReference;
+    String? currency;
+    double? totalAmount;
     try {
       final draft = _draft!;
-      final currency = _asString(draft['currency'], 'USD');
-      final totalAmount = _asDouble(draft['totalAmount']);
+      currency = _asString(draft['currency'], 'USD').toUpperCase();
+      totalAmount = _asDouble(draft['totalAmount']);
+      if (totalAmount <= 0) {
+        throw Exception('Apple Pay app error: Invalid checkout amount.');
+      }
+      final applePaySupported = await Stripe.instance
+          .isPlatformPaySupported()
+          .catchError((_) => false);
+      if (!applePaySupported) {
+        throw Exception(
+          'Apple Pay app error: Apple Pay is not available on this device or no supported card is set up in Wallet.',
+        );
+      }
       final packageId = draft['packageId']?.toString() ?? '';
       final tripId = draft['tripId']?.toString() ?? '';
       final travelerId = draft['travelerId']?.toString() ?? '';
@@ -285,7 +303,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         confirmParams: PlatformPayConfirmParams.applePay(
           applePay: ApplePayParams(
             merchantCountryCode: _merchantCountryCode,
-            currencyCode: currency.toUpperCase(),
+            currencyCode: currency,
             cartItems: [
               ApplePayCartSummaryItem.immediate(
                 label: 'Bago',
@@ -306,14 +324,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
         paymentReference: session.paymentIntentId,
       );
     } on StripeException catch (e) {
-      final message = e.error.localizedMessage ??
+      final code = e.error.code.name;
+      final stripeCode = e.error.stripeErrorCode;
+      final declineCode = e.error.declineCode;
+      final rawMessage = e.error.localizedMessage ??
           e.error.message ??
           'Payment was cancelled or could not be completed.';
+      final message = [
+        'Apple Pay app error: $rawMessage',
+        'code=$code',
+        if (stripeCode?.isNotEmpty == true) 'stripe=$stripeCode',
+        if (declineCode?.isNotEmpty == true) 'decline=$declineCode',
+        'merchant=$_stripeMerchantIdentifier',
+        'country=$_merchantCountryCode',
+        if (currency != null) 'currency=$currency',
+        if (totalAmount != null) 'amount=${totalAmount.toStringAsFixed(2)}',
+      ].join(' | ');
       _failWithDraft('stripe', message, paymentReference: paymentReference);
     } catch (e) {
       _failWithDraft(
         'stripe',
-        e.toString().replaceFirst('Exception: ', ''),
+        e.toString().replaceFirst('Exception: ', '').startsWith('Apple Pay')
+            ? e.toString().replaceFirst('Exception: ', '')
+            : 'Apple Pay app error: ${e.toString().replaceFirst('Exception: ', '')}',
         paymentReference: paymentReference,
       );
     } finally {
