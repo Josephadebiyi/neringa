@@ -28,6 +28,16 @@ class _Location {
   final String countryCode;
   const _Location(
       {required this.name, required this.country, required this.countryCode});
+
+  String get searchValue {
+    final city = name.trim();
+    final countryName = country.trim();
+    if (countryName.isEmpty ||
+        city.toLowerCase().endsWith(', ${countryName.toLowerCase()}')) {
+      return city;
+    }
+    return '$city, $countryName';
+  }
 }
 
 String _flagEmoji(String code) {
@@ -973,7 +983,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                                       .copyWith(color: AppColors.gray500))
                               : null,
                           onTap: () {
-                            widget.onSelect(loc.name);
+                            widget.onSelect(loc.searchValue);
                             Navigator.pop(context);
                           },
                         );

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart' show Dio, Options;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -379,153 +380,154 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
                 color: AppColors.accentCoral,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: Colors.white, size: 28),
             ),
             confirmDismiss: (_) async {
               await _checkoutService.clearDraft();
               return false;
             },
             child: AppCard(
-            padding: const EdgeInsets.all(18),
-            borderColor: AppColors.primary,
-            showBorder: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(16),
+              padding: const EdgeInsets.all(18),
+              borderColor: AppColors.primary,
+              showBorder: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySoft,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.payments_outlined,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.payments_outlined,
-                        color: AppColors.primary,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySoft,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              l10n.pendingPayment,
-                              style: AppTextStyles.labelXs.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.2,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: AppColors.primarySoft,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                l10n.pendingPayment,
+                                style: AppTextStyles.labelXs.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            '$fromLocation → $toLocation',
-                            style: AppTextStyles.labelMd.copyWith(
-                              color: AppColors.black,
-                              fontWeight: FontWeight.w800,
+                            const SizedBox(height: 10),
+                            Text(
+                              '$fromLocation → $toLocation',
+                              style: AppTextStyles.labelMd.copyWith(
+                                color: AppColors.black,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.finishCheckoutShipment,
+                              style: AppTextStyles.bodySm.copyWith(
+                                color: AppColors.gray500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '$currency ${amount.toStringAsFixed(2)}',
+                        style: AppTextStyles.h3.copyWith(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (expiresAt != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.gray50,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.schedule_rounded,
+                            color: AppColors.gray500,
+                            size: 16,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            l10n.finishCheckoutShipment,
-                            style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.gray500,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.resumeBefore(_formatExpiry(expiresAt)),
+                              style: AppTextStyles.bodySm.copyWith(
+                                color: AppColors.gray600,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '$currency ${amount.toStringAsFixed(2)}',
-                      style: AppTextStyles.h3.copyWith(
-                        color: AppColors.black,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
                   ],
-                ),
-                if (expiresAt != null) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.gray50,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.schedule_rounded,
-                          color: AppColors.gray500,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.resumeBefore(_formatExpiry(expiresAt)),
-                            style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w600,
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: SizedBox(
+                          height: 48,
+                          child: AppButton(
+                            label: l10n.continueShipment,
+                            textStyle: AppTextStyles.labelMd.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
                             ),
+                            onPressed: () => context.go('/payment'),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 4,
+                        child: SizedBox(
+                          height: 48,
+                          child: AppButton(
+                            label: l10n.delete,
+                            variant: AppButtonVariant.outline,
+                            textStyle: AppTextStyles.labelMd.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            onPressed: _deleteDraft,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 6,
-                      child: SizedBox(
-                        height: 48,
-                        child: AppButton(
-                          label: l10n.continueShipment,
-                          textStyle: AppTextStyles.labelMd.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          onPressed: () => context.go('/payment'),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 4,
-                      child: SizedBox(
-                        height: 48,
-                        child: AppButton(
-                          label: l10n.delete,
-                          variant: AppButtonVariant.outline,
-                          textStyle: AppTextStyles.labelMd.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          onPressed: _deleteDraft,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
           );
         },
       ),
@@ -633,9 +635,9 @@ class _TripsList extends ConsumerWidget {
             .where((r) =>
                 r.id.isNotEmpty &&
                 (r.status == RequestStatus.pending ||
-                r.status == RequestStatus.accepted ||
-                r.status == RequestStatus.intransit ||
-                r.status == RequestStatus.delivering))
+                    r.status == RequestStatus.accepted ||
+                    r.status == RequestStatus.intransit ||
+                    r.status == RequestStatus.delivering))
             .toList()
         : const <RequestModel>[];
     final sentHistoryRequests = !activeTab
@@ -2139,9 +2141,51 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
       if (mounted) setState(() => _results = []);
       return;
     }
-    if (mounted) {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final response = await Dio().get<List<dynamic>>(
+        'https://nominatim.openstreetmap.org/search',
+        queryParameters: {
+          'q': trimmed,
+          'format': 'jsonv2',
+          'addressdetails': 1,
+          'limit': 10,
+        },
+        options: Options(headers: const {'User-Agent': 'BagoApp/1.0'}),
+      );
+      final seen = <String>{};
+      final results = <_CityResult>[];
+      for (final item in response.data ?? const []) {
+        final map = item as Map<String, dynamic>;
+        final address = (map['address'] as Map?)?.cast<String, dynamic>() ?? {};
+        final city = address['city']?.toString() ??
+            address['town']?.toString() ??
+            address['village']?.toString() ??
+            address['municipality']?.toString() ??
+            address['county']?.toString() ??
+            '';
+        final country = address['country']?.toString() ?? '';
+        final countryCode = address['country_code']?.toString() ?? '';
+        if (city.trim().isEmpty) continue;
+        final key = '${city.toLowerCase()}|${countryCode.toLowerCase()}';
+        if (!seen.add(key)) continue;
+        results.add(
+          _CityResult(
+            city: city,
+            country: country,
+            countryCode: countryCode,
+          ),
+        );
+      }
+      if (!mounted) return;
       setState(() {
-        _results = [_CityResult(display: trimmed, countryCode: 'xx')];
+        _results = results;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _results = [_CityResult(city: trimmed, country: '', countryCode: '')];
         _loading = false;
       });
     }
@@ -2253,10 +2297,17 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                             horizontal: 24, vertical: 4),
                         leading: Text(_flag(loc.countryCode),
                             style: const TextStyle(fontSize: 28)),
-                        title: Text(loc.display,
+                        title: Text(loc.city,
                             style: AppTextStyles.bodyMd
                                 .copyWith(fontWeight: FontWeight.w700)),
-                        onTap: () => Navigator.pop(context, loc.display),
+                        subtitle: loc.country.isNotEmpty
+                            ? Text(
+                                loc.country,
+                                style: AppTextStyles.caption
+                                    .copyWith(color: AppColors.gray500),
+                              )
+                            : null,
+                        onTap: () => Navigator.pop(context, loc.searchValue),
                       );
                     },
                   ),
@@ -2268,7 +2319,22 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
 }
 
 class _CityResult {
-  final String display;
+  final String city;
+  final String country;
   final String countryCode;
-  const _CityResult({required this.display, required this.countryCode});
+  const _CityResult({
+    required this.city,
+    required this.country,
+    required this.countryCode,
+  });
+
+  String get searchValue {
+    final cityName = city.trim();
+    final countryName = country.trim();
+    if (countryName.isEmpty ||
+        cityName.toLowerCase().endsWith(', ${countryName.toLowerCase()}')) {
+      return cityName;
+    }
+    return '$cityName, $countryName';
+  }
 }
