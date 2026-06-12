@@ -20,11 +20,11 @@ function BarChart({ data, activeIndex }) {
                     <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
                         <div
                             className={`w-full rounded-t-lg transition-all duration-700 ${
-                                isToday ? 'bg-[#5845D8] shadow-lg shadow-[#5845D8]/30' : 'bg-[#E8E5F7]'
+                                isToday ? 'bg-[#5845D8] shadow-lg shadow-[#5845D8]/30' : 'bg-[#012126]/15'
                             }`}
                             style={{ height: `${pct}%` }}
                         />
-                        <span className={`text-[8px] font-bold uppercase tracking-wide ${isToday ? 'text-[#5845D8]' : 'text-gray-300'}`}>
+                        <span className={`text-[8px] font-bold uppercase tracking-wide ${isToday ? 'text-[#5845D8]' : 'text-[#012126]/35'}`}>
                             {d.label}
                         </span>
                     </div>
@@ -177,7 +177,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     <div className="bg-[#012126] rounded-[24px] p-6 relative overflow-hidden min-h-[120px]">
                         <div className="absolute top-0 right-0 w-56 h-56 bg-[#5845D8]/20 rounded-full blur-[80px] -mr-24 -mt-24 pointer-events-none" />
                         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/3 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
-                        <img src="/withdraw_background.png" alt="" className="absolute bottom-0 right-0 h-36 w-36 object-contain opacity-[0.10] pointer-events-none select-none" />
                         <div className="relative z-10 flex items-start justify-between gap-4">
                             <div>
                                 <span className="inline-block bg-[#5845D8]/20 text-[#9B8EF5] text-[8px] font-black uppercase tracking-[2px] px-3 py-1 rounded-full mb-3">
@@ -208,10 +207,11 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     </div>
 
                     {/* Balance card */}
-                    <div className="bg-[#012126] rounded-[24px] p-6 relative overflow-hidden shadow-xl border border-white/5">
-                        <div className="absolute bottom-0 right-0 w-48 h-48 bg-[#5845D8]/12 rounded-full blur-[60px] -mr-20 -mb-20 pointer-events-none" />
-                        <img src="/wallet_background.png" alt="" className="absolute bottom-0 right-0 h-44 w-44 object-contain opacity-[0.13] pointer-events-none select-none" />
-                        <div className="relative z-10">
+                    <div className="rounded-[24px] relative overflow-hidden shadow-xl border border-white/5">
+                        <img src="/wallet_background.png" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                        <div className="absolute inset-0 bg-[#012126]/50 pointer-events-none" />
+                        <div className="absolute top-0 left-0 w-48 h-48 bg-[#5845D8]/15 rounded-full blur-[60px] -ml-20 -mt-20 pointer-events-none" />
+                        <div className="relative z-10 p-6">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-[9px] text-white/30 font-black uppercase tracking-[2px]">Your Balance</span>
                                 <div className="flex items-center gap-1.5">
@@ -262,38 +262,42 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 </div>
 
                 {/* Right 2/5 - Chart */}
-                <div className="lg:col-span-2 bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm flex flex-col">
-                    {/* Tabs */}
-                    <div className="flex bg-gray-50 rounded-xl p-1 mb-5">
-                        {['earned', 'spent'].map(tab => (
-                            <button
-                                key={tab}
-                                onClick={() => setChartTab(tab)}
-                                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                    chartTab === tab
-                                        ? 'bg-[#5845D8] text-white shadow-md shadow-[#5845D8]/15'
-                                        : 'text-gray-400 hover:text-gray-600'
-                                }`}
-                            >
-                                {tab === 'earned' ? 'Received' : 'Expenses'}
-                            </button>
-                        ))}
-                    </div>
+                <div className="lg:col-span-2 rounded-[24px] border border-gray-100 shadow-sm flex flex-col relative overflow-hidden">
+                    <img src="/withdraw_background.png" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                    <div className="absolute inset-0 bg-white/10 pointer-events-none" />
+                    <div className="relative z-10 p-6 flex flex-col flex-1">
+                        {/* Tabs */}
+                        <div className="flex bg-black/10 rounded-xl p-1 mb-5">
+                            {['earned', 'spent'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setChartTab(tab)}
+                                    className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                        chartTab === tab
+                                            ? 'bg-[#5845D8] text-white shadow-md shadow-[#5845D8]/15'
+                                            : 'text-[#012126]/50 hover:text-[#012126]/80'
+                                    }`}
+                                >
+                                    {tab === 'earned' ? 'Received' : 'Expenses'}
+                                </button>
+                            ))}
+                        </div>
 
-                    {/* Amount */}
-                    <div className="mb-1">
-                        <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest mb-1">This Week</p>
-                        <p className="text-3xl font-black text-[#012126] tracking-tighter">
-                            {sym}{displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-[9px] text-gray-400 font-medium mt-0.5">
-                            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-                        </p>
-                    </div>
+                        {/* Amount */}
+                        <div className="mb-1">
+                            <p className="text-[8px] text-[#012126]/50 font-bold uppercase tracking-widest mb-1">All Time</p>
+                            <p className="text-3xl font-black text-[#012126] tracking-tighter">
+                                {sym}{displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-[9px] text-[#012126]/45 font-medium mt-0.5">
+                                {chartTab === 'earned' ? 'Total income received' : 'Total amount withdrawn'}
+                            </p>
+                        </div>
 
-                    {/* Bar chart */}
-                    <div className="flex-1 flex flex-col justify-end pt-4">
-                        <BarChart data={chartData} activeIndex={6} />
+                        {/* Bar chart – weekly activity */}
+                        <div className="flex-1 flex flex-col justify-end pt-4">
+                            <BarChart data={chartData} activeIndex={6} />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -372,26 +376,28 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
 
             {/* ── KYC Banner ── */}
             {effectiveKycStatus !== 'approved' && (
-                <div className="bg-[#5845D8] rounded-[24px] p-5 flex items-center justify-between relative overflow-hidden">
-                    <div className="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 pointer-events-none" />
-                    <img src="/escrow_background.png" alt="" className="absolute right-0 bottom-0 h-28 w-28 object-contain opacity-[0.18] pointer-events-none select-none" />
-                    <div className="flex items-center gap-4 relative z-10">
-                        <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
-                            <Shield size={22} className="text-white" />
+                <div className="rounded-[24px] relative overflow-hidden">
+                    <img src="/escrow_background.png" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                    <div className="absolute inset-0 bg-white/15 pointer-events-none" />
+                    <div className="relative z-10 p-5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-11 h-11 bg-[#012126]/10 rounded-xl flex items-center justify-center shrink-0 backdrop-blur-sm">
+                                <Shield size={22} className="text-[#012126]/60" />
+                            </div>
+                            <div>
+                                <p className="text-[#012126] font-black text-sm uppercase tracking-tight">Verify Your Identity</p>
+                                <p className="text-[#012126]/50 text-[9px] font-bold uppercase tracking-widest">
+                                    Complete KYC to post trips and earn
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-white font-black text-sm uppercase tracking-tight">Verify Your Identity</p>
-                            <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest">
-                                Complete KYC to post trips and earn
-                            </p>
-                        </div>
+                        <button
+                            onClick={handleStartKyc}
+                            className="bg-[#5845D8] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#4838B5] hover:shadow-lg active:scale-95 transition-all shrink-0"
+                        >
+                            Verify Now
+                        </button>
                     </div>
-                    <button
-                        onClick={handleStartKyc}
-                        className="relative z-10 bg-white text-[#5845D8] px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all shrink-0"
-                    >
-                        Verify Now
-                    </button>
                 </div>
             )}
         </div>

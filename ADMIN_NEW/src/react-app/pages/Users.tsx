@@ -541,6 +541,27 @@ export default function Users() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Date of Birth</label>
+                <input
+                  type="date"
+                  value={editingUser.dateOfBirth ? editingUser.dateOfBirth.split('T')[0] : ''}
+                  onChange={(e) => setEditingUser({ ...editingUser, dateOfBirth: e.target.value })}
+                  className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Address</label>
+                <input
+                  type="text"
+                  value={editingUser.Address || ''}
+                  onChange={(e) => setEditingUser({ ...editingUser, Address: e.target.value })}
+                  placeholder="Street, City, Country"
+                  className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
+                />
+              </div>
+
               <div className="pt-4 flex gap-4">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 bg-gray-50 text-gray-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">
                   Cancel
