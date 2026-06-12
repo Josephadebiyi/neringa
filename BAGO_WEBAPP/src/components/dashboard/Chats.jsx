@@ -1,17 +1,54 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
-import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, ArrowLeft, Trash2, FileText } from 'lucide-react';
+import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, ArrowLeft, Trash2, FileText, ShieldAlert, WifiOff } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { io } from 'socket.io-client';
 
-const BANNED_KEYWORDS = ['phone', 'whatsapp', 'number', 'call', 'telegram', 'instagram', 'facebook', 'email', '+', 'gmail', 'yahoo', 'dm', 'contact me', 'text me'];
+// ── Off-platform / contact-sharing detection ──────────────────────────────────
+const OFF_PLATFORM_KEYWORDS = [
+    'whatsapp', 'telegram', 'instagram', 'facebook', 'snapchat', 'tiktok',
+    'wechat', 'signal', 'viber', 'line app', 'twitter', 'x.com',
+    'gmail', 'yahoo', 'hotmail', 'outlook', 'icloud',
+    'phone number', 'my number', 'call me', 'text me', 'dm me',
+    'contact me', 'reach me', 'hit me up', 'message me',
+    'outside bago', 'off platform', 'off app', 'off this app',
+];
+const OFF_PLATFORM_REGEX = [
+    /\+?\d[\d\s\-().]{8,}\d/,                   // phone number pattern
+    /\b\d{3}[\s\-.]?\d{3}[\s\-.]?\d{4}\b/,      // US-style phone
+    /@[a-z0-9_.]{2,}/i,                          // @handle
+    /wa\.me\//i,                                  // WhatsApp link
+    /t\.me\//i,                                   // Telegram link
+    /bit\.ly|tinyurl|shorturl/i,                  // URL shorteners
+    /https?:\/\//i,                               // any URL
+    /www\.[a-z]/i,                                // www. link
+];
+
+// ── Abusive content detection ─────────────────────────────────────────────────
+const ABUSE_KEYWORDS = [
+    'idiot', 'stupid', 'moron', 'imbecile', 'dumb', 'fool',
+    'bastard', 'asshole', 'bitch', 'cunt', 'dick', 'prick',
+    'scammer', 'fraud', 'cheat', 'liar', 'thief',
+    'kill you', 'hurt you', 'find you', 'beat you',
+    'i will sue', 'report you', 'destroy you',
+    'nigger', 'nigga', 'kike', 'spic', 'cracker', 'chink',
+];
+
+const classifyMessage = (text) => {
+    const lower = text.toLowerCase();
+    if (ABUSE_KEYWORDS.some(kw => lower.includes(kw))) return 'abuse';
+    if (OFF_PLATFORM_KEYWORDS.some(kw => lower.includes(kw))) return 'offplatform';
+    if (OFF_PLATFORM_REGEX.some(rx => rx.test(text))) return 'offplatform';
+    return null;
+};
 
 export default function Chats({ user, selectedConv, setSelectedConv, onTabChange }) {
     const { t } = useLanguage();
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
-    const [showWarning, setShowWarning] = useState(false);
+    const [warningType, setWarningType] = useState(null); // null | 'abuse' | 'offplatform'
+    const [isConnected, setIsConnected] = useState(false);
     const [showDisputeModal, setShowDisputeModal] = useState(false);
     const [disputeReason, setDisputeReason] = useState('');
     const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
@@ -118,15 +155,19 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         const socket = io(api.defaults.baseURL, {
             transports: ['websocket', 'polling'],
             withCredentials: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 2000,
         });
         socketRef.current = socket;
 
-        socket.on('connect', () => {
+        const rejoin = () => {
             if (userIdRef.current) socket.emit('join_user', userIdRef.current);
-            if (selectedConvRef.current?._id) {
-                socket.emit('join_conversation', selectedConvRef.current._id);
-            }
-        });
+            if (selectedConvRef.current?._id) socket.emit('join_conversation', selectedConvRef.current._id);
+        };
+
+        socket.on('connect', () => { setIsConnected(true); rejoin(); });
+        socket.on('disconnect', () => setIsConnected(false));
+        socket.on('reconnect', () => { setIsConnected(true); rejoin(); });
 
         socket.on('new_message', (message) => {
             const activeConversationId = selectedConvRef.current?._id;
@@ -272,10 +313,6 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    const containsBannedKeywords = (text) => {
-        const lowerText = text.toLowerCase();
-        return BANNED_KEYWORDS.some(kw => lowerText.includes(kw));
-    };
 
     const handleRaiseDispute = async (e) => {
         e.preventDefault();
@@ -304,8 +341,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         e.preventDefault();
         if (!newMessage.trim() || !selectedConv) return;
 
-        if (containsBannedKeywords(newMessage)) {
-            setShowWarning(true);
+        const violation = classifyMessage(newMessage);
+        if (violation) {
+            setWarningType(violation);
             return;
         }
 
@@ -331,9 +369,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         if (!file || !selectedConv) return;
 
         const caption = newMessage.trim();
-        if (caption && containsBannedKeywords(caption)) {
-            setShowWarning(true);
-            return;
+        if (caption) {
+            const violation = classifyMessage(caption);
+            if (violation) { setWarningType(violation); return; }
         }
 
         const formData = new FormData();
@@ -471,8 +509,10 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                         {selectedConv.otherUser?.firstName || 'User'}
                                     </p>
                                     <div className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
-                                        <p className="text-[8px] text-green-600 font-bold uppercase tracking-widest">{t('activeNow') || 'Active now'}</p>
+                                        {isConnected
+                                            ? <><span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" /><p className="text-[8px] text-green-600 font-bold uppercase tracking-widest">Live</p></>
+                                            : <><WifiOff size={10} className="text-amber-400" /><p className="text-[8px] text-amber-500 font-bold uppercase tracking-widest">Reconnecting…</p></>
+                                        }
                                     </div>
                                 </div>
                             </div>
@@ -576,12 +616,29 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Warning */}
-                        {showWarning && (
-                            <div className="mx-5 mb-3 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800 animate-in slide-in-from-bottom-3 duration-300">
-                                <AlertTriangle size={15} className="shrink-0 text-amber-500" />
-                                <p className="text-[9px] font-bold leading-relaxed flex-1">{t('securityAlert') || 'Sharing personal contact info is not allowed on Bago.'}</p>
-                                <button onClick={() => setShowWarning(false)} className="text-amber-500 font-black text-[9px] uppercase tracking-widest">×</button>
+                        {/* Warning banner */}
+                        {warningType && (
+                            <div className={`mx-5 mb-3 p-3.5 rounded-2xl flex items-start gap-3 animate-in slide-in-from-bottom-3 duration-300 ${
+                                warningType === 'abuse'
+                                    ? 'bg-red-50 border border-red-200 text-red-800'
+                                    : 'bg-amber-50 border border-amber-200 text-amber-800'
+                            }`}>
+                                {warningType === 'abuse'
+                                    ? <ShieldAlert size={15} className="shrink-0 text-red-500 mt-0.5" />
+                                    : <AlertTriangle size={15} className="shrink-0 text-amber-500 mt-0.5" />
+                                }
+                                <div className="flex-1">
+                                    <p className="text-[9px] font-black uppercase tracking-widest mb-0.5">
+                                        {warningType === 'abuse' ? '⚠️ Abusive language detected' : '🚫 Off-platform contact sharing'}
+                                    </p>
+                                    <p className="text-[9px] font-medium leading-relaxed">
+                                        {warningType === 'abuse'
+                                            ? 'Abusive messages violate Bago\'s community guidelines and may result in your account being suspended.'
+                                            : 'Sharing contact details, phone numbers, or external links is not permitted on Bago. All communication must stay in-app to protect both parties.'
+                                        }
+                                    </p>
+                                </div>
+                                <button onClick={() => setWarningType(null)} className="font-black text-[11px] opacity-50 hover:opacity-100 shrink-0">×</button>
                             </div>
                         )}
 
@@ -600,7 +657,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 <input
                                     type="text"
                                     value={newMessage}
-                                    onChange={e => { setNewMessage(e.target.value); if (showWarning) setShowWarning(false); }}
+                                    onChange={e => { setNewMessage(e.target.value); if (warningType) setWarningType(null); }}
                                     placeholder={t('typeMessage') || 'Enter message...'}
                                     className="flex-1 bg-transparent outline-none text-[12px] text-[#012126] placeholder:text-gray-300 font-medium"
                                 />

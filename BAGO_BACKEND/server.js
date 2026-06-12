@@ -961,7 +961,7 @@ httpServer.listen(PORT, () => {
   const selfUrl = process.env.BASE_URL || 'https://neringa.onrender.com';
   setInterval(() => {
     fetch(`${selfUrl}/api/health`).catch(() => {});
-  }, 13 * 60 * 1000);
+  }, 13 * 60 * 1000).unref(); // unref: won't block clean process shutdown
 
   // KYC is Dojah/manual only.
 });

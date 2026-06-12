@@ -1459,66 +1459,51 @@ class _LocationResult {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _kDefaultLocations = [
-  _LocationResult(
-      displayName: 'London, United Kingdom',
-      countryCode: 'gb',
-      category: 'city',
-      lat: 51.5074,
-      lon: -0.1278),
-  _LocationResult(
-      displayName: 'Lagos, Nigeria',
-      countryCode: 'ng',
-      category: 'city',
-      lat: 6.5244,
-      lon: 3.3792),
-  _LocationResult(
-      displayName: 'New York, United States',
-      countryCode: 'us',
-      category: 'city',
-      lat: 40.7128,
-      lon: -74.0060),
-  _LocationResult(
-      displayName: 'Paris, France',
-      countryCode: 'fr',
-      category: 'city',
-      lat: 48.8566,
-      lon: 2.3522),
-  _LocationResult(
-      displayName: 'Toronto, Canada',
-      countryCode: 'ca',
-      category: 'city',
-      lat: 43.6532,
-      lon: -79.3832),
-  _LocationResult(
-      displayName: 'Dubai, United Arab Emirates',
-      countryCode: 'ae',
-      category: 'city',
-      lat: 25.2048,
-      lon: 55.2708),
-  _LocationResult(
-      displayName: 'Accra, Ghana',
-      countryCode: 'gh',
-      category: 'city',
-      lat: 5.6037,
-      lon: -0.1870),
-  _LocationResult(
-      displayName: 'Abuja, Nigeria',
-      countryCode: 'ng',
-      category: 'city',
-      lat: 9.0579,
-      lon: 7.4951),
-  _LocationResult(
-      displayName: 'Amsterdam, Netherlands',
-      countryCode: 'nl',
-      category: 'city',
-      lat: 52.3676,
-      lon: 4.9041),
-  _LocationResult(
-      displayName: 'Nairobi, Kenya',
-      countryCode: 'ke',
-      category: 'city',
-      lat: -1.2921,
-      lon: 36.8219),
+  // UK & Europe
+  _LocationResult(displayName: 'London, United Kingdom', countryCode: 'gb', category: 'city', lat: 51.5074, lon: -0.1278),
+  _LocationResult(displayName: 'Manchester, United Kingdom', countryCode: 'gb', category: 'city', lat: 53.4808, lon: -2.2426),
+  _LocationResult(displayName: 'Birmingham, United Kingdom', countryCode: 'gb', category: 'city', lat: 52.4862, lon: -1.8904),
+  _LocationResult(displayName: 'Paris, France', countryCode: 'fr', category: 'city', lat: 48.8566, lon: 2.3522),
+  _LocationResult(displayName: 'Amsterdam, Netherlands', countryCode: 'nl', category: 'city', lat: 52.3676, lon: 4.9041),
+  _LocationResult(displayName: 'Madrid, Spain', countryCode: 'es', category: 'city', lat: 40.4168, lon: -3.7038),
+  _LocationResult(displayName: 'Berlin, Germany', countryCode: 'de', category: 'city', lat: 52.5200, lon: 13.4050),
+  _LocationResult(displayName: 'Rome, Italy', countryCode: 'it', category: 'city', lat: 41.9028, lon: 12.4964),
+  _LocationResult(displayName: 'Dublin, Ireland', countryCode: 'ie', category: 'city', lat: 53.3498, lon: -6.2603),
+  _LocationResult(displayName: 'Brussels, Belgium', countryCode: 'be', category: 'city', lat: 50.8503, lon: 4.3517),
+  // Americas
+  _LocationResult(displayName: 'New York, United States', countryCode: 'us', category: 'city', lat: 40.7128, lon: -74.0060),
+  _LocationResult(displayName: 'Toronto, Canada', countryCode: 'ca', category: 'city', lat: 43.6532, lon: -79.3832),
+  _LocationResult(displayName: 'Houston, United States', countryCode: 'us', category: 'city', lat: 29.7604, lon: -95.3698),
+  _LocationResult(displayName: 'Atlanta, United States', countryCode: 'us', category: 'city', lat: 33.7490, lon: -84.3880),
+  // Middle East
+  _LocationResult(displayName: 'Dubai, United Arab Emirates', countryCode: 'ae', category: 'city', lat: 25.2048, lon: 55.2708),
+  _LocationResult(displayName: 'Riyadh, Saudi Arabia', countryCode: 'sa', category: 'city', lat: 24.6877, lon: 46.7219),
+  // West Africa — Nigeria
+  _LocationResult(displayName: 'Lagos, Nigeria', countryCode: 'ng', category: 'city', lat: 6.5244, lon: 3.3792),
+  _LocationResult(displayName: 'Abuja, Nigeria', countryCode: 'ng', category: 'city', lat: 9.0579, lon: 7.4951),
+  _LocationResult(displayName: 'Ibadan, Nigeria', countryCode: 'ng', category: 'city', lat: 7.3775, lon: 3.9470),
+  _LocationResult(displayName: 'Port Harcourt, Nigeria', countryCode: 'ng', category: 'city', lat: 4.8156, lon: 7.0498),
+  _LocationResult(displayName: 'Kano, Nigeria', countryCode: 'ng', category: 'city', lat: 12.0022, lon: 8.5920),
+  _LocationResult(displayName: 'Benin City, Nigeria', countryCode: 'ng', category: 'city', lat: 6.3350, lon: 5.6275),
+  _LocationResult(displayName: 'Enugu, Nigeria', countryCode: 'ng', category: 'city', lat: 6.4584, lon: 7.5464),
+  _LocationResult(displayName: 'Owerri, Nigeria', countryCode: 'ng', category: 'city', lat: 5.4836, lon: 7.0333),
+  _LocationResult(displayName: 'Calabar, Nigeria', countryCode: 'ng', category: 'city', lat: 4.9517, lon: 8.3220),
+  _LocationResult(displayName: 'Warri, Nigeria', countryCode: 'ng', category: 'city', lat: 5.5167, lon: 5.7500),
+  _LocationResult(displayName: 'Asaba, Nigeria', countryCode: 'ng', category: 'city', lat: 6.2000, lon: 6.7333),
+  // West Africa — others
+  _LocationResult(displayName: 'Accra, Ghana', countryCode: 'gh', category: 'city', lat: 5.6037, lon: -0.1870),
+  _LocationResult(displayName: 'Kumasi, Ghana', countryCode: 'gh', category: 'city', lat: 6.6885, lon: -1.6244),
+  _LocationResult(displayName: 'Dakar, Senegal', countryCode: 'sn', category: 'city', lat: 14.7167, lon: -17.4677),
+  _LocationResult(displayName: 'Abidjan, Côte d\'Ivoire', countryCode: 'ci', category: 'city', lat: 5.3600, lon: -4.0083),
+  // East Africa
+  _LocationResult(displayName: 'Nairobi, Kenya', countryCode: 'ke', category: 'city', lat: -1.2921, lon: 36.8219),
+  _LocationResult(displayName: 'Kampala, Uganda', countryCode: 'ug', category: 'city', lat: 0.3476, lon: 32.5825),
+  _LocationResult(displayName: 'Dar es Salaam, Tanzania', countryCode: 'tz', category: 'city', lat: -6.7924, lon: 39.2083),
+  _LocationResult(displayName: 'Addis Ababa, Ethiopia', countryCode: 'et', category: 'city', lat: 9.0320, lon: 38.7469),
+  // Southern Africa
+  _LocationResult(displayName: 'Johannesburg, South Africa', countryCode: 'za', category: 'city', lat: -26.2041, lon: 28.0473),
+  _LocationResult(displayName: 'Cape Town, South Africa', countryCode: 'za', category: 'city', lat: -33.9249, lon: 18.4241),
+  _LocationResult(displayName: 'Durban, South Africa', countryCode: 'za', category: 'city', lat: -29.8587, lon: 31.0218),
 ];
 
 class _LocationStep extends StatefulWidget {
@@ -1788,82 +1773,75 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
       final lang = Localizations.localeOf(context).languageCode;
       final opts =
           Options(headers: {'User-Agent': 'BagoApp/1.0 contact@bago.app'});
-      final responses = await Future.wait([
-        dio.get('https://nominatim.openstreetmap.org/search',
-            options: opts,
-            queryParameters: {
-              'q': q,
-              'format': 'json',
-              'addressdetails': 1,
-              'limit': 12,
-              'accept-language': lang
-            }),
-        dio.get('https://nominatim.openstreetmap.org/search',
-            options: opts,
-            queryParameters: {
-              'q': '$q airport',
-              'format': 'json',
-              'addressdetails': 1,
-              'limit': 6,
-              'accept-language': lang
-            }),
-        dio.get('https://nominatim.openstreetmap.org/search',
-            options: opts,
-            queryParameters: {
-              'q': '$q train station',
-              'format': 'json',
-              'addressdetails': 1,
-              'limit': 4,
-              'accept-language': lang
-            }),
-      ]);
+      // Sequential to avoid Nominatim rate-limit (1 req/s policy)
+      final cityRes = await dio.get('https://nominatim.openstreetmap.org/search',
+          options: opts,
+          queryParameters: {
+            'q': q,
+            'format': 'json',
+            'addressdetails': 1,
+            'namedetails': 1,
+            'limit': 20,
+            'accept-language': lang,
+          });
       final seen = <String>{};
       final list = <_LocationResult>[];
-      for (final res in responses) {
-        for (final item in res.data as List) {
-          final cls = (item['class'] as String? ?? '').toLowerCase();
-          final type = (item['type'] as String? ?? '').toLowerCase();
-          final category = _categorize(cls, type);
-          final addr = item['address'] as Map<String, dynamic>;
-          final lat = double.tryParse(item['lat'] as String? ?? '') ?? 0.0;
-          final lon = double.tryParse(item['lon'] as String? ?? '') ?? 0.0;
-          final cc = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
-          final country = addr['country'] as String? ?? '';
-          String name;
-          if (category == 'airport' ||
-              category == 'train' ||
-              category == 'bus') {
-            final hub = (item['name'] as String? ?? '').isNotEmpty
-                ? item['name'] as String
-                : (item['display_name'] as String).split(',').first.trim();
-            final city =
-                (addr['city'] ?? addr['town'] ?? addr['municipality'] ?? '')
-                    .toString()
-                    .trim();
-            name = city.isNotEmpty ? '$hub, $city, $country' : '$hub, $country';
-          } else {
-            final city = addr['city'] ??
-                addr['town'] ??
-                addr['municipality'] ??
-                addr['county'] ??
-                addr['village'] ??
-                addr['suburb'] ??
-                (item['display_name'] as String).split(',').first.trim();
-            if (city.toString().isEmpty || country.isEmpty) continue;
-            name = '${city.toString().trim()}, $country';
-          }
-          final key = '${name.toLowerCase()}:$cc';
-          if (!seen.contains(key) && name.isNotEmpty && lat != 0.0) {
-            seen.add(key);
-            list.add(_LocationResult(
-                displayName: name,
-                countryCode: cc,
-                category: category,
-                lat: lat,
-                lon: lon));
-          }
+
+      void addItem(dynamic item) {
+        final cls = (item['class'] as String? ?? '').toLowerCase();
+        final type = (item['type'] as String? ?? '').toLowerCase();
+        final category = _categorize(cls, type);
+        final addr = (item['address'] as Map?)?.cast<String, dynamic>() ?? {};
+        final lat = double.tryParse(item['lat'] as String? ?? '') ?? 0.0;
+        final lon = double.tryParse(item['lon'] as String? ?? '') ?? 0.0;
+        if (lat == 0.0 && lon == 0.0) return;
+        final cc = ((addr['country_code'] as String?) ?? 'xx').toLowerCase();
+        final country = addr['country'] as String? ?? '';
+        if (country.isEmpty) return;
+        String name;
+        if (category == 'airport' || category == 'train' || category == 'bus') {
+          final hub = (item['name'] as String? ?? '').isNotEmpty
+              ? item['name'] as String
+              : (item['display_name'] as String).split(',').first.trim();
+          final city = (addr['city'] ?? addr['town'] ?? addr['municipality'] ?? '').toString().trim();
+          name = city.isNotEmpty ? '$hub, $city, $country' : '$hub, $country';
+        } else {
+          // Use the most specific place name available, always fall back to
+          // display_name's first segment so any city in the world resolves.
+          final city = (addr['city']?.toString().isNotEmpty == true
+                  ? addr['city']
+                  : addr['town']?.toString().isNotEmpty == true
+                      ? addr['town']
+                      : addr['municipality']?.toString().isNotEmpty == true
+                          ? addr['municipality']
+                          : addr['village']?.toString().isNotEmpty == true
+                              ? addr['village']
+                              : addr['suburb']?.toString().isNotEmpty == true
+                                  ? addr['suburb']
+                                  : addr['county']?.toString().isNotEmpty == true
+                                      ? addr['county']
+                                      : addr['state']?.toString().isNotEmpty == true
+                                          ? null // skip state-level results
+                                          : (item['display_name'] as String).split(',').first.trim()) ??
+              '';
+          if (city.toString().trim().isEmpty) return;
+          name = '${city.toString().trim()}, $country';
         }
+        final key = '${name.toLowerCase()}:$cc';
+        if (seen.contains(key) || name.isEmpty || lat == 0.0) return;
+        seen.add(key);
+        list.add(_LocationResult(
+            displayName: name,
+            countryCode: cc,
+            category: category,
+            lat: lat,
+            lon: lon));
       }
+
+      for (final item in cityRes.data as List) {
+        addItem(item);
+      }
+
       if (mounted)
         setState(() {
           _suggestions = list;
