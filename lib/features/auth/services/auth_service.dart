@@ -92,6 +92,8 @@ class AuthService {
     required String phone,
     required String country,
     String? currency,
+    String? accountType,
+    String? companyName,
   }) async {
     try {
       final res = await _api.post(
@@ -105,6 +107,8 @@ class AuthService {
           'phone': phone.trim(),
           'country': country,
           'currency': currency ?? _currencyForCountry(country),
+          if (accountType != null) 'accountType': accountType,
+          if (companyName != null && companyName.isNotEmpty) 'companyName': companyName.trim(),
         },
       );
       final data = res.data as Map<String, dynamic>;

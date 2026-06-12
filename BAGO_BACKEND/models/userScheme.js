@@ -36,6 +36,11 @@ const transactionSchema = new mongoose.Schema({
 });
 
 const userSchema = new mongoose.Schema({
+  accountType: {
+    type: String,
+    enum: ['individual', 'company'],
+    default: 'individual',
+  },
   firstName: {
     type: String,
     trim: true,
@@ -45,6 +50,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: 'User',
+  },
+  companyName: {
+    type: String,
+    trim: true,
+    default: null,
   },
   image: {
     type: String,

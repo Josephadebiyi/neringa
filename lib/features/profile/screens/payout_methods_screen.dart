@@ -251,10 +251,11 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       throw Exception(data?['message']?.toString() ??
           'Stripe Express setup link was not returned.');
     }
-    final launched = await launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
-    );
+    final uri = Uri.parse(url);
+    var launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    if (!launched) {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
     if (!launched) throw Exception('Could not open Stripe Express.');
     await ref.read(authProvider.notifier).refreshProfile();
     if (!mounted) return;

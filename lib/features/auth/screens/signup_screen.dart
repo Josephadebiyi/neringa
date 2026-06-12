@@ -15,7 +15,7 @@ import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../providers/auth_provider.dart';
 
-enum _Step { email, name, phone, dob, country, password, otp, success }
+enum _Step { email, accountType, name, phone, dob, country, password, otp, success }
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -32,10 +32,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
   bool _isCheckingEmail = false;
   bool _emailAvailable = false;
   String? _emailFeedback;
+  String? _accountType; // 'individual' | 'company'
 
   final _emailCtrl = TextEditingController();
   final _firstCtrl = TextEditingController();
   final _lastCtrl = TextEditingController();
+  final _companyCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _dobDayCtrl = TextEditingController();
   final _dobMonthCtrl = TextEditingController();
@@ -58,6 +60,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       _emailCtrl,
       _firstCtrl,
       _lastCtrl,
+      _companyCtrl,
       _phoneCtrl,
       _dobDayCtrl,
       _dobMonthCtrl,
@@ -124,6 +127,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       _emailCtrl,
       _firstCtrl,
       _lastCtrl,
+      _companyCtrl,
       _phoneCtrl,
       _dobDayCtrl,
       _dobMonthCtrl,
@@ -138,6 +142,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
     _emailCtrl.dispose();
     _firstCtrl.dispose();
     _lastCtrl.dispose();
+    _companyCtrl.dispose();
     _phoneCtrl.dispose();
     _dobDayCtrl.dispose();
     _dobMonthCtrl.dispose();
@@ -172,7 +177,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
         return _looksLikeEmail(_emailCtrl.text.trim()) &&
             _emailAvailable &&
             !_isCheckingEmail;
+      case _Step.accountType:
+        return _accountType != null;
       case _Step.name:
+        if (_accountType == 'company') {
+          return _companyCtrl.text.trim().isNotEmpty;
+        }
         return _firstCtrl.text.trim().isNotEmpty && _lastCtrl.text.trim().isNotEmpty;
       case _Step.phone:
         return _phoneCtrl.text.trim().length >= 7;
@@ -196,14 +206,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
 
     if (_step == _Step.password) {
       try {
+        final isCompany = _accountType == 'company';
         final token = await ref.read(authProvider.notifier).register(
               email: _emailCtrl.text.trim(),
               password: _passCtrl.text,
-              firstName: _firstCtrl.text.trim(),
-              lastName: _lastCtrl.text.trim(),
+              firstName: isCompany ? _companyCtrl.text.trim() : _firstCtrl.text.trim(),
+              lastName: isCompany ? '' : _lastCtrl.text.trim(),
               phone: '${_phoneCountry.dialCode}${_phoneCtrl.text.trim()}',
               country: _country!.name,
               currency: _country!.currency,
+              accountType: _accountType,
+              companyName: isCompany ? _companyCtrl.text.trim() : null,
             );
         _signupToken = token;
         _goTo(_Step.otp);
@@ -342,8 +355,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
           emailFeedback: _emailFeedback,
           emailAvailable: _emailAvailable,
         );
+      case _Step.accountType:
+        return _StepAccountType(
+          selected: _accountType,
+          onSelect: (type) => setState(() => _accountType = type),
+        );
       case _Step.name:
-        return _StepName(firstCtrl: _firstCtrl, lastCtrl: _lastCtrl);
+        return _accountType == 'company'
+            ? _StepNameCompany(companyCtrl: _companyCtrl)
+            : _StepName(firstCtrl: _firstCtrl, lastCtrl: _lastCtrl);
       case _Step.phone:
         return _StepPhone(
           ctrl: _phoneCtrl,
@@ -412,14 +432,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       throw AppLocalizations.of(context).signupRestartCountry;
     }
 
+    final isCompany = _accountType == 'company';
     final token = await ref.read(authProvider.notifier).register(
           email: _emailCtrl.text.trim(),
           password: _passCtrl.text,
-          firstName: _firstCtrl.text.trim(),
-          lastName: _lastCtrl.text.trim(),
+          firstName: isCompany ? _companyCtrl.text.trim() : _firstCtrl.text.trim(),
+          lastName: isCompany ? '' : _lastCtrl.text.trim(),
           phone: '${_phoneCountry.dialCode}${_phoneCtrl.text.trim()}',
           country: _country!.name,
           currency: _country!.currency,
+          accountType: _accountType,
+          companyName: isCompany ? _companyCtrl.text.trim() : null,
         );
     _signupToken = token;
   }
@@ -612,6 +635,139 @@ class _StepName extends StatelessWidget {
           ),
         ],
       );
+  }
+}
+
+class _StepAccountType extends StatelessWidget {
+  const _StepAccountType({required this.selected, required this.onSelect});
+  final String? selected;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StepTitle('Account\ntype'),
+        const SizedBox(height: 6),
+        Text(
+          'Are you signing up as an individual or a company?',
+          style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+        ),
+        const SizedBox(height: 32),
+        _AccountTypeCard(
+          label: 'Individual',
+          subtitle: 'Personal account',
+          icon: Icons.person_rounded,
+          selected: selected == 'individual',
+          onTap: () => onSelect('individual'),
+        ),
+        const SizedBox(height: 16),
+        _AccountTypeCard(
+          label: 'Company',
+          subtitle: 'Business or organisation',
+          icon: Icons.business_rounded,
+          selected: selected == 'company',
+          onTap: () => onSelect('company'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountTypeCard extends StatelessWidget {
+  const _AccountTypeCard({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label, subtitle;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary.withOpacity(0.06) : const Color(0xFFF4F4F6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? AppColors.primary : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : AppColors.gray300,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? AppColors.primary : AppColors.gray800,
+                      )),
+                  Text(subtitle,
+                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+                ],
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StepNameCompany extends StatelessWidget {
+  const _StepNameCompany({required this.companyCtrl});
+  final TextEditingController companyCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StepTitle('Company\nname'),
+        const SizedBox(height: 6),
+        Text(
+          'Enter your registered business name',
+          style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+        ),
+        const SizedBox(height: 24),
+        _StepInput(
+          child: TextField(
+            controller: companyCtrl,
+            textCapitalization: TextCapitalization.words,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            decoration: const InputDecoration(
+              hintText: 'e.g. Acme Logistics Ltd',
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

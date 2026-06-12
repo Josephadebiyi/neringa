@@ -158,6 +158,8 @@ class AuthNotifier extends Notifier<AuthState> {
     required String phone,
     required String country,
     String? currency,
+    String? accountType,
+    String? companyName,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -169,6 +171,8 @@ class AuthNotifier extends Notifier<AuthState> {
         phone: phone,
         country: country,
         currency: currency,
+        accountType: accountType,
+        companyName: companyName,
       );
       state = state.copyWith(isLoading: false);
       return signupToken;

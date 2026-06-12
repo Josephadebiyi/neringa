@@ -43,6 +43,8 @@ interface User {
   phoneVerified?: boolean;
   userType?: 'sender' | 'traveler';
   isVerified?: boolean;
+  accountType?: 'individual' | 'company';
+  companyName?: string;
 }
 
 interface UsersResponse {
@@ -287,13 +289,18 @@ export default function Users() {
                       {/* Identity */}
                       <td className="py-5 px-8">
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black border ${user.banned ? 'bg-red-50 text-red-400 border-red-100' : 'bg-gradient-to-br from-[#5240E8]/10 to-[#5240E8]/5 border-[#5240E8]/10 text-[#5240E8]'
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black border ${user.banned ? 'bg-red-50 text-red-400 border-red-100' : user.accountType === 'company' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-gradient-to-br from-[#5240E8]/10 to-[#5240E8]/5 border-[#5240E8]/10 text-[#5240E8]'
                             }`}>
-                            {user.firstName ? user.firstName[0].toUpperCase() : 'U'}
+                            {user.accountType === 'company' ? '🏢' : (user.firstName ? user.firstName[0].toUpperCase() : 'U')}
                           </div>
                           <div>
                             <div className="font-bold text-[#1e2749] text-sm flex items-center gap-2">
-                              {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'Anonymous User'}
+                              {user.accountType === 'company'
+                                ? (user.companyName || `${user.firstName} ${user.lastName}`)
+                                : (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'Anonymous User')}
+                              {user.accountType === 'company' && (
+                                <span className="text-[8px] font-black px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-md uppercase tracking-widest">Co.</span>
+                              )}
                             </div>
                             <div className="text-[10px] font-bold text-gray-400 mt-0.5">{user.email}</div>
                           </div>
@@ -500,26 +507,51 @@ export default function Users() {
             </div>
 
             <form onSubmit={handleUpdateUser} className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">First Name</label>
-                  <input
-                    type="text"
-                    value={editingUser.firstName}
-                    onChange={(e) => setEditingUser({ ...editingUser, firstName: e.target.value })}
-                    className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Last Name</label>
-                  <input
-                    type="text"
-                    value={editingUser.lastName}
-                    onChange={(e) => setEditingUser({ ...editingUser, lastName: e.target.value })}
-                    className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Account Type</label>
+                <select
+                  value={editingUser.accountType || 'individual'}
+                  onChange={(e) => setEditingUser({ ...editingUser, accountType: e.target.value as 'individual' | 'company' })}
+                  className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
+                >
+                  <option value="individual">Individual</option>
+                  <option value="company">Company</option>
+                </select>
               </div>
+
+              {editingUser.accountType === 'company' ? (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Company Name</label>
+                  <input
+                    type="text"
+                    value={editingUser.companyName || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, companyName: e.target.value })}
+                    placeholder="Registered business name"
+                    className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">First Name</label>
+                    <input
+                      type="text"
+                      value={editingUser.firstName}
+                      onChange={(e) => setEditingUser({ ...editingUser, firstName: e.target.value })}
+                      className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Last Name</label>
+                    <input
+                      type="text"
+                      value={editingUser.lastName}
+                      onChange={(e) => setEditingUser({ ...editingUser, lastName: e.target.value })}
+                      className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-[#5240E8] outline-none transition-all font-bold"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>

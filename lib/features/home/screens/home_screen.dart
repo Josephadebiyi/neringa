@@ -218,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: Icons.flight_takeoff_rounded,
                 route: '/post-trip'),
           ];
-    final firstName = user?.fullName.split(' ').first ?? l10n.homeFallbackUser;
+    final firstName = user?.displayName ?? l10n.homeFallbackUser;
     final avatarLetter =
         firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U';
 
@@ -774,8 +774,6 @@ class _CarrierHero extends StatelessWidget {
                   currency: currency,
                   note: 'Available now',
                   color: const Color(0xFFFFE7B8),
-                  icon: Icons.savings_rounded,
-                  iconColor: const Color(0xFFF97316),
                   backgroundAsset:
                       'assets/images/wallet/withdraw_background.png',
                 ),
@@ -788,8 +786,6 @@ class _CarrierHero extends StatelessWidget {
                   currency: currency,
                   note: 'After delivery',
                   color: const Color(0xFFDDFDDD),
-                  icon: Icons.lock_rounded,
-                  iconColor: const Color(0xFF22C55E),
                   backgroundAsset: 'assets/images/wallet/escrow_background.png',
                 ),
               ),
@@ -842,8 +838,6 @@ class _SoftWalletTile extends StatelessWidget {
     required this.currency,
     required this.note,
     required this.color,
-    required this.icon,
-    required this.iconColor,
     this.backgroundAsset,
   });
 
@@ -852,8 +846,6 @@ class _SoftWalletTile extends StatelessWidget {
   final String currency;
   final String note;
   final Color color;
-  final IconData icon;
-  final Color iconColor;
   final String? backgroundAsset;
 
   @override
@@ -876,21 +868,14 @@ class _SoftWalletTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelMd.copyWith(
-                    color: AppColors.gray700,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Icon(icon, color: iconColor, size: 22),
-            ],
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.labelMd.copyWith(
+              color: AppColors.gray700,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const Spacer(),
           Text(

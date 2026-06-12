@@ -40,6 +40,8 @@ class UserModel {
   final DateTime? termsAcceptedAt;
   final String? earningCurrency;
   final bool earningCurrencyLocked;
+  final String accountType; // 'individual' | 'company'
+  final String? companyName;
 
   const UserModel({
     required this.id,
@@ -77,7 +79,18 @@ class UserModel {
     this.termsAcceptedAt,
     this.earningCurrency,
     this.earningCurrencyLocked = false,
+    this.accountType = 'individual',
+    this.companyName,
   });
+
+  bool get isCompany => accountType == 'company';
+
+  /// Display name: company name for companies, first name for individuals
+  String get displayName => isCompany
+      ? (companyName?.isNotEmpty == true ? companyName! : fullName)
+      : fullName.split(' ').first.isNotEmpty
+          ? fullName.split(' ').first
+          : fullName;
 
   bool get isCarrier => _normalizeRole(role) == 'carrier';
   bool get isSender => _normalizeRole(role) == 'sender';
@@ -144,6 +157,8 @@ class UserModel {
     String? walletCurrency,
     String? earningCurrency,
     bool? earningCurrencyLocked,
+    String? accountType,
+    String? companyName,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -183,6 +198,8 @@ class UserModel {
       earningCurrency: earningCurrency ?? this.earningCurrency,
       earningCurrencyLocked:
           earningCurrencyLocked ?? this.earningCurrencyLocked,
+      accountType: accountType ?? this.accountType,
+      companyName: companyName ?? this.companyName,
     );
   }
 
@@ -256,6 +273,11 @@ class UserModel {
             json['earning_currency']?.toString(),
         earningCurrencyLocked: json['earningCurrencyLocked'] == true ||
             json['earning_currency_locked'] == true,
+        accountType: json['accountType']?.toString() ??
+            json['account_type']?.toString() ??
+            'individual',
+        companyName: json['companyName']?.toString() ??
+            json['company_name']?.toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -290,6 +312,8 @@ class UserModel {
         'signupMethod': signupMethod,
         'earning_currency': earningCurrency,
         'earning_currency_locked': earningCurrencyLocked,
+        'accountType': accountType,
+        'companyName': companyName,
       };
 
   String toJsonString() => jsonEncode(toJson());
