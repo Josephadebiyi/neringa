@@ -1012,6 +1012,12 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
       throw error;
     }
 
+    const stripePayment = await client.query(
+      `select payment_status, stripe_payment_intent_id from public.shipment_requests where id = $1`,
+      [requestId],
+    ).then((result) => result.rows[0] || {}).catch(() => ({}));
+    const stripePaymentIntentId = stripePayment.stripe_payment_intent_id || null;
+
     await client.query(
       `
         update public.shipment_requests
@@ -1079,17 +1085,61 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
               [request.traveler_id, heldAmount],
             );
           }
+        await client.query(
+          `
+            update public.shipment_ledgers
+            set escrow_status = 'released',
+                payout_status = 'available',
+                wallet_credit_created = true,
+                updated_at = timezone('utc', now())
+            where shipment_id = $1
+          `,
+          [request.id],
+        ).catch(() => {});
+        await client.query(
+          `
+            update public.shipment_requests
+            set payment_status = case
+                  when stripe_payment_intent_id is not null then 'released'
+                  else payment_status
+                end,
+                payment_info = case
+                  when stripe_payment_intent_id is not null then coalesce(payment_info, '{}'::jsonb) || $2::jsonb
+                  else payment_info
+                end,
+                captured_at = case
+                  when stripe_payment_intent_id is not null then timezone('utc', now())
+                  else captured_at
+                end,
+                updated_at = timezone('utc', now())
+            where id = $1
+          `,
+          [
+            request.id,
+            {
+              method: 'stripe',
+              gateway: 'stripe',
+              status: 'released',
+              paymentIntentId: stripePaymentIntentId,
+              releasedBy: 'sender_confirmation',
+            },
+          ],
+        ).catch(() => {});
+        if (stripePaymentIntentId) {
           await client.query(
             `
-              update public.shipment_ledgers
-              set escrow_status = 'released',
-                  payout_status = 'available',
-                  wallet_credit_created = true,
+              update public.payments
+              set status = 'released',
+                  raw_response = coalesce(raw_response, '{}'::jsonb) || $2::jsonb,
                   updated_at = timezone('utc', now())
-              where shipment_id = $1
+              where stripe_payment_intent_id = $1
             `,
-            [request.id],
+            [
+              stripePaymentIntentId,
+              { releasedBy: 'sender_confirmation', requestId: request.id },
+            ],
           ).catch(() => {});
+        }
           return getShipmentRequestById(requestId);
         }
 
@@ -1124,6 +1174,50 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
           `,
           [request.id],
         ).catch(() => {});
+        await client.query(
+          `
+            update public.shipment_requests
+            set payment_status = case
+                  when stripe_payment_intent_id is not null then 'released'
+                  else payment_status
+                end,
+                payment_info = case
+                  when stripe_payment_intent_id is not null then coalesce(payment_info, '{}'::jsonb) || $2::jsonb
+                  else payment_info
+                end,
+                captured_at = case
+                  when stripe_payment_intent_id is not null then timezone('utc', now())
+                  else captured_at
+                end,
+                updated_at = timezone('utc', now())
+            where id = $1
+          `,
+          [
+            request.id,
+            {
+              method: 'stripe',
+              gateway: 'stripe',
+              status: 'released',
+              paymentIntentId: stripePaymentIntentId,
+              releasedBy: 'sender_confirmation',
+            },
+          ],
+        ).catch(() => {});
+        if (stripePaymentIntentId) {
+          await client.query(
+            `
+              update public.payments
+              set status = 'released',
+                  raw_response = coalesce(raw_response, '{}'::jsonb) || $2::jsonb,
+                  updated_at = timezone('utc', now())
+              where stripe_payment_intent_id = $1
+            `,
+            [
+              stripePaymentIntentId,
+              { releasedBy: 'sender_confirmation', requestId: request.id },
+            ],
+          ).catch(() => {});
+        }
       }
     }
 

@@ -29,7 +29,12 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   Future<void> _loadCards() async {
     try {
       final res = await PaymentService.instance.getSavedPaymentMethods();
-      if (mounted) setState(() { _cards = res.cards; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _cards = res.cards;
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -44,12 +49,14 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
           _cards = _cards.where((c) => c.id != id).toList();
           _deletingId = '';
         });
-        AppSnackBar.show(context, message: 'Card removed.', type: SnackBarType.success);
+        AppSnackBar.show(context,
+            message: 'Card removed.', type: SnackBarType.success);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _deletingId = '');
-        AppSnackBar.show(context, message: 'Could not remove card.', type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: 'Could not remove card.', type: SnackBarType.error);
       }
     }
   }
@@ -63,7 +70,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         onAdded: (card) {
           if (mounted) {
             setState(() => _cards = [..._cards, card]);
-            AppSnackBar.show(context, message: 'Card saved.', type: SnackBarType.success);
+            AppSnackBar.show(context,
+                message: 'Card saved.', type: SnackBarType.success);
           }
         },
       ),
@@ -97,7 +105,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                   if (_cards.isEmpty)
                     _EmptyCards(onAdd: _showAddCardSheet)
                   else ...[
-                    _SectionLabel('Saved Cards'),
+                    const _SectionLabel('Saved Cards'),
                     const SizedBox(height: 10),
                     ..._cards.map((card) => _CardTile(
                           card: card,
@@ -278,7 +286,8 @@ class _SecurityNote extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.primary),
+          const Icon(Icons.lock_outline_rounded,
+              size: 18, color: AppColors.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -383,12 +392,12 @@ class _AddCardSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Cards via PayPal',
+            'Cards via Stripe',
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
           Text(
-            'Your card is entered securely inside the PayPal checkout sheet when you make a payment. PayPal can save it to your wallet for faster future payments.',
+            'Your card is entered securely inside Stripe checkout when you make a payment. Eligible saved cards and Apple Pay appear automatically.',
             style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
             textAlign: TextAlign.center,
           ),
@@ -402,4 +411,3 @@ class _AddCardSheet extends StatelessWidget {
     );
   }
 }
-

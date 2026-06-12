@@ -13,8 +13,6 @@ class ApiConstants {
     defaultValue: '',
   );
 
-  // PayPal checkout is created and captured by the backend. The PayPal client
-  // secret must never be shipped in Flutter builds.
   static const String paystackPublicKey =
       String.fromEnvironment('PAYSTACK_KEY', defaultValue: '');
 
@@ -132,13 +130,9 @@ class ApiConstants {
       '/api/payments/braintree/client-token';
   static const String braintreeCheckout = '/api/payments/braintree/checkout';
   static const String braintreeVault = '/api/payments/braintree/vault';
-  // PayPal checkout (card + PayPal wallet + Apple Pay)
-  static const String paypalConfig = '/api/config/paypal';
-  static const String paypalCheckout = '/api/payments/paypal/checkout';
-  static const String paypalCreateOrder = '/api/payments/paypal/create-order';
-  static const String paypalCaptureOrder = '/api/payments/paypal/capture-order';
-  static const String applePayCapture =
-      '/api/payments/paypal/apple-pay/capture';
+  // Stripe checkout (cards, Apple Pay, eligible wallets)
+  static const String stripeConfig = '/api/config/stripe';
+  static const String stripeCreateIntent = '/api/payments/create-intent';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';
@@ -151,11 +145,6 @@ class ApiConstants {
   static const String paystackAddBank = '/api/bago/paystack/add-bank';
   static const String paystackVerifyBankOtp =
       '/api/bago/paystack/verify-bank-otp';
-  static const String paypalPayoutSettings = '/api/payouts/paypal/settings';
-  static const String paypalPayoutSendOtp = '/api/payouts/paypal/send-otp';
-  static const String paypalPayoutVerifyOtp = '/api/payouts/paypal/verify-otp';
-  static const String paypalPayoutOAuthStart =
-      '/api/payouts/paypal/oauth/start';
   static const String stripePayoutStatus = '/api/payouts/status';
   static const String stripeConnectOnboard = '/api/payouts/connect/onboard';
   static const String stripeConnectDashboardLink =

@@ -1,19 +1,19 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/utils/country_currency_helper.dart';
+import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
-import '../../../shared/utils/user_currency_helper.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../../l10n/app_localizations.dart';
 
 class PayoutMethodsScreen extends ConsumerStatefulWidget {
   const PayoutMethodsScreen({super.key});
@@ -70,7 +70,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
   String _selectedCurrency = 'USD';
   bool _saving = false;
-  bool _editing = false;
 
   @override
   void initState() {
@@ -87,35 +86,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   bool get _usesPaystack =>
       _africanPayoutCurrencies.contains(_selectedCurrency.toUpperCase());
 
-  bool _hasConnectedStripe(user) {
-    final accountId = user?.stripeConnectAccountId?.trim() ?? '';
-    final method = user?.payoutMethod?.trim().toLowerCase() ?? '';
-    final provider = user?.payoutProvider?.trim().toLowerCase() ?? '';
-    final payoutStatus = user?.payoutStatus?.trim().toLowerCase() ?? '';
-    final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
-    final isStripe = accountId.isNotEmpty ||
-        method == 'stripe_connect' ||
-        method == 'stripe' ||
-        provider == 'stripe';
-    return isStripe &&
-        (payoutStatus == 'active' ||
-            methodStatus == 'connected' ||
-            methodStatus == 'active');
-  }
-
-  bool _hasConnectedPaystack(user) {
-    final method = user?.payoutMethod?.trim().toLowerCase() ?? '';
-    final provider = user?.payoutProvider?.trim().toLowerCase() ?? '';
-    final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
-    return user?.bankAccountLinked == true &&
-        (method == 'paystack' ||
-            provider == 'paystack' ||
-            methodStatus == 'connected');
-  }
-
-  bool _hasAnyPayoutMethod(user) =>
-      _hasConnectedStripe(user) || _hasConnectedPaystack(user);
-
   void _hydrateFromUser(user) {
     final payoutCurrency = user?.payoutCurrency?.toString().toUpperCase();
     if (payoutCurrency != null &&
@@ -125,51 +95,135 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
   }
 
-  Future<void> _openStripeExpress({required bool manage}) async {
+  _PayoutState _payoutStateFor(user) {
+    final method = user?.payoutMethod?.trim().toLowerCase() ?? '';
+    final provider = user?.payoutProvider?.trim().toLowerCase() ?? '';
+    final payoutStatus = user?.payoutStatus?.trim().toLowerCase() ?? '';
+    final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
+    final stripeAccountId = user?.stripeConnectAccountId?.trim() ?? '';
+    final hasStripe = stripeAccountId.isNotEmpty ||
+        provider == 'stripe' ||
+        method == 'stripe' ||
+        method == 'stripe_connect';
+    final hasPaystack = user?.bankAccountLinked == true &&
+        (provider == 'paystack' ||
+            method == 'paystack' ||
+            methodStatus == 'connected');
+    final active = payoutStatus == 'active' ||
+        methodStatus == 'active' ||
+        methodStatus == 'connected';
+
+    if (hasPaystack && _usesPaystack) {
+      return _PayoutState(
+        provider: _PayoutProvider.paystack,
+        status: active ? _PayoutStatus.active : _PayoutStatus.incomplete,
+        detail: 'Bank payout connected',
+        accountId: null,
+      );
+    }
+
+    if (hasStripe && !_usesPaystack) {
+      return _PayoutState(
+        provider: _PayoutProvider.stripe,
+        status: active ? _PayoutStatus.active : _PayoutStatus.incomplete,
+        detail: active
+            ? 'Stripe Express is ready for payouts'
+            : 'Finish Stripe Express setup to receive payouts',
+        accountId: stripeAccountId,
+      );
+    }
+
+    return _PayoutState(
+      provider:
+          _usesPaystack ? _PayoutProvider.paystack : _PayoutProvider.stripe,
+      status: _PayoutStatus.notStarted,
+      detail: _usesPaystack
+          ? 'Add a verified bank account for local payouts'
+          : 'Connect Stripe Express for international payouts',
+      accountId: null,
+    );
+  }
+
+  Future<void> _refreshProfile() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref.read(authProvider.notifier).refreshProfile();
+      if (!mounted) return;
+      setState(() => _hydrateFromUser(ref.read(authProvider).user));
+      AppSnackBar.show(
+        context,
+        message: 'Payout status refreshed.',
+        type: SnackBarType.success,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: error.toString().replaceFirst('Exception: ', ''),
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _openStripeOnboarding() async {
+    await _openStripeUrl(
+      endpoint: ApiConstants.stripeConnectOnboard,
+      successMessage: 'Continue setup in Stripe Express.',
+    );
+  }
+
+  Future<void> _openStripeDashboard() async {
+    await _openStripeUrl(
+      endpoint: ApiConstants.stripeConnectDashboardLink,
+      successMessage: 'Stripe Express dashboard opened.',
+      fallbackToOnboarding: true,
+    );
+  }
+
+  Future<void> _openStripeUrl({
+    required String endpoint,
+    required String successMessage,
+    bool fallbackToOnboarding = false,
+  }) async {
     if (_saving) return;
     final payoutCurrency = _selectedCurrency.toUpperCase();
     if (_africanPayoutCurrencies.contains(payoutCurrency)) {
       AppSnackBar.show(
         context,
         message:
-            '$payoutCurrency payouts must use Paystack/bank transfer, not Stripe Express.',
+            '$payoutCurrency payouts use Paystack bank transfer, not Stripe Express.',
         type: SnackBarType.error,
       );
       return;
     }
+
     setState(() => _saving = true);
     try {
       await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
       final response = await ApiService.instance.post<Map<String, dynamic>>(
-        manage
-            ? ApiConstants.stripeConnectDashboardLink
-            : ApiConstants.stripeConnectOnboard,
+        endpoint,
         data: {'payoutCurrency': payoutCurrency},
       );
-      final url = response.data?['url']?.toString();
-      if (url == null || url.isEmpty) {
-        throw Exception(response.data?['message']?.toString() ??
-            'Stripe Express setup link was not returned.');
-      }
-      final launched = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) throw Exception('Could not open Stripe Express.');
-      await ref.read(authProvider.notifier).refreshProfile();
-      if (!mounted) return;
-      setState(() {
-        _editing = false;
-        _hydrateFromUser(ref.read(authProvider).user);
-      });
-      AppSnackBar.show(
-        context,
-        message: manage
-            ? 'Stripe Express dashboard opened.'
-            : 'Continue setup in Stripe Express.',
-        type: SnackBarType.success,
-      );
+      await _launchStripeUrl(response.data, successMessage);
     } on DioException catch (error) {
+      if (fallbackToOnboarding &&
+          (ApiService.parseError(error).toLowerCase().contains('not set up') ||
+              error.response?.statusCode == 400)) {
+        try {
+          final response = await ApiService.instance.post<Map<String, dynamic>>(
+            ApiConstants.stripeConnectOnboard,
+            data: {'payoutCurrency': payoutCurrency},
+          );
+          await _launchStripeUrl(
+            response.data,
+            'Finish setup in Stripe Express.',
+          );
+          return;
+        } catch (_) {}
+      }
       if (!mounted) return;
       AppSnackBar.show(
         context,
@@ -188,6 +242,30 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
   }
 
+  Future<void> _launchStripeUrl(
+    Map<String, dynamic>? data,
+    String successMessage,
+  ) async {
+    final url = data?['url']?.toString();
+    if (url == null || url.isEmpty) {
+      throw Exception(data?['message']?.toString() ??
+          'Stripe Express setup link was not returned.');
+    }
+    final launched = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched) throw Exception('Could not open Stripe Express.');
+    await ref.read(authProvider.notifier).refreshProfile();
+    if (!mounted) return;
+    setState(() => _hydrateFromUser(ref.read(authProvider).user));
+    AppSnackBar.show(
+      context,
+      message: successMessage,
+      type: SnackBarType.success,
+    );
+  }
+
   Future<void> _continueWithPaystack() async {
     if (_saving) return;
     final payoutCurrency = _selectedCurrency.toUpperCase();
@@ -195,12 +273,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     try {
       await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
       if (!mounted) return;
-      AppSnackBar.show(
-        context,
-        message:
-            'Wallet currency updated to $payoutCurrency. Add your bank for Paystack payouts.',
-        type: SnackBarType.success,
-      );
       context.push('/profile/add-bank');
     } catch (error) {
       if (!mounted) return;
@@ -217,27 +289,28 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (previous, next) {
-      final previousAccount = previous?.user?.stripeConnectAccountId;
-      final nextAccount = next.user?.stripeConnectAccountId;
       final previousStatus = previous?.user?.payoutMethodStatus;
       final nextStatus = next.user?.payoutMethodStatus;
-      if (previousAccount != nextAccount || previousStatus != nextStatus) {
+      final previousAccount = previous?.user?.stripeConnectAccountId;
+      final nextAccount = next.user?.stripeConnectAccountId;
+      if (previousStatus != nextStatus || previousAccount != nextAccount) {
         setState(() => _hydrateFromUser(next.user));
       }
     });
 
     final user = ref.watch(authProvider).user;
-    final hasConnectedStripe = _hasConnectedStripe(user);
-    final hasConnectedPaystack = _hasConnectedPaystack(user);
-    final hasAnyPayoutMethod = _hasAnyPayoutMethod(user);
-    final showSetup = _editing || !hasAnyPayoutMethod;
+    final payoutState = _payoutStateFor(user);
+    final methodName =
+        _usesPaystack ? 'Paystack bank transfer' : 'Stripe Express';
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.backgroundOff,
       appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
         title: Text(
           AppLocalizations.of(context).payoutMethods,
-          style: AppTextStyles.h3,
+          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
@@ -245,230 +318,137 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.account_balance_wallet_outlined,
-              color: AppColors.primary,
+          _HeaderPanel(
+            methodName: methodName,
+            status: payoutState.status,
+            currency: _selectedCurrency,
+          ),
+          const SizedBox(height: 18),
+          const _SectionLabel(
+            title: 'Payout currency',
+            subtitle: 'This decides which payout provider is used.',
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedCurrency,
+            items: CurrencyConversionHelper.supportedCurrencyCodes
+                .map((currency) => DropdownMenuItem(
+                      value: currency,
+                      child: Text(currency),
+                    ))
+                .toList(),
+            onChanged: _saving
+                ? null
+                : (value) => setState(() => _selectedCurrency = value ?? 'USD'),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: AppColors.white,
+              prefixIcon: const Icon(Icons.payments_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 1.4),
+              ),
             ),
           ),
           const SizedBox(height: 18),
-          Text(
-            'Payout settings',
-            style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w900),
+          _MethodPanel(
+            state: payoutState,
+            usesPaystack: _usesPaystack,
+            currency: _selectedCurrency,
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Travelers are paid only after delivery is completed, the sender confirms delivery, the dispute window is clear, and KYC is approved.',
-            style: AppTextStyles.bodyMd.copyWith(
-              color: AppColors.gray600,
-              height: 1.45,
-            ),
+          const SizedBox(height: 18),
+          _PrimaryActionPanel(
+            state: payoutState,
+            usesPaystack: _usesPaystack,
+            saving: _saving,
+            onSetupStripe: _openStripeOnboarding,
+            onManageStripe: _openStripeDashboard,
+            onSetupPaystack: _continueWithPaystack,
+            onRefresh: _refreshProfile,
           ),
-          const SizedBox(height: 10),
-          Text(
-            hasAnyPayoutMethod
-                ? 'Your saved payout method is used for cleared traveler earnings.'
-                : 'Choose the currency you want paid out in. African currencies use Paystack bank transfer. Other currencies use Stripe Express.',
-            style: AppTextStyles.bodySm.copyWith(
-              color: AppColors.gray500,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _CurrentPayoutMethodCard(
-            hasStripe: hasConnectedStripe,
-            hasPaystack: hasConnectedPaystack,
-            stripeAccountId: user?.stripeConnectAccountId,
-            currency: user?.payoutCurrency ?? user?.walletCurrency,
-            status: user?.payoutMethodStatus ?? user?.payoutStatus,
-            isRefreshing: _saving,
-            onRefresh: () async {
-              await ref.read(authProvider.notifier).refreshProfile();
-              if (!mounted) return;
-              setState(() => _hydrateFromUser(ref.read(authProvider).user));
-            },
-            onChange: () => setState(() {
-              _editing = true;
-            }),
-            onManageStripe: hasConnectedStripe
-                ? () => _openStripeExpress(manage: true)
-                : null,
-          ),
-          if (!showSetup) ...[
-            const SizedBox(height: 16),
-            AppButton(
-              label: 'Update payout method',
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              isLoading: _saving,
-              onPressed: () => setState(() {
-                _editing = true;
-              }),
-            ),
-          ],
-          if (showSetup) ...[
-            const SizedBox(height: 24),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedCurrency,
-              items: CurrencyConversionHelper.supportedCurrencyCodes
-                  .map((currency) => DropdownMenuItem(
-                        value: currency,
-                        child: Text(currency),
-                      ))
-                  .toList(),
-              onChanged: _saving
-                  ? null
-                  : (value) => setState(() {
-                        _selectedCurrency = value ?? 'USD';
-                      }),
-              decoration: const InputDecoration(
-                labelText: 'Payout currency',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.gray50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  if (_usesPaystack)
-                    const Icon(Icons.account_balance_rounded,
-                        color: AppColors.primary)
-                  else
-                    const Icon(Icons.bolt_rounded, color: AppColors.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _usesPaystack
-                          ? '$_selectedCurrency payouts will use Paystack bank transfer.'
-                          : '$_selectedCurrency payouts will use Stripe Express.',
-                      style: AppTextStyles.bodyMd.copyWith(
-                        color: AppColors.gray700,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_usesPaystack) ...[
-              AppButton(
-                label: 'Set up Paystack bank payout',
-                icon: const Icon(Icons.account_balance_rounded, size: 18),
-                isLoading: _saving,
-                onPressed: _continueWithPaystack,
-              ),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.gray50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Text(
-                  'Stripe Express securely collects your payout details and lets you manage your connected account.',
-                  style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.gray700,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              AppButton(
-                label: hasConnectedStripe
-                    ? 'Manage Stripe Express'
-                    : 'Set up Stripe Express',
-                icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                isLoading: _saving,
-                onPressed: () => _openStripeExpress(manage: hasConnectedStripe),
-              ),
-            ],
-          ],
         ],
       ),
     );
   }
 }
 
-class _CurrentPayoutMethodCard extends StatelessWidget {
-  const _CurrentPayoutMethodCard({
-    required this.hasStripe,
-    required this.hasPaystack,
-    required this.stripeAccountId,
-    required this.currency,
+enum _PayoutProvider { stripe, paystack }
+
+enum _PayoutStatus { notStarted, incomplete, active }
+
+class _PayoutState {
+  const _PayoutState({
+    required this.provider,
     required this.status,
-    required this.isRefreshing,
-    required this.onRefresh,
-    required this.onChange,
-    required this.onManageStripe,
+    required this.detail,
+    required this.accountId,
   });
 
-  final bool hasStripe;
-  final bool hasPaystack;
-  final String? stripeAccountId;
-  final String? currency;
-  final String? status;
-  final bool isRefreshing;
-  final Future<void> Function() onRefresh;
-  final VoidCallback onChange;
-  final VoidCallback? onManageStripe;
+  final _PayoutProvider provider;
+  final _PayoutStatus status;
+  final String detail;
+  final String? accountId;
+
+  bool get isActive => status == _PayoutStatus.active;
+  bool get isIncomplete => status == _PayoutStatus.incomplete;
+}
+
+class _HeaderPanel extends StatelessWidget {
+  const _HeaderPanel({
+    required this.methodName,
+    required this.status,
+    required this.currency,
+  });
+
+  final String methodName;
+  final _PayoutStatus status;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
-    final hasMethod = hasStripe || hasPaystack;
-    final methodLabel = hasStripe
-        ? 'Stripe Express'
-        : hasPaystack
-            ? 'Paystack bank transfer'
-            : 'No payout method saved';
-    final detail = hasStripe
-        ? 'Connected account ${_shortAccountId(stripeAccountId)}'
-        : hasPaystack
-            ? 'Bank payout connected'
-            : 'Add a payout method to receive traveler earnings.';
-    final normalizedStatus = status?.trim().toLowerCase();
-    final statusLabel = hasMethod
-        ? (normalizedStatus == 'connected' || normalizedStatus == 'active'
-            ? 'Active'
-            : status ?? 'Saved')
-        : 'Not connected';
-
+    final active = status == _PayoutStatus.active;
+    final incomplete = status == _PayoutStatus.incomplete;
+    final label = active
+        ? 'Ready for payouts'
+        : incomplete
+            ? 'Setup in progress'
+            : 'Setup required';
+    final color = active
+        ? const Color(0xFF059669)
+        : incomplete
+            ? const Color(0xFFD97706)
+            : AppColors.primary;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: hasMethod ? const Color(0xFFEFFDF5) : AppColors.gray50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: hasMethod ? const Color(0xFFBBF7D0) : AppColors.border,
-        ),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                hasPaystack
-                    ? Icons.account_balance_rounded
-                    : hasStripe
-                        ? Icons.bolt_rounded
-                        : Icons.account_balance_wallet_outlined,
-                color: hasMethod ? const Color(0xFF059669) : AppColors.gray500,
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(Icons.account_balance_wallet_rounded, color: color),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -476,80 +456,286 @@ class _CurrentPayoutMethodCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      methodLabel,
-                      style: AppTextStyles.bodyLg.copyWith(
+                      label,
+                      style: AppTextStyles.labelMd.copyWith(
+                        color: color,
                         fontWeight: FontWeight.w900,
-                        color: hasMethod
-                            ? const Color(0xFF064E3B)
-                            : AppColors.gray800,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      detail,
-                      style: AppTextStyles.bodySm.copyWith(
-                        color: hasMethod
-                            ? const Color(0xFF047857)
-                            : AppColors.gray500,
-                        fontWeight: FontWeight.w700,
+                      methodName,
+                      style: AppTextStyles.h3.copyWith(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: hasMethod ? Colors.white : AppColors.gray100,
-                  borderRadius: BorderRadius.circular(999),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.gray50,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_outlined,
+                    size: 18, color: AppColors.gray500),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Payouts release after delivery is complete, confirmed, and cleared.',
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: AppColors.gray600,
+                      height: 1.35,
+                    ),
+                  ),
                 ),
-                child: Text(
-                  statusLabel,
-                  style: AppTextStyles.caption.copyWith(
-                    color:
-                        hasMethod ? const Color(0xFF047857) : AppColors.gray600,
+                const SizedBox(width: 8),
+                Text(
+                  currency.toUpperCase(),
+                  style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.black,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            ],
-          ),
-          if (currency != null && currency!.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Payout currency: ${currency!.toUpperCase()}',
-              style: AppTextStyles.bodySm.copyWith(
-                color: AppColors.gray600,
-                fontWeight: FontWeight.w700,
-              ),
+              ],
             ),
-          ],
-          const SizedBox(height: 14),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: AppTextStyles.labelLg.copyWith(
+            color: AppColors.black,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+        ),
+      ],
+    );
+  }
+}
+
+class _MethodPanel extends StatelessWidget {
+  const _MethodPanel({
+    required this.state,
+    required this.usesPaystack,
+    required this.currency,
+  });
+
+  final _PayoutState state;
+  final bool usesPaystack;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = usesPaystack ? 'Paystack bank transfer' : 'Stripe Express';
+    final subtitle = usesPaystack
+        ? '$currency payouts go to your verified bank account.'
+        : '$currency payouts are handled securely through Stripe Express.';
+    final icon =
+        usesPaystack ? Icons.account_balance_rounded : Icons.bolt_rounded;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTextStyles.bodyLg.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  state.detail.isNotEmpty ? state.detail : subtitle,
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.gray600,
+                    height: 1.35,
+                  ),
+                ),
+                if (state.accountId != null &&
+                    state.accountId!.trim().length >= 8) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Account ...${state.accountId!.substring(state.accountId!.length - 6)}',
+                    style: AppTextStyles.labelXs.copyWith(
+                      color: AppColors.gray500,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _StatusPill(status: state.status),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+
+  final _PayoutStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      _PayoutStatus.active => const Color(0xFF059669),
+      _PayoutStatus.incomplete => const Color(0xFFD97706),
+      _PayoutStatus.notStarted => AppColors.gray500,
+    };
+    final label = switch (status) {
+      _PayoutStatus.active => 'Active',
+      _PayoutStatus.incomplete => 'Incomplete',
+      _PayoutStatus.notStarted => 'New',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.labelXs.copyWith(
+          color: color,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryActionPanel extends StatelessWidget {
+  const _PrimaryActionPanel({
+    required this.state,
+    required this.usesPaystack,
+    required this.saving,
+    required this.onSetupStripe,
+    required this.onManageStripe,
+    required this.onSetupPaystack,
+    required this.onRefresh,
+  });
+
+  final _PayoutState state;
+  final bool usesPaystack;
+  final bool saving;
+  final VoidCallback onSetupStripe;
+  final VoidCallback onManageStripe;
+  final VoidCallback onSetupPaystack;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryLabel = usesPaystack
+        ? (state.isActive ? 'Update bank account' : 'Add bank account')
+        : state.isActive
+            ? 'Manage Stripe Express'
+            : state.isIncomplete
+                ? 'Continue Stripe Express setup'
+                : 'Set up Stripe Express';
+    final primaryIcon = usesPaystack
+        ? Icons.account_balance_rounded
+        : state.isActive
+            ? Icons.open_in_new_rounded
+            : Icons.bolt_rounded;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppButton(
+            label: primaryLabel,
+            icon: Icon(primaryIcon, size: 18),
+            isLoading: saving,
+            onPressed: usesPaystack
+                ? onSetupPaystack
+                : state.isActive
+                    ? onManageStripe
+                    : onSetupStripe,
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: isRefreshing ? null : onRefresh,
+                  onPressed: saving ? null : onRefresh,
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: const Text('Refresh'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onChange,
-                  icon: const Icon(Icons.edit_rounded, size: 18),
-                  label: Text(hasMethod ? 'Change' : 'Add'),
-                ),
-              ),
-              if (hasStripe && onManageStripe != null) ...[
-                const SizedBox(width: 12),
+              if (!usesPaystack && !state.isActive) ...[
+                const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: isRefreshing ? null : onManageStripe,
+                    onPressed: saving ? null : onSetupStripe,
                     icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('Manage'),
+                    label: const Text('Setup link'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -558,11 +744,5 @@ class _CurrentPayoutMethodCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _shortAccountId(String? accountId) {
-    final value = accountId?.trim() ?? '';
-    if (value.length < 8) return 'saved';
-    return '...${value.substring(value.length - 6)}';
   }
 }

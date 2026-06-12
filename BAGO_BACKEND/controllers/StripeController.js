@@ -32,7 +32,7 @@ function normalizeCurrency(value, fallback = 'USD') {
 
 function toMinorAmount(value) {
   const amount = Number(value);
-  return Number.isFinite(amount) ? Math.round(amount) : 0;
+  return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
 }
 
 function buildPaymentMethodEligibility({ countryCode, currency, captureMethod = 'automatic' }) {
@@ -272,7 +272,8 @@ export async function startStripeConnectOnboarding(req, res) {
     const profile = await getProfile(userIdFromReq(req));
     if (!profile) return res.status(404).json({ success: false, message: 'User not found.' });
     if (profile.stripe_connect_account_id && profile.stripe_onboarding_complete) {
-      return res.json({ success: true, alreadySetup: true });
+      const loginLink = await requireStripe().accounts.createLoginLink(profile.stripe_connect_account_id);
+      return res.json({ success: true, alreadySetup: true, url: loginLink.url });
     }
 
     const client = requireStripe();
@@ -965,20 +966,132 @@ export async function getStripeRefundStatus(req, res) {
 }
 
 export async function createStripePayout(req, res) {
+  let transfer = null;
+  let withdrawalTransactionId = null;
+  const userId = userIdFromReq(req);
   try {
-    const profile = await getProfile(userIdFromReq(req));
+    const profile = await getProfile(userId);
     const amount = toMinorAmount(req.body?.amount);
     const currency = normalizeCurrency(req.body?.currency || profile?.wallet_currency);
     if (!profile?.stripe_connect_account_id || !profile.stripe_onboarding_complete) {
       return res.status(400).json({ success: false, message: 'Set up payouts before withdrawing.' });
     }
     if (amount <= 0) return res.status(400).json({ success: false, message: 'Amount must be greater than zero.' });
+
+    const majorAmount = Number((amount / 100).toFixed(2));
+    const walletCurrency = normalizeCurrency(profile.wallet_currency || currency).toUpperCase();
+    if (walletCurrency !== currency.toUpperCase()) {
+      return res.status(400).json({ success: false, message: `Withdraw in your wallet currency (${walletCurrency}).` });
+    }
+
+    const withdrawal = await withTransaction(async (client) => {
+      const walletResult = await client.query(
+        `select id, available_balance, currency from public.wallet_accounts where user_id = $1 for update`,
+        [userId],
+      );
+      const wallet = walletResult.rows[0];
+      if (!wallet) {
+        const error = new Error('Wallet not found.');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (Number(wallet.available_balance || 0) < majorAmount) {
+        const error = new Error('Insufficient balance.');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      await client.query(
+        `update public.wallet_accounts set available_balance = available_balance - $2, updated_at = timezone('utc', now()) where user_id = $1`,
+        [userId, majorAmount],
+      );
+      const tx = await client.query(
+        `
+          insert into public.wallet_transactions (wallet_id, user_id, type, amount, currency, status, description, metadata)
+          values ($1, $2, 'withdrawal', $3, $4, 'pending', $5, $6)
+          returning id
+        `,
+        [
+          wallet.id,
+          userId,
+          majorAmount,
+          currency.toUpperCase(),
+          'Stripe Express withdrawal',
+          { provider: 'stripe', stripeAccountId: profile.stripe_connect_account_id },
+        ],
+      );
+      return { transactionId: tx.rows[0].id };
+    });
+    withdrawalTransactionId = withdrawal.transactionId;
+
+    transfer = await requireStripe().transfers.create({
+      amount,
+      currency,
+      destination: profile.stripe_connect_account_id,
+      metadata: { userId: profile.id, withdrawalTransactionId },
+    });
+
     const payout = await requireStripe().payouts.create(
-      { amount, currency, metadata: { userId: profile.id } },
+      {
+        amount,
+        currency,
+        metadata: { userId: profile.id, withdrawalTransactionId, transferId: transfer.id },
+      },
       { stripeAccount: profile.stripe_connect_account_id },
     );
-    return res.json({ success: true, payoutId: payout.id, status: payout.status });
+
+    await query(
+      `
+        update public.wallet_transactions
+        set status = 'completed',
+            metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb
+        where id = $1
+      `,
+      [
+        withdrawalTransactionId,
+        {
+          provider: 'stripe',
+          stripeAccountId: profile.stripe_connect_account_id,
+          stripeTransferId: transfer.id,
+          stripePayoutId: payout.id,
+          stripePayoutStatus: payout.status,
+        },
+      ],
+    );
+
+    return res.json({ success: true, payoutId: payout.id, transferId: transfer.id, status: payout.status });
   } catch (error) {
+    if (transfer?.id) {
+      await requireStripe().transfers.createReversal(transfer.id).catch((reverseError) => {
+        console.error('Stripe withdrawal transfer reversal failed:', reverseError.message);
+      });
+    }
+    if (withdrawalTransactionId) {
+      await withTransaction(async (client) => {
+        const txResult = await client.query(
+          `select user_id, amount from public.wallet_transactions where id = $1 and status = 'pending' for update`,
+          [withdrawalTransactionId],
+        );
+        const tx = txResult.rows[0];
+        if (!tx) return;
+        await client.query(
+          `update public.wallet_accounts set available_balance = available_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
+          [tx.user_id, tx.amount],
+        );
+        await client.query(
+          `
+            update public.wallet_transactions
+            set status = 'failed',
+                description = 'Stripe Express withdrawal failed',
+                metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb
+            where id = $1
+          `,
+          [withdrawalTransactionId, { failureReason: error.message }],
+        );
+      }).catch((refundError) => {
+        console.error('Stripe withdrawal wallet refund failed:', refundError.message);
+      });
+    }
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 }
