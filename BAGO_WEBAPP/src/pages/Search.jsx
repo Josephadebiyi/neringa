@@ -94,88 +94,113 @@ const TripCard = ({ trip, weight, surchargeMultiplier = 1.2075 }) => {
     };
 
     return (
-        <div className="bg-white rounded-[24px] p-5 border border-gray-100 hover:border-[#5845D8]/20 hover:shadow-[0_18px_45px_rgba(1,33,38,0.08)] hover:-translate-y-0.5 transition-all cursor-pointer group shadow-sm">
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5845D8] to-[#7C65FF] text-white flex items-center justify-center font-black text-base shadow-sm border-2 border-white">
+        <div className="bg-white rounded-[20px] border border-gray-100 overflow-hidden hover:shadow-[0_18px_45px_rgba(1,33,38,0.08)] hover:-translate-y-0.5 transition-all shadow-sm cursor-pointer">
+            {/* Top — dark travel header */}
+            <div className="bg-[#012126] px-5 pt-5 pb-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#5845D8]/15 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+
+                {/* Traveler row */}
+                <div className="flex items-center justify-between mb-5 relative z-10">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-black text-sm border-2 border-[#5845D8]/30 shadow-lg shadow-[#5845D8]/20">
                             {trip.firstName?.charAt(0) || 'T'}
                         </div>
                         <div>
-                            <h3 className="font-bold text-[#012126] text-sm tracking-tight">{trip.firstName || t('traveler')}</h3>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                                <div className="flex items-center gap-1 text-[10px] text-amber-500 font-black">
-                                    <Star size={10} fill="currentColor" />
-                                    <span>{trip.rating || '4.9'}</span>
-                                </div>
-                                <span
-                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${
-                                        isVerified
-                                            ? 'bg-emerald-50 text-emerald-600'
-                                            : 'bg-gray-100 text-gray-400'
-                                    }`}
-                                >
-                                    <ShieldCheck size={9} />
-                                    {isVerified
-                                        ? (t('verified') || 'Verified')
-                                        : (t('unverified') || 'Unverified')}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3 mb-5 rounded-2xl bg-[#F8F6F3]/70 p-3">
-                        <div className="flex items-center gap-2">
-                            <MapPin size={14} className="text-[#5845D8]" />
-                            <span className="font-bold text-[#012126] text-xs leading-tight">{trip.origin || trip.originCity}</span>
-                            <ArrowRight size={12} className="text-gray-300 flex-shrink-0" />
-                            <div className="flex flex-col">
-                                <span className="font-bold text-[#012126] text-xs leading-tight">{trip.destination || trip.destinationCity}</span>
-                                {trip.landmark && (
-                                    <span className="text-[9px] text-[#5845D8] font-black uppercase tracking-tight opacity-70 mt-0.5">
-                                        📍 {trip.landmark}
+                            <p className="text-white font-black text-[11px] tracking-tight leading-none">
+                                {trip.firstName || t('traveler')}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <Star size={8} fill="currentColor" className="text-amber-400" />
+                                <span className="text-[8px] text-white/50 font-bold">{trip.rating || '4.9'}</span>
+                                {isVerified && (
+                                    <span className="flex items-center gap-0.5 text-[7px] text-emerald-400 font-black bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                                        <ShieldCheck size={7} /> {t('verified') || 'Verified'}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <div className="flex items-center gap-4 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
-                            <div className="flex items-center gap-1.5">
-                                <Calendar size={12} className="text-gray-400" />
-                                <span>{trip.departureDate ? new Date(trip.departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'TBD'}</span>
-                            </div>
-                            {trip.transportMode && (
-                                <div className="flex items-center gap-1.5 rounded-full bg-white px-2 py-1 shadow-sm">
-                                    <Plane size={12} className="text-[#5845D8]" />
-                                    <span>{t(trip.transportMode.toLowerCase())}</span>
-                                </div>
-                            )}
+                    </div>
+                    {trip.transportMode && (
+                        <div className="flex items-center gap-1 bg-white/[0.07] border border-white/10 rounded-full px-2.5 py-1">
+                            <Plane size={9} className="text-white/50" />
+                            <span className="text-[7px] text-white/50 font-black uppercase tracking-widest">
+                                {trip.transportMode}
+                            </span>
                         </div>
+                    )}
+                </div>
+
+                {/* Route: CODE ────✈──── CODE */}
+                <div className="flex items-center justify-between relative z-10">
+                    <div>
+                        <p className="text-white text-[28px] font-black tracking-tighter leading-none">
+                            {(trip.origin || trip.originCity || 'ORG').split(',')[0].slice(0, 3).toUpperCase()}
+                        </p>
+                        <p className="text-white/35 text-[8px] font-bold mt-1 uppercase truncate max-w-[75px]">
+                            {(trip.origin || trip.originCity || '').split(',')[0]}
+                        </p>
+                        {trip.departureDate && (
+                            <p className="text-[#9B8EF5] text-[8px] font-black mt-1.5">
+                                {new Date(trip.departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                            </p>
+                        )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-50 mb-4 px-1">
-                        <div>
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5 opacity-60">{t('spaceAvailable') || 'Space'}</p>
-                            <p className="font-bold text-[#012126] text-xs">{trip.availableWeight || '5'} KG</p>
+                    <div className="flex flex-1 items-center mx-3 gap-1.5">
+                        <div className="flex-1 border-t border-dashed border-white/10" />
+                        <div className="w-7 h-7 bg-[#5845D8] rounded-full flex items-center justify-center shadow-lg shadow-[#5845D8]/40 flex-shrink-0">
+                            <Plane size={12} className="text-white" />
                         </div>
-                        <div className="text-right">
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5 opacity-60">{t('rate') || 'Rate'}</p>
-                            <p className="font-black text-[#5845D8] text-sm italic tracking-tight">
-                                {trip.pricePerKg
-                                    ? `${trip.currency || '$'} ${(trip.pricePerKg * surchargeMultiplier).toFixed(2)}/kg`
-                                    : t('rateStandard')}
+                        <div className="flex-1 border-t border-dashed border-white/10" />
+                    </div>
+
+                    <div className="text-right">
+                        <p className="text-white text-[28px] font-black tracking-tighter leading-none">
+                            {(trip.destination || trip.destinationCity || 'DST').split(',')[0].slice(0, 3).toUpperCase()}
+                        </p>
+                        <p className="text-white/35 text-[8px] font-bold mt-1 uppercase truncate max-w-[75px] text-right">
+                            {(trip.destination || trip.destinationCity || '').split(',')[0]}
+                        </p>
+                        {trip.landmark && (
+                            <p className="text-[#9B8EF5] text-[8px] font-black mt-1.5 text-right truncate max-w-[75px]">
+                                📍 {trip.landmark}
                             </p>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            <button
-                onClick={handleBookingClick}
-                className="w-full bg-[#5845D8] text-white py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-[#4838B5] transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/15"
-            >
-                {t('sendRequestBtn')}
-                <Package size={14} />
-            </button>
+            {/* Boarding-pass tear line */}
+            <div className="flex items-center">
+                <div className="w-4 h-4 rounded-full bg-[#F8F6F3] -ml-2 flex-shrink-0 border-r border-gray-100" />
+                <div className="flex-1 border-t border-dashed border-gray-200" />
+                <div className="w-4 h-4 rounded-full bg-[#F8F6F3] -mr-2 flex-shrink-0 border-l border-gray-100" />
+            </div>
+
+            {/* Bottom — rate + CTA */}
+            <div className="px-5 pt-3 pb-4">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('spaceAvailable') || 'Space Available'}</p>
+                        <p className="text-[#012126] font-black text-sm">{trip.availableWeight || '5'} KG</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('rate') || 'Rate'}</p>
+                        <p className="text-[#5845D8] font-black text-lg tracking-tight">
+                            {trip.pricePerKg
+                                ? `${trip.currency || '$'} ${(trip.pricePerKg * surchargeMultiplier).toFixed(2)}/kg`
+                                : t('rateStandard')}
+                        </p>
+                    </div>
+                </div>
+                <button
+                    onClick={handleBookingClick}
+                    className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-md shadow-[#5845D8]/20"
+                >
+                    {t('sendRequestBtn')}
+                    <Package size={13} />
+                </button>
+            </div>
         </div>
     );
 };

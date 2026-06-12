@@ -1,178 +1,399 @@
-import React from 'react';
-import { Shield, Plane, Package, CheckCircle, Clock, AlertCircle, Wallet, Phone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+    Shield, Plane, Package, Clock, Wallet,
+    ArrowUpRight, ArrowDownLeft, Users, TrendingUp, Star,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useLanguage } from '../../context/LanguageContext';
+import api from '../../api';
+
+const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function BarChart({ data, activeIndex }) {
+    const max = Math.max(...data.map(d => d.value), 1);
+    return (
+        <div className="flex items-end gap-2 h-24 w-full">
+            {data.map((d, i) => {
+                const pct = Math.max((d.value / max) * 100, 4);
+                const isToday = i === activeIndex;
+                return (
+                    <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+                        <div
+                            className={`w-full rounded-t-lg transition-all duration-700 ${
+                                isToday ? 'bg-[#5845D8] shadow-lg shadow-[#5845D8]/30' : 'bg-[#E8E5F7]'
+                            }`}
+                            style={{ height: `${pct}%` }}
+                        />
+                        <span className={`text-[8px] font-bold uppercase tracking-wide ${isToday ? 'text-[#5845D8]' : 'text-gray-300'}`}>
+                            {d.label}
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
 
 export default function Overview({ user, kycStatus, handleStartKyc, userStats }) {
-    const { t } = useLanguage();
     const navigate = useNavigate();
-    const effectiveKycStatus = user?.kycStatus === 'approved' || user?.isKycCompleted
-        ? 'approved'
-        : kycStatus;
-    const phoneVerified = user?.phoneVerified === true;
+    const [walletData, setWalletData] = useState({
+        balance: user?.walletBalance ?? user?.balance ?? 0,
+        escrow: user?.escrowBalance ?? user?.escrow_balance ?? 0,
+        history: [],
+    });
+    const [chartTab, setChartTab] = useState('earned');
+    const [loadingWallet, setLoadingWallet] = useState(false);
 
-    const renderKycContent = () => {
-        switch (effectiveKycStatus) {
-            case 'approved':
-                return (
-                    <div className="flex items-center gap-3 text-green-600 bg-green-50/30 p-4 rounded-2xl border border-green-100/30 font-sans">
-                        <CheckCircle size={20} />
-                        <div>
-                            <p className="font-black uppercase tracking-widest text-[8px]">{t('verified')}</p>
-                            <p className="text-[10px] font-bold opacity-70 uppercase tracking-tight">{t('fullAccessEnabled')}</p>
-                        </div>
-                    </div>
-                );
-            case 'pending':
-            case 'processing':
-                return (
-                    <div className="space-y-3 font-sans w-full">
-                        <div className="flex items-center gap-3 text-amber-600 bg-amber-50/30 p-4 rounded-2xl border border-amber-100/30">
-                            <Clock size={20} className="animate-pulse" />
-                            <div>
-                                <p className="font-black uppercase tracking-widest text-[8px]">{t('underReview')}</p>
-                                <p className="text-[10px] font-bold opacity-70 uppercase tracking-tight">{t('underReviewDesc')}</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleStartKyc}
-                            className="w-full bg-amber-500 text-white font-black py-2.5 rounded-xl shadow-lg text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all active:scale-95"
-                        >
-                            {t('continueVerification') || 'Continue Verification'}
-                        </button>
-                    </div>
-                );
-            case 'declined':
-                return (
-                    <div className="space-y-2 font-sans">
-                        <div className="flex items-center gap-3 text-red-600 bg-red-50/30 p-4 rounded-2xl border border-red-100/30">
-                            <AlertCircle size={20} />
-                            <div>
-                                <p className="font-black uppercase tracking-widest text-[8px]">{t('declined')}</p>
-                                <p className="text-[10px] font-bold opacity-70 uppercase tracking-tight">{t('docsRejected')}</p>
-                            </div>
-                        </div>
-                        <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-2.5 rounded-xl shadow-lg text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all">
-                            {t('tryAgain')}
-                        </button>
-                    </div>
-                );
-            case 'failed_verification':
-                return (
-                    <div className="space-y-2 font-sans">
-                        <div className="flex items-center gap-3 text-red-600 bg-red-50/30 p-4 rounded-2xl border border-red-100/30">
-                            <AlertCircle size={20} />
-                            <div>
-                                <p className="font-black uppercase tracking-widest text-[8px]">{t('mismatch')}</p>
-                                <p className="text-[10px] font-bold opacity-70 uppercase tracking-tight">{t('idMismatchDesc')}</p>
-                            </div>
-                        </div>
-                        <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-2.5 rounded-xl shadow-lg text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all">
-                            {t('verifyAgain')}
-                        </button>
-                    </div>
-                );
-            case 'blocked_duplicate':
-                return (
-                    <div className="flex items-center gap-3 text-red-600 bg-red-50/30 p-4 rounded-2xl border border-red-100/30 font-sans">
-                        <Shield size={20} />
-                        <div>
-                            <p className="font-black uppercase tracking-widest text-[8px]">{t('blocked')}</p>
-                            <p className="text-[10px] font-bold opacity-70 uppercase tracking-tight">{t('duplicateIdDesc')}</p>
-                        </div>
-                    </div>
-                );
-            default:
-                return (
-                    <div className="space-y-3 font-sans">
-                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-relaxed opacity-80">{t('completeVerificationToPost')}</p>
-                        <button onClick={handleStartKyc} className="w-full bg-[#5845D8] text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest shadow-md shadow-[#5845D8]/15 hover:scale-[1.02] transition-all active:scale-95">
-                            {t('verifyNow')}
-                        </button>
-                        {!phoneVerified && (
-                            <button
-                                onClick={() => navigate('/dashboard?tab=settings')}
-                                className="w-full border border-gray-200 text-gray-500 font-black py-2 rounded-xl text-[8px] uppercase tracking-widest hover:border-[#5845D8]/40 transition-all flex items-center justify-center gap-1.5"
-                            >
-                                <Phone size={10} />
-                                Also verify phone
-                            </button>
-                        )}
-                    </div>
-                );
+    const effectiveKycStatus =
+        user?.kycStatus === 'approved' || user?.isKycCompleted ? 'approved' : kycStatus;
+
+    const walletCurrency = (user?.walletCurrency || user?.preferredCurrency || 'USD').toUpperCase();
+    const sym = CURRENCY_SYMBOLS[walletCurrency] || walletCurrency;
+
+    useEffect(() => {
+        let mounted = true;
+        setLoadingWallet(true);
+        api.get('/api/bago/getWallet')
+            .then(res => {
+                if (!mounted) return;
+                const d = res.data?.data || res.data || {};
+                setWalletData({
+                    balance: Number(d.balance ?? d.walletBalance ?? user?.walletBalance ?? 0),
+                    escrow: Number(d.escrowBalance ?? d.escrow_balance ?? user?.escrowBalance ?? 0),
+                    history: d.history || d.transactions || [],
+                });
+            })
+            .catch(() => {})
+            .finally(() => { if (mounted) setLoadingWallet(false); });
+        return () => { mounted = false; };
+    }, []);
+
+    // Build weekly chart data
+    const todayDow = new Date().getDay();
+    const chartData = (() => {
+        const days = Array.from({ length: 7 }, (_, i) => {
+            const dow = (todayDow - 6 + i + 7) % 7;
+            return { label: DAY_LABELS[dow], value: 0, dow };
+        });
+        walletData.history.forEach(tx => {
+            const dow = new Date(tx.date || tx.createdAt).getDay();
+            const slot = days.find(d => d.dow === dow);
+            if (!slot) return;
+            if (chartTab === 'earned' && tx.type !== 'withdraw') slot.value += Number(tx.amount || 0);
+            if (chartTab === 'spent' && tx.type === 'withdraw') slot.value += Number(tx.amount || 0);
+        });
+        // seed with sample data when no history
+        if (walletData.history.length === 0) {
+            const samples = [40, 90, 60, 140, 80, 120, 50];
+            days.forEach((d, i) => { d.value = samples[i]; });
         }
-    };
+        return days;
+    })();
+
+    const earnedTotal = walletData.history
+        .filter(t => t.type !== 'withdraw')
+        .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const spentTotal = walletData.history
+        .filter(t => t.type === 'withdraw')
+        .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const displayAmount = chartTab === 'earned' ? earnedTotal : spentTotal;
+
+    const recentTxs = [...walletData.history].reverse().slice(0, 6);
+
+    const stats = [
+        {
+            label: 'Packages Sent',
+            value: userStats?.completedBookings ?? '—',
+            icon: Package,
+            activeBg: 'bg-[#5845D8]',
+            activeText: 'text-white',
+            iconBg: 'bg-white/20',
+            dark: true,
+        },
+        {
+            label: 'In Delivery',
+            value: userStats?.activePackages ?? '—',
+            icon: Clock,
+            activeBg: 'bg-white',
+            activeText: 'text-[#012126]',
+            iconBg: 'bg-amber-50',
+            iconColor: 'text-amber-500',
+            dark: false,
+        },
+        {
+            label: 'Community',
+            value: userStats?.totalUsers ? `${Number(userStats.totalUsers).toLocaleString()}+` : '—',
+            icon: Users,
+            activeBg: 'bg-white',
+            activeText: 'text-[#012126]',
+            iconBg: 'bg-emerald-50',
+            iconColor: 'text-emerald-500',
+            dark: false,
+        },
+        {
+            label: 'Rating',
+            value: '5.0',
+            icon: Star,
+            activeBg: 'bg-white',
+            activeText: 'text-[#012126]',
+            iconBg: 'bg-[#5845D8]/8',
+            iconColor: 'text-[#5845D8]',
+            dark: false,
+        },
+    ];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 font-sans text-[#012126]">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* KYC Card */}
-                {effectiveKycStatus !== 'approved' && (
-                    <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-[#5845D8]/5 rounded-bl-[50px] -mr-8 -mt-8 group-hover:bg-[#5845D8]/10 transition-all"></div>
-                        <div className="flex items-center justify-between mb-4 relative z-10">
-                            <h3 className="font-black text-[#012126] flex items-center gap-2 text-[9px] uppercase tracking-widest">
-                                <Shield size={14} className="text-[#5845D8]" /> {t('verification') || 'Identity Verification'}
-                            </h3>
-                        </div>
+        <div className="space-y-5 animate-in fade-in duration-400">
 
-                        <div className="flex-1 flex flex-col justify-center relative z-10">
-                            {renderKycContent()}
+            {/* ── Stat Cards ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {stats.map((s, i) => (
+                    <div
+                        key={i}
+                        className={`${s.activeBg} p-5 rounded-[20px] flex items-center gap-4 shadow-sm border border-gray-100/60 hover:shadow-md transition-all`}
+                    >
+                        <div className={`w-11 h-11 rounded-2xl ${s.iconBg} flex items-center justify-center shrink-0`}>
+                            <s.icon size={19} className={s.dark ? 'text-white/80' : (s.iconColor || 'text-[#5845D8]')} />
                         </div>
-                    </div>
-                )}
-
-                {/* Quick Actions */}
-                <div className={`${effectiveKycStatus === 'approved' ? 'md:col-span-3' : 'md:col-span-2'} grid grid-cols-1 sm:grid-cols-2 gap-5`}>
-                    <Link to="/post-trip" className="bg-[#5845D8] p-5 rounded-[24px] text-white shadow-lg shadow-[#5845D8]/15 relative overflow-hidden group cursor-pointer hover:shadow-xl transition-all h-full flex flex-col justify-between border border-[#5845D8]">
-                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
                         <div>
-                            <Plane size={24} className="mb-3 text-white/90" />
-                            <h3 className="text-base font-black mb-1 tracking-tight uppercase">{t('postATrip')}</h3>
-                            <p className="text-white/60 text-[9px] font-black leading-relaxed uppercase tracking-wider opacity-80">{t('monetizeLuggageDesc')}</p>
+                            <p className={`text-2xl font-black tracking-tight leading-none mb-0.5 ${s.activeText}`}>
+                                {s.value}
+                            </p>
+                            <p className={`text-[8px] font-bold uppercase tracking-widest opacity-60 ${s.activeText}`}>
+                                {s.label}
+                            </p>
                         </div>
-                        <div className="font-black text-white mt-5 flex items-center gap-2 group-hover:gap-3 transition-all uppercase tracking-widest text-[7px]">
-                            {t('getStarted')} <span>→</span>
-                        </div>
-                    </Link>
-
-                    <Link to="/search" className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 relative group cursor-pointer hover:shadow-md transition-all h-full flex flex-col justify-between overflow-hidden">
-                        <div className="absolute right-0 top-0 w-16 h-16 bg-gray-50 rounded-bl-[40px] -mr-4 -mt-4 group-hover:bg-[#5845D8]/5 transition-all"></div>
-                        <div>
-                            <Package size={24} className="mb-3 text-[#5845D8]" />
-                            <h3 className="text-base font-black text-[#012126] mb-1 tracking-tight uppercase">{t('sendPackage')}</h3>
-                            <p className="text-gray-400 text-[9px] font-black leading-relaxed uppercase tracking-wider opacity-80">{t('findTravelerDesc')}</p>
-                        </div>
-                        <div className="font-black text-[#5845D8] mt-5 flex items-center gap-2 group-hover:gap-3 transition-all uppercase tracking-widest text-[7px]">
-                            {t('findTraveler')} <span>→</span>
-                        </div>
-                    </Link>
-                </div>
-            </div>
-
-            {/* Stats Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {[
-                    { label: t('completed'), value: userStats?.completedBookings || '0', icon: CheckCircle, color: 'text-green-500' },
-                    { label: t('inTransit'), value: userStats?.activePackages || '0', icon: Clock, color: 'text-blue-500' },
-                    {
-                        label: t('totalEarned'),
-                        value: `${(user?.walletBalance ?? user?.balance ?? 0).toFixed(2)} ${user?.walletCurrency || user?.preferredCurrency || 'USD'}`,
-                        icon: Wallet,
-                        color: 'text-[#5845D8]'
-                    },
-                    { label: t('community'), value: userStats?.totalUsers || '0', icon: Shield, color: 'text-indigo-500' },
-                    { label: t('rating'), value: '5.0', icon: AlertCircle, color: 'text-amber-500' },
-                ].map((stat, i) => (
-                    <div key={i} className="bg-white p-4 rounded-[24px] border border-gray-100 shadow-sm text-center group hover:border-[#5845D8]/20 transition-all">
-                        <div className={`mx-auto w-7 h-7 rounded-xl bg-gray-50 flex items-center justify-center mb-2 ${stat.color} group-hover:bg-white transition-colors`}>
-                            <stat.icon size={14} />
-                        </div>
-                        <p className="text-sm font-black text-[#012126] tracking-tight">{stat.value}</p>
-                        <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mt-1 opacity-60 group-hover:opacity-100 transition-opacity">{stat.label}</p>
                     </div>
                 ))}
             </div>
+
+            {/* ── Main Row: Cards (left) + Chart (right) ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+                {/* Left 3/5 */}
+                <div className="lg:col-span-3 space-y-4">
+
+                    {/* Promo banner */}
+                    <div className="bg-[#012126] rounded-[24px] p-6 relative overflow-hidden min-h-[120px]">
+                        <div className="absolute top-0 right-0 w-56 h-56 bg-[#5845D8]/20 rounded-full blur-[80px] -mr-24 -mt-24 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/3 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
+                        <img src="/withdraw_background.png" alt="" className="absolute bottom-0 right-0 h-36 w-36 object-contain opacity-[0.10] pointer-events-none select-none" />
+                        <div className="relative z-10 flex items-start justify-between gap-4">
+                            <div>
+                                <span className="inline-block bg-[#5845D8]/20 text-[#9B8EF5] text-[8px] font-black uppercase tracking-[2px] px-3 py-1 rounded-full mb-3">
+                                    Bago Network
+                                </span>
+                                <h3 className="text-white text-xl font-black leading-snug mb-4">
+                                    Send packages.<br />Earn on every trip.
+                                </h3>
+                                <div className="flex gap-2 flex-wrap">
+                                    <Link
+                                        to="/post-trip"
+                                        className="inline-flex items-center gap-1.5 bg-[#5845D8] text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-lg shadow-[#5845D8]/20"
+                                    >
+                                        <Plane size={12} /> Post a Trip
+                                    </Link>
+                                    <Link
+                                        to="/search"
+                                        className="inline-flex items-center gap-1.5 bg-white/8 border border-white/10 text-white/70 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-white/12 transition-all"
+                                    >
+                                        <Package size={12} /> Send Package
+                                    </Link>
+                                </div>
+                            </div>
+                            <div className="hidden sm:flex w-20 h-20 rounded-2xl bg-[#5845D8]/15 border border-[#5845D8]/20 items-center justify-center shrink-0">
+                                <Package size={36} className="text-[#5845D8]/50" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Balance card */}
+                    <div className="bg-[#012126] rounded-[24px] p-6 relative overflow-hidden shadow-xl border border-white/5">
+                        <div className="absolute bottom-0 right-0 w-48 h-48 bg-[#5845D8]/12 rounded-full blur-[60px] -mr-20 -mb-20 pointer-events-none" />
+                        <img src="/wallet_background.png" alt="" className="absolute bottom-0 right-0 h-44 w-44 object-contain opacity-[0.13] pointer-events-none select-none" />
+                        <div className="relative z-10">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-[9px] text-white/30 font-black uppercase tracking-[2px]">Your Balance</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider">Live</span>
+                                </div>
+                            </div>
+                            <div className="mb-5">
+                                <div className="flex items-baseline gap-1 mb-1">
+                                    <span className="text-[#5845D8] text-2xl font-black">{sym}</span>
+                                    <span className="text-4xl font-black text-white tracking-tighter leading-none">
+                                        {loadingWallet
+                                            ? <span className="opacity-30 animate-pulse">—</span>
+                                            : walletData.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                {walletData.escrow > 0 && (
+                                    <p className="text-[9px] text-amber-400/60 font-bold uppercase tracking-widest">
+                                        + {sym}{walletData.escrow.toFixed(2)} held in escrow
+                                    </p>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <Link
+                                    to="/post-trip"
+                                    className="flex flex-col items-center gap-1.5 bg-[#5845D8] py-3 rounded-xl hover:bg-[#4838B5] transition-all shadow-lg shadow-[#5845D8]/20"
+                                >
+                                    <Plane size={16} className="text-white" />
+                                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Post Trip</span>
+                                </Link>
+                                <Link
+                                    to="/search"
+                                    className="flex flex-col items-center gap-1.5 bg-white/[0.06] border border-white/10 py-3 rounded-xl hover:bg-white/10 transition-all"
+                                >
+                                    <Package size={16} className="text-white/60" />
+                                    <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">Send</span>
+                                </Link>
+                                <button
+                                    onClick={() => navigate('/dashboard?tab=earnings')}
+                                    className="flex flex-col items-center gap-1.5 bg-white/[0.06] border border-white/10 py-3 rounded-xl hover:bg-white/10 transition-all"
+                                >
+                                    <Wallet size={16} className="text-white/60" />
+                                    <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">Withdraw</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right 2/5 - Chart */}
+                <div className="lg:col-span-2 bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm flex flex-col">
+                    {/* Tabs */}
+                    <div className="flex bg-gray-50 rounded-xl p-1 mb-5">
+                        {['earned', 'spent'].map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setChartTab(tab)}
+                                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                    chartTab === tab
+                                        ? 'bg-[#5845D8] text-white shadow-md shadow-[#5845D8]/15'
+                                        : 'text-gray-400 hover:text-gray-600'
+                                }`}
+                            >
+                                {tab === 'earned' ? 'Received' : 'Expenses'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Amount */}
+                    <div className="mb-1">
+                        <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest mb-1">This Week</p>
+                        <p className="text-3xl font-black text-[#012126] tracking-tighter">
+                            {sym}{displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-[9px] text-gray-400 font-medium mt-0.5">
+                            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </p>
+                    </div>
+
+                    {/* Bar chart */}
+                    <div className="flex-1 flex flex-col justify-end pt-4">
+                        <BarChart data={chartData} activeIndex={6} />
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Transaction History ── */}
+            <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+                    <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">Transaction History</h3>
+                    <button
+                        onClick={() => navigate('/dashboard?tab=earnings')}
+                        className="flex items-center gap-1 text-[9px] font-black text-gray-400 hover:text-[#5845D8] uppercase tracking-widest transition-colors"
+                    >
+                        Recent <TrendingUp size={12} />
+                    </button>
+                </div>
+
+                {/* Column headers */}
+                <div className="hidden md:grid grid-cols-4 px-6 py-2.5 bg-gray-50/50 border-b border-gray-50/80">
+                    {['Transaction Name', 'Detail Date', 'Status', 'Amount'].map(h => (
+                        <span key={h} className={`text-[8px] font-black text-gray-400 uppercase tracking-widest ${h === 'Amount' ? 'text-right' : ''}`}>
+                            {h}
+                        </span>
+                    ))}
+                </div>
+
+                {recentTxs.length === 0 ? (
+                    <div className="py-16 flex flex-col items-center gap-4 text-center">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+                            <Wallet size={24} className="text-gray-200" />
+                        </div>
+                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">No transactions yet</p>
+                        <p className="text-[9px] text-gray-300 font-medium max-w-[200px]">
+                            Complete a delivery or post a trip to start earning
+                        </p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-50">
+                        {recentTxs.map((tx, i) => {
+                            const isWithdraw = tx.type === 'withdraw';
+                            return (
+                                <div key={i} className="grid grid-cols-1 md:grid-cols-4 items-center px-6 py-4 hover:bg-gray-50/40 transition-all gap-3 md:gap-0">
+                                    {/* Name */}
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isWithdraw ? 'bg-orange-50' : 'bg-emerald-50'}`}>
+                                            {isWithdraw
+                                                ? <ArrowUpRight size={15} className="text-orange-500" />
+                                                : <ArrowDownLeft size={15} className="text-emerald-600" />}
+                                        </div>
+                                        <span className="text-[10px] font-black text-[#012126] uppercase tracking-tight truncate max-w-[140px]">
+                                            {tx.description || (isWithdraw ? 'Payout' : 'Delivery Earnings')}
+                                        </span>
+                                    </div>
+                                    {/* Date */}
+                                    <span className="text-[9px] font-medium text-gray-400 pl-12 md:pl-0">
+                                        {new Date(tx.date || tx.createdAt).toLocaleDateString('en-GB', {
+                                            month: 'short', day: 'numeric', year: 'numeric',
+                                            hour: '2-digit', minute: '2-digit',
+                                        })}
+                                    </span>
+                                    {/* Status */}
+                                    <span className="hidden md:flex">
+                                        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-full">
+                                            Success
+                                        </span>
+                                    </span>
+                                    {/* Amount */}
+                                    <span className={`text-sm font-black tracking-tight md:text-right ${isWithdraw ? 'text-red-500' : 'text-emerald-600'}`}>
+                                        {isWithdraw ? '-' : '+'}{sym}{Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* ── KYC Banner ── */}
+            {effectiveKycStatus !== 'approved' && (
+                <div className="bg-[#5845D8] rounded-[24px] p-5 flex items-center justify-between relative overflow-hidden">
+                    <div className="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 pointer-events-none" />
+                    <img src="/escrow_background.png" alt="" className="absolute right-0 bottom-0 h-28 w-28 object-contain opacity-[0.18] pointer-events-none select-none" />
+                    <div className="flex items-center gap-4 relative z-10">
+                        <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+                            <Shield size={22} className="text-white" />
+                        </div>
+                        <div>
+                            <p className="text-white font-black text-sm uppercase tracking-tight">Verify Your Identity</p>
+                            <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest">
+                                Complete KYC to post trips and earn
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleStartKyc}
+                        className="relative z-10 bg-white text-[#5845D8] px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all shrink-0"
+                    >
+                        Verify Now
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
