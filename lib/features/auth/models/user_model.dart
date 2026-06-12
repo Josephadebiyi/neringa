@@ -30,7 +30,6 @@ class UserModel {
   final bool bankAccountLinked;
   final String? stripeConnectAccountId;
   final bool stripeVerified;
-  final String? paypalEmail;
   final String? payoutCurrency;
   final String? payoutProvider;
   final String? payoutMethod;
@@ -69,7 +68,6 @@ class UserModel {
     this.bankAccountLinked = false,
     this.stripeConnectAccountId,
     this.stripeVerified = false,
-    this.paypalEmail,
     this.payoutCurrency,
     this.payoutProvider,
     this.payoutMethod,
@@ -146,7 +144,6 @@ class UserModel {
     bool? bankAccountLinked,
     String? stripeConnectAccountId,
     bool? stripeVerified,
-    String? paypalEmail,
     String? payoutCurrency,
     String? payoutProvider,
     String? payoutMethod,
@@ -187,7 +184,6 @@ class UserModel {
       stripeConnectAccountId:
           stripeConnectAccountId ?? this.stripeConnectAccountId,
       stripeVerified: stripeVerified ?? this.stripeVerified,
-      paypalEmail: paypalEmail ?? this.paypalEmail,
       payoutCurrency: payoutCurrency ?? this.payoutCurrency,
       payoutProvider: payoutProvider ?? this.payoutProvider,
       payoutMethod: payoutMethod ?? this.payoutMethod,
@@ -248,8 +244,6 @@ class UserModel {
             json['stripe_connect_account_id']?.toString(),
         stripeVerified:
             json['stripeVerified'] == true || json['stripe_verified'] == true,
-        paypalEmail:
-            json['paypalEmail']?.toString() ?? json['paypal_email']?.toString(),
         payoutCurrency: json['payoutCurrency']?.toString() ??
             json['payout_currency']?.toString(),
         payoutProvider: json['payoutProvider']?.toString() ??
@@ -303,7 +297,6 @@ class UserModel {
         'rating_count': ratingCount,
         'stripeConnectAccountId': stripeConnectAccountId,
         'stripeVerified': stripeVerified,
-        'paypal_email': paypalEmail,
         'payout_currency': payoutCurrency,
         'payout_provider': payoutProvider,
         'payout_method': payoutMethod,
