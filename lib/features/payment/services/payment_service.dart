@@ -191,6 +191,20 @@ class PaymentService {
     }
   }
 
+  Future<Map<String, dynamic>> getStripePaymentMethods({
+    required String currency,
+  }) async {
+    try {
+      final response = await _api.get(
+        ApiConstants.stripePaymentMethods,
+        queryParameters: {'currency': currency},
+      );
+      return _extractMap(response.data);
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<StripeCheckoutSession> createStripeCheckoutSession({
     required String packageId,
     required String tripId,
@@ -198,6 +212,7 @@ class PaymentService {
     required double amount,
     required String currency,
     bool termsAccepted = true,
+    String paymentMethodType = 'card',
   }) async {
     try {
       final config = await getStripeConfig();
@@ -210,6 +225,7 @@ class PaymentService {
           'amount': amount,
           'currency': currency,
           'termsAccepted': termsAccepted,
+          'paymentMethodType': paymentMethodType,
         },
       );
       final data = _extractMap(response.data);
@@ -226,7 +242,7 @@ class PaymentService {
           publishableKey == null ||
           publishableKey.isEmpty) {
         throw StateError(
-            data['message']?.toString() ?? 'Stripe checkout could not start.');
+            data['message']?.toString() ?? 'Secure checkout could not start.');
       }
       return StripeCheckoutSession(
         clientSecret: clientSecret,

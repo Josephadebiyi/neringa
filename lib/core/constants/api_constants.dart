@@ -132,6 +132,7 @@ class ApiConstants {
   static const String braintreeVault = '/api/payments/braintree/vault';
   // Stripe checkout (cards, Apple Pay, eligible wallets)
   static const String stripeConfig = '/api/config/stripe';
+  static const String stripePaymentMethods = '/api/payments/methods';
   static const String stripeCreateIntent = '/api/payments/create-intent';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';

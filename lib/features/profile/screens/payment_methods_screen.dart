@@ -301,7 +301,7 @@ class _EmptyCards extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           AppButton(
-            label: isLoading ? 'Opening Stripe...' : 'Add a Card',
+            label: isLoading ? 'Opening secure form...' : 'Add a Card',
             icon: const Icon(Icons.add_rounded, size: 18),
             isLoading: isLoading,
             onPressed: onAdd,

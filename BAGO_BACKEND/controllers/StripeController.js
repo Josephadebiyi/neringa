@@ -516,17 +516,13 @@ export async function createStripeDashboardLink(req, res) {
     const client = requireStripe();
     const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
     const complete = await syncStripeConnectAccountState(account);
-    if (!complete) {
-      const accountLink = await createStripeConnectAccountLink({
-        client,
-        accountId: profile.stripe_connect_account_id,
-        profile,
-        type: stripeAccountLinkType(account),
-      });
-      return res.json({ success: true, url: accountLink.url, requiresCompletion: true });
-    }
-    const loginLink = await client.accounts.createLoginLink(profile.stripe_connect_account_id);
-    return res.json({ success: true, url: loginLink.url });
+    const accountLink = await createStripeConnectAccountLink({
+      client,
+      accountId: profile.stripe_connect_account_id,
+      profile,
+      type: complete ? 'account_update' : stripeAccountLinkType(account),
+    });
+    return res.json({ success: true, url: accountLink.url, requiresCompletion: !complete });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
@@ -575,8 +571,18 @@ export async function verifyPayoutMethodOtp(req, res) {
       `update public.profiles set payout_otp_hash = null, payout_otp_expires_at = null, updated_at = timezone('utc', now()) where id = $1`,
       [profile.id],
     );
-    const loginLink = await requireStripe().accounts.createLoginLink(profile.stripe_connect_account_id);
-    return res.json({ success: true, url: loginLink.url });
+    if (!profile?.stripe_connect_account_id) {
+      return res.status(400).json({ success: false, message: 'Payout account not set up.' });
+    }
+    const client = requireStripe();
+    const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
+    const accountLink = await createStripeConnectAccountLink({
+      client,
+      accountId: profile.stripe_connect_account_id,
+      profile,
+      type: stripeAccountLinkType(account),
+    });
+    return res.json({ success: true, url: accountLink.url });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
@@ -679,6 +685,7 @@ export async function createStripePaymentIntent(req, res) {
     const tripId = req.body?.tripId || null;
     const travelerId = req.body?.travelerId || null;
     const paymentMethodId = req.body?.paymentMethodId || null;
+    const paymentMethodType = req.body?.paymentMethodType || 'card';
     if (amount <= 0) return res.status(400).json({ success: false, message: 'Amount must be greater than zero.' });
 
     if (packageId || tripId || travelerId) {
@@ -722,22 +729,32 @@ export async function createStripePaymentIntent(req, res) {
 
     const customerId = await ensureStripeCustomer(profile);
     const ephemeralKey = await createEphemeralKey(customerId);
+    const ip = getClientIP(req);
+    const location = await getLocationFromIP(ip).catch(() => null);
+    const detectedCountry = location?.countryCode || location?.country || '';
     const paymentMethodEligibility = buildPaymentMethodEligibility({
-      countryCode: req.body?.countryCode || profile.country || '',
+      countryCode: detectedCountry || req.body?.countryCode || profile.country || '',
       currency,
       captureMethod: 'automatic',
     });
+    const bizumAvailable = paymentMethodEligibility.methods.some(
+      (method) => method.id === 'bizum' && method.available,
+    );
+    const requestedPaymentMethod = String(paymentMethodType || 'card').trim().toLowerCase();
+    const paymentMethodTypes =
+      requestedPaymentMethod === 'bizum' && bizumAvailable ? ['bizum'] : ['card'];
     const params = {
       amount,
       currency,
       customer: customerId,
-      automatic_payment_methods: { enabled: true },
+      payment_method_types: paymentMethodTypes,
       metadata: {
         shipmentId: shipmentId || '',
         senderId: profile.id,
         packageId: packageId || '',
         tripId: tripId || '',
         travelerId: travelerId || '',
+        paymentMethodType: paymentMethodTypes[0],
       },
     };
     if (paymentMethodId) {

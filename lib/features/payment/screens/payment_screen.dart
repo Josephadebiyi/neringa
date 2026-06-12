@@ -29,6 +29,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoadingDraft = true;
   bool _isSdkReady = false;
   bool _isProcessing = false;
+  bool _cardComplete = false;
+  bool _applePaySupported = false;
+  bool _bizumAvailable = false;
+  String _merchantCountryCode = 'ES';
   Map<String, dynamic>? _draft;
   String? _initError;
 
@@ -90,7 +94,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
       Stripe.merchantIdentifier =
           config['merchantIdentifier']?.toString() ?? 'merchant.com.bago.app';
       await Stripe.instance.applySettings();
-      if (mounted) setState(() => _isSdkReady = true);
+      final currency = _asString(_draft?['currency'], 'USD');
+      final methods =
+          await _paymentService.getStripePaymentMethods(currency: currency);
+      final rawMethods = methods['methods'];
+      final applePaySupported = await Stripe.instance
+          .isPlatformPaySupported()
+          .catchError((_) => false);
+      final bizumAvailable = rawMethods is List &&
+          rawMethods.whereType<Map>().any((method) =>
+              method['id']?.toString() == 'bizum' &&
+              method['available'] == true);
+      if (mounted) {
+        setState(() {
+          _isSdkReady = true;
+          _applePaySupported = applePaySupported;
+          _bizumAvailable = bizumAvailable;
+          _merchantCountryCode =
+              (config['merchantCountryCode']?.toString() ?? 'ES')
+                  .trim()
+                  .toUpperCase();
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _initError = e.toString());
     }
@@ -170,11 +195,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  // ── Stripe checkout ───────────────────────────────────────────────────────
+  // ── In-app checkout ───────────────────────────────────────────────────────
 
-  Future<void> _startStripeCheckout() async {
+  Future<void> _startCardCheckout() async {
     if (_isProcessing || _draft == null || !_isSdkReady) return;
+    if (!_cardComplete) {
+      if (mounted) {
+        setState(() => _initError = 'Please enter valid card details.');
+      }
+      return;
+    }
     setState(() => _isProcessing = true);
+    String? paymentReference;
     try {
       final draft = _draft!;
       final currency = _asString(draft['currency'], 'USD');
@@ -189,7 +221,129 @@ class _PaymentScreenState extends State<PaymentScreen> {
         amount: totalAmount,
         currency: currency,
         termsAccepted: true,
+        paymentMethodType: 'card',
       );
+      paymentReference = session.paymentIntentId;
+
+      final paymentIntent = await Stripe.instance.confirmPayment(
+        paymentIntentClientSecret: session.clientSecret,
+        data: const PaymentMethodParams.card(
+          paymentMethodData: PaymentMethodData(),
+        ),
+      );
+      _assertPaymentReadyForShipment(paymentIntent);
+
+      await _completeShipmentAfterPayment(
+        draft: draft,
+        travelerId: travelerId,
+        packageId: packageId,
+        tripId: tripId,
+        currency: currency,
+        paymentReference: session.paymentIntentId,
+      );
+    } on StripeException catch (e) {
+      final message = e.error.localizedMessage ??
+          e.error.message ??
+          'Payment was cancelled or could not be completed.';
+      _failWithDraft('stripe', message, paymentReference: paymentReference);
+    } catch (e) {
+      _failWithDraft(
+        'stripe',
+        e.toString().replaceFirst('Exception: ', ''),
+        paymentReference: paymentReference,
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _startApplePayCheckout() async {
+    if (_isProcessing || _draft == null || !_isSdkReady) return;
+    setState(() => _isProcessing = true);
+    String? paymentReference;
+    try {
+      final draft = _draft!;
+      final currency = _asString(draft['currency'], 'USD');
+      final totalAmount = _asDouble(draft['totalAmount']);
+      final packageId = draft['packageId']?.toString() ?? '';
+      final tripId = draft['tripId']?.toString() ?? '';
+      final travelerId = draft['travelerId']?.toString() ?? '';
+      final session = await _paymentService.createStripeCheckoutSession(
+        packageId: packageId,
+        tripId: tripId,
+        travelerId: travelerId,
+        amount: totalAmount,
+        currency: currency,
+        termsAccepted: true,
+        paymentMethodType: 'card',
+      );
+      paymentReference = session.paymentIntentId;
+
+      final paymentIntent =
+          await Stripe.instance.confirmPlatformPayPaymentIntent(
+        clientSecret: session.clientSecret,
+        confirmParams: PlatformPayConfirmParams.applePay(
+          applePay: ApplePayParams(
+            merchantCountryCode: _merchantCountryCode,
+            currencyCode: currency.toUpperCase(),
+            cartItems: [
+              ApplePayCartSummaryItem.immediate(
+                label: 'Bago',
+                amount: totalAmount.toStringAsFixed(2),
+              ),
+            ],
+          ),
+        ),
+      );
+      _assertPaymentReadyForShipment(paymentIntent);
+
+      await _completeShipmentAfterPayment(
+        draft: draft,
+        travelerId: travelerId,
+        packageId: packageId,
+        tripId: tripId,
+        currency: currency,
+        paymentReference: session.paymentIntentId,
+      );
+    } on StripeException catch (e) {
+      final message = e.error.localizedMessage ??
+          e.error.message ??
+          'Payment was cancelled or could not be completed.';
+      _failWithDraft('stripe', message, paymentReference: paymentReference);
+    } catch (e) {
+      _failWithDraft(
+        'stripe',
+        e.toString().replaceFirst('Exception: ', ''),
+        paymentReference: paymentReference,
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _startBizumCheckout() async {
+    if (_isProcessing || _draft == null || !_isSdkReady || !_bizumAvailable) {
+      return;
+    }
+    setState(() => _isProcessing = true);
+    String? paymentReference;
+    try {
+      final draft = _draft!;
+      final currency = _asString(draft['currency'], 'EUR');
+      final totalAmount = _asDouble(draft['totalAmount']);
+      final packageId = draft['packageId']?.toString() ?? '';
+      final tripId = draft['tripId']?.toString() ?? '';
+      final travelerId = draft['travelerId']?.toString() ?? '';
+      final session = await _paymentService.createStripeCheckoutSession(
+        packageId: packageId,
+        tripId: tripId,
+        travelerId: travelerId,
+        amount: totalAmount,
+        currency: currency,
+        termsAccepted: true,
+        paymentMethodType: 'bizum',
+      );
+      paymentReference = session.paymentIntentId;
 
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
@@ -197,61 +351,99 @@ class _PaymentScreenState extends State<PaymentScreen> {
           customerId: session.customerId,
           customerEphemeralKeySecret: session.customerEphemeralKeySecret,
           merchantDisplayName: 'Bago',
-          applePay: const PaymentSheetApplePay(
-            merchantCountryCode: 'US',
-          ),
           style: ThemeMode.system,
           allowsDelayedPaymentMethods: false,
         ),
       );
       await Stripe.instance.presentPaymentSheet();
+      final paymentIntent =
+          await Stripe.instance.retrievePaymentIntent(session.clientSecret);
+      _assertPaymentReadyForShipment(paymentIntent);
 
-      await ShipmentService.instance.sendPackageRequest(
+      await _completeShipmentAfterPayment(
+        draft: draft,
         travelerId: travelerId,
         packageId: packageId,
         tripId: tripId,
-        amount: _asDouble(draft['shippingAmount']),
         currency: currency,
-        insurance: draft['insurance'] == true,
-        insuranceCost: _asDouble(draft['insuranceAmount']),
-        estimatedDeparture: draft['estimatedDeparture']?.toString(),
-        estimatedArrival: draft['estimatedArrival']?.toString(),
         paymentReference: session.paymentIntentId,
-        paymentProvider: 'stripe',
-        message: draft['message']?.toString(),
       );
-
-      if (!mounted) return;
-      await _checkoutService.clearDraft();
-      if (!mounted) return;
-      context.go('/order-success', extra: {
-        ...draft,
-        'provider': 'stripe',
-        'paymentReference': session.paymentIntentId,
-        'request': null,
-      });
     } on StripeException catch (e) {
       final message = e.error.localizedMessage ??
           e.error.message ??
           'Payment was cancelled or could not be completed.';
-      _failWithDraft('stripe', message);
+      _failWithDraft('stripe', message, paymentReference: paymentReference);
     } catch (e) {
-      _failWithDraft('stripe', e.toString().replaceFirst('Exception: ', ''));
+      _failWithDraft(
+        'stripe',
+        e.toString().replaceFirst('Exception: ', ''),
+        paymentReference: paymentReference,
+      );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
   }
 
+  void _assertPaymentReadyForShipment(PaymentIntent paymentIntent) {
+    final status = paymentIntent.status;
+    if (status == PaymentIntentsStatus.Succeeded ||
+        status == PaymentIntentsStatus.Processing ||
+        status == PaymentIntentsStatus.RequiresCapture) {
+      return;
+    }
+    throw Exception('Payment was not completed. Please try again.');
+  }
+
+  Future<void> _completeShipmentAfterPayment({
+    required Map<String, dynamic> draft,
+    required String travelerId,
+    required String packageId,
+    required String tripId,
+    required String currency,
+    required String paymentReference,
+  }) async {
+    await ShipmentService.instance.sendPackageRequest(
+      travelerId: travelerId,
+      packageId: packageId,
+      tripId: tripId,
+      amount: _asDouble(draft['shippingAmount']),
+      currency: currency,
+      insurance: draft['insurance'] == true,
+      insuranceCost: _asDouble(draft['insuranceAmount']),
+      estimatedDeparture: draft['estimatedDeparture']?.toString(),
+      estimatedArrival: draft['estimatedArrival']?.toString(),
+      paymentReference: paymentReference,
+      paymentProvider: 'stripe',
+      message: draft['message']?.toString(),
+    );
+
+    if (!mounted) return;
+    await _checkoutService.clearDraft();
+    if (!mounted) return;
+    context.go('/order-success', extra: {
+      ...draft,
+      'provider': 'stripe',
+      'paymentReference': paymentReference,
+      'request': null,
+    });
+  }
+
   // ── Shared failure helper ─────────────────────────────────────────────────
   // Keep the original expiry on failure so repeated attempts reuse the same
   // shipment draft without extending its 30-minute window.
-  void _failWithDraft(String provider, String errorMsg) {
+  void _failWithDraft(
+    String provider,
+    String errorMsg, {
+    String? paymentReference,
+  }) {
     if (!mounted) return;
     final existingExpiresAt = _draft?['expiresAt']?.toString();
     final fresh = {
       ...(_draft ?? {}),
       'provider': provider,
       'lastPaymentError': errorMsg,
+      if (paymentReference?.isNotEmpty == true)
+        'paymentReference': paymentReference,
       'expiresAt': existingExpiresAt?.isNotEmpty == true
           ? existingExpiresAt
           : DateTime.now()
@@ -401,15 +593,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Stripe PaymentSheet — cards, Apple Pay, and eligible wallets
-              _PaymentOptionButton(
-                icon: Icons.credit_card_rounded,
-                label: 'Pay with Stripe',
-                subtitle: 'Cards, Apple Pay and supported wallets',
+              _CardCheckoutForm(
+                amountLabel: '$currency ${totalAmount.toStringAsFixed(2)}',
                 isLoading: _isProcessing,
-                color: AppColors.primary,
-                onTap: _startStripeCheckout,
+                applePaySupported: _applePaySupported,
+                bizumAvailable: _bizumAvailable,
+                onCardChanged: (details) {
+                  setState(() {
+                    _cardComplete = details?.complete == true;
+                    _initError = null;
+                  });
+                },
+                onPayCard: _startCardCheckout,
+                onApplePay: _startApplePayCheckout,
+                onBizum: _startBizumCheckout,
               ),
             ],
             const SizedBox(height: 16),
@@ -425,11 +622,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   size: 13, color: AppColors.gray400),
               const SizedBox(width: 4),
               Text(
-                _usePaystack ? 'Secured by Paystack' : 'Secured by Stripe',
+                'Secure checkout',
                 style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400),
               ),
               if (!_usePaystack) ...[
                 const SizedBox(width: 10),
+                SvgPicture.asset('assets/images/amex.svg',
+                    width: 38, height: 24, fit: BoxFit.contain),
+                const SizedBox(width: 6),
                 SvgPicture.asset('assets/images/visa.svg',
                     width: 38, height: 24, fit: BoxFit.contain),
                 const SizedBox(width: 6),
@@ -441,6 +641,210 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+// ── In-app card checkout form ────────────────────────────────────────────────
+
+class _CardCheckoutForm extends StatelessWidget {
+  const _CardCheckoutForm({
+    required this.amountLabel,
+    required this.isLoading,
+    required this.applePaySupported,
+    required this.bizumAvailable,
+    required this.onCardChanged,
+    required this.onPayCard,
+    required this.onApplePay,
+    required this.onBizum,
+  });
+
+  final String amountLabel;
+  final bool isLoading;
+  final bool applePaySupported;
+  final bool bizumAvailable;
+  final ValueChanged<CardFieldInputDetails?> onCardChanged;
+  final VoidCallback onPayCard;
+  final VoidCallback onApplePay;
+  final VoidCallback onBizum;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Card details',
+              style: AppTextStyles.h3.copyWith(
+                color: AppColors.gray700,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            SvgPicture.asset('assets/images/amex.svg',
+                width: 42, height: 26, fit: BoxFit.contain),
+            const SizedBox(width: 6),
+            SvgPicture.asset('assets/images/visa.svg',
+                width: 42, height: 26, fit: BoxFit.contain),
+            const SizedBox(width: 6),
+            SvgPicture.asset('assets/images/mastercard.svg',
+                width: 42, height: 26, fit: BoxFit.contain),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Card number',
+          style: AppTextStyles.labelMd.copyWith(
+            color: AppColors.gray700,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F3F5),
+            borderRadius: BorderRadius.circular(2),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: CardField(
+            enablePostalCode: false,
+            numberHintText: '1234 5678 9012 3456',
+            expirationHintText: 'MM/YY',
+            cvcHintText: 'CVV',
+            cursorColor: AppColors.primary,
+            style: AppTextStyles.bodyMd.copyWith(color: AppColors.black),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+            onCardChanged: onCardChanged,
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 58,
+          child: ElevatedButton.icon(
+            onPressed: isLoading ? null : onPayCard,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+            ),
+            icon: isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.lock_outline_rounded, size: 20),
+            label: Text(
+              'Pay $amountLabel',
+              style: AppTextStyles.buttonLg.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+        if (applePaySupported) ...[
+          const SizedBox(height: 18),
+          _DividerLabel(
+              label: bizumAvailable ? 'or pay another way' : 'or pay with'),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: ElevatedButton(
+              onPressed: isLoading ? null : onApplePay,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.black,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor:
+                    AppColors.black.withValues(alpha: 0.45),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.apple_rounded, size: 28),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Pay',
+                    style: AppTextStyles.h3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (bizumAvailable) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: OutlinedButton(
+              onPressed: isLoading ? null : onBizum,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.black,
+                side: const BorderSide(color: AppColors.gray200),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: Text(
+                'Pay with Bizum',
+                style: AppTextStyles.buttonMd.copyWith(
+                  color: AppColors.black,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DividerLabel extends StatelessWidget {
+  const _DividerLabel({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: AppColors.gray200)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            style: AppTextStyles.labelMd.copyWith(
+              color: AppColors.gray400,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(color: AppColors.gray200)),
+      ],
     );
   }
 }

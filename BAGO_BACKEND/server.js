@@ -642,12 +642,12 @@ schema('/api/paystack/withdraw', {
   max: { amount: 20, currency: 3 },
 });
 schema('/api/payments/create-intent', {
-  allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
+  allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
   required: ['amount', 'currency'],
-  strings: ['currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'packageId', 'tripId', 'travelerId'],
+  strings: ['currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId'],
   booleans: ['termsAccepted'],
   stringOrNumbers: ['amount'],
-  max: { amount: 20, currency: 3, countryCode: 2, shipmentId: 80, deliveryId: 80, paymentMethodId: 120, packageId: 80, tripId: 80, travelerId: 80 },
+  max: { amount: 20, currency: 3, countryCode: 2, shipmentId: 80, deliveryId: 80, paymentMethodId: 120, paymentMethodType: 20, packageId: 80, tripId: 80, travelerId: 80 },
 });
 schema('/api/payments/cards/setup-intent', {
   allowed: [],
@@ -885,6 +885,7 @@ app.get('/api/config/stripe', (_req, res) => {
     success: true,
     publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
     merchantIdentifier: process.env.STRIPE_APPLE_PAY_MERCHANT_ID || 'merchant.com.bago.app',
+    merchantCountryCode: process.env.STRIPE_APPLE_PAY_MERCHANT_COUNTRY || 'ES',
   });
 });
 
