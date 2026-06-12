@@ -476,11 +476,12 @@ class _AboutTab extends StatelessWidget {
         BagoMenuGroup(
           children: [
             if (bio == null || bio!.isEmpty)
-            BagoMenuItem(
-              label: l10n.addMiniBio,
-              leading: const Icon(Icons.add_rounded, color: AppColors.primary),
-              onTap: () => context.push('/profile/edit-bio'),
-            ),
+              BagoMenuItem(
+                label: l10n.addMiniBio,
+                leading:
+                    const Icon(Icons.add_rounded, color: AppColors.primary),
+                onTap: () => context.push('/profile/edit-bio'),
+              ),
             BagoMenuItem(
               label: l10n.highlyResponsiveReliable,
               leading: const Icon(Icons.chat_bubble_outline_rounded,
@@ -661,6 +662,7 @@ class _WalletCard extends ConsumerStatefulWidget {
 class _WalletCardState extends ConsumerState<_WalletCard> {
   double? _liveEscrow;
   bool _escrowLoading = true;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -670,6 +672,7 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
 
   Future<void> _fetchEscrow() async {
     try {
+      await ref.read(authProvider.notifier).refreshProfile();
       final res = await ApiService.instance.get(ApiConstants.walletBalance);
       final data = res.data as Map<String, dynamic>?;
       if (mounted) {
@@ -681,6 +684,16 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
     } catch (_) {
       if (mounted) setState(() => _escrowLoading = false);
     }
+  }
+
+  Future<void> _refreshWallet() async {
+    if (_refreshing) return;
+    setState(() {
+      _refreshing = true;
+      _escrowLoading = true;
+    });
+    await _fetchEscrow();
+    if (mounted) setState(() => _refreshing = false);
   }
 
   @override
@@ -697,107 +710,160 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D0E12),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.account_balance_wallet_outlined,
-                    color: Colors.white, size: 18),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
+            decoration: BoxDecoration(
+              image: const DecorationImage(
+                image: AssetImage('assets/images/wallet/wallet_background.png'),
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'TOTAL BALANCE',
-                    style: AppTextStyles.labelXs.copyWith(
-                      color: Colors.white38,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0x8F06111F),
+                          Color(0x3306111F),
+                          Color(0x0006111F),
+                        ],
+                        stops: [0, 0.56, 1],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$displayCurrency ${total.toStringAsFixed(2)}',
-                    style: AppTextStyles.displaySm.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w900),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _BalanceTile(
-                    label: 'Available',
-                    sublabel: 'Withdraw now',
-                    amount: available,
-                    currency: displayCurrency,
-                    color: const Color(0xFF34D399),
-                  ),
                 ),
-                Container(width: 1, height: 32, color: Colors.white12),
-                Expanded(
-                  child: _escrowLoading
-                      ? const Center(
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              color: Colors.white38,
-                              strokeWidth: 1.5,
-                            ),
-                          ),
-                        )
-                      : _BalanceTile(
-                          label: 'Held',
-                          sublabel: 'Released on delivery',
-                          amount: escrow,
-                          currency: displayCurrency,
-                          color: const Color(0xFFFBBF24),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available Balance',
+                      style: AppTextStyles.labelMd.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$displayCurrency ${total.toStringAsFixed(2)}',
+                      style: AppTextStyles.displaySm.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Withdrawable earnings and escrow',
+                      style: AppTextStyles.caption.copyWith(
+                        color: Colors.white38,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _refreshing ? null : _refreshWallet,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14)),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _refreshing
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh_rounded,
+                                    color: Colors.white, size: 15),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Refresh wallet',
+                              style: AppTextStyles.labelXs.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileBalancePanel(
+                  label: 'Withdrawable',
+                  amount: available,
+                  currency: displayCurrency,
+                  note: 'Ready now',
+                  color: const Color(0xFFFFE7B8),
+                  icon: Icons.savings_rounded,
+                  iconColor: const Color(0xFFF97316),
+                  backgroundAsset:
+                      'assets/images/wallet/withdraw_background.png',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _escrowLoading
+                    ? const _ProfileBalanceLoadingPanel()
+                    : _ProfileBalancePanel(
+                        label: 'In escrow',
+                        amount: escrow,
+                        currency: displayCurrency,
+                        note: 'After delivery',
+                        color: const Color(0xFFDDFDDD),
+                        icon: Icons.lock_rounded,
+                        iconColor: const Color(0xFF22C55E),
+                        backgroundAsset:
+                            'assets/images/wallet/escrow_background.png',
+                      ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           GestureDetector(
             onTap: () => context.push('/profile/withdraw'),
             child: Container(
-              height: 38,
+              height: 48,
               decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.savings_outlined,
-                      color: AppColors.primary, size: 18),
+                  const Icon(Icons.arrow_outward_rounded,
+                      color: Colors.white, size: 19),
                   const SizedBox(width: 8),
                   Text(
                     'Withdraw Earnings',
                     style: AppTextStyles.buttonMd.copyWith(
-                        color: AppColors.black, fontWeight: FontWeight.w800),
+                        color: Colors.white, fontWeight: FontWeight.w800),
                   ),
                 ],
               ),
@@ -809,36 +875,104 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
   }
 }
 
-class _BalanceTile extends StatelessWidget {
-  const _BalanceTile({
+class _ProfileBalancePanel extends StatelessWidget {
+  const _ProfileBalancePanel({
     required this.label,
-    required this.sublabel,
     required this.amount,
     required this.currency,
+    required this.note,
     required this.color,
+    required this.icon,
+    required this.iconColor,
+    this.backgroundAsset,
   });
-  final String label, sublabel, currency;
+
+  final String label;
   final double amount;
+  final String currency;
+  final String note;
   final Color color;
+  final IconData icon;
+  final Color iconColor;
+  final String? backgroundAsset;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(label,
-            style: AppTextStyles.labelXs
-                .copyWith(color: Colors.white54, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 3),
-        Text(
-          '$currency ${amount.toStringAsFixed(2)}',
-          style: AppTextStyles.bodyMd
-              .copyWith(color: color, fontWeight: FontWeight.w800),
-        ),
-        Text(sublabel,
-            style: AppTextStyles.labelXs
-                .copyWith(color: Colors.white38, fontWeight: FontWeight.w500)),
-      ],
+    return Container(
+      constraints: const BoxConstraints(minHeight: 126),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: backgroundAsset == null ? color : null,
+        image: backgroundAsset == null
+            ? null
+            : DecorationImage(
+                image: AssetImage(backgroundAsset!),
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+              ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppColors.gray700,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Icon(icon, color: iconColor, size: 22),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            '$currency ${amount.toStringAsFixed(2)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.h3.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            note,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.gray600,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileBalanceLoadingPanel extends StatelessWidget {
+  const _ProfileBalanceLoadingPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 126),
+      decoration: BoxDecoration(
+        color: const Color(0xFFDDFDDD),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      alignment: Alignment.center,
+      child: const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
     );
   }
 }

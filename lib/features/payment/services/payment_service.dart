@@ -172,25 +172,6 @@ class PaymentService {
     }
   }
 
-  Future<SavedPaymentMethod> attachPaymentMethod(String paymentMethodId) async {
-    try {
-      final response = await _api.post(
-        '${ApiConstants.paymentMethods}/attach',
-        data: {
-          'paymentMethodId': paymentMethodId,
-        },
-      );
-      final data = _extractMap(response.data);
-      final cardRaw = data['card'];
-      if (cardRaw is Map) {
-        return SavedPaymentMethod.fromJson(Map<String, dynamic>.from(cardRaw));
-      }
-      throw StateError('Card could not be saved.');
-    } on DioException catch (e) {
-      throw _parsePaymentMethodsError(e);
-    }
-  }
-
   Future<void> deleteSavedPaymentMethod(String paymentMethodId) async {
     try {
       await _api.delete('${ApiConstants.paymentMethods}/$paymentMethodId');

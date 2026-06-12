@@ -127,8 +127,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         provider: _PayoutProvider.stripe,
         status: active ? _PayoutStatus.active : _PayoutStatus.incomplete,
         detail: active
-            ? 'Stripe Express is ready for payouts'
-            : 'Finish Stripe Express setup to receive payouts',
+            ? 'Stripe Express is ready. Bank details can be updated in Stripe.'
+            : 'Add or confirm your bank details in Stripe Express',
         accountId: stripeAccountId,
       );
     }
@@ -139,7 +139,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       status: _PayoutStatus.notStarted,
       detail: _usesPaystack
           ? 'Add a verified bank account for local payouts'
-          : 'Connect Stripe Express for international payouts',
+          : 'Bago creates your Stripe Express account, then Stripe collects your bank details',
       accountId: null,
     );
   }
@@ -171,14 +171,14 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   Future<void> _openStripeOnboarding() async {
     await _openStripeUrl(
       endpoint: ApiConstants.stripeConnectOnboard,
-      successMessage: 'Continue setup in Stripe Express.',
+      successMessage: 'Add your bank details in Stripe Express.',
     );
   }
 
   Future<void> _openStripeDashboard() async {
     await _openStripeUrl(
       endpoint: ApiConstants.stripeConnectDashboardLink,
-      successMessage: 'Stripe Express dashboard opened.',
+      successMessage: 'Stripe Express opened for payout details.',
       fallbackToOnboarding: true,
     );
   }
@@ -422,7 +422,7 @@ class _HeaderPanel extends StatelessWidget {
     final label = active
         ? 'Ready for payouts'
         : incomplete
-            ? 'Setup in progress'
+            ? 'Bank details needed'
             : 'Setup required';
     final color = active
         ? const Color(0xFF059669)
@@ -557,7 +557,7 @@ class _MethodPanel extends StatelessWidget {
     final title = usesPaystack ? 'Paystack bank transfer' : 'Stripe Express';
     final subtitle = usesPaystack
         ? '$currency payouts go to your verified bank account.'
-        : '$currency payouts are handled securely through Stripe Express.';
+        : 'Bago creates the Express account from your profile. Stripe securely collects and stores your bank or IBAN details.';
     final icon =
         usesPaystack ? Icons.account_balance_rounded : Icons.bolt_rounded;
     return Container(
@@ -678,10 +678,10 @@ class _PrimaryActionPanel extends StatelessWidget {
     final primaryLabel = usesPaystack
         ? (state.isActive ? 'Update bank account' : 'Add bank account')
         : state.isActive
-            ? 'Manage Stripe Express'
+            ? 'Update bank or IBAN'
             : state.isIncomplete
-                ? 'Continue Stripe Express setup'
-                : 'Set up Stripe Express';
+                ? 'Add bank details'
+                : 'Create payout account';
     final primaryIcon = usesPaystack
         ? Icons.account_balance_rounded
         : state.isActive
@@ -729,7 +729,7 @@ class _PrimaryActionPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: saving ? null : onSetupStripe,
                     icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('Setup link'),
+                    label: const Text('Bank details'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(46),
                       shape: RoundedRectangleBorder(

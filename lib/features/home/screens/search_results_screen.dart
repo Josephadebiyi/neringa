@@ -5,15 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../shared/utils/status_formatter.dart';
-import '../../../shared/utils/name_formatter.dart';
-import '../../../shared/utils/trip_price_formatter.dart';
-import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/auth_required_modal.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/providers/trip_provider.dart';
+import '../../trips/widgets/trip_ticket_card.dart';
 
 class SearchResultsScreen extends ConsumerStatefulWidget {
   final String? fromCity;
@@ -308,15 +305,6 @@ class _TripCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    final userCurrency =
-        UserCurrencyHelper.resolve(ref.watch(authProvider).user);
-    final priceDisplay = formatTripPriceForViewer(
-      trip,
-      userCurrency,
-      decimals: 0,
-    );
-    final rating = trip.averageRating;
     Future<void> startShipment() async {
       final user = ref.read(authProvider).user;
 
@@ -330,195 +318,10 @@ class _TripCard extends ConsumerWidget {
       context.push('/request-shipment/${trip.id}', extra: trip);
     }
 
-    return GestureDetector(
+    return TripTicketCard(
+      trip: trip,
       onTap: startShipment,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Route + price row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${trip.fromLocation} → ${trip.toLocation}',
-                              style: AppTextStyles.h3.copyWith(
-                                  color: AppColors.black,
-                                  fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _formatDate(trip.departureDate),
-                              style: AppTextStyles.caption
-                                  .copyWith(color: AppColors.gray500),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            priceDisplay.primary,
-                            style: AppTextStyles.h3.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w800),
-                          ),
-                          if (priceDisplay.secondary != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              priceDisplay.secondary!,
-                              style: AppTextStyles.caption
-                                  .copyWith(color: AppColors.gray500),
-                            ),
-                          ],
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.successLight,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              formatTripStatusLabel(trip.status),
-                              style: AppTextStyles.caption
-                                  .copyWith(color: AppColors.success),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  // Details row
-                  Row(
-                    children: [
-                      Icon(_travelMeansIcon(trip.travelMeans),
-                          size: 14, color: AppColors.primary),
-                      const SizedBox(width: 4),
-                      Text(trip.travelMeans,
-                          style: AppTextStyles.caption.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(width: 14),
-                      if (trip.carrierName != null) ...[
-                        const Icon(Icons.person_outline_rounded,
-                            size: 14, color: AppColors.gray500),
-                        const SizedBox(width: 4),
-                        Text(NameFormatter.firstNameOnly(trip.carrierName),
-                            style: AppTextStyles.caption
-                                .copyWith(color: AppColors.gray600)),
-                        const SizedBox(width: 14),
-                      ],
-                      if (rating != null) ...[
-                        const Icon(Icons.star_rounded,
-                            size: 14, color: AppColors.warning),
-                        const SizedBox(width: 4),
-                        Text(rating.toStringAsFixed(1),
-                            style: AppTextStyles.caption
-                                .copyWith(color: AppColors.gray600)),
-                        const SizedBox(width: 14),
-                      ],
-                      const Icon(Icons.luggage_outlined,
-                          size: 14, color: AppColors.gray500),
-                      const SizedBox(width: 4),
-                      Text(
-                          l10n.kgAvailable(trip.availableKg.toStringAsFixed(0)),
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.gray600)),
-                    ],
-                  ),
-                  if (trip.carrierBio != null && trip.carrierBio!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      trip.carrierBio!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.gray600,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: AppColors.border),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: SizedBox(
-                width: double.infinity,
-                height: 40,
-                child: OutlinedButton(
-                  onPressed: startShipment,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text(l10n.sendWithThisCarrier,
-                      style: AppTextStyles.labelMd
-                          .copyWith(color: AppColors.primary)),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      actionLabel: 'Send package',
     );
-  }
-
-  IconData _travelMeansIcon(String means) {
-    switch (means.toLowerCase()) {
-      case 'bus':
-        return Icons.directions_bus_rounded;
-      case 'train':
-        return Icons.train_rounded;
-      case 'car':
-        return Icons.directions_car_rounded;
-      case 'ship':
-      case 'boat':
-        return Icons.directions_boat_rounded;
-      case 'flight':
-      default:
-        return Icons.flight_rounded;
-    }
-  }
-
-  String _formatDate(String raw) {
-    try {
-      final dt = DateTime.parse(raw).toLocal();
-      const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-    } catch (_) {
-      return raw.length > 10 ? raw.substring(0, 10) : raw;
-    }
   }
 }

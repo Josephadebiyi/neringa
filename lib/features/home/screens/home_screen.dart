@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/constants/api_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../widgets/banner_slider.dart';
-import '../../../shared/utils/user_currency_helper.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/user_currency_helper.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shipments/models/package_model.dart';
 import '../../shipments/models/request_model.dart';
@@ -67,6 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // Fresh escrow pulled from wallet API — never from stale auth cache
   double? _liveEscrow;
   String _liveEscrowCurrency = '';
+  bool _walletRefreshing = false;
 
   @override
   void initState() {
@@ -74,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authState = ref.read(authProvider);
       if (!authState.isLoggedIn) return;
-      ref.read(authProvider.notifier).refreshProfile();
+      _refreshWallet(showSpinner: false);
       if (authState.user?.isCarrier ?? false) {
         ref.read(tripProvider.notifier).loadMyTrips();
       }
@@ -84,18 +85,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  Future<void> _fetchLiveEscrow() async {
+  Future<void> _refreshWallet({bool showSpinner = true}) async {
+    if (_walletRefreshing) return;
+    if (showSpinner && mounted) setState(() => _walletRefreshing = true);
     try {
+      await ref.read(authProvider.notifier).refreshProfile();
       final res = await ApiService.instance.get(ApiConstants.walletBalance);
       final data = res.data as Map<String, dynamic>?;
-      if (mounted) {
-        setState(() {
-          _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
-          _liveEscrowCurrency = data?['currency']?.toString() ?? '';
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _liveEscrow = 0);
+      if (!mounted) return;
+      setState(() {
+        _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
+        _liveEscrowCurrency = data?['currency']?.toString() ?? '';
+      });
+    } finally {
+      if (mounted && showSpinner) setState(() => _walletRefreshing = false);
     }
   }
 
@@ -230,250 +233,260 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Header ──────────────────────────────────────────────
-                Row(
-                  children: [
-                    Image.asset('assets/images/bago-logo.png',
-                        width: 88, fit: BoxFit.contain),
-                    const Spacer(),
-                    InkWell(
-                      onTap: () => context.go('/profile'),
-                      borderRadius: BorderRadius.circular(18),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                            color: AppColors.gray100,
-                            borderRadius: BorderRadius.circular(20)),
-                        child: user?.profilePicture != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: CachedNetworkImage(
-                                  imageUrl: user!.profilePicture!,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) => Center(
-                                    child: Text(
-                                      avatarLetter,
-                                      style: AppTextStyles.labelMd.copyWith(
-                                        color: AppColors.black,
-                                        fontWeight: FontWeight.w800,
+          child: RefreshIndicator(
+            onRefresh: _refreshWallet,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Header ──────────────────────────────────────────────
+                  Row(
+                    children: [
+                      Image.asset('assets/images/bago-logo.png',
+                          width: 88, fit: BoxFit.contain),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () => context.go('/profile'),
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                              color: AppColors.gray100,
+                              borderRadius: BorderRadius.circular(20)),
+                          child: user?.profilePicture != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: CachedNetworkImage(
+                                    imageUrl: user!.profilePicture!,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, __, ___) => Center(
+                                      child: Text(
+                                        avatarLetter,
+                                        style: AppTextStyles.labelMd.copyWith(
+                                          color: AppColors.black,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              )
-                            : Center(
-                                child: Text(avatarLetter,
-                                    style: AppTextStyles.labelMd.copyWith(
-                                        color: AppColors.black,
-                                        fontWeight: FontWeight.w800))),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                Text(
-                  isCarrier
-                      ? l10n.welcomeBackName(firstName)
-                      : l10n.homeSenderHeadline,
-                  style: AppTextStyles.displaySm.copyWith(
-                      color: AppColors.black,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  isCarrier
-                      ? l10n.homeCarrierSubtitle
-                      : l10n.homeSenderSubtitle,
-                  style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.gray500, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 16),
-
-                // ── Hero ────────────────────────────────────────────────
-                isCarrier
-                    ? _CarrierHero(
-                        balance: UserCurrencyHelper.convertWalletBalance(
-                          balance: user?.walletBalance ?? 0,
-                          walletCurrency: user?.walletCurrency ?? 'USD',
-                          viewerCurrency: UserCurrencyHelper.resolve(user),
+                                )
+                              : Center(
+                                  child: Text(avatarLetter,
+                                      style: AppTextStyles.labelMd.copyWith(
+                                          color: AppColors.black,
+                                          fontWeight: FontWeight.w800))),
                         ),
-                        pendingEarnings: carrierEarnings,
-                        currency: UserCurrencyHelper.resolve(user),
-                        onPostTrip: () => context.push('/post-trip'),
-                        onWithdraw: () => context.push('/profile/withdraw'),
-                      )
-                    : _SenderHero(
-                        from: _from,
-                        to: _to,
-                        date: _date,
-                        onFromTap: () => _openLocationPicker(true),
-                        onToTap: () => _openLocationPicker(false),
-                        onDateTap: _openCalendar,
-                        onSearch: _search,
-                      ),
-
-                if (!isCarrier) ...[
-                  if ((_liveEscrow ?? 0) >= 10) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFFDE68A)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.lock_outline_rounded,
-                              color: Color(0xFFD97706), size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_liveEscrowCurrency.isNotEmpty ? _liveEscrowCurrency : UserCurrencyHelper.resolve(user)} ${_liveEscrow!.toStringAsFixed(2)} held in escrow',
-                            style: AppTextStyles.labelMd.copyWith(
-                              color: const Color(0xFF92400E),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  const _LiveTripCount(),
-                ],
-
-                if (isCarrier) ...[
-                  const SizedBox(height: 14),
-                  Text(l10n.whatDoYouWantToDo,
-                      style: AppTextStyles.h3.copyWith(
-                          fontWeight: FontWeight.w800, color: AppColors.black)),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 110,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: services.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
-                      itemBuilder: (context, i) =>
-                          _ServiceCard(item: services[i]),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _CarrierTripMetrics(
-                    totalTrips: carrierTrips.length,
-                    totalKgSold: carrierKgSold,
-                    totalKgRemaining: carrierKgRemaining,
-                    totalEarnings: carrierEarnings,
-                    activeShipmentCount: carrierActiveShipments,
-                  ),
-                ],
-
-                if (!isCarrier) ...[
-                  // ── Services ─────────────────────────────────────────────
-                  Text(l10n.whatDoYouWantToDo,
-                      style: AppTextStyles.h3.copyWith(
-                          fontWeight: FontWeight.w800, color: AppColors.black)),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 110,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: services.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
-                      itemBuilder: (context, i) =>
-                          _ServiceCard(item: services[i]),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // ── Banner Slider ─────────────────────────────────────────
-                const BannerSlider(),
-
-                // ── Recent Activity — below the banner ────────────────────
-                Builder(builder: (context) {
-                  final activityRequests = isCarrier
-                      ? shipmentState.incomingRequests
-                          .where((r) =>
-                              r.id.isNotEmpty &&
-                              r.status != RequestStatus.pending)
-                          .take(8)
-                          .toList()
-                      : shipmentState.myRequests
-                          .where((r) =>
-                              r.id.isNotEmpty &&
-                              r.status != RequestStatus.pending)
-                          .take(8)
-                          .toList();
-                  final activityPackages = isCarrier
-                      ? const <PackageModel>[]
-                      : shipmentState.activePackages
-                          .where((p) {
-                            if (p.status == PackageStatus.draft) {
-                              final createdAt = DateTime.tryParse(p.createdAt);
-                              if (createdAt != null &&
-                                  DateTime.now()
-                                          .difference(createdAt)
-                                          .inMinutes >=
-                                      20) {
-                                return false;
-                              }
-                            }
-                            return true;
-                          })
-                          .take(8)
-                          .toList();
-                  final activityLoading =
-                      isCarrier ? tripState.isLoading : shipmentState.isLoading;
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            isCarrier
-                                ? l10n.tripActivityShort
-                                : l10n.recentActivity,
-                            style: AppTextStyles.h3.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.black),
-                          ),
-                          GestureDetector(
-                            onTap: () => context.go('/activity'),
-                            child: Text(
-                              'See all',
-                              style: AppTextStyles.bodySm.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _RecentActivityList(
-                        isCarrier: isCarrier,
-                        requests: activityRequests,
-                        packages: activityPackages,
-                        isLoading: activityLoading,
-                        onViewAll: () => context.go('/activity'),
                       ),
                     ],
-                  );
-                }),
-              ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  Text(
+                    isCarrier
+                        ? l10n.welcomeBackName(firstName)
+                        : l10n.homeSenderHeadline,
+                    style: AppTextStyles.displaySm.copyWith(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isCarrier
+                        ? l10n.homeCarrierSubtitle
+                        : l10n.homeSenderSubtitle,
+                    style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.gray500, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Hero ────────────────────────────────────────────────
+                  isCarrier
+                      ? _CarrierHero(
+                          balance: UserCurrencyHelper.convertWalletBalance(
+                            balance: user?.walletBalance ?? 0,
+                            walletCurrency: user?.walletCurrency ?? 'USD',
+                            viewerCurrency: UserCurrencyHelper.resolve(user),
+                          ),
+                          pendingEarnings: carrierEarnings,
+                          currency: UserCurrencyHelper.resolve(user),
+                          onPostTrip: () => context.push('/post-trip'),
+                          onWithdraw: () => context.push('/profile/withdraw'),
+                          onRefresh: _refreshWallet,
+                          isRefreshing: _walletRefreshing,
+                        )
+                      : _SenderHero(
+                          from: _from,
+                          to: _to,
+                          date: _date,
+                          onFromTap: () => _openLocationPicker(true),
+                          onToTap: () => _openLocationPicker(false),
+                          onDateTap: _openCalendar,
+                          onSearch: _search,
+                        ),
+
+                  if (!isCarrier) ...[
+                    if ((_liveEscrow ?? 0) >= 10) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_outline_rounded,
+                                color: Color(0xFFD97706), size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_liveEscrowCurrency.isNotEmpty ? _liveEscrowCurrency : UserCurrencyHelper.resolve(user)} ${_liveEscrow!.toStringAsFixed(2)} held in escrow',
+                              style: AppTextStyles.labelMd.copyWith(
+                                color: const Color(0xFF92400E),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    const _LiveTripCount(),
+                  ],
+
+                  if (isCarrier) ...[
+                    const SizedBox(height: 14),
+                    Text(l10n.whatDoYouWantToDo,
+                        style: AppTextStyles.h3.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.black)),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 110,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: services.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemBuilder: (context, i) =>
+                            _ServiceCard(item: services[i]),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _CarrierTripMetrics(
+                      totalTrips: carrierTrips.length,
+                      totalKgSold: carrierKgSold,
+                      totalKgRemaining: carrierKgRemaining,
+                      totalEarnings: carrierEarnings,
+                      activeShipmentCount: carrierActiveShipments,
+                    ),
+                  ],
+
+                  if (!isCarrier) ...[
+                    // ── Services ─────────────────────────────────────────────
+                    Text(l10n.whatDoYouWantToDo,
+                        style: AppTextStyles.h3.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.black)),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 110,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: services.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemBuilder: (context, i) =>
+                            _ServiceCard(item: services[i]),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Banner Slider ─────────────────────────────────────────
+                  const BannerSlider(),
+
+                  // ── Recent Activity — below the banner ────────────────────
+                  Builder(builder: (context) {
+                    final activityRequests = isCarrier
+                        ? shipmentState.incomingRequests
+                            .where((r) =>
+                                r.id.isNotEmpty &&
+                                r.status != RequestStatus.pending)
+                            .take(8)
+                            .toList()
+                        : shipmentState.myRequests
+                            .where((r) =>
+                                r.id.isNotEmpty &&
+                                r.status != RequestStatus.pending)
+                            .take(8)
+                            .toList();
+                    final activityPackages = isCarrier
+                        ? const <PackageModel>[]
+                        : shipmentState.activePackages
+                            .where((p) {
+                              if (p.status == PackageStatus.draft) {
+                                final createdAt =
+                                    DateTime.tryParse(p.createdAt);
+                                if (createdAt != null &&
+                                    DateTime.now()
+                                            .difference(createdAt)
+                                            .inMinutes >=
+                                        20) {
+                                  return false;
+                                }
+                              }
+                              return true;
+                            })
+                            .take(8)
+                            .toList();
+                    final activityLoading = isCarrier
+                        ? tripState.isLoading
+                        : shipmentState.isLoading;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isCarrier
+                                  ? l10n.tripActivityShort
+                                  : l10n.recentActivity,
+                              style: AppTextStyles.h3.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.black),
+                            ),
+                            GestureDetector(
+                              onTap: () => context.go('/activity'),
+                              child: Text(
+                                'See all',
+                                style: AppTextStyles.bodySm.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _RecentActivityList(
+                          isCarrier: isCarrier,
+                          requests: activityRequests,
+                          packages: activityPackages,
+                          isLoading: activityLoading,
+                          onViewAll: () => context.go('/activity'),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         ),
@@ -633,109 +646,185 @@ class _CarrierHero extends StatelessWidget {
       required this.pendingEarnings,
       required this.currency,
       required this.onPostTrip,
-      required this.onWithdraw});
+      required this.onWithdraw,
+      required this.onRefresh,
+      required this.isRefreshing});
   final double balance;
   final double pendingEarnings;
   final String currency;
   final VoidCallback onPostTrip;
   final VoidCallback onWithdraw;
+  final VoidCallback onRefresh;
+  final bool isRefreshing;
 
   @override
   Widget build(BuildContext context) {
     final total = balance + pendingEarnings;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D0E12),
-        borderRadius: BorderRadius.circular(24),
-      ),
+      padding: const EdgeInsets.all(0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(Icons.account_balance_wallet_outlined,
-                    color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'TOTAL BALANCE',
-                    style: AppTextStyles.labelXs.copyWith(
-                        color: Colors.white38,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '$currency ${total.toStringAsFixed(2)}',
-                    style: AppTextStyles.displaySm.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w900),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Available vs Held breakdown
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.07),
-              borderRadius: BorderRadius.circular(12),
+              image: const DecorationImage(
+                image: AssetImage('assets/images/wallet/wallet_background.png'),
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
             ),
-            child: Row(
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
               children: [
-                Expanded(
-                  child: _WalletBreakdownTile(
-                    label: 'Available',
-                    sublabel: 'Withdraw now',
-                    amount: balance,
-                    currency: currency,
-                    color: const Color(0xFF34D399),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0x8F06111F),
+                          Color(0x3306111F),
+                          Color(0x0006111F),
+                        ],
+                        stops: [0, 0.56, 1],
+                      ),
+                    ),
                   ),
                 ),
-                Container(width: 1, height: 36, color: Colors.white12),
-                Expanded(
-                  child: _WalletBreakdownTile(
-                    label: 'Held',
-                    sublabel: 'Released on delivery',
-                    amount: pendingEarnings,
-                    currency: currency,
-                    color: const Color(0xFFFBBF24),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available Balance',
+                      style: AppTextStyles.labelMd.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$currency ${total.toStringAsFixed(2)}',
+                      style: AppTextStyles.displaySm.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ready balance + protected escrow',
+                      style: AppTextStyles.caption.copyWith(
+                        color: Colors.white38,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: isRefreshing ? null : onRefresh,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            isRefreshing
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh_rounded,
+                                    color: Colors.white, size: 15),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Refresh wallet',
+                              style: AppTextStyles.labelXs.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SoftWalletTile(
+                  label: 'Withdrawable',
+                  amount: balance,
+                  currency: currency,
+                  note: 'Available now',
+                  color: const Color(0xFFFFE7B8),
+                  icon: Icons.savings_rounded,
+                  iconColor: const Color(0xFFF97316),
+                  backgroundAsset:
+                      'assets/images/wallet/withdraw_background.png',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SoftWalletTile(
+                  label: 'In escrow',
+                  amount: pendingEarnings,
+                  currency: currency,
+                  note: 'After delivery',
+                  color: const Color(0xFFDDFDDD),
+                  icon: Icons.lock_rounded,
+                  iconColor: const Color(0xFF22C55E),
+                  backgroundAsset: 'assets/images/wallet/escrow_background.png',
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           InkWell(
             onTap: onWithdraw,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
-              height: 38,
+              height: 48,
               decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.savings_outlined,
-                      color: AppColors.primary, size: 19),
+                  const Icon(Icons.arrow_outward_rounded,
+                      color: Colors.white, size: 19),
                   const SizedBox(width: 8),
-                  Text('Withdraw Earnings',
-                      style: AppTextStyles.buttonMd.copyWith(
-                          color: AppColors.black, fontWeight: FontWeight.w800)),
+                  Text(
+                    'Withdraw Earnings',
+                    style: AppTextStyles.buttonMd.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -746,39 +835,83 @@ class _CarrierHero extends StatelessWidget {
   }
 }
 
-class _WalletBreakdownTile extends StatelessWidget {
-  const _WalletBreakdownTile({
+class _SoftWalletTile extends StatelessWidget {
+  const _SoftWalletTile({
     required this.label,
-    required this.sublabel,
     required this.amount,
     required this.currency,
+    required this.note,
     required this.color,
+    required this.icon,
+    required this.iconColor,
+    this.backgroundAsset,
   });
+
   final String label;
-  final String sublabel;
   final double amount;
   final String currency;
+  final String note;
   final Color color;
+  final IconData icon;
+  final Color iconColor;
+  final String? backgroundAsset;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(label,
-            style: AppTextStyles.labelXs.copyWith(
-                color: color, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
-        const SizedBox(height: 3),
-        Text(
-          '$currency ${amount.toStringAsFixed(2)}',
-          style: AppTextStyles.labelLg
-              .copyWith(color: Colors.white, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 2),
-        Text(sublabel,
-            style: AppTextStyles.caption
-                .copyWith(color: Colors.white30, fontWeight: FontWeight.w600)),
-      ],
+    return Container(
+      constraints: const BoxConstraints(minHeight: 132),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: backgroundAsset == null ? color : null,
+        image: backgroundAsset == null
+            ? null
+            : DecorationImage(
+                image: AssetImage(backgroundAsset!),
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+              ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppColors.gray700,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Icon(icon, color: iconColor, size: 22),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            '$currency ${amount.toStringAsFixed(2)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.h3.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            note,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.gray600,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

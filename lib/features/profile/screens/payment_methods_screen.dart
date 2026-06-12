@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -18,6 +19,7 @@ class PaymentMethodsScreen extends StatefulWidget {
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   List<SavedPaymentMethod> _cards = [];
   bool _loading = true;
+  bool _addingCard = false;
   String _deletingId = '';
 
   @override
@@ -61,21 +63,55 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     }
   }
 
-  void _showAddCardSheet() {
-    showModalBottomSheet<SavedPaymentMethod>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _AddCardSheet(
-        onAdded: (card) {
-          if (mounted) {
-            setState(() => _cards = [..._cards, card]);
-            AppSnackBar.show(context,
-                message: 'Card saved.', type: SnackBarType.success);
-          }
-        },
-      ),
-    );
+  Future<void> _addCard() async {
+    if (_addingCard) return;
+    setState(() => _addingCard = true);
+    try {
+      final config = await PaymentService.instance.getStripeConfig();
+      final publishableKey = config['publishableKey']?.toString() ?? '';
+      if (publishableKey.isEmpty) {
+        throw StateError('Card saving is not configured.');
+      }
+
+      Stripe.publishableKey = publishableKey;
+      Stripe.merchantIdentifier =
+          config['merchantIdentifier']?.toString() ?? 'merchant.com.bago.app';
+      await Stripe.instance.applySettings();
+
+      final session = await PaymentService.instance.createCardSetupSession();
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          setupIntentClientSecret: session.setupIntentClientSecret,
+          customerId: session.customerId,
+          customerEphemeralKeySecret: session.customerEphemeralKeySecret,
+          merchantDisplayName: 'Bago',
+          style: ThemeMode.system,
+          allowsDelayedPaymentMethods: false,
+          primaryButtonLabel: 'Save card',
+        ),
+      );
+      await Stripe.instance.presentPaymentSheet();
+      await _loadCards();
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: 'Card saved.', type: SnackBarType.success);
+      }
+    } on StripeException catch (e) {
+      final message = e.error.localizedMessage ??
+          e.error.message ??
+          'Card setup was cancelled.';
+      if (mounted) {
+        AppSnackBar.show(context, message: message, type: SnackBarType.error);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString().replaceFirst('Exception: ', ''),
+            type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _addingCard = false);
+    }
   }
 
   @override
@@ -103,7 +139,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   if (_cards.isEmpty)
-                    _EmptyCards(onAdd: _showAddCardSheet)
+                    _EmptyCards(onAdd: _addCard, isLoading: _addingCard)
                   else ...[
                     const _SectionLabel('Saved Cards'),
                     const SizedBox(height: 10),
@@ -117,7 +153,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       label: 'Add a Card',
                       variant: AppButtonVariant.secondary,
                       icon: const Icon(Icons.add_rounded, size: 18),
-                      onPressed: _showAddCardSheet,
+                      isLoading: _addingCard,
+                      onPressed: _addCard,
                     ),
                   ],
                   const SizedBox(height: 24),
@@ -228,8 +265,9 @@ class _CardTile extends StatelessWidget {
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 class _EmptyCards extends StatelessWidget {
-  const _EmptyCards({required this.onAdd});
+  const _EmptyCards({required this.onAdd, required this.isLoading});
   final VoidCallback onAdd;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -263,8 +301,9 @@ class _EmptyCards extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           AppButton(
-            label: 'Add a Card',
+            label: isLoading ? 'Opening Stripe...' : 'Add a Card',
             icon: const Icon(Icons.add_rounded, size: 18),
+            isLoading: isLoading,
             onPressed: onAdd,
           ),
         ],
@@ -347,66 +386,6 @@ class _SectionLabel extends StatelessWidget {
         color: AppColors.gray400,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.8,
-      ),
-    );
-  }
-}
-
-// ── Add card info sheet ───────────────────────────────────────────────────────
-
-class _AddCardSheet extends StatelessWidget {
-  const _AddCardSheet({required this.onAdded});
-  final void Function(SavedPaymentMethod) onAdded;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 8, bottom: 24),
-              decoration: BoxDecoration(
-                color: AppColors.gray200,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(Icons.credit_card_rounded,
-                size: 32, color: AppColors.primary),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Cards via Stripe',
-            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Your card is entered securely inside Stripe checkout when you make a payment. Eligible saved cards and Apple Pay appear automatically.',
-            style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          AppButton(
-            label: 'Got it',
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
       ),
     );
   }

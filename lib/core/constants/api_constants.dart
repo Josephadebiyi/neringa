@@ -124,7 +124,7 @@ class ApiConstants {
   static const String walletBalance = '/api/bago/getWallet';
   // Backend: POST /withdrawFunds
   static const String withdrawFunds = '/api/bago/withdrawFunds';
-  static const String paymentMethods = '/api/bago/payment-methods';
+  static const String paymentMethods = '/api/payments/cards';
   // Braintree checkout (legacy)
   static const String braintreeClientToken =
       '/api/payments/braintree/client-token';

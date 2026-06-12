@@ -722,8 +722,8 @@ class _StripeExpressSetup extends StatelessWidget {
                   style: AppTextStyles.labelMd.copyWith(
                       color: AppColors.white, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              _stripeFeature('Connect your Stripe Express account'),
-              _stripeFeature('Choose preferred payout currency'),
+              _stripeFeature('Bago creates your Stripe Express payout account'),
+              _stripeFeature('Add or update bank and IBAN details in Stripe'),
               _stripeFeature('Payouts release after confirmed delivery'),
               _stripeFeature('KYC approval required before payout'),
             ],
@@ -731,13 +731,13 @@ class _StripeExpressSetup extends StatelessWidget {
         ),
         const SizedBox(height: 32),
         AppButton(
-          label: 'Set Up Stripe Express',
+          label: 'Add bank details',
           onPressed: () => context.push('/profile/payout-methods'),
         ),
         const SizedBox(height: 12),
         Center(
           child: Text(
-            'Stripe Express securely collects payout details. Bago sends payouts after delivery is completed and cleared.',
+            'Stripe securely collects payout details. Bago sends payouts after delivery is completed and cleared.',
             style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
             textAlign: TextAlign.center,
           ),

@@ -35,6 +35,145 @@ function toMinorAmount(value) {
   return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
 }
 
+function compactObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  return Object.entries(value).reduce((acc, [key, entry]) => {
+    if (entry === undefined || entry === null || entry === '') return acc;
+    const compacted = compactObject(entry);
+    if (compacted && typeof compacted === 'object' && !Array.isArray(compacted) && !Object.keys(compacted).length) {
+      return acc;
+    }
+    acc[key] = compacted;
+    return acc;
+  }, {});
+}
+
+function countryCodeForStripe(country) {
+  const value = String(country || '').trim();
+  if (/^[a-z]{2}$/i.test(value)) return value.toUpperCase();
+  const normalized = value.toLowerCase();
+  const countries = {
+    'united states': 'US',
+    usa: 'US',
+    'united states of america': 'US',
+    'united kingdom': 'GB',
+    uk: 'GB',
+    england: 'GB',
+    scotland: 'GB',
+    wales: 'GB',
+    spain: 'ES',
+    france: 'FR',
+    germany: 'DE',
+    italy: 'IT',
+    portugal: 'PT',
+    ireland: 'IE',
+    netherlands: 'NL',
+    belgium: 'BE',
+    austria: 'AT',
+    canada: 'CA',
+    australia: 'AU',
+    nigeria: 'NG',
+    ghana: 'GH',
+    kenya: 'KE',
+    'south africa': 'ZA',
+  };
+  return countries[normalized] || undefined;
+}
+
+function stripeDobFromProfile(profile) {
+  const raw = profile.verified_date_of_birth || profile.date_of_birth;
+  if (!raw) return undefined;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return {
+    day: parsed.getUTCDate(),
+    month: parsed.getUTCMonth() + 1,
+    year: parsed.getUTCFullYear(),
+  };
+}
+
+function stripeConnectAccountPayload(profile) {
+  const country = countryCodeForStripe(profile.country);
+  const firstName = profile.verified_first_name || profile.first_name;
+  const lastName = profile.verified_last_name || profile.last_name;
+
+  return compactObject({
+    type: 'express',
+    email: profile.email,
+    country,
+    business_type: 'individual',
+    individual: {
+      first_name: firstName,
+      last_name: lastName,
+      phone: profile.phone,
+      email: profile.email,
+      dob: stripeDobFromProfile(profile),
+    },
+    business_profile: {
+      name: 'Bago Traveler Payouts',
+      product_description: 'Peer-to-peer package delivery payouts for completed shipments.',
+      url: process.env.APP_URL || process.env.FRONTEND_URL || undefined,
+    },
+    capabilities: { transfers: { requested: true } },
+    settings: { payouts: { schedule: { interval: 'manual' } } },
+    metadata: { userId: profile.id },
+  });
+}
+
+function stripeConnectAccountUpdatePayload(profile) {
+  const payload = { ...stripeConnectAccountPayload(profile) };
+  delete payload.type;
+  delete payload.country;
+  delete payload.capabilities;
+  return payload;
+}
+
+function stripeAccountLinkType(account) {
+  const due = [
+    ...(account?.requirements?.currently_due || []),
+    ...(account?.future_requirements?.currently_due || []),
+  ];
+  if (!account?.details_submitted || due.length > 0) return 'account_onboarding';
+  return 'account_update';
+}
+
+async function createStripeConnectAccountLink({ client, accountId, profile, type }) {
+  return client.accountLinks.create({
+    account: accountId,
+    refresh_url: `${appUrl()}/api/payouts/connect/refresh?userId=${encodeURIComponent(profile.id)}`,
+    return_url: `${appUrl()}/api/payouts/connect/return`,
+    type,
+  });
+}
+
+async function syncStripeConnectAccountState(account) {
+  const complete = Boolean(account.details_submitted && account.payouts_enabled);
+  await query(
+    `
+      update public.profiles
+      set stripe_onboarding_complete = $2,
+          stripe_onboarding_status = $3,
+          stripe_charges_enabled = $4,
+          stripe_payouts_enabled = $5,
+          payout_provider = 'stripe',
+          payout_method = 'stripe_connect',
+          payout_method_status = $6,
+          payout_status = $6,
+          updated_at = timezone('utc', now())
+      where stripe_connect_account_id = $1
+    `,
+    [
+      account.id,
+      complete,
+      complete ? 'complete' : 'incomplete',
+      Boolean(account.charges_enabled),
+      Boolean(account.payouts_enabled),
+      complete ? 'active' : 'incomplete',
+    ],
+  );
+  return complete;
+}
+
 function buildPaymentMethodEligibility({ countryCode, currency, captureMethod = 'automatic' }) {
   const country = String(countryCode || '').trim().toUpperCase();
   const normalizedCurrency = normalizeCurrency(currency || 'USD');
@@ -248,11 +387,12 @@ export async function getStripePayoutStatus(req, res) {
     if (!profile?.stripe_connect_account_id) {
       return res.json({ success: true, status: 'not_setup' });
     }
-    if (!profile.stripe_onboarding_complete && !profile.stripe_payouts_enabled) {
-      return res.json({ success: true, status: 'incomplete' });
-    }
+    const client = requireStripe();
+    const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
+    const complete = await syncStripeConnectAccountState(account);
+    if (!complete) return res.json({ success: true, status: 'incomplete' });
 
-    const balance = await requireStripe().balance.retrieve({
+    const balance = await client.balance.retrieve({
       stripeAccount: profile.stripe_connect_account_id,
     });
 
@@ -271,28 +411,12 @@ export async function startStripeConnectOnboarding(req, res) {
   try {
     const profile = await getProfile(userIdFromReq(req));
     if (!profile) return res.status(404).json({ success: false, message: 'User not found.' });
-    if (profile.stripe_connect_account_id && profile.stripe_onboarding_complete) {
-      const loginLink = await requireStripe().accounts.createLoginLink(profile.stripe_connect_account_id);
-      return res.json({ success: true, alreadySetup: true, url: loginLink.url });
-    }
 
     const client = requireStripe();
     let accountId = profile.stripe_connect_account_id;
+    let account;
     if (!accountId) {
-      const account = await client.accounts.create({
-        type: 'express',
-        email: profile.email || undefined,
-        country: String(profile.country || '').length === 2 ? String(profile.country).toUpperCase() : undefined,
-        individual: {
-          first_name: profile.verified_first_name || profile.first_name || undefined,
-          last_name: profile.verified_last_name || profile.last_name || undefined,
-          phone: profile.phone || undefined,
-          email: profile.email || undefined,
-        },
-        capabilities: { transfers: { requested: true } },
-        settings: { payouts: { schedule: { interval: 'manual' } } },
-        metadata: { userId: profile.id },
-      });
+      account = await client.accounts.create(stripeConnectAccountPayload(profile));
       accountId = account.id;
       await query(
         `
@@ -309,13 +433,19 @@ export async function startStripeConnectOnboarding(req, res) {
         `,
         [profile.id, accountId],
       );
+    } else {
+      account = await client.accounts.update(
+        accountId,
+        stripeConnectAccountUpdatePayload({ ...profile, stripe_connect_account_id: accountId }),
+      );
+      await syncStripeConnectAccountState(account);
     }
 
-    const accountLink = await client.accountLinks.create({
-      account: accountId,
-      refresh_url: `${appUrl()}/api/payouts/connect/refresh?userId=${encodeURIComponent(profile.id)}`,
-      return_url: `${appUrl()}/api/payouts/connect/return`,
-      type: 'account_onboarding',
+    const accountLink = await createStripeConnectAccountLink({
+      client,
+      accountId,
+      profile,
+      type: stripeAccountLinkType(account),
     });
 
     return res.json({ success: true, url: accountLink.url });
@@ -332,11 +462,13 @@ export async function stripeConnectRefresh(req, res) {
   try {
     const profile = await getProfile(req.query.userId);
     if (!profile?.stripe_connect_account_id) return res.status(404).send('Payout account not found.');
-    const accountLink = await requireStripe().accountLinks.create({
-      account: profile.stripe_connect_account_id,
-      refresh_url: `${appUrl()}/api/payouts/connect/refresh?userId=${encodeURIComponent(profile.id)}`,
-      return_url: `${appUrl()}/api/payouts/connect/return`,
-      type: 'account_onboarding',
+    const client = requireStripe();
+    const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
+    const accountLink = await createStripeConnectAccountLink({
+      client,
+      accountId: profile.stripe_connect_account_id,
+      profile,
+      type: stripeAccountLinkType(account),
     });
     return res.redirect(accountLink.url);
   } catch (error) {
@@ -357,30 +489,7 @@ export async function stripeConnectWebhook(req, res) {
     await ensureStripeInfrastructure();
     if (event.type === 'account.updated') {
       const account = event.data.object;
-      const complete = Boolean(account.details_submitted && account.charges_enabled && account.payouts_enabled);
-      await query(
-        `
-          update public.profiles
-          set stripe_onboarding_complete = $2,
-              stripe_onboarding_status = $3,
-              stripe_charges_enabled = $4,
-              stripe_payouts_enabled = $5,
-              payout_provider = 'stripe',
-              payout_method = 'stripe_connect',
-              payout_method_status = $6,
-              payout_status = $6,
-              updated_at = timezone('utc', now())
-          where stripe_connect_account_id = $1
-        `,
-        [
-          account.id,
-          complete,
-          complete ? 'complete' : 'incomplete',
-          Boolean(account.charges_enabled),
-          Boolean(account.payouts_enabled),
-          complete ? 'active' : 'incomplete',
-        ],
-      );
+      await syncStripeConnectAccountState(account);
     }
 
     await query(
@@ -401,10 +510,22 @@ export async function stripeConnectWebhook(req, res) {
 export async function createStripeDashboardLink(req, res) {
   try {
     const profile = await getProfile(userIdFromReq(req));
-    if (!profile?.stripe_connect_account_id || !profile.stripe_onboarding_complete) {
+    if (!profile?.stripe_connect_account_id) {
       return res.status(400).json({ success: false, message: 'Payout account not set up.' });
     }
-    const loginLink = await requireStripe().accounts.createLoginLink(profile.stripe_connect_account_id);
+    const client = requireStripe();
+    const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
+    const complete = await syncStripeConnectAccountState(account);
+    if (!complete) {
+      const accountLink = await createStripeConnectAccountLink({
+        client,
+        accountId: profile.stripe_connect_account_id,
+        profile,
+        type: stripeAccountLinkType(account),
+      });
+      return res.json({ success: true, url: accountLink.url, requiresCompletion: true });
+    }
+    const loginLink = await client.accounts.createLoginLink(profile.stripe_connect_account_id);
     return res.json({ success: true, url: loginLink.url });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });

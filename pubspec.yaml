@@ -100,6 +100,7 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   flutter_stripe: ^13.0.0
+  audioplayers: ^6.7.1
 
 dev_dependencies:
   flutter_test:
@@ -135,5 +136,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/wallet/
+    - assets/audio/
     - assets/icons/
     - assets/pay/

@@ -15,6 +15,7 @@ import '../../shipments/models/request_model.dart';
 import '../../shipments/providers/shipment_provider.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/providers/trip_provider.dart';
+import '../../trips/widgets/trip_ticket_card.dart';
 
 class ActivityScreen extends ConsumerStatefulWidget {
   const ActivityScreen({super.key});
@@ -189,8 +190,7 @@ class _TripsTabState extends ConsumerState<_TripsTab> {
               const SizedBox(height: 24),
               AppButton(
                 label: 'Retry',
-                onPressed: () =>
-                    ref.read(tripProvider.notifier).loadMyTrips(),
+                onPressed: () => ref.read(tripProvider.notifier).loadMyTrips(),
               ),
             ],
           ),
@@ -560,173 +560,55 @@ class _TripCard extends StatelessWidget {
   final TripModel trip;
   final VoidCallback onTap;
 
-  static IconData _modeIcon(String means) {
-    switch (means.trim().toLowerCase()) {
-      case 'bus':
-        return Icons.directions_bus_rounded;
-      case 'train':
-        return Icons.train_rounded;
-      case 'ship':
-        return Icons.directions_boat_rounded;
-      case 'car':
-        return Icons.directions_car_rounded;
-      default:
-        return Icons.flight_rounded;
-    }
-  }
-
-  static String _modeLabel(String means, AppLocalizations l10n) {
-    switch (means.trim().toLowerCase()) {
-      case 'bus':
-        return l10n.travelModeBus;
-      case 'train':
-        return l10n.travelModeTrain;
-      case 'ship':
-        return l10n.travelModeShip;
-      case 'car':
-        return l10n.travelModeCar;
-      default:
-        return l10n.travelModeFlight;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final statusLower = trip.status.toLowerCase();
-    final isActive = statusLower == 'active' || statusLower == 'open';
     final isPendingReview = statusLower == 'pending_admin_review' ||
         statusLower == 'pending_review' ||
         statusLower == 'admin_review' ||
         statusLower == 'pending';
-    final statusColor = isActive
-        ? const Color(0xFF10B981)
-        : isPendingReview
-            ? const Color(0xFFF59E0B)
-            : statusLower == 'cancelled'
-                ? const Color(0xFF6B7280)
-                : const Color(0xFF3B82F6);
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.gray100),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: mode badge + route + status
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_modeIcon(trip.travelMeans),
-                          size: 13, color: AppColors.primary),
-                      const SizedBox(width: 4),
-                      Text(
-                        _modeLabel(trip.travelMeans, l10n),
-                        style: AppTextStyles.labelXs.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${trip.fromLocation} → ${trip.toLocation}',
-                    style: AppTextStyles.bodyMd
-                        .copyWith(fontWeight: FontWeight.w700),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _StatusBadge(
-                  label: formatTripStatusLabel(trip.status),
-                  color: statusColor,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Details row
-            Wrap(
-              spacing: 14,
-              runSpacing: 6,
-              children: [
-                _InfoChip(
-                  icon: Icons.calendar_today_outlined,
-                  label: trip.departureDate,
-                ),
-                _InfoChip(
-                  icon: Icons.scale_outlined,
-                  label: l10n.kgFreeLabel(trip.availableKg.toStringAsFixed(1)),
-                ),
-                _InfoChip(
-                  icon: Icons.payments_outlined,
-                  label:
-                      '${trip.currency} ${trip.pricePerKg.toStringAsFixed(0)}/kg',
-                ),
-                if (trip.activeShipmentCount > 0)
-                  _InfoChip(
-                    icon: Icons.inventory_2_outlined,
-                    label: l10n.activeShipmentsCount(trip.activeShipmentCount),
-                  ),
-              ],
-            ),
-            if (isPendingReview) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline_rounded,
-                        size: 14, color: Color(0xFFD97706)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Under review — senders cannot see this trip yet. We\'ll activate it once approved.',
-                        style: AppTextStyles.labelXs.copyWith(
-                          color: const Color(0xFF92400E),
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TripTicketCard(
+            trip: trip,
+            onTap: onTap,
+            ownerView: true,
+            actionLabel: 'Manage',
+          ),
+          if (isPendingReview) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      size: 14, color: Color(0xFFD97706)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Under review — senders cannot see this trip yet. We\'ll activate it once approved.',
+                      style: AppTextStyles.labelXs.copyWith(
+                        color: const Color(0xFF92400E),
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -782,9 +664,8 @@ class _PackageCard extends StatelessWidget {
                     isDraft
                         ? Icons.pending_outlined
                         : Icons.inventory_2_outlined,
-                    color: isDraft
-                        ? const Color(0xFF9CA3AF)
-                        : AppColors.primary,
+                    color:
+                        isDraft ? const Color(0xFF9CA3AF) : AppColors.primary,
                     size: 20,
                   ),
                 ),
@@ -1176,7 +1057,9 @@ class _InlineActionButton extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 15, color: isDisabled ? AppColors.gray400 : foreground),
+                  Icon(icon,
+                      size: 15,
+                      color: isDisabled ? AppColors.gray400 : foreground),
                   const SizedBox(width: 5),
                   Text(
                     label,

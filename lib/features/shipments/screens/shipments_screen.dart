@@ -14,7 +14,6 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/name_formatter.dart';
-import '../../../shared/utils/status_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -28,6 +27,7 @@ import '../models/package_model.dart';
 import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
 import '../../trips/models/trip_model.dart';
+import '../../trips/widgets/trip_ticket_card.dart';
 import '../../trips/providers/trip_provider.dart';
 
 class ShipmentsScreen extends ConsumerStatefulWidget {
@@ -1184,8 +1184,10 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tripId = trip.id.trim();
-    final bookedKg = trip.soldKg + trip.reservedKg;
-    return AppCard(
+    return TripTicketCard(
+      trip: trip,
+      ownerView: true,
+      actionLabel: 'Manage',
       onTap: () {
         if (tripId.isEmpty) {
           AppSnackBar.show(
@@ -1199,72 +1201,6 @@ class _TripCard extends StatelessWidget {
         context.push('/trip-details/${Uri.encodeComponent(tripId)}',
             extra: trip);
       },
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _TypeBadge(label: trip.travelMeans, isCarrier: true),
-              const Spacer(),
-              Text(
-                _shortDate(trip.departureDate),
-                style: AppTextStyles.captionBold
-                    .copyWith(color: AppColors.gray400),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _RouteRow(from: trip.fromLocation, to: trip.toLocation),
-          const SizedBox(height: 18),
-          const Divider(color: AppColors.gray100),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _StatusDot(
-                  label: formatTripStatusLabel(trip.status),
-                  color: _tripStatusColor(trip.status)),
-              const Spacer(),
-              _InfoChip(label: '${bookedKg.toStringAsFixed(0)} booked'),
-              const SizedBox(width: 8),
-              _InfoChip(label: '${trip.availableKg.toStringAsFixed(0)} left'),
-              const SizedBox(width: 10),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.gray300),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _shipmentCountLabel(trip),
-                  style:
-                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
-                ),
-              ),
-              if (trip.travelerEarnings > 0)
-                Text(
-                  '${trip.currency} ${trip.travelerEarnings.toStringAsFixed(2)}',
-                  style: AppTextStyles.labelMd.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-            ],
-          ),
-          if (trip.activeShipmentCount > 0 &&
-              trip.bookingStatusSummary.isNotEmpty &&
-              trip.bookingStatusSummary != 'No active bookings') ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                trip.bookingStatusSummary,
-                style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -1647,35 +1583,6 @@ Future<bool> _confirmDelete(BuildContext context) async {
         ),
       ) ??
       false;
-}
-
-String _shipmentCountLabel(TripModel trip) {
-  if (trip.activeShipmentCount > 0) {
-    final n = trip.activeShipmentCount;
-    return '$n active shipment${n == 1 ? '' : 's'}';
-  }
-  final summary = trip.bookingStatusSummary;
-  if (summary.isNotEmpty && summary != 'No active bookings') return summary;
-  final isCompleted =
-      ['completed', 'cancelled'].contains(trip.status.trim().toLowerCase());
-  return isCompleted ? 'Trip completed' : 'No active shipments';
-}
-
-Color _tripStatusColor(String status) {
-  switch (status.trim().toLowerCase()) {
-    case 'active':
-      return const Color(0xFF3B82F6);
-    case 'upcoming':
-      return const Color(0xFFF59E0B);
-    case 'completed':
-      return const Color(0xFF10B981);
-    case 'cancelled':
-      return const Color(0xFF6B7280);
-    case 'full':
-      return const Color(0xFF8B5CF6);
-    default:
-      return AppColors.primary;
-  }
 }
 
 String _shortDate(String raw) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/model_enums.dart';
+import '../../../shared/services/celebration_notification_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
@@ -185,7 +187,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
   Future<void> _confirmHandover(RequestModel req) async {
     final pin = _pinControllers.map((c) => c.text.trim()).join();
     if (pin.length != 4) {
-      AppSnackBar.show(context, message: 'Enter all 4 digits', type: SnackBarType.warning);
+      AppSnackBar.show(context,
+          message: 'Enter all 4 digits', type: SnackBarType.warning);
       return;
     }
     if (_confirmingHandover) return;
@@ -193,7 +196,9 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     try {
       await ShipmentService.instance.confirmHandover(req.id, pin);
       if (mounted) {
-        AppSnackBar.show(context, message: 'Handover confirmed! Funds released.', type: SnackBarType.success);
+        AppSnackBar.show(context,
+            message: 'Handover confirmed! Funds released.',
+            type: SnackBarType.success);
         ref.read(shipmentProvider.notifier).loadIncomingRequests();
         setState(() {
           _requestFuture = ShipmentService.instance
@@ -204,7 +209,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _confirmingHandover = false);
@@ -213,8 +219,12 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
 
   @override
   void dispose() {
-    for (final c in _pinControllers) { c.dispose(); }
-    for (final f in _pinFocusNodes) { f.dispose(); }
+    for (final c in _pinControllers) {
+      c.dispose();
+    }
+    for (final f in _pinFocusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -512,7 +522,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     Text(
                       '${req.currency} ${(req.agreedPrice - req.insuranceCost).toStringAsFixed(2)}',
                       style: AppTextStyles.h3.copyWith(
-                          color: AppColors.primary, fontWeight: FontWeight.w900),
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w900),
                     ),
                   ],
                 ),
@@ -523,11 +534,13 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     children: [
                       Text('Insurance',
                           style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.gray500, fontWeight: FontWeight.w600)),
+                              color: AppColors.gray500,
+                              fontWeight: FontWeight.w600)),
                       Text(
                         '+ ${req.currency} ${req.insuranceCost.toStringAsFixed(2)}',
                         style: AppTextStyles.bodySm.copyWith(
-                            color: AppColors.gray600, fontWeight: FontWeight.w700),
+                            color: AppColors.gray600,
+                            fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -537,11 +550,13 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     children: [
                       Text('Total Paid',
                           style: AppTextStyles.labelMd.copyWith(
-                              color: AppColors.gray700, fontWeight: FontWeight.w700)),
+                              color: AppColors.gray700,
+                              fontWeight: FontWeight.w700)),
                       Text(
                         '${req.currency} ${req.agreedPrice.toStringAsFixed(2)}',
                         style: AppTextStyles.labelMd.copyWith(
-                            color: AppColors.black, fontWeight: FontWeight.w800),
+                            color: AppColors.black,
+                            fontWeight: FontWeight.w800),
                       ),
                     ],
                   ),
@@ -737,18 +752,22 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: List.generate(4, (i) => _PinBox(
-                        controller: _pinControllers[i],
-                        focusNode: _pinFocusNodes[i],
-                        nextFocus: i < 3 ? _pinFocusNodes[i + 1] : null,
-                        prevFocus: i > 0 ? _pinFocusNodes[i - 1] : null,
-                      )),
+                      children: List.generate(
+                          4,
+                          (i) => _PinBox(
+                                controller: _pinControllers[i],
+                                focusNode: _pinFocusNodes[i],
+                                nextFocus: i < 3 ? _pinFocusNodes[i + 1] : null,
+                                prevFocus: i > 0 ? _pinFocusNodes[i - 1] : null,
+                              )),
                     ),
                     const SizedBox(height: 16),
                     AppButton(
                       label: 'Confirm Delivery & Get Paid',
                       isLoading: _confirmingHandover,
-                      onPressed: _confirmingHandover ? null : () => _confirmHandover(req),
+                      onPressed: _confirmingHandover
+                          ? null
+                          : () => _confirmHandover(req),
                     ),
                   ],
                 ),
@@ -1159,6 +1178,13 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
             ? 'Shipment is now Out for Delivery!'
             : 'Shipment is now In Transit!';
         AppSnackBar.show(context, message: msg, type: SnackBarType.success);
+        if (targetStatus == 'intransit') {
+          unawaited(CelebrationNotificationService.showFlightSuccess(
+            context,
+            title: 'Shipment started',
+            message: 'The package is now in transit.',
+          ));
+        }
         widget.onStatusUpdated();
       }
     } catch (e) {

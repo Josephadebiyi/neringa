@@ -641,14 +641,15 @@ class _TravelerHeroCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: Text(initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      )),
-                ),
+                clipBehavior: Clip.antiAlias,
+                child: trip.carrierAvatar?.trim().isNotEmpty == true
+                    ? Image.network(
+                        trip.carrierAvatar!.trim(),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _TravelerAvatarInitials(initials: initials),
+                      )
+                    : _TravelerAvatarInitials(initials: initials),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -742,6 +743,26 @@ class _TravelerHeroCard extends StatelessWidget {
       default:
         return Icons.luggage_rounded;
     }
+  }
+}
+
+class _TravelerAvatarInitials extends StatelessWidget {
+  const _TravelerAvatarInitials({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 }
 
