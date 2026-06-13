@@ -120,6 +120,15 @@ function stripeConnectAccountPayload(profile) {
   });
 }
 
+function requirePayoutProfileBasics(profile) {
+  const email = String(profile?.email || '').trim();
+  if (!email || !email.includes('@')) {
+    const error = new Error('Add a valid email to your Bago profile before setting up payouts.');
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
 function stripeConnectAccountUpdatePayload(profile) {
   return compactObject({
     business_profile: {
@@ -138,16 +147,23 @@ function stripeAccountLinkType(account) {
     ...(account?.future_requirements?.currently_due || []),
   ];
   if (!account?.details_submitted || due.length > 0) return 'account_onboarding';
-  return 'account_update';
+  return 'account_onboarding';
 }
 
 async function createStripeConnectAccountLink({ client, accountId, profile, type }) {
-  return client.accountLinks.create({
+  const params = {
     account: accountId,
     refresh_url: `${appUrl()}/api/payouts/connect/refresh?userId=${encodeURIComponent(profile.id)}`,
     return_url: `${appUrl()}/api/payouts/connect/return`,
     type,
-  });
+  };
+  if (type === 'account_onboarding') {
+    params.collection_options = {
+      fields: 'eventually_due',
+      future_requirements: 'include',
+    };
+  }
+  return client.accountLinks.create(params);
 }
 
 async function syncStripeConnectAccountState(account) {
@@ -403,6 +419,7 @@ export async function startStripeConnectOnboarding(req, res) {
   try {
     const profile = await getProfile(userIdFromReq(req));
     if (!profile) return res.status(404).json({ success: false, message: 'User not found.' });
+    requirePayoutProfileBasics(profile);
 
     const client = requireStripe();
     let accountId = profile.stripe_connect_account_id;
@@ -426,23 +443,31 @@ export async function startStripeConnectOnboarding(req, res) {
         [profile.id, accountId],
       );
     } else {
-      account = await client.accounts.update(
-        accountId,
-        stripeConnectAccountUpdatePayload({ ...profile, stripe_connect_account_id: accountId }),
-      );
+      account = await client.accounts.retrieve(accountId);
       await syncStripeConnectAccountState(account);
+    }
+
+    if (account?.details_submitted && account?.payouts_enabled) {
+      return res.json({
+        success: true,
+        status: 'active',
+        message: 'Your payout account is already ready.',
+      });
     }
 
     const accountLink = await createStripeConnectAccountLink({
       client,
       accountId,
       profile,
-      type: stripeAccountLinkType(account),
+      type: 'account_onboarding',
     });
 
     return res.json({ success: true, url: accountLink.url });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Payout setup could not be started. Please try again.',
+    });
   }
 }
 
@@ -450,6 +475,7 @@ export async function createStripeConnectAccountSession(req, res) {
   try {
     const profile = await getProfile(userIdFromReq(req));
     if (!profile) return res.status(404).json({ success: false, message: 'User not found.' });
+    requirePayoutProfileBasics(profile);
 
     const client = requireStripe();
     let accountId = profile.stripe_connect_account_id;
@@ -528,7 +554,7 @@ export async function stripeConnectRefresh(req, res) {
       client,
       accountId: profile.stripe_connect_account_id,
       profile,
-      type: stripeAccountLinkType(account),
+      type: 'account_onboarding',
     });
     return res.redirect(accountLink.url);
   } catch (error) {
@@ -636,18 +662,29 @@ export async function createStripeDashboardLink(req, res) {
     if (!profile?.stripe_connect_account_id) {
       return res.status(400).json({ success: false, message: 'Payout account not set up.' });
     }
+    requirePayoutProfileBasics(profile);
     const client = requireStripe();
     const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
     const complete = await syncStripeConnectAccountState(account);
+    if (complete) {
+      return res.json({
+        success: true,
+        status: 'active',
+        message: 'Your payout account is already ready.',
+      });
+    }
     const accountLink = await createStripeConnectAccountLink({
       client,
       accountId: profile.stripe_connect_account_id,
       profile,
-      type: complete ? 'account_update' : stripeAccountLinkType(account),
+      type: 'account_onboarding',
     });
     return res.json({ success: true, url: accountLink.url, requiresCompletion: !complete });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Payout setup could not be opened. Please try again.',
+    });
   }
 }
 

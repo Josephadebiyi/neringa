@@ -127,7 +127,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         provider: _PayoutProvider.stripe,
         status: active ? _PayoutStatus.active : _PayoutStatus.incomplete,
         detail: active
-            ? 'Stripe Express is ready. Bank details can be updated in Stripe.'
+            ? 'Payout account is ready. Refresh to confirm Stripe status.'
             : 'Add or confirm your bank details in Stripe Express',
         accountId: stripeAccountId,
       );
@@ -175,18 +175,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     );
   }
 
-  Future<void> _openStripeDashboard() async {
-    await _openStripeUrl(
-      endpoint: ApiConstants.stripeConnectDashboardLink,
-      successMessage: 'Stripe Express opened for payout details.',
-      fallbackToOnboarding: true,
-    );
-  }
-
   Future<void> _openStripeUrl({
     required String endpoint,
     required String successMessage,
-    bool fallbackToOnboarding = false,
   }) async {
     if (_saving) return;
     final payoutCurrency = _selectedCurrency.toUpperCase();
@@ -209,21 +200,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       );
       await _launchStripeUrl(response.data, successMessage);
     } on DioException catch (error) {
-      if (fallbackToOnboarding &&
-          (ApiService.parseError(error).toLowerCase().contains('not set up') ||
-              error.response?.statusCode == 400)) {
-        try {
-          final response = await ApiService.instance.post<Map<String, dynamic>>(
-            ApiConstants.stripeConnectOnboard,
-            data: {'payoutCurrency': payoutCurrency},
-          );
-          await _launchStripeUrl(
-            response.data,
-            'Finish setup in Stripe Express.',
-          );
-          return;
-        } catch (_) {}
-      }
       if (!mounted) return;
       AppSnackBar.show(
         context,
@@ -246,10 +222,23 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     Map<String, dynamic>? data,
     String successMessage,
   ) async {
+    final status = data?['status']?.toString().toLowerCase();
+    if (status == 'active') {
+      await ref.read(authProvider.notifier).refreshProfile();
+      if (!mounted) return;
+      setState(() => _hydrateFromUser(ref.read(authProvider).user));
+      AppSnackBar.show(
+        context,
+        message: data?['message']?.toString() ?? 'Payout account is ready.',
+        type: SnackBarType.success,
+      );
+      return;
+    }
+
     final url = data?['url']?.toString();
     if (url == null || url.isEmpty) {
       throw Exception(data?['message']?.toString() ??
-          'Stripe Express setup link was not returned.');
+          'Payout setup is not available right now. Please refresh and try again.');
     }
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -373,7 +362,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             usesPaystack: _usesPaystack,
             saving: _saving,
             onSetupStripe: _openStripeOnboarding,
-            onManageStripe: _openStripeDashboard,
             onSetupPaystack: _continueWithPaystack,
             onRefresh: _refreshProfile,
           ),
@@ -717,7 +705,6 @@ class _PrimaryActionPanel extends StatelessWidget {
     required this.usesPaystack,
     required this.saving,
     required this.onSetupStripe,
-    required this.onManageStripe,
     required this.onSetupPaystack,
     required this.onRefresh,
   });
@@ -726,7 +713,6 @@ class _PrimaryActionPanel extends StatelessWidget {
   final bool usesPaystack;
   final bool saving;
   final VoidCallback onSetupStripe;
-  final VoidCallback onManageStripe;
   final VoidCallback onSetupPaystack;
   final VoidCallback onRefresh;
 
@@ -735,14 +721,14 @@ class _PrimaryActionPanel extends StatelessWidget {
     final primaryLabel = usesPaystack
         ? (state.isActive ? 'Update bank account' : 'Add bank account')
         : state.isActive
-            ? 'Update bank or IBAN'
+            ? 'Refresh payout status'
             : state.isIncomplete
                 ? 'Add bank details'
                 : 'Create payout account';
     final primaryIcon = usesPaystack
         ? Icons.account_balance_rounded
         : state.isActive
-            ? Icons.open_in_new_rounded
+            ? Icons.refresh_rounded
             : Icons.bolt_rounded;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -761,7 +747,7 @@ class _PrimaryActionPanel extends StatelessWidget {
             onPressed: usesPaystack
                 ? onSetupPaystack
                 : state.isActive
-                    ? onManageStripe
+                    ? onRefresh
                     : onSetupStripe,
           ),
           const SizedBox(height: 10),
