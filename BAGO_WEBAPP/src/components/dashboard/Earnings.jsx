@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../api';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Landmark, RefreshCw, CreditCard, AlertCircle, CheckCircle, Shield } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Landmark, RefreshCw, CreditCard, AlertCircle, CheckCircle, Shield, TrendingUp } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,11 +10,16 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [balance, setBalance] = useState(user?.walletBalance ?? user?.balance ?? 0);
     const [escrowBalance, setEscrowBalance] = useState(user?.escrowBalance ?? user?.escrow_balance ?? 0);
     const [history, setHistory] = useState(user?.balanceHistory || []);
+    const [allTimeTotals, setAllTimeTotals] = useState({
+        received: Number(user?.allTimeReceived ?? user?.all_time_received ?? 0),
+        expenses: Number(user?.allTimeExpenses ?? user?.all_time_expenses ?? 0),
+    });
     const [loading, setLoading] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [status, setStatus] = useState({ type: '', message: '' });
     const [showPayoutModal, setShowPayoutModal] = useState(false);
+    const [chartMode, setChartMode] = useState('received');
 
     const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR'];
     const walletCurrency = (user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
@@ -48,6 +53,10 @@ export default function Earnings({ user, checkAuthStatus }) {
                 setBalance(Number(data.balance ?? data.walletBalance ?? 0));
                 setEscrowBalance(Number(data.escrowBalance ?? data.escrow_balance ?? 0));
                 setHistory(data.history || data.transactions || []);
+                setAllTimeTotals({
+                    received: Number(data.allTimeReceived ?? data.all_time_received ?? 0),
+                    expenses: Number(data.allTimeExpenses ?? data.all_time_expenses ?? 0),
+                });
             } catch (_) {}
         };
         fetchWallet();
@@ -61,6 +70,59 @@ export default function Earnings({ user, checkAuthStatus }) {
         return symbols[curr] || curr;
     };
     const currencySymbol = getSymbol(walletCurrency);
+    const toAmount = (value) => {
+        const amount = Number(value);
+        return Number.isFinite(amount) ? amount : 0;
+    };
+    const transactions = useMemo(() => {
+        const source = Array.isArray(history) ? history : [];
+        return source
+            .map(tx => ({
+                ...tx,
+                amount: Math.abs(toAmount(tx.amount)),
+                rawAmount: toAmount(tx.amount),
+                normalizedType: String(tx.type || tx.transactionType || '').toLowerCase(),
+                normalizedStatus: String(tx.status || '').toLowerCase(),
+                dateValue: new Date(tx.date || tx.created_at || tx.createdAt || Date.now()),
+            }))
+            .filter(tx => tx.amount > 0 && !Number.isNaN(tx.dateValue.getTime()));
+    }, [history]);
+    const incomeTypes = new Set(['earning', 'earnings', 'admin_settlement', 'credit', 'release']);
+    const expenseTypes = new Set(['withdrawal', 'withdraw', 'payout', 'debit']);
+    const completedTransactions = transactions.filter(tx => tx.normalizedStatus === 'completed');
+    const fallbackReceived = completedTransactions
+        .filter(tx => incomeTypes.has(tx.normalizedType))
+        .reduce((sum, tx) => sum + tx.amount, 0);
+    const fallbackExpenses = transactions
+        .filter(tx => expenseTypes.has(tx.normalizedType) && ['completed', 'processing', 'pending'].includes(tx.normalizedStatus))
+        .reduce((sum, tx) => sum + tx.amount, 0);
+    const totalReceived = allTimeTotals.received > 0 ? allTimeTotals.received : fallbackReceived;
+    const totalExpenses = allTimeTotals.expenses > 0 ? allTimeTotals.expenses : fallbackExpenses;
+    const activeTotal = chartMode === 'received' ? totalReceived : totalExpenses;
+    const chartDays = useMemo(() => {
+        const today = new Date();
+        const days = Array.from({ length: 7 }, (_, index) => {
+            const date = new Date(today);
+            date.setDate(today.getDate() - (6 - index));
+            date.setHours(0, 0, 0, 0);
+            return {
+                key: date.toISOString().slice(0, 10),
+                label: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+                value: 0,
+            };
+        });
+        const lookup = new Map(days.map(day => [day.key, day]));
+        transactions.forEach(tx => {
+            const key = new Date(tx.dateValue.getFullYear(), tx.dateValue.getMonth(), tx.dateValue.getDate()).toISOString().slice(0, 10);
+            const isIncome = incomeTypes.has(tx.normalizedType) || tx.rawAmount > 0 && !expenseTypes.has(tx.normalizedType);
+            const isExpense = expenseTypes.has(tx.normalizedType) || tx.rawAmount < 0;
+            if ((chartMode === 'received' && !isIncome) || (chartMode === 'expenses' && !isExpense)) return;
+            const day = lookup.get(key);
+            if (day) day.value += tx.amount;
+        });
+        return days;
+    }, [transactions, chartMode]);
+    const maxChartValue = Math.max(...chartDays.map(day => day.value), 1);
 
     const handleWithdraw = async (e) => {
         if (e) e.preventDefault();
@@ -108,46 +170,76 @@ export default function Earnings({ user, checkAuthStatus }) {
             {/* Header / Stats */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Balance Card - Premium Dark */}
-                <div className="lg:col-span-2 bg-[#012126] rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#5845D8]/20 rounded-full blur-[80px] -mr-32 -mt-32"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -ml-16 -mb-16"></div>
-                    
-                    <div className="relative z-10 flex flex-col justify-between h-full min-h-[200px]">
+                {/* Earnings Graph */}
+                <div className="lg:col-span-2 bg-white rounded-[24px] p-8 text-[#012126] relative overflow-hidden shadow-sm border border-gray-100 min-h-[360px]">
+                    <div className="relative z-10 flex flex-col justify-between h-full min-h-[300px]">
                         <div>
+                            <div className="grid grid-cols-2 rounded-2xl bg-gray-50 p-2 mb-8 border border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setChartMode('received')}
+                                    className={`h-14 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${chartMode === 'received' ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'text-[#012126]/50 hover:text-[#012126]'}`}
+                                >
+                                    Received
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setChartMode('expenses')}
+                                    className={`h-14 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${chartMode === 'expenses' ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'text-[#012126]/50 hover:text-[#012126]'}`}
+                                >
+                                    Expenses
+                                </button>
+                            </div>
+
                             <div className="flex items-center gap-2 mb-4">
-                                <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[9px] font-black uppercase tracking-[2px] border border-white/10 text-white/70">
-                                    {t('walletBalance') || 'Wallet Balance'}
+                                <TrendingUp size={15} className="text-[#5845D8]" />
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#012126]/50">
+                                    All time
                                 </span>
                             </div>
                             <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-2">
-                                <span className="text-[#5845D8] mr-1">{currencySymbol}</span>
-                                {balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {currencySymbol}{activeTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </h1>
-                            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{t('availableForWithdrawal') || 'Available for withdrawal'}</p>
+                            <p className="text-[#012126]/50 text-sm font-bold">
+                                {chartMode === 'received' ? 'Total income received' : 'Total withdrawn or spent'}
+                            </p>
                             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1">
-                                        Held in escrow
+                                <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-[#012126]/45 mb-1">
+                                        Available balance
                                     </p>
-                                    <p className="text-xl font-black text-amber-300">
-                                        {currencySymbol}{escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    <p className="text-xl font-black text-[#012126]">
+                                        {currencySymbol}{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                     </p>
                                 </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1">
-                                        Total pending + available
+                                <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-[#012126]/45 mb-1">
+                                        Held in escrow
                                     </p>
-                                    <p className="text-xl font-black text-white">
-                                        {currencySymbol}{(balance + escrowBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    <p className="text-xl font-black text-[#012126]">
+                                        {currencySymbol}{escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
+                        <div className="mt-8 grid grid-cols-7 gap-3 items-end h-28">
+                            {chartDays.map(day => (
+                                <div key={day.key} className="flex h-full flex-col items-center justify-end gap-2">
+                                    <div className="relative flex h-20 w-full items-end justify-center rounded-full bg-gray-100 overflow-hidden">
+                                        <div
+                                            className={`w-full rounded-full transition-all ${chartMode === 'received' ? 'bg-[#5845D8]' : 'bg-[#012126]'}`}
+                                            style={{ height: `${Math.max(8, (day.value / maxChartValue) * 100)}%`, opacity: day.value > 0 ? 1 : 0.18 }}
+                                        />
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-[#012126]/45">{day.label}</span>
+                                </div>
+                            ))}
+                        </div>
+
                         <div className="flex flex-wrap items-center gap-3 mt-8">
                             {isAfricanCurrency ? (
-                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasBank ? 'bg-white/5 border-white/10 text-white' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasBank ? 'bg-gray-50 border-gray-100 text-[#012126]' : 'bg-red-500/10 border-red-500/20 text-red-600'}`}>
                                     <Landmark size={18} />
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest">Bank Payout (Naira/Africa)</p>
@@ -155,7 +247,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     </div>
                                 </div>
                             ) : (
-                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasConnectedPayout ? 'bg-white/5 border-white/10 text-white' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasConnectedPayout ? 'bg-gray-50 border-gray-100 text-[#012126]' : 'bg-red-500/10 border-red-500/20 text-red-600'}`}>
                                     <CreditCard size={18} />
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest">Connected Payouts</p>

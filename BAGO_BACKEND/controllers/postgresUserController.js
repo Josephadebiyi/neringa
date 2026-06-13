@@ -1025,11 +1025,15 @@ export async function getWallet(req, res) {
       balance: wallet.balance,
       escrowBalance: wallet.escrowBalance,
       currency: wallet.currency,
+      allTimeReceived: wallet.allTimeReceived,
+      allTimeExpenses: wallet.allTimeExpenses,
       history: wallet.history,
       data: {
         balance: wallet.balance,
         escrowBalance: wallet.escrowBalance,
         currency: wallet.currency,
+        allTimeReceived: wallet.allTimeReceived,
+        allTimeExpenses: wallet.allTimeExpenses,
         history: wallet.history,
       },
     });

@@ -1,10 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
-import { Package, Clock, ChevronRight, CheckCircle, RefreshCw, X, MessageSquare, User, Camera, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Package, Clock, ChevronRight, CheckCircle, RefreshCw, X, MessageSquare, User, Camera, ShieldCheck, AlertTriangle, ZoomIn } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 const requestId = (req) => req?._id || req?.id || req?.requestId;
+const nestedValue = (source, path) => path.split('.').reduce((value, key) => value?.[key], source);
+const firstValue = (source, paths, fallback = '') => {
+    for (const path of paths) {
+        const value = nestedValue(source, path);
+        if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+    }
+    return fallback;
+};
+const packageInfo = (req) => req?.package || req?.packageDetails || req?.package_details || {};
+const recipientInfo = (req) => {
+    const pkg = packageInfo(req);
+    return req?.recipientDetails || req?.recipient_details || pkg.recipientDetails || pkg.recipient_details || {};
+};
+const imageForRequest = (req) => firstValue(req, [
+    'package.image',
+    'package.imageUrl',
+    'package.image_url',
+    'packageDetails.image',
+    'packageDetails.imageUrl',
+    'image',
+    'imageUrl',
+    'image_url',
+], '');
+const displayValue = (value, fallback = 'Not provided') =>
+    value === undefined || value === null || String(value).trim() === '' ? fallback : String(value);
+const detailRowsForRequest = (req) => {
+    const pkg = packageInfo(req);
+    const recipient = recipientInfo(req);
+    return [
+        ['Sender', firstValue(req, ['senderName', 'sender_name', 'sender.fullName', 'sender.name'])],
+        ['Sender phone', firstValue(req, ['senderPhone', 'sender_phone', 'sender.phone'])],
+        ['From', firstValue(req, ['originCity', 'fromCity', 'from_city', 'origin', 'fromLocation', 'package.fromCity', 'package.from_city'])],
+        ['To', firstValue(req, ['destinationCity', 'toCity', 'to_city', 'destination', 'toLocation', 'package.toCity', 'package.to_city'])],
+        ['Pickup address', firstValue(req, ['pickupAddress', 'pickup_address', 'senderAddress', 'sender_address', 'package.pickupAddress', 'package.pickup_address'])],
+        ['Delivery address', firstValue(req, ['deliveryAddress', 'delivery_address', 'receiverAddress', 'receiver_address', 'destinationAddress', 'destination_address', 'package.deliveryAddress', 'package.delivery_address', 'package.receiverAddress', 'package.receiver_address'])],
+        ['Receiver name', firstValue({ ...req, package: pkg, recipient }, ['receiverName', 'receiver_name', 'package.receiverName', 'package.receiver_name', 'recipient.receiverName', 'recipient.receiver_name'])],
+        ['Receiver phone', firstValue({ ...req, package: pkg, recipient }, ['receiverPhone', 'receiver_phone', 'package.receiverPhone', 'package.receiver_phone', 'recipient.receiverPhone', 'recipient.receiver_phone'])],
+        ['Receiver email', firstValue({ ...req, package: pkg, recipient }, ['receiverEmail', 'receiver_email', 'package.receiverEmail', 'package.receiver_email', 'recipient.receiverEmail', 'recipient.receiver_email'])],
+        ['Weight', firstValue(req, ['weight', 'packageWeight', 'package_weight', 'package.weight', 'package.packageWeight', 'package.package_weight'], '0') + ' KG'],
+        ['Category', firstValue(req, ['category', 'package.category'], 'General')],
+        ['Declared value', firstValue(req, ['declaredValue', 'declared_value', 'package.declaredValue', 'package.declared_value'])],
+        ['Insurance', firstValue(req, ['insurance', 'package.insurance']) === true ? 'Enabled' : firstValue(req, ['insurance', 'package.insurance'], 'Not selected')],
+        ['Tracking', firstValue(req, ['trackingNumber', 'tracking_number'], 'Pending')],
+    ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '');
+};
 
 export default function Deliveries({ onNavigateToChat }) {
     const { t } = useLanguage();
@@ -18,6 +63,7 @@ export default function Deliveries({ onNavigateToChat }) {
     const [statusLocation, setStatusLocation] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [proofImage, setProofImage] = useState(null);
+    const [previewImage, setPreviewImage] = useState(null);
     const [downloading, setDownloading] = useState(null);
     const [acceptedTerms, setAcceptedTerms] = useState([false, false, false]);
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
@@ -213,8 +259,8 @@ export default function Deliveries({ onNavigateToChat }) {
                                 onClick={() => { setViewingDetails(req); setAcceptedTerms([false, false, false]); }}
                                 className="w-10 h-10 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-50 shadow-sm cursor-zoom-in"
                             >
-                                {req.package?.image || req.image ? (
-                                    <img src={req.package?.image || req.image} className="w-full h-full object-cover" alt="Item" />
+                                {imageForRequest(req) ? (
+                                    <img src={imageForRequest(req)} className="w-full h-full object-cover" alt="Item" />
                                 ) : (
                                     <Package size={20} />
                                 )}
@@ -460,7 +506,7 @@ export default function Deliveries({ onNavigateToChat }) {
             {/* Inspection Modal */}
             {viewingDetails && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[110] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-lg rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                    <div className="bg-white w-full max-w-4xl rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                         {/* Header */}
                         <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
                             <div>
@@ -475,13 +521,24 @@ export default function Deliveries({ onNavigateToChat }) {
                         {/* Content */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-8">
                             {/* Image Gallery */}
-                            <div className="aspect-video bg-gray-100 rounded-[24px] overflow-hidden relative border border-gray-100 shadow-inner group">
-                                {viewingDetails.package?.image || viewingDetails.image ? (
-                                    <img 
-                                        src={viewingDetails.package?.image || viewingDetails.image} 
-                                        className="w-full h-full object-cover" 
-                                        alt="Package" 
-                                    />
+                            <button
+                                type="button"
+                                onClick={() => imageForRequest(viewingDetails) && setPreviewImage(imageForRequest(viewingDetails))}
+                                className="aspect-video w-full bg-gray-100 rounded-[20px] overflow-hidden relative border border-gray-100 shadow-inner group text-left"
+                            >
+                                {imageForRequest(viewingDetails) ? (
+                                    <>
+                                        <img
+                                            src={imageForRequest(viewingDetails)}
+                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                            alt="Package"
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                        <div className="absolute bottom-4 right-4 px-4 py-2 rounded-xl bg-white/95 text-[#012126] text-[9px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2">
+                                            <ZoomIn size={14} />
+                                            Open image
+                                        </div>
+                                    </>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3">
                                         <Package size={48} className="opacity-20" />
@@ -491,38 +548,30 @@ export default function Deliveries({ onNavigateToChat }) {
                                 <div className="absolute top-4 left-4">
                                     <span className="px-3 py-1 bg-white/90 backdrop-blur text-[8px] font-black uppercase tracking-widest rounded-full shadow-sm">Main Item Photo</span>
                                 </div>
-                            </div>
+                            </button>
 
                             {/* Details Grid */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-5 bg-gray-50 rounded-[20px] border border-gray-100">
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Weight</p>
-                                    <p className="text-sm font-black text-[#012126]">{viewingDetails.weight || viewingDetails.package?.weight || 0} KG</p>
-                                </div>
-                                <div className="p-5 bg-gray-50 rounded-[20px] border border-gray-100">
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Category</p>
-                                    <p className="text-sm font-black text-[#012126] uppercase tracking-tight">{viewingDetails.category || viewingDetails.package?.category || 'General'}</p>
-                                </div>
-                            </div>
-
-                            {/* Receiver Info */}
-                            <div className="space-y-3">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('receiverInfo') || 'Receiver Information'}</p>
-                                <div className="p-6 bg-indigo-50/30 rounded-[24px] border border-indigo-100 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-[10px] font-black text-[#012126] uppercase">{viewingDetails.package?.receiverName || 'N/A'}</p>
-                                        <p className="text-[9px] text-gray-500 font-bold mt-0.5">{viewingDetails.package?.receiverPhone || 'No Phone provided'}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {detailRowsForRequest(viewingDetails).map(([label, value]) => (
+                                    <div key={label} className="p-5 bg-gray-50 rounded-[16px] border border-gray-100">
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{label}</p>
+                                        <p className="text-sm font-black text-[#012126] break-words">{displayValue(value)}</p>
                                     </div>
-                                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#5845D8] shadow-sm">
-                                        <User size={18} />
-                                    </div>
-                                </div>
+                                ))}
                             </div>
 
                             <div className="space-y-3">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Item Description</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Item Description & Sender Message</p>
                                 <div className="p-6 bg-gray-50 rounded-[24px] border border-gray-100 text-xs font-bold leading-relaxed text-[#012126]">
-                                    {viewingDetails.package?.description || viewingDetails.description || 'No detailed description provided by the sender.'}
+                                    <p className="mb-4 whitespace-pre-wrap">
+                                        {firstValue(viewingDetails, ['package.description', 'description'], 'No detailed description provided by the sender.')}
+                                    </p>
+                                    <div className="border-t border-gray-200 pt-4">
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">Message</p>
+                                        <p className="whitespace-pre-wrap">
+                                            {firstValue(viewingDetails, ['message', 'note', 'senderMessage', 'sender_message', 'package.message'], 'No message provided.')}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -588,6 +637,19 @@ export default function Deliveries({ onNavigateToChat }) {
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {previewImage && (
+                <div className="fixed inset-0 z-[220] bg-black/90 p-4 flex items-center justify-center">
+                    <button
+                        type="button"
+                        onClick={() => setPreviewImage(null)}
+                        className="absolute top-5 right-5 h-11 w-11 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+                    >
+                        <X size={22} />
+                    </button>
+                    <img src={previewImage} alt="Shipment item full view" className="max-h-[92vh] max-w-[96vw] object-contain rounded-xl" />
                 </div>
             )}
 

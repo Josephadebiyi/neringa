@@ -555,11 +555,23 @@ export async function getWalletByUserId(userId) {
     `,
     [userId],
   );
+  const totals = await queryOne(
+    `
+      select
+        coalesce(sum(amount) filter (where type in ('earning', 'earnings', 'admin_settlement', 'credit', 'release') and status = 'completed'), 0) as all_time_received,
+        coalesce(sum(amount) filter (where type in ('withdrawal', 'withdraw', 'payout', 'debit') and status in ('completed', 'processing', 'pending')), 0) as all_time_expenses
+      from public.wallet_transactions
+      where user_id = $1
+    `,
+    [userId],
+  );
 
   return {
     ...wallet,
     balance: Number(wallet.available_balance || 0),
     escrowBalance: Number(wallet.escrow_balance || 0),
+    allTimeReceived: Number(totals?.all_time_received || 0),
+    allTimeExpenses: Number(totals?.all_time_expenses || 0),
     history: history.rows,
   };
 }
