@@ -321,7 +321,12 @@ const requestSelect = `
   left join lateral (
     select id from public.conversations
     where request_id = sr.id
-    order by created_at desc
+       or (
+        sender_id = sr.sender_id
+        and traveler_id = sr.traveler_id
+        and trip_id = sr.trip_id
+      )
+    order by case when request_id = sr.id then 0 else 1 end, updated_at desc
     limit 1
   ) c on true
 `;
@@ -739,17 +744,83 @@ export async function createNotification({ userId, title, body, type = 'general'
 
 export async function createConversationForRequest(requestId, senderId, travelerId, existingClient = null) {
   const run = async (client) => {
-    const existing = await client.query(
-      `select id from public.conversations where request_id = $1 limit 1`,
-      [requestId],
-    );
-    if (existing.rows[0]?.id) return existing.rows[0].id;
-
     const requestResult = await client.query(
-      `select trip_id from public.shipment_requests where id = $1`,
+      `
+        select
+          sr.trip_id,
+          sr.package_id,
+          pkg.category,
+          pkg.description,
+          pkg.package_weight
+        from public.shipment_requests sr
+        left join public.packages pkg on pkg.id = sr.package_id
+        where sr.id = $1
+      `,
       [requestId],
     );
     const tripId = requestResult.rows[0]?.trip_id || null;
+    const packageId = requestResult.rows[0]?.package_id || null;
+    const packageCategory = requestResult.rows[0]?.category || null;
+    const packageDescription = requestResult.rows[0]?.description || null;
+    const packageWeight = requestResult.rows[0]?.package_weight || null;
+
+    const existing = await client.query(
+      `
+        select id
+        from public.conversations
+        where sender_id = $1
+          and traveler_id = $2
+          and (
+            request_id = $3
+            or ($4::uuid is not null and trip_id = $4)
+          )
+        order by updated_at desc
+        limit 1
+      `,
+      [senderId, travelerId, requestId, tripId],
+    );
+    if (existing.rows[0]?.id) {
+      const conversationId = existing.rows[0].id;
+      const packageLabel = [packageCategory, packageDescription].filter(Boolean).join(' · ');
+      const systemText = packageLabel
+        ? `New package request: ${packageLabel}`
+        : 'New package request added to this chat';
+      await client.query(
+        `insert into public.messages (conversation_id, sender_id, content, metadata) values ($1,$2,$3,$4)`,
+        [
+          conversationId,
+          senderId,
+          systemText,
+          {
+            system: true,
+            requestId,
+            packageId,
+            packageCategory,
+            packageDescription,
+            packageWeight,
+            type: 'shipment_request',
+          },
+        ],
+      );
+      await client.query(
+        `
+          update public.conversations
+          set last_message = $2,
+              updated_at = timezone('utc', now()),
+              unread_count_traveler = unread_count_traveler + 1,
+              deleted_by_sender = false,
+              deleted_by_traveler = false
+          where id = $1
+        `,
+        [conversationId, systemText],
+      );
+      return conversationId;
+    }
+
+    const initialPackageLabel = [packageCategory, packageDescription].filter(Boolean).join(' · ');
+    const initialSystemText = initialPackageLabel
+      ? `Package request accepted: ${initialPackageLabel}`
+      : 'Conversation started for accepted package request';
 
     const conversation = await client.query(
       `
@@ -757,7 +828,7 @@ export async function createConversationForRequest(requestId, senderId, traveler
         values ($1, $2, $3, $4, $5)
         returning id
       `,
-      [requestId, tripId, senderId, travelerId, 'Conversation started for accepted package request'],
+      [requestId, tripId, senderId, travelerId, initialSystemText],
     );
     const conversationId = conversation.rows[0].id;
 
@@ -768,7 +839,20 @@ export async function createConversationForRequest(requestId, senderId, traveler
 
     await client.query(
       `insert into public.messages (conversation_id, sender_id, content, metadata) values ($1,$2,$3,$4)`,
-      [conversationId, travelerId, 'Conversation started for accepted package request', { system: true, requestId }],
+      [
+        conversationId,
+        travelerId,
+        initialSystemText,
+        {
+          system: true,
+          requestId,
+          packageId,
+          packageCategory,
+          packageDescription,
+          packageWeight,
+          type: 'shipment_request',
+        },
+      ],
     );
 
     return conversationId;

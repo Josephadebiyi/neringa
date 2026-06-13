@@ -249,12 +249,22 @@ export async function createConversationMessage({
     const conversation = conversationResult.rows[0];
     if (!conversation) return null;
 
-    const requestResult = conversation.request_id
-      ? await client.query(`select status from public.shipment_requests where id = $1`, [conversation.request_id])
-      : { rows: [] };
-    const requestStatus = requestResult.rows[0]?.status || null;
+    const requestResult = await client.query(
+      `
+        select
+          count(*) filter (where status not in ('completed', 'cancelled', 'rejected'))::int as active_count,
+          max(status) filter (where id = $3) as request_status
+        from public.shipment_requests
+        where sender_id = $1
+          and traveler_id = $2
+          and ($4::uuid is null or trip_id = $4)
+      `,
+      [conversation.sender_id, conversation.traveler_id, conversation.request_id, conversation.trip_id],
+    );
+    const activeRequestCount = Number(requestResult.rows[0]?.active_count || 0);
+    const requestStatus = requestResult.rows[0]?.request_status || null;
 
-    if (requestStatus && ['completed', 'cancelled', 'rejected'].includes(requestStatus)) {
+    if (requestStatus && activeRequestCount === 0 && ['completed', 'cancelled', 'rejected'].includes(requestStatus)) {
       const error = new Error('This conversation is closed');
       error.code = 'CONVERSATION_CLOSED';
       throw error;

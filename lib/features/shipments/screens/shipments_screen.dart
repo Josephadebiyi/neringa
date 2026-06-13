@@ -962,6 +962,14 @@ class _RequestCard extends StatelessWidget {
               ),
             ],
           ),
+          if (request.createdAt.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Created ${_shortDateTime(request.createdAt)}',
+              style:
+                  AppTextStyles.captionBold.copyWith(color: AppColors.gray400),
+            ),
+          ],
           if (request.senderId.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
             _OpenShipmentChatButton(
@@ -1058,6 +1066,14 @@ class _SenderRequestCard extends StatelessWidget {
               ),
             ],
           ),
+          if (request.createdAt.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Created ${_shortDateTime(request.createdAt)}',
+              style:
+                  AppTextStyles.captionBold.copyWith(color: AppColors.gray400),
+            ),
+          ],
           if (request.carrierId.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
             _OpenShipmentChatButton(
@@ -1500,8 +1516,9 @@ class _DismissibleTrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final tripId = trip.id.trim();
     final card = _TripCard(trip: trip);
-    if (tripId.isEmpty)
+    if (tripId.isEmpty) {
       return Padding(padding: const EdgeInsets.only(bottom: 12), child: card);
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Dismissible(
@@ -1529,14 +1546,16 @@ class _DismissibleTrip extends StatelessWidget {
         onDismissed: (_) async {
           try {
             await ref.read(tripProvider.notifier).cancelTrip(tripId);
-            if (context.mounted)
+            if (context.mounted) {
               AppSnackBar.show(context,
                   message: l10n.tripDeletedSuccessfully,
                   type: SnackBarType.success);
+            }
           } catch (e) {
-            if (context.mounted)
+            if (context.mounted) {
               AppSnackBar.show(context,
                   message: e.toString(), type: SnackBarType.error);
+            }
           }
         },
         background: Container(
@@ -1595,6 +1614,22 @@ String _shortDate(String raw) {
     return '${dt.day}/${dt.month}/${dt.year}';
   } catch (_) {
     return raw.length > 10 ? raw.substring(0, 10) : raw;
+  }
+}
+
+String _shortDateTime(String raw) {
+  try {
+    final dt = DateTime.parse(raw).toLocal();
+    final now = DateTime.now();
+    final date =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day
+            ? 'Today'
+            : '${dt.day}/${dt.month}/${dt.year}';
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '$date $hh:$mm';
+  } catch (_) {
+    return raw.length > 16 ? raw.substring(0, 16) : raw;
   }
 }
 

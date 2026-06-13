@@ -28,6 +28,7 @@ import {
   createBizumCheckoutSession,
   createCardSetupIntent,
   getBizumCheckoutSession,
+  createStripeConnectAccountSession,
   createStripeCustomer,
   createStripeDashboardLink,
   createStripePaymentIntent,
@@ -868,6 +869,7 @@ app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by sig
 // ✅ Stripe checkout, saved cards, escrow, refunds, and Connect payouts
 app.get('/api/payouts/status', isAuthenticated, getStripePayoutStatus);
 app.post('/api/payouts/connect/onboard', isAuthenticated, requireKycVerification, startStripeConnectOnboarding);
+app.post('/api/payouts/connect/account-session', isAuthenticated, requireKycVerification, createStripeConnectAccountSession);
 app.get('/api/payouts/connect/return', stripeConnectReturn);
 app.get('/api/payouts/connect/refresh', stripeConnectRefresh);
 app.post('/api/payouts/connect/dashboard-link', isAuthenticated, createStripeDashboardLink);

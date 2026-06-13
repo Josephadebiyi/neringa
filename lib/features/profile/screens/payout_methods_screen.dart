@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -251,12 +251,11 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       throw Exception(data?['message']?.toString() ??
           'Stripe Express setup link was not returned.');
     }
-    final uri = Uri.parse(url);
-    var launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-    if (!launched) {
-      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-    if (!launched) throw Exception('Could not open Stripe Express.');
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _StripePayoutWebView(url: url),
+      ),
+    );
     await ref.read(authProvider.notifier).refreshProfile();
     if (!mounted) return;
     setState(() => _hydrateFromUser(ref.read(authProvider).user));
@@ -378,6 +377,63 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             onSetupPaystack: _continueWithPaystack,
             onRefresh: _refreshProfile,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripePayoutWebView extends StatefulWidget {
+  const _StripePayoutWebView({required this.url});
+  final String url;
+
+  @override
+  State<_StripePayoutWebView> createState() => _StripePayoutWebViewState();
+}
+
+class _StripePayoutWebViewState extends State<_StripePayoutWebView> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) setState(() => _loading = false);
+          },
+          onNavigationRequest: (request) {
+            final uri = Uri.tryParse(request.url);
+            final isReturn = uri?.scheme == 'bago' ||
+                request.url.contains('/api/payouts/connect/return');
+            if (isReturn) {
+              Navigator.of(context).pop();
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Payout setup'),
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_loading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

@@ -92,21 +92,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final merchantIdentifier = config['merchantIdentifier']?.toString() ??
           PaymentService.applePayMerchantIdentifier;
       final currency = _asString(_draft?['currency'], 'USD');
-      final methods =
-          await _paymentService.getStripePaymentMethods(currency: currency);
-      final rawMethods = methods['methods'];
+      await _paymentService.getStripePaymentMethods(currency: currency);
       final applePaySupported = await Stripe.instance
           .isPlatformPaySupported()
           .catchError((_) => false);
-      final bizumAvailable = rawMethods is List &&
-          rawMethods.whereType<Map>().any((method) =>
-              method['id']?.toString() == 'bizum' &&
-              method['available'] == true);
       if (mounted) {
         setState(() {
           _isSdkReady = true;
           _applePaySupported = applePaySupported;
-          _bizumAvailable = bizumAvailable;
+          _bizumAvailable = false;
           _stripeMerchantIdentifier = merchantIdentifier;
           _merchantCountryCode =
               (config['merchantCountryCode']?.toString() ?? 'ES')

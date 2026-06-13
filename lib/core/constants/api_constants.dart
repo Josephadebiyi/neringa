@@ -149,6 +149,8 @@ class ApiConstants {
       '/api/bago/paystack/verify-bank-otp';
   static const String stripePayoutStatus = '/api/payouts/status';
   static const String stripeConnectOnboard = '/api/payouts/connect/onboard';
+  static const String stripeConnectAccountSession =
+      '/api/payouts/connect/account-session';
   static const String stripeConnectDashboardLink =
       '/api/payouts/connect/dashboard-link';
   static const String stripeWithdraw = '/api/payouts/withdraw';

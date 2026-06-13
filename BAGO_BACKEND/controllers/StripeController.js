@@ -121,11 +121,15 @@ function stripeConnectAccountPayload(profile) {
 }
 
 function stripeConnectAccountUpdatePayload(profile) {
-  const payload = { ...stripeConnectAccountPayload(profile) };
-  delete payload.type;
-  delete payload.country;
-  delete payload.capabilities;
-  return payload;
+  return compactObject({
+    business_profile: {
+      name: 'Bago Traveler Payouts',
+      product_description: 'Peer-to-peer package delivery payouts for completed shipments.',
+      url: process.env.APP_URL || process.env.FRONTEND_URL || undefined,
+    },
+    settings: { payouts: { schedule: { interval: 'manual' } } },
+    metadata: { userId: profile.id },
+  });
 }
 
 function stripeAccountLinkType(account) {
@@ -195,18 +199,6 @@ function buildPaymentMethodEligibility({ countryCode, currency, captureMethod = 
         label: 'Apple Pay',
         available: true,
         note: 'Shown only on eligible Apple Pay devices and browsers.',
-      },
-      {
-        id: 'bizum',
-        label: 'Bizum',
-        available: country === 'ES' && isEur && !isManualCapture,
-        reason: country !== 'ES'
-          ? 'Bizum is only available to customers in Spain.'
-          : !isEur
-            ? 'Bizum payments must be presented in EUR.'
-            : isManualCapture
-              ? 'Bizum does not support manual capture, so it cannot be used for escrow authorization.'
-              : null,
       },
     ],
   };
@@ -451,6 +443,74 @@ export async function startStripeConnectOnboarding(req, res) {
     return res.json({ success: true, url: accountLink.url });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+}
+
+export async function createStripeConnectAccountSession(req, res) {
+  try {
+    const profile = await getProfile(userIdFromReq(req));
+    if (!profile) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    const client = requireStripe();
+    let accountId = profile.stripe_connect_account_id;
+    let account;
+    if (!accountId) {
+      account = await client.accounts.create(stripeConnectAccountPayload(profile));
+      accountId = account.id;
+      await query(
+        `
+          update public.profiles
+          set stripe_connect_account_id = $2,
+              stripe_onboarding_complete = false,
+              stripe_onboarding_status = 'incomplete',
+              payout_provider = 'stripe',
+              payout_method = 'stripe_connect',
+              payout_method_status = 'incomplete',
+              payment_gateway = 'stripe',
+              updated_at = timezone('utc', now())
+          where id = $1
+        `,
+        [profile.id, accountId],
+      );
+    } else {
+      account = await client.accounts.retrieve(accountId);
+      await syncStripeConnectAccountState(account);
+    }
+
+    let accountSession;
+    try {
+      accountSession = await client.accountSessions.create({
+        account: accountId,
+        components: {
+          account_onboarding: {
+            enabled: true,
+            features: {
+              disable_stripe_user_authentication: true,
+            },
+          },
+        },
+      });
+    } catch (sessionError) {
+      accountSession = await client.accountSessions.create({
+        account: accountId,
+        components: {
+          account_onboarding: {
+            enabled: true,
+          },
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      accountId,
+      clientSecret: accountSession.client_secret,
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: 'Payout setup could not be started. Please try again.',
+    });
   }
 }
 

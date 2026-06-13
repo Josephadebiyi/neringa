@@ -130,9 +130,11 @@ class RequestModel {
           '',
       message: json['message']?.toString(),
       createdAt: json['createdAt']?.toString() ??
+          json['created_at']?.toString() ??
           _nestedDate(json, 'dates', 'created') ??
           '',
       updatedAt: json['updatedAt']?.toString() ??
+          json['updated_at']?.toString() ??
           _nestedDate(json, 'dates', 'updated') ??
           '',
       senderName: sender != null
@@ -209,8 +211,7 @@ class RequestModel {
       insurancePolicyId:
           (json['insurancePolicyId'] ?? json['insurance_policy_id'])
               ?.toString(),
-      handoverPin:
-          (json['handoverPin'] ?? json['handover_pin'])?.toString(),
+      handoverPin: (json['handoverPin'] ?? json['handover_pin'])?.toString(),
     );
   }
 

@@ -207,11 +207,6 @@ export default function PaymentCheckout() {
     };
 
     const methodHint = (() => {
-        const bizum = (methodEligibility?.methods || []).find((method) => method.id === 'bizum');
-        if (bizum?.available) return 'Cards, Apple Pay where eligible, and Bizum are available.';
-        if (checkout.currency.toUpperCase() === 'EUR' && methodEligibility?.countryCode === 'ES') {
-            return 'Cards and Apple Pay are available. Bizum appears for eligible Spanish EUR payments.';
-        }
         return 'Cards and eligible wallet payments are available.';
     })();
 

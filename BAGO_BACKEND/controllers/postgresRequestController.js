@@ -492,7 +492,6 @@ export async function RequestPackage(req, res) {
     }
 
     let existingRequest = null;
-    let duplicateRequest = null;
     if (paymentReference) {
       existingRequest = await queryOne(
         `
@@ -573,43 +572,9 @@ export async function RequestPackage(req, res) {
       }
     }
 
-    if (paymentReference && !existingRequest) {
-      duplicateRequest = await queryOne(
-        `
-          select sr.id
-          from public.shipment_requests sr
-          where sr.sender_id = $1
-            and sr.traveler_id = $2
-            and sr.trip_id = $3
-            and sr.status in ('pending', 'accepted')
-            and coalesce(sr.payment_info ->> 'requestId', '') <> $4
-            and not exists (
-              select 1
-              from jsonb_array_elements(coalesce(sr.payment_info -> 'payments', '[]'::jsonb)) payment
-              where payment ->> 'requestId' = $4
-            )
-          order by sr.created_at desc
-          limit 1
-        `,
-        [senderId, travelerId, tripId, paymentReference],
-      );
-    }
-
     let newRequest = existingRequest
       ? await getShipmentRequestById(existingRequest.id)
-      : duplicateRequest
-        ? await mergePaidDuplicateRequest({
-            requestId: duplicateRequest.id,
-            senderId,
-            incomingPackageId: packageId,
-            additionalAmount: Number(amount),
-            currency: currency || 'USD',
-            paymentReference,
-            paymentProvider: paymentProvider || 'paystack',
-            insurance,
-            insuranceCost,
-          })
-        : await createShipmentRequestRecord({
+      : await createShipmentRequestRecord({
           senderId,
           travelerId,
           packageId,
@@ -640,7 +605,7 @@ export async function RequestPackage(req, res) {
             : {},
         });
 
-    if (paymentReference && !duplicateRequest) {
+    if (paymentReference) {
       if ((paymentProvider || '').toLowerCase() === 'stripe') {
         await query(
           `
@@ -700,21 +665,7 @@ export async function RequestPackage(req, res) {
       const updatedTrip = await getTripById(tripId);
       emitTripUpdate(req, updatedTrip, [travelerId, senderId]);
 
-      if (duplicateRequest && newRequest?.travelerId) {
-        await createNotification({
-          userId: newRequest.travelerId,
-          title: 'Shipment request updated',
-          body: `${newRequest.senderName || 'A sender'} added extra kg to an existing request on your trip to ${tripDoc.toLocation}`,
-          type: 'shipment_request',
-          payload: { requestId: newRequest.id, tripId, merged: true },
-        });
-        await sendPushNotification(
-          newRequest.travelerId,
-          'Shipment request updated',
-          `${newRequest.senderName || 'A sender'} added extra kg to an existing request.`,
-          { requestId: newRequest.id, tripId, type: 'shipment_request', merged: true },
-        );
-      } else if (!existingRequest) {
+      if (!existingRequest) {
         if (newRequest?.travelerId) {
           await createNotification({
             userId: newRequest.travelerId,
@@ -739,12 +690,10 @@ export async function RequestPackage(req, res) {
       console.error('Failed to notify traveler:', notifError);
     }
 
-    return res.status(existingRequest || duplicateRequest ? 200 : 201).json({
+    return res.status(existingRequest ? 200 : 201).json({
       success: true,
-      merged: Boolean(duplicateRequest),
-      message: duplicateRequest
-        ? 'Your extra kg has been added to the existing shipment request'
-        : 'You have successfully sent the request',
+      merged: false,
+      message: 'You have successfully sent the request',
       request: newRequest,
     });
   } catch (error) {
