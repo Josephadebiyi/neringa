@@ -228,21 +228,37 @@ class PaymentService {
       final response =
           await _api.post('${ApiConstants.paymentMethods}/setup-intent');
       final data = _extractMap(response.data);
+      debugPrint(
+        '[Stripe] card setup response keys=${data.keys.toList()} '
+        'hasClientSecret=${data['clientSecret'] != null || data['setupIntentClientSecret'] != null}',
+      );
       final setupIntentClientSecret = _firstString(
         data,
-        const ['setupIntentClientSecret', 'setup_intent_client_secret'],
+        const [
+          'setupIntentClientSecret',
+          'setup_intent_client_secret',
+          'clientSecret',
+          'client_secret',
+        ],
       );
       final customerId =
           _firstString(data, const ['customerId', 'customer_id']);
       final customerEphemeralKeySecret = _firstString(
         data,
-        const ['customerEphemeralKeySecret', 'customer_ephemeral_key_secret'],
+        const [
+          'customerEphemeralKeySecret',
+          'customer_ephemeral_key_secret',
+          'ephemeralKeySecret',
+          'ephemeral_key_secret',
+        ],
       );
 
       if (setupIntentClientSecret == null ||
           customerId == null ||
           customerEphemeralKeySecret == null) {
-        throw StateError('Card setup could not be started.');
+        throw StateError(
+          'Card setup could not be started. Please try again in a moment.',
+        );
       }
 
       return CardSetupSession(
