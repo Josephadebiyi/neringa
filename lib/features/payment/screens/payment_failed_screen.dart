@@ -124,12 +124,6 @@ class PaymentFailedScreen extends StatelessWidget {
     }
 
     final normalized = raw.toLowerCase();
-    if (normalized.contains('apple pay native error') ||
-        normalized.contains('apple pay backend capture failed') ||
-        normalized.contains('apple pay app error') ||
-        normalized.contains('card form error before backend call')) {
-      return raw;
-    }
     if (normalized.contains('insufficient_funds')) {
       return l10n.insufficientFundsMessage;
     }

@@ -25,6 +25,7 @@ import { sendPushNotification, sendPushNotificationToToken } from './services/pu
 import {
   cancelStripeEscrow,
   captureStripeEscrow,
+  createBizumCheckoutSession,
   createCardSetupIntent,
   createStripeCustomer,
   createStripeDashboardLink,
@@ -198,7 +199,8 @@ app.get('/.well-known/apple-developer-merchantid-domain-association', async (_re
     res.setHeader('Content-Type', 'application/octet-stream');
     res.end(data);
   } catch (e) {
-    res.status(404).send('File not found: ' + e.message);
+    console.error('Apple Pay domain association file missing:', e.message);
+    res.status(404).send('Not found');
   }
 });
 
@@ -436,6 +438,7 @@ authRoutes.forEach(route => app.use(route, authLimiter));
 
 [
   '/api/payments/create-intent',
+  '/api/payments/bizum-checkout',
   '/api/payments/cards/setup-intent',
   '/api/payments/cards/set-default',
 ].forEach(route => app.use(route, checkoutLimiter));
@@ -648,6 +651,14 @@ schema('/api/payments/create-intent', {
   booleans: ['termsAccepted'],
   stringOrNumbers: ['amount'],
   max: { amount: 20, currency: 3, countryCode: 2, shipmentId: 80, deliveryId: 80, paymentMethodId: 120, paymentMethodType: 20, packageId: 80, tripId: 80, travelerId: 80 },
+});
+schema('/api/payments/bizum-checkout', {
+  allowed: ['amount', 'currency', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
+  required: ['amount', 'currency', 'packageId', 'tripId', 'travelerId'],
+  strings: ['currency', 'packageId', 'tripId', 'travelerId'],
+  booleans: ['termsAccepted'],
+  stringOrNumbers: ['amount'],
+  max: { amount: 20, currency: 3, packageId: 80, tripId: 80, travelerId: 80 },
 });
 schema('/api/payments/cards/setup-intent', {
   allowed: [],
@@ -869,6 +880,7 @@ app.post('/api/payments/cards/set-default', isAuthenticated, setDefaultCard);
 app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, deleteSavedCard);
 app.get('/api/payments/methods', getStripePaymentMethods);
 app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, createStripePaymentIntent);
+app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, createBizumCheckoutSession);
 app.post('/api/escrow/capture', isAuthenticated, captureStripeEscrow);
 app.post('/api/escrow/cancel', isAuthenticated, cancelStripeEscrow);
 app.post('/api/refunds/issue', isAuthenticated, issueStripeRefund);

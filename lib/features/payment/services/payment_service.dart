@@ -97,6 +97,20 @@ class StripeCheckoutSession {
   final String? merchantIdentifier;
 }
 
+class StripeRedirectCheckoutSession {
+  const StripeRedirectCheckoutSession({
+    required this.url,
+    required this.sessionId,
+    required this.paymentIntentId,
+    required this.clientSecret,
+  });
+
+  final String url;
+  final String sessionId;
+  final String paymentIntentId;
+  final String clientSecret;
+}
+
 class PaymentService {
   PaymentService._();
   static final PaymentService instance = PaymentService._();
@@ -256,6 +270,54 @@ class PaymentService {
         customerEphemeralKeySecret: ephemeralKeySecret,
         publishableKey: publishableKey,
         merchantIdentifier: config['merchantIdentifier']?.toString(),
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<StripeRedirectCheckoutSession> createBizumCheckoutSession({
+    required String packageId,
+    required String tripId,
+    required String travelerId,
+    required double amount,
+    required String currency,
+    bool termsAccepted = true,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.stripeBizumCheckout,
+        data: {
+          'packageId': packageId,
+          'tripId': tripId,
+          'travelerId': travelerId,
+          'amount': amount,
+          'currency': currency,
+          'termsAccepted': termsAccepted,
+        },
+      );
+      final data = _extractMap(response.data);
+      final url = _firstString(data, const ['url']);
+      final sessionId = _firstString(data, const ['sessionId', 'session_id']);
+      final paymentIntentId = _firstString(
+        data,
+        const ['paymentIntentId', 'payment_intent'],
+      );
+      final clientSecret = _firstString(
+        data,
+        const ['clientSecret', 'paymentIntentClientSecret'],
+      );
+      if (url == null ||
+          sessionId == null ||
+          paymentIntentId == null ||
+          clientSecret == null) {
+        throw StateError('Bizum checkout could not be started.');
+      }
+      return StripeRedirectCheckoutSession(
+        url: url,
+        sessionId: sessionId,
+        paymentIntentId: paymentIntentId,
+        clientSecret: clientSecret,
       );
     } on DioException catch (e) {
       throw ApiService.parseError(e);

@@ -74,10 +74,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         }
       }
     } catch (e) {
+      debugPrint('Payment draft load failed: $e');
       if (mounted) {
         setState(() {
           _isLoadingDraft = false;
-          _initError = e.toString();
+          _initError =
+              'Payment could not be loaded. Please try again in a moment.';
         });
       }
     }
@@ -125,7 +127,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _initError = e.toString());
+      debugPrint('Stripe init failed: $e');
+      if (mounted) {
+        setState(() => _initError =
+            'Payment methods are temporarily unavailable. Please try again.');
+      }
     }
   }
 
@@ -253,8 +259,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final message = e.error.localizedMessage ??
           e.error.message ??
           'Payment was cancelled or could not be completed.';
+      debugPrint('Card payment failed: $message');
       _failWithDraft('stripe', message, paymentReference: paymentReference);
     } catch (e) {
+      debugPrint('Card payment error: $e');
       _failWithDraft(
         'stripe',
         e.toString().replaceFirst('Exception: ', ''),
@@ -333,8 +341,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final rawMessage = e.error.localizedMessage ??
           e.error.message ??
           'Payment was cancelled or could not be completed.';
-      final message = [
-        'Apple Pay app error: $rawMessage',
+      debugPrint([
+        'Apple Pay failed: $rawMessage',
         'code=$code',
         if (stripeCode?.isNotEmpty == true) 'stripe=$stripeCode',
         if (declineCode?.isNotEmpty == true) 'decline=$declineCode',
@@ -342,14 +350,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'country=$_merchantCountryCode',
         if (currency != null) 'currency=$currency',
         if (totalAmount != null) 'amount=${totalAmount.toStringAsFixed(2)}',
-      ].join(' | ');
-      _failWithDraft('stripe', message, paymentReference: paymentReference);
-    } catch (e) {
+      ].join(' | '));
       _failWithDraft(
         'stripe',
-        e.toString().replaceFirst('Exception: ', '').startsWith('Apple Pay')
-            ? e.toString().replaceFirst('Exception: ', '')
-            : 'Apple Pay app error: ${e.toString().replaceFirst('Exception: ', '')}',
+        'Apple Pay could not be completed. Please try again or use card payment.',
+        paymentReference: paymentReference,
+      );
+    } catch (e) {
+      debugPrint('Apple Pay error: $e');
+      _failWithDraft(
+        'stripe',
+        'Apple Pay could not be completed. Please try again or use card payment.',
         paymentReference: paymentReference,
       );
     } finally {
@@ -370,28 +381,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final packageId = draft['packageId']?.toString() ?? '';
       final tripId = draft['tripId']?.toString() ?? '';
       final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createStripeCheckoutSession(
+      final session = await _paymentService.createBizumCheckoutSession(
         packageId: packageId,
         tripId: tripId,
         travelerId: travelerId,
         amount: totalAmount,
         currency: currency,
         termsAccepted: true,
-        paymentMethodType: 'bizum',
       );
       paymentReference = session.paymentIntentId;
 
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: session.clientSecret,
-          customerId: session.customerId,
-          customerEphemeralKeySecret: session.customerEphemeralKeySecret,
-          merchantDisplayName: 'Bago',
-          style: ThemeMode.system,
-          allowsDelayedPaymentMethods: false,
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _PaymentWebView(
+            url: session.url,
+            title: 'Bizum',
+            callbackUrlPattern: '/api/payments/bizum-return',
+            cancelUrlPattern: '/api/payments/bizum-cancel',
+          ),
         ),
       );
-      await Stripe.instance.presentPaymentSheet();
+      if (!mounted) return;
+      if (result?['type'] == 'cancel') {
+        _failWithDraft(
+          'stripe',
+          'Bizum payment was cancelled.',
+          paymentReference: paymentReference,
+        );
+        return;
+      }
+      setState(() => _isProcessing = true);
       final paymentIntent =
           await Stripe.instance.retrievePaymentIntent(session.clientSecret);
       _assertPaymentReadyForShipment(paymentIntent);
@@ -408,8 +431,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final message = e.error.localizedMessage ??
           e.error.message ??
           'Payment was cancelled or could not be completed.';
+      debugPrint('Bizum Stripe error: $message');
       _failWithDraft('stripe', message, paymentReference: paymentReference);
     } catch (e) {
+      debugPrint('Bizum payment error: $e');
       _failWithDraft(
         'stripe',
         e.toString().replaceFirst('Exception: ', ''),
@@ -473,11 +498,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     String? paymentReference,
   }) {
     if (!mounted) return;
+    debugPrint('Payment failed [$provider]: $errorMsg');
     final existingExpiresAt = _draft?['expiresAt']?.toString();
     final fresh = {
       ...(_draft ?? {}),
       'provider': provider,
-      'lastPaymentError': errorMsg,
+      'lastPaymentError': _publicPaymentError(errorMsg),
       if (paymentReference?.isNotEmpty == true)
         'paymentReference': paymentReference,
       'expiresAt': existingExpiresAt?.isNotEmpty == true
@@ -489,6 +515,41 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _draft = fresh;
     _checkoutService.saveDraft(fresh);
     context.go('/payment-failed', extra: fresh);
+  }
+
+  String _publicPaymentError(String errorMsg) {
+    final normalized = errorMsg.toLowerCase();
+    if (normalized.contains('cancel')) return 'Payment was cancelled.';
+    if (normalized.contains('insufficient_funds')) {
+      return 'The card has insufficient funds.';
+    }
+    if (normalized.contains('card_declined') ||
+        normalized.contains('generic_decline')) {
+      return 'The card was declined. Please use another payment method.';
+    }
+    if (normalized.contains('incorrect_cvc') ||
+        normalized.contains('invalid_cvc')) {
+      return 'The security code is incorrect.';
+    }
+    if (normalized.contains('expired_card')) {
+      return 'The card has expired.';
+    }
+    if (normalized.contains('incorrect_number') ||
+        normalized.contains('invalid_number')) {
+      return 'The card number is incorrect.';
+    }
+    if (normalized.contains('authentication_required') ||
+        normalized.contains('three_d_secure') ||
+        normalized.contains('requires_action')) {
+      return 'Your bank needs extra verification. Please try again.';
+    }
+    if (normalized.contains('apple pay')) {
+      return 'Apple Pay could not be completed. Please try again or use card payment.';
+    }
+    if (normalized.contains('bizum')) {
+      return 'Bizum could not be completed. Please try again or use card payment.';
+    }
+    return 'Payment could not be completed. Please try again or use another method.';
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -710,49 +771,104 @@ class _CardCheckoutForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasExpressMethods = applePaySupported || bizumAvailable;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              'Card details',
-              style: AppTextStyles.h3.copyWith(
-                color: AppColors.gray700,
-                fontWeight: FontWeight.w800,
+        if (hasExpressMethods) ...[
+          Text(
+            'Express checkout',
+            style: AppTextStyles.labelLg.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (applePaySupported)
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : onApplePay,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.black,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      AppColors.black.withValues(alpha: 0.45),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.apple_rounded, size: 28),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Pay',
+                      style: AppTextStyles.h3.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const Spacer(),
-            SvgPicture.asset('assets/images/amex.svg',
-                width: 42, height: 26, fit: BoxFit.contain),
-            const SizedBox(width: 6),
-            SvgPicture.asset('assets/images/visa.svg',
-                width: 42, height: 26, fit: BoxFit.contain),
-            const SizedBox(width: 6),
-            SvgPicture.asset('assets/images/mastercard.svg',
-                width: 42, height: 26, fit: BoxFit.contain),
-          ],
-        ),
-        const SizedBox(height: 14),
+          if (applePaySupported && bizumAvailable) const SizedBox(height: 10),
+          if (bizumAvailable)
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: OutlinedButton(
+                onPressed: isLoading ? null : onBizum,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.black,
+                  side: const BorderSide(color: AppColors.gray200),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _BizumLogo(height: 24),
+                    SizedBox(width: 10),
+                    Text(
+                      'Pay with Bizum',
+                      style: TextStyle(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 24),
+          const _DividerLabel(label: 'or pay by card'),
+        ],
+        const SizedBox(height: 24),
         Text(
-          'Card number',
-          style: AppTextStyles.labelMd.copyWith(
-            color: AppColors.gray700,
+          'Card',
+          style: AppTextStyles.labelLg.copyWith(
+            color: AppColors.black,
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF2F3F5),
-            borderRadius: BorderRadius.circular(2),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        const SizedBox(height: 12),
+        AppCard(
+          padding: const EdgeInsets.all(16),
+          borderRadius: 18,
+          showBorder: true,
           child: CardField(
             enablePostalCode: false,
-            numberHintText: '1234 5678 9012 3456',
+            numberHintText: 'Card number',
             expirationHintText: 'MM/YY',
-            cvcHintText: 'CVV',
+            cvcHintText: 'CVC',
             cursorColor: AppColors.primary,
             style: AppTextStyles.bodyMd.copyWith(color: AppColors.black),
             decoration: const InputDecoration(
@@ -764,11 +880,11 @@ class _CardCheckoutForm extends StatelessWidget {
             onCardChanged: onCardChanged,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
         SizedBox(
           width: double.infinity,
-          height: 58,
-          child: ElevatedButton.icon(
+          height: 56,
+          child: ElevatedButton(
             onPressed: isLoading ? null : onPayCard,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -779,7 +895,7 @@ class _CardCheckoutForm extends StatelessWidget {
               ),
               elevation: 0,
             ),
-            icon: isLoading
+            child: isLoading
                 ? const SizedBox(
                     width: 18,
                     height: 18,
@@ -788,84 +904,15 @@ class _CardCheckoutForm extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.lock_outline_rounded, size: 20),
-            label: Text(
-              'Pay $amountLabel',
-              style: AppTextStyles.buttonLg.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
-        if (applePaySupported) ...[
-          const SizedBox(height: 18),
-          _DividerLabel(
-              label: bizumAvailable ? 'or pay another way' : 'or pay with'),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 58,
-            child: ElevatedButton(
-              onPressed: isLoading ? null : onApplePay,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.black,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor:
-                    AppColors.black.withValues(alpha: 0.45),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.apple_rounded, size: 28),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Pay',
-                    style: AppTextStyles.h3.copyWith(
+                : Text(
+                    'Pay $amountLabel',
+                    style: AppTextStyles.buttonLg.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                ],
-              ),
-            ),
           ),
-        ],
-        if (bizumAvailable) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: OutlinedButton(
-              onPressed: isLoading ? null : onBizum,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.black,
-                side: const BorderSide(color: AppColors.gray200),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const _BizumLogo(height: 24),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Pay with Bizum',
-                    style: AppTextStyles.buttonMd.copyWith(
-                      color: AppColors.black,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }
@@ -1127,12 +1174,14 @@ class _PaymentWebView extends StatefulWidget {
     required this.url,
     required this.title,
     this.callbackUrlPattern,
+    this.cancelUrlPattern,
   });
 
   final String url;
   final String title;
   // Set to intercept Paystack callback redirect (e.g. '/payment/callback')
   final String? callbackUrlPattern;
+  final String? cancelUrlPattern;
 
   @override
   State<_PaymentWebView> createState() => _PaymentWebViewState();
@@ -1161,11 +1210,18 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
   }
 
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
+    final cancelPattern = widget.cancelUrlPattern;
+    if (cancelPattern != null && request.url.contains(cancelPattern)) {
+      Navigator.of(context).pop({'type': 'cancel'});
+      return NavigationDecision.prevent;
+    }
+
     final pattern = widget.callbackUrlPattern;
     if (pattern != null && request.url.contains(pattern)) {
       final uri = Uri.tryParse(request.url);
       final ref = uri?.queryParameters['reference'] ??
           uri?.queryParameters['trxref'] ??
+          uri?.queryParameters['payment_intent'] ??
           '';
       Navigator.of(context).pop({'type': 'callback', 'reference': ref});
       return NavigationDecision.prevent;

@@ -134,6 +134,7 @@ class ApiConstants {
   static const String stripeConfig = '/api/config/stripe';
   static const String stripePaymentMethods = '/api/payments/methods';
   static const String stripeCreateIntent = '/api/payments/create-intent';
+  static const String stripeBizumCheckout = '/api/payments/bizum-checkout';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';

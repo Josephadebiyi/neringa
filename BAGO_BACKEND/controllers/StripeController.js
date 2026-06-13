@@ -822,7 +822,131 @@ export async function createStripePaymentIntent(req, res) {
       paymentMethodEligibility,
     });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error('createStripePaymentIntent failed:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: 'Secure checkout could not be started. Please try again.',
+    });
+  }
+}
+
+export async function createBizumCheckoutSession(req, res) {
+  try {
+    const profile = await getProfile(userIdFromReq(req));
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const amount = toMinorAmount(req.body?.amount);
+    const currency = normalizeCurrency(req.body?.currency || 'EUR');
+    const packageId = req.body?.packageId || null;
+    const tripId = req.body?.tripId || null;
+    const travelerId = req.body?.travelerId || null;
+
+    if (amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be greater than zero.' });
+    }
+    if (currency !== 'eur') {
+      return res.status(400).json({ success: false, message: 'Bizum is only available for EUR payments.' });
+    }
+    if (!packageId || !tripId || !travelerId) {
+      return res.status(400).json({ success: false, message: 'Package, trip, and traveler are required before payment.' });
+    }
+    if (req.body?.termsAccepted !== true) {
+      return res.status(400).json({ success: false, message: 'Shipment terms must be accepted before payment.' });
+    }
+    if (profile.phone_verified === false) {
+      return res.status(403).json({ success: false, code: 'PHONE_NOT_VERIFIED', message: 'Please verify your mobile number before payment.' });
+    }
+
+    const packageRow = await queryOne(
+      `select id, category from public.packages where id = $1 and user_id = $2 limit 1`,
+      [packageId, profile.id],
+    );
+    if (!packageRow) {
+      return res.status(404).json({ success: false, message: 'Package not found or not owned by sender.' });
+    }
+
+    const tripRow = await queryOne(
+      `select id from public.trips where id = $1 and user_id = $2 limit 1`,
+      [tripId, travelerId],
+    );
+    if (!tripRow) {
+      return res.status(404).json({ success: false, message: 'Trip not found or not owned by traveler.' });
+    }
+
+    const customerId = await ensureStripeCustomer(profile);
+    const baseUrl = appUrl();
+    const session = await requireStripe().checkout.sessions.create({
+      mode: 'payment',
+      customer: customerId,
+      payment_method_types: ['bizum'],
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency,
+            unit_amount: amount,
+            product_data: { name: 'Bago shipment payment' },
+          },
+        },
+      ],
+      payment_intent_data: {
+        metadata: {
+          senderId: profile.id,
+          packageId,
+          tripId,
+          travelerId,
+          paymentMethodType: 'bizum',
+        },
+      },
+      success_url: `${baseUrl}/api/payments/bizum-return?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/api/payments/bizum-cancel?session_id={CHECKOUT_SESSION_ID}`,
+      metadata: {
+        senderId: profile.id,
+        packageId,
+        tripId,
+        travelerId,
+      },
+      expand: ['payment_intent'],
+    });
+
+    const paymentIntent = session.payment_intent;
+    await query(
+      `
+        insert into public.payments (
+          user_id, shipment_id, provider, payment_method, stripe_payment_intent_id,
+          amount, currency, status, raw_response
+        )
+        values ($1,null,'stripe','bizum',$2,$3,$4,$5,$6)
+        on conflict (stripe_payment_intent_id) do update
+        set status = excluded.status,
+            raw_response = public.payments.raw_response || excluded.raw_response,
+            updated_at = timezone('utc', now())
+      `,
+      [
+        profile.id,
+        paymentIntent?.id || session.id,
+        amount / 100,
+        currency.toUpperCase(),
+        paymentIntent?.status || session.payment_status || 'created',
+        { checkoutSessionId: session.id, paymentIntentId: paymentIntent?.id || null },
+      ],
+    );
+
+    return res.json({
+      success: true,
+      url: session.url,
+      sessionId: session.id,
+      paymentIntentId: paymentIntent?.id || '',
+      clientSecret: paymentIntent?.client_secret || '',
+    });
+  } catch (error) {
+    console.error('createBizumCheckoutSession failed:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: 'Bizum checkout could not be started. Please try again.',
+    });
   }
 }
 
