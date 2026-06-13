@@ -10,6 +10,7 @@ import 'shared/services/push_notification_service.dart';
 import 'shared/services/storage_service.dart';
 import 'shared/services/supabase_service.dart';
 import 'shared/services/app_settings_service.dart';
+import 'features/payment/services/payment_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +64,13 @@ void _finishStartup() {
       .catchError((e) {
     debugPrint('AppSettings fetch error: $e');
     return AppSettingsService.fallbackSnapshot;
+  });
+  PaymentService.instance
+      .configureStripe()
+      .timeout(const Duration(seconds: 8))
+      .catchError((e) {
+    debugPrint('Stripe startup config skipped: $e');
+    return <String, dynamic>{};
   });
 }
 

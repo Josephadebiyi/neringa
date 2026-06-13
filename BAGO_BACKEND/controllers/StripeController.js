@@ -491,6 +491,69 @@ export async function stripeConnectWebhook(req, res) {
       const account = event.data.object;
       await syncStripeConnectAccountState(account);
     }
+    if (
+      event.type === 'payment_intent.succeeded' ||
+      event.type === 'payment_intent.payment_failed' ||
+      event.type === 'payment_intent.processing'
+    ) {
+      const paymentIntent = event.data.object;
+      const status =
+        event.type === 'payment_intent.succeeded'
+          ? 'succeeded'
+          : event.type === 'payment_intent.processing'
+            ? 'processing'
+            : 'failed';
+      await query(
+        `
+          insert into public.payments (
+            user_id, shipment_id, provider, payment_method, stripe_payment_intent_id,
+            amount, currency, status, raw_response
+          )
+          values (
+            null,
+            null,
+            'stripe',
+            coalesce($5, 'stripe'),
+            $1,
+            $2,
+            $3,
+            $4,
+            $6
+          )
+          on conflict (stripe_payment_intent_id) do update
+          set status = excluded.status,
+              raw_response = public.payments.raw_response || excluded.raw_response,
+              updated_at = timezone('utc', now())
+        `,
+        [
+          paymentIntent.id,
+          (paymentIntent.amount || 0) / 100,
+          String(paymentIntent.currency || '').toUpperCase(),
+          status,
+          paymentIntent.metadata?.paymentMethodType || paymentIntent.payment_method_types?.[0],
+          { webhookEventId: event.id, paymentIntent },
+        ],
+      ).catch((err) => {
+        console.error('Stripe webhook payment upsert failed:', err.message);
+      });
+
+      await query(
+        `
+          update public.shipment_requests
+          set payment_status = $2,
+              payment_info = coalesce(payment_info, '{}'::jsonb) || $3::jsonb,
+              updated_at = timezone('utc', now())
+          where stripe_payment_intent_id = $1
+        `,
+        [
+          paymentIntent.id,
+          status === 'succeeded' ? 'paid_escrow' : status,
+          { stripeWebhookStatus: status, webhookEventId: event.id },
+        ],
+      ).catch((err) => {
+        console.error('Stripe webhook shipment update failed:', err.message);
+      });
+    }
 
     await query(
       `
@@ -742,21 +805,28 @@ export async function createStripePaymentIntent(req, res) {
     );
     const requestedPaymentMethod = String(paymentMethodType || 'card').trim().toLowerCase();
     const paymentMethodTypes =
-      requestedPaymentMethod === 'bizum' && bizumAvailable ? ['bizum'] : ['card'];
+      requestedPaymentMethod === 'bizum' && bizumAvailable ? ['bizum'] : null;
     const params = {
       amount,
       currency,
       customer: customerId,
-      payment_method_types: paymentMethodTypes,
       metadata: {
         shipmentId: shipmentId || '',
         senderId: profile.id,
         packageId: packageId || '',
         tripId: tripId || '',
         travelerId: travelerId || '',
-        paymentMethodType: paymentMethodTypes[0],
+        paymentMethodType: paymentMethodTypes?.[0] || 'card',
       },
     };
+    if (paymentMethodTypes) {
+      params.payment_method_types = paymentMethodTypes;
+    } else {
+      params.automatic_payment_methods = {
+        enabled: true,
+        allow_redirects: 'never',
+      };
+    }
     if (paymentMethodId) {
       params.payment_method = paymentMethodId;
       params.confirm = true;

@@ -43,6 +43,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Stripe return URL for redirect-based payment flows -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.deracali.boltexponativewind.payments" android:host="stripe-redirect" />
+            </intent-filter>
+            <!-- PayPal native SDK: handles return from PayPal checkout -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.deracali.boltexponativewind" android:host="paypalpay" />
+            </intent-filter>
         </activity>
         <!-- Dojah SDK: required for file uploads (document capture) -->
         <provider
@@ -54,14 +68,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/provider_paths" />
         </provider>
-
-        <!-- PayPal native SDK: handles return from PayPal checkout -->
-        <intent-filter>
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="com.deracali.boltexponativewind" android:host="paypalpay" />
-        </intent-filter>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

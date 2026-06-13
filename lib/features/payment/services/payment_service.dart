@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
@@ -114,8 +116,53 @@ class StripeRedirectCheckoutSession {
 class PaymentService {
   PaymentService._();
   static final PaymentService instance = PaymentService._();
+  static const stripeReturnUrlScheme =
+      'com.deracali.boltexponativewind.payments';
+  static const stripeReturnUrl = '$stripeReturnUrlScheme://stripe-redirect';
+  static const applePayMerchantIdentifier =
+      'merchant.com.deracali.boltexponativewind';
 
   final _api = ApiService.instance;
+  bool _stripeConfigured = false;
+  Map<String, dynamic>? _lastStripeConfig;
+
+  Future<Map<String, dynamic>> configureStripe() async {
+    final config = await getStripeConfig();
+    final publishableKey = config['publishableKey']?.toString() ?? '';
+    if (publishableKey.isEmpty) {
+      throw StateError('Payment is not configured.');
+    }
+
+    final configuredMerchantIdentifier =
+        config['merchantIdentifier']?.toString().trim();
+    final merchantIdentifier = configuredMerchantIdentifier == null ||
+            configuredMerchantIdentifier.isEmpty ||
+            configuredMerchantIdentifier == 'merchant.com.bago.app'
+        ? applePayMerchantIdentifier
+        : configuredMerchantIdentifier;
+
+    Stripe.publishableKey = publishableKey;
+    Stripe.merchantIdentifier = merchantIdentifier;
+    Stripe.urlScheme = stripeReturnUrlScheme;
+    await Stripe.instance.applySettings();
+
+    _stripeConfigured = true;
+    _lastStripeConfig = {
+      ...config,
+      'merchantIdentifier': merchantIdentifier,
+      'returnURL': stripeReturnUrl,
+    };
+    debugPrint(
+      '[Stripe] configured live=${publishableKey.startsWith('pk_live_')} '
+      'merchant=$merchantIdentifier returnURL=$stripeReturnUrl',
+    );
+    return _lastStripeConfig!;
+  }
+
+  Future<void> ensureStripeConfigured() async {
+    if (_stripeConfigured) return;
+    await configureStripe();
+  }
 
   String _parsePaymentMethodsError(DioException e) {
     final path = e.requestOptions.path;
@@ -196,11 +243,20 @@ class PaymentService {
 
   Future<Map<String, dynamic>> getStripeConfig() async {
     try {
+      debugPrint('[Stripe] GET ${ApiConstants.stripeConfig}');
       final response = await _api.get(ApiConstants.stripeConfig);
       final data = response.data;
-      if (data is Map) return Map<String, dynamic>.from(data);
+      if (data is Map) {
+        final parsed = Map<String, dynamic>.from(data);
+        debugPrint(
+          '[Stripe] config response publishable=${parsed['publishableKey']?.toString().startsWith('pk_live_') == true ? 'live' : 'missing/test'} '
+          'merchant=${parsed['merchantIdentifier']} country=${parsed['merchantCountryCode']}',
+        );
+        return parsed;
+      }
       return {};
     } on DioException catch (e) {
+      debugPrint('[Stripe] config request failed: ${ApiService.parseError(e)}');
       throw ApiService.parseError(e);
     }
   }
@@ -209,12 +265,18 @@ class PaymentService {
     required String currency,
   }) async {
     try {
+      debugPrint(
+          '[Stripe] GET ${ApiConstants.stripePaymentMethods} currency=$currency');
       final response = await _api.get(
         ApiConstants.stripePaymentMethods,
         queryParameters: {'currency': currency},
       );
-      return _extractMap(response.data);
+      final data = _extractMap(response.data);
+      debugPrint('[Stripe] payment methods response: $data');
+      return data;
     } on DioException catch (e) {
+      debugPrint(
+          '[Stripe] payment methods failed: ${ApiService.parseError(e)}');
       throw ApiService.parseError(e);
     }
   }
@@ -229,7 +291,11 @@ class PaymentService {
     String paymentMethodType = 'card',
   }) async {
     try {
-      final config = await getStripeConfig();
+      final config = _lastStripeConfig ?? await configureStripe();
+      debugPrint(
+        '[Stripe] POST ${ApiConstants.stripeCreateIntent} '
+        'amount=$amount currency=$currency method=$paymentMethodType',
+      );
       final response = await _api.post(
         ApiConstants.stripeCreateIntent,
         data: {
@@ -243,6 +309,10 @@ class PaymentService {
         },
       );
       final data = _extractMap(response.data);
+      debugPrint(
+        '[Stripe] create intent response keys=${data.keys.toList()} '
+        'pi=${data['paymentIntentId']} hasClientSecret=${data['clientSecret'] != null}',
+      );
       final clientSecret = _firstString(data, const ['clientSecret']);
       final paymentIntentId = _firstString(data, const ['paymentIntentId']);
       final customerId =
@@ -272,6 +342,7 @@ class PaymentService {
         merchantIdentifier: config['merchantIdentifier']?.toString(),
       );
     } on DioException catch (e) {
+      debugPrint('[Stripe] create intent failed: ${ApiService.parseError(e)}');
       throw ApiService.parseError(e);
     }
   }
@@ -285,6 +356,10 @@ class PaymentService {
     bool termsAccepted = true,
   }) async {
     try {
+      debugPrint(
+        '[Stripe] POST ${ApiConstants.stripeBizumCheckout} '
+        'amount=$amount currency=$currency',
+      );
       final response = await _api.post(
         ApiConstants.stripeBizumCheckout,
         data: {
@@ -297,6 +372,10 @@ class PaymentService {
         },
       );
       final data = _extractMap(response.data);
+      debugPrint(
+        '[Stripe] Bizum checkout response session=${data['sessionId']} '
+        'pi=${data['paymentIntentId']} hasUrl=${data['url'] != null}',
+      );
       final url = _firstString(data, const ['url']);
       final sessionId = _firstString(data, const ['sessionId', 'session_id']);
       final paymentIntentId = _firstString(
@@ -320,6 +399,7 @@ class PaymentService {
         clientSecret: clientSecret,
       );
     } on DioException catch (e) {
+      debugPrint('[Stripe] Bizum checkout failed: ${ApiService.parseError(e)}');
       throw ApiService.parseError(e);
     }
   }

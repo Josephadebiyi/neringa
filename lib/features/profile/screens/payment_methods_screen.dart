@@ -67,35 +67,28 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     if (_addingCard) return;
     setState(() => _addingCard = true);
     try {
-      final config = await PaymentService.instance.getStripeConfig();
-      final publishableKey = config['publishableKey']?.toString() ?? '';
-      if (publishableKey.isEmpty) {
-        throw StateError('Card saving is not configured.');
-      }
-
-      Stripe.publishableKey = publishableKey;
-      final configuredMerchantIdentifier =
-          config['merchantIdentifier']?.toString().trim();
-      Stripe.merchantIdentifier = configuredMerchantIdentifier == null ||
-              configuredMerchantIdentifier.isEmpty ||
-              configuredMerchantIdentifier == 'merchant.com.bago.app'
-          ? 'merchant.com.deracali.boltexponativewind'
-          : configuredMerchantIdentifier;
-      await Stripe.instance.applySettings();
+      await PaymentService.instance.configureStripe();
 
       final session = await PaymentService.instance.createCardSetupSession();
+      debugPrint(
+        '[Stripe] init setup PaymentSheet customer=${session.customerId} '
+        'hasSetupSecret=${session.setupIntentClientSecret.isNotEmpty}',
+      );
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           setupIntentClientSecret: session.setupIntentClientSecret,
           customerId: session.customerId,
           customerEphemeralKeySecret: session.customerEphemeralKeySecret,
           merchantDisplayName: 'Bago',
+          returnURL: PaymentService.stripeReturnUrl,
           style: ThemeMode.system,
           allowsDelayedPaymentMethods: false,
           primaryButtonLabel: 'Save card',
         ),
       );
+      debugPrint('[Stripe] setup PaymentSheet initialized');
       await Stripe.instance.presentPaymentSheet();
+      debugPrint('[Stripe] setup PaymentSheet completed');
       await _loadCards();
       if (mounted) {
         AppSnackBar.show(context,
@@ -105,6 +98,11 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       final message = e.error.localizedMessage ??
           e.error.message ??
           'Card setup was cancelled.';
+      debugPrint(
+        '[Stripe] setup PaymentSheet failed: '
+        'code=${e.error.code.name} stripe=${e.error.stripeErrorCode} '
+        'decline=${e.error.declineCode} message=$message',
+      );
       if (mounted) {
         AppSnackBar.show(context, message: message, type: SnackBarType.error);
       }

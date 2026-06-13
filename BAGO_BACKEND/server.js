@@ -881,6 +881,12 @@ app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, deleteSavedC
 app.get('/api/payments/methods', getStripePaymentMethods);
 app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, createStripePaymentIntent);
 app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, createBizumCheckoutSession);
+app.get('/api/payments/bizum-return', (_req, res) => {
+  res.type('html').send('<!doctype html><html><body><p>Payment complete. You can return to Bago.</p></body></html>');
+});
+app.get('/api/payments/bizum-cancel', (_req, res) => {
+  res.type('html').send('<!doctype html><html><body><p>Payment cancelled. You can return to Bago.</p></body></html>');
+});
 app.post('/api/escrow/capture', isAuthenticated, captureStripeEscrow);
 app.post('/api/escrow/cancel', isAuthenticated, cancelStripeEscrow);
 app.post('/api/refunds/issue', isAuthenticated, issueStripeRefund);

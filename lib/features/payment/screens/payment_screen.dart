@@ -87,22 +87,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _initStripe() async {
     try {
-      final config = await _paymentService.getStripeConfig();
-      final publishableKey = config['publishableKey']?.toString() ?? '';
-      if (publishableKey.isEmpty) {
-        if (mounted) setState(() => _initError = 'Payment is not configured.');
-        return;
-      }
-      Stripe.publishableKey = publishableKey;
-      final configuredMerchantIdentifier =
-          config['merchantIdentifier']?.toString().trim();
-      final merchantIdentifier = configuredMerchantIdentifier == null ||
-              configuredMerchantIdentifier.isEmpty ||
-              configuredMerchantIdentifier == 'merchant.com.bago.app'
-          ? 'merchant.com.deracali.boltexponativewind'
-          : configuredMerchantIdentifier;
-      Stripe.merchantIdentifier = merchantIdentifier;
-      await Stripe.instance.applySettings();
+      final config = await _paymentService.configureStripe();
+      final merchantIdentifier = config['merchantIdentifier']?.toString() ??
+          PaymentService.applePayMerchantIdentifier;
       final currency = _asString(_draft?['currency'], 'USD');
       final methods =
           await _paymentService.getStripePaymentMethods(currency: currency);
@@ -222,6 +209,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _isProcessing = true);
     String? paymentReference;
     try {
+      await _paymentService.ensureStripeConfigured();
       final draft = _draft!;
       final currency = _asString(draft['currency'], 'USD');
       final totalAmount = _asDouble(draft['totalAmount']);
@@ -239,12 +227,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
       paymentReference = session.paymentIntentId;
 
+      debugPrint(
+        '[Stripe] confirm card pi=${session.paymentIntentId} '
+        'hasClientSecret=${session.clientSecret.isNotEmpty}',
+      );
       final paymentIntent = await Stripe.instance.confirmPayment(
         paymentIntentClientSecret: session.clientSecret,
         data: const PaymentMethodParams.card(
           paymentMethodData: PaymentMethodData(),
         ),
       );
+      debugPrint('[Stripe] card confirm result status=${paymentIntent.status}');
       _assertPaymentReadyForShipment(paymentIntent);
 
       await _completeShipmentAfterPayment(
@@ -280,6 +273,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     String? currency;
     double? totalAmount;
     try {
+      await _paymentService.ensureStripeConfigured();
       final draft = _draft!;
       currency = _asString(draft['currency'], 'USD').toUpperCase();
       totalAmount = _asDouble(draft['totalAmount']);
@@ -308,6 +302,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
       paymentReference = session.paymentIntentId;
 
+      debugPrint(
+        '[Stripe] confirm Apple Pay pi=${session.paymentIntentId} '
+        'merchant=$_stripeMerchantIdentifier country=$_merchantCountryCode '
+        'currency=$currency amount=${totalAmount.toStringAsFixed(2)}',
+      );
       final paymentIntent =
           await Stripe.instance.confirmPlatformPayPaymentIntent(
         clientSecret: session.clientSecret,
@@ -324,6 +323,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         ),
       );
+      debugPrint(
+          '[Stripe] Apple Pay confirm result status=${paymentIntent.status}');
       _assertPaymentReadyForShipment(paymentIntent);
 
       await _completeShipmentAfterPayment(
@@ -375,8 +376,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _isProcessing = true);
     String? paymentReference;
     try {
+      await _paymentService.ensureStripeConfigured();
       final draft = _draft!;
       final currency = _asString(draft['currency'], 'EUR');
+      if (currency.toUpperCase() != 'EUR') {
+        throw Exception('Bizum is only available for EUR payments.');
+      }
       final totalAmount = _asDouble(draft['totalAmount']);
       final packageId = draft['packageId']?.toString() ?? '';
       final tripId = draft['tripId']?.toString() ?? '';
@@ -390,6 +395,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         termsAccepted: true,
       );
       paymentReference = session.paymentIntentId;
+      debugPrint(
+        '[Stripe] open Bizum WebView session=${session.sessionId} '
+        'pi=${session.paymentIntentId} url=${session.url}',
+      );
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -417,6 +426,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       setState(() => _isProcessing = true);
       final paymentIntent =
           await Stripe.instance.retrievePaymentIntent(session.clientSecret);
+      debugPrint(
+          '[Stripe] Bizum retrieve result status=${paymentIntent.status}');
       _assertPaymentReadyForShipment(paymentIntent);
 
       await _completeShipmentAfterPayment(
