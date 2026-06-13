@@ -210,7 +210,7 @@ class ShipmentService {
     }
   }
 
-  Future<void> sendPackageRequest({
+  Future<Map<String, dynamic>?> sendPackageRequest({
     required String travelerId,
     required String packageId,
     required String tripId,
@@ -242,18 +242,43 @@ class ShipmentService {
         if (paymentReference != null) 'paymentStatus': 'paid',
         if (message != null) 'message': message,
       });
-      final data = response.data;
-      if (data is Map) {
+      final raw = response.data;
+      if (raw is Map) {
+        final data = Map<String, dynamic>.from(raw);
         final success = data['success'];
-        final request = data['request'];
-        if (success == false || (paymentReference != null && request == null)) {
+        final paymentPending = data['paymentPending'] == true;
+        if (success == false && !paymentPending) {
           throw StateError(data['message']?.toString() ??
               'Payment was confirmed, but the shipment could not be started yet.');
         }
+
+        final request = _extractRequest(data);
+        if (request != null) return request;
+        if (paymentPending) {
+          return {
+            'paymentPending': true,
+            if (data['message'] != null) 'message': data['message'],
+          };
+        }
       }
+      return null;
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
+  }
+
+  Map<String, dynamic>? _extractRequest(Map<String, dynamic> data) {
+    final direct = data['request'];
+    if (direct is Map) return Map<String, dynamic>.from(direct);
+
+    final nested = data['data'];
+    if (nested is Map) {
+      final nestedRequest = nested['request'];
+      if (nestedRequest is Map) return Map<String, dynamic>.from(nestedRequest);
+      if (nested['id'] != null) return Map<String, dynamic>.from(nested);
+    }
+
+    return null;
   }
 
   Future<void> acceptRequest(String requestId) async {

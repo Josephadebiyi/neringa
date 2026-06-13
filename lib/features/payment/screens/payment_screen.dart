@@ -477,7 +477,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     required String currency,
     required String paymentReference,
   }) async {
-    await ShipmentService.instance.sendPackageRequest(
+    final request = await ShipmentService.instance.sendPackageRequest(
       travelerId: travelerId,
       packageId: packageId,
       tripId: tripId,
@@ -499,7 +499,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ...draft,
       'provider': 'stripe',
       'paymentReference': paymentReference,
-      'request': null,
+      'request': request,
+      if (request?['paymentPending'] == true) 'paymentPending': true,
     });
   }
 

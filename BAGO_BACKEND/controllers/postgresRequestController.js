@@ -785,7 +785,7 @@ export async function RequestPackage(req, res) {
       }
 
       return res.status(202).json({
-        success: false,
+        success: true,
         paymentPending: true,
         message: 'Payment is confirmed and your shipment is being finalized. Please check My Shipments shortly.',
       });
@@ -799,7 +799,7 @@ export async function RequestPackage(req, res) {
     ].includes(error.message)) {
       return res.status(400).json({ message: error.message });
     }
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 }
 

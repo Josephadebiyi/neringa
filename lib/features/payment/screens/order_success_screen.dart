@@ -33,6 +33,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final paymentReference = widget.extra?['paymentReference']?.toString();
+    final paymentPending = widget.extra?['paymentPending'] == true;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -55,7 +56,9 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
                   style: AppTextStyles.h1, textAlign: TextAlign.center),
               const SizedBox(height: 10),
               Text(
-                l10n.shipmentCreatedSentTraveler,
+                paymentPending
+                    ? 'Payment is secured. Your shipment is being finalized and will appear in My Shipments shortly.'
+                    : l10n.shipmentCreatedSentTraveler,
                 style: AppTextStyles.muted(AppTextStyles.bodyMd),
                 textAlign: TextAlign.center,
               ),
