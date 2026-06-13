@@ -124,6 +124,9 @@ class PaymentFailedScreen extends StatelessWidget {
     }
 
     final normalized = raw.toLowerCase();
+    if (_looksLikeDiagnosticLeak(normalized)) {
+      return l10n.paymentCouldNotCompleteGeneric;
+    }
     if (normalized.contains('insufficient_funds')) {
       return l10n.insufficientFundsMessage;
     }
@@ -167,5 +170,32 @@ class PaymentFailedScreen extends StatelessWidget {
     }
 
     return l10n.paymentCouldNotCompleteGeneric;
+  }
+
+  bool _looksLikeDiagnosticLeak(String normalized) {
+    const blocked = [
+      'merchant=',
+      'merchant.',
+      'client_secret',
+      'clientsecret',
+      'payment_intent',
+      'paymentintent',
+      'pi_',
+      'pk_live',
+      'pk_test',
+      'sk_live',
+      'sk_test',
+      'publishablekey',
+      'secretkey',
+      'stripeerrorcode',
+      'declinecode',
+      'country=',
+      'currency=',
+      'amount=',
+      'code=',
+      'stacktrace',
+      'trace:',
+    ];
+    return blocked.any(normalized.contains);
   }
 }

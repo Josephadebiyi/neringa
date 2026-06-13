@@ -21,13 +21,6 @@ export const requireKycVerification = (req, res, next) => {
         message: `KYC verification required. Current status: ${user.kycStatus || 'not_started'}`,
         code: 'VERIFICATION_REQUIRED',
         kycStatus: user.kycStatus,
-        data: {
-          userId: user.id || user._id,
-          email: user.email,
-          kycStatus: user.kycStatus,
-          kycVerifiedAt: user.kycVerifiedAt,
-          kycFailureReason: user.kycFailureReason,
-        },
       });
     }
 
