@@ -74,8 +74,13 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       }
 
       Stripe.publishableKey = publishableKey;
-      Stripe.merchantIdentifier =
-          config['merchantIdentifier']?.toString() ?? 'merchant.com.bago.app';
+      final configuredMerchantIdentifier =
+          config['merchantIdentifier']?.toString().trim();
+      Stripe.merchantIdentifier = configuredMerchantIdentifier == null ||
+              configuredMerchantIdentifier.isEmpty ||
+              configuredMerchantIdentifier == 'merchant.com.bago.app'
+          ? 'merchant.com.deracali.boltexponativewind'
+          : configuredMerchantIdentifier;
       await Stripe.instance.applySettings();
 
       final session = await PaymentService.instance.createCardSetupSession();

@@ -1,7 +1,7 @@
 {
   "provider": "apple_pay",
   "data": {
-    "merchantIdentifier": "merchant.com.bago.app",
+    "merchantIdentifier": "merchant.com.deracali.boltexponativewind",
     "displayName": "Bago",
     "merchantCapabilities": ["3DS"],
     "supportedNetworks": ["visa", "masterCard", "amex", "discover"],

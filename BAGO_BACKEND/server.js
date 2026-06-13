@@ -879,12 +879,20 @@ app.get('/api/refunds/status/:shipmentId', isAuthenticated, getStripeRefundStatu
 app.post('/api/payouts/connect/webhook', stripeConnectWebhook);
 app.post('/api/webhooks/stripe', stripeConnectWebhook);
 
+const APPLE_PAY_MERCHANT_ID = 'merchant.com.deracali.boltexponativewind';
+
 // ✅ Shared config
 app.get('/api/config/stripe', (_req, res) => {
+  const configuredMerchantId = process.env.STRIPE_APPLE_PAY_MERCHANT_ID;
+  const merchantIdentifier =
+    configuredMerchantId && configuredMerchantId !== 'merchant.com.bago.app'
+      ? configuredMerchantId
+      : APPLE_PAY_MERCHANT_ID;
+
   res.json({
     success: true,
     publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
-    merchantIdentifier: process.env.STRIPE_APPLE_PAY_MERCHANT_ID || 'merchant.com.bago.app',
+    merchantIdentifier,
     merchantCountryCode: process.env.STRIPE_APPLE_PAY_MERCHANT_COUNTRY || 'ES',
   });
 });

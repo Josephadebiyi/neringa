@@ -33,7 +33,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _applePaySupported = false;
   bool _bizumAvailable = false;
   String _merchantCountryCode = 'ES';
-  String _stripeMerchantIdentifier = 'merchant.com.bago.app';
+  String _stripeMerchantIdentifier = 'merchant.com.deracali.boltexponativewind';
   Map<String, dynamic>? _draft;
   String? _initError;
 
@@ -92,10 +92,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
       Stripe.publishableKey = publishableKey;
-      final merchantIdentifier =
-          config['merchantIdentifier']?.toString().trim().isNotEmpty == true
-              ? config['merchantIdentifier'].toString().trim()
-              : 'merchant.com.bago.app';
+      final configuredMerchantIdentifier =
+          config['merchantIdentifier']?.toString().trim();
+      final merchantIdentifier = configuredMerchantIdentifier == null ||
+              configuredMerchantIdentifier.isEmpty ||
+              configuredMerchantIdentifier == 'merchant.com.bago.app'
+          ? 'merchant.com.deracali.boltexponativewind'
+          : configuredMerchantIdentifier;
       Stripe.merchantIdentifier = merchantIdentifier;
       await Stripe.instance.applySettings();
       final currency = _asString(_draft?['currency'], 'USD');
