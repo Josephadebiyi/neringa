@@ -104,13 +104,35 @@ class StripeRedirectCheckoutSession {
     required this.url,
     required this.sessionId,
     required this.paymentIntentId,
-    required this.clientSecret,
   });
 
   final String url;
   final String sessionId;
   final String paymentIntentId;
-  final String clientSecret;
+}
+
+class StripeRedirectCheckoutStatus {
+  const StripeRedirectCheckoutStatus({
+    required this.sessionId,
+    required this.paymentIntentId,
+    required this.status,
+    required this.checkoutStatus,
+    required this.paymentStatus,
+  });
+
+  final String sessionId;
+  final String paymentIntentId;
+  final String status;
+  final String checkoutStatus;
+  final String paymentStatus;
+
+  bool get isReadyForShipment {
+    final normalizedStatus = status.toLowerCase();
+    final normalizedPayment = paymentStatus.toLowerCase();
+    return normalizedStatus == 'succeeded' ||
+        normalizedStatus == 'processing' ||
+        normalizedPayment == 'paid';
+  }
 }
 
 class PaymentService {
@@ -382,24 +404,45 @@ class PaymentService {
         data,
         const ['paymentIntentId', 'payment_intent'],
       );
-      final clientSecret = _firstString(
-        data,
-        const ['clientSecret', 'paymentIntentClientSecret'],
-      );
-      if (url == null ||
-          sessionId == null ||
-          paymentIntentId == null ||
-          clientSecret == null) {
+      if (url == null || sessionId == null) {
         throw StateError('Bizum checkout could not be started.');
       }
       return StripeRedirectCheckoutSession(
         url: url,
         sessionId: sessionId,
-        paymentIntentId: paymentIntentId,
-        clientSecret: clientSecret,
+        paymentIntentId: paymentIntentId ?? '',
       );
     } on DioException catch (e) {
       debugPrint('[Stripe] Bizum checkout failed: ${ApiService.parseError(e)}');
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<StripeRedirectCheckoutStatus> getBizumCheckoutStatus(
+    String sessionId,
+  ) async {
+    try {
+      final safeSessionId = Uri.encodeComponent(sessionId);
+      final response =
+          await _api.get('${ApiConstants.stripeBizumCheckout}/$safeSessionId');
+      final data = _extractMap(response.data);
+      debugPrint(
+        '[Stripe] Bizum status session=${data['sessionId']} '
+        'pi=${data['paymentIntentId']} status=${data['status']} '
+        'payment=${data['paymentStatus']} checkout=${data['checkoutStatus']}',
+      );
+      final parsedSessionId = _firstString(data, const ['sessionId']) ?? '';
+      return StripeRedirectCheckoutStatus(
+        sessionId: parsedSessionId,
+        paymentIntentId:
+            _firstString(data, const ['paymentIntentId', 'payment_intent']) ??
+                '',
+        status: _firstString(data, const ['status']) ?? '',
+        checkoutStatus: _firstString(data, const ['checkoutStatus']) ?? '',
+        paymentStatus: _firstString(data, const ['paymentStatus']) ?? '',
+      );
+    } on DioException catch (e) {
+      debugPrint('[Stripe] Bizum status failed: ${ApiService.parseError(e)}');
       throw ApiService.parseError(e);
     }
   }

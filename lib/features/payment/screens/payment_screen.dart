@@ -3,6 +3,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -424,11 +425,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
       setState(() => _isProcessing = true);
-      final paymentIntent =
-          await Stripe.instance.retrievePaymentIntent(session.clientSecret);
-      debugPrint(
-          '[Stripe] Bizum retrieve result status=${paymentIntent.status}');
-      _assertPaymentReadyForShipment(paymentIntent);
+      final checkoutStatus =
+          await _paymentService.getBizumCheckoutStatus(session.sessionId);
+      if (!checkoutStatus.isReadyForShipment) {
+        throw Exception('Bizum payment was not completed.');
+      }
 
       await _completeShipmentAfterPayment(
         draft: draft,
@@ -436,7 +437,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         packageId: packageId,
         tripId: tripId,
         currency: currency,
-        paymentReference: session.paymentIntentId,
+        paymentReference: checkoutStatus.paymentIntentId.isNotEmpty
+            ? checkoutStatus.paymentIntentId
+            : session.paymentIntentId,
       );
     } on StripeException catch (e) {
       final message = e.error.localizedMessage ??
@@ -1220,7 +1223,9 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
     _controller.loadRequest(Uri.parse(widget.url));
   }
 
-  NavigationDecision _onNavigationRequest(NavigationRequest request) {
+  Future<NavigationDecision> _onNavigationRequest(
+    NavigationRequest request,
+  ) async {
     final cancelPattern = widget.cancelUrlPattern;
     if (cancelPattern != null && request.url.contains(cancelPattern)) {
       Navigator.of(context).pop({'type': 'cancel'});
@@ -1235,6 +1240,13 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
           uri?.queryParameters['payment_intent'] ??
           '';
       Navigator.of(context).pop({'type': 'callback', 'reference': ref});
+      return NavigationDecision.prevent;
+    }
+    final uri = Uri.tryParse(request.url);
+    if (uri != null &&
+        uri.scheme.isNotEmpty &&
+        !const {'http', 'https', 'about'}.contains(uri.scheme)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
       return NavigationDecision.prevent;
     }
     return NavigationDecision.navigate;

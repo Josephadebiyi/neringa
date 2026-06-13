@@ -1009,13 +1009,78 @@ export async function createBizumCheckoutSession(req, res) {
       url: session.url,
       sessionId: session.id,
       paymentIntentId: paymentIntent?.id || '',
-      clientSecret: paymentIntent?.client_secret || '',
     });
   } catch (error) {
     console.error('createBizumCheckoutSession failed:', error);
     return res.status(error.statusCode || 500).json({
       success: false,
       message: 'Bizum checkout could not be started. Please try again.',
+    });
+  }
+}
+
+export async function getBizumCheckoutSession(req, res) {
+  try {
+    const profile = await getProfile(userIdFromReq(req));
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const sessionId = String(req.params.sessionId || '').trim();
+    if (!sessionId || !sessionId.startsWith('cs_')) {
+      return res.status(400).json({ success: false, message: 'Invalid Bizum session.' });
+    }
+
+    const session = await requireStripe().checkout.sessions.retrieve(sessionId, {
+      expand: ['payment_intent'],
+    });
+    if (session.metadata?.senderId && session.metadata.senderId !== profile.id) {
+      return res.status(403).json({ success: false, message: 'This payment session is not available.' });
+    }
+
+    const paymentIntent = session.payment_intent;
+    const paymentIntentId = typeof paymentIntent === 'string'
+      ? paymentIntent
+      : paymentIntent?.id || '';
+    const intentStatus = typeof paymentIntent === 'string'
+      ? null
+      : paymentIntent?.status || null;
+    const status = intentStatus || session.payment_status || session.status || 'open';
+
+    if (paymentIntentId) {
+      await query(
+        `
+          update public.payments
+          set status = $3,
+              raw_response = raw_response || $4::jsonb,
+              updated_at = timezone('utc', now())
+          where stripe_payment_intent_id = $1
+            and user_id = $2
+        `,
+        [
+          paymentIntentId,
+          profile.id,
+          status,
+          { checkoutSessionId: session.id, checkoutStatus: session.status, paymentStatus: session.payment_status },
+        ],
+      ).catch((err) => {
+        console.warn('Bizum session status update failed:', err.message);
+      });
+    }
+
+    return res.json({
+      success: true,
+      sessionId: session.id,
+      checkoutStatus: session.status,
+      paymentStatus: session.payment_status,
+      paymentIntentId,
+      status,
+    });
+  } catch (error) {
+    console.error('getBizumCheckoutSession failed:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: 'Bizum payment could not be verified. Please try again.',
     });
   }
 }

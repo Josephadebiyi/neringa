@@ -27,6 +27,7 @@ import {
   captureStripeEscrow,
   createBizumCheckoutSession,
   createCardSetupIntent,
+  getBizumCheckoutSession,
   createStripeCustomer,
   createStripeDashboardLink,
   createStripePaymentIntent,
@@ -881,6 +882,7 @@ app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, deleteSavedC
 app.get('/api/payments/methods', getStripePaymentMethods);
 app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, createStripePaymentIntent);
 app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, createBizumCheckoutSession);
+app.get('/api/payments/bizum-checkout/:sessionId', isAuthenticated, getBizumCheckoutSession);
 app.get('/api/payments/bizum-return', (_req, res) => {
   res.type('html').send('<!doctype html><html><body><p>Payment complete. You can return to Bago.</p></body></html>');
 });

@@ -3,6 +3,9 @@ import api from '../../api';
 import { Package, Clock, ChevronRight, CheckCircle, RefreshCw, X, MessageSquare, User, Camera, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
+const asArray = (value) => Array.isArray(value) ? value : [];
+const requestId = (req) => req?._id || req?.id || req?.requestId;
+
 export default function Deliveries({ onNavigateToChat }) {
     const { t } = useLanguage();
     const [deliveries, setDeliveries] = useState([]);
@@ -40,7 +43,8 @@ export default function Deliveries({ onNavigateToChat }) {
         try {
             const res = await api.get('/api/bago/recentOrder');
             // Filter where role is traveler
-            setDeliveries(res.data?.data?.filter(d => d.role === 'traveler') || []);
+            const payload = res.data?.data || res.data?.requests || res.data || [];
+            setDeliveries(asArray(payload).filter(d => d?.role === 'traveler'));
         } catch (err) {
             setNotification({ show: true, message: 'Failed to fetch deliveries', type: 'error' });
         } finally {
@@ -49,6 +53,7 @@ export default function Deliveries({ onNavigateToChat }) {
     };
 
     const handleUpdateStatus = async (requestId, status) => {
+        if (!requestId) return;
         setIsSubmitting(true);
         try {
             // 1. Update status
@@ -88,6 +93,16 @@ export default function Deliveries({ onNavigateToChat }) {
         }
     };
 
+    const handleAcceptPending = (req) => {
+        const id = requestId(req);
+        if (!id) return;
+        if (!detailsViewed[id]) {
+            setViewingDetails(req);
+            return;
+        }
+        handleUpdateStatus(id, 'accepted');
+    };
+
     const handleRaiseDispute = async (requestId, reason) => {
         setIsSubmitting(true);
         try {
@@ -124,6 +139,7 @@ export default function Deliveries({ onNavigateToChat }) {
     };
 
     const handleDownloadPDF = async (requestId, tracking) => {
+        if (!requestId) return;
         setDownloading(requestId);
         try {
             const response = await api.get(`/api/bago/request/${requestId}/pdf`, {
@@ -189,10 +205,12 @@ export default function Deliveries({ onNavigateToChat }) {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {deliveries.map(req => (
-                        <div key={req._id} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
+                    {deliveries.map((req, index) => {
+                        const id = requestId(req);
+                        return (
+                        <div key={id || index} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
                             <div 
-                                onClick={() => { setViewingDetails(req); setAcceptedTerms(false); }}
+                                onClick={() => { setViewingDetails(req); setAcceptedTerms([false, false, false]); }}
                                 className="w-10 h-10 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-50 shadow-sm cursor-zoom-in"
                             >
                                 {req.package?.image || req.image ? (
@@ -234,30 +252,31 @@ export default function Deliveries({ onNavigateToChat }) {
                                     {req.status}
                                 </span>
                                 <div className="flex gap-2">
-                                    {req.status === 'pending' ? (
+                                    {req.status?.toLowerCase() === 'pending' ? (
                                         <>
                                             <button
-                                                onClick={() => { setViewingDetails(req); setAcceptedTerms(false); }}
+                                                onClick={() => { setViewingDetails(req); setAcceptedTerms([false, false, false]); }}
                                                 className="flex items-center gap-1.5 bg-gray-100 text-[#012126] px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all shadow-sm"
                                             >
                                                 <Package size={14} />
                                                 {t('viewDetails') || 'Inspect'}
                                             </button>
                                             <button
-                                                onClick={() => handleUpdateStatus(req._id, 'accepted')}
-                                                disabled={!detailsViewed[req._id]}
+                                                onClick={() => handleAcceptPending(req)}
+                                                disabled={!id || isSubmitting}
                                                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md ${
-                                                    detailsViewed[req._id] 
+                                                    id
                                                         ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-500/10' 
                                                         : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none grayscale'
                                                 }`}
-                                                title={!detailsViewed[req._id] ? "You must inspect the package details first" : ""}
+                                                title={!detailsViewed[id] ? 'Inspect package details before accepting' : 'Accept delivery request'}
                                             >
                                                 <CheckCircle size={14} />
                                                 {t('accept') || 'Accept'}
                                             </button>
                                             <button
-                                                onClick={() => handleUpdateStatus(req._id, 'rejected')}
+                                                onClick={() => handleUpdateStatus(id, 'rejected')}
+                                                disabled={!id}
                                                 className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-md shadow-red-500/10"
                                             >
                                                 <X size={14} />
@@ -285,24 +304,25 @@ export default function Deliveries({ onNavigateToChat }) {
                                         <AlertTriangle size={14} />
                                     </button>
                                     <button 
-                                        onClick={() => onNavigateToChat(req.conversationId)}
-                                        className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm"
-                                        title="Chat with Sender"
+                                        onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}
+                                        disabled={!req.conversationId}
+                                        className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                        title={req.conversationId ? 'Chat with Sender' : 'Chat available once request is accepted'}
                                     >
                                         <MessageSquare size={14} />
                                     </button>
                                     <button
-                                        onClick={() => handleDownloadPDF(req._id, req.trackingNumber)}
-                                        disabled={downloading === req._id}
+                                        onClick={() => handleDownloadPDF(id, req.trackingNumber)}
+                                        disabled={!id || downloading === id}
                                         className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#5845D8] border border-[#5845D8] rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all shadow-sm"
                                     >
-                                        {downloading === req._id ? <RefreshCw size={14} className="animate-spin" /> : null}
-                                        {downloading === req._id ? 'DOWNLOADING' : 'DOWNLOAD'}
+                                        {downloading === id ? <RefreshCw size={14} className="animate-spin" /> : null}
+                                        {downloading === id ? 'DOWNLOADING' : 'DOWNLOAD'}
                                     </button>
                                 </div>
                             </div>
                         </div>
-                    ))}
+                    )})}
                 </div>
             )}
 
@@ -322,7 +342,7 @@ export default function Deliveries({ onNavigateToChat }) {
 
                         <form onSubmit={(e) => {
                             e.preventDefault();
-                            handleRaiseDispute(selectedDispute._id, e.target.reason.value);
+                            handleRaiseDispute(requestId(selectedDispute), e.target.reason.value);
                         }} className="p-6 md:p-8 space-y-6">
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-relaxed text-center px-4">
                                 Are you experiencing issues with the pickup, package content, or sender? Reporting an issue will alert the Bago team for mediation.
@@ -376,14 +396,14 @@ export default function Deliveries({ onNavigateToChat }) {
                         <div className="p-6 md:p-8 space-y-5">
                             <div className="grid grid-cols-2 gap-3">
                                 <button
-                                    onClick={() => handleUpdateStatus(updatingStatus._id, 'intransit')}
+                                    onClick={() => handleUpdateStatus(requestId(updatingStatus), 'intransit')}
                                     className="flex flex-col items-center gap-2 p-4 bg-blue-50/50 text-blue-600 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all group"
                                 >
                                     <Clock size={20} className="group-hover:scale-110 transition-transform" />
                                     <span className="text-[8px] font-black uppercase tracking-widest">{t('markInTransit') || 'In Transit'}</span>
                                 </button>
                                 <button
-                                    onClick={() => handleUpdateStatus(updatingStatus._id, 'delivered')}
+                                    onClick={() => handleUpdateStatus(requestId(updatingStatus), 'delivered')}
                                     className="flex flex-col items-center gap-2 p-4 bg-green-50/50 text-green-600 rounded-2xl border border-green-100 hover:bg-green-100 transition-all group"
                                 >
                                     <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
@@ -540,20 +560,23 @@ export default function Deliveries({ onNavigateToChat }) {
 
                         {/* Footer */}
                         <div className="p-6 border-t border-gray-50 bg-gray-50/30 flex gap-3">
-                            {viewingDetails.status === 'pending' && !detailsViewed[viewingDetails._id] ? (
-                                <button 
+                            {viewingDetails.status?.toLowerCase() === 'pending' ? (
+                                <button
                                     onClick={() => {
-                                        setDetailsViewed(prev => ({ ...prev, [viewingDetails._id]: true }));
+                                        const id = requestId(viewingDetails);
+                                        if (!id) return;
+                                        setDetailsViewed(prev => ({ ...prev, [id]: true }));
                                         setViewingDetails(null);
+                                        handleUpdateStatus(id, 'accepted');
                                     }}
-                                    disabled={!acceptedTerms.every(Boolean)}
+                                    disabled={!acceptedTerms.every(Boolean) || isSubmitting}
                                     className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
-                                        acceptedTerms.every(Boolean)
+                                        acceptedTerms.every(Boolean) && !isSubmitting
                                             ? 'bg-[#5845D8] text-white hover:bg-[#4838B5] shadow-indigo-500/20'
                                             : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                                     }`}
                                 >
-                                    Confirm Inspection
+                                    {isSubmitting ? 'Accepting...' : 'Accept Delivery Request'}
                                 </button>
                             ) : (
                                 <button 
