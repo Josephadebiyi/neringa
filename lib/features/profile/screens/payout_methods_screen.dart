@@ -806,8 +806,8 @@ class _PrimaryActionPanel extends StatelessWidget {
         : state.isActive
             ? 'Refresh payout status'
             : state.isIncomplete
-                ? 'Add bank details'
-                : 'Create payout account';
+                ? 'Continue Stripe Express setup'
+                : 'Set up Stripe Express';
     final primaryIcon = usesPaystack
         ? Icons.account_balance_rounded
         : state.isActive
@@ -832,40 +832,6 @@ class _PrimaryActionPanel extends StatelessWidget {
                 : state.isActive
                     ? onRefresh
                     : onSetupStripe,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: saving ? null : onRefresh,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Refresh'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(46),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-              if (!usesPaystack && !state.isActive) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: saving ? null : onSetupStripe,
-                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('Bank details'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
           ),
         ],
       ),
