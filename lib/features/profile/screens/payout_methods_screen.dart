@@ -3,6 +3,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -102,11 +103,30 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     final provider = user?.payoutProvider?.trim().toLowerCase() ?? '';
     final payoutStatus = user?.payoutStatus?.trim().toLowerCase() ?? '';
     final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
-    final hasPaypal = provider == 'paypal' || method == 'paypal';
-    final paypalActive = hasPaypal &&
+    final hasPaystack = user?.bankAccountLinked == true &&
+        (provider == 'paystack' ||
+            method == 'paystack' ||
+            methodStatus == 'connected');
+    final paystackActive = _usesPaystack &&
+        hasPaystack &&
         (payoutStatus == 'active' ||
             methodStatus == 'active' ||
             methodStatus == 'connected');
+    final hasPaypal = provider == 'paypal' || method == 'paypal';
+    final paypalActive = !_usesPaystack &&
+        hasPaypal &&
+        (payoutStatus == 'active' ||
+            methodStatus == 'active' ||
+            methodStatus == 'connected');
+
+    if (paystackActive) {
+      return _PayoutState(
+        provider: _PayoutProvider.paystack,
+        status: _PayoutStatus.active,
+        detail: 'Paystack bank payouts are connected',
+        accountId: null,
+      );
+    }
 
     if (paypalActive) {
       return _PayoutState(
@@ -118,9 +138,12 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
 
     return _PayoutState(
-      provider: _PayoutProvider.paypal,
+      provider:
+          _usesPaystack ? _PayoutProvider.paystack : _PayoutProvider.paypal,
       status: _PayoutStatus.notStarted,
-      detail: 'Add your PayPal email to receive payouts',
+      detail: _usesPaystack
+          ? 'Add a Paystack-supported bank account'
+          : 'Add your PayPal email to receive payouts',
       accountId: null,
     );
   }
@@ -355,7 +378,10 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
     final user = ref.watch(authProvider).user;
     final payoutState = _payoutStateFor(user);
-    const methodName = 'PayPal';
+    final methodName = _usesPaystack ? 'Paystack bank transfer' : 'PayPal';
+    final providerHelp = _usesPaystack
+        ? 'This currency is paid out through Paystack bank transfer.'
+        : 'This currency is paid out through PayPal.';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -389,27 +415,49 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             ),
           ),
           const SizedBox(height: 28),
-          _PayoutChoiceTile(
-            icon: Icons.account_balance_rounded,
-            title: 'Bank account',
-            subtitle: 'Coming soon',
-            enabled: false,
-            onTap: () {},
-          ),
-          const Divider(height: 1, color: AppColors.gray200),
-          _PayoutChoiceTile(
-            paypal: true,
-            title: payoutState.isActive ? 'PayPal connected' : 'PayPal',
-            subtitle: payoutState.isActive
-                ? 'Tap to update your PayPal email'
-                : 'Receive payouts with your PayPal email',
-            enabled: !_saving,
-            onTap: _connectPaypalPayout,
-          ),
+          if (_usesPaystack) ...[
+            _PayoutChoiceTile(
+              icon: Icons.account_balance_rounded,
+              title: payoutState.isActive
+                  ? 'Bank account connected'
+                  : 'Bank account',
+              subtitle: payoutState.isActive
+                  ? 'Tap to update your Paystack bank account'
+                  : 'Save a local bank account with Paystack',
+              enabled: !_saving,
+              onTap: _continueWithPaystack,
+            ),
+            const Divider(height: 1, color: AppColors.gray200),
+            _PayoutChoiceTile(
+              paypal: true,
+              title: 'PayPal',
+              subtitle: 'Not available for $_selectedCurrency payouts',
+              enabled: false,
+              onTap: () {},
+            ),
+          ] else ...[
+            _PayoutChoiceTile(
+              icon: Icons.account_balance_rounded,
+              title: 'Bank account',
+              subtitle: 'Coming soon',
+              enabled: false,
+              onTap: () {},
+            ),
+            const Divider(height: 1, color: AppColors.gray200),
+            _PayoutChoiceTile(
+              paypal: true,
+              title: payoutState.isActive ? 'PayPal connected' : 'PayPal',
+              subtitle: payoutState.isActive
+                  ? 'Tap to update your PayPal email'
+                  : 'Receive payouts with your PayPal email',
+              enabled: !_saving,
+              onTap: _connectPaypalPayout,
+            ),
+          ],
           const SizedBox(height: 26),
           const _SectionLabel(
             title: 'Payout currency',
-            subtitle: 'Your payout currency is saved with your PayPal method.',
+            subtitle: 'Changing currency updates the payout provider.',
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
@@ -438,7 +486,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           ),
           const SizedBox(height: 34),
           Text(
-            'Data are collected by Bago and transmitted to PayPal only to enable payouts. By proceeding, you confirm this payout account belongs to you.',
+            'Data are collected by Bago and transmitted to our payout provider only to enable payouts. $providerHelp By proceeding, you confirm this payout account belongs to you.',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.gray500,
               height: 1.4,
@@ -479,13 +527,11 @@ class _PayoutChoiceTile extends StatelessWidget {
             SizedBox(
               width: 42,
               child: paypal
-                  ? Text(
-                      'P',
-                      style: AppTextStyles.h2.copyWith(
-                        color: const Color(0xFF0070BA),
-                        fontWeight: FontWeight.w900,
-                        fontStyle: FontStyle.italic,
-                      ),
+                  ? SvgPicture.asset(
+                      'assets/images/paypal.svg',
+                      width: 34,
+                      height: 22,
+                      fit: BoxFit.contain,
                     )
                   : Icon(icon, color: AppColors.gray500, size: 27),
             ),

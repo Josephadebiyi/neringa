@@ -129,14 +129,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (isInitialising) return null;
 
-      if (!isLoggedIn && !isAuthRoute && !isOnboarding && !isGuestAllowed)
+      if (!isLoggedIn && !isAuthRoute && !isOnboarding && !isGuestAllowed) {
         return '/home';
+      }
 
       // Allow signup/signin even when logged in (e.g. from onboarding)
       if (isLoggedIn &&
           isAuthRoute &&
           loc != '/auth/signup' &&
-          loc != '/auth/signin') return '/home';
+          loc != '/auth/signin') {
+        return '/home';
+      }
       return null;
     },
     routes: [
@@ -269,7 +272,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/shipment-details/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          final pkg = state.extra is PackageModel ? state.extra as PackageModel : null;
+          final pkg =
+              state.extra is PackageModel ? state.extra as PackageModel : null;
           return ShipmentDetailsScreen(shipmentId: id, preloadedPackage: pkg);
         },
       ),
@@ -442,7 +446,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const PayoutMethodsScreen(),
       ),
       GoRoute(
+        path: '/payout-methods',
+        builder: (_, __) => const PayoutMethodsScreen(),
+      ),
+      GoRoute(
         path: '/profile/add-bank',
+        builder: (_, __) => const AddBankScreen(),
+      ),
+      GoRoute(
+        path: '/add-bank',
         builder: (_, __) => const AddBankScreen(),
       ),
       GoRoute(
