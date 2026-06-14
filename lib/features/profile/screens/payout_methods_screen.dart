@@ -109,14 +109,16 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         (provider == 'paystack' ||
             method == 'paystack' ||
             methodStatus == 'connected');
-    final active = payoutStatus == 'active' ||
+    final paystackActive = payoutStatus == 'active' ||
         methodStatus == 'active' ||
         methodStatus == 'connected';
+    final stripeActive = payoutStatus == 'active' || methodStatus == 'active';
 
     if (hasPaystack && _usesPaystack) {
       return _PayoutState(
         provider: _PayoutProvider.paystack,
-        status: active ? _PayoutStatus.active : _PayoutStatus.incomplete,
+        status:
+            paystackActive ? _PayoutStatus.active : _PayoutStatus.incomplete,
         detail: 'Bank payout connected',
         accountId: null,
       );
@@ -125,10 +127,10 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     if (hasStripe && !_usesPaystack) {
       return _PayoutState(
         provider: _PayoutProvider.stripe,
-        status: active ? _PayoutStatus.active : _PayoutStatus.incomplete,
-        detail: active
+        status: stripeActive ? _PayoutStatus.active : _PayoutStatus.incomplete,
+        detail: stripeActive
             ? 'Payout account is ready. Refresh to confirm Stripe status.'
-            : 'Add or confirm your bank details in Stripe Express',
+            : 'Complete Stripe Express: accept terms, verify identity, and add your bank account.',
         accountId: stripeAccountId,
       );
     }
@@ -171,7 +173,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   Future<void> _openStripeOnboarding() async {
     await _openStripeUrl(
       endpoint: ApiConstants.stripeConnectOnboard,
-      successMessage: 'Add your bank details in Stripe Express.',
+      successMessage: 'Stripe Express payout setup is complete.',
     );
   }
 
@@ -240,7 +242,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       throw Exception(data?['message']?.toString() ??
           'Payout setup is not available right now. Please refresh and try again.');
     }
-    await Navigator.of(context).push(
+    final completed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => _StripePayoutWebView(url: url),
       ),
@@ -248,10 +250,21 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     await ref.read(authProvider.notifier).refreshProfile();
     if (!mounted) return;
     setState(() => _hydrateFromUser(ref.read(authProvider).user));
+    final payoutState = _payoutStateFor(ref.read(authProvider).user);
+    if (completed == true || payoutState.isActive) {
+      AppSnackBar.show(
+        context,
+        message: successMessage,
+        type: SnackBarType.success,
+      );
+      return;
+    }
     AppSnackBar.show(
       context,
-      message: successMessage,
-      type: SnackBarType.success,
+      message:
+          'Stripe still needs your terms, identity details, or bank account before payouts can be enabled.',
+      type: SnackBarType.warning,
+      duration: const Duration(seconds: 5),
     );
   }
 
@@ -382,6 +395,7 @@ class _StripePayoutWebView extends StatefulWidget {
 class _StripePayoutWebViewState extends State<_StripePayoutWebView> {
   late final WebViewController _controller;
   bool _loading = true;
+  bool _completed = false;
 
   @override
   void initState() {
@@ -395,10 +409,13 @@ class _StripePayoutWebViewState extends State<_StripePayoutWebView> {
           },
           onNavigationRequest: (request) {
             final uri = Uri.tryParse(request.url);
-            final isReturn = uri?.scheme == 'bago' ||
-                request.url.contains('/api/payouts/connect/return');
+            final isReturn = uri?.scheme == 'bago' &&
+                uri?.host == 'payouts' &&
+                uri?.path == '/setup-complete' &&
+                uri?.queryParameters['status'] == 'complete';
             if (isReturn) {
-              Navigator.of(context).pop();
+              _completed = true;
+              Navigator.of(context).pop(true);
               return NavigationDecision.prevent;
             }
             return NavigationDecision.navigate;
@@ -415,12 +432,37 @@ class _StripePayoutWebViewState extends State<_StripePayoutWebView> {
         title: const Text('Payout setup'),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(_completed),
         ),
       ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 18,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.black.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Text(
+                    'Complete Stripe terms, identity details, and bank account. Bago returns automatically when setup is complete.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.white,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           if (_loading) const Center(child: CircularProgressIndicator()),
         ],
       ),

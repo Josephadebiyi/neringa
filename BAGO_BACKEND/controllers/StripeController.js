@@ -26,6 +26,49 @@ function appUrl() {
   return process.env.API_PUBLIC_URL || process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL || 'https://neringa.onrender.com';
 }
 
+function connectReturnUrl(profile) {
+  return `${appUrl()}/api/payouts/connect/return?userId=${encodeURIComponent(profile.id)}`;
+}
+
+function renderConnectIncompletePage({ profile, message }) {
+  const refreshUrl = `${appUrl()}/api/payouts/connect/refresh?userId=${encodeURIComponent(profile.id)}`;
+  const safeMessage = String(message || 'Stripe still needs a few details before payouts can be enabled.')
+    .replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[char]);
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bago payout setup</title>
+    <style>
+      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:#f7f7fb;color:#111827}
+      main{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}
+      section{max-width:440px;background:#fff;border:1px solid #e5e7eb;border-radius:24px;padding:28px;box-shadow:0 18px 60px rgba(17,24,39,.08)}
+      h1{font-size:24px;line-height:1.2;margin:0 0 12px}
+      p{font-size:16px;line-height:1.5;color:#4b5563;margin:0 0 20px}
+      a{display:block;text-align:center;text-decoration:none;background:#5b45ff;color:#fff;border-radius:16px;padding:15px 18px;font-weight:800}
+      small{display:block;color:#6b7280;line-height:1.4;margin-top:16px}
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>Finish your payout setup</h1>
+        <p>${safeMessage}</p>
+        <a href="${refreshUrl}">Continue Stripe Express setup</a>
+        <small>You will return to Bago only after Stripe confirms your terms, identity details, and bank account are complete.</small>
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
 function normalizeCurrency(value, fallback = 'USD') {
   return String(value || fallback).trim().toLowerCase();
 }
@@ -154,7 +197,7 @@ async function createStripeConnectAccountLink({ client, accountId, profile, type
   const params = {
     account: accountId,
     refresh_url: `${appUrl()}/api/payouts/connect/refresh?userId=${encodeURIComponent(profile.id)}`,
-    return_url: `${appUrl()}/api/payouts/connect/return`,
+    return_url: connectReturnUrl(profile),
     type,
   };
   if (type === 'account_onboarding') {
@@ -540,8 +583,28 @@ export async function createStripeConnectAccountSession(req, res) {
   }
 }
 
-export async function stripeConnectReturn(_req, res) {
-  res.redirect('bago://payouts/setup-complete');
+export async function stripeConnectReturn(req, res) {
+  try {
+    const profile = await getProfile(req.query.userId);
+    if (!profile?.stripe_connect_account_id) {
+      return res.status(404).send('Payout account not found.');
+    }
+    const client = requireStripe();
+    const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
+    const complete = await syncStripeConnectAccountState(account);
+    if (complete) {
+      return res.redirect('bago://payouts/setup-complete?status=complete');
+    }
+    return res
+      .status(200)
+      .type('html')
+      .send(renderConnectIncompletePage({
+        profile,
+        message: 'Your Stripe Express account is not complete yet. Please continue to accept Stripe terms, confirm your identity, and add your bank account.',
+      }));
+  } catch (error) {
+    return res.status(error.statusCode || 500).send(error.message);
+  }
 }
 
 export async function stripeConnectRefresh(req, res) {
@@ -550,6 +613,10 @@ export async function stripeConnectRefresh(req, res) {
     if (!profile?.stripe_connect_account_id) return res.status(404).send('Payout account not found.');
     const client = requireStripe();
     const account = await client.accounts.retrieve(profile.stripe_connect_account_id);
+    const complete = await syncStripeConnectAccountState(account);
+    if (complete) {
+      return res.redirect('bago://payouts/setup-complete?status=complete');
+    }
     const accountLink = await createStripeConnectAccountLink({
       client,
       accountId: profile.stripe_connect_account_id,
