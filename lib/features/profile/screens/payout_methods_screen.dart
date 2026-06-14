@@ -373,18 +373,12 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             usesPaystack: _usesPaystack,
             currency: _selectedCurrency,
           ),
-          if (!_usesPaystack) ...[
-            const SizedBox(height: 12),
-            _StripeSetupNote(
-              email: user?.email.trim() ?? '',
-              isActive: payoutState.isActive,
-            ),
-          ],
           const SizedBox(height: 18),
           _PrimaryActionPanel(
             state: payoutState,
             usesPaystack: _usesPaystack,
             saving: _saving,
+            stripeEmail: user?.email.trim() ?? '',
             onSetupStripe: _openStripeOnboarding,
             onSetupPaystack: _continueWithPaystack,
             onRefresh: _refreshProfile,
@@ -798,6 +792,7 @@ class _PrimaryActionPanel extends StatelessWidget {
     required this.state,
     required this.usesPaystack,
     required this.saving,
+    required this.stripeEmail,
     required this.onSetupStripe,
     required this.onSetupPaystack,
     required this.onRefresh,
@@ -806,6 +801,7 @@ class _PrimaryActionPanel extends StatelessWidget {
   final _PayoutState state;
   final bool usesPaystack;
   final bool saving;
+  final String stripeEmail;
   final VoidCallback onSetupStripe;
   final VoidCallback onSetupPaystack;
   final VoidCallback onRefresh;
@@ -834,6 +830,13 @@ class _PrimaryActionPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (!usesPaystack) ...[
+            _StripeSetupNote(
+              email: stripeEmail,
+              isActive: state.isActive,
+            ),
+            const SizedBox(height: 12),
+          ],
           AppButton(
             label: primaryLabel,
             icon: Icon(primaryIcon, size: 18),

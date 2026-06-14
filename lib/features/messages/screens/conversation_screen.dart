@@ -23,8 +23,7 @@ class ConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
 
   @override
-  ConsumerState<ConversationScreen> createState() =>
-      _ConversationScreenState();
+  ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
 }
 
 class _ConversationScreenState extends ConsumerState<ConversationScreen> {
@@ -130,7 +129,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final isClosed = conv?.isClosed == true;
     final requestStatus = conv?.requestStatus?.toLowerCase() ?? '';
     final shipmentSummary = [
-      if ((conv?.packageTitle ?? '').trim().isNotEmpty) conv!.packageTitle!.trim(),
+      if ((conv?.packageTitle ?? '').trim().isNotEmpty)
+        conv!.packageTitle!.trim(),
       if ((conv?.routeLabel ?? '').trim().isNotEmpty) conv!.routeLabel!.trim(),
     ].join(' • ');
 
@@ -162,8 +162,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     )
                   : Text(
                       initials,
-                      style:
-                          AppTextStyles.labelMd.copyWith(color: AppColors.primary),
+                      style: AppTextStyles.labelMd
+                          .copyWith(color: AppColors.primary),
                     ),
             ),
             const SizedBox(width: 10),
@@ -173,8 +173,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(otherName,
-                      style: AppTextStyles.h5,
-                      overflow: TextOverflow.ellipsis),
+                      style: AppTextStyles.h5, overflow: TextOverflow.ellipsis),
                   if (state.isOtherTyping)
                     Text(
                       'typing…',
@@ -189,7 +188,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert_rounded),
-            onPressed: () => _showConversationActions(context, conv, currentUserName),
+            onPressed: () =>
+                _showConversationActions(context, conv, currentUserName),
           ),
         ],
       ),
@@ -225,12 +225,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                  if ((conv?.trackingNumber ?? '').trim().isNotEmpty)
+                                  if ((conv?.trackingNumber ?? '')
+                                      .trim()
+                                      .isNotEmpty)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
                                       child: Text(
                                         'Tracking: ${conv!.trackingNumber}',
-                                        style: AppTextStyles.captionBold.copyWith(
+                                        style:
+                                            AppTextStyles.captionBold.copyWith(
                                           color: AppColors.gray500,
                                         ),
                                       ),
@@ -243,8 +246,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       ),
                     if (isClosed)
                       _ClosedChatBanner(
-                        status: requestStatus.isEmpty ? 'completed' : requestStatus,
-                        onContactSupport: () => context.push('/profile/support'),
+                        status:
+                            requestStatus.isEmpty ? 'completed' : requestStatus,
+                        onContactSupport: () =>
+                            context.push('/profile/support'),
                         onReportShipment: conv?.requestId == null
                             ? null
                             : () => _reportShipment(
@@ -266,7 +271,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       enabled: !isClosed,
                       onAttach: _pickAndSendImage,
                       onTyping: _onTyping,
-                      onSend: () => _handleSend(context, isClosed, currentUserId),
+                      onSend: () =>
+                          _handleSend(context, isClosed, currentUserId),
                     ),
                   ],
                 ),
@@ -370,7 +376,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       await ref.read(messageProvider.notifier).sendMessage(content);
     } catch (e) {
       if (!context.mounted) return;
-      AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: e.toString(), type: SnackBarType.error);
     }
   }
 
@@ -400,7 +407,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           .sendMessage(caption, imageFile: File(xFile.path));
     } catch (e) {
       if (!mounted) return;
-      AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      AppSnackBar.show(context,
+          message: e.toString(), type: SnackBarType.error);
     }
   }
 
@@ -433,7 +441,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
       }
     }
   }
@@ -448,7 +457,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         : 'Other party';
     final currentUserId = ref.read(authProvider).user?.id ?? '';
     final recent = messages.take(12).map((msg) {
-      final speaker = msg.senderId == currentUserId ? currentUserName : otherName;
+      final speaker =
+          msg.senderId == currentUserId ? currentUserName : otherName;
       return '[${msg.timeLabel.isNotEmpty ? msg.timeLabel : msg.createdAt}] $speaker: ${msg.content}';
     }).toList();
 
@@ -458,7 +468,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ? 'Shipment dispute opened from a completed shipment chat.'
           : 'Shipment issue reported from an active shipment chat.',
       'Request ID: ${conversation.requestId ?? 'unknown'}',
-      if ((conversation.tripId ?? '').isNotEmpty) 'Trip ID: ${conversation.tripId}',
+      if ((conversation.tripId ?? '').isNotEmpty)
+        'Trip ID: ${conversation.tripId}',
       if ((conversation.requestStatus ?? '').isNotEmpty)
         'Request status: ${conversation.requestStatus}',
       'Reporter: $currentUserName',
@@ -488,8 +499,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading:
-                    const Icon(Icons.support_agent_rounded, color: AppColors.primary),
+                leading: const Icon(Icons.support_agent_rounded,
+                    color: AppColors.primary),
                 title: const Text('Contact support'),
                 subtitle: Text(isClosed
                     ? 'Get help with a completed shipment'
@@ -620,7 +631,8 @@ class _DateSeparator extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
               _label(),
-              style: AppTextStyles.captionBold.copyWith(color: AppColors.gray400),
+              style:
+                  AppTextStyles.captionBold.copyWith(color: AppColors.gray400),
             ),
           ),
           const Expanded(child: Divider(color: AppColors.gray200)),
@@ -744,8 +756,12 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImageMessage =
-        msg.type == MessageType.image && (msg.fileUrl?.trim().isNotEmpty ?? false);
+    if (msg.isShipmentRequest) {
+      return _ShipmentRequestMessageCard(msg: msg, isMe: isMe);
+    }
+
+    final isImageMessage = msg.type == MessageType.image &&
+        (msg.fileUrl?.trim().isNotEmpty ?? false);
     final isOptimistic = msg.id.startsWith('opt_');
 
     return Align(
@@ -814,15 +830,15 @@ class _MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   msg.content,
-                  style: AppTextStyles.bodyMd
-                      .copyWith(color: isMe ? AppColors.white : AppColors.gray900),
+                  style: AppTextStyles.bodyMd.copyWith(
+                      color: isMe ? AppColors.white : AppColors.gray900),
                 ),
               ),
             if (!isImageMessage)
               Text(
                 msg.content,
-                style: AppTextStyles.bodyMd
-                    .copyWith(color: isMe ? AppColors.white : AppColors.gray900),
+                style: AppTextStyles.bodyMd.copyWith(
+                    color: isMe ? AppColors.white : AppColors.gray900),
               ),
             const SizedBox(height: 4),
             Row(
@@ -840,7 +856,9 @@ class _MessageBubble extends StatelessWidget {
                 if (isMe) ...[
                   const SizedBox(width: 4),
                   Icon(
-                    isOptimistic ? Icons.access_time_rounded : Icons.done_all_rounded,
+                    isOptimistic
+                        ? Icons.access_time_rounded
+                        : Icons.done_all_rounded,
                     size: 12,
                     color: isOptimistic
                         ? AppColors.white.withValues(alpha: 0.5)
@@ -852,6 +870,122 @@ class _MessageBubble extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShipmentRequestMessageCard extends StatelessWidget {
+  const _ShipmentRequestMessageCard({required this.msg, required this.isMe});
+
+  final MessageModel msg;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final requestId = msg.shipmentRequestId ?? '';
+    final category = msg.shipmentPackageCategory?.trim() ?? '';
+    final description = msg.shipmentPackageDescription?.trim() ?? '';
+    final weight = msg.shipmentPackageWeight?.trim() ?? '';
+    final detailParts = [
+      if (category.isNotEmpty) category,
+      if (description.isNotEmpty) description,
+      if (weight.isNotEmpty && weight != 'null') '${weight}kg',
+    ];
+
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: requestId.isEmpty
+            ? null
+            : () => context.push('/shipment-request/$requestId'),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(18),
+            border:
+                Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.inventory_2_outlined,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'New shipment',
+                      style: AppTextStyles.labelMd.copyWith(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.gray400,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                detailParts.isEmpty ? msg.content : detailParts.join(' · '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.gray600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View shipment details',
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    msg.timeLabel,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray400,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -890,7 +1024,8 @@ class _MessageInput extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.attach_file_rounded, color: AppColors.gray500),
+            icon:
+                const Icon(Icons.attach_file_rounded, color: AppColors.gray500),
             onPressed: (isLoading || !enabled) ? null : onAttach,
           ),
           Expanded(

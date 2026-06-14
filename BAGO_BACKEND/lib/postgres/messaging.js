@@ -167,18 +167,6 @@ export async function resolveConversationForUser({ userId, receiverId, requestId
     `((c.sender_id = $1 and c.traveler_id = $2) or (c.sender_id = $2 and c.traveler_id = $1))`,
   ];
   const params = [userId, receiverId];
-  let index = 3;
-
-  if (requestId) {
-    conditions.push(`c.request_id = $${index}`);
-    params.push(requestId);
-    index += 1;
-  }
-
-  if (tripId) {
-    conditions.push(`c.trip_id = $${index}`);
-    params.push(tripId);
-  }
 
   const row = await queryOne(
     `
@@ -257,9 +245,8 @@ export async function createConversationMessage({
         from public.shipment_requests
         where sender_id = $1
           and traveler_id = $2
-          and ($4::uuid is null or trip_id = $4)
       `,
-      [conversation.sender_id, conversation.traveler_id, conversation.request_id, conversation.trip_id],
+      [conversation.sender_id, conversation.traveler_id, conversation.request_id],
     );
     const activeRequestCount = Number(requestResult.rows[0]?.active_count || 0);
     const requestStatus = requestResult.rows[0]?.request_status || null;

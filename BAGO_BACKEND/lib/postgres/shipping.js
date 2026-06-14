@@ -324,7 +324,6 @@ const requestSelect = `
        or (
         sender_id = sr.sender_id
         and traveler_id = sr.traveler_id
-        and trip_id = sr.trip_id
       )
     order by case when request_id = sr.id then 0 else 1 end, updated_at desc
     limit 1
@@ -778,27 +777,28 @@ export async function createConversationForRequest(requestId, senderId, traveler
     const packageDescription = requestResult.rows[0]?.description || null;
     const packageWeight = requestResult.rows[0]?.package_weight || null;
 
+    await client.query(
+      `select pg_advisory_xact_lock(hashtext($1))`,
+      [[senderId, travelerId].sort().join(':')],
+    );
+
     const existing = await client.query(
       `
         select id
         from public.conversations
         where sender_id = $1
           and traveler_id = $2
-          and (
-            request_id = $3
-            or ($4::uuid is not null and trip_id = $4)
-          )
         order by updated_at desc
         limit 1
       `,
-      [senderId, travelerId, requestId, tripId],
+      [senderId, travelerId],
     );
     if (existing.rows[0]?.id) {
       const conversationId = existing.rows[0].id;
       const packageLabel = [packageCategory, packageDescription].filter(Boolean).join(' · ');
       const systemText = packageLabel
-        ? `New package request: ${packageLabel}`
-        : 'New package request added to this chat';
+        ? `New shipment: ${packageLabel}`
+        : 'New shipment added to this chat';
       await client.query(
         `insert into public.messages (conversation_id, sender_id, content, metadata) values ($1,$2,$3,$4)`,
         [
@@ -833,8 +833,8 @@ export async function createConversationForRequest(requestId, senderId, traveler
 
     const initialPackageLabel = [packageCategory, packageDescription].filter(Boolean).join(' · ');
     const initialSystemText = initialPackageLabel
-      ? `Package request accepted: ${initialPackageLabel}`
-      : 'Conversation started for accepted package request';
+      ? `New shipment: ${initialPackageLabel}`
+      : 'New shipment added to this chat';
 
     const conversation = await client.query(
       `

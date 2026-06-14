@@ -10,6 +10,7 @@ class MessageModel {
   final MessageType type;
   final String? fileUrl;
   final String? fileName;
+  final Map<String, dynamic> metadata;
   final bool isRead;
   final String createdAt;
   final String _timeLabel;
@@ -23,37 +24,42 @@ class MessageModel {
     required this.type,
     this.fileUrl,
     this.fileName,
+    this.metadata = const {},
     required this.isRead,
     required this.createdAt,
   }) : _timeLabel = _buildTimeLabel(createdAt);
 
-  factory MessageModel.fromJson(Map<String, dynamic> json) => MessageModel(
-        id: JsonParser.parseId(json),
-        conversationId: json['conversationId']?.toString() ??
-            json['conversation_id']?.toString() ??
-            json['chatId']?.toString() ??
-            '',
-        senderId: _participantId(json['senderId'] ?? json['sender_id'] ?? json['sender'] ?? json['from']),
-        receiverId: _participantId(json['receiverId'] ?? json['receiver'] ?? json['to']),
-        content: json['content']?.toString() ??
-            json['text']?.toString() ??
-            json['message']?.toString() ??
-            '',
-        type: MessageType.fromString(json['type']?.toString()),
-        fileUrl: json['fileUrl']?.toString() ??
-            (json['metadata'] is Map<String, dynamic>
-                ? (json['metadata']['fileUrl'] ?? json['metadata']['imageUrl'])?.toString()
-                : null),
-        fileName: json['fileName']?.toString() ??
-            (json['metadata'] is Map<String, dynamic>
-                ? json['metadata']['fileName']?.toString()
-                : null),
-        isRead: json['isRead'] == true || json['read'] == true,
-        createdAt: json['createdAt']?.toString() ??
-            json['created_at']?.toString() ??
-            json['timestamp']?.toString() ??
-            '',
-      );
+  factory MessageModel.fromJson(Map<String, dynamic> json) {
+    final metadata = _metadataMap(json['metadata']);
+    return MessageModel(
+      id: JsonParser.parseId(json),
+      conversationId: json['conversationId']?.toString() ??
+          json['conversation_id']?.toString() ??
+          json['chatId']?.toString() ??
+          '',
+      senderId: _participantId(json['senderId'] ??
+          json['sender_id'] ??
+          json['sender'] ??
+          json['from']),
+      receiverId:
+          _participantId(json['receiverId'] ?? json['receiver'] ?? json['to']),
+      content: json['content']?.toString() ??
+          json['text']?.toString() ??
+          json['message']?.toString() ??
+          '',
+      type: MessageType.fromString(json['type']?.toString()),
+      fileUrl: json['fileUrl']?.toString() ??
+          (metadata['fileUrl'] ?? metadata['imageUrl'])?.toString(),
+      fileName:
+          json['fileName']?.toString() ?? metadata['fileName']?.toString(),
+      metadata: metadata,
+      isRead: json['isRead'] == true || json['read'] == true,
+      createdAt: json['createdAt']?.toString() ??
+          json['created_at']?.toString() ??
+          json['timestamp']?.toString() ??
+          '',
+    );
+  }
 
   String get timeLabel => _timeLabel;
 
@@ -71,16 +77,21 @@ class MessageModel {
   }
 
   /// Create from socket.io event data
-  factory MessageModel.fromSocketData(Map<String, dynamic> data) => MessageModel(
-        id: data['id']?.toString() ?? data['_id']?.toString() ?? 'sock_${DateTime.now().millisecondsSinceEpoch}',
+  factory MessageModel.fromSocketData(Map<String, dynamic> data) =>
+      MessageModel(
+        id: data['id']?.toString() ??
+            data['_id']?.toString() ??
+            'sock_${DateTime.now().millisecondsSinceEpoch}',
         conversationId: data['conversationId']?.toString() ?? '',
         senderId: _participantId(data['sender'] ?? data['senderId']),
         content: data['text']?.toString() ?? data['content']?.toString() ?? '',
         type: MessageType.fromString(data['type']?.toString()),
         fileUrl: data['fileUrl']?.toString(),
         fileName: data['fileName']?.toString(),
+        metadata: _metadataMap(data['metadata']),
         isRead: false,
-        createdAt: data['timestamp']?.toString() ?? DateTime.now().toIso8601String(),
+        createdAt:
+            data['timestamp']?.toString() ?? DateTime.now().toIso8601String(),
       );
 
   /// Create an optimistic message for instant UI feedback
@@ -88,15 +99,29 @@ class MessageModel {
     required String content,
     required String senderId,
     required String conversationId,
-  }) => MessageModel(
+  }) =>
+      MessageModel(
         id: 'opt_${DateTime.now().millisecondsSinceEpoch}_${content.hashCode}',
         conversationId: conversationId,
         senderId: senderId,
         content: content,
         type: MessageType.text,
+        metadata: const {},
         isRead: false,
         createdAt: DateTime.now().toIso8601String(),
       );
+
+  bool get isShipmentRequest =>
+      metadata['type']?.toString() == 'shipment_request' &&
+      (metadata['requestId']?.toString().trim().isNotEmpty ?? false);
+
+  String? get shipmentRequestId => metadata['requestId']?.toString();
+  String? get shipmentPackageId => metadata['packageId']?.toString();
+  String? get shipmentPackageCategory =>
+      metadata['packageCategory']?.toString();
+  String? get shipmentPackageDescription =>
+      metadata['packageDescription']?.toString();
+  String? get shipmentPackageWeight => metadata['packageWeight']?.toString();
 
   static String _participantId(dynamic value) {
     if (value == null) return '';
@@ -107,5 +132,10 @@ class MessageModel {
           '';
     }
     return value.toString();
+  }
+
+  static Map<String, dynamic> _metadataMap(dynamic value) {
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return const {};
   }
 }
