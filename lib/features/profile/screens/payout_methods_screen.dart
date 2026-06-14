@@ -373,9 +373,12 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             usesPaystack: _usesPaystack,
             currency: _selectedCurrency,
           ),
-          if (!_usesPaystack && !payoutState.isActive) ...[
+          if (!_usesPaystack) ...[
             const SizedBox(height: 12),
-            _StripeSetupNote(email: user?.email.trim() ?? ''),
+            _StripeSetupNote(
+              email: user?.email.trim() ?? '',
+              isActive: payoutState.isActive,
+            ),
           ],
           const SizedBox(height: 18),
           _PrimaryActionPanel(
@@ -452,7 +455,10 @@ class _StripePayoutWebViewState extends State<_StripePayoutWebView> {
         children: [
           Column(
             children: [
-              _StripeSetupNote(email: widget.accountEmail, compact: true),
+              _StripeSetupNote(
+                email: widget.accountEmail,
+                compact: true,
+              ),
               Expanded(child: WebViewWidget(controller: _controller)),
             ],
           ),
@@ -467,10 +473,12 @@ class _StripeSetupNote extends StatelessWidget {
   const _StripeSetupNote({
     required this.email,
     this.compact = false,
+    this.isActive = false,
   });
 
   final String email;
   final bool compact;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
@@ -478,6 +486,9 @@ class _StripeSetupNote extends StatelessWidget {
     final signInText = cleanEmail.isEmpty
         ? 'If Stripe asks you to sign in, use the email on your Bago account.'
         : 'If Stripe asks you to sign in, use $cleanEmail.';
+    final body = isActive
+        ? 'Stripe Connect is saved for payouts. Use the button below only to refresh your Stripe status.'
+        : '$signInText Tap the one Stripe button, complete terms, identity details, and bank account, then Bago saves it automatically.';
     return Container(
       margin: compact ? const EdgeInsets.all(12) : EdgeInsets.zero,
       padding: EdgeInsets.all(compact ? 12 : 14),
@@ -497,7 +508,7 @@ class _StripeSetupNote extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '$signInText Then complete Stripe terms, identity details, and bank account. Keep going until Bago returns automatically.',
+              body,
               style: AppTextStyles.bodySm.copyWith(
                 color: const Color(0xFF92400E),
                 height: 1.35,
