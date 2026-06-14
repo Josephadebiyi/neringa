@@ -242,9 +242,13 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       throw Exception(data?['message']?.toString() ??
           'Payout setup is not available right now. Please refresh and try again.');
     }
+    final accountEmail = ref.read(authProvider).user?.email.trim() ?? '';
     final completed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => _StripePayoutWebView(url: url),
+        builder: (_) => _StripePayoutWebView(
+          url: url,
+          accountEmail: accountEmail,
+        ),
       ),
     );
     await ref.read(authProvider.notifier).refreshProfile();
@@ -369,6 +373,10 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             usesPaystack: _usesPaystack,
             currency: _selectedCurrency,
           ),
+          if (!_usesPaystack && !payoutState.isActive) ...[
+            const SizedBox(height: 12),
+            _StripeSetupNote(email: user?.email.trim() ?? ''),
+          ],
           const SizedBox(height: 18),
           _PrimaryActionPanel(
             state: payoutState,
@@ -385,8 +393,13 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 }
 
 class _StripePayoutWebView extends StatefulWidget {
-  const _StripePayoutWebView({required this.url});
+  const _StripePayoutWebView({
+    required this.url,
+    required this.accountEmail,
+  });
+
   final String url;
+  final String accountEmail;
 
   @override
   State<_StripePayoutWebView> createState() => _StripePayoutWebViewState();
@@ -437,33 +450,61 @@ class _StripePayoutWebViewState extends State<_StripePayoutWebView> {
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 18,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.black.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Text(
-                    'Complete Stripe terms, identity details, and bank account. Bago returns automatically when setup is complete.',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.labelSm.copyWith(
-                      color: AppColors.white,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
+          Column(
+            children: [
+              _StripeSetupNote(email: widget.accountEmail, compact: true),
+              Expanded(child: WebViewWidget(controller: _controller)),
+            ],
+          ),
+          if (_loading) const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripeSetupNote extends StatelessWidget {
+  const _StripeSetupNote({
+    required this.email,
+    this.compact = false,
+  });
+
+  final String email;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanEmail = email.trim();
+    final signInText = cleanEmail.isEmpty
+        ? 'If Stripe asks you to sign in, use the email on your Bago account.'
+        : 'If Stripe asks you to sign in, use $cleanEmail.';
+    return Container(
+      margin: compact ? const EdgeInsets.all(12) : EdgeInsets.zero,
+      padding: EdgeInsets.all(compact ? 12 : 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFFD97706),
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$signInText Then complete Stripe terms, identity details, and bank account. Keep going until Bago returns automatically.',
+              style: AppTextStyles.bodySm.copyWith(
+                color: const Color(0xFF92400E),
+                height: 1.35,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          if (_loading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );
