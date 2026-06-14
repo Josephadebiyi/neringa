@@ -239,10 +239,12 @@ class PaymentService {
           'setup_intent_client_secret',
           'clientSecret',
           'client_secret',
+          'setupIntent.client_secret',
+          'setupIntent.clientSecret',
         ],
       );
       final customerId =
-          _firstString(data, const ['customerId', 'customer_id']);
+          _firstString(data, const ['customerId', 'customer_id', 'customer']);
       final customerEphemeralKeySecret = _firstString(
         data,
         const [
@@ -250,12 +252,20 @@ class PaymentService {
           'customer_ephemeral_key_secret',
           'ephemeralKeySecret',
           'ephemeral_key_secret',
+          'ephemeralKey.secret',
         ],
       );
 
       if (setupIntentClientSecret == null ||
           customerId == null ||
           customerEphemeralKeySecret == null) {
+        debugPrint(
+          '[Stripe] card setup missing fields '
+          'setupSecret=${setupIntentClientSecret != null} '
+          'customerId=${customerId != null} '
+          'ephemeralKey=${customerEphemeralKeySecret != null} '
+          'raw=$data',
+        );
         throw StateError(
           'Card setup could not be started. Please try again in a moment.',
         );
@@ -531,10 +541,11 @@ class PaymentService {
   }
 
   Map<String, dynamic> _extractMap(dynamic raw) {
-    if (raw is Map<String, dynamic>) {
-      final nested = raw['data'];
-      if (nested is Map<String, dynamic>) return nested;
-      return raw;
+    if (raw is Map) {
+      final parsed = Map<String, dynamic>.from(raw);
+      final nested = parsed['data'];
+      if (nested is Map) return Map<String, dynamic>.from(nested);
+      return parsed;
     }
     return <String, dynamic>{};
   }

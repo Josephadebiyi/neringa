@@ -773,8 +773,25 @@ export async function createCardSetupIntent(req, res) {
     return res.json({
       success: true,
       clientSecret: setupIntent.client_secret,
+      client_secret: setupIntent.client_secret,
+      setupIntentClientSecret: setupIntent.client_secret,
+      setup_intent_client_secret: setupIntent.client_secret,
       customerId,
+      customer_id: customerId,
+      customer: customerId,
       ephemeralKeySecret: ephemeralKey.secret,
+      ephemeral_key_secret: ephemeralKey.secret,
+      customerEphemeralKeySecret: ephemeralKey.secret,
+      customer_ephemeral_key_secret: ephemeralKey.secret,
+      setupIntent: {
+        id: setupIntent.id,
+        clientSecret: setupIntent.client_secret,
+        client_secret: setupIntent.client_secret,
+      },
+      ephemeralKey: {
+        id: ephemeralKey.id,
+        secret: ephemeralKey.secret,
+      },
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
