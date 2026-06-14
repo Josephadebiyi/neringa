@@ -139,7 +139,7 @@ export default function PaymentCheckout() {
             expressCheckoutRef.current?.unmount?.();
             paymentElementRef.current?.unmount?.();
         };
-    }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.amount, checkout.currency]);
+    }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.amount, checkout.currency, checkout.insurance, checkout.insuranceCost]);
 
     const createPaymentIntent = async (countryCode) => {
         const response = await api.post('/api/payments/create-intent', {
@@ -158,11 +158,15 @@ export default function PaymentCheckout() {
     };
 
     const createShipment = async (paymentIntentId, paymentMethod) => {
+        const shipmentAmount = Math.max(
+            0,
+            Number(checkout.amount || 0) - (checkout.insurance ? Number(checkout.insuranceCost || 0) : 0)
+        );
         const response = await api.post('/api/bago/RequestPackage', {
             travelerId: checkout.travelerId,
             packageId: checkout.packageId,
             tripId: checkout.tripId,
-            amount: checkout.amount,
+            amount: shipmentAmount || checkout.amount,
             currency: checkout.currency,
             insurance: checkout.insurance,
             insuranceCost: checkout.insuranceCost,

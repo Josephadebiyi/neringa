@@ -516,18 +516,18 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Shipping Price',
+                    Text(isSender ? 'Shipping Price' : 'Your earning',
                         style: AppTextStyles.labelMd
                             .copyWith(fontWeight: FontWeight.w700)),
                     Text(
-                      '${req.currency} ${(req.agreedPrice - req.insuranceCost).toStringAsFixed(2)}',
+                      '${req.currency} ${req.agreedPrice.toStringAsFixed(2)}',
                       style: AppTextStyles.h3.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w900),
                     ),
                   ],
                 ),
-                if (req.insurance && req.insuranceCost > 0) ...[
+                if (isSender && req.insurance && req.insuranceCost > 0) ...[
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

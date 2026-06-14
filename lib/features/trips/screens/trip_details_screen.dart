@@ -61,17 +61,19 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
 
     // 3. Fall back to API call
     TripService.instance.getTripById(widget.tripId).then((trip) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _trip = trip;
           _loading = false;
         });
+      }
     }).catchError((e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e?.toString() ?? 'Could not load trip.';
           _loading = false;
         });
+      }
     });
   }
 
@@ -241,11 +243,6 @@ class _TripBody extends StatelessWidget {
                   label: l10n.priceLabel,
                   value:
                       '$displayCurrency ${trip.pricePerKg.toStringAsFixed(2)}/kg',
-                ),
-                _TripInfoRow(
-                  label: 'Gross sales',
-                  value:
-                      '$displayCurrency ${trip.grossSales.toStringAsFixed(2)}',
                 ),
                 _TripInfoRow(
                   label: 'Your earnings',
