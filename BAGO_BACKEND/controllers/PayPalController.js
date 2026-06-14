@@ -41,7 +41,41 @@ async function ensurePaypalInfrastructure() {
   `);
   await query(`create index if not exists paypal_payments_user_idx on public.paypal_payments(user_id)`);
   await query(`create index if not exists paypal_payments_request_idx on public.paypal_payments(request_id)`);
+  await query(`
+    create table if not exists public.payment_events (
+      id bigserial primary key,
+      provider text not null,
+      event_type text not null,
+      provider_reference text not null,
+      request_id uuid null references public.shipment_requests(id) on delete set null,
+      payload jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default timezone('utc', now()),
+      updated_at timestamptz not null default timezone('utc', now())
+    )
+  `);
+  await query(`
+    create unique index if not exists payment_events_provider_event_reference_key
+      on public.payment_events (provider, event_type, provider_reference)
+  `);
   paypalInfraReady = true;
+}
+
+async function recordPaypalEvent({ eventType, providerReference, requestId = null, payload = {} }) {
+  if (!providerReference) return;
+  await ensurePaypalInfrastructure();
+  await query(
+    `
+      insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
+      values ('paypal', $1, $2, $3, $4)
+      on conflict (provider, event_type, provider_reference) do update
+      set request_id = coalesce(excluded.request_id, public.payment_events.request_id),
+          payload = public.payment_events.payload || excluded.payload,
+          updated_at = timezone('utc', now())
+    `,
+    [eventType, providerReference, requestId, payload],
+  ).catch((error) => {
+    console.warn('PayPal payment event could not be recorded:', error.message);
+  });
 }
 
 function publicBaseUrl() {
@@ -225,6 +259,11 @@ export async function createPaypalOrder(req, res) {
         order,
       ],
     );
+    await recordPaypalEvent({
+      eventType: 'order_created',
+      providerReference: order.id,
+      payload: { amount: checkout.amount, currency: checkout.currency, paymentMethod: req.body?.paymentMethod || 'paypal' },
+    });
 
     res.json({
       success: true,
@@ -287,6 +326,11 @@ export async function authorizePaypalOrder(req, res) {
         { authorization },
       ],
     );
+    await recordPaypalEvent({
+      eventType: 'authorized',
+      providerReference: orderId,
+      payload: { authorizationId, authorization },
+    });
 
     res.json({
       success: true,
@@ -301,6 +345,11 @@ export async function authorizePaypalOrder(req, res) {
     });
   } catch (error) {
     console.error('authorizePaypalOrder failed:', error.message);
+    await recordPaypalEvent({
+      eventType: 'authorization_failed',
+      providerReference: req.body?.orderId?.toString(),
+      payload: { message: error.message },
+    }).catch(() => {});
     res.status(error.statusCode || 500).json({
       success: false,
       message: 'PayPal authorization could not be confirmed. Please try again.',
@@ -336,6 +385,12 @@ export async function capturePaypalAuthorization(req, res) {
       `,
       [authorizationId, { capture }],
     );
+    await recordPaypalEvent({
+      eventType: 'captured',
+      providerReference: authorizationId,
+      requestId,
+      payload: { capture },
+    });
     if (requestId) {
       await query(
         `
@@ -351,6 +406,12 @@ export async function capturePaypalAuthorization(req, res) {
     res.json({ success: true, capture });
   } catch (error) {
     console.error('capturePaypalAuthorization failed:', error.message);
+    await recordPaypalEvent({
+      eventType: 'capture_failed',
+      providerReference: req.body?.authorizationId?.toString() || req.body?.requestId?.toString(),
+      requestId: req.body?.requestId?.toString() || null,
+      payload: { message: error.message },
+    }).catch(() => {});
     res.status(error.statusCode || 500).json({ success: false, message: 'PayPal capture failed.' });
   }
 }
@@ -371,6 +432,12 @@ export async function voidPaypalAuthorization(req, res) {
       `,
       [authorizationId, { voided: result || true }],
     );
+    await recordPaypalEvent({
+      eventType: 'voided',
+      providerReference: authorizationId,
+      requestId,
+      payload: { voided: result || true },
+    });
     if (requestId) {
       await query(
         `
@@ -386,6 +453,12 @@ export async function voidPaypalAuthorization(req, res) {
     res.json({ success: true });
   } catch (error) {
     console.error('voidPaypalAuthorization failed:', error.message);
+    await recordPaypalEvent({
+      eventType: 'void_failed',
+      providerReference: req.body?.authorizationId?.toString() || req.body?.requestId?.toString(),
+      requestId: req.body?.requestId?.toString() || null,
+      payload: { message: error.message },
+    }).catch(() => {});
     res.status(error.statusCode || 500).json({ success: false, message: 'PayPal authorization could not be voided.' });
   }
 }

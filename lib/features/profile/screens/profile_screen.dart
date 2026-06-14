@@ -661,12 +661,12 @@ class _WalletCard extends ConsumerStatefulWidget {
 
 class _WalletCardState extends ConsumerState<_WalletCard> {
   double? _liveEscrow;
-  bool _escrowLoading = true;
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
+    _liveEscrow = ref.read(authProvider).user?.escrowBalance ?? 0;
     _fetchEscrow();
   }
 
@@ -678,19 +678,15 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
       if (mounted) {
         setState(() {
           _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
-          _escrowLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _escrowLoading = false);
-    }
+    } catch (_) {}
   }
 
   Future<void> _refreshWallet() async {
     if (_refreshing) return;
     setState(() {
       _refreshing = true;
-      _escrowLoading = true;
     });
     await _fetchEscrow();
     if (mounted) setState(() => _refreshing = false);
@@ -728,9 +724,9 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
             clipBehavior: Clip.antiAlias,
             child: Stack(
               children: [
-                Positioned.fill(
+                const Positioned.fill(
                   child: DecoratedBox(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
                           Color(0x8F06111F),
@@ -827,17 +823,14 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _escrowLoading
-                    ? const _ProfileBalanceLoadingPanel()
-                    : _ProfileBalancePanel(
-                        label: 'In escrow',
-                        amount: escrow,
-                        currency: displayCurrency,
-                        note: 'After delivery',
-                        color: const Color(0xFFDDFDDD),
-                        backgroundAsset:
-                            'assets/images/wallet/escrow_background.png',
-                      ),
+                child: _ProfileBalancePanel(
+                  label: 'In escrow',
+                  amount: escrow,
+                  currency: displayCurrency,
+                  note: 'After delivery',
+                  color: const Color(0xFFDDFDDD),
+                  backgroundAsset: 'assets/images/wallet/escrow_background.png',
+                ),
               ),
             ],
           ),
@@ -936,27 +929,6 @@ class _ProfileBalancePanel extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ProfileBalanceLoadingPanel extends StatelessWidget {
-  const _ProfileBalanceLoadingPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 126),
-      decoration: BoxDecoration(
-        color: const Color(0xFFDDFDDD),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      alignment: Alignment.center,
-      child: const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }

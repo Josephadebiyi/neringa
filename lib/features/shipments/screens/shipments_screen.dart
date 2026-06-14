@@ -547,49 +547,85 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
   }
 }
 
-class _PackageCard extends StatelessWidget {
+class _PackageCard extends ConsumerWidget {
   const _PackageCard({required this.package});
   final PackageModel package;
 
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: () => context.push('/shipment-details/${package.id}'),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _TypeBadge(
-                  label: package.category.isNotEmpty
-                      ? package.category
-                      : 'Package',
-                  isCarrier: false),
-              const Spacer(),
-              Text(
-                _shortDate(package.createdAt),
-                style: AppTextStyles.captionBold
-                    .copyWith(color: AppColors.gray400),
-              ),
-            ],
+  Future<void> _deleteDraft(BuildContext context, WidgetRef ref) async {
+    if (package.status != PackageStatus.draft) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard draft?'),
+        content: const Text(
+          'This will remove this draft shipment immediately. You can start again anytime.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep'),
           ),
-          const SizedBox(height: 18),
-          _RouteRow(from: package.fromCity, to: package.toCity),
-          const SizedBox(height: 18),
-          const Divider(color: AppColors.gray100),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _StatusDot(
-                  label: package.statusLabel, color: package.status.color),
-              const Spacer(),
-              if (package.trackingNumber != null)
-                _InfoChip(label: package.trackingNumber!),
-              const SizedBox(width: 10),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.gray300),
-            ],
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Discard'),
           ),
         ],
+      ),
+    );
+    if (confirmed != true) return;
+    final draft = await ShipmentCheckoutService.instance.loadDraft();
+    if (draft?['packageId']?.toString() == package.id) {
+      await ShipmentCheckoutService.instance.clearDraft();
+    }
+    await ref.read(shipmentProvider.notifier).deletePackage(package.id);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onLongPress: package.status == PackageStatus.draft
+          ? () => _deleteDraft(context, ref)
+          : null,
+      child: AppCard(
+        onTap: () => context.push('/shipment-details/${package.id}'),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _TypeBadge(
+                    label: package.category.isNotEmpty
+                        ? package.category
+                        : 'Package',
+                    isCarrier: false),
+                const Spacer(),
+                Text(
+                  _shortDate(package.createdAt),
+                  style: AppTextStyles.captionBold
+                      .copyWith(color: AppColors.gray400),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _RouteRow(from: package.fromCity, to: package.toCity),
+            const SizedBox(height: 18),
+            const Divider(color: AppColors.gray100),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _StatusDot(
+                    label: package.statusLabel, color: package.status.color),
+                const Spacer(),
+                if (package.trackingNumber != null)
+                  _InfoChip(label: package.trackingNumber!),
+                const SizedBox(width: 10),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.gray300),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

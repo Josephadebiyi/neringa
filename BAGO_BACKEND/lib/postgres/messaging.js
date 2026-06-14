@@ -146,6 +146,9 @@ export async function getConversationById(conversationId, currentUserId = null) 
 }
 
 export async function listUserConversations(userId) {
+  await mergeDuplicateConversationsForUser(userId).catch((error) => {
+    console.warn('Conversation merge skipped:', error.message);
+  });
   const result = await query(
     `
       ${conversationSelect}
@@ -163,6 +166,9 @@ export async function listUserConversations(userId) {
 }
 
 export async function resolveConversationForUser({ userId, receiverId, requestId = null, tripId = null }) {
+  await mergeDuplicateConversationsForPair(userId, receiverId).catch((error) => {
+    console.warn('Conversation pair merge skipped:', error.message);
+  });
   const conditions = [
     `((c.sender_id = $1 and c.traveler_id = $2) or (c.sender_id = $2 and c.traveler_id = $1))`,
   ];
@@ -179,6 +185,138 @@ export async function resolveConversationForUser({ userId, receiverId, requestId
   );
 
   return normalizeConversation(row, userId);
+}
+
+async function mergeDuplicateConversationsForUser(userId) {
+  await withTransaction(async (client) => {
+    const pairs = await client.query(
+      `
+        select least(sender_id::text, traveler_id::text) as user_a,
+               greatest(sender_id::text, traveler_id::text) as user_b
+        from public.conversations
+        where sender_id = $1 or traveler_id = $1
+        group by 1, 2
+        having count(*) > 1
+      `,
+      [userId],
+    );
+    for (const pair of pairs.rows) {
+      await mergeConversationPair(client, pair.user_a, pair.user_b);
+    }
+  });
+}
+
+async function mergeDuplicateConversationsForPair(userA, userB) {
+  await withTransaction(async (client) => {
+    await mergeConversationPair(
+      client,
+      [userA, userB].sort()[0],
+      [userA, userB].sort()[1],
+    );
+  });
+}
+
+async function mergeConversationPair(client, userA, userB) {
+  const conversations = await client.query(
+    `
+      select *
+      from public.conversations
+      where least(sender_id::text, traveler_id::text) = $1
+        and greatest(sender_id::text, traveler_id::text) = $2
+      order by updated_at desc nulls last, created_at desc nulls last
+      for update
+    `,
+    [userA, userB],
+  );
+  if (conversations.rows.length <= 1) return;
+
+  const [primary, ...duplicates] = conversations.rows;
+  for (const duplicate of duplicates) {
+    if (duplicate.request_id) {
+      const hasRequestCard = await client.query(
+        `
+          select 1
+          from public.messages
+          where conversation_id in ($1, $2)
+            and metadata ->> 'requestId' = $3
+          limit 1
+        `,
+        [primary.id, duplicate.id, duplicate.request_id],
+      );
+      if (hasRequestCard.rowCount === 0) {
+        await client.query(
+          `
+            insert into public.messages (conversation_id, sender_id, content, metadata, created_at)
+            values ($1, $2, 'New shipment added to this chat', $3, coalesce($4, timezone('utc', now())))
+          `,
+          [
+            primary.id,
+            duplicate.sender_id,
+            {
+              system: true,
+              requestId: duplicate.request_id,
+              tripId: duplicate.trip_id,
+              type: 'shipment_request',
+              mergedFromConversationId: duplicate.id,
+            },
+            duplicate.created_at,
+          ],
+        );
+      }
+    }
+
+    await client.query(
+      `update public.messages set conversation_id = $1 where conversation_id = $2`,
+      [primary.id, duplicate.id],
+    );
+    await client.query(
+      `
+        insert into public.conversation_participants (conversation_id, user_id)
+        select $1, user_id
+        from public.conversation_participants
+        where conversation_id = $2
+        on conflict do nothing
+      `,
+      [primary.id, duplicate.id],
+    );
+    await client.query(
+      `delete from public.conversation_participants where conversation_id = $1`,
+      [duplicate.id],
+    );
+    await client.query(`delete from public.conversations where id = $1`, [duplicate.id]);
+  }
+
+  const latest = await client.query(
+    `
+      select content, created_at
+      from public.messages
+      where conversation_id = $1
+      order by created_at desc
+      limit 1
+    `,
+    [primary.id],
+  );
+  const unreadSender = conversations.rows.reduce((sum, row) => sum + Number(row.unread_count_sender || 0), 0);
+  const unreadTraveler = conversations.rows.reduce((sum, row) => sum + Number(row.unread_count_traveler || 0), 0);
+  await client.query(
+    `
+      update public.conversations
+      set last_message = coalesce($2, last_message),
+          updated_at = coalesce($3, timezone('utc', now())),
+          unread_count_sender = $4,
+          unread_count_traveler = $5,
+          deleted_by_sender = false,
+          deleted_by_traveler = false
+      where id = $1
+    `,
+    [
+      primary.id,
+      latest.rows[0]?.content || primary.last_message,
+      latest.rows[0]?.created_at || primary.updated_at,
+      unreadSender,
+      unreadTraveler,
+    ],
+  );
 }
 
 export async function listConversationMessages(conversationId, { limit = 50, before = null } = {}) {

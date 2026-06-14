@@ -317,6 +317,36 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
     }
   }
 
+  Future<void> _deleteDraftPackage(PackageModel pkg) async {
+    if (pkg.status != PackageStatus.draft) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard draft?'),
+        content: const Text(
+          'This will remove this draft shipment immediately. You can start again anytime.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final draft = await ShipmentCheckoutService.instance.loadDraft();
+    if (draft?['packageId']?.toString() == pkg.id) {
+      await ShipmentCheckoutService.instance.clearDraft();
+    }
+    await ref.read(shipmentProvider.notifier).deletePackage(pkg.id);
+  }
+
   bool _matches(PackageModel p, String q) {
     if (q.isEmpty) return true;
     final lower = q.toLowerCase();
@@ -408,6 +438,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               ...active.map((pkg) => _PackageCard(
                     package: pkg,
                     onTap: () => _onPackageTap(pkg),
+                    onLongPress: () => _deleteDraftPackage(pkg),
                   )),
               if (past.isNotEmpty) const SizedBox(height: 12),
             ],
@@ -419,6 +450,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               ...past.map((pkg) => _PackageCard(
                     package: pkg,
                     onTap: () => _onPackageTap(pkg),
+                    onLongPress: () => _deleteDraftPackage(pkg),
                   )),
             ],
           ],
@@ -490,9 +522,13 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
     // Sort: pending first, then by most recent (descending)
     filtered.sort((a, b) {
       if (a.status == RequestStatus.pending &&
-          b.status != RequestStatus.pending) return -1;
+          b.status != RequestStatus.pending) {
+        return -1;
+      }
       if (b.status == RequestStatus.pending &&
-          a.status != RequestStatus.pending) return 1;
+          a.status != RequestStatus.pending) {
+        return 1;
+      }
       return 0;
     });
 
@@ -615,9 +651,14 @@ class _TripCard extends StatelessWidget {
 }
 
 class _PackageCard extends StatelessWidget {
-  const _PackageCard({required this.package, required this.onTap});
+  const _PackageCard({
+    required this.package,
+    required this.onTap,
+    required this.onLongPress,
+  });
   final PackageModel package;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -625,6 +666,7 @@ class _PackageCard extends StatelessWidget {
     final isDraft = package.status == PackageStatus.draft;
     return GestureDetector(
       onTap: onTap,
+      onLongPress: isDraft ? onLongPress : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
