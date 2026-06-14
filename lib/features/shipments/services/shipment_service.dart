@@ -222,6 +222,7 @@ class ShipmentService {
     String? estimatedArrival,
     String? paymentReference,
     String? paymentProvider,
+    String? paymentStatus,
     String? message,
   }) async {
     try {
@@ -239,7 +240,7 @@ class ShipmentService {
         if (estimatedArrival != null) 'estimatedArrival': estimatedArrival,
         if (paymentReference != null) 'paymentReference': paymentReference,
         if (paymentProvider != null) 'paymentProvider': paymentProvider,
-        if (paymentReference != null) 'paymentStatus': 'paid',
+        if (paymentReference != null) 'paymentStatus': paymentStatus ?? 'paid',
         if (message != null) 'message': message,
       });
       final raw = response.data;

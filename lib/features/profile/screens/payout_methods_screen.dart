@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element, unused_field, prefer_const_constructors
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -100,48 +102,25 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     final provider = user?.payoutProvider?.trim().toLowerCase() ?? '';
     final payoutStatus = user?.payoutStatus?.trim().toLowerCase() ?? '';
     final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
-    final stripeAccountId = user?.stripeConnectAccountId?.trim() ?? '';
-    final hasStripe = stripeAccountId.isNotEmpty ||
-        provider == 'stripe' ||
-        method == 'stripe' ||
-        method == 'stripe_connect';
-    final hasPaystack = user?.bankAccountLinked == true &&
-        (provider == 'paystack' ||
-            method == 'paystack' ||
+    final hasPaypal = provider == 'paypal' || method == 'paypal';
+    final paypalActive = hasPaypal &&
+        (payoutStatus == 'active' ||
+            methodStatus == 'active' ||
             methodStatus == 'connected');
-    final paystackActive = payoutStatus == 'active' ||
-        methodStatus == 'active' ||
-        methodStatus == 'connected';
-    final stripeActive = payoutStatus == 'active' || methodStatus == 'active';
 
-    if (hasPaystack && _usesPaystack) {
+    if (paypalActive) {
       return _PayoutState(
-        provider: _PayoutProvider.paystack,
-        status:
-            paystackActive ? _PayoutStatus.active : _PayoutStatus.incomplete,
-        detail: 'Bank payout connected',
+        provider: _PayoutProvider.paypal,
+        status: _PayoutStatus.active,
+        detail: 'PayPal payouts are connected',
         accountId: null,
       );
     }
 
-    if (hasStripe && !_usesPaystack) {
-      return _PayoutState(
-        provider: _PayoutProvider.stripe,
-        status: stripeActive ? _PayoutStatus.active : _PayoutStatus.incomplete,
-        detail: stripeActive
-            ? 'Payout account is ready. Refresh to confirm Stripe status.'
-            : 'Complete Stripe Express: accept terms, verify identity, and add your bank account.',
-        accountId: stripeAccountId,
-      );
-    }
-
     return _PayoutState(
-      provider:
-          _usesPaystack ? _PayoutProvider.paystack : _PayoutProvider.stripe,
+      provider: _PayoutProvider.paypal,
       status: _PayoutStatus.notStarted,
-      detail: _usesPaystack
-          ? 'Add a verified bank account for local payouts'
-          : 'Bago creates your Stripe Express account, then Stripe collects your bank details',
+      detail: 'Add your PayPal email to receive payouts',
       accountId: null,
     );
   }
@@ -292,6 +271,76 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
   }
 
+  Future<void> _connectPaypalPayout() async {
+    if (_saving) return;
+    final controller = TextEditingController(
+      text: ref.read(authProvider).user?.email.trim() ?? '',
+    );
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('PayPal payout email'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress,
+          autofillHints: const [AutofillHints.email],
+          decoration: const InputDecoration(
+            labelText: 'Email address',
+            hintText: 'name@example.com',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (email == null || email.trim().isEmpty) return;
+
+    setState(() => _saving = true);
+    try {
+      await ref.read(authProvider.notifier).activateEarning(_selectedCurrency);
+      await ApiService.instance.post<Map<String, dynamic>>(
+        ApiConstants.paypalPayoutConnect,
+        data: {
+          'email': email.trim(),
+          'payoutCurrency': _selectedCurrency,
+        },
+      );
+      await ref.read(authProvider.notifier).refreshProfile();
+      if (!mounted) return;
+      setState(() => _hydrateFromUser(ref.read(authProvider).user));
+      AppSnackBar.show(
+        context,
+        message: 'PayPal payout account saved.',
+        type: SnackBarType.success,
+      );
+    } on DioException catch (error) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: ApiService.parseError(error),
+        type: SnackBarType.error,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: error.toString().replaceFirst('Exception: ', ''),
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (previous, next) {
@@ -306,8 +355,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
     final user = ref.watch(authProvider).user;
     final payoutState = _payoutStateFor(user);
-    final methodName =
-        _usesPaystack ? 'Paystack bank transfer' : 'Stripe Express';
+    const methodName = 'PayPal';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -331,10 +379,37 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             status: payoutState.status,
             currency: _selectedCurrency,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 22),
+          Text(
+            "To get your shipment payouts, tell us where you want Bago to send the money.",
+            style: AppTextStyles.h2.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _PayoutChoiceTile(
+            icon: Icons.account_balance_rounded,
+            title: 'Bank account',
+            subtitle: 'Coming soon',
+            enabled: false,
+            onTap: () {},
+          ),
+          const Divider(height: 1, color: AppColors.gray200),
+          _PayoutChoiceTile(
+            paypal: true,
+            title: payoutState.isActive ? 'PayPal connected' : 'PayPal',
+            subtitle: payoutState.isActive
+                ? 'Tap to update your PayPal email'
+                : 'Receive payouts with your PayPal email',
+            enabled: !_saving,
+            onTap: _connectPaypalPayout,
+          ),
+          const SizedBox(height: 26),
           const _SectionLabel(
             title: 'Payout currency',
-            subtitle: 'This decides which payout provider is used.',
+            subtitle: 'Your payout currency is saved with your PayPal method.',
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
@@ -351,7 +426,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             decoration: InputDecoration(
               filled: true,
               fillColor: AppColors.white,
-              prefixIcon: const Icon(Icons.payments_outlined),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(color: AppColors.border),
@@ -360,30 +434,91 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                 borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(color: AppColors.border),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.4),
-              ),
             ),
           ),
-          const SizedBox(height: 18),
-          _MethodPanel(
-            state: payoutState,
-            usesPaystack: _usesPaystack,
-            currency: _selectedCurrency,
-          ),
-          const SizedBox(height: 18),
-          _PrimaryActionPanel(
-            state: payoutState,
-            usesPaystack: _usesPaystack,
-            saving: _saving,
-            stripeEmail: user?.email.trim() ?? '',
-            onSetupStripe: _openStripeOnboarding,
-            onSetupPaystack: _continueWithPaystack,
-            onRefresh: _refreshProfile,
+          const SizedBox(height: 34),
+          Text(
+            'Data are collected by Bago and transmitted to PayPal only to enable payouts. By proceeding, you confirm this payout account belongs to you.',
+            style: AppTextStyles.bodySm.copyWith(
+              color: AppColors.gray500,
+              height: 1.4,
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PayoutChoiceTile extends StatelessWidget {
+  const _PayoutChoiceTile({
+    required this.title,
+    required this.subtitle,
+    required this.enabled,
+    required this.onTap,
+    this.icon,
+    this.paypal = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool enabled;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final bool paypal;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? AppColors.black : AppColors.gray400;
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 22),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 42,
+              child: paypal
+                  ? Text(
+                      'P',
+                      style: AppTextStyles.h2.copyWith(
+                        color: const Color(0xFF0070BA),
+                        fontWeight: FontWeight.w900,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    )
+                  : Icon(icon, color: AppColors.gray500, size: 27),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.h3.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: AppColors.gray500,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: enabled ? AppColors.gray500 : AppColors.gray300,
+              size: 30,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -516,7 +651,7 @@ class _StripeSetupNote extends StatelessWidget {
   }
 }
 
-enum _PayoutProvider { stripe, paystack }
+enum _PayoutProvider { stripe, paystack, paypal }
 
 enum _PayoutStatus { notStarted, incomplete, active }
 

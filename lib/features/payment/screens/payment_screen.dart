@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -30,11 +29,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoadingDraft = true;
   bool _isSdkReady = false;
   bool _isProcessing = false;
-  bool _cardComplete = false;
   bool _applePaySupported = false;
-  bool _bizumAvailable = false;
-  String _merchantCountryCode = 'ES';
-  String _stripeMerchantIdentifier = 'merchant.com.deracali.boltexponativewind';
+  bool _paypalCardsEligible = false;
   Map<String, dynamic>? _draft;
   String? _initError;
 
@@ -71,7 +67,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         if (_checkoutService.providerForCurrency(currency) == 'paystack') {
           if (mounted) setState(() => _isSdkReady = true);
         } else {
-          await _initStripe();
+          await _initPaypal();
         }
       }
     } catch (e) {
@@ -86,30 +82,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  Future<void> _initStripe() async {
+  Future<void> _initPaypal() async {
     try {
-      final config = await _paymentService.configureStripe();
-      final merchantIdentifier = config['merchantIdentifier']?.toString() ??
-          PaymentService.applePayMerchantIdentifier;
-      final currency = _asString(_draft?['currency'], 'USD');
-      await _paymentService.getStripePaymentMethods(currency: currency);
-      final applePaySupported = await Stripe.instance
-          .isPlatformPaySupported()
-          .catchError((_) => false);
+      final config = await _paymentService.getPaypalConfig();
       if (mounted) {
         setState(() {
           _isSdkReady = true;
-          _applePaySupported = applePaySupported;
-          _bizumAvailable = false;
-          _stripeMerchantIdentifier = merchantIdentifier;
-          _merchantCountryCode =
-              (config['merchantCountryCode']?.toString() ?? 'ES')
-                  .trim()
-                  .toUpperCase();
+          _paypalCardsEligible = config.advancedCardsEligible;
+          _applePaySupported = false;
         });
       }
     } catch (e) {
-      debugPrint('Stripe init failed: $e');
+      debugPrint('PayPal init failed: $e');
       if (mounted) {
         setState(() => _initError =
             'Payment methods are temporarily unavailable. Please try again.');
@@ -194,206 +178,43 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // ── In-app checkout ───────────────────────────────────────────────────────
 
   Future<void> _startCardCheckout() async {
-    if (_isProcessing || _draft == null || !_isSdkReady) return;
-    if (!_cardComplete) {
-      if (mounted) {
-        setState(() => _initError = 'Please enter valid card details.');
-      }
-      return;
-    }
-    setState(() => _isProcessing = true);
-    String? paymentReference;
-    try {
-      await _paymentService.ensureStripeConfigured();
-      final draft = _draft!;
-      final currency = _asString(draft['currency'], 'USD');
-      final totalAmount = _asDouble(draft['totalAmount']);
-      final packageId = draft['packageId']?.toString() ?? '';
-      final tripId = draft['tripId']?.toString() ?? '';
-      final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createStripeCheckoutSession(
-        packageId: packageId,
-        tripId: tripId,
-        travelerId: travelerId,
-        amount: totalAmount,
-        currency: currency,
-        termsAccepted: true,
-        paymentMethodType: 'card',
-      );
-      paymentReference = session.paymentIntentId;
-
-      debugPrint(
-        '[Stripe] confirm card pi=${session.paymentIntentId} '
-        'hasClientSecret=${session.clientSecret.isNotEmpty}',
-      );
-      final paymentIntent = await Stripe.instance.confirmPayment(
-        paymentIntentClientSecret: session.clientSecret,
-        data: const PaymentMethodParams.card(
-          paymentMethodData: PaymentMethodData(),
+    if (_draft == null) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _PaypalCardDetailsScreen(
+          cardFieldsEligible: _paypalCardsEligible,
+          onUsePaypal: _startPaypalCheckout,
         ),
-      );
-      debugPrint('[Stripe] card confirm result status=${paymentIntent.status}');
-      _assertPaymentReadyForShipment(paymentIntent);
-
-      await _completeShipmentAfterPayment(
-        draft: draft,
-        travelerId: travelerId,
-        packageId: packageId,
-        tripId: tripId,
-        currency: currency,
-        paymentReference: session.paymentIntentId,
-      );
-    } on StripeException catch (e) {
-      final message = e.error.localizedMessage ??
-          e.error.message ??
-          'Payment was cancelled or could not be completed.';
-      debugPrint('Card payment failed: $message');
-      _failWithDraft('stripe', message, paymentReference: paymentReference);
-    } catch (e) {
-      debugPrint('Card payment error: $e');
-      _failWithDraft(
-        'stripe',
-        e.toString().replaceFirst('Exception: ', ''),
-        paymentReference: paymentReference,
-      );
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+      ),
+    );
   }
 
   Future<void> _startApplePayCheckout() async {
+    if (!_applePaySupported) return;
+    setState(() => _initError =
+        'Apple Pay is not enabled for this PayPal merchant yet. Please use card or PayPal.');
+  }
+
+  Future<void> _startPaypalCheckout() async {
     if (_isProcessing || _draft == null || !_isSdkReady) return;
     setState(() => _isProcessing = true);
     String? paymentReference;
-    String? currency;
-    double? totalAmount;
     try {
-      await _paymentService.ensureStripeConfigured();
       final draft = _draft!;
-      currency = _asString(draft['currency'], 'USD').toUpperCase();
-      totalAmount = _asDouble(draft['totalAmount']);
-      if (totalAmount <= 0) {
-        throw Exception('Apple Pay app error: Invalid checkout amount.');
-      }
-      final applePaySupported = await Stripe.instance
-          .isPlatformPaySupported()
-          .catchError((_) => false);
-      if (!applePaySupported) {
-        throw Exception(
-          'Apple Pay app error: Apple Pay is not available on this device or no supported card is set up in Wallet.',
-        );
-      }
+      final currency = _asString(draft['currency'], 'USD');
       final packageId = draft['packageId']?.toString() ?? '';
       final tripId = draft['tripId']?.toString() ?? '';
       final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createStripeCheckoutSession(
+      final session = await _paymentService.createPaypalOrder(
         packageId: packageId,
         tripId: tripId,
         travelerId: travelerId,
-        amount: totalAmount,
         currency: currency,
-        termsAccepted: true,
-        paymentMethodType: 'card',
+        insurance: draft['insurance'] == true,
+        paymentMethod: 'paypal',
       );
-      paymentReference = session.paymentIntentId;
-
-      debugPrint(
-        '[Stripe] confirm Apple Pay pi=${session.paymentIntentId} '
-        'merchant=$_stripeMerchantIdentifier country=$_merchantCountryCode '
-        'currency=$currency amount=${totalAmount.toStringAsFixed(2)}',
-      );
-      final paymentIntent =
-          await Stripe.instance.confirmPlatformPayPaymentIntent(
-        clientSecret: session.clientSecret,
-        confirmParams: PlatformPayConfirmParams.applePay(
-          applePay: ApplePayParams(
-            merchantCountryCode: _merchantCountryCode,
-            currencyCode: currency,
-            cartItems: [
-              ApplePayCartSummaryItem.immediate(
-                label: 'Bago',
-                amount: totalAmount.toStringAsFixed(2),
-              ),
-            ],
-          ),
-        ),
-      );
-      debugPrint(
-          '[Stripe] Apple Pay confirm result status=${paymentIntent.status}');
-      _assertPaymentReadyForShipment(paymentIntent);
-
-      await _completeShipmentAfterPayment(
-        draft: draft,
-        travelerId: travelerId,
-        packageId: packageId,
-        tripId: tripId,
-        currency: currency,
-        paymentReference: session.paymentIntentId,
-      );
-    } on StripeException catch (e) {
-      final code = e.error.code.name;
-      final stripeCode = e.error.stripeErrorCode;
-      final declineCode = e.error.declineCode;
-      final rawMessage = e.error.localizedMessage ??
-          e.error.message ??
-          'Payment was cancelled or could not be completed.';
-      debugPrint([
-        'Apple Pay failed: $rawMessage',
-        'code=$code',
-        if (stripeCode?.isNotEmpty == true) 'stripe=$stripeCode',
-        if (declineCode?.isNotEmpty == true) 'decline=$declineCode',
-        'merchant=$_stripeMerchantIdentifier',
-        'country=$_merchantCountryCode',
-        if (currency != null) 'currency=$currency',
-        if (totalAmount != null) 'amount=${totalAmount.toStringAsFixed(2)}',
-      ].join(' | '));
-      _failWithDraft(
-        'stripe',
-        'Apple Pay could not be completed. Please try again or use card payment.',
-        paymentReference: paymentReference,
-      );
-    } catch (e) {
-      debugPrint('Apple Pay error: $e');
-      _failWithDraft(
-        'stripe',
-        'Apple Pay could not be completed. Please try again or use card payment.',
-        paymentReference: paymentReference,
-      );
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  Future<void> _startBizumCheckout() async {
-    if (_isProcessing || _draft == null || !_isSdkReady || !_bizumAvailable) {
-      return;
-    }
-    setState(() => _isProcessing = true);
-    String? paymentReference;
-    try {
-      await _paymentService.ensureStripeConfigured();
-      final draft = _draft!;
-      final currency = _asString(draft['currency'], 'EUR');
-      if (currency.toUpperCase() != 'EUR') {
-        throw Exception('Bizum is only available for EUR payments.');
-      }
-      final totalAmount = _asDouble(draft['totalAmount']);
-      final packageId = draft['packageId']?.toString() ?? '';
-      final tripId = draft['tripId']?.toString() ?? '';
-      final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createBizumCheckoutSession(
-        packageId: packageId,
-        tripId: tripId,
-        travelerId: travelerId,
-        amount: totalAmount,
-        currency: currency,
-        termsAccepted: true,
-      );
-      paymentReference = session.paymentIntentId;
-      debugPrint(
-        '[Stripe] open Bizum WebView session=${session.sessionId} '
-        'pi=${session.paymentIntentId} url=${session.url}',
-      );
+      paymentReference = session.orderId;
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -402,65 +223,49 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => _PaymentWebView(
-            url: session.url,
-            title: 'Bizum',
-            callbackUrlPattern: '/api/payments/bizum-return',
-            cancelUrlPattern: '/api/payments/bizum-cancel',
+            url: session.approvalUrl,
+            title: 'PayPal',
+            callbackUrlPattern: '/api/payments/paypal/return',
+            cancelUrlPattern: '/api/payments/paypal/cancel',
           ),
         ),
       );
       if (!mounted) return;
       if (result?['type'] == 'cancel') {
         _failWithDraft(
-          'stripe',
-          'Bizum payment was cancelled.',
+          'paypal',
+          'Payment was cancelled.',
           paymentReference: paymentReference,
         );
         return;
       }
       setState(() => _isProcessing = true);
-      final checkoutStatus =
-          await _paymentService.getBizumCheckoutStatus(session.sessionId);
-      if (!checkoutStatus.isReadyForShipment) {
-        throw Exception('Bizum payment was not completed.');
-      }
+      final authorization =
+          await _paymentService.authorizePaypalOrder(orderId: session.orderId);
 
       await _completeShipmentAfterPayment(
         draft: draft,
         travelerId: travelerId,
         packageId: packageId,
         tripId: tripId,
-        currency: currency,
-        paymentReference: checkoutStatus.paymentIntentId.isNotEmpty
-            ? checkoutStatus.paymentIntentId
-            : session.paymentIntentId,
+        currency: authorization.currency,
+        paymentReference: authorization.paymentReference,
+        paymentProvider: 'paypal',
+        paymentStatus: 'authorized',
+        amountOverride: authorization.shipmentAmount > 0
+            ? authorization.shipmentAmount
+            : null,
       );
-    } on StripeException catch (e) {
-      final message = e.error.localizedMessage ??
-          e.error.message ??
-          'Payment was cancelled or could not be completed.';
-      debugPrint('Bizum Stripe error: $message');
-      _failWithDraft('stripe', message, paymentReference: paymentReference);
     } catch (e) {
-      debugPrint('Bizum payment error: $e');
+      debugPrint('PayPal payment error: $e');
       _failWithDraft(
-        'stripe',
+        'paypal',
         e.toString().replaceFirst('Exception: ', ''),
         paymentReference: paymentReference,
       );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
-  }
-
-  void _assertPaymentReadyForShipment(PaymentIntent paymentIntent) {
-    final status = paymentIntent.status;
-    if (status == PaymentIntentsStatus.Succeeded ||
-        status == PaymentIntentsStatus.Processing ||
-        status == PaymentIntentsStatus.RequiresCapture) {
-      return;
-    }
-    throw Exception('Payment was not completed. Please try again.');
   }
 
   Future<void> _completeShipmentAfterPayment({
@@ -470,19 +275,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
     required String tripId,
     required String currency,
     required String paymentReference,
+    String paymentProvider = 'paypal',
+    String paymentStatus = 'authorized',
+    double? amountOverride,
   }) async {
     final request = await ShipmentService.instance.sendPackageRequest(
       travelerId: travelerId,
       packageId: packageId,
       tripId: tripId,
-      amount: _asDouble(draft['shippingAmount']),
+      amount: amountOverride ?? _asDouble(draft['shippingAmount']),
       currency: currency,
       insurance: draft['insurance'] == true,
       insuranceCost: _asDouble(draft['insuranceAmount']),
       estimatedDeparture: draft['estimatedDeparture']?.toString(),
       estimatedArrival: draft['estimatedArrival']?.toString(),
       paymentReference: paymentReference,
-      paymentProvider: 'stripe',
+      paymentProvider: paymentProvider,
+      paymentStatus: paymentStatus,
       message: draft['message']?.toString(),
     );
 
@@ -491,7 +300,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (!mounted) return;
     context.go('/order-success', extra: {
       ...draft,
-      'provider': 'stripe',
+      'provider': paymentProvider,
       'paymentReference': paymentReference,
       'request': request,
       if (request?['paymentPending'] == true) 'paymentPending': true,
@@ -554,6 +363,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     if (normalized.contains('apple pay')) {
       return 'Apple Pay could not be completed. Please try again or use card payment.';
+    }
+    if (normalized.contains('paypal')) {
+      return 'PayPal payment could not be completed. Please try again.';
     }
     if (normalized.contains('bizum')) {
       return 'Bizum could not be completed. Please try again or use card payment.';
@@ -703,16 +515,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 amountLabel: '$currency ${totalAmount.toStringAsFixed(2)}',
                 isLoading: _isProcessing,
                 applePaySupported: _applePaySupported,
-                bizumAvailable: _bizumAvailable,
-                onCardChanged: (details) {
-                  setState(() {
-                    _cardComplete = details?.complete == true;
-                    _initError = null;
-                  });
-                },
                 onPayCard: _startCardCheckout,
                 onApplePay: _startApplePayCheckout,
-                onBizum: _startBizumCheckout,
+                onPaypal: _startPaypalCheckout,
               ),
             ],
             const SizedBox(height: 16),
@@ -741,10 +546,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 const SizedBox(width: 6),
                 SvgPicture.asset('assets/images/mastercard.svg',
                     width: 38, height: 24, fit: BoxFit.contain),
-                if (_bizumAvailable) ...[
-                  const SizedBox(width: 6),
-                  const _BizumLogo(height: 22),
-                ],
               ],
             ],
           ),
@@ -762,277 +563,212 @@ class _CardCheckoutForm extends StatelessWidget {
     required this.amountLabel,
     required this.isLoading,
     required this.applePaySupported,
-    required this.bizumAvailable,
-    required this.onCardChanged,
     required this.onPayCard,
     required this.onApplePay,
-    required this.onBizum,
+    required this.onPaypal,
   });
 
   final String amountLabel;
   final bool isLoading;
   final bool applePaySupported;
-  final bool bizumAvailable;
-  final ValueChanged<CardFieldInputDetails?> onCardChanged;
   final VoidCallback onPayCard;
   final VoidCallback onApplePay;
-  final VoidCallback onBizum;
+  final VoidCallback onPaypal;
 
   @override
   Widget build(BuildContext context) {
-    final hasExpressMethods = applePaySupported || bizumAvailable;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasExpressMethods) ...[
-          Text(
-            'Express checkout',
-            style: AppTextStyles.labelLg.copyWith(
-              color: AppColors.black,
-              fontWeight: FontWeight.w800,
+        if (applePaySupported) ...[
+          _PaymentOptionButton(
+            icon: Icons.apple_rounded,
+            label: 'Apple Pay',
+            subtitle: 'Pay with Wallet',
+            isLoading: isLoading,
+            color: AppColors.black,
+            onTap: onApplePay,
+          ),
+          const SizedBox(height: 12),
+        ],
+        _PaymentOptionButton(
+          icon: Icons.credit_card_rounded,
+          label: 'Bank Card',
+          subtitle: 'Enter your card details',
+          isLoading: isLoading,
+          color: AppColors.primary,
+          onTap: onPayCard,
+        ),
+        const SizedBox(height: 12),
+        _PaymentOptionButton(
+          icon: Icons.account_balance_wallet_rounded,
+          label: 'PayPal',
+          subtitle: 'Authorize $amountLabel securely',
+          isLoading: isLoading,
+          color: const Color(0xFF003087),
+          onTap: onPaypal,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Payment is authorized now and captured only after the traveler approves.',
+          style: AppTextStyles.bodySm.copyWith(
+            color: AppColors.gray500,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaypalCardDetailsScreen extends StatefulWidget {
+  const _PaypalCardDetailsScreen({
+    required this.cardFieldsEligible,
+    required this.onUsePaypal,
+  });
+
+  final bool cardFieldsEligible;
+  final Future<void> Function() onUsePaypal;
+
+  @override
+  State<_PaypalCardDetailsScreen> createState() =>
+      _PaypalCardDetailsScreenState();
+}
+
+class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
+  bool _saveCard = false;
+  bool _busy = false;
+
+  InputDecoration _decoration(String label) => InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: AppColors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
+        ),
+      );
+
+  Future<void> _continueWithPaypal() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onUsePaypal();
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fallbackText = widget.cardFieldsEligible
+        ? 'Secure card entry is prepared for PayPal Advanced Card Processing. Continue with PayPal to complete authorization safely.'
+        : 'Card processing is not enabled for this PayPal account yet. Continue with PayPal checkout to pay by card without sharing card details with Bago.';
+    return Scaffold(
+      backgroundColor: AppColors.backgroundOff,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.black,
+        elevation: 0,
+        title: Text(
+          'Enter your card details',
+          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          TextField(
+            enabled: false,
+            keyboardType: TextInputType.number,
+            decoration: _decoration('Card number'),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  enabled: false,
+                  keyboardType: TextInputType.datetime,
+                  decoration: _decoration('Expiration date'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  enabled: false,
+                  keyboardType: TextInputType.number,
+                  decoration: _decoration('CVV'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            enabled: false,
+            textCapitalization: TextCapitalization.words,
+            decoration: _decoration('Cardholder name'),
+          ),
+          const SizedBox(height: 8),
+          CheckboxListTile(
+            value: _saveCard,
+            onChanged: (value) => setState(() => _saveCard = value == true),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(
+              'Save card',
+              style: AppTextStyles.bodyMd.copyWith(
+                color: AppColors.black,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          if (applePaySupported)
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: isLoading ? null : onApplePay,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.black,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor:
-                      AppColors.black.withValues(alpha: 0.45),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
+          BagoInfoBanner(
+            icon: Icons.lock_outline_rounded,
+            message: fallbackText,
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _busy ? null : _continueWithPaypal,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.apple_rounded, size: 28),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Pay',
-                      style: AppTextStyles.h3.copyWith(
+                elevation: 0,
+              ),
+              child: _busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
                         color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                      ),
+                    )
+                  : Text(
+                      'Continue with PayPal',
+                      style: AppTextStyles.buttonLg.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ],
-                ),
-              ),
             ),
-          if (applePaySupported && bizumAvailable) const SizedBox(height: 10),
-          if (bizumAvailable)
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: OutlinedButton(
-                onPressed: isLoading ? null : onBizum,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.black,
-                  side: const BorderSide(color: AppColors.gray200),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _BizumLogo(height: 24),
-                    SizedBox(width: 10),
-                    Text(
-                      'Pay with Bizum',
-                      style: TextStyle(
-                        color: AppColors.black,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 24),
-          const _DividerLabel(label: 'or pay by card'),
+          ),
         ],
-        const SizedBox(height: 24),
-        Text(
-          'Card',
-          style: AppTextStyles.labelLg.copyWith(
-            color: AppColors.black,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 12),
-        AppCard(
-          padding: const EdgeInsets.all(16),
-          borderRadius: 18,
-          showBorder: true,
-          child: CardField(
-            enablePostalCode: false,
-            numberHintText: 'Card number',
-            expirationHintText: 'MM/YY',
-            cvcHintText: 'CVC',
-            cursorColor: AppColors.primary,
-            style: AppTextStyles.bodyMd.copyWith(color: AppColors.black),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-            ),
-            onCardChanged: onCardChanged,
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: isLoading ? null : onPayCard,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 0,
-            ),
-            child: isLoading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Text(
-                    'Pay $amountLabel',
-                    style: AppTextStyles.buttonLg.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DividerLabel extends StatelessWidget {
-  const _DividerLabel({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: AppColors.gray200)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            label,
-            style: AppTextStyles.labelMd.copyWith(
-              color: AppColors.gray400,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const Expanded(child: Divider(color: AppColors.gray200)),
-      ],
-    );
-  }
-}
-
-class _BizumLogo extends StatelessWidget {
-  const _BizumLogo({this.height = 24});
-
-  final double height;
-
-  static const _cyan = Color(0xFF00AEEF);
-  static const _lime = Color(0xFF95C93D);
-  static const _navy = Color(0xFF17324D);
-
-  @override
-  Widget build(BuildContext context) {
-    final width = height * 3.28;
-    return Semantics(
-      label: 'Bizum',
-      image: true,
-      child: Container(
-        width: width,
-        height: height,
-        padding: EdgeInsets.symmetric(
-          horizontal: height * 0.28,
-          vertical: height * 0.12,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(height * 0.18),
-          border: Border.all(color: AppColors.gray200),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: height * 0.5,
-              height: height * 0.5,
-              child: Stack(
-                children: [
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: _BizumDot(color: _cyan, size: height * 0.24),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: _BizumDot(color: _lime, size: height * 0.24),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(width: height * 0.12),
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'bizum',
-                  maxLines: 1,
-                  style: AppTextStyles.labelMd.copyWith(
-                    color: _navy,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BizumDot extends StatelessWidget {
-  const _BizumDot({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
       ),
     );
   }

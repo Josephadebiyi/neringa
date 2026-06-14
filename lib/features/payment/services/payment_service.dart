@@ -5,6 +5,11 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
 
+double _parseDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? 0;
+}
+
 class PaymentResult {
   const PaymentResult({
     required this.success,
@@ -135,6 +140,85 @@ class StripeRedirectCheckoutStatus {
   }
 }
 
+class PaypalConfig {
+  const PaypalConfig({
+    required this.clientId,
+    required this.advancedCardsEligible,
+    required this.applePayEligible,
+  });
+
+  final String clientId;
+  final bool advancedCardsEligible;
+  final bool applePayEligible;
+
+  factory PaypalConfig.fromJson(Map<String, dynamic> json) => PaypalConfig(
+        clientId: json['clientId']?.toString() ?? '',
+        advancedCardsEligible: json['advancedCardsEligible'] == true,
+        applePayEligible: json['applePayEligible'] == true,
+      );
+}
+
+class PaypalOrderSession {
+  const PaypalOrderSession({
+    required this.orderId,
+    required this.approvalUrl,
+    required this.amount,
+    required this.shipmentAmount,
+    required this.currency,
+    required this.advancedCardsEligible,
+    required this.applePayEligible,
+  });
+
+  final String orderId;
+  final String approvalUrl;
+  final double amount;
+  final double shipmentAmount;
+  final String currency;
+  final bool advancedCardsEligible;
+  final bool applePayEligible;
+
+  factory PaypalOrderSession.fromJson(Map<String, dynamic> json) =>
+      PaypalOrderSession(
+        orderId: json['orderId']?.toString() ?? '',
+        approvalUrl: json['approvalUrl']?.toString() ?? '',
+        amount: _parseDouble(json['amount']),
+        shipmentAmount: _parseDouble(json['shipmentAmount']),
+        currency: json['currency']?.toString() ?? 'USD',
+        advancedCardsEligible: json['advancedCardsEligible'] == true,
+        applePayEligible: json['applePayEligible'] == true,
+      );
+}
+
+class PaypalAuthorizationResult {
+  const PaypalAuthorizationResult({
+    required this.orderId,
+    required this.authorizationId,
+    required this.paymentReference,
+    required this.amount,
+    required this.shipmentAmount,
+    required this.currency,
+  });
+
+  final String orderId;
+  final String authorizationId;
+  final String paymentReference;
+  final double amount;
+  final double shipmentAmount;
+  final String currency;
+
+  factory PaypalAuthorizationResult.fromJson(Map<String, dynamic> json) =>
+      PaypalAuthorizationResult(
+        orderId: json['orderId']?.toString() ?? '',
+        authorizationId: json['authorizationId']?.toString() ?? '',
+        paymentReference: json['paymentReference']?.toString() ??
+            json['orderId']?.toString() ??
+            '',
+        amount: _parseDouble(json['amount']),
+        shipmentAmount: _parseDouble(json['shipmentAmount']),
+        currency: json['currency']?.toString() ?? 'USD',
+      );
+}
+
 class PaymentService {
   PaymentService._();
   static final PaymentService instance = PaymentService._();
@@ -147,6 +231,81 @@ class PaymentService {
   final _api = ApiService.instance;
   bool _stripeConfigured = false;
   Map<String, dynamic>? _lastStripeConfig;
+
+  Future<PaypalConfig> getPaypalConfig() async {
+    try {
+      debugPrint('[PayPal] GET ${ApiConstants.paypalConfig}');
+      final response = await _api.get(ApiConstants.paypalConfig);
+      final data = _extractMap(response.data);
+      return PaypalConfig.fromJson(data);
+    } on DioException catch (e) {
+      debugPrint('[PayPal] config failed: ${ApiService.parseError(e)}');
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<PaypalOrderSession> createPaypalOrder({
+    required String packageId,
+    required String tripId,
+    required String travelerId,
+    required String currency,
+    bool insurance = false,
+    String paymentMethod = 'paypal',
+  }) async {
+    try {
+      debugPrint(
+        '[PayPal] POST ${ApiConstants.paypalCreateOrder} '
+        'package=$packageId trip=$tripId method=$paymentMethod',
+      );
+      final response = await _api.post(
+        ApiConstants.paypalCreateOrder,
+        data: {
+          'packageId': packageId,
+          'tripId': tripId,
+          'travelerId': travelerId,
+          'currency': currency,
+          'insurance': insurance,
+          'paymentMethod': paymentMethod,
+        },
+      );
+      final data = _extractMap(response.data);
+      final session = PaypalOrderSession.fromJson(data);
+      if (session.orderId.isEmpty || session.approvalUrl.isEmpty) {
+        throw StateError(
+          data['message']?.toString() ?? 'PayPal checkout could not start.',
+        );
+      }
+      return session;
+    } on DioException catch (e) {
+      debugPrint('[PayPal] create order failed: ${ApiService.parseError(e)}');
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<PaypalAuthorizationResult> authorizePaypalOrder({
+    required String orderId,
+  }) async {
+    try {
+      debugPrint(
+          '[PayPal] POST ${ApiConstants.paypalAuthorize} order=$orderId');
+      final response = await _api.post(
+        ApiConstants.paypalAuthorize,
+        data: {'orderId': orderId},
+      );
+      final data = _extractMap(response.data);
+      final result = PaypalAuthorizationResult.fromJson(data);
+      if (result.authorizationId.isEmpty || result.paymentReference.isEmpty) {
+        throw StateError(
+          data['message']?.toString() ??
+              'PayPal authorization could not be confirmed.',
+        );
+      }
+      return result;
+    } on DioException catch (e) {
+      debugPrint('[PayPal] authorize failed: ${ApiService.parseError(e)}');
+      throw ApiService.parseError(e);
+    }
+  }
 
   Future<Map<String, dynamic>> configureStripe() async {
     final config = await getStripeConfig();

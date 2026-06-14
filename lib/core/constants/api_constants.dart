@@ -135,6 +135,10 @@ class ApiConstants {
   static const String stripePaymentMethods = '/api/payments/methods';
   static const String stripeCreateIntent = '/api/payments/create-intent';
   static const String stripeBizumCheckout = '/api/payments/bizum-checkout';
+  // PayPal active checkout flow
+  static const String paypalConfig = '/api/config/paypal';
+  static const String paypalCreateOrder = '/api/payments/paypal/create-order';
+  static const String paypalAuthorize = '/api/payments/paypal/authorize';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';
@@ -154,6 +158,7 @@ class ApiConstants {
   static const String stripeConnectDashboardLink =
       '/api/payouts/connect/dashboard-link';
   static const String stripeWithdraw = '/api/payouts/withdraw';
+  static const String paypalPayoutConnect = '/api/payouts/paypal/connect';
 
   // ---------------------------------------------------------------------------
   // Messaging

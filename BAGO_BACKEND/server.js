@@ -47,6 +47,17 @@ import {
   stripeConnectWebhook,
   verifyPayoutMethodOtp,
 } from './controllers/StripeController.js';
+import {
+  authorizePaypalOrder,
+  connectPaypalPayout,
+  capturePaypalAuthorization,
+  createPaypalOrder,
+  getPaypalConfig,
+  paypalCancel,
+  paypalReturn,
+  paypalWebhook,
+  voidPaypalAuthorization,
+} from './controllers/PayPalController.js';
 
 dotenv.config();
 
@@ -865,6 +876,23 @@ app.get('/api/paystack/banks', getPaystackBanks);
 app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
+
+// ✅ PayPal active checkout flow. Stripe checkout code remains available but
+// the mobile app now uses PayPal order authorization only.
+app.get('/api/config/paypal', isAuthenticated, getPaypalConfig);
+app.post('/api/payouts/paypal/connect', isAuthenticated, requireKycVerification, connectPaypalPayout);
+app.post('/api/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPaypalOrder);
+app.post('/api/payments/paypal/authorize', isAuthenticated, requireKycVerification, authorizePaypalOrder);
+app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalAuthorization);
+app.post('/api/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
+app.post('/api/payments/paypal/webhook', paypalWebhook);
+app.get('/api/payments/paypal/return', paypalReturn);
+app.get('/api/payments/paypal/cancel', paypalCancel);
+app.post('/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPaypalOrder);
+app.post('/payments/paypal/authorize', isAuthenticated, requireKycVerification, authorizePaypalOrder);
+app.post('/payments/paypal/capture', isAuthenticated, capturePaypalAuthorization);
+app.post('/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
+app.post('/payments/paypal/webhook', paypalWebhook);
 
 // ✅ Stripe checkout, saved cards, escrow, refunds, and Connect payouts
 app.get('/api/payouts/status', isAuthenticated, getStripePayoutStatus);

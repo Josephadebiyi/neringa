@@ -389,11 +389,14 @@ export async function RequestPackage(req, res) {
 
     const senderId = req.user.id || req.user._id;
     let verifiedPaymentStatus = paymentStatus;
+    let requestAmount = Number(amount);
+    let requestCurrency = currency || 'USD';
+    let paypalPayment = null;
 
     if (!senderId || !travelerId || !packageId || !tripId) {
       return res.status(400).json({ message: 'All required fields must be provided' });
     }
-    if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (!requestAmount || Number.isNaN(requestAmount) || requestAmount <= 0) {
       return res.status(400).json({ message: 'A valid positive amount must be provided' });
     }
 
@@ -524,7 +527,7 @@ export async function RequestPackage(req, res) {
         }
         // verifyPayment already converts kobo→naira — compare directly to agreed amount
         const verifiedAmount = Number(verification.data?.amount || 0);
-        const agreedAmount = Number(amount);
+        const agreedAmount = requestAmount;
         if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
@@ -559,9 +562,9 @@ export async function RequestPackage(req, res) {
           return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
         }
         const verifiedAmount = Number(stripePayment.amount || 0);
-        const agreedAmount = Number(amount);
+        const agreedAmount = requestAmount;
         const paymentCurrency = String(stripePayment.currency || '').toUpperCase();
-        const agreedCurrency = String(currency || 'USD').toUpperCase();
+        const agreedCurrency = String(requestCurrency || 'USD').toUpperCase();
         if (paymentCurrency !== agreedCurrency) {
           return res.status(402).json({ message: 'Payment currency does not match the shipment currency.', success: false });
         }
@@ -569,6 +572,25 @@ export async function RequestPackage(req, res) {
           return res.status(402).json({ message: 'Payment amount does not match the agreed amount.', success: false });
         }
         verifiedPaymentStatus = stripePayment.status;
+      } else if (provider === 'paypal') {
+        paypalPayment = await queryOne(
+          `
+            select id, amount, shipment_amount, currency, status, paypal_authorization_id
+            from public.paypal_payments
+            where paypal_order_id = $1
+              and user_id = $2
+              and status in ('authorized', 'created', 'pending')
+            order by updated_at desc
+            limit 1
+          `,
+          [paymentReference, senderId],
+        );
+        if (!paypalPayment?.paypal_authorization_id) {
+          return res.status(402).json({ message: 'PayPal authorization could not be verified. Please complete payment first.', success: false });
+        }
+        requestAmount = Number(paypalPayment.shipment_amount || requestAmount);
+        requestCurrency = String(paypalPayment.currency || requestCurrency || 'USD').toUpperCase();
+        verifiedPaymentStatus = 'authorized';
       }
     }
 
@@ -579,8 +601,8 @@ export async function RequestPackage(req, res) {
           travelerId,
           packageId,
           tripId,
-          amount: Number(amount),
-          currency: currency || 'USD',
+          amount: requestAmount,
+          currency: requestCurrency,
           imageUrl: typeof image === 'string' ? image : null,
           insurance: insurance === 'yes' || insurance === true,
           insuranceCost: (() => {
@@ -589,7 +611,7 @@ export async function RequestPackage(req, res) {
             if (settings.insuranceType === 'fixed') return Number(settings.insuranceFixedAmount) || 0;
             const pct = Number(settings.insurancePercentage) || 3;
             const clientCost = Number(insuranceCost) || 0;
-            const serverCost = (Number(amount) * pct) / 100;
+            const serverCost = (requestAmount * pct) / 100;
             return Math.abs(clientCost - serverCost) / Math.max(serverCost, 1) < 0.05 ? clientCost : serverCost;
           })(),
           estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
@@ -599,7 +621,7 @@ export async function RequestPackage(req, res) {
             ? {
                 method: paymentProvider || 'paystack',
                 gateway: paymentProvider || 'paystack',
-                status: paymentStatus || 'paid',
+                status: paymentStatus || (paymentProvider === 'paypal' ? 'authorized' : 'paid'),
                 requestId: paymentReference,
               }
             : {},
@@ -643,9 +665,47 @@ export async function RequestPackage(req, res) {
           console.warn('Stripe payment linked to shipment request but payments row update failed:', linkError.message);
         });
         newRequest = await getShipmentRequestById(newRequest.id);
+      } else if ((paymentProvider || '').toLowerCase() === 'paypal') {
+        await query(
+          `
+            update public.shipment_requests
+            set payment_status = 'authorized',
+                payment_info = coalesce(payment_info, '{}'::jsonb) || $2::jsonb,
+                updated_at = timezone('utc', now())
+            where id = $1
+          `,
+          [
+            newRequest.id,
+            {
+              method: 'paypal',
+              gateway: 'paypal',
+              status: 'authorized',
+              requestId: paymentReference,
+              orderId: paymentReference,
+              authorizationId: paypalPayment?.paypal_authorization_id || null,
+            },
+          ],
+        );
+        await query(
+          `
+            update public.paypal_payments
+            set request_id = $2,
+                status = 'authorized',
+                raw_response = raw_response || $3::jsonb,
+                updated_at = timezone('utc', now())
+            where paypal_order_id = $1
+          `,
+          [paymentReference, newRequest.id, { requestId: newRequest.id, linkedAfterPayment: true }],
+        ).catch((linkError) => {
+          console.warn('PayPal payment linked to shipment request but row update failed:', linkError.message);
+        });
+        newRequest = await getShipmentRequestById(newRequest.id);
       }
 
-      try {
+      if ((paymentProvider || '').toLowerCase() === 'paypal') {
+        // PayPal orders are only authorized at this stage. Escrow/wallet holds
+        // happen after traveler approval and capture, not before capture.
+      } else try {
         await holdEscrowForPaidRequest({
           requestId: newRequest.id,
           providerReference: paymentReference,
