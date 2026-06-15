@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -31,6 +33,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isProcessing = false;
   bool _applePaySupported = false;
   bool _paypalCardsEligible = false;
+  bool _paypalApplePayEligible = false;
+  _CheckoutPaymentMethod _selectedMethod = _CheckoutPaymentMethod.paypal;
   Map<String, dynamic>? _draft;
   String? _initError;
 
@@ -89,7 +93,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         setState(() {
           _isSdkReady = true;
           _paypalCardsEligible = config.advancedCardsEligible;
-          _applePaySupported = false;
+          _paypalApplePayEligible = config.applePayEligible;
+          _applePaySupported = Platform.isIOS;
+          if (!Platform.isIOS) {
+            _selectedMethod = _CheckoutPaymentMethod.card;
+          }
         });
       }
     } catch (e) {
@@ -184,6 +192,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       MaterialPageRoute(
         builder: (_) => _PaypalCardDetailsScreen(
           cardFieldsEligible: _paypalCardsEligible,
+          amountLabel: _amountLabel(_draft!),
           onUsePaypal: _startPaypalCheckout,
         ),
       ),
@@ -191,12 +200,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _startApplePayCheckout() async {
-    if (!_applePaySupported) return;
-    setState(() => _initError =
-        'Apple Pay is not enabled for this PayPal merchant yet. Please use card or PayPal.');
+    if (!_applePaySupported || !_paypalApplePayEligible) {
+      setState(() => _initError =
+          'Apple Pay is not enabled for this PayPal merchant yet. Please use card or PayPal.');
+      return;
+    }
+    await _startPaypalCheckout(paymentMethod: 'apple_pay');
   }
 
-  Future<void> _startPaypalCheckout() async {
+  Future<void> _startPaypalCheckout({String paymentMethod = 'paypal'}) async {
     if (_isProcessing || _draft == null || !_isSdkReady) return;
     setState(() => _isProcessing = true);
     String? paymentReference;
@@ -212,7 +224,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         travelerId: travelerId,
         currency: currency,
         insurance: draft['insurance'] == true,
-        paymentMethod: 'paypal',
+        paymentMethod: paymentMethod,
       );
       paymentReference = session.orderId;
 
@@ -385,6 +397,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ? value.toString().trim()
           : fallback;
 
+  String _amountLabel(Map<String, dynamic> draft) {
+    final currency = _asString(draft['currency'], 'USD');
+    final totalAmount = _asDouble(draft['totalAmount']);
+    return '$currency ${totalAmount.toStringAsFixed(2)}';
+  }
+
+  Future<void> _paySelectedMethod() async {
+    switch (_selectedMethod) {
+      case _CheckoutPaymentMethod.applePay:
+        await _startApplePayCheckout();
+        break;
+      case _CheckoutPaymentMethod.card:
+        await _startCardCheckout();
+        break;
+      case _CheckoutPaymentMethod.paypal:
+        await _startPaypalCheckout();
+        break;
+    }
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -515,9 +547,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 amountLabel: '$currency ${totalAmount.toStringAsFixed(2)}',
                 isLoading: _isProcessing,
                 applePaySupported: _applePaySupported,
-                onPayCard: _startCardCheckout,
-                onApplePay: _startApplePayCheckout,
-                onPaypal: _startPaypalCheckout,
+                selectedMethod: _selectedMethod,
+                onSelect: (method) => setState(() => _selectedMethod = method),
+                onPay: _paySelectedMethod,
               ),
             ],
             const SizedBox(height: 16),
@@ -558,22 +590,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
 // ── In-app card checkout form ────────────────────────────────────────────────
 
+enum _CheckoutPaymentMethod { applePay, card, paypal }
+
 class _CardCheckoutForm extends StatelessWidget {
   const _CardCheckoutForm({
     required this.amountLabel,
     required this.isLoading,
     required this.applePaySupported,
-    required this.onPayCard,
-    required this.onApplePay,
-    required this.onPaypal,
+    required this.selectedMethod,
+    required this.onSelect,
+    required this.onPay,
   });
 
   final String amountLabel;
   final bool isLoading;
   final bool applePaySupported;
-  final VoidCallback onPayCard;
-  final VoidCallback onApplePay;
-  final VoidCallback onPaypal;
+  final _CheckoutPaymentMethod selectedMethod;
+  final ValueChanged<_CheckoutPaymentMethod> onSelect;
+  final VoidCallback onPay;
 
   @override
   Widget build(BuildContext context) {
@@ -587,7 +621,8 @@ class _CardCheckoutForm extends StatelessWidget {
             subtitle: 'Pay with Wallet',
             isLoading: isLoading,
             color: AppColors.black,
-            onTap: onApplePay,
+            selected: selectedMethod == _CheckoutPaymentMethod.applePay,
+            onTap: () => onSelect(_CheckoutPaymentMethod.applePay),
           ),
           const SizedBox(height: 12),
         ],
@@ -597,18 +632,50 @@ class _CardCheckoutForm extends StatelessWidget {
           subtitle: 'Enter your card details',
           isLoading: isLoading,
           color: AppColors.primary,
-          onTap: onPayCard,
+          selected: selectedMethod == _CheckoutPaymentMethod.card,
+          onTap: () => onSelect(_CheckoutPaymentMethod.card),
         ),
         const SizedBox(height: 12),
         _PaymentOptionButton(
-          icon: Icons.account_balance_wallet_rounded,
+          assetImage: 'assets/images/paypal-symbol.png',
           label: 'PayPal',
           subtitle: 'Authorize $amountLabel securely',
           isLoading: isLoading,
           color: const Color(0xFF003087),
-          onTap: onPaypal,
+          selected: selectedMethod == _CheckoutPaymentMethod.paypal,
+          onTap: () => onSelect(_CheckoutPaymentMethod.paypal),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 24),
+        SizedBox(
+          height: 58,
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: isLoading ? null : onPay,
+            icon: isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.lock_outline_rounded),
+            label: Text('Pay $amountLabel'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              textStyle: AppTextStyles.buttonLg.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              elevation: 0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
         Text(
           'Payment is authorized now and captured only after the traveler approves.',
           style: AppTextStyles.bodySm.copyWith(
@@ -624,10 +691,12 @@ class _CardCheckoutForm extends StatelessWidget {
 class _PaypalCardDetailsScreen extends StatefulWidget {
   const _PaypalCardDetailsScreen({
     required this.cardFieldsEligible,
+    required this.amountLabel,
     required this.onUsePaypal,
   });
 
   final bool cardFieldsEligible;
+  final String amountLabel;
   final Future<void> Function() onUsePaypal;
 
   @override
@@ -641,6 +710,13 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
 
   InputDecoration _decoration(String label) => InputDecoration(
         labelText: label,
+        hintText: label == 'Card number'
+            ? 'XXXX XXXX XXXX XXXX'
+            : label == 'Expiration date'
+                ? 'MM/YY'
+                : label == 'CVV'
+                    ? '***'
+                    : null,
         filled: true,
         fillColor: AppColors.white,
         border: OutlineInputBorder(
@@ -679,16 +755,21 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.black,
         elevation: 0,
-        title: Text(
-          'Enter your card details',
-          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900),
-        ),
+        title: const SizedBox.shrink(),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Text(
+            'Enter your card details',
+            style: AppTextStyles.displaySm.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+              height: 1.08,
+            ),
+          ),
+          const SizedBox(height: 32),
           TextField(
-            enabled: false,
             keyboardType: TextInputType.number,
             decoration: _decoration('Card number'),
           ),
@@ -697,7 +778,6 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
             children: [
               Expanded(
                 child: TextField(
-                  enabled: false,
                   keyboardType: TextInputType.datetime,
                   decoration: _decoration('Expiration date'),
                 ),
@@ -705,7 +785,6 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
-                  enabled: false,
                   keyboardType: TextInputType.number,
                   decoration: _decoration('CVV'),
                 ),
@@ -714,7 +793,6 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
           ),
           const SizedBox(height: 14),
           TextField(
-            enabled: false,
             textCapitalization: TextCapitalization.words,
             decoration: _decoration('Cardholder name'),
           ),
@@ -760,7 +838,7 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
                       ),
                     )
                   : Text(
-                      'Continue with PayPal',
+                      'Pay ${widget.amountLabel}',
                       style: AppTextStyles.buttonLg.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
@@ -783,7 +861,9 @@ class _PaymentOptionButton extends StatelessWidget {
     required this.isLoading,
     required this.onTap,
     this.icon,
+    this.assetImage,
     this.color,
+    this.selected = false,
   });
 
   final String label;
@@ -791,7 +871,9 @@ class _PaymentOptionButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onTap;
   final IconData? icon;
+  final String? assetImage;
   final Color? color;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -809,7 +891,10 @@ class _PaymentOptionButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.gray200),
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.gray200,
+                width: selected ? 2 : 1,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.black.withValues(alpha: 0.03),
@@ -835,12 +920,24 @@ class _PaymentOptionButton extends StatelessWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          color: selected
+                              ? AppColors.primarySoft
+                              : accent.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
-                        child: Icon(icon ?? Icons.payment_rounded,
-                            size: 22, color: accent),
+                        child: selected
+                            ? const Icon(Icons.radio_button_checked_rounded,
+                                size: 24, color: AppColors.primary)
+                            : assetImage != null
+                                ? Image.asset(
+                                    assetImage!,
+                                    width: 24,
+                                    height: 24,
+                                    fit: BoxFit.contain,
+                                  )
+                                : Icon(icon ?? Icons.payment_rounded,
+                                    size: 22, color: accent),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

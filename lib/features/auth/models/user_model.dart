@@ -35,6 +35,7 @@ class UserModel {
   final String? payoutMethod;
   final String? payoutStatus;
   final String? payoutMethodStatus;
+  final String? paypalPayoutEmail;
   final String? signupMethod; // 'email' | 'google' | 'apple'
   final DateTime? termsAcceptedAt;
   final String? earningCurrency;
@@ -73,6 +74,7 @@ class UserModel {
     this.payoutMethod,
     this.payoutStatus,
     this.payoutMethodStatus,
+    this.paypalPayoutEmail,
     this.signupMethod,
     this.termsAcceptedAt,
     this.earningCurrency,
@@ -149,6 +151,7 @@ class UserModel {
     String? payoutMethod,
     String? payoutStatus,
     String? payoutMethodStatus,
+    String? paypalPayoutEmail,
     String? signupMethod,
     DateTime? termsAcceptedAt,
     String? walletCurrency,
@@ -189,6 +192,7 @@ class UserModel {
       payoutMethod: payoutMethod ?? this.payoutMethod,
       payoutStatus: payoutStatus ?? this.payoutStatus,
       payoutMethodStatus: payoutMethodStatus ?? this.payoutMethodStatus,
+      paypalPayoutEmail: paypalPayoutEmail ?? this.paypalPayoutEmail,
       signupMethod: signupMethod ?? this.signupMethod,
       termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
       earningCurrency: earningCurrency ?? this.earningCurrency,
@@ -254,6 +258,7 @@ class UserModel {
             json['payout_status']?.toString(),
         payoutMethodStatus: json['payoutMethodStatus']?.toString() ??
             json['payout_method_status']?.toString(),
+        paypalPayoutEmail: _paypalEmailFromJson(json),
         signupMethod: json['signupMethod']?.toString() ??
             json['signup_method']?.toString(),
         preferredCurrency: json['preferredCurrency']?.toString() ??
@@ -270,8 +275,8 @@ class UserModel {
         accountType: json['accountType']?.toString() ??
             json['account_type']?.toString() ??
             'individual',
-        companyName: json['companyName']?.toString() ??
-            json['company_name']?.toString(),
+        companyName:
+            json['companyName']?.toString() ?? json['company_name']?.toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -302,6 +307,7 @@ class UserModel {
         'payout_method': payoutMethod,
         'payout_status': payoutStatus,
         'payout_method_status': payoutMethodStatus,
+        'paypal_payout_email': paypalPayoutEmail,
         'signupMethod': signupMethod,
         'earning_currency': earningCurrency,
         'earning_currency_locked': earningCurrencyLocked,
@@ -323,5 +329,18 @@ class UserModel {
       default:
         return 'sender';
     }
+  }
+
+  static String? _paypalEmailFromJson(Map<String, dynamic> json) {
+    final direct = json['paypalPayoutEmail']?.toString() ??
+        json['paypal_payout_email']?.toString();
+    if (direct != null && direct.trim().isNotEmpty) return direct.trim();
+    final bankDetails = json['bankDetails'] ?? json['bank_details'];
+    if (bankDetails is Map) {
+      final email = bankDetails['paypalEmail']?.toString() ??
+          bankDetails['paypal_email']?.toString();
+      if (email != null && email.trim().isNotEmpty) return email.trim();
+    }
+    return null;
   }
 }

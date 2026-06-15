@@ -206,6 +206,7 @@ export async function connectPaypalPayout(req, res) {
     res.json({
       success: true,
       message: 'PayPal payout account saved.',
+      paypalPayoutEmail: email,
       payout: row,
     });
   } catch (error) {

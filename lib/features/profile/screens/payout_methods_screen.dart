@@ -3,7 +3,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -294,38 +293,24 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     }
   }
 
-  Future<void> _connectPaypalPayout() async {
-    if (_saving) return;
-    final controller = TextEditingController(
-      text: ref.read(authProvider).user?.email.trim() ?? '',
-    );
-    final email = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('PayPal payout email'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.emailAddress,
-          autofillHints: const [AutofillHints.email],
-          decoration: const InputDecoration(
-            labelText: 'Email address',
-            hintText: 'name@example.com',
-          ),
+  Future<void> _openPaypalPayoutPage() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _PaypalPayoutEmailScreen(
+          initialEmail: ref.read(authProvider).user?.paypalPayoutEmail,
+          currency: _selectedCurrency,
+          onSave: _savePaypalPayoutEmail,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
-    controller.dispose();
-    if (email == null || email.trim().isEmpty) return;
+    if (saved == true && mounted) {
+      setState(() => _hydrateFromUser(ref.read(authProvider).user));
+    }
+  }
+
+  Future<bool> _savePaypalPayoutEmail(String email) async {
+    if (_saving) return false;
+    if (email.trim().isEmpty) return false;
 
     setState(() => _saving = true);
     try {
@@ -338,22 +323,18 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         },
       );
       await ref.read(authProvider.notifier).refreshProfile();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _hydrateFromUser(ref.read(authProvider).user));
-      AppSnackBar.show(
-        context,
-        message: 'PayPal payout account saved.',
-        type: SnackBarType.success,
-      );
+      return true;
     } on DioException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       AppSnackBar.show(
         context,
         message: ApiService.parseError(error),
         type: SnackBarType.error,
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       AppSnackBar.show(
         context,
         message: error.toString().replaceFirst('Exception: ', ''),
@@ -362,6 +343,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+    return false;
   }
 
   @override
@@ -451,7 +433,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                   ? 'Tap to update your PayPal email'
                   : 'Receive payouts with your PayPal email',
               enabled: !_saving,
-              onTap: _connectPaypalPayout,
+              onTap: _openPaypalPayoutPage,
             ),
           ],
           const SizedBox(height: 26),
@@ -498,6 +480,202 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   }
 }
 
+class _PaypalPayoutEmailScreen extends StatefulWidget {
+  const _PaypalPayoutEmailScreen({
+    required this.initialEmail,
+    required this.currency,
+    required this.onSave,
+  });
+
+  final String? initialEmail;
+  final String currency;
+  final Future<bool> Function(String email) onSave;
+
+  @override
+  State<_PaypalPayoutEmailScreen> createState() =>
+      _PaypalPayoutEmailScreenState();
+}
+
+class _PaypalPayoutEmailScreenState extends State<_PaypalPayoutEmailScreen> {
+  late final TextEditingController _emailController;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(
+      text: widget.initialEmail?.trim() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    final email = _emailController.text.trim().toLowerCase();
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      setState(() => _error = 'Enter a valid PayPal email address.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final saved = await widget.onSave(email);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (saved) {
+      AppSnackBar.show(
+        context,
+        message: 'PayPal payout email saved.',
+        type: SnackBarType.success,
+      );
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundOff,
+      appBar: AppBar(
+        backgroundColor: AppColors.backgroundOff,
+        surfaceTintColor: AppColors.backgroundOff,
+        elevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => Navigator.pop(context),
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.white,
+              foregroundColor: AppColors.black,
+            ),
+          ),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
+        children: [
+          Text(
+            'Where should Bago send your PayPal payouts?',
+            style: AppTextStyles.displaySm.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+              height: 1.08,
+            ),
+          ),
+          const SizedBox(height: 34),
+          Row(
+            children: [
+              SizedBox(
+                width: 50,
+                child: Image.asset(
+                  'assets/images/paypal-symbol.png',
+                  width: 34,
+                  height: 34,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'PayPal',
+                  style: AppTextStyles.h3.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          Text(
+            'PayPal email',
+            style: AppTextStyles.labelMd.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _save(),
+            decoration: InputDecoration(
+              hintText: 'name@example.com',
+              errorText: _error,
+              filled: true,
+              fillColor: AppColors.white,
+              prefixIcon: const Icon(Icons.email_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Use the email on the PayPal account where you want to receive ${widget.currency} payouts. You can update it anytime.',
+            style: AppTextStyles.bodySm.copyWith(
+              color: AppColors.gray500,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 120),
+          SizedBox(
+            height: 58,
+            child: ElevatedButton(
+              onPressed: _saving ? null : _save,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                ),
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      'Save PayPal email',
+                      style: AppTextStyles.buttonLg.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PayoutChoiceTile extends StatelessWidget {
   const _PayoutChoiceTile({
     required this.title,
@@ -527,10 +705,10 @@ class _PayoutChoiceTile extends StatelessWidget {
             SizedBox(
               width: 42,
               child: paypal
-                  ? SvgPicture.asset(
-                      'assets/images/paypal.svg',
+                  ? Image.asset(
+                      'assets/images/paypal-symbol.png',
                       width: 34,
-                      height: 22,
+                      height: 34,
                       fit: BoxFit.contain,
                     )
                   : Icon(icon, color: AppColors.gray500, size: 27),
