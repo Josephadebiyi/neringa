@@ -30,6 +30,7 @@ import {
   getPaypalConfig,
   paypalCancel,
   paypalApplePaySheet,
+  paypalCardFieldsSheet,
   paypalReturn,
   paypalWebhook,
   voidPaypalAuthorization,
@@ -872,6 +873,7 @@ app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
 app.post('/api/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
 app.post('/api/payments/paypal/webhook', paypalWebhook);
 app.get('/api/payments/paypal/apple-pay-sheet', paypalApplePaySheet);
+app.get('/api/payments/paypal/card-fields', paypalCardFieldsSheet);
 app.get('/api/payments/paypal/return', paypalReturn);
 app.get('/api/payments/paypal/cancel', paypalCancel);
 app.post('/payments/paypal/create-order', isAuthenticated, createPaypalOrder);

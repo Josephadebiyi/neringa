@@ -142,6 +142,7 @@ class ApiConstants {
   static const String paypalCapture = '/api/payments/paypal/capture';
   static const String paypalApplePaySheet =
       '/api/payments/paypal/apple-pay-sheet';
+  static const String paypalCardFields = '/api/payments/paypal/card-fields';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';

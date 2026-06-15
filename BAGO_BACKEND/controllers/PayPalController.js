@@ -763,7 +763,7 @@ export function paypalApplePaySheet(req, res) {
 
           async function setupApplePay() {
             if (!window.ApplePaySession || !ApplePaySession.canMakePayments()) {
-              fail("Apple Pay is not available on this device.");
+              fail("Apple Pay is not available on this device or browser.");
               return;
             }
             const applepay = paypal.Applepay();
@@ -786,7 +786,7 @@ export function paypalApplePaySheet(req, res) {
               session.onvalidatemerchant = (event) => {
                 applepay.validateMerchant({ validationUrl: event.validationURL, displayName: "Bago" })
                   .then((result) => session.completeMerchantValidation(result.merchantSession))
-                  .catch(() => { session.abort(); fail("Apple Pay merchant validation failed."); });
+                  .catch((error) => { session.abort(); fail("Apple Pay merchant validation failed. " + (error && error.message ? error.message : "")); });
               };
               session.onpaymentauthorized = (event) => {
                 applepay.confirmOrder({
@@ -796,9 +796,9 @@ export function paypalApplePaySheet(req, res) {
                 }).then(() => {
                   session.completePayment(ApplePaySession.STATUS_SUCCESS);
                   window.location.href = returnUrl;
-                }).catch(() => {
+                }).catch((error) => {
                   session.completePayment(ApplePaySession.STATUS_FAILURE);
-                  fail("Apple Pay could not confirm this payment.");
+                  fail("Apple Pay could not confirm this payment. " + (error && error.message ? error.message : ""));
                 });
               };
               session.oncancel = () => { window.location.href = cancelUrl; };
@@ -807,6 +807,107 @@ export function paypalApplePaySheet(req, res) {
           }
 
           setupApplePay().catch(() => fail("Apple Pay could not be loaded."));
+        </script>
+      </body>
+    </html>`);
+}
+
+export function paypalCardFieldsSheet(req, res) {
+  const clientId = getPaypalClientId();
+  const orderId = req.query.orderId?.toString() || '';
+  const amount = Number(req.query.amount || 0).toFixed(2);
+  const currency = (req.query.currency?.toString() || 'USD').toUpperCase();
+  const email = req.query.email?.toString() || '';
+
+  if (!clientId || !orderId || Number(amount) <= 0 || !isPaypalAdvancedCardsEnabled()) {
+    return res.type('html').send(`<!doctype html>
+      <html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px">
+        <h2>Card payment is not available</h2>
+        <p>Please go back and use PayPal checkout.</p>
+      </body></html>`);
+  }
+
+  const safeClientId = encodeURIComponent(clientId);
+  const safeOrderId = escapeHtml(orderId);
+  const safeAmount = escapeHtml(amount);
+  const safeCurrency = escapeHtml(currency);
+  const safeEmail = escapeHtml(email);
+
+  res.type('html').send(`<!doctype html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <script src="https://www.paypal.com/sdk/js?client-id=${safeClientId}&currency=${safeCurrency}&components=card-fields"></script>
+        <style>
+          * { box-sizing: border-box; }
+          body { margin:0; padding:28px 22px 34px; font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#fff; color:#111827; }
+          h1 { font-size:32px; line-height:1.05; margin:34px 0 10px; font-weight:900; }
+          p { color:#6b7280; font-size:16px; line-height:1.4; }
+          label { display:block; margin:18px 0 8px; font-weight:800; font-size:15px; color:#111827; }
+          input, .field { width:100%; min-height:56px; border:1px solid #d1d5db; border-radius:16px; padding:15px 16px; background:#f9fafb; font-size:17px; }
+          .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+          button { width:100%; height:58px; border:0; border-radius:18px; background:#5b46ff; color:#fff; font-size:18px; font-weight:900; margin-top:26px; }
+          button:disabled { opacity:.55; }
+          .error { color:#b91c1c; margin-top:16px; min-height:22px; }
+          .email { color:#111827; font-weight:700; }
+        </style>
+      </head>
+      <body>
+        <h1>Enter your card details</h1>
+        <p>Pay ${safeCurrency} ${safeAmount}. Card details are processed by PayPal. Bago never receives your card number or CVV.</p>
+        ${safeEmail ? `<p class="email">${safeEmail}</p>` : ''}
+        <label>Cardholder name</label>
+        <div id="card-name-field-container" class="field"></div>
+        <label>Card number</label>
+        <div id="card-number-field-container" class="field"></div>
+        <div class="row">
+          <div>
+            <label>Expiration date</label>
+            <div id="card-expiry-field-container" class="field"></div>
+          </div>
+          <div>
+            <label>CVV</label>
+            <div id="card-cvv-field-container" class="field"></div>
+          </div>
+        </div>
+        <button id="pay-button" disabled>Pay ${safeCurrency} ${safeAmount}</button>
+        <p id="message" class="error"></p>
+        <script>
+          const orderId = "${safeOrderId}";
+          const returnUrl = "/api/payments/paypal/return?orderId=" + encodeURIComponent(orderId);
+          const message = document.getElementById("message");
+          const button = document.getElementById("pay-button");
+          const style = {
+            input: { "font-size": "17px", "font-family": "-apple-system, BlinkMacSystemFont, sans-serif", color: "#111827" },
+            ".invalid": { color: "#b91c1c" }
+          };
+          function fail(text) { message.textContent = text || "Card payment could not be completed."; }
+          async function setupCardFields() {
+            const cardFields = paypal.CardFields({
+              style,
+              createOrder: () => orderId,
+              onApprove: () => { window.location.href = returnUrl; },
+              onError: (error) => fail(error && error.message ? error.message : "Card payment could not be completed.")
+            });
+            if (!cardFields.isEligible()) {
+              fail("Card fields are not eligible for this PayPal merchant/account.");
+              return;
+            }
+            cardFields.NameField().render("#card-name-field-container");
+            cardFields.NumberField().render("#card-number-field-container");
+            cardFields.ExpiryField().render("#card-expiry-field-container");
+            cardFields.CVVField().render("#card-cvv-field-container");
+            button.disabled = false;
+            button.addEventListener("click", () => {
+              button.disabled = true;
+              message.textContent = "";
+              cardFields.submit().catch((error) => {
+                button.disabled = false;
+                fail(error && error.message ? error.message : "Check your card details and try again.");
+              });
+            });
+          }
+          setupCardFields().catch((error) => fail(error && error.message ? error.message : "Card fields could not be loaded."));
         </script>
       </body>
     </html>`);

@@ -185,17 +185,93 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // ── In-app checkout ───────────────────────────────────────────────────────
 
   Future<void> _startCardCheckout() async {
-    if (_draft == null) return;
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _PaypalCardDetailsScreen(
-          cardFieldsEligible: _paypalCardsEligible,
-          amountLabel: _amountLabel(_draft!),
-          onUsePaypal: () => _startPaypalCheckout(paymentMethod: 'card'),
+    if (_isProcessing || _draft == null || !_isSdkReady) return;
+    if (!_paypalCardsEligible) {
+      await _startPaypalCheckout(paymentMethod: 'card');
+      return;
+    }
+    setState(() => _isProcessing = true);
+    String? paymentReference;
+    try {
+      final draft = _draft!;
+      final currency = _asString(draft['currency'], 'USD');
+      final packageId = draft['packageId']?.toString() ?? '';
+      final tripId = draft['tripId']?.toString() ?? '';
+      final travelerId = draft['travelerId']?.toString() ?? '';
+      final session = await _paymentService.createPaypalOrder(
+        packageId: packageId,
+        tripId: tripId,
+        travelerId: travelerId,
+        currency: currency,
+        insurance: draft['insurance'] == true,
+        paymentMethod: 'card',
+        customerEmail: draft['customerEmail']?.toString(),
+        additionalRequestId: draft['additionalRequestId']?.toString(),
+        additionalKg: _asDouble(draft['additionalKg']),
+      );
+      paymentReference = session.orderId;
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final cardUrl = Uri.parse(ApiConstants.baseUrl)
+          .resolve(ApiConstants.paypalCardFields)
+          .replace(queryParameters: {
+        'orderId': session.orderId,
+        'amount': session.amount.toStringAsFixed(2),
+        'currency': session.currency,
+        if (draft['customerEmail']?.toString().isNotEmpty == true)
+          'email': draft['customerEmail'].toString(),
+      }).toString();
+
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _PaymentWebView(
+            url: cardUrl,
+            title: 'Bank card',
+            callbackUrlPattern: '/api/payments/paypal/return',
+            cancelUrlPattern: '/api/payments/paypal/cancel',
+          ),
         ),
-      ),
-    );
+      );
+      if (!mounted) return;
+      if (result?['type'] == 'cancel') {
+        _failWithDraft('card', 'Payment was cancelled.',
+            paymentReference: paymentReference);
+        return;
+      }
+      if (result?['type'] != 'callback') {
+        _failWithDraft('card', 'Payment was not approved.',
+            paymentReference: paymentReference);
+        return;
+      }
+
+      setState(() => _isProcessing = true);
+      final capture =
+          await _paymentService.capturePaypalOrder(orderId: session.orderId);
+      await _completeShipmentAfterPayment(
+        draft: draft,
+        travelerId: travelerId,
+        packageId: packageId,
+        tripId: tripId,
+        currency: capture.currency,
+        paymentReference: capture.paymentReference,
+        paymentProvider: 'paypal_card',
+        paymentStatus: 'paid_escrow',
+        amountOverride:
+            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
+      );
+    } catch (e) {
+      debugPrint('Card payment error: $e');
+      _failWithDraft(
+        'card',
+        e.toString().replaceFirst('Exception: ', ''),
+        paymentReference: paymentReference,
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   Future<void> _startApplePayCheckout() async {
@@ -494,12 +570,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       value?.toString().trim().isNotEmpty == true
           ? value.toString().trim()
           : fallback;
-
-  String _amountLabel(Map<String, dynamic> draft) {
-    final currency = _asString(draft['currency'], 'USD');
-    final totalAmount = _asDouble(draft['totalAmount']);
-    return '$currency ${totalAmount.toStringAsFixed(2)}';
-  }
 
   Future<void> _paySelectedMethod() async {
     switch (_selectedMethod) {
