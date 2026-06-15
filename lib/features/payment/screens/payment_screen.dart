@@ -34,6 +34,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isProcessing = false;
   bool _applePaySupported = false;
   bool _paypalCardsEligible = false;
+  PaypalConfig? _paypalConfig;
   _CheckoutPaymentMethod _selectedMethod = _CheckoutPaymentMethod.paypal;
   Map<String, dynamic>? _draft;
   String? _initError;
@@ -92,6 +93,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (mounted) {
         setState(() {
           _isSdkReady = true;
+          _paypalConfig = config;
           _paypalCardsEligible = config.advancedCardsEligible;
           _applePaySupported = Platform.isIOS && config.applePayEligible;
           if (!_applePaySupported) {
@@ -211,40 +213,53 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
       paymentReference = session.orderId;
 
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
+      final nativeConfig = _paypalConfig;
+      if (Platform.isIOS &&
+          nativeConfig != null &&
+          nativeConfig.clientId.isNotEmpty) {
+        await _paymentService.approveNativePaypalCard(
+          clientId: nativeConfig.clientId,
+          environment: nativeConfig.environment,
+          orderId: session.orderId,
+          amount: session.amount,
+          currency: session.currency,
+        );
+      } else {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
 
-      final cardUrl = Uri.parse(ApiConstants.baseUrl)
-          .resolve(ApiConstants.paypalCardFields)
-          .replace(queryParameters: {
-        'orderId': session.orderId,
-        'amount': session.amount.toStringAsFixed(2),
-        'currency': session.currency,
-        if (draft['customerEmail']?.toString().isNotEmpty == true)
-          'email': draft['customerEmail'].toString(),
-      }).toString();
+        final cardUrl = Uri.parse(ApiConstants.baseUrl)
+            .resolve(ApiConstants.paypalCardFields)
+            .replace(queryParameters: {
+          'orderId': session.orderId,
+          'amount': session.amount.toStringAsFixed(2),
+          'currency': session.currency,
+          if (draft['customerEmail']?.toString().isNotEmpty == true)
+            'email': draft['customerEmail'].toString(),
+        }).toString();
 
-      final result = await Navigator.push<Map<String, dynamic>>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _PaymentWebView(
-            url: cardUrl,
-            title: 'Bank card',
-            callbackUrlPattern: '/api/payments/paypal/return',
-            cancelUrlPattern: '/api/payments/paypal/cancel',
+        final result = await Navigator.push<Map<String, dynamic>>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _PaymentWebView(
+              url: cardUrl,
+              title: 'Bank card',
+              callbackUrlPattern: '/api/payments/paypal/return',
+              cancelUrlPattern: '/api/payments/paypal/cancel',
+            ),
           ),
-        ),
-      );
-      if (!mounted) return;
-      if (result?['type'] == 'cancel') {
-        _failWithDraft('card', 'Payment was cancelled.',
-            paymentReference: paymentReference);
-        return;
-      }
-      if (result?['type'] != 'callback') {
-        _failWithDraft('card', 'Payment was not approved.',
-            paymentReference: paymentReference);
-        return;
+        );
+        if (!mounted) return;
+        if (result?['type'] == 'cancel') {
+          _failWithDraft('card', 'Payment was cancelled.',
+              paymentReference: paymentReference);
+          return;
+        }
+        if (result?['type'] != 'callback') {
+          _failWithDraft('card', 'Payment was not approved.',
+              paymentReference: paymentReference);
+          return;
+        }
       }
 
       setState(() => _isProcessing = true);
@@ -852,167 +867,6 @@ class _CardCheckoutForm extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _PaypalCardDetailsScreen extends StatefulWidget {
-  const _PaypalCardDetailsScreen({
-    required this.cardFieldsEligible,
-    required this.amountLabel,
-    required this.onUsePaypal,
-  });
-
-  final bool cardFieldsEligible;
-  final String amountLabel;
-  final Future<void> Function() onUsePaypal;
-
-  @override
-  State<_PaypalCardDetailsScreen> createState() =>
-      _PaypalCardDetailsScreenState();
-}
-
-class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
-  bool _busy = false;
-
-  Future<void> _continueWithPaypal() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await widget.onUsePaypal();
-      if (mounted) Navigator.of(context).pop();
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final fallbackText = widget.cardFieldsEligible
-        ? 'Enter your card on PayPal’s secure card screen. Bago never sees the card number or CVV.'
-        : 'Card details open on PayPal’s secure checkout screen. Bago never sees the card number or CVV.';
-    return Scaffold(
-      backgroundColor: AppColors.backgroundOff,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        foregroundColor: AppColors.black,
-        elevation: 0,
-        title: const SizedBox.shrink(),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 30),
-        children: [
-          Text(
-            'Bank card',
-            style: AppTextStyles.displaySm.copyWith(
-              color: AppColors.black,
-              fontWeight: FontWeight.w900,
-              height: 1.08,
-            ),
-          ),
-          const SizedBox(height: 42),
-          Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.gray200),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.credit_card_rounded,
-                    color: AppColors.primary, size: 34),
-                const SizedBox(height: 18),
-                Text(
-                  'Card payment is protected by PayPal',
-                  style: AppTextStyles.h3.copyWith(
-                    color: AppColors.black,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  fallbackText,
-                  style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.gray600,
-                    height: 1.35,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded,
-                        color: AppColors.success, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Bago never receives or stores raw card numbers or CVV.',
-                        style: AppTextStyles.bodySm.copyWith(
-                          color: AppColors.gray500,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'The next screen is where you enter the card details securely.',
-            style: AppTextStyles.bodySm.copyWith(
-              color: AppColors.gray500,
-              height: 1.4,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          TextButton(
-            onPressed: () => launchUrl(
-              Uri.parse('https://sendwithbago.com/privacy'),
-              mode: LaunchMode.externalApplication,
-            ),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              alignment: Alignment.centerLeft,
-            ),
-            child: const Text('Privacy Policy'),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _busy ? null : _continueWithPaypal,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: _busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(
-                      'Pay ${widget.amountLabel}',
-                      style: AppTextStyles.buttonLg.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -237,6 +237,7 @@ export async function getPaypalConfig(_req, res) {
   res.json({
     success: true,
     clientId: getPaypalClientId(),
+    environment: process.env.PAYPAL_ENV === 'sandbox' ? 'sandbox' : 'live',
     advancedCardsEligible: isPaypalAdvancedCardsEnabled(),
     applePayEligible: isPaypalApplePayEnabled(),
   });

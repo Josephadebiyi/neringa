@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
@@ -142,16 +143,19 @@ class StripeRedirectCheckoutStatus {
 class PaypalConfig {
   const PaypalConfig({
     required this.clientId,
+    required this.environment,
     required this.advancedCardsEligible,
     required this.applePayEligible,
   });
 
   final String clientId;
+  final String environment;
   final bool advancedCardsEligible;
   final bool applePayEligible;
 
   factory PaypalConfig.fromJson(Map<String, dynamic> json) => PaypalConfig(
         clientId: json['clientId']?.toString() ?? '',
+        environment: json['environment']?.toString() ?? 'live',
         advancedCardsEligible: json['advancedCardsEligible'] == true,
         applePayEligible: json['applePayEligible'] == true,
       );
@@ -223,6 +227,7 @@ class PaypalAuthorizationResult {
 class PaymentService {
   PaymentService._();
   static final PaymentService instance = PaymentService._();
+  static const _paypalCardChannel = MethodChannel('bago/paypal_card');
 
   final _api = ApiService.instance;
 
@@ -236,6 +241,22 @@ class PaymentService {
       debugPrint('[PayPal] config failed: ${ApiService.parseError(e)}');
       throw ApiService.parseError(e);
     }
+  }
+
+  Future<void> approveNativePaypalCard({
+    required String clientId,
+    required String environment,
+    required String orderId,
+    required double amount,
+    required String currency,
+  }) async {
+    await _paypalCardChannel.invokeMethod('approveCardOrder', {
+      'clientId': clientId,
+      'environment': environment,
+      'orderId': orderId,
+      'amount': amount,
+      'currency': currency,
+    });
   }
 
   Future<PaypalOrderSession> createPaypalOrder({

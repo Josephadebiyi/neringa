@@ -33,6 +33,7 @@ target 'Runner' do
 
   pod 'Realm', '~> 10.52.2', :modular_headers => true
   pod 'DojahWidget', :git => 'https://github.com/dojah-inc/sdk-swift.git', :branch => 'pod-package'
+  pod 'PayPal/CardPayments'
 
   target 'RunnerTests' do
     inherit! :search_paths
