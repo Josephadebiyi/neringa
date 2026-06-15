@@ -37,9 +37,6 @@ import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingCon
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 function normalizePaymentProvider(paymentInfo = {}) {
   return String(paymentInfo.gateway || paymentInfo.method || paymentInfo.provider || '').toLowerCase();
@@ -532,65 +529,26 @@ export async function RequestPackage(req, res) {
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
       } else if (provider === 'stripe') {
-        let stripePayment = await queryOne(
-          `
-            select id, amount, currency, status
-            from public.payments
-            where stripe_payment_intent_id = $1
-              and user_id = $2
-              and status in ('requires_capture', 'succeeded', 'processing', 'captured', 'paid', 'paid_escrow', 'released')
-            order by updated_at desc
-            limit 1
-          `,
-          [paymentReference, senderId],
-        );
-        if (!stripePayment && process.env.STRIPE_SECRET_KEY) {
-          const paymentIntent = await stripe.paymentIntents.retrieve(paymentReference);
-          if (
-            paymentIntent.metadata?.senderId === senderId &&
-            ['requires_capture', 'succeeded', 'processing'].includes(paymentIntent.status)
-          ) {
-            stripePayment = {
-              id: paymentIntent.id,
-              amount: Number(paymentIntent.amount || 0) / 100,
-              currency: paymentIntent.currency,
-              status: paymentIntent.status,
-            };
-          }
-        }
-        if (!stripePayment) {
-          return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
-        }
-        const verifiedAmount = Number(stripePayment.amount || 0);
-        const agreedAmount = requestAmount;
-        const paymentCurrency = String(stripePayment.currency || '').toUpperCase();
-        const agreedCurrency = String(requestCurrency || 'USD').toUpperCase();
-        if (paymentCurrency !== agreedCurrency) {
-          return res.status(402).json({ message: 'Payment currency does not match the shipment currency.', success: false });
-        }
-        if (verifiedAmount < agreedAmount * 0.98) {
-          return res.status(402).json({ message: 'Payment amount does not match the agreed amount.', success: false });
-        }
-        verifiedPaymentStatus = stripePayment.status;
+        return res.status(410).json({ message: 'Stripe payments are disabled. Please restart checkout with PayPal.', success: false });
       } else if (provider === 'paypal') {
         paypalPayment = await queryOne(
           `
-            select id, amount, shipment_amount, currency, status, paypal_authorization_id
+            select id, amount, shipment_amount, currency, status, paypal_capture_id
             from public.paypal_payments
             where paypal_order_id = $1
               and user_id = $2
-              and status in ('authorized', 'created', 'pending')
+              and status in ('captured', 'completed', 'paid', 'paid_escrow')
             order by updated_at desc
             limit 1
           `,
           [paymentReference, senderId],
         );
-        if (!paypalPayment?.paypal_authorization_id) {
-          return res.status(402).json({ message: 'PayPal authorization could not be verified. Please complete payment first.', success: false });
+        if (!paypalPayment?.paypal_capture_id) {
+          return res.status(402).json({ message: 'PayPal payment could not be verified. Please complete payment first.', success: false });
         }
         requestAmount = Number(paypalPayment.shipment_amount || requestAmount);
         requestCurrency = String(paypalPayment.currency || requestCurrency || 'USD').toUpperCase();
-        verifiedPaymentStatus = 'authorized';
+        verifiedPaymentStatus = 'paid_escrow';
       }
     }
 
@@ -621,7 +579,7 @@ export async function RequestPackage(req, res) {
             ? {
                 method: paymentProvider || 'paystack',
                 gateway: paymentProvider || 'paystack',
-                status: paymentStatus || (paymentProvider === 'paypal' ? 'authorized' : 'paid'),
+                status: paymentStatus || (paymentProvider === 'paypal' ? 'paid_escrow' : 'paid'),
                 requestId: paymentReference,
               }
             : {},
@@ -669,7 +627,7 @@ export async function RequestPackage(req, res) {
         await query(
           `
             update public.shipment_requests
-            set payment_status = 'authorized',
+            set payment_status = 'paid_escrow',
                 payment_info = coalesce(payment_info, '{}'::jsonb) || $2::jsonb,
                 updated_at = timezone('utc', now())
             where id = $1
@@ -679,10 +637,10 @@ export async function RequestPackage(req, res) {
             {
               method: 'paypal',
               gateway: 'paypal',
-              status: 'authorized',
+              status: 'paid_escrow',
               requestId: paymentReference,
               orderId: paymentReference,
-              authorizationId: paypalPayment?.paypal_authorization_id || null,
+              captureId: paypalPayment?.paypal_capture_id || null,
             },
           ],
         );
@@ -690,7 +648,7 @@ export async function RequestPackage(req, res) {
           `
             update public.paypal_payments
             set request_id = $2,
-                status = 'authorized',
+                status = 'paid_escrow',
                 raw_response = raw_response || $3::jsonb,
                 updated_at = timezone('utc', now())
             where paypal_order_id = $1
@@ -702,10 +660,7 @@ export async function RequestPackage(req, res) {
         newRequest = await getShipmentRequestById(newRequest.id);
       }
 
-      if ((paymentProvider || '').toLowerCase() === 'paypal') {
-        // PayPal orders are only authorized at this stage. Escrow/wallet holds
-        // happen after traveler approval and capture, not before capture.
-      } else try {
+      try {
         await holdEscrowForPaidRequest({
           requestId: newRequest.id,
           providerReference: paymentReference,

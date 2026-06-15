@@ -82,7 +82,7 @@ export async function createPaypalOrder({
   return paypalRequest('/v2/checkout/orders', {
     method: 'POST',
     body: {
-      intent: 'AUTHORIZE',
+      intent: 'CAPTURE',
       purchase_units: [
         {
           reference_id: customId,
@@ -106,17 +106,10 @@ export async function createPaypalOrder({
   });
 }
 
-export async function authorizePaypalOrder(orderId) {
-  return paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/authorize`, {
+export async function capturePaypalOrder(orderId) {
+  return paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
     method: 'POST',
     body: {},
-  });
-}
-
-export async function capturePaypalAuthorization(authorizationId) {
-  return paypalRequest(`/v2/payments/authorizations/${encodeURIComponent(authorizationId)}/capture`, {
-    method: 'POST',
-    body: { final_capture: true },
   });
 }
 

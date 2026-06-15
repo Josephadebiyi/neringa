@@ -23,34 +23,9 @@ import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from '
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 import {
-  cancelStripeEscrow,
-  captureStripeEscrow,
-  createBizumCheckoutSession,
-  createCardSetupIntent,
-  getBizumCheckoutSession,
-  createStripeConnectAccountSession,
-  createStripeCustomer,
-  createStripeDashboardLink,
-  createStripePaymentIntent,
-  createStripePayout,
-  deleteSavedCard,
-  getStripePaymentMethods,
-  getStripePayoutStatus,
-  getStripeRefundStatus,
-  issueStripeRefund,
-  listSavedCards,
-  requestPayoutMethodOtp,
-  setDefaultCard,
-  startStripeConnectOnboarding,
-  stripeConnectRefresh,
-  stripeConnectReturn,
-  stripeConnectWebhook,
-  verifyPayoutMethodOtp,
-} from './controllers/StripeController.js';
-import {
   authorizePaypalOrder,
+  capturePaypalOrder,
   connectPaypalPayout,
-  capturePaypalAuthorization,
   createPaypalOrder,
   getPaypalConfig,
   paypalCancel,
@@ -261,6 +236,13 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
+
+function disabledPaymentProvider(provider) {
+  return (_req, res) => res.status(410).json({
+    success: false,
+    message: `${provider} is disabled. Bago checkout is currently PayPal only.`,
+  });
+}
 
 const MAX_STRING_LENGTH = 5000;
 const MAX_ARRAY_LENGTH = 100;
@@ -877,73 +859,64 @@ app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 
-// ✅ PayPal active checkout flow. Stripe checkout code remains available but
-// the mobile app now uses PayPal order authorization only.
+// ✅ PayPal active checkout flow. Customers pay first, then Bago holds the
+// captured funds in escrow until the shipment is completed.
 app.get('/api/config/paypal', isAuthenticated, getPaypalConfig);
 app.post('/api/payouts/paypal/connect', isAuthenticated, requireKycVerification, connectPaypalPayout);
 app.post('/api/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPaypalOrder);
 app.post('/api/payments/paypal/authorize', isAuthenticated, requireKycVerification, authorizePaypalOrder);
-app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalAuthorization);
+app.post('/api/payments/paypal/capture', isAuthenticated, requireKycVerification, capturePaypalOrder);
 app.post('/api/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
 app.post('/api/payments/paypal/webhook', paypalWebhook);
 app.get('/api/payments/paypal/return', paypalReturn);
 app.get('/api/payments/paypal/cancel', paypalCancel);
 app.post('/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPaypalOrder);
 app.post('/payments/paypal/authorize', isAuthenticated, requireKycVerification, authorizePaypalOrder);
-app.post('/payments/paypal/capture', isAuthenticated, capturePaypalAuthorization);
+app.post('/payments/paypal/capture', isAuthenticated, requireKycVerification, capturePaypalOrder);
 app.post('/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
 app.post('/payments/paypal/webhook', paypalWebhook);
 
-// ✅ Stripe checkout, saved cards, escrow, refunds, and Connect payouts
-app.get('/api/payouts/status', isAuthenticated, getStripePayoutStatus);
-app.post('/api/payouts/connect/onboard', isAuthenticated, requireKycVerification, startStripeConnectOnboarding);
-app.post('/api/payouts/connect/account-session', isAuthenticated, requireKycVerification, createStripeConnectAccountSession);
-app.get('/api/payouts/connect/return', stripeConnectReturn);
-app.get('/api/payouts/connect/refresh', stripeConnectRefresh);
-app.post('/api/payouts/connect/dashboard-link', isAuthenticated, createStripeDashboardLink);
-app.post('/api/payouts/change-method/request-otp', isAuthenticated, requestPayoutMethodOtp);
-app.post('/api/payouts/change-method/verify-otp', isAuthenticated, verifyPayoutMethodOtp);
-app.post('/api/payouts/withdraw', isAuthenticated, createStripePayout);
-app.post('/api/payments/customer/create', isAuthenticated, createStripeCustomer);
-app.post('/api/payments/cards/setup-intent', isAuthenticated, createCardSetupIntent);
-app.get('/api/payments/cards', isAuthenticated, listSavedCards);
-app.post('/api/payments/cards/set-default', isAuthenticated, setDefaultCard);
-app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, deleteSavedCard);
-app.get('/api/payments/methods', getStripePaymentMethods);
-app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, createStripePaymentIntent);
-app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, createBizumCheckoutSession);
-app.get('/api/payments/bizum-checkout/:sessionId', isAuthenticated, getBizumCheckoutSession);
+// Stripe checkout/Connect is intentionally disabled while Bago runs PayPal-only.
+app.get('/api/payouts/status', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/payouts/connect/onboard', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
+app.post('/api/payouts/connect/account-session', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
+app.get('/api/payouts/connect/return', disabledPaymentProvider('Stripe'));
+app.get('/api/payouts/connect/refresh', disabledPaymentProvider('Stripe'));
+app.post('/api/payouts/connect/dashboard-link', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/payouts/change-method/request-otp', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/payouts/change-method/verify-otp', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/payouts/withdraw', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/payments/customer/create', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/payments/cards/setup-intent', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.get('/api/payments/cards', isAuthenticated, (_req, res) => res.json({
+  success: true,
+  cards: [],
+  message: 'Cards used during PayPal checkout are stored securely by PayPal when available.',
+}));
+app.post('/api/payments/cards/set-default', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.get('/api/payments/methods', disabledPaymentProvider('Stripe'));
+app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
+app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
+app.get('/api/payments/bizum-checkout/:sessionId', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.get('/api/payments/bizum-return', (_req, res) => {
   res.type('html').send('<!doctype html><html><body><p>Payment complete. You can return to Bago.</p></body></html>');
 });
 app.get('/api/payments/bizum-cancel', (_req, res) => {
   res.type('html').send('<!doctype html><html><body><p>Payment cancelled. You can return to Bago.</p></body></html>');
 });
-app.post('/api/escrow/capture', isAuthenticated, captureStripeEscrow);
-app.post('/api/escrow/cancel', isAuthenticated, cancelStripeEscrow);
-app.post('/api/refunds/issue', isAuthenticated, issueStripeRefund);
-app.get('/api/refunds/status/:shipmentId', isAuthenticated, getStripeRefundStatus);
-
-// Stripe webhook needs the raw body. express.json() is already global, so this
-// route expects deployment to exempt this path or forward raw body middleware.
-app.post('/api/payouts/connect/webhook', stripeConnectWebhook);
-app.post('/api/webhooks/stripe', stripeConnectWebhook);
-
-const APPLE_PAY_MERCHANT_ID = 'merchant.com.deracali.boltexponativewind';
+app.post('/api/escrow/capture', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/escrow/cancel', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/refunds/issue', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.get('/api/refunds/status/:shipmentId', isAuthenticated, disabledPaymentProvider('Stripe'));
+app.post('/api/payouts/connect/webhook', disabledPaymentProvider('Stripe'));
+app.post('/api/webhooks/stripe', disabledPaymentProvider('Stripe'));
 
 // ✅ Shared config
 app.get('/api/config/stripe', (_req, res) => {
-  const configuredMerchantId = process.env.STRIPE_APPLE_PAY_MERCHANT_ID;
-  const merchantIdentifier =
-    configuredMerchantId && configuredMerchantId !== 'merchant.com.bago.app'
-      ? configuredMerchantId
-      : APPLE_PAY_MERCHANT_ID;
-
-  res.json({
-    success: true,
-    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
-    merchantIdentifier,
-    merchantCountryCode: process.env.STRIPE_APPLE_PAY_MERCHANT_COUNTRY || 'ES',
+  return res.status(410).json({
+    success: false,
+    message: 'Stripe is disabled. Bago checkout is currently PayPal only.',
   });
 });
 
@@ -973,7 +946,7 @@ app.get('/api/location/detect', async (req, res) => {
       success: true,
       ip,
       location,
-      recommendedGateway: 'stripe'
+      recommendedGateway: 'paypal'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

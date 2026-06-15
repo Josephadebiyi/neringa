@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
@@ -209,7 +208,9 @@ class PaypalAuthorizationResult {
   factory PaypalAuthorizationResult.fromJson(Map<String, dynamic> json) =>
       PaypalAuthorizationResult(
         orderId: json['orderId']?.toString() ?? '',
-        authorizationId: json['authorizationId']?.toString() ?? '',
+        authorizationId: json['captureId']?.toString() ??
+            json['authorizationId']?.toString() ??
+            '',
         paymentReference: json['paymentReference']?.toString() ??
             json['orderId']?.toString() ??
             '',
@@ -222,15 +223,8 @@ class PaypalAuthorizationResult {
 class PaymentService {
   PaymentService._();
   static final PaymentService instance = PaymentService._();
-  static const stripeReturnUrlScheme =
-      'com.deracali.boltexponativewind.payments';
-  static const stripeReturnUrl = '$stripeReturnUrlScheme://stripe-redirect';
-  static const applePayMerchantIdentifier =
-      'merchant.com.deracali.boltexponativewind';
 
   final _api = ApiService.instance;
-  bool _stripeConfigured = false;
-  Map<String, dynamic>? _lastStripeConfig;
 
   Future<PaypalConfig> getPaypalConfig() async {
     try {
@@ -282,67 +276,28 @@ class PaymentService {
     }
   }
 
-  Future<PaypalAuthorizationResult> authorizePaypalOrder({
+  Future<PaypalAuthorizationResult> capturePaypalOrder({
     required String orderId,
   }) async {
     try {
-      debugPrint(
-          '[PayPal] POST ${ApiConstants.paypalAuthorize} order=$orderId');
+      debugPrint('[PayPal] POST ${ApiConstants.paypalCapture} order=$orderId');
       final response = await _api.post(
-        ApiConstants.paypalAuthorize,
+        ApiConstants.paypalCapture,
         data: {'orderId': orderId},
       );
       final data = _extractMap(response.data);
       final result = PaypalAuthorizationResult.fromJson(data);
-      if (result.authorizationId.isEmpty || result.paymentReference.isEmpty) {
+      if (result.authorizationId.isEmpty && result.paymentReference.isEmpty) {
         throw StateError(
           data['message']?.toString() ??
-              'PayPal authorization could not be confirmed.',
+              'PayPal payment could not be confirmed.',
         );
       }
       return result;
     } on DioException catch (e) {
-      debugPrint('[PayPal] authorize failed: ${ApiService.parseError(e)}');
+      debugPrint('[PayPal] capture failed: ${ApiService.parseError(e)}');
       throw ApiService.parseError(e);
     }
-  }
-
-  Future<Map<String, dynamic>> configureStripe() async {
-    final config = await getStripeConfig();
-    final publishableKey = config['publishableKey']?.toString() ?? '';
-    if (publishableKey.isEmpty) {
-      throw StateError('Payment is not configured.');
-    }
-
-    final configuredMerchantIdentifier =
-        config['merchantIdentifier']?.toString().trim();
-    final merchantIdentifier = configuredMerchantIdentifier == null ||
-            configuredMerchantIdentifier.isEmpty ||
-            configuredMerchantIdentifier == 'merchant.com.bago.app'
-        ? applePayMerchantIdentifier
-        : configuredMerchantIdentifier;
-
-    Stripe.publishableKey = publishableKey;
-    Stripe.merchantIdentifier = merchantIdentifier;
-    Stripe.urlScheme = stripeReturnUrlScheme;
-    await Stripe.instance.applySettings();
-
-    _stripeConfigured = true;
-    _lastStripeConfig = {
-      ...config,
-      'merchantIdentifier': merchantIdentifier,
-      'returnURL': stripeReturnUrl,
-    };
-    debugPrint(
-      '[Stripe] configured live=${publishableKey.startsWith('pk_live_')} '
-      'merchant=$merchantIdentifier returnURL=$stripeReturnUrl',
-    );
-    return _lastStripeConfig!;
-  }
-
-  Future<void> ensureStripeConfigured() async {
-    if (_stripeConfigured) return;
-    await configureStripe();
   }
 
   String _parsePaymentMethodsError(DioException e) {
@@ -388,9 +343,7 @@ class PaymentService {
           await _api.post('${ApiConstants.paymentMethods}/setup-intent');
       final data = _extractMap(response.data);
       debugPrint(
-        '[Stripe] card setup response keys=${data.keys.toList()} '
-        'hasClientSecret=${data['clientSecret'] != null || data['setupIntentClientSecret'] != null}',
-      );
+          '[PayPal] saved card setup response keys=${data.keys.toList()}');
       final setupIntentClientSecret = _firstString(
         data,
         const [
@@ -419,7 +372,7 @@ class PaymentService {
           customerId == null ||
           customerEphemeralKeySecret == null) {
         debugPrint(
-          '[Stripe] card setup missing fields '
+          '[PayPal] card setup missing fields '
           'setupSecret=${setupIntentClientSecret != null} '
           'customerId=${customerId != null} '
           'ephemeralKey=${customerEphemeralKeySecret != null} '
@@ -445,190 +398,6 @@ class PaymentService {
       await _api.delete('${ApiConstants.paymentMethods}/$paymentMethodId');
     } on DioException catch (e) {
       throw _parsePaymentMethodsError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getStripeConfig() async {
-    try {
-      debugPrint('[Stripe] GET ${ApiConstants.stripeConfig}');
-      final response = await _api.get(ApiConstants.stripeConfig);
-      final data = response.data;
-      if (data is Map) {
-        final parsed = Map<String, dynamic>.from(data);
-        debugPrint(
-          '[Stripe] config response publishable=${parsed['publishableKey']?.toString().startsWith('pk_live_') == true ? 'live' : 'missing/test'} '
-          'merchant=${parsed['merchantIdentifier']} country=${parsed['merchantCountryCode']}',
-        );
-        return parsed;
-      }
-      return {};
-    } on DioException catch (e) {
-      debugPrint('[Stripe] config request failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getStripePaymentMethods({
-    required String currency,
-  }) async {
-    try {
-      debugPrint(
-          '[Stripe] GET ${ApiConstants.stripePaymentMethods} currency=$currency');
-      final response = await _api.get(
-        ApiConstants.stripePaymentMethods,
-        queryParameters: {'currency': currency},
-      );
-      final data = _extractMap(response.data);
-      debugPrint('[Stripe] payment methods response: $data');
-      return data;
-    } on DioException catch (e) {
-      debugPrint(
-          '[Stripe] payment methods failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<StripeCheckoutSession> createStripeCheckoutSession({
-    required String packageId,
-    required String tripId,
-    required String travelerId,
-    required double amount,
-    required String currency,
-    bool termsAccepted = true,
-    String paymentMethodType = 'card',
-  }) async {
-    try {
-      final config = _lastStripeConfig ?? await configureStripe();
-      debugPrint(
-        '[Stripe] POST ${ApiConstants.stripeCreateIntent} '
-        'amount=$amount currency=$currency method=$paymentMethodType',
-      );
-      final response = await _api.post(
-        ApiConstants.stripeCreateIntent,
-        data: {
-          'packageId': packageId,
-          'tripId': tripId,
-          'travelerId': travelerId,
-          'amount': amount,
-          'currency': currency,
-          'termsAccepted': termsAccepted,
-          'paymentMethodType': paymentMethodType,
-        },
-      );
-      final data = _extractMap(response.data);
-      debugPrint(
-        '[Stripe] create intent response keys=${data.keys.toList()} '
-        'pi=${data['paymentIntentId']} hasClientSecret=${data['clientSecret'] != null}',
-      );
-      final clientSecret = _firstString(data, const ['clientSecret']);
-      final paymentIntentId = _firstString(data, const ['paymentIntentId']);
-      final customerId =
-          _firstString(data, const ['customerId', 'customer_id']);
-      final ephemeralKeySecret = _firstString(data, const [
-        'ephemeralKeySecret',
-        'customerEphemeralKeySecret',
-        'ephemeral_key_secret',
-        'customer_ephemeral_key_secret',
-      ]);
-      final publishableKey = config['publishableKey']?.toString();
-      if (clientSecret == null ||
-          paymentIntentId == null ||
-          customerId == null ||
-          ephemeralKeySecret == null ||
-          publishableKey == null ||
-          publishableKey.isEmpty) {
-        throw StateError(
-            data['message']?.toString() ?? 'Secure checkout could not start.');
-      }
-      return StripeCheckoutSession(
-        clientSecret: clientSecret,
-        paymentIntentId: paymentIntentId,
-        customerId: customerId,
-        customerEphemeralKeySecret: ephemeralKeySecret,
-        publishableKey: publishableKey,
-        merchantIdentifier: config['merchantIdentifier']?.toString(),
-      );
-    } on DioException catch (e) {
-      debugPrint('[Stripe] create intent failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<StripeRedirectCheckoutSession> createBizumCheckoutSession({
-    required String packageId,
-    required String tripId,
-    required String travelerId,
-    required double amount,
-    required String currency,
-    bool termsAccepted = true,
-  }) async {
-    try {
-      debugPrint(
-        '[Stripe] POST ${ApiConstants.stripeBizumCheckout} '
-        'amount=$amount currency=$currency',
-      );
-      final response = await _api.post(
-        ApiConstants.stripeBizumCheckout,
-        data: {
-          'packageId': packageId,
-          'tripId': tripId,
-          'travelerId': travelerId,
-          'amount': amount,
-          'currency': currency,
-          'termsAccepted': termsAccepted,
-        },
-      );
-      final data = _extractMap(response.data);
-      debugPrint(
-        '[Stripe] Bizum checkout response session=${data['sessionId']} '
-        'pi=${data['paymentIntentId']} hasUrl=${data['url'] != null}',
-      );
-      final url = _firstString(data, const ['url']);
-      final sessionId = _firstString(data, const ['sessionId', 'session_id']);
-      final paymentIntentId = _firstString(
-        data,
-        const ['paymentIntentId', 'payment_intent'],
-      );
-      if (url == null || sessionId == null) {
-        throw StateError('Bizum checkout could not be started.');
-      }
-      return StripeRedirectCheckoutSession(
-        url: url,
-        sessionId: sessionId,
-        paymentIntentId: paymentIntentId ?? '',
-      );
-    } on DioException catch (e) {
-      debugPrint('[Stripe] Bizum checkout failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<StripeRedirectCheckoutStatus> getBizumCheckoutStatus(
-    String sessionId,
-  ) async {
-    try {
-      final safeSessionId = Uri.encodeComponent(sessionId);
-      final response =
-          await _api.get('${ApiConstants.stripeBizumCheckout}/$safeSessionId');
-      final data = _extractMap(response.data);
-      debugPrint(
-        '[Stripe] Bizum status session=${data['sessionId']} '
-        'pi=${data['paymentIntentId']} status=${data['status']} '
-        'payment=${data['paymentStatus']} checkout=${data['checkoutStatus']}',
-      );
-      final parsedSessionId = _firstString(data, const ['sessionId']) ?? '';
-      return StripeRedirectCheckoutStatus(
-        sessionId: parsedSessionId,
-        paymentIntentId:
-            _firstString(data, const ['paymentIntentId', 'payment_intent']) ??
-                '',
-        status: _firstString(data, const ['status']) ?? '',
-        checkoutStatus: _firstString(data, const ['checkoutStatus']) ?? '',
-        paymentStatus: _firstString(data, const ['paymentStatus']) ?? '',
-      );
-    } on DioException catch (e) {
-      debugPrint('[Stripe] Bizum status failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
     }
   }
 

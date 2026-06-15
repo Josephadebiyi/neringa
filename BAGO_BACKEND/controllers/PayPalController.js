@@ -4,8 +4,7 @@ import { getPackageById, getTripById, getShipmentRequestById } from '../lib/post
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import {
-  authorizePaypalOrder as authorizePaypalOrderApi,
-  capturePaypalAuthorization as capturePaypalAuthorizationApi,
+  capturePaypalOrder as capturePaypalOrderApi,
   createPaypalOrder as createPaypalOrderApi,
   getPaypalClientId,
   isPaypalAdvancedCardsEnabled,
@@ -27,6 +26,7 @@ async function ensurePaypalInfrastructure() {
       traveler_id uuid,
       paypal_order_id text unique,
       paypal_authorization_id text unique,
+      paypal_capture_id text unique,
       status text not null default 'created',
       amount numeric not null default 0,
       shipment_amount numeric not null default 0,
@@ -34,6 +34,7 @@ async function ensurePaypalInfrastructure() {
       insurance_cost numeric not null default 0,
       currency text not null default 'USD',
       payment_method text,
+      error_message text,
       raw_response jsonb not null default '{}'::jsonb,
       created_at timestamptz not null default timezone('utc', now()),
       updated_at timestamptz not null default timezone('utc', now())
@@ -41,6 +42,8 @@ async function ensurePaypalInfrastructure() {
   `);
   await query(`create index if not exists paypal_payments_user_idx on public.paypal_payments(user_id)`);
   await query(`create index if not exists paypal_payments_request_idx on public.paypal_payments(request_id)`);
+  await query(`alter table public.paypal_payments add column if not exists paypal_capture_id text unique`);
+  await query(`alter table public.paypal_payments add column if not exists error_message text`);
   await query(`
     create table if not exists public.payment_events (
       id bigserial primary key,
@@ -274,7 +277,7 @@ export async function createPaypalOrder(req, res) {
       amount: checkout.amount,
       shipmentAmount: checkout.shipmentAmount,
       currency: checkout.currency,
-      intent: 'AUTHORIZE',
+      intent: 'CAPTURE',
       advancedCardsEligible: isPaypalAdvancedCardsEnabled(),
       applePayEligible: isPaypalApplePayEnabled(),
     });
@@ -289,7 +292,7 @@ export async function createPaypalOrder(req, res) {
   }
 }
 
-export async function authorizePaypalOrder(req, res) {
+export async function capturePaypalOrder(req, res) {
   try {
     await ensurePaypalInfrastructure();
     const userId = req.user.id || req.user._id;
@@ -304,58 +307,82 @@ export async function authorizePaypalOrder(req, res) {
       return res.status(404).json({ success: false, message: 'PayPal order was not found for this user.' });
     }
 
-    const authorization = await authorizePaypalOrderApi(orderId);
-    const auth = authorization?.purchase_units?.[0]?.payments?.authorizations?.[0];
-    const authorizationId = auth?.id;
-    if (!authorizationId) {
-      throw new Error('PayPal did not return an authorization ID.');
+    const capture = await capturePaypalOrderApi(orderId);
+    const captureInfo = capture?.purchase_units?.[0]?.payments?.captures?.[0];
+    const captureId = captureInfo?.id;
+    if (!captureId) {
+      throw new Error('PayPal did not return a capture ID.');
     }
+    const captureStatus = String(captureInfo?.status || capture?.status || 'COMPLETED').toLowerCase();
 
     await query(
       `
         update public.paypal_payments
-        set paypal_authorization_id = $2,
+        set paypal_capture_id = $2,
             status = $3,
             raw_response = raw_response || $4::jsonb,
+            error_message = null,
             updated_at = timezone('utc', now())
         where paypal_order_id = $1
       `,
       [
         orderId,
-        authorizationId,
-        String(auth.status || 'AUTHORIZED').toLowerCase(),
-        { authorization },
+        captureId,
+        captureStatus === 'completed' ? 'captured' : captureStatus,
+        { capture },
       ],
     );
     await recordPaypalEvent({
-      eventType: 'authorized',
+      eventType: 'captured',
       providerReference: orderId,
-      payload: { authorizationId, authorization },
+      payload: { captureId, capture },
     });
 
     res.json({
       success: true,
       provider: 'paypal',
       orderId,
-      authorizationId,
+      captureId,
       paymentReference: orderId,
-      status: 'authorized',
+      status: captureStatus === 'completed' ? 'captured' : captureStatus,
       amount: Number(payment.amount || 0),
       shipmentAmount: Number(payment.shipment_amount || 0),
       currency: payment.currency || 'USD',
     });
   } catch (error) {
-    console.error('authorizePaypalOrder failed:', error.message);
+    console.error('capturePaypalOrder failed:', error.message);
+    if (req.body?.orderId) {
+      await query(
+        `
+          update public.paypal_payments
+          set status = 'capture_failed',
+              error_message = $2,
+              raw_response = raw_response || $3::jsonb,
+              updated_at = timezone('utc', now())
+          where paypal_order_id = $1
+        `,
+        [req.body.orderId.toString(), error.message, { captureError: error.details || { message: error.message } }],
+      ).catch(() => {});
+    }
     await recordPaypalEvent({
-      eventType: 'authorization_failed',
+      eventType: 'capture_failed',
       providerReference: req.body?.orderId?.toString(),
       payload: { message: error.message },
     }).catch(() => {});
     res.status(error.statusCode || 500).json({
       success: false,
-      message: 'PayPal authorization could not be confirmed. Please try again.',
+      message: error.statusCode === 503
+        ? 'PayPal checkout is not configured yet.'
+        : (error.message || 'PayPal payment could not be captured. Please try again.'),
     });
   }
+}
+
+export async function authorizePaypalOrder(_req, res) {
+  res.status(410).json({
+    success: false,
+    message: 'PayPal authorization-only checkout is disabled. Please start checkout again.',
+  });
 }
 
 async function authorizationIdForRequest(req) {

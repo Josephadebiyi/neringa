@@ -99,7 +99,6 @@ dependencies:
   # Maps & journey simulation
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
-  flutter_stripe: ^13.0.0
   audioplayers: ^6.7.1
 
 dev_dependencies:

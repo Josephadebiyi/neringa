@@ -139,6 +139,7 @@ class ApiConstants {
   static const String paypalConfig = '/api/config/paypal';
   static const String paypalCreateOrder = '/api/payments/paypal/create-order';
   static const String paypalAuthorize = '/api/payments/paypal/authorize';
+  static const String paypalCapture = '/api/payments/paypal/capture';
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';

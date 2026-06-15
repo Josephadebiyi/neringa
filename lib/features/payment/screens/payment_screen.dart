@@ -94,8 +94,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _isSdkReady = true;
           _paypalCardsEligible = config.advancedCardsEligible;
           _paypalApplePayEligible = config.applePayEligible;
-          _applePaySupported = Platform.isIOS;
-          if (!Platform.isIOS) {
+          _applePaySupported = Platform.isIOS && config.applePayEligible;
+          if (!_applePaySupported) {
             _selectedMethod = _CheckoutPaymentMethod.card;
           }
         });
@@ -252,21 +252,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
       setState(() => _isProcessing = true);
-      final authorization =
-          await _paymentService.authorizePaypalOrder(orderId: session.orderId);
+      final capture =
+          await _paymentService.capturePaypalOrder(orderId: session.orderId);
 
       await _completeShipmentAfterPayment(
         draft: draft,
         travelerId: travelerId,
         packageId: packageId,
         tripId: tripId,
-        currency: authorization.currency,
-        paymentReference: authorization.paymentReference,
+        currency: capture.currency,
+        paymentReference: capture.paymentReference,
         paymentProvider: 'paypal',
-        paymentStatus: 'authorized',
-        amountOverride: authorization.shipmentAmount > 0
-            ? authorization.shipmentAmount
-            : null,
+        paymentStatus: 'paid_escrow',
+        amountOverride:
+            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
       );
     } catch (e) {
       debugPrint('PayPal payment error: $e');
@@ -288,7 +287,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     required String currency,
     required String paymentReference,
     String paymentProvider = 'paypal',
-    String paymentStatus = 'authorized',
+    String paymentStatus = 'paid_escrow',
     double? amountOverride,
   }) async {
     final request = await ShipmentService.instance.sendPackageRequest(
@@ -677,7 +676,7 @@ class _CardCheckoutForm extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          'Payment is authorized now and captured only after the traveler approves.',
+          'You pay now. Bago holds the money in escrow and releases it after shipping is complete.',
           style: AppTextStyles.bodySm.copyWith(
             color: AppColors.gray500,
             height: 1.35,
@@ -705,36 +704,7 @@ class _PaypalCardDetailsScreen extends StatefulWidget {
 }
 
 class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
-  bool _saveCard = false;
   bool _busy = false;
-
-  InputDecoration _decoration(String hint) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: AppColors.gray100,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-        labelStyle: AppTextStyles.labelMd.copyWith(
-          color: AppColors.black,
-          fontWeight: FontWeight.w900,
-        ),
-        hintStyle: AppTextStyles.h3.copyWith(
-          color: AppColors.gray400,
-          fontWeight: FontWeight.w700,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
-        ),
-      );
 
   Future<void> _continueWithPaypal() async {
     if (_busy) return;
@@ -750,8 +720,8 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final fallbackText = widget.cardFieldsEligible
-        ? 'Secure card entry is prepared for PayPal Advanced Card Processing. Continue with PayPal to complete authorization safely.'
-        : 'Card processing is not enabled for this PayPal account yet. Continue with PayPal checkout to pay by card without sharing card details with Bago.';
+        ? 'Secure card payment is handled by PayPal. Continue to PayPal checkout and choose card if it is offered for this payment.'
+        : 'PayPal Advanced Card Processing is not enabled for this account yet. Continue with PayPal checkout to pay safely without sharing card details with Bago.';
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
       appBar: AppBar(
@@ -764,106 +734,66 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 30),
         children: [
           Text(
-            'Enter your card details',
+            'Card payment',
             style: AppTextStyles.displaySm.copyWith(
               color: AppColors.black,
               fontWeight: FontWeight.w900,
               height: 1.08,
             ),
           ),
-          const SizedBox(height: 46),
-          Text(
-            'Card number',
-            style: AppTextStyles.labelMd.copyWith(
-              color: AppColors.black,
-              fontWeight: FontWeight.w900,
+          const SizedBox(height: 42),
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.gray200),
             ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            keyboardType: TextInputType.number,
-            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
-            decoration: _decoration('XXXX XXXX XXXX XXXX'),
-          ),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.credit_card_rounded,
+                    color: AppColors.primary, size: 34),
+                const SizedBox(height: 18),
+                Text(
+                  'Card payment is protected by PayPal',
+                  style: AppTextStyles.h3.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  fallbackText,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.gray600,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
                   children: [
-                    Text(
-                      'Expiration date',
-                      style: AppTextStyles.labelMd.copyWith(
-                        color: AppColors.black,
-                        fontWeight: FontWeight.w900,
+                    const Icon(Icons.check_circle_rounded,
+                        color: AppColors.success, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Bago never receives or stores raw card numbers or CVV.',
+                        style: AppTextStyles.bodySm.copyWith(
+                          color: AppColors.gray500,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      keyboardType: TextInputType.datetime,
-                      style: AppTextStyles.h3
-                          .copyWith(fontWeight: FontWeight.w800),
-                      decoration: _decoration('MM/YY'),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'CVV',
-                      style: AppTextStyles.labelMd.copyWith(
-                        color: AppColors.black,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      keyboardType: TextInputType.number,
-                      style: AppTextStyles.h3
-                          .copyWith(fontWeight: FontWeight.w800),
-                      decoration: _decoration('***'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-          Text(
-            'Cardholder name',
-            style: AppTextStyles.labelMd.copyWith(
-              color: AppColors.black,
-              fontWeight: FontWeight.w900,
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          TextField(
-            textCapitalization: TextCapitalization.words,
-            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
-            decoration: _decoration(''),
-          ),
-          const SizedBox(height: 22),
-          CheckboxListTile(
-            value: _saveCard,
-            onChanged: (value) => setState(() => _saveCard = value == true),
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: Text(
-              'Save card',
-              style: AppTextStyles.bodyMd.copyWith(
-                color: AppColors.black,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           Text(
-            fallbackText,
+            'Cards used during PayPal checkout may be saved by PayPal if your account is eligible.',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.gray500,
               height: 1.4,

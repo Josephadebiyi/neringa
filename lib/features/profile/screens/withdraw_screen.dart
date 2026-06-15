@@ -204,15 +204,13 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     final payoutMethod = user?.payoutMethod?.toLowerCase() ?? '';
     final payoutStatus = user?.payoutStatus?.toLowerCase() ?? '';
     final payoutMethodStatus = user?.payoutMethodStatus?.toLowerCase() ?? '';
-    final hasStripeLinked =
-        (user?.stripeConnectAccountId?.isNotEmpty ?? false) ||
-            payoutProvider == 'stripe' ||
-            payoutMethod == 'stripe_connect';
-    final hasActiveStripe = hasStripeLinked &&
+    final hasPaypalLinked =
+        payoutProvider == 'paypal' || payoutMethod == 'paypal';
+    final hasActivePaypal = hasPaypalLinked &&
         (payoutStatus == 'active' ||
             payoutMethodStatus == 'connected' ||
             payoutMethodStatus == 'active');
-    final hasPayoutMethod = isAfrican ? hasBankLinked : hasActiveStripe;
+    final hasPayoutMethod = isAfrican ? hasBankLinked : hasActivePaypal;
     final canWithdraw =
         hasPayoutMethod && !_submitting && _balance >= minimumAmount;
 
@@ -289,7 +287,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                             Text(
                               isAfrican
                                   ? 'Please link a bank account before withdrawing.'
-                                  : 'Please set up Stripe Express before withdrawing.',
+                                  : 'Please add your PayPal payout email before withdrawing.',
                               style: AppTextStyles.bodySm.copyWith(
                                   color: const Color(0xFF92400E), height: 1.4),
                             ),
@@ -318,7 +316,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               ),
               const SizedBox(height: 12),
               _PayoutMethodPanel(
-                method: isAfrican ? 'Paystack bank transfer' : 'Stripe Express',
+                method: isAfrican ? 'Paystack bank transfer' : 'PayPal',
                 hasMethod: hasPayoutMethod,
                 onSetup: () => context.push('/profile/payout-methods'),
               ),
@@ -419,9 +417,9 @@ class _WithdrawBalanceHero extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          Positioned.fill(
+          const Positioned.fill(
             child: DecoratedBox(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
                     Color(0x8F06111F),
