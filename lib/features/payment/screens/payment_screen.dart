@@ -708,28 +708,31 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
   bool _saveCard = false;
   bool _busy = false;
 
-  InputDecoration _decoration(String label) => InputDecoration(
-        labelText: label,
-        hintText: label == 'Card number'
-            ? 'XXXX XXXX XXXX XXXX'
-            : label == 'Expiration date'
-                ? 'MM/YY'
-                : label == 'CVV'
-                    ? '***'
-                    : null,
+  InputDecoration _decoration(String hint) => InputDecoration(
+        hintText: hint,
         filled: true,
-        fillColor: AppColors.white,
+        fillColor: AppColors.gray100,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
+        labelStyle: AppTextStyles.labelMd.copyWith(
+          color: AppColors.black,
+          fontWeight: FontWeight.w900,
+        ),
+        hintStyle: AppTextStyles.h3.copyWith(
+          color: AppColors.gray400,
+          fontWeight: FontWeight.w700,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
         ),
       );
 
@@ -758,7 +761,7 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
         title: const SizedBox.shrink(),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 30),
         children: [
           Text(
             'Enter your card details',
@@ -768,35 +771,83 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
               height: 1.08,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 46),
+          Text(
+            'Card number',
+            style: AppTextStyles.labelMd.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             keyboardType: TextInputType.number,
-            decoration: _decoration('Card number'),
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+            decoration: _decoration('XXXX XXXX XXXX XXXX'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 22),
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  keyboardType: TextInputType.datetime,
-                  decoration: _decoration('Expiration date'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Expiration date',
+                      style: AppTextStyles.labelMd.copyWith(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      keyboardType: TextInputType.datetime,
+                      style: AppTextStyles.h3
+                          .copyWith(fontWeight: FontWeight.w800),
+                      decoration: _decoration('MM/YY'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 20),
               Expanded(
-                child: TextField(
-                  keyboardType: TextInputType.number,
-                  decoration: _decoration('CVV'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CVV',
+                      style: AppTextStyles.labelMd.copyWith(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      keyboardType: TextInputType.number,
+                      style: AppTextStyles.h3
+                          .copyWith(fontWeight: FontWeight.w800),
+                      decoration: _decoration('***'),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 28),
+          Text(
+            'Cardholder name',
+            style: AppTextStyles.labelMd.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             textCapitalization: TextCapitalization.words,
-            decoration: _decoration('Cardholder name'),
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+            decoration: _decoration(''),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 22),
           CheckboxListTile(
             value: _saveCard,
             onChanged: (value) => setState(() => _saveCard = value == true),
@@ -811,9 +862,24 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          BagoInfoBanner(
-            icon: Icons.lock_outline_rounded,
-            message: fallbackText,
+          Text(
+            fallbackText,
+            style: AppTextStyles.bodySm.copyWith(
+              color: AppColors.gray500,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          TextButton(
+            onPressed: () => launchUrl(
+              Uri.parse('https://sendwithbago.com/privacy'),
+              mode: LaunchMode.externalApplication,
+            ),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              alignment: Alignment.centerLeft,
+            ),
+            child: const Text('Privacy Policy'),
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -890,7 +956,7 @@ class _PaymentOptionButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: selected ? AppColors.primary : AppColors.gray200,
                 width: selected ? 2 : 1,
@@ -917,29 +983,43 @@ class _PaymentOptionButton extends StatelessWidget {
                 : Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.primarySoft
-                              : accent.withValues(alpha: 0.1),
+                          color: Colors.transparent,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.gray300,
+                            width: 3,
+                          ),
                         ),
                         alignment: Alignment.center,
                         child: selected
-                            ? const Icon(Icons.radio_button_checked_rounded,
-                                size: 24, color: AppColors.primary)
-                            : assetImage != null
-                                ? Image.asset(
-                                    assetImage!,
-                                    width: 24,
-                                    height: 24,
-                                    fit: BoxFit.contain,
-                                  )
-                                : Icon(icon ?? Icons.payment_rounded,
-                                    size: 22, color: accent),
+                            ? Container(
+                                width: 14,
+                                height: 14,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              )
+                            : null,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
+                      if (assetImage != null) ...[
+                        Image.asset(
+                          assetImage!,
+                          width: 34,
+                          height: 28,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(width: 10),
+                      ] else if (icon != null) ...[
+                        Icon(icon, size: 28, color: accent),
+                        const SizedBox(width: 10),
+                      ],
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,

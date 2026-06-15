@@ -200,49 +200,18 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 Column(
                   children: [
                     if (shipmentSummary.isNotEmpty)
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppColors.gray100),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.local_shipping_outlined,
-                                color: AppColors.primary),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    shipmentSummary,
-                                    style: AppTextStyles.labelSm.copyWith(
-                                      color: AppColors.black,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  if ((conv?.trackingNumber ?? '')
-                                      .trim()
-                                      .isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        'Tracking: ${conv!.trackingNumber}',
-                                        style:
-                                            AppTextStyles.captionBold.copyWith(
-                                          color: AppColors.gray500,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                      _ActiveShipmentChatCard(
+                        summary: shipmentSummary,
+                        trackingNumber: conv?.trackingNumber,
+                        requestId: conv?.requestId,
+                        isClosed: isClosed,
+                        onOpen: (conv?.requestId ?? '').trim().isEmpty
+                            ? null
+                            : () => context
+                                .push('/shipment-request/${conv!.requestId}'),
+                        onAddKg: isClosed || (conv?.requestId ?? '').isEmpty
+                            ? null
+                            : () => _showAddKgSheet(conv!),
                       ),
                     if (isClosed)
                       _ClosedChatBanner(
@@ -447,6 +416,122 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
   }
 
+  Future<void> _showAddKgSheet(ConversationModel conversation) async {
+    final kgController = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              22,
+              18,
+              22,
+              MediaQuery.of(sheetContext).viewInsets.bottom + 22,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add more kg',
+                  style: AppTextStyles.h2.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This adds weight to the active shipment in this chat. Receiver details stay the same.',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.gray500,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: kgController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Additional weight',
+                    suffixText: 'kg',
+                    filled: true,
+                    fillColor: AppColors.gray50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: const BorderSide(
+                          color: AppColors.primary, width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final kg = double.tryParse(kgController.text.trim()) ?? 0;
+                      if (kg <= 0) {
+                        AppSnackBar.show(
+                          sheetContext,
+                          message: 'Enter the additional kg.',
+                          type: SnackBarType.error,
+                        );
+                        return;
+                      }
+                      Navigator.pop(sheetContext);
+                      await ref.read(messageProvider.notifier).sendMessage(
+                            'Additional kg request: ${kg.toStringAsFixed(kg.truncateToDouble() == kg ? 0 : 1)}kg for shipment ${conversation.trackingNumber ?? conversation.requestId ?? ''}.',
+                          );
+                      if (!mounted) return;
+                      AppSnackBar.show(
+                        context,
+                        message:
+                            'Additional kg request sent in chat. Payment approval flow is being connected to this request.',
+                        type: SnackBarType.info,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: Text(
+                      'Send kg request',
+                      style: AppTextStyles.buttonLg.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    kgController.dispose();
+  }
+
   String _buildChatSummary({
     required ConversationModel conversation,
     required String currentUserName,
@@ -592,6 +677,152 @@ class _MessageList extends StatelessWidget {
 
   static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+class _ActiveShipmentChatCard extends StatelessWidget {
+  const _ActiveShipmentChatCard({
+    required this.summary,
+    required this.trackingNumber,
+    required this.requestId,
+    required this.isClosed,
+    required this.onOpen,
+    required this.onAddKg,
+  });
+
+  final String summary;
+  final String? trackingNumber;
+  final String? requestId;
+  final bool isClosed;
+  final VoidCallback? onOpen;
+  final VoidCallback? onAddKg;
+
+  @override
+  Widget build(BuildContext context) {
+    final tracking = (trackingNumber ?? '').trim();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.inventory_2_outlined,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Active shipment',
+                            style: AppTextStyles.captionBold.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            summary,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.labelMd.copyWith(
+                              color: AppColors.black,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          if (tracking.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Text(
+                                'Tracking: $tracking',
+                                style: AppTextStyles.captionBold.copyWith(
+                                  color: AppColors.gray500,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.gray400,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onOpen,
+                        icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                        label: const Text('View'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(
+                            color: AppColors.primary.withValues(alpha: 0.25),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onAddKg,
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Add kg'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor:
+                              isClosed ? AppColors.gray300 : AppColors.primary,
+                          foregroundColor: AppColors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
