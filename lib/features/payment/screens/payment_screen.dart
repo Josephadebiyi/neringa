@@ -251,6 +251,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
         return;
       }
+      if (result?['type'] != 'callback') {
+        _failWithDraft(
+          'paypal',
+          'Payment was not approved.',
+          paymentReference: paymentReference,
+        );
+        return;
+      }
       setState(() => _isProcessing = true);
       final capture =
           await _paymentService.capturePaypalOrder(orderId: session.orderId);

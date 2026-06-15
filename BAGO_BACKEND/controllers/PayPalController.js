@@ -195,7 +195,7 @@ async function calculateCheckout(req) {
 
   const checkoutCurrency = String(currency || sender.currency || tripDoc.currency || 'USD').toUpperCase();
   const tripCurrency = String(tripDoc.currency || checkoutCurrency).toUpperCase();
-  const weight = Number(packageDoc.weight || 0);
+  const weight = Number(packageDoc.packageWeight || packageDoc.weight || packageDoc.package_weight || 0);
   const pricePerKg = Number(tripDoc.pricePerKg || tripDoc.price_per_kg || 0);
   const tripTravelerPayout = Number((weight * pricePerKg).toFixed(2));
   const pricing = calculateAllInclusivePrice(tripTravelerPayout, pricingConfig);

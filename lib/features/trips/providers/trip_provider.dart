@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/services/socket_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
 
@@ -79,7 +80,7 @@ class TripNotifier extends Notifier<TripState> {
         payload['tripId']?.toString() ?? payload['id']?.toString() ?? '';
     if (tripId.isEmpty) return;
 
-    final patchTrip = (TripModel trip) => trip.copyWith(
+    TripModel patchTrip(TripModel trip) => trip.copyWith(
           totalKg: _doubleFrom(payload, 'totalKg', fallback: trip.totalKg),
           availableKg:
               _doubleFrom(payload, 'availableKg', fallback: trip.availableKg),
@@ -142,7 +143,13 @@ class TripNotifier extends Notifier<TripState> {
     try {
       final results =
           await _service.searchTrips(from: from, to: to, date: date);
-      state = state.copyWith(searchResults: results, isSearching: false);
+      final currentUserId = ref.read(authProvider).user?.id;
+      final visibleResults = currentUserId == null || currentUserId.isEmpty
+          ? results
+          : results
+              .where((trip) => trip.userId != currentUserId)
+              .toList(growable: false);
+      state = state.copyWith(searchResults: visibleResults, isSearching: false);
     } catch (e) {
       state = state.copyWith(isSearching: false, error: e.toString());
     }
