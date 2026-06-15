@@ -188,7 +188,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _startCardCheckout() async {
     if (_isProcessing || _draft == null || !_isSdkReady) return;
-    if (!_paypalCardsEligible) {
+    final nativeConfig = _paypalConfig;
+    final canUseNativeCard = Platform.isIOS &&
+        nativeConfig != null &&
+        nativeConfig.clientId.isNotEmpty;
+    if (!_paypalCardsEligible && !canUseNativeCard) {
       await _startPaypalCheckout(paymentMethod: 'card');
       return;
     }
@@ -213,10 +217,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
       paymentReference = session.orderId;
 
-      final nativeConfig = _paypalConfig;
-      if (Platform.isIOS &&
-          nativeConfig != null &&
-          nativeConfig.clientId.isNotEmpty) {
+      if (canUseNativeCard) {
         await _paymentService.approveNativePaypalCard(
           clientId: nativeConfig.clientId,
           environment: nativeConfig.environment,
