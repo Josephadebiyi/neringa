@@ -196,6 +196,11 @@ async function ensurePaymentEventsInfrastructure(client) {
     `);
 
     await client.query(`
+      alter table public.payment_events
+        add column if not exists updated_at timestamptz not null default timezone('utc', now())
+    `);
+
+    await client.query(`
       create unique index if not exists payment_events_provider_event_reference_key
         on public.payment_events (provider, event_type, provider_reference)
     `);
