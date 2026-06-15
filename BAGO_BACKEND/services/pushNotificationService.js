@@ -14,6 +14,42 @@ const isFcmToken  = (token) => {
   return t.length > 100 && !isApnsToken(t);
 };
 
+const APNS_PERMANENT_TOKEN_REASONS = new Set([
+  'BadDeviceToken',
+  'DeviceTokenNotForTopic',
+  'Unregistered',
+]);
+
+const FCM_PERMANENT_TOKEN_CODES = new Set([
+  'messaging/invalid-registration-token',
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-argument',
+]);
+
+const parseJsonSafely = (value) => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const removePushTokenForUser = async (userId, token, provider, reason) => {
+  if (!userId || !token) return;
+  await pgQuery(
+    `
+      update public.profiles
+      set push_tokens = array_remove(coalesce(push_tokens, '{}'), $2),
+          updated_at = timezone('utc', now())
+      where id = $1
+    `,
+    [userId, token],
+  ).catch((error) => {
+    console.warn(`Push token cleanup failed for user ${userId}: ${error.message}`);
+  });
+  console.warn(`Removed invalid ${provider} push token for user ${userId}: ${reason}`);
+};
+
 // ─── APNs (iOS) ───────────────────────────────────────────────────────────────
 
 const getApnsPrivateKey = () => {
@@ -83,8 +119,10 @@ const sendApnsToToken = async (pushToken, title, body, data = {}) => {
         if (statusCode === 200) {
           resolve({ ok: true, provider: 'apns' });
         } else {
-          console.error(`❌ APNs error ${statusCode}: ${responseData}`);
-          resolve({ ok: false, provider: 'apns', status: statusCode, response: responseData });
+          const parsed = parseJsonSafely(responseData);
+          const reason = parsed?.reason || `apns_http_${statusCode}`;
+          const permanent = APNS_PERMANENT_TOKEN_REASONS.has(reason);
+          resolve({ ok: false, provider: 'apns', status: statusCode, reason, permanent });
         }
       });
       req.on('error', (err) => { client.close(); reject(err); });
@@ -153,8 +191,10 @@ const sendFcmToToken = async (fcmToken, title, body, data = {}) => {
 
     return { ok: true, provider: 'fcm' };
   } catch (err) {
-    console.error('❌ FCM send error:', err.message);
-    return { ok: false, provider: 'fcm', error: err.message };
+    const code = err.code || '';
+    const permanent = FCM_PERMANENT_TOKEN_CODES.has(code)
+      || /registration token is not a valid fcm registration token/i.test(err.message || '');
+    return { ok: false, provider: 'fcm', error: err.message, code, permanent };
   }
 };
 
@@ -203,6 +243,14 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
         results.push(result);
         if (result.ok) console.log(`✅ Push sent to user ${userId} via ${result.provider}`);
         else if (result.skipped) console.log(`⏭ Push skipped: ${result.reason}`);
+        else if (result.permanent) {
+          await removePushTokenForUser(
+            userId,
+            token,
+            result.provider,
+            result.reason || result.code || result.error || 'invalid_token',
+          );
+        }
       } catch (error) {
         results.push({ ok: false, error: error.message });
       }
