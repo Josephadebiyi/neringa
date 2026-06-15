@@ -863,16 +863,16 @@ app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by sig
 // captured funds in escrow until the shipment is completed.
 app.get('/api/config/paypal', isAuthenticated, getPaypalConfig);
 app.post('/api/payouts/paypal/connect', isAuthenticated, requireKycVerification, connectPaypalPayout);
-app.post('/api/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPaypalOrder);
-app.post('/api/payments/paypal/authorize', isAuthenticated, requireKycVerification, authorizePaypalOrder);
-app.post('/api/payments/paypal/capture', isAuthenticated, requireKycVerification, capturePaypalOrder);
+app.post('/api/payments/paypal/create-order', isAuthenticated, createPaypalOrder);
+app.post('/api/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
+app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
 app.post('/api/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
 app.post('/api/payments/paypal/webhook', paypalWebhook);
 app.get('/api/payments/paypal/return', paypalReturn);
 app.get('/api/payments/paypal/cancel', paypalCancel);
-app.post('/payments/paypal/create-order', isAuthenticated, requireKycVerification, createPaypalOrder);
-app.post('/payments/paypal/authorize', isAuthenticated, requireKycVerification, authorizePaypalOrder);
-app.post('/payments/paypal/capture', isAuthenticated, requireKycVerification, capturePaypalOrder);
+app.post('/payments/paypal/create-order', isAuthenticated, createPaypalOrder);
+app.post('/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
+app.post('/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
 app.post('/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
 app.post('/payments/paypal/webhook', paypalWebhook);
 

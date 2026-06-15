@@ -16,7 +16,7 @@ export function isPaypalAdvancedCardsEnabled() {
 }
 
 export function isPaypalApplePayEnabled() {
-  return process.env.PAYPAL_APPLE_PAY_ENABLED === 'true';
+  return process.env.PAYPAL_APPLE_PAY_ENABLED !== 'false';
 }
 
 function requirePaypalCredentials() {

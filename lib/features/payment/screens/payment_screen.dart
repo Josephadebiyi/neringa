@@ -376,6 +376,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return 'Apple Pay could not be completed. Please try again or use card payment.';
     }
     if (normalized.contains('paypal')) {
+      final cleaned = errorMsg
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceFirst('Exception: ', '')
+          .trim();
+      if (cleaned.length >= 8 && cleaned.length <= 180) {
+        return cleaned;
+      }
       return 'PayPal payment could not be completed. Please try again.';
     }
     if (normalized.contains('bizum')) {
