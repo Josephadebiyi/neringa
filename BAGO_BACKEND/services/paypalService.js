@@ -11,6 +11,14 @@ export function getPaypalClientId() {
   return process.env.PAYPAL_CLIENT_ID || '';
 }
 
+export function getPaypalMerchantId() {
+  return process.env.PAYPAL_MERCHANT_ID || '';
+}
+
+export function getPaypalBuyerCountry() {
+  return process.env.PAYPAL_BUYER_COUNTRY || '';
+}
+
 export function isPaypalAdvancedCardsEnabled() {
   return process.env.PAYPAL_ADVANCED_CARDS_ENABLED === 'true';
 }

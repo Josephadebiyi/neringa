@@ -7,7 +7,9 @@ import {
   capturePaypalOrder as capturePaypalOrderApi,
   createPaypalOrder as createPaypalOrderApi,
   createPaypalPayout as createPaypalPayoutApi,
+  getPaypalBuyerCountry,
   getPaypalClientId,
+  getPaypalMerchantId,
   isPaypalAdvancedCardsEnabled,
   isPaypalApplePayEnabled,
   voidPaypalAuthorization as voidPaypalAuthorizationApi,
@@ -725,16 +727,24 @@ export function paypalApplePaySheet(req, res) {
       </body></html>`);
   }
 
-  const safeClientId = encodeURIComponent(clientId);
   const safeOrderId = escapeHtml(orderId);
   const safeAmount = escapeHtml(amount);
   const safeCurrency = escapeHtml(currency);
+  const sdkParams = new URLSearchParams({
+    'client-id': clientId,
+    currency,
+    components: 'applepay',
+  });
+  const merchantId = getPaypalMerchantId();
+  const buyerCountry = getPaypalBuyerCountry();
+  if (merchantId) sdkParams.set('merchant-id', merchantId);
+  if (buyerCountry) sdkParams.set('buyer-country', buyerCountry);
 
   res.type('html').send(`<!doctype html>
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-        <script src="https://www.paypal.com/sdk/js?client-id=${safeClientId}&currency=${safeCurrency}&components=applepay"></script>
+        <script src="https://www.paypal.com/sdk/js?${escapeHtml(sdkParams.toString())}"></script>
         <script src="https://applepay.cdn-apple.com/jsapi/1.latest/apple-pay-sdk.js"></script>
         <style>
           body { margin:0; padding:32px 22px; font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#fff; color:#111827; }
@@ -780,6 +790,7 @@ export function paypalApplePaySheet(req, res) {
                 merchantCapabilities: config.merchantCapabilities,
                 supportedNetworks: config.supportedNetworks,
                 currencyCode: currency,
+                requiredBillingContactFields: ["postalAddress"],
                 total: { label: "Bago", type: "final", amount }
               };
               const session = new ApplePaySession(4, paymentRequest);
@@ -792,7 +803,8 @@ export function paypalApplePaySheet(req, res) {
                 applepay.confirmOrder({
                   orderId,
                   token: event.payment.token,
-                  billingContact: event.payment.billingContact
+                  billingContact: event.payment.billingContact,
+                  shippingContact: event.payment.shippingContact
                 }).then(() => {
                   session.completePayment(ApplePaySession.STATUS_SUCCESS);
                   window.location.href = returnUrl;
