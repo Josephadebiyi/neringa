@@ -223,6 +223,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         currency: currency,
         insurance: draft['insurance'] == true,
         paymentMethod: paymentMethod,
+        additionalRequestId: draft['additionalRequestId']?.toString(),
+        additionalKg: _asDouble(draft['additionalKg']),
       );
       paymentReference = session.orderId;
 
@@ -302,6 +304,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       paymentProvider: paymentProvider,
       paymentStatus: paymentStatus,
       message: draft['message']?.toString(),
+      additionalRequestId: draft['additionalRequestId']?.toString(),
+      additionalKg: _asDouble(draft['additionalKg']),
     );
 
     if (!mounted) return;

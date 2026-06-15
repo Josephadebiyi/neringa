@@ -365,6 +365,116 @@ export async function mergePaidDuplicateRequest({
   return updatedRequestId ? getShipmentRequestById(updatedRequestId) : null;
 }
 
+async function applyPaidAdditionalKg({
+  requestId,
+  senderId,
+  additionalKg,
+  additionalAmount,
+  currency,
+  paymentReference,
+  paymentProvider,
+}) {
+  const updatedRequestId = await withTransaction(async (client) => {
+    const requestResult = await client.query(
+      `
+        select id, traveler_id, package_id, trip_id, payment_info, amount, currency, tracking_number
+        from public.shipment_requests
+        where id = $1
+          and sender_id = $2
+          and status in ('pending', 'accepted')
+        for update
+      `,
+      [requestId, senderId],
+    );
+    const request = requestResult.rows[0];
+    if (!request) return null;
+
+    const parsedKg = Number(additionalKg || 0);
+    if (!Number.isFinite(parsedKg) || parsedKg <= 0) {
+      throw new Error('Additional kg must be greater than 0.');
+    }
+
+    const tripSnapshot = await buildTripCapacitySnapshot(client, request.trip_id, { lockTrip: true });
+    if (!tripSnapshot || parsedKg > tripSnapshot.availableKg) {
+      throw new Error('This trip does not have enough space left.');
+    }
+
+    const nextCurrency = String(currency || request.currency || 'USD').toUpperCase();
+    const rawAmount = Number(additionalAmount || 0);
+    const nextAmount = Number(request.amount || 0) + rawAmount;
+    const paymentInfo = appendPaymentInfo(request.payment_info || {}, {
+      provider: paymentProvider || 'paypal',
+      reference: paymentReference,
+      amount: rawAmount,
+      currency: nextCurrency,
+      additionalKg: parsedKg,
+    });
+
+    await client.query(
+      `
+        update public.packages
+        set package_weight = coalesce(package_weight, 0) + $2,
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [request.package_id, parsedKg],
+    );
+
+    await client.query(
+      `
+        update public.shipment_requests
+        set amount = $2,
+            currency = $3,
+            payment_info = $4,
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [request.id, nextAmount, nextCurrency, paymentInfo],
+    );
+
+    const walletResult = await client.query(
+      `select id, currency from public.wallet_accounts where user_id = $1 for update`,
+      [request.traveler_id],
+    );
+    const wallet = walletResult.rows[0];
+    if (wallet && rawAmount > 0) {
+      const walletCurrency = String(wallet.currency || 'USD').toUpperCase();
+      const escrowAmount = nextCurrency !== walletCurrency
+        ? await convertCurrency(rawAmount, nextCurrency, walletCurrency)
+        : rawAmount;
+      await client.query(
+        `update public.wallet_accounts set escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
+        [request.traveler_id, escrowAmount],
+      );
+      await client.query(
+        `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
+         values ($1,$2,$3,$4,'escrow_hold',$5,$6,'completed',$7,$8)`,
+        [
+          wallet.id,
+          request.traveler_id,
+          request.id,
+          request.trip_id,
+          escrowAmount,
+          walletCurrency,
+          `Additional kg escrow hold for Request ${request.tracking_number || request.id}`,
+          {
+            providerReference: paymentReference,
+            provider: paymentProvider || 'paypal',
+            originalAmount: rawAmount,
+            originalCurrency: nextCurrency,
+            additionalKg: parsedKg,
+          },
+        ],
+      );
+    }
+
+    await syncTripCapacity(client, request.trip_id);
+    return request.id;
+  });
+
+  return updatedRequestId ? getShipmentRequestById(updatedRequestId) : null;
+}
+
 export async function RequestPackage(req, res) {
   try {
     const {
@@ -382,6 +492,8 @@ export async function RequestPackage(req, res) {
       paymentReference,
       paymentProvider,
       paymentStatus,
+      requestId,
+      additionalKg,
     } = req.body;
 
     const senderId = req.user.id || req.user._id;
@@ -550,6 +662,53 @@ export async function RequestPackage(req, res) {
         requestCurrency = String(paypalPayment.currency || requestCurrency || 'USD').toUpperCase();
         verifiedPaymentStatus = 'paid_escrow';
       }
+    }
+
+    if (paymentReference && requestId && Number(additionalKg || 0) > 0) {
+      const updatedRequest = await applyPaidAdditionalKg({
+        requestId,
+        senderId,
+        additionalKg,
+        additionalAmount: requestAmount,
+        currency: requestCurrency,
+        paymentReference,
+        paymentProvider: paymentProvider || 'paypal',
+      });
+      if (!updatedRequest) {
+        return res.status(404).json({
+          success: false,
+          message: 'Active shipment request was not found for additional kg.',
+        });
+      }
+      if ((paymentProvider || '').toLowerCase() === 'paypal') {
+        await query(
+          `
+            update public.paypal_payments
+            set request_id = $2,
+                status = 'paid_escrow',
+                raw_response = raw_response || $3::jsonb,
+                updated_at = timezone('utc', now())
+            where paypal_order_id = $1
+          `,
+          [
+            paymentReference,
+            updatedRequest.id,
+            {
+              requestId: updatedRequest.id,
+              additionalKg: Number(additionalKg || 0),
+              linkedAfterPayment: true,
+            },
+          ],
+        ).catch((linkError) => {
+          console.warn('PayPal additional kg payment linked but row update failed:', linkError.message);
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        merged: true,
+        message: 'Additional kg paid and added to the active shipment.',
+        request: updatedRequest,
+      });
     }
 
     let newRequest = existingRequest

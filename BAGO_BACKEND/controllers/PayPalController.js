@@ -1,4 +1,4 @@
-import { query, queryOne } from '../lib/postgres/db.js';
+import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { getPackageById, getTripById, getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
@@ -6,6 +6,7 @@ import { convertCurrency } from '../services/currencyConverter.js';
 import {
   capturePaypalOrder as capturePaypalOrderApi,
   createPaypalOrder as createPaypalOrderApi,
+  createPaypalPayout as createPaypalPayoutApi,
   getPaypalClientId,
   isPaypalAdvancedCardsEnabled,
   isPaypalApplePayEnabled,
@@ -105,7 +106,63 @@ async function calculateCheckout(req) {
     travelerId,
     currency,
     insurance,
+    requestId,
+    additionalKg,
   } = req.body || {};
+
+  const parsedAdditionalKg = Number(additionalKg || 0);
+  if (requestId && parsedAdditionalKg > 0) {
+    const existing = await queryOne(
+      `
+        select sr.id, sr.package_id, sr.trip_id, sr.traveler_id, sr.currency,
+               p.declared_value, t.currency as trip_currency, t.price_per_kg
+        from public.shipment_requests sr
+        join public.packages p on p.id = sr.package_id
+        join public.trips t on t.id = sr.trip_id
+        where sr.id = $1
+          and sr.sender_id = $2
+          and sr.status in ('pending', 'accepted')
+        limit 1
+      `,
+      [requestId, senderId],
+    );
+    if (!existing) {
+      const err = new Error('Active shipment request was not found.');
+      err.statusCode = 404;
+      throw err;
+    }
+    const pricingConfig = await getFullPricingConfig();
+    const checkoutCurrency = String(currency || existing.currency || existing.trip_currency || 'USD').toUpperCase();
+    const tripCurrency = String(existing.trip_currency || checkoutCurrency).toUpperCase();
+    const pricePerKg = Number(existing.price_per_kg || 0);
+    const tripTravelerPayout = Number((parsedAdditionalKg * pricePerKg).toFixed(2));
+    const pricing = calculateAllInclusivePrice(tripTravelerPayout, pricingConfig);
+    const convertedShipping = tripCurrency === checkoutCurrency
+      ? pricing.senderShippingFee
+      : Number(Number(await convertCurrency(pricing.senderShippingFee, tripCurrency, checkoutCurrency)).toFixed(2));
+    const convertedTravelerPayout = tripCurrency === checkoutCurrency
+      ? pricing.travelerPayout
+      : Number(Number(await convertCurrency(pricing.travelerPayout, tripCurrency, checkoutCurrency)).toFixed(2));
+    const totalAmount = Number(convertedShipping.toFixed(2));
+    if (totalAmount <= 0) {
+      const err = new Error('Additional kg amount could not be calculated.');
+      err.statusCode = 400;
+      throw err;
+    }
+    return {
+      senderId,
+      packageId: existing.package_id,
+      tripId: existing.trip_id,
+      travelerId: existing.traveler_id,
+      amount: totalAmount,
+      shipmentAmount: Number(convertedTravelerPayout.toFixed(2)),
+      travelerPayout: Number(convertedTravelerPayout.toFixed(2)),
+      insuranceCost: 0,
+      currency: checkoutCurrency,
+      additionalKg: parsedAdditionalKg,
+      targetRequestId: existing.id,
+    };
+  }
 
   if (!senderId || !packageId || !tripId || !travelerId) {
     const err = new Error('Package, trip, and traveler are required.');
@@ -218,6 +275,140 @@ export async function connectPaypalPayout(req, res) {
   }
 }
 
+export async function withdrawPaypalPayout(req, res) {
+  const userId = req.user.id || req.user._id;
+  const amount = Number(req.body?.amount || 0);
+  const requestedCurrency = req.body?.currency?.toString().trim().toUpperCase();
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ success: false, message: 'Enter a valid withdrawal amount.' });
+  }
+
+  let transactionId = null;
+  let walletCurrency = requestedCurrency || 'USD';
+  const senderBatchId = `BAGO-PAYPAL-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+  try {
+    const prepared = await withTransaction(async (client) => {
+      const accountResult = await client.query(
+        `
+          select p.bank_details, p.payout_provider, p.payout_method, p.payout_status,
+                 wa.id as wallet_id, wa.available_balance, wa.currency
+          from public.profiles p
+          join public.wallet_accounts wa on wa.user_id = p.id
+          where p.id = $1
+          for update
+        `,
+        [userId],
+      );
+      const account = accountResult.rows[0];
+      if (!account) {
+        const err = new Error('Wallet not found.');
+        err.statusCode = 404;
+        throw err;
+      }
+      const paypalEmail = account.bank_details?.paypalEmail || account.bank_details?.paypal_email;
+      if (!paypalEmail) {
+        const err = new Error('Add your PayPal payout email before withdrawing.');
+        err.statusCode = 400;
+        throw err;
+      }
+      walletCurrency = String(account.currency || requestedCurrency || 'USD').toUpperCase();
+      if (requestedCurrency && requestedCurrency !== walletCurrency) {
+        const err = new Error(`Wallet currency is ${walletCurrency}.`);
+        err.statusCode = 400;
+        throw err;
+      }
+      if (Number(account.available_balance || 0) < amount) {
+        const err = new Error('Insufficient available balance.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      await client.query(
+        `
+          update public.wallet_accounts
+          set available_balance = available_balance - $2,
+              updated_at = timezone('utc', now())
+          where id = $1
+        `,
+        [account.wallet_id, amount],
+      );
+      const txResult = await client.query(
+        `
+          insert into public.wallet_transactions
+            (wallet_id, user_id, type, amount, currency, status, description, metadata)
+          values ($1,$2,'withdrawal',$3,$4,'pending',$5,$6)
+          returning id
+        `,
+        [
+          account.wallet_id,
+          userId,
+          amount,
+          walletCurrency,
+          'PayPal withdrawal',
+          { provider: 'paypal', paypalEmail, senderBatchId },
+        ],
+      );
+      return {
+        walletId: account.wallet_id,
+        transactionId: txResult.rows[0]?.id,
+        paypalEmail,
+      };
+    });
+
+    transactionId = prepared.transactionId;
+    const payout = await createPaypalPayoutApi({
+      email: prepared.paypalEmail,
+      amount,
+      currency: walletCurrency,
+      senderBatchId,
+      note: 'Bago wallet withdrawal',
+    });
+    await query(
+      `
+        update public.wallet_transactions
+        set status = 'processing',
+            metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+            updated_at = timezone('utc', now())
+        where id = $1
+      `,
+      [transactionId, { paypalPayout: payout }],
+    );
+    res.json({
+      success: true,
+      message: 'PayPal withdrawal submitted.',
+      payout,
+    });
+  } catch (error) {
+    console.error('withdrawPaypalPayout failed:', error.message);
+    if (transactionId) {
+      await query(
+        `
+          update public.wallet_transactions
+          set status = 'failed',
+              metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+              updated_at = timezone('utc', now())
+          where id = $1
+        `,
+        [transactionId, { error: error.message }],
+      ).catch(() => {});
+      await query(
+        `
+          update public.wallet_accounts
+          set available_balance = available_balance + $2,
+              updated_at = timezone('utc', now())
+          where user_id = $1
+        `,
+        [userId, amount],
+      ).catch(() => {});
+    }
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'PayPal withdrawal could not be submitted.',
+    });
+  }
+}
+
 export async function createPaypalOrder(req, res) {
   try {
     await ensurePaypalInfrastructure();
@@ -239,17 +430,18 @@ export async function createPaypalOrder(req, res) {
     await query(
       `
         insert into public.paypal_payments (
-          user_id, package_id, trip_id, traveler_id, paypal_order_id, status,
+          user_id, request_id, package_id, trip_id, traveler_id, paypal_order_id, status,
           amount, shipment_amount, traveler_payout, insurance_cost, currency,
           payment_method, raw_response
         )
-        values ($1,$2,$3,$4,$5,'created',$6,$7,$8,$9,$10,$11,$12)
+        values ($1,$2,$3,$4,$5,$6,'created',$7,$8,$9,$10,$11,$12,$13)
         on conflict (paypal_order_id) do update
         set raw_response = excluded.raw_response,
             updated_at = timezone('utc', now())
       `,
       [
         checkout.senderId,
+        checkout.targetRequestId || null,
         checkout.packageId,
         checkout.tripId,
         checkout.travelerId,
@@ -260,7 +452,11 @@ export async function createPaypalOrder(req, res) {
         checkout.insuranceCost,
         checkout.currency,
         req.body?.paymentMethod || 'paypal',
-        order,
+        {
+          ...order,
+          additionalKg: checkout.additionalKg || null,
+          targetRequestId: checkout.targetRequestId || null,
+        },
       ],
     );
     await recordPaypalEvent({

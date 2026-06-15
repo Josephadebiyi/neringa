@@ -245,6 +245,8 @@ class PaymentService {
     required String currency,
     bool insurance = false,
     String paymentMethod = 'paypal',
+    String? additionalRequestId,
+    double? additionalKg,
   }) async {
     try {
       debugPrint(
@@ -260,6 +262,11 @@ class PaymentService {
           'currency': currency,
           'insurance': insurance,
           'paymentMethod': paymentMethod,
+          if (additionalRequestId != null &&
+              additionalRequestId.trim().isNotEmpty)
+            'requestId': additionalRequestId.trim(),
+          if (additionalKg != null && additionalKg > 0)
+            'additionalKg': additionalKg,
         },
       );
       final data = _extractMap(response.data);

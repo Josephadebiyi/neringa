@@ -160,6 +160,7 @@ class ApiConstants {
       '/api/payouts/connect/dashboard-link';
   static const String stripeWithdraw = '/api/payouts/withdraw';
   static const String paypalPayoutConnect = '/api/payouts/paypal/connect';
+  static const String paypalWithdraw = '/api/payouts/paypal/withdraw';
 
   // ---------------------------------------------------------------------------
   // Messaging

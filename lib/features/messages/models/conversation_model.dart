@@ -15,6 +15,7 @@ class ConversationModel {
   final String? packageTitle;
   final String? routeLabel;
   final String? trackingNumber;
+  final bool currentUserIsSender;
 
   const ConversationModel({
     required this.id,
@@ -31,6 +32,7 @@ class ConversationModel {
     this.packageTitle,
     this.routeLabel,
     this.trackingNumber,
+    this.currentUserIsSender = false,
   });
 
   bool get isClosed => ['completed', 'cancelled', 'rejected'].contains(
@@ -52,6 +54,7 @@ class ConversationModel {
     String? packageTitle,
     String? routeLabel,
     String? trackingNumber,
+    bool? currentUserIsSender,
   }) {
     return ConversationModel(
       id: id ?? this.id,
@@ -68,6 +71,7 @@ class ConversationModel {
       packageTitle: packageTitle ?? this.packageTitle,
       routeLabel: routeLabel ?? this.routeLabel,
       trackingNumber: trackingNumber ?? this.trackingNumber,
+      currentUserIsSender: currentUserIsSender ?? this.currentUserIsSender,
     );
   }
 
@@ -156,6 +160,7 @@ class ConversationModel {
       routeLabel: routeLabel.isEmpty ? null : routeLabel,
       trackingNumber: request?['trackingNumber']?.toString() ??
           json['trackingNumber']?.toString(),
+      currentUserIsSender: isSender,
     );
   }
 

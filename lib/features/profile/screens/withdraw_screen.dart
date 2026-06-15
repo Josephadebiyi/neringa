@@ -26,6 +26,25 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   bool _balanceLoading = true;
   bool _submitting = false;
 
+  double _numFrom(Map<String, dynamic>? data, List<String> keys) {
+    for (final key in keys) {
+      final parts = key.split('.');
+      dynamic value = data;
+      for (final part in parts) {
+        if (value is Map) {
+          value = value[part];
+        } else {
+          value = null;
+          break;
+        }
+      }
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return 0;
+  }
+
   static const _africanCurrencies = {
     'AOA',
     'BIF',
@@ -90,8 +109,20 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       final data = res.data as Map<String, dynamic>?;
       if (mounted) {
         setState(() {
-          _balance = (data?['balance'] as num?)?.toDouble() ?? 0;
-          _escrowBalance = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
+          _balance = _numFrom(data, const [
+            'balance',
+            'availableBalance',
+            'available_balance',
+            'data.balance',
+            'data.availableBalance',
+            'data.available_balance',
+          ]);
+          _escrowBalance = _numFrom(data, const [
+            'escrowBalance',
+            'escrow_balance',
+            'data.escrowBalance',
+            'data.escrow_balance',
+          ]);
           _balanceLoading = false;
         });
       }
@@ -137,10 +168,12 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     try {
       final path = _africanCurrencies.contains(currency.toUpperCase())
           ? ApiConstants.withdrawFunds
-          : ApiConstants.stripeWithdraw;
+          : ApiConstants.paypalWithdraw;
       await ApiService.instance.post(path, data: {
         'amount': amount,
         'currency': currency,
+        if (!_africanCurrencies.contains(currency.toUpperCase()))
+          'method': 'paypal',
       });
       if (mounted) {
         AppSnackBar.show(context,
@@ -352,7 +385,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 amount: double.tryParse(_amountCtrl.text) ?? 0,
                 minimumAmount: minimumAmount,
                 balance: _balance,
-                method: isAfrican ? 'Paystack bank transfer' : 'Stripe Express',
+                method: isAfrican ? 'Paystack bank transfer' : 'PayPal',
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -415,101 +448,83 @@ class _WithdrawBalanceHero extends StatelessWidget {
         borderRadius: BorderRadius.circular(26),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
+      child: Row(
         children: [
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0x8F06111F),
-                    Color(0x3306111F),
-                    Color(0x0006111F),
-                  ],
-                  stops: [0, 0.56, 1],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Available Balance',
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                loading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            color: AppColors.black, strokeWidth: 2),
+                      )
+                    : Text(
+                        '$currency ${balance.toStringAsFixed(2)}',
+                        style: AppTextStyles.displaySm.copyWith(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.lock_rounded,
+                        size: 14, color: AppColors.black),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        '$currency ${escrowBalance.toStringAsFixed(2)} held in escrow',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Available Balance',
-                      style: AppTextStyles.labelMd.copyWith(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w800,
-                      ),
+          const SizedBox(width: 14),
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.42),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(Icons.account_balance_wallet_rounded,
+                    color: AppColors.black, size: 38),
+                Positioned(
+                  right: 13,
+                  bottom: 14,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE5E7EB),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 8),
-                    loading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text(
-                            '$currency ${balance.toStringAsFixed(2)}',
-                            style: AppTextStyles.displaySm.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(Icons.lock_rounded,
-                            size: 14, color: Color(0xFFFBBF24)),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            '$currency ${escrowBalance.toStringAsFixed(2)} held in escrow',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.caption.copyWith(
-                              color: Colors.white54,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(Icons.account_balance_wallet_rounded,
-                        color: Colors.white, size: 38),
-                    Positioned(
-                      right: 13,
-                      bottom: 14,
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE5E7EB),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

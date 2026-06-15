@@ -224,6 +224,8 @@ class ShipmentService {
     String? paymentProvider,
     String? paymentStatus,
     String? message,
+    String? additionalRequestId,
+    double? additionalKg,
   }) async {
     try {
       final response = await _api.post(ApiConstants.sendPackageRequest, data: {
@@ -242,6 +244,11 @@ class ShipmentService {
         if (paymentProvider != null) 'paymentProvider': paymentProvider,
         if (paymentReference != null) 'paymentStatus': paymentStatus ?? 'paid',
         if (message != null) 'message': message,
+        if (additionalRequestId != null &&
+            additionalRequestId.trim().isNotEmpty)
+          'requestId': additionalRequestId.trim(),
+        if (additionalKg != null && additionalKg > 0)
+          'additionalKg': additionalKg,
       });
       final raw = response.data;
       if (raw is Map) {

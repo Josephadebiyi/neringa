@@ -113,6 +113,37 @@ export async function capturePaypalOrder(orderId) {
   });
 }
 
+export async function createPaypalPayout({
+  email,
+  amount,
+  currency,
+  senderBatchId,
+  note = 'Bago payout',
+}) {
+  return paypalRequest('/v1/payments/payouts', {
+    method: 'POST',
+    body: {
+      sender_batch_header: {
+        sender_batch_id: senderBatchId,
+        email_subject: 'Your Bago payout is on the way',
+        email_message: 'Bago has sent your payout to PayPal.',
+      },
+      items: [
+        {
+          recipient_type: 'EMAIL',
+          receiver: email,
+          note,
+          sender_item_id: `${senderBatchId}-1`,
+          amount: {
+            value: Number(amount || 0).toFixed(2),
+            currency: String(currency || 'USD').toUpperCase(),
+          },
+        },
+      ],
+    },
+  });
+}
+
 export async function voidPaypalAuthorization(authorizationId) {
   return paypalRequest(`/v2/payments/authorizations/${encodeURIComponent(authorizationId)}/void`, {
     method: 'POST',

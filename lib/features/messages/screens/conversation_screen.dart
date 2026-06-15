@@ -17,6 +17,8 @@ import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../providers/message_provider.dart';
 import '../services/message_service.dart';
+import '../../payment/services/shipment_checkout_service.dart';
+import '../../shipments/services/shipment_service.dart';
 
 class ConversationScreen extends ConsumerStatefulWidget {
   const ConversationScreen({super.key, required this.conversationId});
@@ -209,7 +211,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             ? null
                             : () => context
                                 .push('/shipment-request/${conv!.requestId}'),
-                        onAddKg: isClosed || (conv?.requestId ?? '').isEmpty
+                        onAddKg: isClosed ||
+                                conv?.currentUserIsSender != true ||
+                                (conv?.requestId ?? '').isEmpty
                             ? null
                             : () => _showAddKgSheet(conv!),
                       ),
@@ -495,16 +499,44 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         return;
                       }
                       Navigator.pop(sheetContext);
-                      await ref.read(messageProvider.notifier).sendMessage(
-                            'Additional kg request: ${kg.toStringAsFixed(kg.truncateToDouble() == kg ? 0 : 1)}kg for shipment ${conversation.trackingNumber ?? conversation.requestId ?? ''}.',
-                          );
-                      if (!mounted) return;
-                      AppSnackBar.show(
-                        context,
-                        message:
-                            'Additional kg request sent in chat. Payment approval flow is being connected to this request.',
-                        type: SnackBarType.info,
+                      final requestId = conversation.requestId?.trim() ?? '';
+                      final request =
+                          await ShipmentService.instance.getRequestDetails(
+                        requestId,
                       );
+                      final existingWeight = request.packageWeight ?? 0;
+                      final pricePerKg = existingWeight > 0
+                          ? request.agreedPrice / existingWeight
+                          : 0.0;
+                      final estimatedShipping = pricePerKg > 0
+                          ? double.parse((kg * pricePerKg).toStringAsFixed(2))
+                          : 0.0;
+                      final draft = {
+                        'type': 'additional_kg',
+                        'additionalKg': kg,
+                        'additionalRequestId': request.id,
+                        'packageId': request.packageId,
+                        'tripId': request.tripId,
+                        'travelerId': request.carrierId,
+                        'currency': request.currency.isNotEmpty
+                            ? request.currency
+                            : 'USD',
+                        'shippingAmount': estimatedShipping,
+                        'insuranceAmount': 0.0,
+                        'totalAmount': estimatedShipping,
+                        'insurance': false,
+                        'fromLocation':
+                            request.fromLocation ?? conversation.routeLabel,
+                        'toLocation': request.toLocation,
+                        'message':
+                            'Additional ${kg.toStringAsFixed(kg.truncateToDouble() == kg ? 0 : 1)}kg for shipment ${conversation.trackingNumber ?? request.id}',
+                        'expiresAt': DateTime.now()
+                            .add(ShipmentCheckoutService.draftLifetime)
+                            .toIso8601String(),
+                      };
+                      await ShipmentCheckoutService.instance.saveDraft(draft);
+                      if (!mounted) return;
+                      context.push('/payment', extra: draft);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -798,22 +830,25 @@ class _ActiveShipmentChatCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: onAddKg,
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Add kg'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor:
-                              isClosed ? AppColors.gray300 : AppColors.primary,
-                          foregroundColor: AppColors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                    if (onAddKg != null) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: onAddKg,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Add kg'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: isClosed
+                                ? AppColors.gray300
+                                : AppColors.primary,
+                            foregroundColor: AppColors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],

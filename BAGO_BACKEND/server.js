@@ -32,6 +32,7 @@ import {
   paypalReturn,
   paypalWebhook,
   voidPaypalAuthorization,
+  withdrawPaypalPayout,
 } from './controllers/PayPalController.js';
 
 dotenv.config();
@@ -863,6 +864,7 @@ app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by sig
 // captured funds in escrow until the shipment is completed.
 app.get('/api/config/paypal', isAuthenticated, getPaypalConfig);
 app.post('/api/payouts/paypal/connect', isAuthenticated, requireKycVerification, connectPaypalPayout);
+app.post('/api/payouts/paypal/withdraw', isAuthenticated, withdrawPaypalPayout);
 app.post('/api/payments/paypal/create-order', isAuthenticated, createPaypalOrder);
 app.post('/api/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
 app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
