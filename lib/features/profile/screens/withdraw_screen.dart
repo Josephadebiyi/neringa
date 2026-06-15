@@ -498,34 +498,6 @@ class _WithdrawBalanceHero extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 14),
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.42),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                const Icon(Icons.account_balance_wallet_rounded,
-                    color: AppColors.black, size: 38),
-                Positioned(
-                  right: 13,
-                  bottom: 14,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE5E7EB),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
