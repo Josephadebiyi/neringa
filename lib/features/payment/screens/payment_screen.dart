@@ -33,7 +33,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isProcessing = false;
   bool _applePaySupported = false;
   bool _paypalCardsEligible = false;
-  bool _paypalApplePayEligible = false;
   _CheckoutPaymentMethod _selectedMethod = _CheckoutPaymentMethod.paypal;
   Map<String, dynamic>? _draft;
   String? _initError;
@@ -93,8 +92,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         setState(() {
           _isSdkReady = true;
           _paypalCardsEligible = config.advancedCardsEligible;
-          _paypalApplePayEligible = config.applePayEligible;
-          _applePaySupported = Platform.isIOS && config.applePayEligible;
+          _applePaySupported = Platform.isIOS;
           if (!_applePaySupported) {
             _selectedMethod = _CheckoutPaymentMethod.card;
           }
@@ -193,16 +191,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
         builder: (_) => _PaypalCardDetailsScreen(
           cardFieldsEligible: _paypalCardsEligible,
           amountLabel: _amountLabel(_draft!),
-          onUsePaypal: _startPaypalCheckout,
+          onUsePaypal: () => _startPaypalCheckout(paymentMethod: 'card'),
         ),
       ),
     );
   }
 
   Future<void> _startApplePayCheckout() async {
-    if (!_applePaySupported || !_paypalApplePayEligible) {
+    if (!_applePaySupported) {
       setState(() => _initError =
-          'Apple Pay is not enabled for this PayPal merchant yet. Please use card or PayPal.');
+          'Apple Pay is available only on supported iPhone devices. Please use card or PayPal.');
       return;
     }
     await _startPaypalCheckout(paymentMethod: 'apple_pay');
@@ -727,8 +725,8 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final fallbackText = widget.cardFieldsEligible
-        ? 'Secure card payment is handled by PayPal. Continue to PayPal checkout and choose card if it is offered for this payment.'
-        : 'PayPal Advanced Card Processing is not enabled for this account yet. Continue with PayPal checkout to pay safely without sharing card details with Bago.';
+        ? 'Enter your card on PayPal’s secure card screen. Bago never sees the card number or CVV.'
+        : 'Card details open on PayPal’s secure checkout screen. Bago never sees the card number or CVV.';
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
       appBar: AppBar(
@@ -741,7 +739,7 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 30),
         children: [
           Text(
-            'Card payment',
+            'Bank card',
             style: AppTextStyles.displaySm.copyWith(
               color: AppColors.black,
               fontWeight: FontWeight.w900,
@@ -800,7 +798,7 @@ class _PaypalCardDetailsScreenState extends State<_PaypalCardDetailsScreen> {
           ),
           const SizedBox(height: 18),
           Text(
-            'Cards used during PayPal checkout may be saved by PayPal if your account is eligible.',
+            'The next screen is where you enter the card details securely.',
             style: AppTextStyles.bodySm.copyWith(
               color: AppColors.gray500,
               height: 1.4,
