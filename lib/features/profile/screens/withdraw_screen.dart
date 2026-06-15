@@ -45,6 +45,11 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     return 0;
   }
 
+  double _profileBalance() => ref.read(authProvider).user?.walletBalance ?? 0;
+
+  double _profileEscrowBalance() =>
+      ref.read(authProvider).user?.escrowBalance ?? 0;
+
   static const _africanCurrencies = {
     'AOA',
     'BIF',
@@ -107,27 +112,43 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       await ref.read(authProvider.notifier).refreshProfile();
       final res = await ApiService.instance.get(ApiConstants.walletBalance);
       final data = res.data as Map<String, dynamic>?;
+      final parsedBalance = _numFrom(data, const [
+        'balance',
+        'walletBalance',
+        'wallet_balance',
+        'availableBalance',
+        'available_balance',
+        'data.balance',
+        'data.walletBalance',
+        'data.wallet_balance',
+        'data.availableBalance',
+        'data.available_balance',
+      ]);
+      final parsedEscrowBalance = _numFrom(data, const [
+        'escrowBalance',
+        'escrow_balance',
+        'data.escrowBalance',
+        'data.escrow_balance',
+      ]);
+      final fallbackBalance = _profileBalance();
+      final fallbackEscrowBalance = _profileEscrowBalance();
       if (mounted) {
         setState(() {
-          _balance = _numFrom(data, const [
-            'balance',
-            'availableBalance',
-            'available_balance',
-            'data.balance',
-            'data.availableBalance',
-            'data.available_balance',
-          ]);
-          _escrowBalance = _numFrom(data, const [
-            'escrowBalance',
-            'escrow_balance',
-            'data.escrowBalance',
-            'data.escrow_balance',
-          ]);
+          _balance = parsedBalance > 0 ? parsedBalance : fallbackBalance;
+          _escrowBalance = parsedEscrowBalance > 0
+              ? parsedEscrowBalance
+              : fallbackEscrowBalance;
           _balanceLoading = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _balanceLoading = false);
+      if (mounted) {
+        setState(() {
+          _balance = _profileBalance();
+          _escrowBalance = _profileEscrowBalance();
+          _balanceLoading = false;
+        });
+      }
     }
   }
 

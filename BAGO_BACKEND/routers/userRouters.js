@@ -197,7 +197,7 @@ userRouter.post('/request/:requestId/confirm-handover', isAuthenticated, require
 userRouter.delete('/request/:requestId', isAuthenticated, deleteRequestFromHistory);
 
 // 💰 Wallet & Payments
-userRouter.get('/getWallet', isAuthenticated, requireKycVerification, getWallet);
+userRouter.get('/getWallet', isAuthenticated, getWallet);
 userRouter.post('/withdrawFunds', isAuthenticated, requireKycVerification, withdrawFunds);
 userRouter.post('/addFunds', isAuthenticated, requireKycVerification, addFunds);
 userRouter.post('/send-to-escrow', isAuthenticated, requireKycVerification, sendToEscrow);
