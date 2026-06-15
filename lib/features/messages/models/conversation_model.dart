@@ -33,19 +33,55 @@ class ConversationModel {
     this.trackingNumber,
   });
 
-  bool get isClosed =>
-      ['completed', 'cancelled', 'rejected'].contains(
+  bool get isClosed => ['completed', 'cancelled', 'rejected'].contains(
         requestStatus?.toLowerCase(),
       );
+
+  ConversationModel copyWith({
+    String? id,
+    String? otherUserId,
+    String? otherUserName,
+    String? otherUserAvatar,
+    String? lastMessage,
+    String? lastMessageTime,
+    int? unreadCount,
+    String? createdAt,
+    String? requestId,
+    String? requestStatus,
+    String? tripId,
+    String? packageTitle,
+    String? routeLabel,
+    String? trackingNumber,
+  }) {
+    return ConversationModel(
+      id: id ?? this.id,
+      otherUserId: otherUserId ?? this.otherUserId,
+      otherUserName: otherUserName ?? this.otherUserName,
+      otherUserAvatar: otherUserAvatar ?? this.otherUserAvatar,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      unreadCount: unreadCount ?? this.unreadCount,
+      createdAt: createdAt ?? this.createdAt,
+      requestId: requestId ?? this.requestId,
+      requestStatus: requestStatus ?? this.requestStatus,
+      tripId: tripId ?? this.tripId,
+      packageTitle: packageTitle ?? this.packageTitle,
+      routeLabel: routeLabel ?? this.routeLabel,
+      trackingNumber: trackingNumber ?? this.trackingNumber,
+    );
+  }
 
   String get initials {
     final parts = otherUserName.trim().split(' ');
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    if (parts.isNotEmpty && parts[0].isNotEmpty) return parts[0][0].toUpperCase();
+    if (parts.isNotEmpty && parts[0].isNotEmpty) {
+      return parts[0][0].toUpperCase();
+    }
     return '?';
   }
 
-  factory ConversationModel.fromJson(Map<String, dynamic> json, String currentUserId) {
+  factory ConversationModel.fromJson(
+      Map<String, dynamic> json, String currentUserId) {
     final sender = json['sender'] as Map<String, dynamic>?;
     final traveler = json['traveler'] as Map<String, dynamic>?;
     final request = json['request'] as Map<String, dynamic>?;
@@ -77,7 +113,8 @@ class ConversationModel {
     final package = request?['package'] as Map<String, dynamic>?;
     final fromCity = package?['fromCity']?.toString().trim() ?? '';
     final toCity = package?['toCity']?.toString().trim() ?? '';
-    final routeLabel = [fromCity, toCity].where((part) => part.isNotEmpty).join(' → ');
+    final routeLabel =
+        [fromCity, toCity].where((part) => part.isNotEmpty).join(' → ');
 
     final rawLastMsg = json['lastMessage'];
     final lastMsg = rawLastMsg is Map<String, dynamic>
@@ -89,18 +126,18 @@ class ConversationModel {
       otherUserId: otherId,
       otherUserName: otherName,
       otherUserAvatar: otherAvatar,
-      lastMessage:
-          lastMsg?['content']?.toString() ??
-              lastMsg?['text']?.toString() ??
-              (rawLastMsg is String ? rawLastMsg : null) ??
-              json['message']?.toString() ??
-              json['last_message']?.toString(),
+      lastMessage: lastMsg?['content']?.toString() ??
+          lastMsg?['text']?.toString() ??
+          (rawLastMsg is String ? rawLastMsg : null) ??
+          json['message']?.toString() ??
+          json['last_message']?.toString(),
       lastMessageTime: lastMsg?['createdAt']?.toString() ??
           lastMsg?['timestamp']?.toString() ??
           json['lastMessageTime']?.toString() ??
           json['updatedAt']?.toString() ??
           json['updated_at']?.toString(),
-      unreadCount: JsonParser.parseInt(json, 'unreadCount', altKey: 'unread_count'),
+      unreadCount:
+          JsonParser.parseInt(json, 'unreadCount', altKey: 'unread_count'),
       createdAt: json['createdAt']?.toString() ??
           json['updatedAt']?.toString() ??
           json['updated_at']?.toString() ??
@@ -108,8 +145,8 @@ class ConversationModel {
       requestId: request?['_id']?.toString() ??
           request?['id']?.toString() ??
           json['requestId']?.toString(),
-      requestStatus: request?['status']?.toString() ??
-          json['requestStatus']?.toString(),
+      requestStatus:
+          request?['status']?.toString() ?? json['requestStatus']?.toString(),
       tripId: request?['trip']?['_id']?.toString() ??
           request?['trip']?.toString() ??
           json['tripId']?.toString(),

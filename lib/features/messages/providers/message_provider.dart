@@ -154,11 +154,13 @@ class MessageNotifier extends Notifier<MessageState> {
   Future<void> _pollForNewMessages(String conversationId) async {
     if (conversationId != state.activeConversationId) return;
     try {
-      final latest = await _service.getMessages(conversationId, page: 1, limit: 30);
+      final latest =
+          await _service.getMessages(conversationId, page: 1, limit: 30);
       if (latest.isEmpty) return;
 
       // Add only messages not already seen
-      final newMsgs = latest.where((m) => !_seenMessageIds.contains(m.id)).toList();
+      final newMsgs =
+          latest.where((m) => !_seenMessageIds.contains(m.id)).toList();
       if (newMsgs.isEmpty) return;
 
       for (final m in newMsgs) {
@@ -170,8 +172,9 @@ class MessageNotifier extends Notifier<MessageState> {
       var updated = List<MessageModel>.from(state.messages);
       for (final msg in newMsgs) {
         final optIdx = msg.senderId == currentUserId
-            ? updated.indexWhere(
-                (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim())
+            ? updated.indexWhere((m) =>
+                m.id.startsWith('opt_') &&
+                m.content.trim() == msg.content.trim())
             : -1;
         if (optIdx >= 0) {
           updated[optIdx] = msg;
@@ -198,7 +201,9 @@ class MessageNotifier extends Notifier<MessageState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final currentUserId = ref.read(authProvider).user?.id ?? '';
-      final convs = await _service.getConversations(currentUserId);
+      final convs = _dedupeConversations(
+        await _service.getConversations(currentUserId),
+      );
       state = state.copyWith(
         conversations: convs,
         unreadCount: convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
@@ -235,7 +240,8 @@ class MessageNotifier extends Notifier<MessageState> {
     );
 
     try {
-      final msgs = await _service.getMessages(conversationId, page: 1, limit: 50);
+      final msgs =
+          await _service.getMessages(conversationId, page: 1, limit: 50);
 
       // Seed dedup registry with loaded messages
       for (final m in msgs) {
@@ -248,7 +254,8 @@ class MessageNotifier extends Notifier<MessageState> {
         hasMoreMessages: msgs.length == 50,
       );
       // msgs are ASC ordered — last item is the newest
-      _lastMessageTime = msgs.isNotEmpty ? _parseTimestamp(msgs.last.createdAt) : null;
+      _lastMessageTime =
+          msgs.isNotEmpty ? _parseTimestamp(msgs.last.createdAt) : null;
 
       unawaited(_service.markAsRead(conversationId));
       _attachSocketListeners();
@@ -293,15 +300,18 @@ class MessageNotifier extends Notifier<MessageState> {
     if (convId == null || convId.isEmpty) return;
 
     // Use oldest visible message's timestamp as cursor
-    final oldestTs = state.messages.isNotEmpty ? state.messages.first.createdAt : null;
+    final oldestTs =
+        state.messages.isNotEmpty ? state.messages.first.createdAt : null;
 
     try {
-      final older = await _service.getMessages(convId, limit: 50, before: oldestTs);
+      final older =
+          await _service.getMessages(convId, limit: 50, before: oldestTs);
       if (older.isEmpty) {
         state = state.copyWith(hasMoreMessages: false);
         return;
       }
-      final newOlder = older.where((m) => !_seenMessageIds.contains(m.id)).toList();
+      final newOlder =
+          older.where((m) => !_seenMessageIds.contains(m.id)).toList();
       for (final m in newOlder) {
         _seenMessageIds.add(m.id);
       }
@@ -333,7 +343,8 @@ class MessageNotifier extends Notifier<MessageState> {
       if (msg.senderId == currentUserId) {
         // Own message confirmed by DB — reconcile with pending optimistic
         final optIdx = state.messages.indexWhere(
-          (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+          (m) =>
+              m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
         );
         if (optIdx >= 0) {
           _seenMessageIds.add(msgId);
@@ -376,7 +387,8 @@ class MessageNotifier extends Notifier<MessageState> {
       final currentUserId = ref.read(authProvider).user?.id ?? '';
       if (msg.senderId == currentUserId) {
         final optIdx = state.messages.indexWhere(
-          (m) => m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
+          (m) =>
+              m.id.startsWith('opt_') && m.content.trim() == msg.content.trim(),
         );
         if (optIdx >= 0) {
           _seenMessageIds.add(msg.id);
@@ -424,16 +436,12 @@ class MessageNotifier extends Notifier<MessageState> {
         conversations.insert(0, updated);
       }
 
-      // Keep sorted: most recently updated first
-      conversations.sort((a, b) {
-        final aTime = a.lastMessageTime ?? a.createdAt;
-        final bTime = b.lastMessageTime ?? b.createdAt;
-        return bTime.compareTo(aTime);
-      });
+      conversations = _dedupeConversations(conversations);
 
       state = state.copyWith(
         conversations: conversations,
-        unreadCount: conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
+        unreadCount:
+            conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
       );
     } catch (e) {
       debugPrint('_onSocketConversationUpdate error: $e');
@@ -444,7 +452,9 @@ class MessageNotifier extends Notifier<MessageState> {
     try {
       final currentUserId = ref.read(authProvider).user?.id ?? '';
       if (currentUserId.isEmpty) return;
-      final convs = await _service.getConversations(currentUserId);
+      final convs = _dedupeConversations(
+        await _service.getConversations(currentUserId),
+      );
       state = state.copyWith(
         conversations: convs,
         unreadCount: convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
@@ -452,6 +462,40 @@ class MessageNotifier extends Notifier<MessageState> {
     } catch (e) {
       debugPrint('_refreshConversationsSilently error: $e');
     }
+  }
+
+  List<ConversationModel> _dedupeConversations(
+    List<ConversationModel> conversations,
+  ) {
+    final byParticipant = <String, ConversationModel>{};
+    final unreadByParticipant = <String, int>{};
+    for (final conversation in conversations) {
+      final key = conversation.otherUserId.trim().isNotEmpty
+          ? conversation.otherUserId.trim()
+          : conversation.id;
+      unreadByParticipant[key] =
+          (unreadByParticipant[key] ?? 0) + conversation.unreadCount;
+      final existing = byParticipant[key];
+      if (existing == null ||
+          _conversationTimestamp(conversation)
+                  .compareTo(_conversationTimestamp(existing)) >
+              0) {
+        byParticipant[key] = conversation;
+      }
+    }
+    final deduped = byParticipant.entries.map((entry) {
+      final conversation = entry.value;
+      return conversation.copyWith(
+        unreadCount: unreadByParticipant[entry.key] ?? conversation.unreadCount,
+      );
+    }).toList()
+      ..sort((a, b) =>
+          _conversationTimestamp(b).compareTo(_conversationTimestamp(a)));
+    return deduped;
+  }
+
+  String _conversationTimestamp(ConversationModel conversation) {
+    return conversation.lastMessageTime ?? conversation.createdAt;
   }
 
   // ---------------------------------------------------------------------------
@@ -468,7 +512,8 @@ class MessageNotifier extends Notifier<MessageState> {
   void _detachSocketListeners() {
     if (!_socketListenerAttached) return;
     SocketService.instance.removeMessageListener(_socketMessageListener);
-    SocketService.instance.removeConversationListener(_socketConversationListener);
+    SocketService.instance
+        .removeConversationListener(_socketConversationListener);
     _socketListenerAttached = false;
   }
 
@@ -551,13 +596,16 @@ class MessageNotifier extends Notifier<MessageState> {
           m.content.trim() == trimmedContent.trim());
       if (alreadyDelivered) {
         // Remove orphaned optimistic
-        final cleaned = state.messages.where((m) => m.id != optimisticMsg.id).toList();
+        final cleaned =
+            state.messages.where((m) => m.id != optimisticMsg.id).toList();
         state = state.copyWith(messages: cleaned, isSending: false);
         return;
       }
       // Mark optimistic as failed (keep it visible, show error)
-      final rolled = state.messages.where((m) => m.id != optimisticMsg.id).toList();
-      state = state.copyWith(messages: rolled, isSending: false, error: e.toString());
+      final rolled =
+          state.messages.where((m) => m.id != optimisticMsg.id).toList();
+      state = state.copyWith(
+          messages: rolled, isSending: false, error: e.toString());
       rethrow;
     }
   }

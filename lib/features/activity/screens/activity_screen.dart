@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -319,6 +320,8 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
 
   Future<void> _deleteDraftPackage(PackageModel pkg) async {
     if (pkg.status != PackageStatus.draft) return;
+    Feedback.forLongPress(context);
+    HapticFeedback.mediumImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

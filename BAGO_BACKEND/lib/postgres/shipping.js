@@ -322,8 +322,8 @@ const requestSelect = `
     select id from public.conversations
     where request_id = sr.id
        or (
-        sender_id = sr.sender_id
-        and traveler_id = sr.traveler_id
+        least(sender_id::text, traveler_id::text) = least(sr.sender_id::text, sr.traveler_id::text)
+        and greatest(sender_id::text, traveler_id::text) = greatest(sr.sender_id::text, sr.traveler_id::text)
       )
     order by case when request_id = sr.id then 0 else 1 end, updated_at desc
     limit 1
@@ -786,8 +786,8 @@ export async function createConversationForRequest(requestId, senderId, traveler
       `
         select id
         from public.conversations
-        where sender_id = $1
-          and traveler_id = $2
+        where least(sender_id::text, traveler_id::text) = least($1::text, $2::text)
+          and greatest(sender_id::text, traveler_id::text) = greatest($1::text, $2::text)
         order by updated_at desc
         limit 1
       `,

@@ -9,14 +9,14 @@ const apply = process.argv.includes('--apply');
 async function main() {
   const duplicateGroups = await query(`
     select
-      sender_id,
-      traveler_id,
+      least(sender_id::text, traveler_id::text) as user_a,
+      greatest(sender_id::text, traveler_id::text) as user_b,
       array_agg(id order by updated_at desc, created_at desc) as conversation_ids,
       count(*)::int as conversation_count
     from public.conversations
     where sender_id is not null
       and traveler_id is not null
-    group by sender_id, traveler_id
+    group by 1, 2
     having count(*) > 1
     order by count(*) desc
   `);
@@ -40,8 +40,8 @@ async function main() {
     );
 
     report.push({
-      senderId: group.sender_id,
-      travelerId: group.traveler_id,
+      userA: group.user_a,
+      userB: group.user_b,
       primaryConversationId: primaryId,
       mergedConversationIds: duplicateIds,
       messageCounts: messageCounts.rows,

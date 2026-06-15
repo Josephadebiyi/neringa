@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart' show Dio, Options;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/api_constants.dart';
@@ -553,6 +554,8 @@ class _PackageCard extends ConsumerWidget {
 
   Future<void> _deleteDraft(BuildContext context, WidgetRef ref) async {
     if (package.status != PackageStatus.draft) return;
+    Feedback.forLongPress(context);
+    HapticFeedback.mediumImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
