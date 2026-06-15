@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
@@ -92,7 +93,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         setState(() {
           _isSdkReady = true;
           _paypalCardsEligible = config.advancedCardsEligible;
-          _applePaySupported = Platform.isIOS;
+          _applePaySupported = Platform.isIOS && config.applePayEligible;
           if (!_applePaySupported) {
             _selectedMethod = _CheckoutPaymentMethod.card;
           }
@@ -198,12 +199,92 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _startApplePayCheckout() async {
+    if (_isProcessing || _draft == null || !_isSdkReady) return;
     if (!_applePaySupported) {
       setState(() => _initError =
           'Apple Pay is available only on supported iPhone devices. Please use card or PayPal.');
       return;
     }
-    await _startPaypalCheckout(paymentMethod: 'apple_pay');
+    setState(() => _isProcessing = true);
+    String? paymentReference;
+    try {
+      final draft = _draft!;
+      final currency = _asString(draft['currency'], 'USD');
+      final packageId = draft['packageId']?.toString() ?? '';
+      final tripId = draft['tripId']?.toString() ?? '';
+      final travelerId = draft['travelerId']?.toString() ?? '';
+      final session = await _paymentService.createPaypalOrder(
+        packageId: packageId,
+        tripId: tripId,
+        travelerId: travelerId,
+        currency: currency,
+        insurance: draft['insurance'] == true,
+        paymentMethod: 'apple_pay',
+        customerEmail: draft['customerEmail']?.toString(),
+        additionalRequestId: draft['additionalRequestId']?.toString(),
+        additionalKg: _asDouble(draft['additionalKg']),
+      );
+      paymentReference = session.orderId;
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final applePayUrl = Uri.parse(ApiConstants.baseUrl)
+          .resolve(ApiConstants.paypalApplePaySheet)
+          .replace(queryParameters: {
+        'orderId': session.orderId,
+        'amount': session.amount.toStringAsFixed(2),
+        'currency': session.currency,
+      }).toString();
+
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _PaymentWebView(
+            url: applePayUrl,
+            title: 'Apple Pay',
+            callbackUrlPattern: '/api/payments/paypal/return',
+            cancelUrlPattern: '/api/payments/paypal/cancel',
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (result?['type'] == 'cancel') {
+        _failWithDraft('apple_pay', 'Payment was cancelled.',
+            paymentReference: paymentReference);
+        return;
+      }
+      if (result?['type'] != 'callback') {
+        _failWithDraft('apple_pay', 'Payment was not approved.',
+            paymentReference: paymentReference);
+        return;
+      }
+
+      setState(() => _isProcessing = true);
+      final capture =
+          await _paymentService.capturePaypalOrder(orderId: session.orderId);
+      await _completeShipmentAfterPayment(
+        draft: draft,
+        travelerId: travelerId,
+        packageId: packageId,
+        tripId: tripId,
+        currency: capture.currency,
+        paymentReference: capture.paymentReference,
+        paymentProvider: 'paypal_apple_pay',
+        paymentStatus: 'paid_escrow',
+        amountOverride:
+            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
+      );
+    } catch (e) {
+      debugPrint('Apple Pay payment error: $e');
+      _failWithDraft(
+        'apple_pay',
+        e.toString().replaceFirst('Exception: ', ''),
+        paymentReference: paymentReference,
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   Future<void> _startPaypalCheckout({String paymentMethod = 'paypal'}) async {
@@ -223,6 +304,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         currency: currency,
         insurance: draft['insurance'] == true,
         paymentMethod: paymentMethod,
+        customerEmail: draft['customerEmail']?.toString(),
         additionalRequestId: draft['additionalRequestId']?.toString(),
         additionalKg: _asDouble(draft['additionalKg']),
       );

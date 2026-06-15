@@ -16,7 +16,7 @@ export function isPaypalAdvancedCardsEnabled() {
 }
 
 export function isPaypalApplePayEnabled() {
-  return process.env.PAYPAL_APPLE_PAY_ENABLED !== 'false';
+  return process.env.PAYPAL_APPLE_PAY_ENABLED === 'true';
 }
 
 function requirePaypalCredentials() {
@@ -78,11 +78,18 @@ export async function createPaypalOrder({
   description,
   returnUrl,
   cancelUrl,
+  paymentMethod = 'paypal',
+  payerEmail,
 }) {
+  const normalizedMethod = String(paymentMethod || 'paypal').toLowerCase();
+  const payer = String(payerEmail || '').trim()
+    ? { email_address: String(payerEmail).trim() }
+    : undefined;
   return paypalRequest('/v2/checkout/orders', {
     method: 'POST',
     body: {
       intent: 'CAPTURE',
+      ...(payer ? { payer } : {}),
       purchase_units: [
         {
           reference_id: customId,
@@ -96,7 +103,7 @@ export async function createPaypalOrder({
       ],
       application_context: {
         brand_name: 'Bago',
-        landing_page: 'LOGIN',
+        landing_page: normalizedMethod === 'card' ? 'BILLING' : 'LOGIN',
         shipping_preference: 'NO_SHIPPING',
         user_action: 'PAY_NOW',
         return_url: returnUrl,

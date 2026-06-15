@@ -421,6 +421,8 @@ export async function createPaypalOrder(req, res) {
       description: 'Bago shipment payment',
       returnUrl: `${publicBaseUrl()}/api/payments/paypal/return`,
       cancelUrl: `${publicBaseUrl()}/api/payments/paypal/cancel`,
+      paymentMethod: req.body?.paymentMethod || 'paypal',
+      payerEmail: req.body?.customerEmail || req.user?.email,
     });
     const approvalUrl = approvalUrlFromOrder(order);
     if (!order?.id || !approvalUrl) {
@@ -698,4 +700,114 @@ export function paypalReturn(_req, res) {
 
 export function paypalCancel(_req, res) {
   res.type('html').send('<!doctype html><html><body><p>Payment cancelled. You can return to Bago.</p></body></html>');
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function paypalApplePaySheet(req, res) {
+  const clientId = getPaypalClientId();
+  const orderId = req.query.orderId?.toString() || '';
+  const amount = Number(req.query.amount || 0).toFixed(2);
+  const currency = (req.query.currency?.toString() || 'USD').toUpperCase();
+
+  if (!clientId || !orderId || Number(amount) <= 0 || !isPaypalApplePayEnabled()) {
+    return res.type('html').send(`<!doctype html>
+      <html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px">
+        <h2>Apple Pay is not available</h2>
+        <p>Please go back and use Bank Card or PayPal.</p>
+      </body></html>`);
+  }
+
+  const safeClientId = encodeURIComponent(clientId);
+  const safeOrderId = escapeHtml(orderId);
+  const safeAmount = escapeHtml(amount);
+  const safeCurrency = escapeHtml(currency);
+
+  res.type('html').send(`<!doctype html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <script src="https://www.paypal.com/sdk/js?client-id=${safeClientId}&currency=${safeCurrency}&components=applepay"></script>
+        <script src="https://applepay.cdn-apple.com/jsapi/1.latest/apple-pay-sdk.js"></script>
+        <style>
+          body { margin:0; padding:32px 22px; font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#fff; color:#111827; }
+          h1 { font-size:32px; line-height:1.05; margin:48px 0 16px; font-weight:900; }
+          p { color:#6b7280; font-size:17px; line-height:1.4; }
+          apple-pay-button { --apple-pay-button-width:100%; --apple-pay-button-height:56px; --apple-pay-button-border-radius:16px; margin-top:28px; }
+          .error { color:#b91c1c; margin-top:18px; }
+        </style>
+      </head>
+      <body>
+        <h1>Apple Pay</h1>
+        <p>Confirm ${safeCurrency} ${safeAmount} with Apple Pay. Bago will hold the payment in escrow until shipping is complete.</p>
+        <div id="applepay-container"></div>
+        <p id="message" class="error"></p>
+        <script>
+          const orderId = "${safeOrderId}";
+          const amount = "${safeAmount}";
+          const currency = "${safeCurrency}";
+          const returnUrl = "/api/payments/paypal/return?orderId=" + encodeURIComponent(orderId);
+          const cancelUrl = "/api/payments/paypal/cancel?orderId=" + encodeURIComponent(orderId);
+          const message = document.getElementById("message");
+
+          function fail(text) {
+            message.textContent = text || "Apple Pay could not be started.";
+          }
+
+          async function setupApplePay() {
+            if (!window.ApplePaySession || !ApplePaySession.canMakePayments()) {
+              fail("Apple Pay is not available on this device.");
+              return;
+            }
+            const applepay = paypal.Applepay();
+            const config = await applepay.config();
+            if (!config.isEligible) {
+              fail("Apple Pay is not enabled for this PayPal merchant.");
+              return;
+            }
+            document.getElementById("applepay-container").innerHTML =
+              '<apple-pay-button id="apple-pay-button" buttonstyle="black" type="pay" locale="en"></apple-pay-button>';
+            document.getElementById("apple-pay-button").addEventListener("click", () => {
+              const paymentRequest = {
+                countryCode: config.countryCode,
+                merchantCapabilities: config.merchantCapabilities,
+                supportedNetworks: config.supportedNetworks,
+                currencyCode: currency,
+                total: { label: "Bago", type: "final", amount }
+              };
+              const session = new ApplePaySession(4, paymentRequest);
+              session.onvalidatemerchant = (event) => {
+                applepay.validateMerchant({ validationUrl: event.validationURL, displayName: "Bago" })
+                  .then((result) => session.completeMerchantValidation(result.merchantSession))
+                  .catch(() => { session.abort(); fail("Apple Pay merchant validation failed."); });
+              };
+              session.onpaymentauthorized = (event) => {
+                applepay.confirmOrder({
+                  orderId,
+                  token: event.payment.token,
+                  billingContact: event.payment.billingContact
+                }).then(() => {
+                  session.completePayment(ApplePaySession.STATUS_SUCCESS);
+                  window.location.href = returnUrl;
+                }).catch(() => {
+                  session.completePayment(ApplePaySession.STATUS_FAILURE);
+                  fail("Apple Pay could not confirm this payment.");
+                });
+              };
+              session.oncancel = () => { window.location.href = cancelUrl; };
+              session.begin();
+            });
+          }
+
+          setupApplePay().catch(() => fail("Apple Pay could not be loaded."));
+        </script>
+      </body>
+    </html>`);
 }

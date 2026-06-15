@@ -245,6 +245,7 @@ class PaymentService {
     required String currency,
     bool insurance = false,
     String paymentMethod = 'paypal',
+    String? customerEmail,
     String? additionalRequestId,
     double? additionalKg,
   }) async {
@@ -262,6 +263,8 @@ class PaymentService {
           'currency': currency,
           'insurance': insurance,
           'paymentMethod': paymentMethod,
+          if (customerEmail != null && customerEmail.trim().isNotEmpty)
+            'customerEmail': customerEmail.trim(),
           if (additionalRequestId != null &&
               additionalRequestId.trim().isNotEmpty)
             'requestId': additionalRequestId.trim(),
