@@ -563,10 +563,29 @@ export async function getWalletByUserId(userId) {
 
   const history = await query(
     `
-      select id, type, amount, currency, status, description, metadata, created_at
-      from public.wallet_transactions
-      where user_id = $1
-      order by created_at desc
+      select
+        wt.id,
+        wt.request_id,
+        wt.trip_id,
+        wt.type::text as type,
+        wt.amount,
+        wt.currency,
+        wt.status,
+        wt.description,
+        wt.metadata,
+        wt.created_at,
+        sr.tracking_number,
+        sr.status as shipment_status,
+        sr.amount as shipment_amount,
+        sr.currency as shipment_currency,
+        t.trip_number,
+        t.from_location as trip_from_location,
+        t.to_location as trip_to_location
+      from public.wallet_transactions wt
+      left join public.shipment_requests sr on sr.id = wt.request_id
+      left join public.trips t on t.id = coalesce(wt.trip_id, sr.trip_id)
+      where wt.user_id = $1
+      order by wt.created_at desc
       limit 200
     `,
     [userId],
@@ -581,13 +600,27 @@ export async function getWalletByUserId(userId) {
     `,
     [userId],
   );
+  const ledgerTotals = await queryOne(
+    `
+      select
+        coalesce(sum(converted_traveler_earning) filter (where wallet_credit_created is true), 0) as released_earnings,
+        coalesce(sum(converted_traveler_earning) filter (where escrow_status = 'held'), 0) as held_earnings
+      from public.shipment_ledgers
+      where traveler_id = $1
+    `,
+    [userId],
+  );
 
   return {
     ...wallet,
     balance: Number(wallet.available_balance || 0),
     escrowBalance: Number(wallet.escrow_balance || 0),
-    allTimeReceived: Number(totals?.all_time_received || 0),
+    allTimeReceived: Math.max(
+      Number(totals?.all_time_received || 0),
+      Number(ledgerTotals?.released_earnings || 0),
+    ),
     allTimeExpenses: Number(totals?.all_time_expenses || 0),
+    heldEarnings: Number(ledgerTotals?.held_earnings || 0),
     history: history.rows,
   };
 }

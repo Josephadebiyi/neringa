@@ -8,7 +8,24 @@ import api from '../../api';
 
 const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const EARNING_TYPES = new Set(['earning', 'earnings', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release']);
+const EARNING_TYPES = new Set(['earning', 'signup_bonus', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release']);
+const EXPENSE_TYPES = new Set(['withdrawal', 'withdraw', 'payout', 'debit', 'escrow_hold']);
+
+function transactionTitle(tx, isOut) {
+    if (tx.description) return tx.description;
+    if (tx.tracking_number) return `Shipment ${tx.tracking_number}`;
+    if (tx.trip_number) return `Trip #${tx.trip_number}`;
+    return isOut ? 'Withdrawal' : 'Earnings';
+}
+
+function transactionMeta(tx) {
+    const parts = [];
+    if (tx.trip_number) parts.push(`Trip #${tx.trip_number}`);
+    if (tx.tracking_number) parts.push(`Tracking ${tx.tracking_number}`);
+    const route = [tx.trip_from_location, tx.trip_to_location].filter(Boolean).join(' → ');
+    if (route) parts.push(route);
+    return parts.join(' · ');
+}
 
 function BarChart({ data, activeIndex }) {
     const max = Math.max(...data.map(d => d.value), 1);
@@ -138,13 +155,17 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
     const sparkValues = chartData.map(d => d.value);
 
     const recentTxs = [...walletData.history].slice(0, 8);
+    const derivedAllTimeReceived = walletData.history
+        .filter(tx => EARNING_TYPES.has((tx.type || '').toLowerCase()) && (tx.status || 'completed').toLowerCase() === 'completed')
+        .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
     const thisMonth = userStats?.thisMonthShipments ?? 0;
     const lastMonth = userStats?.lastMonthShipments ?? 0;
     const monthDelta = thisMonth - lastMonth;
     const monthUp = monthDelta >= 0;
 
-    const allTimeFormatted = walletData.allTimeReceived.toLocaleString(undefined, {
+    const allTimeIncome = walletData.allTimeReceived || derivedAllTimeReceived;
+    const allTimeFormatted = allTimeIncome.toLocaleString(undefined, {
         minimumFractionDigits: 2, maximumFractionDigits: 2,
     });
 
@@ -404,9 +425,10 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 ) : (
                     <div className="divide-y divide-gray-50">
                         {recentTxs.map((tx, i) => {
-                            const isOut = ['withdrawal', 'withdraw', 'payout', 'debit', 'escrow_hold'].includes(tx.type);
+                            const isOut = EXPENSE_TYPES.has(tx.type);
                             const txDate = new Date(tx.created_at || tx.createdAt || tx.date);
                             const txStatus = tx.status || 'completed';
+                            const meta = transactionMeta(tx);
                             return (
                                 <div key={tx.id || i} className="grid grid-cols-1 md:grid-cols-4 items-center px-6 py-4 hover:bg-gray-50/50 transition-all gap-3 md:gap-0">
                                     <div className="flex items-center gap-3">
@@ -417,9 +439,14 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                                         </div>
                                         <div>
                                             <span className="text-[10px] font-black text-[#012126] tracking-tight block truncate max-w-[130px]">
-                                                {tx.description || (isOut ? 'Withdrawal' : 'Earnings')}
+                                                {transactionTitle(tx, isOut)}
                                             </span>
                                             <span className="text-[8px] text-gray-400 font-medium capitalize">{tx.type?.replace(/_/g, ' ')}</span>
+                                            {meta && (
+                                                <span className="text-[8px] text-[#5845D8] font-bold block truncate max-w-[180px]">
+                                                    {meta}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     <span className="text-[9px] font-medium text-gray-400 pl-12 md:pl-0">

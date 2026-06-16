@@ -29,6 +29,22 @@ function getSymbol(currency) {
     return CURRENCY_SYMBOLS[currency] || currency + ' ';
 }
 
+function transactionTitle(tx, isOut) {
+    if (tx.description) return tx.description;
+    if (tx.tracking_number) return `Shipment ${tx.tracking_number}`;
+    if (tx.trip_number) return `Trip #${tx.trip_number}`;
+    return isOut ? 'Payout' : 'Earnings';
+}
+
+function transactionMeta(tx) {
+    const parts = [];
+    if (tx.trip_number) parts.push(`Trip #${tx.trip_number}`);
+    if (tx.tracking_number) parts.push(`Tracking ${tx.tracking_number}`);
+    const route = [tx.trip_from_location, tx.trip_to_location].filter(Boolean).join(' → ');
+    if (route) parts.push(route);
+    return parts.join(' · ');
+}
+
 function PayPalLogo({ size = 20 }) {
     return <img src="/paypal.svg" alt="PayPal" style={{ height: size, width: 'auto' }} />;
 }
@@ -94,7 +110,7 @@ export default function Earnings({ user, checkAuthStatus }) {
         return () => { alive = false; };
     }, []);
 
-    const incomeTypes  = new Set(['earning','earnings','admin_settlement','credit','release','deposit','escrow_release']);
+    const incomeTypes  = new Set(['earning','signup_bonus','admin_settlement','credit','release','deposit','escrow_release']);
     const expenseTypes = new Set(['withdrawal','withdraw','payout','debit','escrow_hold']);
 
     const transactions = useMemo(() => {
@@ -429,6 +445,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div className="divide-y divide-gray-50">
                         {transactions.map((tx, i) => {
                             const isOut = expenseTypes.has(tx.type);
+                            const meta = transactionMeta(tx);
                             return (
                                 <div key={tx.id || i} className="flex items-center justify-between px-7 py-5 hover:bg-gray-50/40 transition-all group">
                                     <div className="flex items-center gap-4">
@@ -437,7 +454,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                         </div>
                                         <div>
                                             <p className="font-black text-[#012126] text-[11px] uppercase tracking-tight mb-0.5">
-                                                {tx.description || (isOut ? 'Payout' : 'Earnings')}
+                                                {transactionTitle(tx, isOut)}
                                             </p>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
@@ -446,6 +463,11 @@ export default function Earnings({ user, checkAuthStatus }) {
                                                 <span className="w-1 h-1 bg-gray-200 rounded-full" />
                                                 <span className="text-[8px] text-[#5845D8] font-black uppercase tracking-widest capitalize">{tx.type.replace(/_/g,' ')}</span>
                                             </div>
+                                            {meta && (
+                                                <p className="text-[8px] text-gray-400 font-bold mt-1 max-w-[260px] truncate">
+                                                    {meta}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="text-right shrink-0 ml-4">
