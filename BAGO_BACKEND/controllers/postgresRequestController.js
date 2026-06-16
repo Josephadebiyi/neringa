@@ -1,5 +1,5 @@
-import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail } from '../services/emailNotifications.js';
-import PDFDocument from 'pdfkit';
+import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail } from '../services/emailNotifications.js';
+import { generateShippingLabelPDF } from '../services/pdfGenerator.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
   confirmShipmentReceived,
@@ -1163,6 +1163,11 @@ export async function getIncomingRequests(req, res) {
       status: request.status,
       insurance: request.insurance,
       insuranceCost: request.insuranceCost,
+      insurancePolicyId: request.insurancePolicyId,
+      insurancePolicyData: request.insurancePolicyData,
+      insuranceStatus: request.insuranceStatus,
+      insuranceError: request.insuranceError,
+      insurancePurchasedAt: request.insurancePurchasedAt,
       trackingNumber: request.trackingNumber,
       travelerProof: request.travelerProof,
       createdAt: request.createdAt,
@@ -1366,6 +1371,15 @@ export async function getRequestDetails(req, res) {
         insurance: request.insurance || false,
         insuranceCost: request.insuranceCost || 0,
         insurance_policy_id: request.insurancePolicyId || null,
+        insurancePolicyId: request.insurancePolicyId || null,
+        insurancePolicyData: request.insurancePolicyData || null,
+        insurance_policy_data: request.insurancePolicyData || null,
+        insuranceStatus: request.insuranceStatus || 'not_selected',
+        insurance_status: request.insuranceStatus || 'not_selected',
+        insuranceError: request.insuranceError || null,
+        insurance_error: request.insuranceError || null,
+        insurancePurchasedAt: request.insurancePurchasedAt || null,
+        insurance_purchased_at: request.insurancePurchasedAt || null,
         dates: {
           created: request.createdAt,
           estimatedDeparture: request.estimatedDeparture,
@@ -1653,47 +1667,54 @@ export async function downloadRequestPDF(req, res) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const doc = new PDFDocument({ margin: 40 });
+    const shippingData = {
+      trackingNumber: request.trackingNumber || request.id,
+      status: request.status || 'pending',
+      sender: {
+        name: request.senderName || 'Sender',
+        phone: request.senderPhone || '',
+      },
+      package: {
+        fromCity: request.package?.fromCity || '',
+        fromCountry: request.package?.fromCountry || '',
+        toCity: request.package?.toCity || '',
+        toCountry: request.package?.toCountry || '',
+        description: request.package?.description || 'General goods',
+        packageWeight: request.package?.packageWeight || 0,
+        category: request.package?.category || 'General',
+        value: request.package?.value || request.amount || 0,
+        receiverName: request.package?.receiverName || '',
+        receiverPhone: request.package?.receiverPhone || '',
+        receiverEmail: request.package?.receiverEmail || '',
+      },
+      traveler: { name: request.travelerName || 'Traveler' },
+      trip: { travelMeans: request.trip?.travelMeans || request.trip?.transportMode || 'N/A' },
+      estimatedDeparture: request.trip?.departureDate || null,
+      estimatedArrival: request.trip?.arrivalDate || null,
+      insurance: Boolean(request.insurance),
+      insuranceCost: request.insuranceCost || 0,
+    };
+
+    const pdfBuffer = await generateShippingLabelPDF(shippingData);
+    const filename = `bago-label-${shippingData.trackingNumber}.pdf`;
+
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="shipping-label-${request.trackingNumber || request.id}.pdf"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
 
-    doc.pipe(res);
-
-    doc.fontSize(20).text('Bago Shipping Label', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Tracking Number: ${request.trackingNumber || request.id}`);
-    doc.text(`Status: ${request.status}`);
-    doc.text(`Amount: ${request.amount} ${request.currency || 'USD'}`);
-    doc.text(`Created: ${request.createdAt ? new Date(request.createdAt).toLocaleString() : 'N/A'}`);
-    doc.moveDown();
-
-    doc.fontSize(14).text('Sender');
-    doc.fontSize(12).text(`${request.senderName || 'N/A'} (${request.senderEmail || 'N/A'})`);
-    doc.moveDown();
-
-    doc.fontSize(14).text('Traveler');
-    doc.fontSize(12).text(`${request.travelerName || 'N/A'} (${request.travelerEmail || 'N/A'})`);
-    doc.moveDown();
-
-    doc.fontSize(14).text('Package');
-    doc.fontSize(12).text(`Description: ${request.package?.description || 'N/A'}`);
-    doc.text(`Weight: ${request.package?.packageWeight || 0} kg`);
-    doc.text(`From: ${request.package?.fromCity || 'N/A'}, ${request.package?.fromCountry || 'N/A'}`);
-    doc.text(`To: ${request.package?.toCity || 'N/A'}, ${request.package?.toCountry || 'N/A'}`);
-    doc.text(`Receiver: ${request.package?.receiverName || 'N/A'}`);
-    doc.text(`Receiver Phone: ${request.package?.receiverPhone || 'N/A'}`);
-    if (request.package?.receiverEmail) {
-      doc.text(`Receiver Email: ${request.package.receiverEmail}`);
+    // Fire-and-forget: email the label to the requester
+    const recipientEmail = userId === request.senderId ? request.senderEmail : request.travelerEmail;
+    const recipientName  = userId === request.senderId ? request.senderName  : request.travelerName;
+    if (recipientEmail) {
+      sendShipmentLabelEmail({
+        toEmail: recipientEmail,
+        toName: recipientName,
+        trackingNumber: shippingData.trackingNumber,
+        requestId,
+        pdfBuffer,
+      }).catch(err => console.warn('Shipment label email failed (non-fatal):', err.message));
     }
-    doc.moveDown();
-
-    doc.fontSize(14).text('Trip');
-    doc.fontSize(12).text(`Departure: ${request.trip?.departureDate ? new Date(request.trip.departureDate).toLocaleString() : 'N/A'}`);
-    doc.text(`Arrival: ${request.trip?.arrivalDate ? new Date(request.trip.arrivalDate).toLocaleString() : 'N/A'}`);
-    doc.end();
   } catch (error) {
     console.error('downloadRequestPDF error:', error);
     if (!res.headersSent) {

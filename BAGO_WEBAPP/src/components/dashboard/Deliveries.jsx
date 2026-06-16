@@ -30,6 +30,16 @@ const imageForRequest = (req) => firstValue(req, [
 ], '');
 const displayValue = (value, fallback = 'Not provided') =>
     value === undefined || value === null || String(value).trim() === '' ? fallback : String(value);
+const insuranceLabel = (req) => {
+    const insured = firstValue(req, ['insurance', 'package.insurance']) === true;
+    if (!insured) return 'Not selected';
+    const policyId = firstValue(req, ['insurancePolicyId', 'insurance_policy_id']);
+    const status = String(firstValue(req, ['insuranceStatus', 'insurance_status'], policyId ? 'active' : 'pending_purchase')).toLowerCase();
+    if (policyId || status === 'active' || status === 'policy.issued' || status === 'policy.activated') return 'Active - covered';
+    if (status === 'failed') return 'Protection failed - contact support';
+    if (status === 'cancelled' || status === 'canceled') return 'Cancelled';
+    return 'Protection being activated';
+};
 const detailRowsForRequest = (req) => {
     const pkg = packageInfo(req);
     const recipient = recipientInfo(req);
@@ -46,7 +56,7 @@ const detailRowsForRequest = (req) => {
         ['Weight', firstValue(req, ['weight', 'packageWeight', 'package_weight', 'package.weight', 'package.packageWeight', 'package.package_weight'], '0') + ' KG'],
         ['Category', firstValue(req, ['category', 'package.category'], 'General')],
         ['Declared value', firstValue(req, ['declaredValue', 'declared_value', 'package.declaredValue', 'package.declared_value'])],
-        ['Insurance', firstValue(req, ['insurance', 'package.insurance']) === true ? 'Enabled' : firstValue(req, ['insurance', 'package.insurance'], 'Not selected')],
+        ['Insurance', insuranceLabel(req)],
         ['Tracking', firstValue(req, ['trackingNumber', 'tracking_number'], 'Pending')],
     ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '');
 };

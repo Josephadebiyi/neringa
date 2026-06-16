@@ -43,6 +43,8 @@ class RequestModel {
   final bool insurance;
   final double insuranceCost;
   final String? insurancePolicyId;
+  final String insuranceStatus;
+  final String? insuranceError;
   final String? handoverPin;
 
   const RequestModel({
@@ -87,6 +89,8 @@ class RequestModel {
     this.insurance = false,
     this.insuranceCost = 0.0,
     this.insurancePolicyId,
+    this.insuranceStatus = 'not_selected',
+    this.insuranceError,
     this.handoverPin,
   });
 
@@ -239,6 +243,17 @@ class RequestModel {
       insurancePolicyId:
           (json['insurancePolicyId'] ?? json['insurance_policy_id'])
               ?.toString(),
+      insuranceStatus: (json['insuranceStatus'] ??
+              json['insurance_status'] ??
+              (json['insurancePolicyId'] != null ||
+                      json['insurance_policy_id'] != null
+                  ? 'active'
+                  : json['insurance'] == true
+                      ? 'pending_purchase'
+                      : 'not_selected'))
+          .toString(),
+      insuranceError:
+          (json['insuranceError'] ?? json['insurance_error'])?.toString(),
       handoverPin: (json['handoverPin'] ?? json['handover_pin'])?.toString(),
     );
   }

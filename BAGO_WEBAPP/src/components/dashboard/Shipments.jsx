@@ -3,6 +3,47 @@ import api from '../../api';
 import { Package, Clock, ChevronRight, AlertTriangle, ShieldCheck, RefreshCw, X, MessageSquare, User, ArrowLeft, ZoomIn } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
+const asArray = (value) => Array.isArray(value) ? value : [];
+const requestId = (req) => req?._id || req?.id || req?.requestId;
+const packageData = (req) => req?.package || req?.packageDetails || {};
+const packageImage = (req) => {
+    const pkg = packageData(req);
+    return req?.image || req?.imageUrl || req?.image_url || pkg.image || pkg.imageUrl || pkg.image_url || '';
+};
+const originCity = (req) => {
+    const pkg = packageData(req);
+    return req?.originCity || req?.from_city || req?.fromCity || pkg.fromCity || pkg.from_city || '—';
+};
+const destinationCity = (req) => {
+    const pkg = packageData(req);
+    return req?.destinationCity || req?.to_city || req?.toCity || pkg.toCity || pkg.to_city || '—';
+};
+const packageDescription = (req) => {
+    const pkg = packageData(req);
+    return pkg.description || req?.description || '';
+};
+const packageWeight = (req) => {
+    const pkg = packageData(req);
+    return req?.weight || req?.packageWeight || req?.package_weight || pkg.packageWeight || pkg.package_weight || 0;
+};
+const packageCategory = (req) => {
+    const pkg = packageData(req);
+    return req?.category || pkg.category || 'general';
+};
+const insuranceInfo = (req) => {
+    if (req?.insurance !== true && req?.package?.insurance !== true) {
+        return { label: 'Not selected', tone: 'gray' };
+    }
+    const policyId = req?.insurancePolicyId || req?.insurance_policy_id;
+    const status = String(req?.insuranceStatus || req?.insurance_status || (policyId ? 'active' : 'pending_purchase')).toLowerCase();
+    if (policyId || status === 'active' || status === 'policy.issued' || status === 'policy.activated') {
+        return { label: 'Active - covered', tone: 'green' };
+    }
+    if (status === 'failed') return { label: 'Protection failed - contact support', tone: 'red' };
+    if (status === 'cancelled' || status === 'canceled') return { label: 'Cancelled', tone: 'red' };
+    return { label: 'Protection being activated', tone: 'purple' };
+};
+
 export default function Shipments({ onNavigateToChat }) {
     const { t } = useLanguage();
     const [requests, setRequests] = useState([]);
@@ -22,7 +63,8 @@ export default function Shipments({ onNavigateToChat }) {
         setLoading(true);
         try {
             const res = await api.get('/api/bago/recentOrder');
-            const myShipments = (res.data?.data || []).filter(req => req.role === 'sender');
+            const payload = res.data?.data || res.data?.requests || res.data || [];
+            const myShipments = asArray(payload).filter(req => req?.role === 'sender');
             setRequests(myShipments);
         } catch (err) {
             console.error('Failed to load shipments:', err);
@@ -34,9 +76,11 @@ export default function Shipments({ onNavigateToChat }) {
     const handleRaiseDispute = async (e) => {
         e.preventDefault();
         if (!disputeReason.trim()) return;
+        const id = requestId(selectedRequest);
+        if (!id) return;
         setIsSubmittingDispute(true);
         try {
-            await api.post(`/api/bago/request/${selectedRequest._id}/raise-dispute`, {
+            await api.post(`/api/bago/request/${id}/raise-dispute`, {
                 reason: disputeReason
             });
             alert(t('disputeSuccessMsg'));
@@ -77,6 +121,7 @@ export default function Shipments({ onNavigateToChat }) {
     };
 
     const handleConfirmDelivery = async (requestId) => {
+        if (!requestId) return;
         setConfirming(requestId);
         try {
             await api.put(`/api/bago/request/${requestId}/confirm-received`);
@@ -89,6 +134,7 @@ export default function Shipments({ onNavigateToChat }) {
     };
 
     const handleDownloadPDF = async (requestId, tracking) => {
+        if (!requestId) return;
         setDownloading(requestId);
         try {
             const response = await api.get(`/api/bago/request/${requestId}/pdf`, {
@@ -125,6 +171,23 @@ export default function Shipments({ onNavigateToChat }) {
 
     if (loading) return <div className="flex justify-center p-20"><RefreshCw className="animate-spin text-[#5845D8]" size={40} /></div>;
 
+    if (viewingDetails) {
+        return (
+            <ShipmentDetailPage
+                req={viewingDetails}
+                onBack={() => setViewingDetails(null)}
+                onDownload={handleDownloadPDF}
+                downloading={downloading}
+                onNavigateToChat={onNavigateToChat}
+                onDispute={() => { setSelectedRequest(viewingDetails); setViewingDetails(null); }}
+                getReceiverInfo={getReceiverInfo}
+                getStatusColor={getStatusColor}
+                getStatusLabel={getStatusLabel}
+                t={t}
+            />
+        );
+    }
+
     return (
         <div className="space-y-6 font-sans">
             <div className="mb-8 px-1">
@@ -142,11 +205,14 @@ export default function Shipments({ onNavigateToChat }) {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {requests.map(req => (
-                        <div key={req._id} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
+                    {requests.map((req, index) => {
+                        const id = requestId(req);
+                        const img = packageImage(req);
+                        return (
+                        <div key={id || index} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
                             <div className="w-10 h-10 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-50 shadow-sm">
-                                {req.package?.image || req.image ? (
-                                    <img src={req.package?.image || req.image} className="w-full h-full object-cover" alt="Item" />
+                                {img ? (
+                                    <img src={img} className="w-full h-full object-cover" alt="Item" />
                                 ) : (
                                     <Package size={20} />
                                 )}
@@ -154,9 +220,9 @@ export default function Shipments({ onNavigateToChat }) {
 
                             <div className="flex-1 text-center md:text-left">
                                 <div className="flex items-center justify-center md:justify-start gap-1.5 mb-1.5">
-                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.originCity || req.from_city || '—'}</span>
+                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{originCity(req)}</span>
                                     <ChevronRight size={12} className="text-gray-300" />
-                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{req.destinationCity || req.to_city || '—'}</span>
+                                    <span className="text-xs font-black text-[#012126] uppercase tracking-tight">{destinationCity(req)}</span>
                                 </div>
                                 <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-2">
                                     <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
@@ -186,11 +252,11 @@ export default function Shipments({ onNavigateToChat }) {
                                             The traveler marked this shipment as delivered. Confirm receipt to release payment, or report an issue.
                                         </p>
                                         <button
-                                            onClick={() => handleConfirmDelivery(req._id)}
-                                            disabled={confirming === req._id}
+                                            onClick={() => handleConfirmDelivery(id)}
+                                            disabled={!id || confirming === id}
                                             className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-[8px] font-black uppercase tracking-widest text-white disabled:opacity-60"
                                         >
-                                            {confirming === req._id ? <RefreshCw size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+                                            {confirming === id ? <RefreshCw size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
                                             Confirm Delivery
                                         </button>
                                     </div>
@@ -220,12 +286,12 @@ export default function Shipments({ onNavigateToChat }) {
                                         {t('viewDetails') || 'Details'}
                                     </button>
                                     <button
-                                        onClick={() => handleDownloadPDF(req._id, req.trackingNumber)}
-                                        disabled={downloading === req._id}
+                                        onClick={() => handleDownloadPDF(id, req.trackingNumber)}
+                                        disabled={!id || downloading === id}
                                         className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#5845D8] border border-[#5845D8] rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all shadow-sm"
                                     >
-                                        {downloading === req._id ? <RefreshCw size={14} className="animate-spin" /> : null}
-                                        {downloading === req._id ? t('downloading') || 'DOWNLOADING' : t('download') || 'DOWNLOAD'}
+                                        {downloading === id ? <RefreshCw size={14} className="animate-spin" /> : null}
+                                        {downloading === id ? t('downloading') || 'DOWNLOADING' : t('download') || 'DOWNLOAD'}
                                     </button>
                                     <button
                                         onClick={() => setSelectedRequest(req)}
@@ -237,7 +303,7 @@ export default function Shipments({ onNavigateToChat }) {
                                 </div>
                             </div>
                         </div>
-                    ))}
+                    )})}
                 </div>
             )}
 
@@ -295,31 +361,24 @@ export default function Shipments({ onNavigateToChat }) {
                     </div>
                 </div>
             )}
-
-            {/* Full-page Shipment Detail View */}
-            {viewingDetails && <ShipmentDetailPage
-                req={viewingDetails}
-                onBack={() => setViewingDetails(null)}
-                onDownload={handleDownloadPDF}
-                downloading={downloading}
-                onNavigateToChat={onNavigateToChat}
-                onDispute={() => { setSelectedRequest(viewingDetails); setViewingDetails(null); }}
-                getReceiverInfo={getReceiverInfo}
-                getStatusColor={getStatusColor}
-                getStatusLabel={getStatusLabel}
-                t={t}
-            />}
         </div>
     );
 }
 
 function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateToChat, onDispute, getReceiverInfo, getStatusColor, getStatusLabel, t }) {
     const [imgFullscreen, setImgFullscreen] = useState(false);
-    const imgUrl = req.package?.image || req.image;
+    const id = requestId(req);
+    const imgUrl = packageImage(req);
     const receiver = getReceiverInfo(req);
+    const from = originCity(req);
+    const to = destinationCity(req);
+    const description = packageDescription(req);
+    const weight = packageWeight(req);
+    const category = packageCategory(req);
+    const protection = insuranceInfo(req);
 
     return (
-        <div className="animate-in fade-in duration-300">
+        <div className="animate-in fade-in duration-300 font-sans">
             {/* Back header */}
             <div className="flex items-center gap-4 mb-6">
                 <button
@@ -366,7 +425,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                     <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm space-y-2">
                         <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{t('packageDescription')}</p>
                         <p className="text-sm font-bold leading-relaxed text-[#012126]">
-                            {req.package?.description || req.description || t('noDescriptionProvided')}
+                            {description || t('noDescriptionProvided') || 'No description provided'}
                         </p>
                     </div>
 
@@ -392,12 +451,12 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                         <div className="flex items-center gap-3">
                             <div>
                                 <p className="text-[7px] font-black text-gray-400 uppercase mb-1">{t('from')}</p>
-                                <p className="text-sm font-black text-[#012126] uppercase">{req.originCity || '—'}</p>
+                                <p className="text-sm font-black text-[#012126] uppercase">{from}</p>
                             </div>
                             <div className="flex-1 h-[2px] bg-gradient-to-r from-[#5845D8]/20 via-[#5845D8] to-[#5845D8]/20 rounded-full" />
                             <div className="text-right">
                                 <p className="text-[7px] font-black text-gray-400 uppercase mb-1">{t('to')}</p>
-                                <p className="text-sm font-black text-[#012126] uppercase">{req.destinationCity || '—'}</p>
+                                <p className="text-sm font-black text-[#012126] uppercase">{to}</p>
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-2 gap-3">
@@ -418,12 +477,12 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 bg-gray-50 rounded-[16px] border border-gray-100">
                                 <p className="text-[7px] font-black text-gray-400 uppercase mb-1.5">{t('weight')}</p>
-                                <p className="text-base font-black text-[#012126]">{req.weight || req.package?.packageWeight || 0} KG</p>
+                                <p className="text-base font-black text-[#012126]">{weight} KG</p>
                             </div>
                             <div className="p-4 bg-gray-50 rounded-[16px] border border-gray-100">
                                 <p className="text-[7px] font-black text-gray-400 uppercase mb-1.5">{t('packageCategory')}</p>
                                 <p className="text-base font-black text-[#012126] uppercase tracking-tight truncate">
-                                    {req.category || t('general')}
+                                    {category || t('general') || 'general'}
                                 </p>
                             </div>
                         </div>
@@ -444,17 +503,31 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                         </div>
                     </div>
 
+                    {/* Insurance */}
+                    {req.insurance === true && (
+                        <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm">
+                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-3">Item Protection</p>
+                            <div className={`rounded-2xl px-4 py-3 text-[10px] font-black ${
+                                protection.tone === 'green' ? 'bg-green-50 text-green-700' :
+                                protection.tone === 'red' ? 'bg-red-50 text-red-600' :
+                                'bg-[#5845D8]/8 text-[#5845D8]'
+                            }`}>
+                                {protection.label}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Actions */}
                     <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm space-y-3">
                         <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-4">Actions</p>
                         {req.trackingNumber && (
                             <button
-                                onClick={() => onDownload(req._id, req.trackingNumber)}
-                                disabled={downloading === req._id}
+                                onClick={() => onDownload(id, req.trackingNumber)}
+                                disabled={!id || downloading === id}
                                 className="w-full flex items-center justify-center gap-2 bg-[#012126] text-white py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
                             >
-                                {downloading === req._id ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-                                {downloading === req._id ? 'Downloading…' : t('downloadLabel') || 'Download Label'}
+                                {downloading === id ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                                {downloading === id ? 'Downloading...' : t('downloadLabel') || 'Download Label'}
                             </button>
                         )}
                         {req.conversationId && (

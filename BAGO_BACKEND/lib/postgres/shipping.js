@@ -23,7 +23,12 @@ async function ensureShipmentBreakdownColumns(client) {
       ADD COLUMN IF NOT EXISTS processing_fee NUMERIC,
       ADD COLUMN IF NOT EXISTS fx_buffer NUMERIC,
       ADD COLUMN IF NOT EXISTS sender_shipping_fee NUMERIC,
-      ADD COLUMN IF NOT EXISTS bago_net_revenue NUMERIC
+      ADD COLUMN IF NOT EXISTS bago_net_revenue NUMERIC,
+      ADD COLUMN IF NOT EXISTS insurance_policy_id TEXT,
+      ADD COLUMN IF NOT EXISTS insurance_policy_data JSONB,
+      ADD COLUMN IF NOT EXISTS insurance_status TEXT NOT NULL DEFAULT 'not_selected',
+      ADD COLUMN IF NOT EXISTS insurance_error TEXT,
+      ADD COLUMN IF NOT EXISTS insurance_purchased_at TIMESTAMPTZ
   `);
 }
 
@@ -237,6 +242,10 @@ function normalizeRequest(row) {
     insurance: row.insurance,
     insuranceCost: toNumber(row.insurance_cost),
     insurancePolicyId: row.insurance_policy_id || null,
+    insurancePolicyData: row.insurance_policy_data || null,
+    insuranceStatus: row.insurance_status || (row.insurance_policy_id ? 'active' : row.insurance ? 'pending_purchase' : 'not_selected'),
+    insuranceError: row.insurance_error || null,
+    insurancePurchasedAt: row.insurance_purchased_at || null,
     paymentInfo: row.payment_info || {},
     estimatedDeparture: row.estimated_departure,
     estimatedArrival: row.estimated_arrival,
@@ -283,6 +292,10 @@ const requestSelect = `
     sr.insurance,
     sr.insurance_cost,
     sr.insurance_policy_id,
+    sr.insurance_policy_data,
+    sr.insurance_status,
+    sr.insurance_error,
+    sr.insurance_purchased_at,
     sr.payment_info,
     sr.estimated_departure,
     sr.estimated_arrival,
@@ -971,11 +984,11 @@ export async function createShipmentRequestRecord({
         insert into public.shipment_requests (
           sender_id, traveler_id, package_id, trip_id, amount, currency, image_url,
           insurance, insurance_cost, estimated_departure, estimated_arrival,
-          terms_accepted, terms_accepted_at, payment_info,
+          terms_accepted, terms_accepted_at, payment_info, insurance_status,
           traveler_payout, platform_commission, processing_fee, fx_buffer,
           sender_shipping_fee, bago_net_revenue
         )
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
         returning id
       `,
       [
@@ -993,6 +1006,7 @@ export async function createShipmentRequestRecord({
         termsAccepted,
         termsAccepted ? new Date() : null,
         paymentInfo,
+        insurance ? 'pending_purchase' : 'not_selected',
         travelerPayout,
         platformCommission,
         processingFee,

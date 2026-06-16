@@ -38,10 +38,24 @@ export const myCoverWebhook = async (req, res) => {
     // Merge the new event data into the stored policy data
     const existing = request.insurance_policy_data || {};
     const merged = { ...existing, lastEvent: event, lastEventData: data, lastEventAt: new Date().toISOString() };
+    const statusMap = {
+      'policy.issued': 'active',
+      'policy.activated': 'active',
+      'policy.cancelled': 'cancelled',
+      'policy.canceled': 'cancelled',
+      'claim.approved': 'claim_approved',
+      'claim.declined': 'claim_declined',
+    };
+    const nextStatus = statusMap[event] || existing.insuranceStatus || null;
 
     await query(
-      `UPDATE public.shipment_requests SET insurance_policy_data = $1, updated_at = NOW() WHERE id = $2`,
-      [JSON.stringify(merged), request.id]
+      `UPDATE public.shipment_requests
+       SET insurance_policy_data = $1,
+           insurance_status = COALESCE($3, insurance_status),
+           insurance_error = CASE WHEN $3 IN ('cancelled', 'claim_declined') THEN $4 ELSE insurance_error END,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [JSON.stringify(merged), request.id, nextStatus, event]
     );
 
     // Notify the sender on meaningful events

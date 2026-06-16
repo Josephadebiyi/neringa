@@ -575,8 +575,8 @@ class _ShipmentBody extends StatelessWidget {
               if (package.insurance && package.insuranceCost > 0)
                 _Row('Insurance cost',
                     '${package.currency.isNotEmpty ? package.currency : ''} ${package.insuranceCost.toStringAsFixed(2)}'),
-              if (package.insurancePolicyId != null)
-                _Row('Policy status', 'Active — covered'),
+              if (package.insurance)
+                _Row('Policy status', _insuranceStatusLabel(package)),
               if (package.description.isNotEmpty)
                 _Row(l10n.descriptionLabel, package.description),
               if (package.senderName?.isNotEmpty == true)
@@ -854,4 +854,17 @@ String _formatDateTime(String raw) {
   } catch (_) {
     return raw.length > 16 ? raw.substring(0, 16) : raw;
   }
+}
+
+String _insuranceStatusLabel(PackageModel package) {
+  final status = package.insuranceStatus.toLowerCase().trim();
+  if ((package.insurancePolicyId ?? '').trim().isNotEmpty ||
+      status == 'active' ||
+      status == 'policy.issued' ||
+      status == 'policy.activated') {
+    return 'Active - covered';
+  }
+  if (status == 'failed') return 'Protection failed - contact support';
+  if (status == 'cancelled' || status == 'canceled') return 'Cancelled';
+  return 'Protection being activated';
 }

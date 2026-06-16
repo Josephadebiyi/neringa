@@ -556,42 +556,41 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
 
           if (req.insurance) ...[
             const SizedBox(height: 14),
-            _InfoCard(
-              child: Row(
-                children: [
-                  Icon(Icons.shield_outlined,
-                      size: 18,
-                      color: req.insurancePolicyId != null
-                          ? AppColors.success
-                          : AppColors.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text('Item protection active',
-                        style: AppTextStyles.bodyMd
-                            .copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: req.insurancePolicyId != null
-                          ? AppColors.successLight
-                          : AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(20),
+            Builder(builder: (context) {
+              final protection = _protectionState(
+                req.insuranceStatus,
+                req.insurancePolicyId,
+              );
+              return _InfoCard(
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_outlined,
+                        size: 18, color: protection.color),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(protection.message,
+                          style: AppTextStyles.bodyMd
+                              .copyWith(fontWeight: FontWeight.w600)),
                     ),
-                    child: Text(
-                      req.insurancePolicyId != null ? 'Insured' : 'Pending',
-                      style: AppTextStyles.bodyXs.copyWith(
-                        color: req.insurancePolicyId != null
-                            ? AppColors.success
-                            : AppColors.primary,
-                        fontWeight: FontWeight.w600,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: protection.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        protection.label,
+                        style: AppTextStyles.bodyXs.copyWith(
+                          color: protection.color,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                  ],
+                ),
+              );
+            }),
           ],
 
           // Sender: show their handover PIN so they can read it to the traveler
@@ -1782,6 +1781,46 @@ class _HandoverPinCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProtectionState {
+  const _ProtectionState(this.label, this.message, this.color);
+  final String label;
+  final String message;
+  final Color color;
+}
+
+_ProtectionState _protectionState(String status, String? policyId) {
+  final normalized = status.toLowerCase().trim();
+  if (policyId != null && policyId.trim().isNotEmpty ||
+      normalized == 'active' ||
+      normalized == 'policy.issued' ||
+      normalized == 'policy.activated') {
+    return const _ProtectionState(
+      'Active',
+      'Item protection active',
+      AppColors.success,
+    );
+  }
+  if (normalized == 'failed') {
+    return const _ProtectionState(
+      'Failed',
+      'Item protection failed. Contact support.',
+      AppColors.error,
+    );
+  }
+  if (normalized == 'cancelled' || normalized == 'canceled') {
+    return const _ProtectionState(
+      'Cancelled',
+      'Item protection was cancelled.',
+      AppColors.error,
+    );
+  }
+  return const _ProtectionState(
+    'Pending',
+    'Item protection is being activated',
+    AppColors.primary,
+  );
 }
 
 // ---------------------------------------------------------------------------

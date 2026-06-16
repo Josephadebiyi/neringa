@@ -29,6 +29,8 @@ class PackageModel {
   final bool insurance;
   final double insuranceCost;
   final String? insurancePolicyId;
+  final String insuranceStatus;
+  final String? insuranceError;
   final String createdAt;
   final String updatedAt;
   final String? receiverName;
@@ -72,6 +74,8 @@ class PackageModel {
     required this.insurance,
     this.insuranceCost = 0.0,
     this.insurancePolicyId,
+    this.insuranceStatus = 'not_selected',
+    this.insuranceError,
     required this.createdAt,
     required this.updatedAt,
     this.receiverName,
@@ -227,6 +231,17 @@ class PackageModel {
             0.0,
         insurancePolicyId: json['insurance_policy_id']?.toString() ??
             json['insurancePolicyId']?.toString(),
+        insuranceStatus: (json['insuranceStatus'] ??
+                json['insurance_status'] ??
+                (json['insurance_policy_id'] != null ||
+                        json['insurancePolicyId'] != null
+                    ? 'active'
+                    : json['insurance'] == true
+                        ? 'pending_purchase'
+                        : 'not_selected'))
+            .toString(),
+        insuranceError:
+            (json['insuranceError'] ?? json['insurance_error'])?.toString(),
         createdAt: _firstString([
           json['createdAt'],
           _mapValue(json['dates'], 'created'),
@@ -316,6 +331,8 @@ class PackageModel {
         'senderTotalAmount': senderTotalAmount,
         'travelerPayout': travelerPayout,
         'insurance': insurance,
+        'insuranceStatus': insuranceStatus,
+        'insuranceError': insuranceError,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
         'receiverName': receiverName,

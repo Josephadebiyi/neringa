@@ -41,6 +41,8 @@ function normalizeRequest(req) {
     insuranceCost: Number(req.insurance_cost || 0),
     insurancePolicyId: req.insurance_policy_id || null,
     insurancePolicyData: req.insurance_policy_data || null,
+    insuranceStatus: req.insurance_status || null,
+    insuranceError: req.insurance_error || null,
     amount: Number(req.amount || 0),
     currency: req.currency,
     trackingNumber: req.tracking_number,
@@ -73,6 +75,7 @@ export const tracking = async (req, res, next) => {
         const requests = await query(
           `SELECT id, sender_id, traveler_id, package_id, trip_id, status,
                   insurance, insurance_cost, insurance_policy_id, insurance_policy_data,
+                  insurance_status, insurance_error,
                   amount, currency, tracking_number, created_at, updated_at
            FROM public.shipment_requests WHERE package_id = $1`,
           [pkg.id]
@@ -114,6 +117,9 @@ export const activeShipmentLocations = async (req, res, next) => {
           sr.insurance,
           sr.insurance_cost,
           sr.insurance_policy_id,
+          sr.insurance_policy_data,
+          sr.insurance_status,
+          sr.insurance_error,
           sr.tracking_number,
           sr.movement_tracking,
           sr.estimated_departure,
@@ -160,6 +166,9 @@ export const activeShipmentLocations = async (req, res, next) => {
         insurance: row.insurance || false,
         insuranceCost: Number(row.insurance_cost || 0),
         insurancePolicyId: row.insurance_policy_id || null,
+        insurancePolicyData: row.insurance_policy_data || null,
+        insuranceStatus: row.insurance_status || null,
+        insuranceError: row.insurance_error || null,
         trackingNumber: row.tracking_number,
         movementTracking,
         estimatedDeparture: row.estimated_departure,
