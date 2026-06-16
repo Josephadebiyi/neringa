@@ -552,6 +552,7 @@ export async function getWalletByUserId(userId) {
       from public.wallet_transactions
       where user_id = $1
       order by created_at desc
+      limit 200
     `,
     [userId],
   );

@@ -61,12 +61,12 @@ const allowedOrigins = new Set([
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL,
   process.env.WEBAPP_URL,
-  // Backend's own public URL — needed so in-app checkout pages served from
-  // page (served from this host) can fetch /api/* without a CORS rejection
   process.env.API_PUBLIC_URL,
   process.env.BACKEND_URL,
   process.env.RENDER_EXTERNAL_URL,
   'https://neringa.onrender.com',
+  'https://sendwithbago.com',
+  'https://www.sendwithbago.com',
   'http://localhost:3000',
   'http://localhost:5173',
   'http://127.0.0.1:3000',

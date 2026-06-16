@@ -52,6 +52,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [allTimeTotals, setTotals]    = useState({ received: 0, expenses: 0 });
     const [walletApiCurrency, setWalletApiCurrency] = useState(null);
     const [loadingWallet, setLoading]   = useState(true);
+    const [walletError, setWalletError] = useState(false);
 
     const [amount, setAmount]         = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -89,7 +90,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                 expenses: Number(d.allTimeExpenses ?? 0),
             });
             if (d.currency) setWalletApiCurrency(d.currency.toUpperCase());
-        }).catch(() => {}).finally(() => { if (alive) setLoading(false); });
+        }).catch(() => { if (alive) setWalletError(true); }).finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, []);
 
@@ -157,6 +158,13 @@ export default function Earnings({ user, checkAuthStatus }) {
 
     return (
         <div className="space-y-6 font-sans animate-in fade-in duration-500">
+
+            {walletError && (
+                <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-5 py-4 text-xs font-bold text-red-600">
+                    <AlertCircle size={15} className="shrink-0" />
+                    Could not load wallet data. Please refresh the page or check your connection.
+                </div>
+            )}
 
             {/* ── Balance Hero ── */}
             <div
@@ -419,7 +427,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-50">
-                        {[...transactions].reverse().map((tx, i) => {
+                        {transactions.map((tx, i) => {
                             const isOut = expenseTypes.has(tx.type);
                             return (
                                 <div key={tx.id || i} className="flex items-center justify-between px-7 py-5 hover:bg-gray-50/40 transition-all group">
