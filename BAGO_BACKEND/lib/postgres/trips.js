@@ -1,4 +1,5 @@
 import { query, queryOne, withTransaction } from './db.js';
+import { recordOperationalEvent } from './operationalRecords.js';
 import { ensureTripCapacityColumns } from './tripCapacity.js';
 
 const DEFAULT_AFRICAN_CURRENCIES = ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
@@ -6,6 +7,47 @@ const DEFAULT_AFRICAN_CURRENCIES = ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'R
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : fallback;
+}
+
+async function ensureTripReferenceColumn(executor = { query }) {
+  await executor.query(`
+    alter table public.trips
+      add column if not exists trip_number text
+  `);
+  await executor.query(`
+    create sequence if not exists public.trips_trip_number_seq
+      as integer
+      start with 1
+      increment by 1
+      minvalue 1
+      maxvalue 9999
+      no cycle
+  `);
+  await executor.query(`
+    select setval(
+      'public.trips_trip_number_seq',
+      greatest(
+        1,
+        coalesce((
+          select max(nullif(regexp_replace(trip_number, '[^0-9]', '', 'g'), '')::int)
+          from public.trips
+        ), 0) + 1
+      ),
+      false
+    )
+  `);
+  await executor.query(`
+    create unique index if not exists trips_trip_number_unique
+      on public.trips (trip_number)
+      where trip_number is not null
+  `);
+}
+
+async function nextTripNumber() {
+  const row = await queryOne(
+    `select lpad(nextval('public.trips_trip_number_seq')::text, 4, '0') as trip_number`,
+  );
+  return row?.trip_number;
 }
 
 function normalizeReviewRow(row) {
@@ -70,6 +112,8 @@ function normalizeTripRow(row, reviews = []) {
   return {
     id: row.id,
     _id: row.id,
+    tripNumber: row.trip_number,
+    trip_number: row.trip_number,
     userId: row.user_id,
     user,
     fromLocation: row.from_location,
@@ -112,6 +156,7 @@ function normalizeTripRow(row, reviews = []) {
 const baseTripSelect = `
   select
     t.id,
+    t.trip_number,
     t.user_id,
     t.from_location,
     t.from_country,
@@ -247,58 +292,97 @@ export async function createTripRecord({
   travelDocument,
 }) {
   await ensureTripCapacityColumns({ query });
-  const trip = await queryOne(
-    `
-      insert into public.trips (
-        user_id,
-        from_location,
-        from_country,
-        to_location,
-        to_country,
-        collection_city,
-        collection_country,
-        departure_date,
-        arrival_date,
-        total_kg,
-        available_kg,
-        sold_kg,
-        reserved_kg,
-        travel_means,
-        price_per_kg,
+  await ensureTripReferenceColumn({ query });
+
+  let trip;
+  for (let attempt = 0; attempt < 8 && !trip; attempt += 1) {
+    const tripNumber = await nextTripNumber();
+    try {
+      trip = await queryOne(
+        `
+          insert into public.trips (
+            user_id,
+            trip_number,
+            from_location,
+            from_country,
+            to_location,
+            to_country,
+            collection_city,
+            collection_country,
+            departure_date,
+            arrival_date,
+            total_kg,
+            available_kg,
+            sold_kg,
+            reserved_kg,
+            travel_means,
+            price_per_kg,
+            currency,
+            landmark,
+            travel_document_url,
+            travel_document_uploaded_at,
+            status
+          )
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,0,0,$12,$13,$14,$15,$16,$17,'pending_admin_review')
+          returning id
+        `,
+        [
+          userId,
+          tripNumber,
+          fromLocation,
+          fromCountry,
+          toLocation,
+          toCountry,
+          collectionCity,
+          collectionCountry,
+          departureDate,
+          arrivalDate,
+          availableKg,
+          travelMeans,
+          pricePerKg,
+          currency,
+          landmark,
+          travelDocument,
+          travelDocument ? departureDate : null,
+        ],
+      );
+      await recordOperationalEvent(null, {
+        entityType: 'trip',
+        entityId: trip.id,
+        eventType: 'created',
+        status: 'pending_admin_review',
+        actorUserId: userId,
+        travelerId: userId,
+        tripId: trip.id,
         currency,
-        landmark,
-        travel_document_url,
-        travel_document_uploaded_at,
-        status
-      )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,0,0,$11,$12,$13,$14,$15,$16,'pending_admin_review')
-      returning id
-    `,
-    [
-      userId,
-      fromLocation,
-      fromCountry,
-      toLocation,
-      toCountry,
-      collectionCity,
-      collectionCountry,
-      departureDate,
-      arrivalDate,
-      availableKg,
-      travelMeans,
-      pricePerKg,
-      currency,
-      landmark,
-      travelDocument,
-      travelDocument ? departureDate : null,
-    ],
-  );
+        packageWeight: availableKg,
+        metadata: {
+          tripNumber,
+          fromLocation,
+          fromCountry,
+          toLocation,
+          toCountry,
+          departureDate,
+          arrivalDate,
+          pricePerKg,
+          travelMeans,
+        },
+      });
+    } catch (error) {
+      if (error?.code !== '23505') throw error;
+    }
+  }
+
+  if (!trip) {
+    throw new Error('Could not allocate a trip number. Please try again.');
+  }
 
   return getTripById(trip.id);
 }
 
 export async function listTripsByUserId(userId) {
   await ensureTripCapacityColumns({ query });
+  await ensureTripReferenceColumn({ query });
 
   // Auto-archive trips whose departure date has passed and are still active/verified
   await query(
@@ -324,6 +408,7 @@ export async function listTripsByUserId(userId) {
 
 export async function getTripById(tripId) {
   await ensureTripCapacityColumns({ query });
+  await ensureTripReferenceColumn({ query });
   const row = await queryOne(`${baseTripSelect} where t.id = $1`, [tripId]);
   if (!row) return null;
   return normalizeTripRow(row, await fetchTripReviews(tripId));
@@ -331,6 +416,7 @@ export async function getTripById(tripId) {
 
 export async function getTripOwnedByUser(tripId, userId) {
   await ensureTripCapacityColumns({ query });
+  await ensureTripReferenceColumn({ query });
   const row = await queryOne(`${baseTripSelect} where t.id = $1 and t.user_id = $2`, [tripId, userId]);
   if (!row) return null;
   return normalizeTripRow(row, await fetchTripReviews(tripId));
@@ -338,6 +424,7 @@ export async function getTripOwnedByUser(tripId, userId) {
 
 export async function updateTripRecord(tripId, userId, updates) {
   await ensureTripCapacityColumns({ query });
+  await ensureTripReferenceColumn({ query });
   const fields = [];
   const values = [];
   let index = 1;

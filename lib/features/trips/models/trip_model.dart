@@ -3,6 +3,7 @@ import '../../../shared/utils/status_formatter.dart';
 
 class TripModel {
   final String id;
+  final String? tripNumber;
   final String userId;
   final String fromCountry;
   final String fromLocation;
@@ -37,6 +38,7 @@ class TripModel {
 
   const TripModel({
     required this.id,
+    this.tripNumber,
     required this.userId,
     required this.fromCountry,
     required this.fromLocation,
@@ -70,13 +72,47 @@ class TripModel {
     this.payoutStatus = 'pending',
   });
 
-  bool get isActive => [
+  bool get isActive =>
+      [
         'pending',
         'pending_admin_review',
         'verified',
         'active',
         'upcoming',
-      ].contains(status.toLowerCase());
+      ].contains(status.toLowerCase()) &&
+      !isHistorical;
+
+  bool get isHistorical {
+    final normalized = status.toLowerCase();
+    if ([
+      'completed',
+      'cancelled',
+      'canceled',
+      'declined',
+      'expired',
+      'history',
+    ].contains(normalized)) {
+      return true;
+    }
+
+    final endDate = DateTime.tryParse(
+      (arrivalDate?.trim().isNotEmpty == true ? arrivalDate : departureDate) ??
+          '',
+    )?.toLocal();
+    if (endDate == null) return false;
+    final today = DateTime.now();
+    final endDay = DateTime(endDate.year, endDate.month, endDate.day);
+    final currentDay = DateTime(today.year, today.month, today.day);
+    return endDay.isBefore(currentDay);
+  }
+
+  String get displayTripNumber {
+    final raw = tripNumber?.trim() ?? '';
+    if (raw.isEmpty || RegExp(r'^0+$').hasMatch(raw)) return '';
+    final numeric = int.tryParse(raw);
+    if (numeric == null || numeric <= 0) return raw;
+    return numeric.toString().padLeft(4, '0');
+  }
 
   String get statusLabel => formatTripStatusLabel(status);
   double get remainingKg => availableKg;
@@ -87,6 +123,7 @@ class TripModel {
 
   TripModel copyWith({
     String? id,
+    String? tripNumber,
     String? userId,
     String? fromCountry,
     String? fromLocation,
@@ -121,6 +158,7 @@ class TripModel {
   }) {
     return TripModel(
       id: id ?? this.id,
+      tripNumber: tripNumber ?? this.tripNumber,
       userId: userId ?? this.userId,
       fromCountry: fromCountry ?? this.fromCountry,
       fromLocation: fromLocation ?? this.fromLocation,
@@ -159,6 +197,10 @@ class TripModel {
     final user = json['user'] as Map<String, dynamic>?;
     return TripModel(
       id: JsonParser.parseId(json),
+      tripNumber: json['tripNumber']?.toString() ??
+          json['trip_number']?.toString() ??
+          json['tripReference']?.toString() ??
+          json['trip_reference']?.toString(),
       userId: JsonParser.parseStr(
         json,
         'userId',
@@ -235,6 +277,7 @@ class TripModel {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'tripNumber': tripNumber,
         'userId': userId,
         'fromCountry': fromCountry,
         'fromLocation': fromLocation,

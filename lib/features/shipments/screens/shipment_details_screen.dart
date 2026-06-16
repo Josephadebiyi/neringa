@@ -585,6 +585,10 @@ class _ShipmentBody extends StatelessWidget {
                 _Row(l10n.travelerLabel, package.travelerName!),
               if (package.paymentStatus?.isNotEmpty == true)
                 _Row(l10n.paymentLabel, package.paymentStatus!),
+              if (package.createdAt.trim().isNotEmpty)
+                _Row('Created', _formatDateTime(package.createdAt)),
+              if (package.updatedAt.trim().isNotEmpty)
+                _Row('Last updated', _formatDateTime(package.updatedAt)),
               if (package.pickupDate != null)
                 _Row(l10n.pickupDateLabel, package.pickupDate!),
               if (package.deliveryDate != null)
@@ -834,4 +838,20 @@ class _Row extends StatelessWidget {
           ],
         ),
       );
+}
+
+String _formatDateTime(String raw) {
+  try {
+    final dt = DateTime.parse(raw).toLocal();
+    final now = DateTime.now();
+    final date =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day
+            ? 'Today'
+            : '${dt.day}/${dt.month}/${dt.year}';
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '$date $hh:$mm';
+  } catch (_) {
+    return raw.length > 16 ? raw.substring(0, 16) : raw;
+  }
 }

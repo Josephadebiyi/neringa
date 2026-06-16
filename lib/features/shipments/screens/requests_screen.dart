@@ -310,6 +310,13 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
               ),
             ],
           ),
+          if (request.createdAt.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Created ${_formatDateTime(request.createdAt)}',
+              style: AppTextStyles.caption.copyWith(color: AppColors.gray400),
+            ),
+          ],
           if (request.status == RequestStatus.pending) ...[
             const SizedBox(height: 14),
             Row(
@@ -359,6 +366,22 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
         ],
       ),
     );
+  }
+}
+
+String _formatDateTime(String raw) {
+  try {
+    final dt = DateTime.parse(raw).toLocal();
+    final now = DateTime.now();
+    final date =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day
+            ? 'Today'
+            : '${dt.day}/${dt.month}/${dt.year}';
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '$date $hh:$mm';
+  } catch (_) {
+    return raw.length > 16 ? raw.substring(0, 16) : raw;
   }
 }
 

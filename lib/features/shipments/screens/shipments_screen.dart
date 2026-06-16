@@ -564,7 +564,7 @@ class _PackageCard extends ConsumerWidget {
                     isCarrier: false),
                 const Spacer(),
                 Text(
-                  _shortDate(package.createdAt),
+                  _shortDateTime(package.createdAt),
                   style: AppTextStyles.captionBold
                       .copyWith(color: AppColors.gray400),
                 ),
@@ -1577,19 +1577,6 @@ Future<bool> _confirmDelete(BuildContext context) async {
         ),
       ) ??
       false;
-}
-
-String _shortDate(String raw) {
-  try {
-    final dt = DateTime.parse(raw);
-    final now = DateTime.now();
-    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-      return 'Today';
-    }
-    return '${dt.day}/${dt.month}/${dt.year}';
-  } catch (_) {
-    return raw.length > 10 ? raw.substring(0, 10) : raw;
-  }
 }
 
 String _shortDateTime(String raw) {

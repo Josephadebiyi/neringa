@@ -36,6 +36,7 @@ import { getAppSettings } from './AdminControllers/setting.js';
 import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingController.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
+import { recordOperationalEvent } from '../lib/postgres/operationalRecords.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
 
 function normalizePaymentProvider(paymentInfo = {}) {
@@ -431,6 +432,29 @@ async function applyPaidAdditionalKg({
       `,
       [request.id, nextAmount, nextCurrency, paymentInfo],
     );
+
+    await recordOperationalEvent(client, {
+      entityType: 'shipment_request',
+      entityId: request.id,
+      eventType: 'additional_kg_paid',
+      status: request.status,
+      previousStatus: request.status,
+      actorUserId: senderId,
+      senderId,
+      travelerId: request.traveler_id,
+      packageId: request.package_id,
+      tripId: request.trip_id,
+      amount: rawAmount,
+      currency: nextCurrency,
+      packageWeight: parsedKg,
+      metadata: {
+        paymentProvider: paymentProvider || 'paypal',
+        paymentReference,
+        previousAmount: request.amount,
+        nextAmount,
+        additionalKg: parsedKg,
+      },
+    });
 
     const walletResult = await client.query(
       `select id, currency from public.wallet_accounts where user_id = $1 for update`,
@@ -1145,6 +1169,13 @@ export async function getIncomingRequests(req, res) {
       role: 'traveler',
       conversationId: request.conversationId,
       amount: request.amount,
+      agreedPrice: request.agreedPrice,
+      senderTotalAmount: request.senderTotalAmount,
+      travelerPayout: request.travelerPayout,
+      senderShippingFee: request.senderShippingFee,
+      platformCommission: request.platformCommission,
+      processingFee: request.processingFee,
+      fxBuffer: request.fxBuffer,
       currency: request.currency,
       sender: request.sender,
       traveler: request.traveler,

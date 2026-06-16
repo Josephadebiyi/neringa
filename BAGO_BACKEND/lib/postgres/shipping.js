@@ -1,6 +1,7 @@
 import { randomInt } from 'crypto';
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
+import { recordOperationalEvent } from './operationalRecords.js';
 import {
   buildTripCapacitySnapshot,
   ensureTripCapacityColumns,
@@ -95,6 +96,8 @@ function normalizeTrip(row) {
   return {
     _id: row.trip_id || row.id,
     id: row.trip_id || row.id,
+    tripNumber: row.trip_number,
+    trip_number: row.trip_number,
     userId: row.user_id,
     fromLocation: row.from_location,
     fromCountry: row.from_country,
@@ -459,6 +462,7 @@ async function searchTravelerTripsCompat({ currentUserId, fromLocation, toLocati
     `
       select
         t.id,
+        ${columnOrNull(tripColumns, 'trip_number', 'trip_number')},
         ${userIdColumn ? `t.${userIdColumn}` : 'null'} as user_id,
         ${columnOrNull(tripColumns, 'from_location', 'from_location')},
         ${columnOrNull(tripColumns, 'from_country', 'from_country')},
@@ -573,6 +577,7 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
       `
       select
         t.id,
+        t.trip_number,
         t.user_id,
         t.from_location,
         t.from_country,
@@ -684,6 +689,27 @@ export async function createPackageRecord(data) {
       data.deliveryAddress,
     ],
   );
+  await recordOperationalEvent(null, {
+    entityType: 'package',
+    entityId: row.id,
+    eventType: 'created',
+    status: 'draft',
+    actorUserId: data.userId,
+    senderId: data.userId,
+    packageId: row.id,
+    amount: data.value,
+    currency: data.currency || null,
+    itemCategory: data.category,
+    itemDescription: data.description,
+    packageWeight: data.packageWeight,
+    metadata: {
+      fromCountry: data.fromCountry,
+      fromCity: data.fromCity,
+      toCountry: data.toCountry,
+      toCity: data.toCity,
+      hasImages: Array.isArray(data.images) && data.images.length > 0,
+    },
+  });
   return normalizePackage(row);
 }
 
@@ -704,7 +730,7 @@ export async function getTripById(id) {
   await ensureTripCapacityColumns({ query });
   const row = await queryOne(
     `
-      select t.id, t.user_id, t.from_location, t.from_country, t.to_location, t.to_country,
+      select t.id, t.trip_number, t.user_id, t.from_location, t.from_country, t.to_location, t.to_country,
              t.departure_date, t.arrival_date,
              coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) as total_kg,
              greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) as available_kg,
@@ -916,7 +942,7 @@ export async function createShipmentRequestRecord({
     await ensureShipmentBreakdownColumns(client);
 
     const packageResult = await client.query(
-      `select id, package_weight from public.packages where id = $1 and user_id = $2`,
+      `select id, package_weight, category, description from public.packages where id = $1 and user_id = $2`,
       [packageId, senderId],
     );
     const packageRow = packageResult.rows[0];
@@ -975,6 +1001,31 @@ export async function createShipmentRequestRecord({
         bagoNetRevenue,
       ],
     );
+
+    await recordOperationalEvent(client, {
+      entityType: 'shipment_request',
+      entityId: row.rows[0].id,
+      eventType: 'created',
+      status: 'pending',
+      actorUserId: senderId,
+      senderId,
+      travelerId,
+      packageId,
+      tripId,
+      amount,
+      currency: currency || 'USD',
+      itemCategory: packageRow.category,
+      itemDescription: packageRow.description,
+      packageWeight,
+      metadata: {
+        paymentProvider: paymentInfo?.gateway || paymentInfo?.method || null,
+        paymentReference: paymentInfo?.requestId || null,
+        insurance: Boolean(insurance),
+        insuranceCost,
+        travelerPayout,
+        senderShippingFee,
+      },
+    });
 
     await syncTripCapacity(client, tripId);
     return row.rows[0].id;
@@ -1055,6 +1106,33 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       `,
       [requestId, normalizedStatus, trackingNumber, JSON.stringify(movementTracking)],
     );
+
+    await recordOperationalEvent(client, {
+      entityType: 'shipment_request',
+      entityId: requestId,
+      eventType: normalizedStatus === 'accepted'
+        ? 'accepted'
+        : normalizedStatus === 'rejected'
+          ? 'rejected'
+          : 'status_changed',
+      status: normalizedStatus,
+      previousStatus: request.status,
+      actorUserId: travelerId,
+      senderId: request.sender_id,
+      travelerId: request.traveler_id,
+      packageId: request.package_id,
+      tripId: request.trip_id,
+      amount: request.amount,
+      currency: request.currency,
+      itemCategory: request.package_category,
+      itemDescription: request.package_description,
+      packageWeight: request.package_weight,
+      metadata: {
+        location: location || null,
+        notes: notes || null,
+        trackingNumber,
+      },
+    });
 
     if (normalizedStatus === 'accepted') {
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
