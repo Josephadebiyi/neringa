@@ -535,7 +535,7 @@ export async function adminChangeEarningCurrency(userId, newCurrency, settleBala
 }
 
 export async function getWalletByUserId(userId) {
-  const wallet = await queryOne(
+  let wallet = await queryOne(
     `
       select id, user_id, available_balance, escrow_balance, currency, created_at, updated_at
       from public.wallet_accounts
@@ -543,6 +543,21 @@ export async function getWalletByUserId(userId) {
     `,
     [userId],
   );
+
+  if (!wallet) {
+    wallet = await queryOne(
+      `
+        insert into public.wallet_accounts (user_id, available_balance, escrow_balance, currency)
+        select id, 0, 0, coalesce(earning_currency, preferred_currency, 'USD')
+        from public.profiles
+        where id = $1
+        on conflict (user_id) do update
+          set currency = coalesce(public.wallet_accounts.currency, excluded.currency)
+        returning id, user_id, available_balance, escrow_balance, currency, created_at, updated_at
+      `,
+      [userId],
+    );
+  }
 
   if (!wallet) return null;
 
@@ -559,7 +574,7 @@ export async function getWalletByUserId(userId) {
   const totals = await queryOne(
     `
       select
-        coalesce(sum(amount) filter (where type::text in ('earning', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release') and status = 'completed'), 0) as all_time_received,
+        coalesce(sum(amount) filter (where type::text in ('earning', 'signup_bonus', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release') and status = 'completed'), 0) as all_time_received,
         coalesce(sum(amount) filter (where type::text in ('withdrawal', 'withdraw', 'payout', 'debit', 'escrow_hold') and status in ('completed', 'processing', 'pending')), 0) as all_time_expenses
       from public.wallet_transactions
       where user_id = $1
