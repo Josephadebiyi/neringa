@@ -896,3 +896,47 @@ export async function sendHandoverPINEmail(receiverEmail, receiverName, senderNa
     return false;
   }
 }
+
+/**
+ * Send shipment label PDF as email attachment
+ */
+export async function sendShipmentLabelEmail({ toEmail, toName, trackingNumber, requestId, pdfBuffer }) {
+  if (!resend) {
+    console.warn('⚠️ Email service not configured — skipping shipment label email');
+    return false;
+  }
+  try {
+    const content = `
+      <p style="margin:0 0 16px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${toName || 'there'}</strong>,
+      </p>
+      <p style="margin:0 0 16px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Your Bago shipment label is attached to this email. Please keep it safe and present it when requested at handover or customs.
+      </p>
+      <div style="background:#f5f3ff; border-left:4px solid #5240E8; border-radius:8px; padding:16px 20px; margin:20px 0;">
+        <p style="margin:0 0 4px; font-family:Arial,sans-serif; font-size:11px; font-weight:700; color:#5240E8; text-transform:uppercase; letter-spacing:1px;">Tracking Number</p>
+        <p style="margin:0; font-family:monospace; font-size:22px; font-weight:900; color:#111827; letter-spacing:3px;">${trackingNumber || requestId}</p>
+      </div>
+      <p style="margin:16px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#6b7280;">
+        Track your shipment live at <a href="${FRONTEND_URL}/tracking/${trackingNumber || requestId}" style="color:#5240E8; font-weight:600;">sendwithbago.com</a>
+      </p>
+    `;
+
+    await resend.emails.send({
+      from: 'Bago Shipments <shipping@sendwithbago.com>',
+      to: toEmail,
+      subject: `Your Bago Shipping Label — ${trackingNumber || requestId}`,
+      html: generateEmailTemplate('Your Shipping Label', content, 'Track Shipment', `${FRONTEND_URL}/tracking/${trackingNumber || requestId}`),
+      attachments: [{
+        filename: `bago-label-${trackingNumber || requestId}.pdf`,
+        content: pdfBuffer,
+      }],
+    });
+
+    console.log(`✅ Shipment label emailed to ${toEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send shipment label email:', err);
+    return false;
+  }
+}

@@ -6,6 +6,8 @@ function normalizeTrip(row) {
   return {
     _id: row.id,
     id: row.id,
+    tripNumber: row.trip_number,
+    trip_number: row.trip_number,
     userId: row.user_id,
     user: row.user_id
       ? {
@@ -36,6 +38,7 @@ function normalizeTrip(row) {
     collectionCountry: row.collection_country,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    soldShipments: Array.isArray(row.sold_shipments) ? row.sold_shipments : [],
   };
 }
 
@@ -45,9 +48,39 @@ const adminTripSelect = `
     p.first_name,
     p.last_name,
     p.email,
-    p.phone
+    p.phone,
+    coalesce(shipments.sold_shipments, '[]'::json) as sold_shipments
   from public.trips t
   left join public.profiles p on p.id = t.user_id
+  left join lateral (
+    select json_agg(
+      json_build_object(
+        'id', sr.id,
+        'trackingNumber', sr.tracking_number,
+        'status', sr.status,
+        'amount', sr.amount,
+        'currency', sr.currency,
+        'senderId', sr.sender_id,
+        'senderName', trim(concat_ws(' ', sender.first_name, sender.last_name)),
+        'travelerId', sr.traveler_id,
+        'packageId', sr.package_id,
+        'packageTitle', coalesce(pkg.category, pkg.description),
+        'packageDescription', pkg.description,
+        'packageWeight', pkg.package_weight,
+        'pickupAddress', pkg.pickup_address,
+        'deliveryAddress', pkg.delivery_address,
+        'receiverName', pkg.receiver_name,
+        'receiverPhone', pkg.receiver_phone,
+        'createdAt', sr.created_at,
+        'updatedAt', sr.updated_at
+      )
+      order by sr.created_at desc
+    ) as sold_shipments
+    from public.shipment_requests sr
+    left join public.profiles sender on sender.id = sr.sender_id
+    left join public.packages pkg on pkg.id = sr.package_id
+    where sr.trip_id = t.id
+  ) shipments on true
 `;
 
 export const getTripById = async (req, res) => {

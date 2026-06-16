@@ -203,6 +203,8 @@ export default function Settings({ user, checkAuthStatus }) {
     const [bankOtp, setBankOtp] = useState('');
     const [payoutLoading, setPayoutLoading] = useState(false);
     const [editingPayout, setEditingPayout] = useState(false);
+    const [paypalEmail, setPaypalEmail] = useState('');
+    const [paypalSaving, setPaypalSaving] = useState(false);
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
@@ -270,13 +272,12 @@ export default function Settings({ user, checkAuthStatus }) {
     const payoutStatus = String(user?.payoutStatus || user?.payout_status || '').toLowerCase();
     const payoutMethodStatus = String(user?.payoutMethodStatus || user?.payout_method_status || '').toLowerCase();
     const hasConnectedPayout = Boolean(
-        user?.stripeConnectAccountId ||
-        user?.stripe_connect_account_id ||
-        payoutProvider === 'stripe' ||
-        payoutMethod === 'stripe_connect' ||
-        payoutStatus === 'active' ||
+        payoutProvider === 'paypal' ||
+        payoutMethod === 'paypal' ||
+        (payoutStatus === 'active' && payoutProvider !== 'stripe') ||
         payoutMethodStatus === 'connected'
     );
+    const connectedPaypalEmail = user?.bankDetails?.paypalEmail || user?.bank_details?.paypalEmail || '';
     const hasBankPayout = Boolean(
         user?.bankAccountLinked ||
         user?.bank_account_linked ||
@@ -392,41 +393,32 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    const handleStartConnectedPayout = async () => {
-        setError('');
-        setSuccessMessage('');
-        setPayoutLoading(true);
-        try {
-            const res = await api.post('/api/payouts/connect/onboard');
-            const url = res.data?.url || res.data?.accountLink?.url;
-            if (url) {
-                window.location.href = url;
-                return;
-            }
-            setSuccessMessage('Payout account is already set up.');
-            await checkAuthStatus?.();
-        } catch (err) {
-            setError(err.response?.data?.message || 'Could not start payout setup.');
-        } finally {
-            setPayoutLoading(false);
+    const handleSavePaypalEmail = async () => {
+        const email = paypalEmail.trim();
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setError('Please enter a valid PayPal email address.');
+            return;
         }
-    };
-
-    const handleOpenPayoutDashboard = async () => {
         setError('');
         setSuccessMessage('');
-        setPayoutLoading(true);
+        setPaypalSaving(true);
         try {
-            const res = await api.post('/api/payouts/connect/dashboard-link');
-            if (res.data?.url) {
-                window.location.href = res.data.url;
-                return;
+            const res = await api.post('/api/payouts/paypal/connect', {
+                email,
+                payoutCurrency: preferredCurrency || 'USD',
+            });
+            if (res.data?.success) {
+                setSuccessMessage('PayPal payout email saved successfully.');
+                setPaypalEmail('');
+                setEditingPayout(false);
+                await checkAuthStatus?.();
+            } else {
+                setError(res.data?.message || 'Could not save PayPal email.');
             }
-            setError('Could not open payout dashboard.');
         } catch (err) {
-            setError(err.response?.data?.message || 'Could not open payout dashboard.');
+            setError(err.response?.data?.message || 'Could not save PayPal email.');
         } finally {
-            setPayoutLoading(false);
+            setPaypalSaving(false);
         }
     };
 
@@ -699,39 +691,80 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {showConnectedPayoutOption && (
                         <div className="space-y-6">
-                            <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col justify-between group hover:border-[#5845D8]/20 transition-all">
-                                <div>
-                                    <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-3 uppercase tracking-widest">
-                                        <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">1</span>
-                                        Connected Payouts
-                                    </h4>
-                                    <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-6 uppercase tracking-wide opacity-70">
-                                        Payouts in {preferredCurrency || 'USD'} are sent to your connected payout account after delivery is completed and cleared.
-                                    </p>
+                            <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col gap-4 group hover:border-[#5845D8]/20 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <span className="w-5 h-5 rounded-full bg-[#003087] text-white flex items-center justify-center text-[8px] font-black shrink-0">P</span>
+                                    <h4 className="text-[10px] font-black text-[#012126] uppercase tracking-widest">PayPal Payout Email</h4>
                                 </div>
+                                <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-wide opacity-70">
+                                    Earnings in {preferredCurrency || 'USD'} are sent to your PayPal account after delivery is confirmed.
+                                </p>
 
-                                {hasConnectedPayout && (
-                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10 transition-all mb-4">
-                                        <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm">
+                                {hasConnectedPayout && connectedPaypalEmail && !editingPayout && (
+                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
+                                        <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm shrink-0">
+                                            <Check size={14} strokeWidth={4} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">PayPal connected</p>
+                                            <p className="text-[9px] text-green-600 font-bold truncate">{connectedPaypalEmail}</p>
+                                        </div>
+                                        <ShieldCheck className="text-green-500/50 shrink-0" size={16} />
+                                    </div>
+                                )}
+
+                                {hasConnectedPayout && !connectedPaypalEmail && !editingPayout && (
+                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
+                                        <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm shrink-0">
                                             <Check size={14} strokeWidth={4} />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Payout account connected</p>
+                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">PayPal payout active</p>
                                             <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">Ready for withdrawals</p>
                                         </div>
-                                        <ShieldCheck className="text-green-500/50" size={18} />
                                     </div>
                                 )}
-                                <div className="space-y-3 mt-4">
+
+                                {(!hasConnectedPayout || editingPayout) && (
+                                    <div className="space-y-3">
+                                        <input
+                                            type="email"
+                                            value={paypalEmail}
+                                            onChange={e => setPaypalEmail(e.target.value)}
+                                            placeholder="your@paypal.com"
+                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[11px] font-medium text-[#012126] outline-none focus:border-[#003087]/30 transition-all placeholder:text-gray-300"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleSavePaypalEmail}
+                                                disabled={paypalSaving || !paypalEmail.trim()}
+                                                className="flex-1 bg-[#003087] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#002070] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                                            >
+                                                {paypalSaving ? <RefreshCw className="animate-spin" size={13} /> : 'Save PayPal Email'}
+                                            </button>
+                                            {editingPayout && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setEditingPayout(false); setPaypalEmail(''); }}
+                                                    className="px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {hasConnectedPayout && !editingPayout && (
                                     <button
                                         type="button"
-                                        onClick={hasConnectedPayout ? handleOpenPayoutDashboard : handleStartConnectedPayout}
-                                        disabled={payoutLoading}
-                                        className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10 disabled:opacity-50"
+                                        onClick={() => { setEditingPayout(true); setPaypalEmail(connectedPaypalEmail); }}
+                                        className="text-[9px] font-black text-[#003087] uppercase tracking-widest hover:underline text-left"
                                     >
-                                        {payoutLoading ? <RefreshCw className="animate-spin" size={14} /> : <>{hasConnectedPayout ? 'Manage Payout Account' : 'Set Up Payouts'} <ShieldCheck size={16} /></>}
+                                        Update PayPal email →
                                     </button>
-                                </div>
+                                )}
                             </div>
                         </div>
                     )}

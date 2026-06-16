@@ -1,438 +1,459 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../api';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Landmark, RefreshCw, CreditCard, AlertCircle, CheckCircle, Shield, TrendingUp } from 'lucide-react';
+import {
+    Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw,
+    AlertCircle, CheckCircle, TrendingUp, Lock, AlertTriangle,
+} from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
+
+// Same African currency set as the mobile app
+const AFRICAN_CURRENCIES = new Set([
+    'AOA','BIF','BWP','CDF','CVE','DJF','DZD','EGP','ERN','ETB',
+    'GHS','GMD','GNF','KES','KMF','LRD','LSL','LYD','MAD','MGA',
+    'MRU','MUR','MWK','MZN','NAD','NGN','RWF','SCR','SDG','SLE',
+    'SOS','SSP','STN','SZL','TZS','UGX','XAF','XOF','ZAR','ZMW','ZWL',
+]);
+
+const CURRENCY_SYMBOLS = { USD:'$', EUR:'€', GBP:'£', NGN:'₦', GHS:'₵', KES:'KSh', ZAR:'R' };
+// Approximate exchange rates vs USD for minimum calculation
+const FX = { USD:1, EUR:0.91, GBP:0.78, NGN:1550, GHS:15, KES:129, ZAR:18.5 };
+const MIN_USD = 2;
+
+function getMinimum(currency) {
+    const rate = FX[currency.toUpperCase()] || 1;
+    return Math.ceil(MIN_USD * rate * 100) / 100;
+}
+
+function getSymbol(currency) {
+    return CURRENCY_SYMBOLS[currency] || currency + ' ';
+}
+
+function PayPalLogo({ size = 20 }) {
+    return <img src="/paypal.svg" alt="PayPal" style={{ height: size, width: 'auto' }} />;
+}
+
+function PaystackLogo({ size = 20 }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="40" height="40" rx="10" fill="#00C3F7"/>
+            <path d="M12 10h10c4.418 0 8 3.134 8 7s-3.582 7-8 7H16v6h-4V10zm4 10h6c2.209 0 4-1.343 4-3s-1.791-3-4-3h-6v6z" fill="white"/>
+        </svg>
+    );
+}
 
 export default function Earnings({ user, checkAuthStatus }) {
     const { currency, t } = useLanguage();
     const navigate = useNavigate();
-    const [balance, setBalance] = useState(user?.walletBalance ?? user?.balance ?? 0);
-    const [escrowBalance, setEscrowBalance] = useState(user?.escrowBalance ?? user?.escrow_balance ?? 0);
-    const [history, setHistory] = useState(user?.balanceHistory || []);
-    const [allTimeTotals, setAllTimeTotals] = useState({
-        received: Number(user?.allTimeReceived ?? user?.all_time_received ?? 0),
-        expenses: Number(user?.allTimeExpenses ?? user?.all_time_expenses ?? 0),
-    });
-    const [loading, setLoading] = useState(false);
-    const [withdrawAmount, setWithdrawAmount] = useState('');
-    const [isWithdrawing, setIsWithdrawing] = useState(false);
-    const [status, setStatus] = useState({ type: '', message: '' });
-    const [showPayoutModal, setShowPayoutModal] = useState(false);
-    const [chartMode, setChartMode] = useState('received');
 
-    const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR'];
-    const walletCurrency = (user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
-    const isAfricanCurrency = africanCurrencies.includes(walletCurrency);
+    const [balance, setBalance]         = useState(0);
+    const [escrow, setEscrow]           = useState(0);
+    const [history, setHistory]         = useState([]);
+    const [allTimeTotals, setTotals]    = useState({ received: 0, expenses: 0 });
+    const [walletApiCurrency, setWalletApiCurrency] = useState(null);
+    const [loadingWallet, setLoading]   = useState(true);
 
-    const hasConnectedPayout = Boolean(
-        user?.stripeConnectAccountId ||
-        user?.stripe_connect_account_id ||
-        user?.payoutStatus === 'active' ||
-        user?.payout_status === 'active' ||
-        user?.payoutMethodStatus === 'connected' ||
-        user?.payout_method_status === 'connected'
+    const [amount, setAmount]         = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [status, setStatus]         = useState({ type: '', msg: '' });
+    const [chartMode, setChartMode]   = useState('received');
+    const [showModal, setShowModal]   = useState(false);
+
+    const walletCurrency = (walletApiCurrency || user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
+    const sym             = getSymbol(walletCurrency);
+    const isAfrican       = AFRICAN_CURRENCIES.has(walletCurrency);
+    const minimum         = getMinimum(walletCurrency);
+
+    // Payout method detection — mirrors mobile app exactly
+    const hasBankLinked   = !!user?.bankAccountLinked || !!user?.bankDetails?.accountNumber;
+    const payoutProvider  = (user?.payoutProvider  || '').toLowerCase();
+    const payoutMethod    = (user?.payoutMethod    || '').toLowerCase();
+    const payoutStatus    = (user?.payoutStatus    || '').toLowerCase();
+    const payoutMethodSt  = (user?.payoutMethodStatus || '').toLowerCase();
+    const hasPaypalLinked = payoutProvider === 'paypal' || payoutMethod === 'paypal';
+    const hasActivePaypal = hasPaypalLinked && (
+        payoutStatus === 'active' || payoutMethodSt === 'connected' || payoutMethodSt === 'active'
     );
-    const hasBank = !!user?.bankDetails?.accountNumber;
-
-    // Default method based on logic
-    const [method, setMethod] = useState(isAfricanCurrency ? 'bank' : 'stripe');
+    const hasPayoutMethod = isAfrican ? hasBankLinked : hasActivePaypal;
 
     useEffect(() => {
-        setBalance(user?.walletBalance ?? user?.balance ?? 0);
-        setEscrowBalance(user?.escrowBalance ?? user?.escrow_balance ?? 0);
-    }, [user?.walletBalance, user?.balance, user?.escrowBalance, user?.escrow_balance]);
-
-    useEffect(() => {
-        let mounted = true;
-        const fetchWallet = async () => {
-            try {
-                const res = await api.get('/api/bago/getWallet');
-                if (!mounted) return;
-                const data = res.data?.data || res.data || {};
-                setBalance(Number(data.balance ?? data.walletBalance ?? 0));
-                setEscrowBalance(Number(data.escrowBalance ?? data.escrow_balance ?? 0));
-                setHistory(data.history || data.transactions || []);
-                setAllTimeTotals({
-                    received: Number(data.allTimeReceived ?? data.all_time_received ?? 0),
-                    expenses: Number(data.allTimeExpenses ?? data.all_time_expenses ?? 0),
-                });
-            } catch (_) {}
-        };
-        fetchWallet();
-        return () => {
-            mounted = false;
-        };
+        let alive = true;
+        api.get('/api/bago/getWallet').then(res => {
+            if (!alive) return;
+            const d = res.data?.data || res.data || {};
+            setBalance(Number(d.balance ?? d.available_balance ?? d.walletBalance ?? 0));
+            setEscrow(Number(d.escrowBalance ?? d.escrow_balance ?? 0));
+            setHistory(Array.isArray(d.history) ? d.history : []);
+            setTotals({
+                received: Number(d.allTimeReceived ?? 0),
+                expenses: Number(d.allTimeExpenses ?? 0),
+            });
+            if (d.currency) setWalletApiCurrency(d.currency.toUpperCase());
+        }).catch(() => {}).finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
     }, []);
 
-    const getSymbol = (curr) => {
-        const symbols = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
-        return symbols[curr] || curr;
-    };
-    const currencySymbol = getSymbol(walletCurrency);
-    const toAmount = (value) => {
-        const amount = Number(value);
-        return Number.isFinite(amount) ? amount : 0;
-    };
+    const incomeTypes  = new Set(['earning','earnings','admin_settlement','credit','release','deposit','escrow_release']);
+    const expenseTypes = new Set(['withdrawal','withdraw','payout','debit','escrow_hold']);
+
     const transactions = useMemo(() => {
-        const source = Array.isArray(history) ? history : [];
-        return source
-            .map(tx => ({
-                ...tx,
-                amount: Math.abs(toAmount(tx.amount)),
-                rawAmount: toAmount(tx.amount),
-                normalizedType: String(tx.type || tx.transactionType || '').toLowerCase(),
-                normalizedStatus: String(tx.status || '').toLowerCase(),
-                dateValue: new Date(tx.date || tx.created_at || tx.createdAt || Date.now()),
-            }))
-            .filter(tx => tx.amount > 0 && !Number.isNaN(tx.dateValue.getTime()));
+        return history.map(tx => ({
+            ...tx,
+            amount: Math.abs(Number(tx.amount || 0)),
+            type: (tx.type || '').toLowerCase(),
+            status: (tx.status || 'completed').toLowerCase(),
+            date: new Date(tx.created_at || tx.createdAt || tx.date || Date.now()),
+        })).filter(tx => tx.amount > 0 && !isNaN(tx.date));
     }, [history]);
-    const incomeTypes = new Set(['earning', 'earnings', 'admin_settlement', 'credit', 'release']);
-    const expenseTypes = new Set(['withdrawal', 'withdraw', 'payout', 'debit']);
-    const completedTransactions = transactions.filter(tx => tx.normalizedStatus === 'completed');
-    const fallbackReceived = completedTransactions
-        .filter(tx => incomeTypes.has(tx.normalizedType))
-        .reduce((sum, tx) => sum + tx.amount, 0);
-    const fallbackExpenses = transactions
-        .filter(tx => expenseTypes.has(tx.normalizedType) && ['completed', 'processing', 'pending'].includes(tx.normalizedStatus))
-        .reduce((sum, tx) => sum + tx.amount, 0);
-    const totalReceived = allTimeTotals.received > 0 ? allTimeTotals.received : fallbackReceived;
-    const totalExpenses = allTimeTotals.expenses > 0 ? allTimeTotals.expenses : fallbackExpenses;
-    const activeTotal = chartMode === 'received' ? totalReceived : totalExpenses;
+
+    const totalReceived = allTimeTotals.received || transactions.filter(t => incomeTypes.has(t.type)).reduce((s,t)=>s+t.amount,0);
+    const totalExpenses = allTimeTotals.expenses || transactions.filter(t => expenseTypes.has(t.type)).reduce((s,t)=>s+t.amount,0);
+    const activeTotal   = chartMode === 'received' ? totalReceived : totalExpenses;
+
     const chartDays = useMemo(() => {
         const today = new Date();
-        const days = Array.from({ length: 7 }, (_, index) => {
-            const date = new Date(today);
-            date.setDate(today.getDate() - (6 - index));
-            date.setHours(0, 0, 0, 0);
-            return {
-                key: date.toISOString().slice(0, 10),
-                label: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-                value: 0,
-            };
+        const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(today); d.setDate(today.getDate() - (6-i)); d.setHours(0,0,0,0);
+            return { key: d.toISOString().slice(0,10), label: d.toLocaleDateString('en-US',{weekday:'short'}).slice(0,2).toUpperCase(), value: 0 };
         });
-        const lookup = new Map(days.map(day => [day.key, day]));
+        const lookup = new Map(days.map(d=>[d.key,d]));
         transactions.forEach(tx => {
-            const key = new Date(tx.dateValue.getFullYear(), tx.dateValue.getMonth(), tx.dateValue.getDate()).toISOString().slice(0, 10);
-            const isIncome = incomeTypes.has(tx.normalizedType) || tx.rawAmount > 0 && !expenseTypes.has(tx.normalizedType);
-            const isExpense = expenseTypes.has(tx.normalizedType) || tx.rawAmount < 0;
-            if ((chartMode === 'received' && !isIncome) || (chartMode === 'expenses' && !isExpense)) return;
-            const day = lookup.get(key);
-            if (day) day.value += tx.amount;
+            const key = tx.date.toISOString().slice(0,10);
+            const day = lookup.get(key); if (!day) return;
+            const isIncome  = incomeTypes.has(tx.type);
+            const isExpense = expenseTypes.has(tx.type);
+            if (chartMode === 'received' && isIncome)  day.value += tx.amount;
+            if (chartMode === 'expenses' && isExpense) day.value += tx.amount;
         });
         return days;
     }, [transactions, chartMode]);
-    const maxChartValue = Math.max(...chartDays.map(day => day.value), 1);
+    const maxChart = Math.max(...chartDays.map(d=>d.value), 1);
+
+    const amountNum = Number(amount) || 0;
+    const belowMin   = amountNum > 0 && amountNum < minimum;
+    const aboveBal   = amountNum > balance;
+    const canSubmit  = hasPayoutMethod && !submitting && amountNum >= minimum && !aboveBal;
 
     const handleWithdraw = async (e) => {
-        if (e) e.preventDefault();
-        if (!withdrawAmount || Number(withdrawAmount) <= 0) return;
-        if (Number(withdrawAmount) > balance) {
-            setStatus({ type: 'error', message: t('insufficientBalance') });
-            return;
-        }
-
-        // Validate method selection
-        if (method === 'bank' && !hasBank) {
-            setStatus({ type: 'error', message: t('addBankDetailsFirst') });
-            return;
-        }
-        if (method === 'stripe' && !hasConnectedPayout) {
-            setStatus({ type: 'error', message: 'Please set up payouts in Settings first.' });
-            return;
-        }
-
-        setIsWithdrawing(true);
-        setStatus({ type: '', message: '' });
+        e?.preventDefault();
+        if (!canSubmit) return;
+        setSubmitting(true);
+        setStatus({ type:'', msg:'' });
         try {
-            const endpoint = method === 'bank' ? '/api/bago/withdrawFunds' : '/api/payouts/withdraw';
-            const res = await api.post(endpoint, {
-                amount: Number(withdrawAmount),
-                currency: walletCurrency,
-                ...(method === 'bank'
-                    ? { method, description: 'Withdrawal via Bank Transfer' }
-                    : {}),
-            });
+            const endpoint = isAfrican ? '/api/bago/withdrawFunds' : '/api/payouts/paypal/withdraw';
+            const payload  = { amount: amountNum, currency: walletCurrency };
+            if (!isAfrican) payload.method = 'paypal';
+            else payload.description = 'Withdrawal via Bank Transfer';
+            const res = await api.post(endpoint, payload);
             if (res.data.success) {
-                setStatus({ type: 'success', message: t('withdrawalRequestSubmitted') });
-                setWithdrawAmount('');
+                setStatus({ type:'success', msg:'Withdrawal submitted successfully!' });
+                setAmount('');
                 if (checkAuthStatus) await checkAuthStatus();
             }
         } catch (err) {
-            setStatus({ type: 'error', message: err.response?.data?.message || t('withdrawalFailed') });
-        } finally {
-            setIsWithdrawing(false);
-        }
+            setStatus({ type:'error', msg: err.response?.data?.message || 'Withdrawal failed. Please try again.' });
+        } finally { setSubmitting(false); }
     };
 
     return (
-        <div className="space-y-8 font-sans animate-in fade-in duration-500">
-            {/* Header / Stats */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Earnings Graph */}
-                <div className="lg:col-span-2 bg-white rounded-[24px] p-8 text-[#012126] relative overflow-hidden shadow-sm border border-gray-100 min-h-[360px]">
-                    <div className="relative z-10 flex flex-col justify-between h-full min-h-[300px]">
-                        <div>
-                            <div className="grid grid-cols-2 rounded-2xl bg-gray-50 p-2 mb-8 border border-gray-100">
-                                <button
-                                    type="button"
-                                    onClick={() => setChartMode('received')}
-                                    className={`h-14 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${chartMode === 'received' ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'text-[#012126]/50 hover:text-[#012126]'}`}
-                                >
-                                    Received
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setChartMode('expenses')}
-                                    className={`h-14 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${chartMode === 'expenses' ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'text-[#012126]/50 hover:text-[#012126]'}`}
-                                >
-                                    Expenses
-                                </button>
-                            </div>
+        <div className="space-y-6 font-sans animate-in fade-in duration-500">
 
-                            <div className="flex items-center gap-2 mb-4">
-                                <TrendingUp size={15} className="text-[#5845D8]" />
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#012126]/50">
-                                    All time
-                                </span>
-                            </div>
-                            <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-2">
-                                {currencySymbol}{activeTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </h1>
-                            <p className="text-[#012126]/50 text-sm font-bold">
-                                {chartMode === 'received' ? 'Total income received' : 'Total withdrawn or spent'}
-                            </p>
-                            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-[#012126]/45 mb-1">
-                                        Available balance
-                                    </p>
-                                    <p className="text-xl font-black text-[#012126]">
-                                        {currencySymbol}{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </p>
-                                </div>
-                                <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-[#012126]/45 mb-1">
-                                        Held in escrow
-                                    </p>
-                                    <p className="text-xl font-black text-[#012126]">
-                                        {currencySymbol}{escrowBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 grid grid-cols-7 gap-3 items-end h-28">
-                            {chartDays.map(day => (
-                                <div key={day.key} className="flex h-full flex-col items-center justify-end gap-2">
-                                    <div className="relative flex h-20 w-full items-end justify-center rounded-full bg-gray-100 overflow-hidden">
-                                        <div
-                                            className={`w-full rounded-full transition-all ${chartMode === 'received' ? 'bg-[#5845D8]' : 'bg-[#012126]'}`}
-                                            style={{ height: `${Math.max(8, (day.value / maxChartValue) * 100)}%`, opacity: day.value > 0 ? 1 : 0.18 }}
-                                        />
-                                    </div>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-[#012126]/45">{day.label}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3 mt-8">
-                            {isAfricanCurrency ? (
-                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasBank ? 'bg-gray-50 border-gray-100 text-[#012126]' : 'bg-red-500/10 border-red-500/20 text-red-600'}`}>
-                                    <Landmark size={18} />
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest">Bank Payout (Naira/Africa)</p>
-                                        <p className="text-[8px] opacity-60 font-bold uppercase">{hasBank ? 'Method Connected' : 'No Bank Connected'}</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${hasConnectedPayout ? 'bg-gray-50 border-gray-100 text-[#012126]' : 'bg-red-500/10 border-red-500/20 text-red-600'}`}>
-                                    <CreditCard size={18} />
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest">Connected Payouts</p>
-                                        <p className="text-[8px] opacity-60 font-bold uppercase">{hasConnectedPayout ? 'Account Connected' : 'Not Connected'}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <button 
-                                onClick={() => setShowPayoutModal(true)}
-                                className="ml-auto flex items-center gap-2 px-6 py-3 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-xl shadow-[#5845D8]/20"
-                            >
-                                <RefreshCw size={14} />
-                                {t('managePayouts') || 'Manage Payouts'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Quick Withdraw */}
-                <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+            {/* ── Balance Hero ── */}
+            <div
+                className="rounded-[28px] p-7 relative overflow-hidden text-[#012126]"
+                style={{ background: 'linear-gradient(135deg, #e8f4fd 0%, #f0ebff 50%, #fef9ec 100%)' }}
+            >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-[#5845D8]/8 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <div>
-                        <div className="flex items-center gap-2 mb-6">
-                            <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
-                                <ArrowUpRight size={18} />
+                        <p className="text-[9px] font-black text-[#012126]/50 uppercase tracking-widest mb-2">Available Balance</p>
+                        <p className="text-5xl font-black text-[#012126] tracking-tighter leading-none">
+                            {loadingWallet ? <span className="opacity-30 animate-pulse">—</span> : `${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
+                        </p>
+                        {escrow > 0 && (
+                            <div className="flex items-center gap-1.5 mt-3">
+                                <Lock size={11} className="text-[#012126]/50" />
+                                <p className="text-[10px] font-bold text-[#012126]/50">
+                                    {sym}{escrow.toLocaleString(undefined,{minimumFractionDigits:2})} held in escrow
+                                </p>
                             </div>
-                            <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">{t('quickWithdraw') || 'Quick Withdraw'}</h3>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    value={withdrawAmount}
-                                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                                    placeholder="0.00"
-                                    className="w-full px-6 py-5 bg-gray-50 rounded-3xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none font-black text-2xl transition-all text-[#012126] placeholder:text-gray-200"
-                                />
-                                <div className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-[#5845D8] text-lg opacity-40">{currencySymbol}</div>
-                            </div>
-
-                            <button
-                                onClick={handleWithdraw}
-                                disabled={isWithdrawing || !withdrawAmount || balance < Number(withdrawAmount)}
-                                className="w-full bg-[#012126] text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-[#0a262c] transition-all flex items-center justify-center gap-3 disabled:opacity-30"
-                            >
-                                {isWithdrawing ? <RefreshCw className="animate-spin" size={16} /> : <><Wallet size={16} /> {t('transferFunds')}</>}
-                            </button>
-                        </div>
+                        )}
                     </div>
-
-                    {status.message && (
-                        <div className={`mt-6 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center gap-3 ${status.type === 'success' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'} animate-in slide-in-from-bottom duration-300`}>
-                            {status.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                            {status.message}
+                    <div className="flex flex-col gap-3 min-w-[200px]">
+                        {/* Payout method badge */}
+                        <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${hasPayoutMethod ? 'bg-white/70 border-white/60' : 'bg-red-50/80 border-red-200/60'}`}>
+                            {isAfrican ? (
+                                <PaystackLogo size={22} />
+                            ) : (
+                                <PayPalLogo size={22} />
+                            )}
+                            <div>
+                                <p className="text-[10px] font-black text-[#012126] uppercase tracking-tight">
+                                    {isAfrican ? 'Paystack Bank Transfer' : 'PayPal Payout'}
+                                </p>
+                                <p className={`text-[8px] font-bold uppercase tracking-wider ${hasPayoutMethod ? 'text-emerald-600' : 'text-red-500'}`}>
+                                    {hasPayoutMethod ? 'Connected' : 'Not connected'}
+                                </p>
+                            </div>
                         </div>
-                    )}
+                        <button
+                            onClick={() => navigate('/dashboard?tab=settings')}
+                            className="text-[9px] font-black text-[#5845D8] uppercase tracking-widest hover:underline text-center"
+                        >
+                            {hasPayoutMethod ? 'Manage payout method →' : 'Set up payout method →'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Transaction History - Modernized Table */}
-            <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
-                <div className="px-8 py-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#5845D8]/5 text-[#5845D8] flex items-center justify-center">
-                            <RefreshCw size={16} />
-                        </div>
-                        <h3 className="text-sm font-black text-[#012126] tracking-tight uppercase">{t('transactionHistory') || 'Transaction History'}</h3>
+            {/* ── Main Grid: Chart + Withdraw ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+                {/* Earnings Chart (left 2/3) */}
+                <div className="lg:col-span-2 bg-white rounded-[28px] p-7 border border-gray-100 shadow-sm">
+                    {/* Received / Expenses toggle */}
+                    <div className="grid grid-cols-2 bg-gray-50 rounded-2xl p-1.5 mb-6 border border-gray-100">
+                        {[{ id:'received', label:'Received' }, { id:'expenses', label:'Expenses' }].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setChartMode(tab.id)}
+                                className={`h-12 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${chartMode===tab.id ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'text-[#012126]/40 hover:text-[#012126]'}`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#012126] transition-colors">{t('viewAll') || 'View All'}</button>
+
+                    <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp size={13} className="text-[#5845D8]" />
+                        <span className="text-[10px] font-black text-[#012126]/40 uppercase tracking-widest">All time</span>
+                    </div>
+                    <p className="text-5xl font-black text-[#012126] tracking-tighter leading-none mb-1">
+                        {sym}{activeTotal.toLocaleString(undefined,{minimumFractionDigits:2})}
+                    </p>
+                    <p className="text-[10px] text-[#012126]/40 font-bold mb-6">
+                        {chartMode==='received' ? 'Total income received' : 'Total withdrawn or spent'}
+                    </p>
+
+                    {/* Bar chart */}
+                    <div className="grid grid-cols-7 gap-2 items-end h-28">
+                        {chartDays.map(day => (
+                            <div key={day.key} className="flex h-full flex-col items-center justify-end gap-1.5">
+                                <div className="relative flex h-full w-full items-end justify-center rounded-full bg-gray-100 overflow-hidden">
+                                    <div
+                                        className={`w-full rounded-full transition-all duration-500 ${chartMode==='received' ? 'bg-[#5845D8]' : 'bg-[#012126]'}`}
+                                        style={{ height:`${Math.max(8,(day.value/maxChart)*100)}%`, opacity:day.value>0?1:0.15 }}
+                                    />
+                                </div>
+                                <span className="text-[8px] font-black uppercase tracking-widest text-[#012126]/40">{day.label}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {history.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-24 text-center">
-                        <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-200 mb-6">
-                            <Wallet size={40} />
+                {/* Quick Withdraw (right 1/3) */}
+                <div className="bg-white rounded-[28px] p-7 border border-gray-100 shadow-sm flex flex-col gap-5">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center">
+                            <ArrowUpRight size={16} className="text-orange-500" />
                         </div>
-                        <p className="text-gray-300 font-black uppercase tracking-widest text-[11px] max-w-[200px] leading-relaxed">
-                            {t('noTransactionsRecorded') || 'No transactions recorded yet.'}
+                        <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">Withdraw</h3>
+                    </div>
+
+                    {/* No payout method warning */}
+                    {!hasPayoutMethod && (
+                        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight mb-1">No payout method linked</p>
+                                <p className="text-[9px] text-amber-700 font-medium leading-relaxed">
+                                    {isAfrican
+                                        ? 'Please link a bank account before withdrawing.'
+                                        : 'Please add your PayPal payout email before withdrawing.'}
+                                </p>
+                                <button
+                                    onClick={() => navigate('/dashboard?tab=settings')}
+                                    className="mt-2 text-[9px] font-black text-amber-800 underline uppercase tracking-wider"
+                                >
+                                    Set up payout method →
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Amount input */}
+                    <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 text-center">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-3">Enter amount</p>
+                        <div className="flex items-baseline justify-center gap-2">
+                            <span className="text-2xl font-black text-[#5845D8]">{sym}</span>
+                            <input
+                                type="number"
+                                value={amount}
+                                onChange={e => setAmount(e.target.value)}
+                                placeholder="0.00"
+                                className="bg-transparent text-4xl font-black text-[#012126] outline-none w-32 text-center placeholder:text-gray-200"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Quick amount buttons */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => setAmount(minimum.toFixed(2))}
+                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-100 transition-all"
+                        >
+                            Minimum
+                        </button>
+                        <button
+                            onClick={() => balance > 0 && setAmount(balance.toFixed(2))}
+                            disabled={balance <= 0}
+                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-100 transition-all disabled:opacity-30"
+                        >
+                            Withdraw all
+                        </button>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4 space-y-3 text-[10px] font-bold">
+                        <div className="flex justify-between text-[#012126]">
+                            <span className="text-[#5845D8]">Amount</span>
+                            <span className="font-black">{sym}{amountNum.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-[#012126]">
+                            <span className="text-[#5845D8]">Bago fee</span>
+                            <span className="font-black text-emerald-600">No fee</span>
+                        </div>
+                        <div className="flex justify-between text-[#012126]">
+                            <span className="text-[#5845D8]">Method</span>
+                            <span className="font-black flex items-center gap-1.5">
+                                {isAfrican ? <PaystackLogo size={14} /> : <PayPalLogo size={13} />}
+                                {isAfrican ? 'Paystack' : 'PayPal'}
+                            </span>
+                        </div>
+                        <div className="border-t border-gray-200 pt-2 flex justify-between text-[#012126]">
+                            <span className="text-[#5845D8]">Minimum</span>
+                            <span className="font-black">{sym}{minimum.toFixed(2)}</span>
+                        </div>
+                        {(belowMin || aboveBal) && (
+                            <p className="text-[9px] font-black text-red-500 uppercase tracking-tight">
+                                {aboveBal ? 'Amount exceeds your available balance.' : `Minimum withdrawal is ${sym}${minimum.toFixed(2)}.`}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Payout method display */}
+                    <div className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 ${hasPayoutMethod ? 'bg-white border border-gray-100' : 'bg-gray-50 border border-gray-100'}`}>
+                        {isAfrican ? (
+                            <div className="w-10 h-7 rounded-lg flex items-center justify-center shrink-0">
+                                <PaystackLogo size={24} />
+                            </div>
+                        ) : (
+                            <div className="w-10 h-7 bg-[#003087]/5 rounded-lg flex items-center justify-center shrink-0">
+                                <PayPalLogo size={18} />
+                            </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black text-[#012126] uppercase tracking-tight">
+                                {isAfrican ? 'Paystack Bank Transfer' : 'PayPal'}
+                            </p>
+                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
+                                {hasPayoutMethod ? 'Funds sent after approval' : 'Setup required before withdrawing'}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/dashboard?tab=settings')}
+                            className="text-[8px] font-black text-[#5845D8] uppercase tracking-wider hover:underline shrink-0"
+                        >
+                            {hasPayoutMethod ? 'Manage' : 'Set up'}
+                        </button>
+                    </div>
+
+                    {/* Status message */}
+                    {status.msg && (
+                        <div className={`flex items-center gap-3 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border ${
+                            status.type==='success'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                : 'bg-red-50 text-red-600 border-red-100'
+                        } animate-in slide-in-from-bottom duration-300`}>
+                            {status.type==='success' ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
+                            {status.msg}
+                        </div>
+                    )}
+
+                    {/* Submit button */}
+                    <button
+                        onClick={handleWithdraw}
+                        disabled={!canSubmit}
+                        className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#1B24FF', color: '#fff', boxShadow: canSubmit ? '0 8px 24px #1B24FF30' : 'none' }}
+                    >
+                        {submitting
+                            ? <RefreshCw size={15} className="animate-spin" />
+                            : <><Wallet size={15} /> Confirm Withdrawal</>}
+                    </button>
+                </div>
+            </div>
+
+            {/* ── Transaction History ── */}
+            <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-7 py-5 border-b border-gray-50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#5845D8]/6 flex items-center justify-center">
+                            <RefreshCw size={14} className="text-[#5845D8]" />
+                        </div>
+                        <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">
+                            {t('transactionHistory') || 'Transaction History'}
+                        </h3>
+                    </div>
+                    <span className="text-[9px] font-bold text-gray-400">{transactions.length} entries</span>
+                </div>
+
+                {transactions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                            <Wallet size={28} className="text-gray-200" />
+                        </div>
+                        <p className="text-gray-300 font-black uppercase tracking-widest text-[10px]">
+                            No transactions recorded yet
                         </p>
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-50">
-                        {history.slice().reverse().map((tx, i) => (
-                            <div key={i} className="flex items-center justify-between px-8 py-6 hover:bg-gray-50/50 transition-all group">
-                                <div className="flex items-center gap-5">
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${tx.type === 'withdraw' ? 'bg-amber-50 text-amber-500 group-hover:bg-amber-100' : 'bg-green-50 text-green-600 group-hover:bg-green-100'}`}>
-                                        {tx.type === 'withdraw' ? <ArrowUpRight size={22} /> : <ArrowDownLeft size={22} />}
-                                    </div>
-                                    <div>
-                                        <p className="font-black text-[#012126] text-sm uppercase mb-0.5 tracking-tight">{tx.description || (tx.type === 'withdraw' ? t('payout') : t('earnings'))}</p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{new Date(tx.date || tx.created_at || tx.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                                            <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
-                                            <span className="text-[9px] text-[#5845D8] font-black uppercase tracking-widest">{tx.type}</span>
+                        {[...transactions].reverse().map((tx, i) => {
+                            const isOut = expenseTypes.has(tx.type);
+                            return (
+                                <div key={tx.id || i} className="flex items-center justify-between px-7 py-5 hover:bg-gray-50/40 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${isOut ? 'bg-amber-50 text-amber-500 group-hover:bg-amber-100' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'}`}>
+                                            {isOut ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
+                                        </div>
+                                        <div>
+                                            <p className="font-black text-[#012126] text-[11px] uppercase tracking-tight mb-0.5">
+                                                {tx.description || (isOut ? 'Payout' : 'Earnings')}
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
+                                                    {tx.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+                                                </span>
+                                                <span className="w-1 h-1 bg-gray-200 rounded-full" />
+                                                <span className="text-[8px] text-[#5845D8] font-black uppercase tracking-widest capitalize">{tx.type.replace(/_/g,' ')}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className={`text-xl font-black tracking-tighter ${tx.type === 'withdraw' ? 'text-red-500' : 'text-green-600'}`}>
-                                        {tx.type === 'withdraw' ? '-' : '+'}{currencySymbol}{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    <div className="text-right shrink-0 ml-4">
+                                        <p className={`text-xl font-black tracking-tighter ${isOut ? 'text-red-500' : 'text-emerald-600'}`}>
+                                            {isOut ? '−' : '+'}{sym}{tx.amount.toLocaleString(undefined,{minimumFractionDigits:2})}
+                                        </p>
+                                        <p className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${
+                                            tx.status==='completed' ? 'text-emerald-500' : tx.status==='pending' ? 'text-amber-500' : 'text-gray-400'
+                                        }`}>{tx.status}</p>
                                     </div>
-                                    <p className="text-[9px] text-green-500 font-black uppercase tracking-widest mt-1">Completed</p>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
-
-            {/* Payout Management Modal Shortcut */}
-            {showPayoutModal && (
-                <div className="fixed inset-0 bg-[#012126]/40 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in duration-300 px-6">
-                    <div className="bg-white rounded-[40px] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-300 border border-gray-100 relative">
-                        <button onClick={() => setShowPayoutModal(false)} className="absolute top-8 right-8 text-gray-400 hover:text-[#012126] transition-opacity">
-                            <X size={24} />
-                        </button>
-                        
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-12 h-12 bg-[#5845D8]/10 text-[#5845D8] rounded-2xl flex items-center justify-center">
-                                <Landmark size={24} />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">{t('payoutSettings') || 'Payout Settings'}</h3>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t('manageYourPayoutMethods') || 'Manage your payout methods'}</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 mb-10">
-                            {isAfricanCurrency ? (
-                                <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 space-y-4">
-                                    <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] uppercase tracking-widest">
-                                        <div className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">✓</div>
-                                        Paystack / Bank Transfer
-                                    </h4>
-                                    <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-4 uppercase tracking-wide">
-                                        Required for payouts in NGN, GHS, KES, ZAR.
-                                    </p>
-                                    <button 
-                                        onClick={() => { setShowPayoutModal(false); navigate('/dashboard?tab=settings'); }}
-                                        className="w-full py-4 bg-white border border-gray-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#012126] hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        {hasBank ? 'Update Bank Details' : 'Add Bank Account'}
-                                        <ArrowRight size={14} />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 space-y-4">
-                                    <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] uppercase tracking-widest">
-                                        <div className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">✓</div>
-                                        Connected Payouts
-                                    </h4>
-                                    <p className="text-[10px] text-gray-400 font-bold leading-relaxed mb-4 uppercase tracking-wide">
-                                        Required for payouts in USD, EUR, GBP and other non-African currencies.
-                                    </p>
-                                    <button 
-                                        onClick={() => { setShowPayoutModal(false); navigate('/dashboard?tab=settings'); }}
-                                        className="w-full py-4 bg-[#5845D8] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/10"
-                                    >
-                                        {hasConnectedPayout ? 'Manage Payout Account' : 'Set Up Payouts'}
-                                        <ArrowRight size={14} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100 flex gap-3">
-                            <Shield className="text-blue-500 shrink-0" size={16} />
-                            <p className="text-[9px] text-blue-700 font-bold uppercase tracking-tight leading-relaxed">
-                                Bago uses industry-standard encryption to protect your financial data. We never store your full bank details on our servers.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
-
-const X = ({ size }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-);
-
-const ArrowRight = ({ size }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-);

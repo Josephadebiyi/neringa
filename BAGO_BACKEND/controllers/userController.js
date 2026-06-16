@@ -639,7 +639,7 @@ export const getUserStats = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const [completedRow, activeRow, totalRow] = await Promise.all([
+    const [completedRow, activeRow, totalRow, thisMonthRow, lastMonthRow] = await Promise.all([
       queryOne(
         `SELECT COUNT(*) as count FROM public.shipment_requests
          WHERE (sender_id = $1 OR traveler_id = $1) AND status = 'completed'`,
@@ -652,6 +652,19 @@ export const getUserStats = async (req, res) => {
         [userId]
       ),
       queryOne(`SELECT COUNT(*) as count FROM public.profiles`, []),
+      queryOne(
+        `SELECT COUNT(*) as count FROM public.shipment_requests
+         WHERE (sender_id = $1 OR traveler_id = $1)
+           AND created_at >= date_trunc('month', now())`,
+        [userId]
+      ),
+      queryOne(
+        `SELECT COUNT(*) as count FROM public.shipment_requests
+         WHERE (sender_id = $1 OR traveler_id = $1)
+           AND created_at >= date_trunc('month', now() - interval '1 month')
+           AND created_at < date_trunc('month', now())`,
+        [userId]
+      ),
     ]);
 
     res.json({
@@ -659,6 +672,8 @@ export const getUserStats = async (req, res) => {
       totalUsers: (parseInt(totalRow?.count) || 0) + 1240,
       completedBookings: parseInt(completedRow?.count) || 0,
       activePackages: parseInt(activeRow?.count) || 0,
+      thisMonthShipments: parseInt(thisMonthRow?.count) || 0,
+      lastMonthShipments: parseInt(lastMonthRow?.count) || 0,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

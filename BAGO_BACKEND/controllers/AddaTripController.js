@@ -23,7 +23,8 @@ async function uploadTravelDocument(base64DataUri, userId) {
     const result = await cloudinary.v2.uploader.upload(base64DataUri, {
       folder: 'bago/travel_documents',
       public_id: `trip_proof_${userId}_${Date.now()}`,
-      resource_type: 'auto',
+      resource_type: 'image',
+      format: 'jpg',
     });
     return result.secure_url;
   } catch (err) {
@@ -50,6 +51,22 @@ const isSameRoute = (fromLocation, fromCountry, toLocation, toCountry) => {
   }
 
   return true;
+};
+
+const tripHasPassed = (trip) => {
+  const raw = trip?.arrivalDate || trip?.departureDate;
+  if (!raw) return false;
+  const end = new Date(raw);
+  if (Number.isNaN(end.getTime())) return false;
+  const today = new Date();
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const currentDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return endDay < currentDay;
+};
+
+const tripIsLockedHistory = (trip) => {
+  const status = String(trip?.status || '').toLowerCase();
+  return ['completed', 'cancelled', 'canceled', 'declined', 'expired', 'history'].includes(status) || tripHasPassed(trip);
 };
 
 // ✅ Add a new trip
@@ -234,6 +251,13 @@ export const UpdateTrip = async (req, res, next) => {
     const existing = await getTripOwnedByUser(tripId, userId);
     if (!existing) {
       return res.status(404).json({ message: "Trip not found" });
+    }
+
+    if (tripIsLockedHistory(existing)) {
+      return res.status(409).json({
+        message: "This trip is now history and cannot be edited. Use Redo trip to publish it again with new dates.",
+        code: "TRIP_HISTORY_LOCKED",
+      });
     }
 
     const nextFromLocation = fromLocation ?? existing.fromLocation;

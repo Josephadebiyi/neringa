@@ -87,6 +87,8 @@ export default function Dashboard() {
                     totalUsers: resp.data.totalUsers,
                     completedBookings: resp.data.completedBookings || 0,
                     activePackages: resp.data.activePackages || 0,
+                    thisMonthShipments: resp.data.thisMonthShipments || 0,
+                    lastMonthShipments: resp.data.lastMonthShipments || 0,
                 });
             }
         } catch (_) {}
@@ -265,7 +267,7 @@ export default function Dashboard() {
                 {/* ── Top bar – Velto style ── */}
                 <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
 
-                    {/* Left: hamburger + greeting */}
+                    {/* Left: hamburger + tab label */}
                     <div className="flex items-center gap-3 min-w-0">
                         <button
                             className="md:hidden p-2 rounded-xl bg-gray-50 text-[#012126] hover:bg-gray-100 shrink-0"
@@ -273,42 +275,25 @@ export default function Dashboard() {
                         >
                             <Menu size={20} />
                         </button>
-                        {activeTab === 'overview' ? (
-                            <div>
-                                <h1 className="text-lg font-black text-[#012126] tracking-tight leading-none">
-                                    Welcome Back
-                                </h1>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5 hidden sm:block">
-                                    {new Date().toLocaleDateString('en-GB', {
-                                        weekday: 'long',
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric',
-                                    })}
-                                </p>
-                            </div>
-                        ) : (
-                            <div>
-                                <h1 className="text-sm font-black text-[#012126] uppercase tracking-widest">
-                                    {tabLabel}
-                                </h1>
-                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5 hidden sm:block">
-                                    Personal Dashboard
-                                </p>
-                            </div>
-                        )}
+                        <div>
+                            <h1 className="text-sm font-black text-[#012126] uppercase tracking-widest leading-none">
+                                {tabLabel}
+                            </h1>
+                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5 hidden sm:block">
+                                {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Center: search (overview only) */}
-                    {activeTab === 'overview' && (
-                        <div className="hidden lg:flex items-center gap-2.5 bg-gray-50 rounded-xl px-4 py-2.5 w-72 border border-gray-100 hover:border-[#5845D8]/20 focus-within:border-[#5845D8]/30 focus-within:bg-white transition-all">
-                            <Search size={14} className="text-gray-400 shrink-0" />
-                            <input
-                                placeholder="Search Shipments..."
-                                className="bg-transparent text-[11px] outline-none text-[#012126] placeholder:text-gray-300 w-full font-medium"
-                            />
-                        </div>
-                    )}
+                    {/* Center: search bar — all tabs */}
+                    <div className="hidden lg:flex items-center gap-2.5 bg-gray-50 rounded-xl px-4 py-2.5 w-80 border border-gray-100 hover:border-[#5845D8]/20 focus-within:border-[#5845D8]/40 focus-within:bg-white focus-within:shadow-sm transition-all">
+                        <Search size={13} className="text-gray-400 shrink-0" />
+                        <input
+                            placeholder="Search shipments, trips, earnings…"
+                            className="bg-transparent text-[11px] outline-none text-[#012126] placeholder:text-gray-300 w-full font-medium"
+                        />
+                        <kbd className="hidden xl:flex items-center gap-0.5 text-[8px] font-bold text-gray-300 bg-gray-100 px-1.5 py-0.5 rounded-md shrink-0">⌘F</kbd>
+                    </div>
 
                     {/* Right: back link + bell + avatar */}
                     <div className="flex items-center gap-3 shrink-0">

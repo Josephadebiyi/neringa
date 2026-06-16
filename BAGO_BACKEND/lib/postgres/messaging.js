@@ -51,6 +51,7 @@ function normalizeConversation(row, currentUserId = null) {
             : null,
         }
       : null,
+    activeRequests: Array.isArray(row.active_requests) ? row.active_requests : [],
     trip: row.trip_id ? { _id: row.trip_id, id: row.trip_id } : null,
     sender,
     traveler,
@@ -132,12 +133,43 @@ const conversationSelect = `
     traveler.first_name as traveler_first_name,
     traveler.last_name as traveler_last_name,
     traveler.email as traveler_email,
-    traveler.image_url as traveler_image_url
+    traveler.image_url as traveler_image_url,
+    coalesce(active_requests.requests, '[]'::json) as active_requests
   from public.conversations c
   left join public.shipment_requests sr on sr.id = c.request_id
   left join public.packages pkg on pkg.id = sr.package_id
   left join public.profiles sender on sender.id = c.sender_id
   left join public.profiles traveler on traveler.id = c.traveler_id
+  left join lateral (
+    select json_agg(
+      json_build_object(
+        '_id', sr2.id,
+        'id', sr2.id,
+        'status', sr2.status,
+        'trackingNumber', sr2.tracking_number,
+        'createdAt', sr2.created_at,
+        'updatedAt', sr2.updated_at,
+        'package', json_build_object(
+          '_id', pkg2.id,
+          'id', pkg2.id,
+          'description', pkg2.description,
+          'packageWeight', pkg2.package_weight,
+          'category', pkg2.category,
+          'fromCity', pkg2.from_city,
+          'fromCountry', pkg2.from_country,
+          'toCity', pkg2.to_city,
+          'toCountry', pkg2.to_country,
+          'image', pkg2.image_url
+        )
+      )
+      order by sr2.updated_at desc nulls last, sr2.created_at desc
+    ) as requests
+    from public.shipment_requests sr2
+    left join public.packages pkg2 on pkg2.id = sr2.package_id
+    where sr2.sender_id = c.sender_id
+      and sr2.traveler_id = c.traveler_id
+      and lower(coalesce(sr2.status, '')) not in ('completed', 'cancelled', 'canceled', 'rejected')
+  ) active_requests on true
 `;
 
 export async function getConversationById(conversationId, currentUserId = null) {
