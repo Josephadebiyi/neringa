@@ -70,7 +70,20 @@ export const sendPromoEmail = async (req, res, next) => {
       </div>
       <div class="footer">
         <p style="margin:0 0 12px;font-size:11px;color:#94a3b8;">Get the Bago app</p>
-        <a href="https://sendwithbago.com" style="display:inline-block;"><img src="https://sendwithbago.com/app_store_buttons.png" alt="Download on App Store and Google Play" width="220" style="display:block;border:0;margin:0 auto;"/></a>
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+          <tr>
+            <td style="padding-right:6px; vertical-align:middle;">
+              <a href="https://sendwithbago.com" target="_blank" style="display:inline-block; text-decoration:none;">
+                <img src="https://sendwithbago.com/app-store.svg" alt="Download on the App Store" width="120" height="40" style="display:block; border:0;"/>
+              </a>
+            </td>
+            <td style="padding-left:6px; vertical-align:middle;">
+              <a href="https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind&amp;hl=es_US" target="_blank" style="display:inline-block; text-decoration:none;">
+                <img src="https://sendwithbago.com/google-play.svg" alt="Get it on Google Play" width="135" height="40" style="display:block; border:0;"/>
+              </a>
+            </td>
+          </tr>
+        </table>
         <p style="margin:16px 0 0;">&copy; ${new Date().getFullYear()} Bago Logistics. All rights reserved.<br/>You received this email because you are a registered user of Bago.</p>
       </div>
     </div></body></html>`;

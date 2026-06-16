@@ -300,9 +300,20 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
             <td style="padding:24px 24px 20px; background:#fbfbfe; text-align:center; font-family:Arial, sans-serif; font-size:12px; color:#9ca3af;">
               <div style="max-width:520px; margin:0 auto;">
                 <p style="margin:0 0 12px; font-family:Arial, sans-serif; font-size:11px; color:#9ca3af;">Get the Bago app</p>
-                <a href="${FRONTEND_URL}" target="_blank" style="display:inline-block;">
-                  <img src="${FRONTEND_URL}/app_store_buttons.png" alt="Download on App Store and Google Play" width="240" style="display:block; border:0; margin:0 auto;"/>
-                </a>
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                  <tr>
+                    <td style="padding-right:6px; vertical-align:middle;">
+                      <a href="${FRONTEND_URL}" target="_blank" style="display:inline-block; text-decoration:none;">
+                        <img src="https://sendwithbago.com/app-store.svg" alt="Download on the App Store" width="120" height="40" style="display:block; border:0;"/>
+                      </a>
+                    </td>
+                    <td style="padding-left:6px; vertical-align:middle;">
+                      <a href="https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind&amp;hl=es_US" target="_blank" style="display:inline-block; text-decoration:none;">
+                        <img src="https://sendwithbago.com/google-play.svg" alt="Get it on Google Play" width="135" height="40" style="display:block; border:0;"/>
+                      </a>
+                    </td>
+                  </tr>
+                </table>
                 <div style="margin-top:16px; margin-bottom:6px;">Need help? Visit our <a href="${FRONTEND_URL}/help" style="color:#5240E8; text-decoration:none;">Help Center</a>.</div>
                 <div style="margin-top:8px;">© ${new Date().getFullYear()} Bago. All rights reserved.</div>
               </div>
