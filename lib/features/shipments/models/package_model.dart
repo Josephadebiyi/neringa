@@ -24,6 +24,8 @@ class PackageModel {
   final String senderId;
   final String? travelerId;
   final double price;
+  final double senderTotalAmount;
+  final double travelerPayout;
   final bool insurance;
   final double insuranceCost;
   final String? insurancePolicyId;
@@ -65,6 +67,8 @@ class PackageModel {
     required this.senderId,
     this.travelerId,
     required this.price,
+    this.senderTotalAmount = 0.0,
+    this.travelerPayout = 0.0,
     required this.insurance,
     this.insuranceCost = 0.0,
     this.insurancePolicyId,
@@ -86,6 +90,18 @@ class PackageModel {
 
   bool get isActive => status.isActive;
   String get statusLabel => status.label;
+  double get senderDisplayAmount =>
+      senderTotalAmount > 0 ? senderTotalAmount : price;
+  double get travelerDisplayAmount =>
+      travelerPayout > 0 ? travelerPayout : price;
+  double amountForRole(String? role) {
+    final normalizedRole = role?.toLowerCase().trim();
+    if (normalizedRole == 'traveler' || normalizedRole == 'carrier') {
+      return travelerDisplayAmount;
+    }
+    return senderDisplayAmount;
+  }
+
   bool get awaitingSenderConfirmation =>
       (rawStatus.toLowerCase() == 'delivered' ||
           rawStatus.toLowerCase() == 'delivering' ||
@@ -189,13 +205,28 @@ class PackageModel {
           _mapValue(json['traveler'], 'id'),
         ]),
         price: _firstDouble([
+          json['senderTotalAmount'],
+          json['sender_total_amount'],
           json['price'],
           json['amount'],
           _mapValue(json['package'], 'pricePerKg'),
         ]),
+        senderTotalAmount: _firstDouble([
+          json['senderTotalAmount'],
+          json['sender_total_amount'],
+          json['amount'],
+          json['price'],
+        ]),
+        travelerPayout: _firstDouble([
+          json['travelerPayout'],
+          json['traveler_payout'],
+        ]),
         insurance: json['insurance'] == true,
-        insuranceCost: (json['insuranceCost'] as num?)?.toDouble() ?? (json['insurance_cost'] as num?)?.toDouble() ?? 0.0,
-        insurancePolicyId: json['insurance_policy_id']?.toString() ?? json['insurancePolicyId']?.toString(),
+        insuranceCost: (json['insuranceCost'] as num?)?.toDouble() ??
+            (json['insurance_cost'] as num?)?.toDouble() ??
+            0.0,
+        insurancePolicyId: json['insurance_policy_id']?.toString() ??
+            json['insurancePolicyId']?.toString(),
         createdAt: _firstString([
           json['createdAt'],
           _mapValue(json['dates'], 'created'),
@@ -282,6 +313,8 @@ class PackageModel {
         'senderId': senderId,
         'travelerId': travelerId,
         'price': price,
+        'senderTotalAmount': senderTotalAmount,
+        'travelerPayout': travelerPayout,
         'insurance': insurance,
         'createdAt': createdAt,
         'updatedAt': updatedAt,

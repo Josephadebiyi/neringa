@@ -497,11 +497,14 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(shipmentProvider);
 
-    if (state.isLoading && state.incomingRequests.isEmpty) {
+    final activeTravelerRequests =
+        state.incomingRequests.where(_isActiveTravelerRequest).toList();
+
+    if (state.isLoading && activeTravelerRequests.isEmpty) {
       return const Center(child: AppLoading());
     }
 
-    if (state.incomingRequests.isEmpty) {
+    if (activeTravelerRequests.isEmpty) {
       return RefreshIndicator(
         onRefresh: () async =>
             ref.read(shipmentProvider.notifier).loadIncomingRequests(),
@@ -518,7 +521,7 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
       );
     }
 
-    final filtered = state.incomingRequests
+    final filtered = activeTravelerRequests
         .where((r) => r.id.isNotEmpty && _matches(r, _query))
         .toList();
 
@@ -591,6 +594,13 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
       ),
     );
   }
+}
+
+bool _isActiveTravelerRequest(RequestModel request) {
+  return request.status == RequestStatus.pending ||
+      request.status == RequestStatus.accepted ||
+      request.status == RequestStatus.intransit ||
+      request.status == RequestStatus.delivering;
 }
 
 // Cards
@@ -762,8 +772,8 @@ class _PackageCard extends StatelessWidget {
                 ),
                 _InfoChip(
                   icon: Icons.payments_outlined,
-                  label: package.price > 0
-                      ? package.price.toStringAsFixed(0)
+                  label: package.senderDisplayAmount > 0
+                      ? package.senderDisplayAmount.toStringAsFixed(0)
                       : l10n.pendingPriceLabel,
                 ),
                 if ((package.travelerName ?? '').isNotEmpty)
@@ -949,7 +959,7 @@ class _RequestCardState extends State<_RequestCard> {
                 _InfoChip(
                   icon: Icons.payments_outlined,
                   label:
-                      '${request.currency} ${request.agreedPrice.toStringAsFixed(0)}',
+                      '${request.currency} ${request.amountForRole(isIncoming ? 'traveler' : 'sender').toStringAsFixed(0)}',
                 ),
                 if ((request.packageWeight ?? 0) > 0)
                   _InfoChip(

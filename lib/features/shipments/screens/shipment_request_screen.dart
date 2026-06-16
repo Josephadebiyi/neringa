@@ -510,60 +510,49 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
           ],
 
           // Pricing
-          _InfoCard(
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(isSender ? 'Shipping Price' : 'Your earning',
-                        style: AppTextStyles.labelMd
-                            .copyWith(fontWeight: FontWeight.w700)),
-                    Text(
-                      '${req.currency} ${req.agreedPrice.toStringAsFixed(2)}',
-                      style: AppTextStyles.h3.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w900),
+          Builder(builder: (context) {
+            final displayAmount =
+                req.amountForRole(isSender ? 'sender' : 'traveler');
+            final priceLabel = isSender ? 'Total paid' : 'Your earning';
+            return _InfoCard(
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(priceLabel,
+                          style: AppTextStyles.labelMd
+                              .copyWith(fontWeight: FontWeight.w700)),
+                      Text(
+                        '${req.currency} ${displayAmount.toStringAsFixed(2)}',
+                        style: AppTextStyles.h3.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  if (isSender && req.insurance && req.insuranceCost > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Insurance included',
+                            style: AppTextStyles.bodySm.copyWith(
+                                color: AppColors.gray500,
+                                fontWeight: FontWeight.w600)),
+                        Text(
+                          '${req.currency} ${req.insuranceCost.toStringAsFixed(2)}',
+                          style: AppTextStyles.bodySm.copyWith(
+                              color: AppColors.gray600,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-                if (isSender && req.insurance && req.insuranceCost > 0) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Insurance',
-                          style: AppTextStyles.bodySm.copyWith(
-                              color: AppColors.gray500,
-                              fontWeight: FontWeight.w600)),
-                      Text(
-                        '+ ${req.currency} ${req.insuranceCost.toStringAsFixed(2)}',
-                        style: AppTextStyles.bodySm.copyWith(
-                            color: AppColors.gray600,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 16, color: AppColors.gray100),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Total Paid',
-                          style: AppTextStyles.labelMd.copyWith(
-                              color: AppColors.gray700,
-                              fontWeight: FontWeight.w700)),
-                      Text(
-                        '${req.currency} ${req.agreedPrice.toStringAsFixed(2)}',
-                        style: AppTextStyles.labelMd.copyWith(
-                            color: AppColors.black,
-                            fontWeight: FontWeight.w800),
-                      ),
-                    ],
-                  ),
                 ],
-              ],
-            ),
-          ),
+              ),
+            );
+          }),
 
           if (req.insurance) ...[
             const SizedBox(height: 14),

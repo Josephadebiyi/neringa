@@ -37,12 +37,25 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   static const _publishPath = '';
 
   List<_TabItem> _tabs() => [
-    const _TabItem(icon: Icons.search_rounded, label: 'Search', path: '/home'),
-    const _TabItem(icon: Icons.add_circle_rounded, label: 'Publish', path: _publishPath),
-    const _TabItem(icon: Icons.local_shipping_rounded, label: 'Activity', path: '/activity'),
-    const _TabItem(icon: Icons.chat_bubble_outline_rounded, label: 'Inbox', path: '/messages'),
-    const _TabItem(icon: Icons.person_outline_rounded, label: 'Profile', path: '/profile'),
-  ];
+        const _TabItem(
+            icon: Icons.search_rounded, label: 'Search', path: '/home'),
+        const _TabItem(
+            icon: Icons.add_circle_rounded,
+            label: 'Publish',
+            path: _publishPath),
+        const _TabItem(
+            icon: Icons.local_shipping_rounded,
+            label: 'Activity',
+            path: '/activity'),
+        const _TabItem(
+            icon: Icons.chat_bubble_outline_rounded,
+            label: 'Inbox',
+            path: '/messages'),
+        const _TabItem(
+            icon: Icons.person_outline_rounded,
+            label: 'Profile',
+            path: '/profile'),
+      ];
 
   @override
   void initState() {
@@ -63,7 +76,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   int _currentIndex(BuildContext context, List<_TabItem> tabs) {
     final loc = GoRouterState.of(context).matchedLocation;
     for (var i = 0; i < tabs.length; i++) {
-      if (tabs[i].path.isEmpty) continue; // Publish is an action, not a destination
+      if (tabs[i].path.isEmpty) {
+        continue; // Publish is an action, not a destination
+      }
       if (loc.startsWith(tabs[i].path)) return i;
     }
     return 0;
@@ -71,27 +86,37 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
   void _ensurePolling() {
     if (_pollTimer != null || _bootstrapScheduled) return;
+    if (!ref.read(authProvider).isLoggedIn) return;
 
     _bootstrapScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _bootstrapScheduled = false;
       if (!mounted) return;
+      if (!ref.read(authProvider).isLoggedIn) return;
       await _primeIncomingRequests(initialSnapshot: true);
       if (!mounted || _pollTimer != null) return;
-      _pollTimer = Timer.periodic(_pollInterval, (_) => _primeIncomingRequests());
+      _pollTimer = Timer.periodic(_pollInterval, (_) {
+        if (!ref.read(authProvider).isLoggedIn) return;
+        _primeIncomingRequests();
+      });
     });
   }
 
   void _ensureMessagePolling() {
     if (_messagePollTimer != null || _messageBootstrapScheduled) return;
+    if (!ref.read(authProvider).isLoggedIn) return;
 
     _messageBootstrapScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _messageBootstrapScheduled = false;
       if (!mounted) return;
+      if (!ref.read(authProvider).isLoggedIn) return;
       await _primeUnreadMessages();
       if (!mounted || _messagePollTimer != null) return;
-      _messagePollTimer = Timer.periodic(_pollInterval, (_) => _primeUnreadMessages());
+      _messagePollTimer = Timer.periodic(_pollInterval, (_) {
+        if (!ref.read(authProvider).isLoggedIn) return;
+        _primeUnreadMessages();
+      });
     });
   }
 
@@ -110,7 +135,8 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     if (!mounted) return;
 
     try {
-      final incoming = await ref.read(shipmentProvider.notifier).refreshIncomingRequests();
+      final incoming =
+          await ref.read(shipmentProvider.notifier).refreshIncomingRequests();
       final pending = incoming
           .where((r) => r.status == RequestStatus.pending && r.id.isNotEmpty)
           .toList();
@@ -121,7 +147,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
         return;
       }
 
-      final newRequests = pending.where((r) => !_knownPendingRequestIds.contains(r.id)).toList();
+      final newRequests = pending
+          .where((r) => !_knownPendingRequestIds.contains(r.id))
+          .toList();
       _knownPendingRequestIds = ids;
 
       if (newRequests.isNotEmpty) {
@@ -148,7 +176,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             if (accepting || rejecting) return;
             accepting = true;
             try {
-              await ref.read(shipmentProvider.notifier).acceptRequest(request.id);
+              await ref
+                  .read(shipmentProvider.notifier)
+                  .acceptRequest(request.id);
               if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -170,7 +200,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             if (accepting || rejecting) return;
             rejecting = true;
             try {
-              await ref.read(shipmentProvider.notifier).rejectRequest(request.id);
+              await ref
+                  .read(shipmentProvider.notifier)
+                  .rejectRequest(request.id);
               if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -190,7 +222,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
 
           final previewImage = (request.image ?? '').trim().isNotEmpty
               ? request.image!.trim()
-              : (request.packageImages.isNotEmpty ? request.packageImages.first : '');
+              : (request.packageImages.isNotEmpty
+                  ? request.packageImages.first
+                  : '');
 
           return SafeArea(
             child: Container(
@@ -232,7 +266,8 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                             color: AppColors.primarySoft,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Icon(Icons.notifications_active_rounded, color: AppColors.primary),
+                          child: const Icon(Icons.notifications_active_rounded,
+                              color: AppColors.primary),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -241,12 +276,15 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                             children: [
                               Text(
                                 'New shipment request',
-                                style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+                                style: AppTextStyles.h3
+                                    .copyWith(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                request.senderName ?? 'A sender wants to ship with you',
-                                style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                                request.senderName ??
+                                    'A sender wants to ship with you',
+                                style: AppTextStyles.bodySm
+                                    .copyWith(color: AppColors.gray500),
                               ),
                             ],
                           ),
@@ -264,24 +302,33 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                             fit: BoxFit.cover,
                             errorWidget: (_, __, ___) => Container(
                               color: AppColors.gray100,
-                              child: const Icon(Icons.inventory_2_outlined, color: AppColors.gray300, size: 40),
+                              child: const Icon(Icons.inventory_2_outlined,
+                                  color: AppColors.gray300, size: 40),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 16),
                     ],
-                    _QuickDetail(label: 'Route', value: [
-                      if ((request.fromLocation ?? '').isNotEmpty) request.fromLocation!,
-                      if ((request.toLocation ?? '').isNotEmpty) request.toLocation!,
-                    ].join(' → ')),
-                    _QuickDetail(label: 'Package', value: request.packageTitle ?? 'Shipment request'),
+                    _QuickDetail(
+                        label: 'Route',
+                        value: [
+                          if ((request.fromLocation ?? '').isNotEmpty)
+                            request.fromLocation!,
+                          if ((request.toLocation ?? '').isNotEmpty)
+                            request.toLocation!,
+                        ].join(' → ')),
+                    _QuickDetail(
+                        label: 'Package',
+                        value: request.packageTitle ?? 'Shipment request'),
                     _QuickDetail(
                       label: 'Price',
-                      value: '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
+                      value:
+                          '${request.currency} ${request.amountForRole('traveler').toStringAsFixed(2)}',
                     ),
                     if ((request.message ?? '').trim().isNotEmpty)
-                      _QuickDetail(label: 'Message', value: request.message!.trim()),
+                      _QuickDetail(
+                          label: 'Message', value: request.message!.trim()),
                     const SizedBox(height: 18),
                     Row(
                       children: [
@@ -346,9 +393,8 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     );
     final tabs = _tabs();
     final currentIndex = _currentIndex(context, tabs);
-    final pendingCount = incomingRequests
-        .where((r) => r.status == RequestStatus.pending)
-        .length;
+    final pendingCount =
+        incomingRequests.where((r) => r.status == RequestStatus.pending).length;
 
     _ensurePolling();
     _ensureMessagePolling();
@@ -378,42 +424,46 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             type: BottomNavigationBarType.fixed,
             selectedItemColor: AppColors.black,
             unselectedItemColor: AppColors.gray400,
-            selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            selectedLabelStyle:
+                const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            unselectedLabelStyle:
+                const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             onTap: (i) {
-                final tab = tabs[i];
-                final isLoggedIn = ref.read(authProvider).isLoggedIn;
-                // Publish tab — action, not destination
-                if (tab.path.isEmpty) {
-                  if (!isLoggedIn) {
-                    showAuthRequiredModal(context);
-                    return;
-                  }
-                  context.push('/post-trip');
-                  return;
-                }
-                if (!isLoggedIn && tab.path != '/home') {
+              final tab = tabs[i];
+              final isLoggedIn = ref.read(authProvider).isLoggedIn;
+              // Publish tab — action, not destination
+              if (tab.path.isEmpty) {
+                if (!isLoggedIn) {
                   showAuthRequiredModal(context);
                   return;
                 }
-                context.go(tab.path);
-              },
+                context.push('/post-trip');
+                return;
+              }
+              if (!isLoggedIn && tab.path != '/home') {
+                showAuthRequiredModal(context);
+                return;
+              }
+              context.go(tab.path);
+            },
             items: tabs.map((tab) {
-                final isInboxTab = tab.path == '/messages';
-                final isActivityTab = tab.path == '/activity';
-                final isPublishTab = tab.path.isEmpty;
-                return BottomNavigationBarItem(
-                  icon: isPublishTab
-                      ? const Icon(Icons.add_circle_rounded)
-                      : _NavTabIcon(
-                          icon: tab.icon,
-                          showBadge: (isActivityTab && pendingCount > 0) ||
-                              (isInboxTab && unreadCount > 0),
-                          badgeCount: isInboxTab ? unreadCount : (isActivityTab ? pendingCount : 0),
-                        ),
-                  label: tab.label,
-                );
-              }).toList(),
+              final isInboxTab = tab.path == '/messages';
+              final isActivityTab = tab.path == '/activity';
+              final isPublishTab = tab.path.isEmpty;
+              return BottomNavigationBarItem(
+                icon: isPublishTab
+                    ? const Icon(Icons.add_circle_rounded)
+                    : _NavTabIcon(
+                        icon: tab.icon,
+                        showBadge: (isActivityTab && pendingCount > 0) ||
+                            (isInboxTab && unreadCount > 0),
+                        badgeCount: isInboxTab
+                            ? unreadCount
+                            : (isActivityTab ? pendingCount : 0),
+                      ),
+                label: tab.label,
+              );
+            }).toList(),
           ),
         ),
       ),

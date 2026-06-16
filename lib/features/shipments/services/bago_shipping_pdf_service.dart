@@ -12,8 +12,8 @@ class BagoShippingPdfService {
 
   // Two-colour palette only
   static const PdfColor _purple = PdfColor.fromInt(0xFF5C4BFD);
-  static const PdfColor _dark   = PdfColor.fromInt(0xFF1A1A2E);
-  static const PdfColor _grey   = PdfColor.fromInt(0xFF6B7280);
+  static const PdfColor _dark = PdfColor.fromInt(0xFF1A1A2E);
+  static const PdfColor _grey = PdfColor.fromInt(0xFF6B7280);
   static const PdfColor _purpleBorder = PdfColor.fromInt(0xFFB8B0FD);
 
   static Future<Uint8List> generate({
@@ -22,7 +22,9 @@ class BagoShippingPdfService {
     String trackingBaseUrl = 'https://sendwithbago.com/track',
   }) async {
     final logo = pw.MemoryImage(
-      (await rootBundle.load('assets/images/bago-logo.png')).buffer.asUint8List(),
+      (await rootBundle.load('assets/images/bago-logo.png'))
+          .buffer
+          .asUint8List(),
     );
     final theme = pw.ThemeData.withFont(
       base: pw.Font.helvetica(),
@@ -40,37 +42,58 @@ class BagoShippingPdfService {
     final dateFormat = DateFormat('MMM d, y');
     final timeFormat = DateFormat('h:mm a');
 
-    final createdAt   = _tryParseDate(shipment.createdAt);
-    final updatedAt   = _tryParseDate(shipment.updatedAt);
-    final departureAt = _tryParseDate(shipment.estimatedDeparture ?? shipment.pickupDate ?? shipment.createdAt);
-    final arrivalAt   = _tryParseDate(shipment.estimatedArrival  ?? shipment.deliveryDate ?? shipment.updatedAt);
+    final createdAt = _tryParseDate(shipment.createdAt);
+    final updatedAt = _tryParseDate(shipment.updatedAt);
+    final departureAt = _tryParseDate(shipment.estimatedDeparture ??
+        shipment.pickupDate ??
+        shipment.createdAt);
+    final arrivalAt = _tryParseDate(shipment.estimatedArrival ??
+        shipment.deliveryDate ??
+        shipment.updatedAt);
 
     final travelerLabel = shipment.travelerName?.trim().isNotEmpty == true
-        ? shipment.travelerName!.trim() : 'Assigned traveler';
+        ? shipment.travelerName!.trim()
+        : 'Assigned traveler';
     final senderName = sender?.fullName.trim().isNotEmpty == true
         ? sender!.fullName.trim()
-        : (shipment.senderName?.trim().isNotEmpty == true ? shipment.senderName!.trim() : 'Sender');
-    final senderEmail   = sender?.email.trim().isNotEmpty == true ? sender!.email.trim() : '';
-    final senderPhone   = sender?.phone?.trim().isNotEmpty == true ? sender!.phone!.trim() : '';
-    final senderCountry = sender?.country?.trim().isNotEmpty == true ? sender!.country!.trim() : shipment.fromCountry;
+        : (shipment.senderName?.trim().isNotEmpty == true
+            ? shipment.senderName!.trim()
+            : 'Sender');
+    final senderEmail =
+        sender?.email.trim().isNotEmpty == true ? sender!.email.trim() : '';
+    final senderPhone =
+        sender?.phone?.trim().isNotEmpty == true ? sender!.phone!.trim() : '';
+    final senderCountry = sender?.country?.trim().isNotEmpty == true
+        ? sender!.country!.trim()
+        : shipment.fromCountry;
 
-    final receiverName     = shipment.receiverName?.trim().isNotEmpty == true ? shipment.receiverName!.trim() : 'Receiver';
-    final receiverPhone    = shipment.receiverPhone?.trim().isNotEmpty == true ? shipment.receiverPhone!.trim() : 'Not provided';
-    final receiverEmail    = shipment.receiverEmail?.trim().isNotEmpty == true ? shipment.receiverEmail!.trim() : 'Not provided';
+    final receiverName = shipment.receiverName?.trim().isNotEmpty == true
+        ? shipment.receiverName!.trim()
+        : 'Receiver';
+    final receiverPhone = shipment.receiverPhone?.trim().isNotEmpty == true
+        ? shipment.receiverPhone!.trim()
+        : '';
+    final receiverEmail = shipment.receiverEmail?.trim().isNotEmpty == true
+        ? shipment.receiverEmail!.trim()
+        : '';
     final receiverLocation = shipment.deliveryAddress.trim().isNotEmpty
         ? shipment.deliveryAddress.trim()
         : '${shipment.toCity}, ${shipment.toCountry}';
 
-    final routeLabel  = '${shipment.fromCity}, ${shipment.fromCountry} -> ${shipment.toCity}, ${shipment.toCountry}';
-    final status      = shipment.status.apiValue;
+    final routeLabel =
+        '${shipment.fromCity}, ${shipment.fromCountry} -> ${shipment.toCity}, ${shipment.toCountry}';
+    final status = shipment.status.apiValue;
     final statusLabel = shipment.status.label.toUpperCase();
-    final progress    = _timelineProgress(status);
+    final progress = _timelineProgress(status);
 
     final timeline = <_TimelineStep>[
-      _TimelineStep('Submitted',  createdAt   ?? DateTime.now(), progress >= 0),
-      _TimelineStep('Matched',    departureAt ?? createdAt ?? DateTime.now(), progress >= 1),
-      _TimelineStep('In transit', departureAt ?? createdAt ?? DateTime.now(), progress >= 2),
-      _TimelineStep('Delivered',  arrivalAt   ?? updatedAt ?? DateTime.now(), progress >= 3),
+      _TimelineStep('Submitted', createdAt ?? DateTime.now(), progress >= 0),
+      _TimelineStep(
+          'Matched', departureAt ?? createdAt ?? DateTime.now(), progress >= 1),
+      _TimelineStep('In transit', departureAt ?? createdAt ?? DateTime.now(),
+          progress >= 2),
+      _TimelineStep(
+          'Delivered', arrivalAt ?? updatedAt ?? DateTime.now(), progress >= 3),
     ];
 
     document.addPage(
@@ -84,20 +107,23 @@ class BagoShippingPdfService {
           margin: const pw.EdgeInsets.only(top: 8),
           padding: const pw.EdgeInsets.symmetric(vertical: 8),
           decoration: const pw.BoxDecoration(
-            border: pw.Border(top: pw.BorderSide(color: _purpleBorder, width: 0.8)),
+            border:
+                pw.Border(top: pw.BorderSide(color: _purpleBorder, width: 0.8)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text('Bago - Shipping document',
-                  style: pw.TextStyle(fontSize: 9, color: _grey, fontWeight: pw.FontWeight.bold)),
+                  style: pw.TextStyle(
+                      fontSize: 9,
+                      color: _grey,
+                      fontWeight: pw.FontWeight.bold)),
               pw.Text('Tracking: $trackingId',
                   style: pw.TextStyle(fontSize: 9, color: _grey)),
             ],
           ),
         ),
         build: (_) => [
-
           // ── HEADER ──────────────────────────────────────────────────────────
           pw.Container(
             decoration: pw.BoxDecoration(
@@ -125,30 +151,40 @@ class BagoShippingPdfService {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text('SHIPPING LABEL',
-                          style: pw.TextStyle(color: PdfColors.white, fontSize: 10,
-                              fontWeight: pw.FontWeight.bold, letterSpacing: 1.4)),
+                          style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                              letterSpacing: 1.4)),
                       pw.SizedBox(height: 4),
                       pw.Text(trackingId,
-                          style: pw.TextStyle(color: PdfColors.white, fontSize: 20,
+                          style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 20,
                               fontWeight: pw.FontWeight.bold)),
                       pw.SizedBox(height: 4),
                       pw.Text(
                         '${shipment.currency.toUpperCase()} ${shipment.price.toStringAsFixed(2)}/kg',
-                        style: pw.TextStyle(color: PdfColors.white, fontSize: 12),
+                        style:
+                            pw.TextStyle(color: PdfColors.white, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
                 // Status badge — white text on slightly lighter purple
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
                   decoration: pw.BoxDecoration(
                     color: PdfColors.white,
                     borderRadius: pw.BorderRadius.circular(999),
                   ),
                   child: pw.Text(statusLabel,
-                      style: pw.TextStyle(color: _purple, fontSize: 9,
-                          fontWeight: pw.FontWeight.bold, letterSpacing: 0.8)),
+                      style: pw.TextStyle(
+                          color: _purple,
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                          letterSpacing: 0.8)),
                 ),
               ],
             ),
@@ -164,17 +200,19 @@ class BagoShippingPdfService {
                 pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Expanded(child: _infoBlock('Sender', [
+                    pw.Expanded(
+                        child: _infoBlock('Sender', [
                       senderName,
                       if (senderPhone.isNotEmpty) senderPhone,
                       if (senderEmail.isNotEmpty) senderEmail,
                       senderCountry,
                     ])),
                     pw.SizedBox(width: 12),
-                    pw.Expanded(child: _infoBlock('Receiver', [
+                    pw.Expanded(
+                        child: _infoBlock('Receiver', [
                       receiverName,
-                      receiverPhone,
-                      receiverEmail,
+                      if (receiverPhone.isNotEmpty) receiverPhone,
+                      if (receiverEmail.isNotEmpty) receiverEmail,
                       receiverLocation,
                     ])),
                   ],
@@ -209,12 +247,15 @@ class BagoShippingPdfService {
                         '${shipment.currency.toUpperCase()} ${shipment.value.toStringAsFixed(2)}'),
                     _pill('Shipping fee',
                         '${shipment.currency.toUpperCase()} ${shipment.price.toStringAsFixed(2)}/kg'),
-                    _pill('Insurance', shipment.insurance ? 'Enabled' : 'Not added'),
+                    _pill('Insurance',
+                        shipment.insurance ? 'Enabled' : 'Not added'),
                   ],
                 ),
                 pw.SizedBox(height: 16),
                 pw.Text('Shipment Timeline',
-                    style: pw.TextStyle(color: _dark, fontSize: 11,
+                    style: pw.TextStyle(
+                        color: _dark,
+                        fontSize: 11,
                         fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 10),
                 pw.Column(
@@ -248,12 +289,16 @@ class BagoShippingPdfService {
                     children: [
                       pw.Text(
                         'Scan the QR code to open the live tracking page for this shipment.',
-                        style: pw.TextStyle(fontSize: 10.5, color: _dark, height: 1.4),
+                        style: pw.TextStyle(
+                            fontSize: 10.5, color: _dark, height: 1.4),
                       ),
                       pw.SizedBox(height: 10),
-                      pw.Text('Tracking ID:', style: pw.TextStyle(fontSize: 9, color: _grey)),
+                      pw.Text('Tracking ID:',
+                          style: pw.TextStyle(fontSize: 9, color: _grey)),
                       pw.Text(trackingId,
-                          style: pw.TextStyle(fontSize: 11, color: _dark,
+                          style: pw.TextStyle(
+                              fontSize: 11,
+                              color: _dark,
                               fontWeight: pw.FontWeight.bold)),
                     ],
                   ),
@@ -289,12 +334,15 @@ class BagoShippingPdfService {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text('Important Notes',
-                    style: pw.TextStyle(color: PdfColors.white, fontSize: 11,
+                    style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 11,
                         fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 6),
                 pw.Text(
                   'This document is generated on the device. Show it to the traveler, keep a copy for your records, and confirm the tracking number before handoff.',
-                  style: pw.TextStyle(color: PdfColors.white, fontSize: 10, height: 1.45),
+                  style: pw.TextStyle(
+                      color: PdfColors.white, fontSize: 10, height: 1.45),
                 ),
               ],
             ),
@@ -307,7 +355,8 @@ class BagoShippingPdfService {
   }
 
   // ── Section card: purple title bar + white body ────────────────────────────
-  static pw.Widget _sectionCard({required String title, required pw.Widget child}) {
+  static pw.Widget _sectionCard(
+      {required String title, required pw.Widget child}) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         color: PdfColors.white,
@@ -323,8 +372,11 @@ class BagoShippingPdfService {
             color: _purple,
             padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             child: pw.Text(title,
-                style: pw.TextStyle(color: PdfColors.white, fontSize: 11,
-                    fontWeight: pw.FontWeight.bold, letterSpacing: 0.4)),
+                style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                    letterSpacing: 0.4)),
           ),
           // White content
           pw.Padding(
@@ -348,8 +400,11 @@ class BagoShippingPdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(label,
-              style: pw.TextStyle(color: _purple, fontSize: 9,
-                  fontWeight: pw.FontWeight.bold, letterSpacing: 0.6)),
+              style: pw.TextStyle(
+                  color: _purple,
+                  fontSize: 9,
+                  fontWeight: pw.FontWeight.bold,
+                  letterSpacing: 0.6)),
           pw.SizedBox(height: 6),
           for (final line in lines.where((l) => l.trim().isNotEmpty))
             pw.Padding(
@@ -375,11 +430,16 @@ class BagoShippingPdfService {
         mainAxisSize: pw.MainAxisSize.min,
         children: [
           pw.Text(label,
-              style: pw.TextStyle(color: PdfColors.white, fontSize: 8,
-                  fontWeight: pw.FontWeight.bold, letterSpacing: 0.4)),
+              style: pw.TextStyle(
+                  color: PdfColors.white,
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                  letterSpacing: 0.4)),
           pw.SizedBox(height: 2),
           pw.Text(value,
-              style: pw.TextStyle(color: PdfColors.white, fontSize: 10.5,
+              style: pw.TextStyle(
+                  color: PdfColors.white,
+                  fontSize: 10.5,
                   fontWeight: pw.FontWeight.bold)),
         ],
       ),
@@ -409,7 +469,8 @@ class BagoShippingPdfService {
                   style: pw.TextStyle(
                       color: active ? _dark : _grey,
                       fontSize: 10.5,
-                      fontWeight: active ? pw.FontWeight.bold : pw.FontWeight.normal)),
+                      fontWeight:
+                          active ? pw.FontWeight.bold : pw.FontWeight.normal)),
               pw.Text(DateFormat('MMM d, y').format(step.date),
                   style: pw.TextStyle(fontSize: 9, color: _grey)),
             ],
@@ -453,15 +514,41 @@ class BagoShippingPdfService {
     return 'Bago_Shipping_Label_$safe.pdf';
   }
 
+  static Future<void> previewBytes({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    await Printing.layoutPdf(onLayout: (_) async => bytes, name: filename);
+  }
+
+  static Future<void> shareBytes({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    await Printing.sharePdf(bytes: bytes, filename: filename);
+  }
+
+  static String fileNameForRequest({
+    String? trackingNumber,
+    required String requestId,
+  }) {
+    final tracking = trackingNumber?.trim().isNotEmpty == true
+        ? trackingNumber!.trim()
+        : requestId.trim();
+    final safe = tracking.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    return 'BAGO_Shipment_$safe.pdf';
+  }
+
   // ── Public entry points ────────────────────────────────────────────────────
   static Future<void> preview({
     required PackageModel shipment,
     UserModel? sender,
     String trackingBaseUrl = 'https://sendwithbago.com/track',
   }) async {
-    final bytes = await generate(shipment: shipment, sender: sender,
-        trackingBaseUrl: trackingBaseUrl);
-    await Printing.layoutPdf(onLayout: (_) async => bytes, name: _fileName(shipment));
+    final bytes = await generate(
+        shipment: shipment, sender: sender, trackingBaseUrl: trackingBaseUrl);
+    await Printing.layoutPdf(
+        onLayout: (_) async => bytes, name: _fileName(shipment));
   }
 
   static Future<void> share({
@@ -469,8 +556,8 @@ class BagoShippingPdfService {
     UserModel? sender,
     String trackingBaseUrl = 'https://sendwithbago.com/track',
   }) async {
-    final bytes = await generate(shipment: shipment, sender: sender,
-        trackingBaseUrl: trackingBaseUrl);
+    final bytes = await generate(
+        shipment: shipment, sender: sender, trackingBaseUrl: trackingBaseUrl);
     await Printing.sharePdf(bytes: bytes, filename: _fileName(shipment));
   }
 }

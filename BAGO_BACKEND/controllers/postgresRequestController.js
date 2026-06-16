@@ -494,6 +494,12 @@ export async function RequestPackage(req, res) {
       paymentStatus,
       requestId,
       additionalKg,
+      travelerPayout,
+      platformCommission,
+      processingFee,
+      fxBuffer,
+      senderShippingFee,
+      bagoNetRevenue,
     } = req.body;
 
     const senderId = req.user.id || req.user._id;
@@ -742,6 +748,12 @@ export async function RequestPackage(req, res) {
                 requestId: paymentReference,
               }
             : {},
+          travelerPayout: Number(travelerPayout) || null,
+          platformCommission: Number(platformCommission) || null,
+          processingFee: Number(processingFee) || null,
+          fxBuffer: Number(fxBuffer) || null,
+          senderShippingFee: Number(senderShippingFee) || requestAmount,
+          bagoNetRevenue: Number(bagoNetRevenue) || null,
         });
 
     if (paymentReference) {
@@ -1115,6 +1127,9 @@ export async function getIncomingRequests(req, res) {
       image: request.image,
       travelerName: request.travelerName,
       travelerEmail: request.travelerEmail,
+      senderId: request.senderId,
+      travelerId: request.travelerId,
+      carrierId: request.travelerId,
       senderName: request.senderName,
       senderEmail: request.senderEmail,
       originCity: request.package?.fromCity,
@@ -1639,7 +1654,9 @@ export async function downloadRequestPDF(req, res) {
     doc.text(`To: ${request.package?.toCity || 'N/A'}, ${request.package?.toCountry || 'N/A'}`);
     doc.text(`Receiver: ${request.package?.receiverName || 'N/A'}`);
     doc.text(`Receiver Phone: ${request.package?.receiverPhone || 'N/A'}`);
-    doc.text(`Receiver Email: ${request.package?.receiverEmail || 'N/A'}`);
+    if (request.package?.receiverEmail) {
+      doc.text(`Receiver Email: ${request.package.receiverEmail}`);
+    }
     doc.moveDown();
 
     doc.fontSize(14).text('Trip');

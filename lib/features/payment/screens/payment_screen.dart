@@ -488,6 +488,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
       message: draft['message']?.toString(),
       additionalRequestId: draft['additionalRequestId']?.toString(),
       additionalKg: _asDouble(draft['additionalKg']),
+      travelerPayout: _asDouble(draft['travelerPayout']),
+      senderShippingFee: _asDouble(draft['shippingAmount']),
+      platformCommission: _asDouble(draft['platformCommission']),
+      processingFee: _asDouble(draft['processingFee']),
+      fxBuffer: _asDouble(draft['fxBuffer']),
+      bagoNetRevenue: _asDouble(draft['bagoNetRevenue']),
     );
 
     if (!mounted) return;

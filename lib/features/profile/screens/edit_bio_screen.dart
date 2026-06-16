@@ -21,7 +21,8 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
   @override
   void initState() {
     super.initState();
-    _bioCtrl = TextEditingController(text: ref.read(authProvider).user?.bio ?? '');
+    _bioCtrl =
+        TextEditingController(text: ref.read(authProvider).user?.bio ?? '');
   }
 
   @override
@@ -69,7 +70,8 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context).addMiniBio, style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).addMiniBio,
+            style: AppTextStyles.h3),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -152,14 +154,16 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
               decoration: BoxDecoration(
                 color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(
                     Icons.info_outline_rounded,
-                    color: AppColors.primary,
+                    color: AppColors.white,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -170,7 +174,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
                         Text(
                           'Why a bio?',
                           style: AppTextStyles.labelMd.copyWith(
-                            color: AppColors.primary,
+                            color: AppColors.white,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -178,7 +182,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
                         Text(
                           'Members with a bio are 3x more likely to have their shipments or trips booked. A complete profile builds trust in the Bago community.',
                           style: AppTextStyles.bodySm.copyWith(
-                            color: AppColors.primary.withValues(alpha: 0.8),
+                            color: AppColors.white.withValues(alpha: 0.9),
                             height: 1.5,
                           ),
                         ),

@@ -226,6 +226,12 @@ class ShipmentService {
     String? message,
     String? additionalRequestId,
     double? additionalKg,
+    double? travelerPayout,
+    double? platformCommission,
+    double? processingFee,
+    double? fxBuffer,
+    double? senderShippingFee,
+    double? bagoNetRevenue,
   }) async {
     try {
       final response = await _api.post(ApiConstants.sendPackageRequest, data: {
@@ -249,6 +255,17 @@ class ShipmentService {
           'requestId': additionalRequestId.trim(),
         if (additionalKg != null && additionalKg > 0)
           'additionalKg': additionalKg,
+        if (travelerPayout != null && travelerPayout > 0)
+          'travelerPayout': travelerPayout,
+        if (platformCommission != null && platformCommission > 0)
+          'platformCommission': platformCommission,
+        if (processingFee != null && processingFee > 0)
+          'processingFee': processingFee,
+        if (fxBuffer != null && fxBuffer > 0) 'fxBuffer': fxBuffer,
+        if (senderShippingFee != null && senderShippingFee > 0)
+          'senderShippingFee': senderShippingFee,
+        if (bagoNetRevenue != null && bagoNetRevenue > 0)
+          'bagoNetRevenue': bagoNetRevenue,
       });
       final raw = response.data;
       if (raw is Map) {

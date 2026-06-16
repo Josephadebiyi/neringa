@@ -16,10 +16,6 @@ class PaymentFailedScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final rawError = extra?['lastPaymentError']?.toString();
     final error = _friendlyError(l10n, rawError);
-    final expiresAtRaw = extra?['expiresAt']?.toString();
-    final expiresAt =
-        expiresAtRaw == null ? null : DateTime.tryParse(expiresAtRaw);
-
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(
@@ -49,14 +45,6 @@ class PaymentFailedScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              if (expiresAt != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  l10n.draftAvailableUntil(_formatExpiry(expiresAt)),
-                  style: AppTextStyles.muted(AppTextStyles.bodySm),
-                  textAlign: TextAlign.center,
-                ),
-              ],
               const SizedBox(height: 40),
               AppButton(
                   label: l10n.continuePayment,
@@ -108,13 +96,6 @@ class PaymentFailedScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatExpiry(DateTime value) {
-    final local = value.toLocal();
-    final hh = local.hour.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} $hh:$mm';
   }
 
   String _friendlyError(AppLocalizations l10n, String? rawError) {

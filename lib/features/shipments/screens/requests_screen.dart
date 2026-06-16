@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/model_enums.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
+import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
@@ -30,7 +32,8 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(shipmentProvider);
-    final requests = state.incomingRequests;
+    final requests =
+        state.incomingRequests.where(_isActiveTravelerRequest).toList();
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -82,8 +85,9 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Review shipment requests waiting for you.',
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                    'Review package requests from senders waiting for your trip.',
+                    style:
+                        AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
                   ),
                   if (!state.isLoading && requests.isNotEmpty) ...[
                     const SizedBox(height: 12),
@@ -104,7 +108,9 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                   ? const Center(child: AppLoading())
                   : RefreshIndicator(
                       onRefresh: () async {
-                        await ref.read(shipmentProvider.notifier).loadIncomingRequests();
+                        await ref
+                            .read(shipmentProvider.notifier)
+                            .loadIncomingRequests();
                       },
                       child: requests.isEmpty
                           ? ListView(
@@ -114,10 +120,12 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                                   icon: Icons.inbox_rounded,
                                   title: 'Nothing here yet',
                                   subtitle:
-                                      'Requests will appear here once travelers send package requests for your trips.',
+                                      'Requests will appear here when senders ask you to carry a package.',
                                   cta: AppButton(
                                     label: 'Refresh',
-                                    onPressed: () => ref.read(shipmentProvider.notifier).loadIncomingRequests(),
+                                    onPressed: () => ref
+                                        .read(shipmentProvider.notifier)
+                                        .loadIncomingRequests(),
                                   ),
                                 ),
                               ],
@@ -125,8 +133,10 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                           : ListView.separated(
                               padding: const EdgeInsets.all(24),
                               itemCount: requests.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 12),
-                              itemBuilder: (_, i) => _RequestCard(request: requests[i]),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (_, i) =>
+                                  _RequestCard(request: requests[i]),
                             ),
                     ),
             ),
@@ -137,12 +147,78 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   }
 }
 
-class _RequestCard extends StatelessWidget {
+bool _isActiveTravelerRequest(RequestModel request) {
+  return request.status == RequestStatus.pending ||
+      request.status == RequestStatus.accepted ||
+      request.status == RequestStatus.intransit ||
+      request.status == RequestStatus.delivering;
+}
+
+class _RequestCard extends ConsumerStatefulWidget {
   const _RequestCard({required this.request});
   final RequestModel request;
 
   @override
+  ConsumerState<_RequestCard> createState() => _RequestCardState();
+}
+
+class _RequestCardState extends ConsumerState<_RequestCard> {
+  bool _accepting = false;
+  bool _declining = false;
+
+  Future<void> _accept() async {
+    if (_accepting || _declining) return;
+    setState(() => _accepting = true);
+    try {
+      await ref
+          .read(shipmentProvider.notifier)
+          .acceptRequest(widget.request.id);
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: 'Request accepted',
+        type: SnackBarType.success,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: e.toString(),
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+  }
+
+  Future<void> _decline() async {
+    if (_accepting || _declining) return;
+    setState(() => _declining = true);
+    try {
+      await ref
+          .read(shipmentProvider.notifier)
+          .rejectRequest(widget.request.id);
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: 'Request declined',
+        type: SnackBarType.success,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: e.toString(),
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _declining = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final request = widget.request;
     final routeLabel = [
       if ((request.fromLocation ?? '').isNotEmpty) request.fromLocation,
       if ((request.toLocation ?? '').isNotEmpty) request.toLocation,
@@ -150,9 +226,13 @@ class _RequestCard extends StatelessWidget {
     final subtitle = request.packageTitle?.trim().isNotEmpty == true
         ? request.packageTitle!.trim()
         : 'Shipment request';
+    final senderName = request.senderName?.trim().isNotEmpty == true
+        ? request.senderName!.trim()
+        : 'Unknown sender';
 
     return AppCard(
-      onTap: () => context.push('/shipment-request/${request.id}', extra: request),
+      onTap: () =>
+          context.push('/shipment-request/${request.id}', extra: request),
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,7 +243,7 @@ class _RequestCard extends StatelessWidget {
                 radius: 20,
                 backgroundColor: AppColors.primarySoft,
                 child: Text(
-                  (request.senderName ?? 'S').substring(0, 1).toUpperCase(),
+                  senderName.substring(0, 1).toUpperCase(),
                   style: AppTextStyles.labelMd.copyWith(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w800,
@@ -176,13 +256,15 @@ class _RequestCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      request.senderName ?? 'Unknown sender',
-                      style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                      'Sender: $senderName',
+                      style: AppTextStyles.labelMd
+                          .copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.gray500),
                     ),
                   ],
                 ),
@@ -201,7 +283,8 @@ class _RequestCard extends StatelessWidget {
               ),
               child: Text(
                 routeLabel,
-                style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+                style:
+                    AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -211,13 +294,14 @@ class _RequestCard extends StatelessWidget {
               _StatusDot(label: request.statusLabel),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.primarySoft,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
+                  '${request.currency} ${request.amountForRole('traveler').toStringAsFixed(2)}',
                   style: AppTextStyles.labelSm.copyWith(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w800,
@@ -226,6 +310,52 @@ class _RequestCard extends StatelessWidget {
               ),
             ],
           ),
+          if (request.status == RequestStatus.pending) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _declining || _accepting ? null : _decline,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: _declining
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Decline'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _declining || _accepting ? null : _accept,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      shape: const StadiumBorder(),
+                      elevation: 0,
+                    ),
+                    child: _accepting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.white,
+                            ),
+                          )
+                        : const Text('Accept'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

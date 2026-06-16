@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/providers/auth_provider.dart';
 import '../models/package_model.dart';
 import '../models/request_model.dart';
 import '../services/shipment_service.dart';
@@ -59,8 +60,16 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
   Future<void> loadMyPackages() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      final currentUserId = ref.read(authProvider).user?.id.trim() ?? '';
       final packages = await _service.getMyPackages();
-      state = state.copyWith(myPackages: packages, isLoading: false);
+      final senderPackages = currentUserId.isEmpty
+          ? packages
+          : packages
+              .where((package) =>
+                  package.senderId.trim().isEmpty ||
+                  package.senderId.trim() == currentUserId)
+              .toList();
+      state = state.copyWith(myPackages: senderPackages, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -151,7 +160,8 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
       await _service.deleteHistoryRequest(requestId);
       state = state.copyWith(
         myRequests: state.myRequests.where((r) => r.id != requestId).toList(),
-        incomingRequests: state.incomingRequests.where((r) => r.id != requestId).toList(),
+        incomingRequests:
+            state.incomingRequests.where((r) => r.id != requestId).toList(),
       );
     } catch (e) {
       state = state.copyWith(error: e.toString());

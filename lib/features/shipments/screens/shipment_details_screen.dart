@@ -19,7 +19,8 @@ import '../services/bago_shipping_pdf_service.dart';
 import '../services/shipment_service.dart';
 
 class ShipmentDetailsScreen extends ConsumerStatefulWidget {
-  const ShipmentDetailsScreen({super.key, required this.shipmentId, this.preloadedPackage});
+  const ShipmentDetailsScreen(
+      {super.key, required this.shipmentId, this.preloadedPackage});
   final String shipmentId;
   final PackageModel? preloadedPackage;
 
@@ -82,7 +83,8 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                     AppButton(
                       label: l10n.retry,
                       onPressed: () => setState(() {
-                        _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
+                        _future = ShipmentService.instance
+                            .getPackageDetails(widget.shipmentId);
                       }),
                     ),
                   ],
@@ -95,6 +97,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
           final isSender = currentUser?.id == pkg.senderId;
           return _ShipmentBody(
             package: pkg,
+            isSender: isSender,
             onDownloadPdf: () => _showPdfOptions(pkg, currentUser),
             canLeaveFeedback: !_hasReviewed &&
                 pkg.isCompletedBySender &&
@@ -112,6 +115,11 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
   Future<void> _showPdfOptions(
       PackageModel shipment, UserModel? currentUser) async {
     final l10n = AppLocalizations.of(context);
+    final requestId = shipment.requestId.trim();
+    final filename = BagoShippingPdfService.fileNameForRequest(
+      trackingNumber: shipment.trackingNumber,
+      requestId: requestId.isNotEmpty ? requestId : shipment.id,
+    );
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -154,10 +162,19 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                   onPressed: () async {
                     Navigator.of(sheetContext).pop();
                     try {
-                      await BagoShippingPdfService.preview(
-                        shipment: shipment,
-                        sender: currentUser,
-                      );
+                      if (requestId.isNotEmpty) {
+                        final bytes = await ShipmentService.instance
+                            .downloadRequestPdf(requestId);
+                        await BagoShippingPdfService.previewBytes(
+                          bytes: Uint8List.fromList(bytes),
+                          filename: filename,
+                        );
+                      } else {
+                        await BagoShippingPdfService.preview(
+                          shipment: shipment,
+                          sender: currentUser,
+                        );
+                      }
                     } catch (e) {
                       if (mounted) {
                         AppSnackBar.show(context,
@@ -173,10 +190,19 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                   onPressed: () async {
                     Navigator.of(sheetContext).pop();
                     try {
-                      await BagoShippingPdfService.share(
-                        shipment: shipment,
-                        sender: currentUser,
-                      );
+                      if (requestId.isNotEmpty) {
+                        final bytes = await ShipmentService.instance
+                            .downloadRequestPdf(requestId);
+                        await BagoShippingPdfService.shareBytes(
+                          bytes: Uint8List.fromList(bytes),
+                          filename: filename,
+                        );
+                      } else {
+                        await BagoShippingPdfService.share(
+                          shipment: shipment,
+                          sender: currentUser,
+                        );
+                      }
                     } catch (e) {
                       if (mounted) {
                         AppSnackBar.show(context,
@@ -396,6 +422,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
 class _ShipmentBody extends StatelessWidget {
   const _ShipmentBody({
     required this.package,
+    required this.isSender,
     required this.onDownloadPdf,
     required this.canLeaveFeedback,
     required this.onLeaveFeedback,
@@ -404,6 +431,7 @@ class _ShipmentBody extends StatelessWidget {
     required this.onConfirmReceived,
   });
   final PackageModel package;
+  final bool isSender;
   final VoidCallback onDownloadPdf;
   final bool canLeaveFeedback;
   final VoidCallback onLeaveFeedback;
@@ -421,6 +449,9 @@ class _ShipmentBody extends StatelessWidget {
       PackageStatus.cancelled => AppColors.error,
       _ => AppColors.gray500,
     };
+    final displayAmount =
+        package.amountForRole(isSender ? 'sender' : 'traveler');
+    final priceLabel = isSender ? 'Total paid' : 'Your earning';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -619,9 +650,9 @@ class _ShipmentBody extends StatelessWidget {
           ),
 
           // Receiver
-          if (package.receiverName != null ||
-              package.receiverPhone != null ||
-              package.receiverEmail != null) ...[
+          if (package.receiverName?.isNotEmpty == true ||
+              package.receiverPhone?.isNotEmpty == true ||
+              package.receiverEmail?.isNotEmpty == true) ...[
             const SizedBox(height: 14),
             _Card(
               child: Column(
@@ -630,17 +661,11 @@ class _ShipmentBody extends StatelessWidget {
                     _Label(l10n.receiverInfo),
                     const SizedBox(height: 14),
                     if (package.receiverName?.isNotEmpty == true)
-                      _Row(l10n.nameLabel, package.receiverName!)
-                    else
-                      _Row(l10n.nameLabel, l10n.notProvidedLabel),
+                      _Row(l10n.nameLabel, package.receiverName!),
                     if (package.receiverPhone?.isNotEmpty == true)
-                      _Row(l10n.phoneLabel, package.receiverPhone!)
-                    else
-                      _Row(l10n.phoneLabel, l10n.notProvidedLabel),
+                      _Row(l10n.phoneLabel, package.receiverPhone!),
                     if (package.receiverEmail?.isNotEmpty == true)
-                      _Row(l10n.emailLabel, package.receiverEmail!)
-                    else
-                      _Row(l10n.emailLabel, l10n.notProvidedLabel),
+                      _Row(l10n.emailLabel, package.receiverEmail!),
                   ]),
             ),
           ],
@@ -683,10 +708,10 @@ class _ShipmentBody extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(l10n.totalPriceTitle,
+                Text(priceLabel,
                     style: AppTextStyles.labelMd
                         .copyWith(fontWeight: FontWeight.w700)),
-                Text('${package.currency} ${package.price.toStringAsFixed(2)}',
+                Text('${package.currency} ${displayAmount.toStringAsFixed(2)}',
                     style: AppTextStyles.h3.copyWith(
                         color: AppColors.primary, fontWeight: FontWeight.w900)),
               ],

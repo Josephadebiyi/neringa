@@ -222,6 +222,13 @@ function normalizeRequest(row) {
     handoverPinUsed: row.handover_pin_used || false,
     amount: toNumber(row.amount),
     agreedPrice: toNumber(row.amount),
+    senderTotalAmount: toNumber(row.amount),
+    travelerPayout: toNumber(row.traveler_payout, toNumber(row.amount)),
+    platformCommission: toNumber(row.platform_commission),
+    processingFee: toNumber(row.processing_fee),
+    fxBuffer: toNumber(row.fx_buffer),
+    senderShippingFee: toNumber(row.sender_shipping_fee, toNumber(row.amount)),
+    bagoNetRevenue: toNumber(row.bago_net_revenue),
     currency: row.currency,
     status: row.status,
     insurance: row.insurance,
@@ -262,6 +269,12 @@ const requestSelect = `
     sr.handover_pin,
     sr.handover_pin_used,
     sr.amount,
+    sr.traveler_payout,
+    sr.platform_commission,
+    sr.processing_fee,
+    sr.fx_buffer,
+    sr.sender_shipping_fee,
+    sr.bago_net_revenue,
     sr.currency,
     sr.status,
     sr.insurance,
@@ -980,10 +993,8 @@ export async function listRequestsForTrip(tripId) {
 }
 
 export async function listIncomingRequestsForTraveler(travelerId) {
-  // Exclude pending requests older than 30 minutes — these are payment drafts that never completed.
   const result = await query(
     `${requestSelect} where sr.traveler_id = $1
-     and not (sr.status = 'pending' and sr.created_at < now() - interval '30 minutes')
      order by sr.created_at desc`,
     [travelerId],
   );
@@ -991,10 +1002,8 @@ export async function listIncomingRequestsForTraveler(travelerId) {
 }
 
 export async function listRequestsForUser(userId) {
-  // Exclude pending requests older than 30 minutes — these are payment drafts that never completed.
   const result = await query(
     `${requestSelect} where (sr.sender_id = $1 or sr.traveler_id = $1)
-     and not (sr.status = 'pending' and sr.created_at < now() - interval '30 minutes')
      order by sr.created_at desc`,
     [userId],
   );
@@ -1334,7 +1343,7 @@ export async function getPublicTrackingByNumber(trackingNumber) {
 export async function listRecentOrdersForUser(userId) {
   const [requestsResult, draftsResult] = await Promise.all([
     query(
-      `${requestSelect} where sr.sender_id = $1 or sr.traveler_id = $1 order by sr.created_at desc`,
+      `${requestSelect} where sr.sender_id = $1 order by sr.created_at desc`,
       [userId],
     ),
     // Packages the user created that have no associated shipment request yet (pre-payment drafts)

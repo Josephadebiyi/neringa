@@ -9,6 +9,8 @@ class RequestModel {
   final String carrierId;
   final RequestStatus status;
   final double agreedPrice;
+  final double senderTotalAmount;
+  final double travelerPayout;
   final String currency;
   final String? message;
   final String createdAt;
@@ -51,6 +53,8 @@ class RequestModel {
     required this.carrierId,
     required this.status,
     required this.agreedPrice,
+    this.senderTotalAmount = 0.0,
+    this.travelerPayout = 0.0,
     required this.currency,
     this.message,
     required this.createdAt,
@@ -88,6 +92,18 @@ class RequestModel {
 
   bool get isPending => status == RequestStatus.pending;
   bool get isAccepted => status == RequestStatus.accepted;
+  double get senderDisplayAmount =>
+      senderTotalAmount > 0 ? senderTotalAmount : agreedPrice;
+  double get travelerDisplayAmount =>
+      travelerPayout > 0 ? travelerPayout : agreedPrice;
+  double amountForRole(String? role) {
+    final normalizedRole = role?.toLowerCase().trim();
+    if (normalizedRole == 'traveler' || normalizedRole == 'carrier') {
+      return travelerDisplayAmount;
+    }
+    return senderDisplayAmount;
+  }
+
   String get statusLabel => status.labelForRole(role);
   bool get awaitingSenderConfirmation =>
       (rawStatus.toLowerCase() == 'delivered' ||
@@ -106,6 +122,17 @@ class RequestModel {
         package?['recipient_details'] ??
         package?['recipientDetails']) as Map<String, dynamic>?;
     final rawStatus = json['status']?.toString() ?? '';
+    final senderTotal = JsonParser.parseDoubleFirst(json, [
+      'senderTotalAmount',
+      'sender_total_amount',
+      'amount',
+      'agreedPrice',
+      'price',
+    ]);
+    final travelerPayout = JsonParser.parseDoubleFirst(json, [
+      'travelerPayout',
+      'traveler_payout',
+    ]);
     return RequestModel(
       id: JsonParser.parseId(json),
       packageId: json['packageId']?.toString() ??
@@ -122,8 +149,9 @@ class RequestModel {
           carrier?['_id']?.toString() ??
           '',
       status: RequestStatus.fromString(rawStatus),
-      agreedPrice:
-          JsonParser.parseDoubleFirst(json, ['agreedPrice', 'price', 'amount']),
+      agreedPrice: senderTotal,
+      senderTotalAmount: senderTotal,
+      travelerPayout: travelerPayout,
       currency: json['currency']?.toString() ??
           json['preferredCurrency']?.toString() ??
           json['preferred_currency']?.toString() ??

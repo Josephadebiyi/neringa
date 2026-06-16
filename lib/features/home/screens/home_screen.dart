@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart' show Dio, Options;
+import 'package:dio/dio.dart' show Dio, DioException, Options;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -97,6 +97,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
         _liveEscrowCurrency = data?['currency']?.toString() ?? '';
       });
+    } on DioException {
+      return;
+    } catch (_) {
+      // Wallet refresh is a background convenience call on startup. The home
+      // screen must remain usable if the balance endpoint is unavailable.
     } finally {
       if (mounted && showSpinner) setState(() => _walletRefreshing = false);
     }
@@ -1931,7 +1936,7 @@ class _RecentActivityEntry {
         title: request.packageTitle ?? 'Package',
         counterpart: request.carrierName ?? request.senderName ?? 'Traveler',
         status: request.status.apiValue,
-        amount: request.agreedPrice,
+        amount: request.amountForRole(request.role),
         currency: request.currency,
         createdAt: request.createdAt,
         fromLocation: request.fromLocation,
@@ -1946,7 +1951,7 @@ class _RecentActivityEntry {
         title: package.title.isNotEmpty ? package.title : 'Package',
         counterpart: package.travelerName ?? package.senderName ?? 'Traveler',
         status: package.status.apiValue,
-        amount: package.price,
+        amount: package.senderDisplayAmount,
         currency: package.currency,
         createdAt: package.createdAt,
         fromLocation: package.fromCity,

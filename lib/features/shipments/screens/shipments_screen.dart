@@ -363,8 +363,6 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
           final draft = snapshot.data;
           if (draft == null) return const SizedBox.shrink();
 
-          final expiresAt =
-              DateTime.tryParse(draft['expiresAt']?.toString() ?? '');
           final amount = _toDouble(draft['totalAmount']);
           final currency = draft['currency']?.toString() ?? '';
           final fromLocation = draft['fromLocation']?.toString() ?? 'Pickup';
@@ -460,37 +458,6 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
                       ),
                     ],
                   ),
-                  if (expiresAt != null) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.gray50,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.schedule_rounded,
-                            color: AppColors.gray500,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l10n.resumeBefore(_formatExpiry(expiresAt)),
-                              style: AppTextStyles.bodySm.copyWith(
-                                color: AppColors.gray600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -538,13 +505,6 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
   double _toDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  String _formatExpiry(DateTime value) {
-    final local = value.toLocal();
-    final hh = local.hour.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} $hh:$mm';
   }
 }
 
@@ -652,41 +612,6 @@ class _TripsList extends ConsumerWidget {
     final items = activeTab ? tripState.activeTrips : tripState.historyTrips;
     final sentPackageHistory =
         activeTab ? const <PackageModel>[] : shipmentState.historyPackages;
-    final allIncoming = shipmentState.incomingRequests;
-    final requests = activeTab
-        ? allIncoming
-            .where((r) =>
-                r.status == RequestStatus.pending ||
-                r.status == RequestStatus.accepted ||
-                r.status == RequestStatus.intransit ||
-                r.status == RequestStatus.delivering)
-            .toList()
-        : allIncoming
-            .where((r) =>
-                r.status == RequestStatus.rejected ||
-                r.status == RequestStatus.completed ||
-                r.status == RequestStatus.cancelled)
-            .toList();
-    final showRequestSection = requests.isNotEmpty;
-    // Sent-package requests for carrier users who also send packages
-    final sentActiveRequests = activeTab
-        ? shipmentState.myRequests
-            .where((r) =>
-                r.id.isNotEmpty &&
-                (r.status == RequestStatus.pending ||
-                    r.status == RequestStatus.accepted ||
-                    r.status == RequestStatus.intransit ||
-                    r.status == RequestStatus.delivering))
-            .toList()
-        : const <RequestModel>[];
-    final sentHistoryRequests = !activeTab
-        ? shipmentState.myRequests
-            .where((r) =>
-                r.status == RequestStatus.rejected ||
-                r.status == RequestStatus.completed ||
-                r.status == RequestStatus.cancelled)
-            .toList()
-        : const <RequestModel>[];
     final userCurrency =
         UserCurrencyHelper.resolve(ref.watch(authProvider).user);
     final totalKgSold = items.fold<double>(
@@ -709,11 +634,7 @@ class _TripsList extends ConsumerWidget {
     final activeShipmentCount =
         items.fold<int>(0, (sum, trip) => sum + trip.activeShipmentCount);
 
-    if (items.isEmpty &&
-        !showRequestSection &&
-        sentPackageHistory.isEmpty &&
-        sentActiveRequests.isEmpty &&
-        sentHistoryRequests.isEmpty) {
+    if (items.isEmpty && sentPackageHistory.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -733,12 +654,6 @@ class _TripsList extends ConsumerWidget {
     // History tab: merge all items into one chronological list
     if (!activeTab) {
       final merged = <_HistoryEntry>[
-        ...requests.map((r) => _HistoryEntry(
-            createdAt: r.createdAt,
-            widget: _DismissibleRequest(request: r, ref: ref))),
-        ...sentHistoryRequests.map((r) => _HistoryEntry(
-            createdAt: r.createdAt,
-            widget: _DismissibleSentRequest(request: r, ref: ref))),
         ...sentPackageHistory.map((p) => _HistoryEntry(
             createdAt: p.createdAt,
             widget: Padding(
@@ -779,7 +694,6 @@ class _TripsList extends ConsumerWidget {
         await ref.read(shipmentProvider.notifier).loadMyPackages();
         await ref.read(shipmentProvider.notifier).loadMyRequestHistory();
         await ref.read(tripProvider.notifier).loadMyTrips();
-        await ref.read(shipmentProvider.notifier).loadIncomingRequests();
       },
       child: ListView(
         padding: const EdgeInsets.all(24),
@@ -794,32 +708,6 @@ class _TripsList extends ConsumerWidget {
               activeShipmentCount: activeShipmentCount,
             ),
             const SizedBox(height: 16),
-          ],
-          if (showRequestSection) ...[
-            _SectionHeader(
-              title: l10n.incomingRequests,
-              subtitle: l10n.incomingRequestsSubtitle,
-            ),
-            const SizedBox(height: 12),
-            ...requests.map((req) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _RequestCard(request: req),
-                )),
-            const SizedBox(height: 10),
-          ],
-          if (sentActiveRequests.isNotEmpty) ...[
-            _SectionHeader(
-              title: l10n.requestsSent,
-              subtitle: l10n.requestsSentSubtitle,
-            ),
-            const SizedBox(height: 12),
-            ...sentActiveRequests.map(
-              (req) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _SenderRequestCard(request: req),
-              ),
-            ),
-            const SizedBox(height: 10),
           ],
           if (items.isNotEmpty) ...[
             _SectionHeader(
@@ -923,12 +811,12 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _RequestCard extends StatelessWidget {
+class _RequestCard extends ConsumerWidget {
   const _RequestCard({required this.request});
   final RequestModel request;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final routeLabel = [
       if ((request.fromLocation ?? '').isNotEmpty) request.fromLocation,
       if ((request.toLocation ?? '').isNotEmpty) request.toLocation,
@@ -993,7 +881,7 @@ class _RequestCard extends StatelessWidget {
                   label: request.statusLabel, color: request.status.color),
               const Spacer(),
               Text(
-                '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
+                '${request.currency} ${request.amountForRole('sender').toStringAsFixed(2)}',
                 style: AppTextStyles.labelMd.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w800,
@@ -1014,6 +902,79 @@ class _RequestCard extends StatelessWidget {
             _OpenShipmentChatButton(
               request: request,
               receiverId: request.senderId,
+            ),
+          ],
+          if (request.status == RequestStatus.pending) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      try {
+                        await ref
+                            .read(shipmentProvider.notifier)
+                            .rejectRequest(request.id);
+                        if (context.mounted) {
+                          AppSnackBar.show(
+                            context,
+                            message: 'Request declined',
+                            type: SnackBarType.success,
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          AppSnackBar.show(
+                            context,
+                            message: e.toString(),
+                            type: SnackBarType.error,
+                          );
+                        }
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: const Text('Decline'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      try {
+                        await ref
+                            .read(shipmentProvider.notifier)
+                            .acceptRequest(request.id);
+                        if (context.mounted) {
+                          AppSnackBar.show(
+                            context,
+                            message: 'Request accepted',
+                            type: SnackBarType.success,
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          AppSnackBar.show(
+                            context,
+                            message: e.toString(),
+                            type: SnackBarType.error,
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: const StadiumBorder(),
+                      elevation: 0,
+                    ),
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -1097,7 +1058,7 @@ class _SenderRequestCard extends StatelessWidget {
                   label: request.statusLabel, color: request.status.color),
               const Spacer(),
               Text(
-                '${request.currency} ${request.agreedPrice.toStringAsFixed(2)}',
+                '${request.currency} ${request.amountForRole('sender').toStringAsFixed(2)}',
                 style: AppTextStyles.labelMd.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w800,
@@ -1509,31 +1470,6 @@ class _DismissibleRequest extends StatelessWidget {
     if (!deletable) return card;
     return Dismissible(
       key: ValueKey(request.id),
-      direction: DismissDirection.endToStart,
-      background: _deleteBackground(),
-      confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) =>
-          ref.read(shipmentProvider.notifier).deleteHistoryRequest(request.id),
-      child: card,
-    );
-  }
-}
-
-class _DismissibleSentRequest extends StatelessWidget {
-  const _DismissibleSentRequest({required this.request, required this.ref});
-  final RequestModel request;
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
-    final deletable = request.status == RequestStatus.rejected ||
-        request.status == RequestStatus.cancelled;
-    final card = Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _SenderRequestCard(request: request));
-    if (!deletable) return card;
-    return Dismissible(
-      key: ValueKey('sent-${request.id}'),
       direction: DismissDirection.endToStart,
       background: _deleteBackground(),
       confirmDismiss: (_) => _confirmDelete(context),
