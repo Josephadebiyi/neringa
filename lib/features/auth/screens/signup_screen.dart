@@ -187,7 +187,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
       case _Step.phone:
         return _phoneCtrl.text.trim().length >= 7;
       case _Step.dob:
-        return _dobDayCtrl.text.isNotEmpty && _dobMonthCtrl.text.isNotEmpty && _dobYearCtrl.text.length == 4;
+        final d = int.tryParse(_dobDayCtrl.text);
+        final m = int.tryParse(_dobMonthCtrl.text);
+        final y = int.tryParse(_dobYearCtrl.text);
+        if (d == null || m == null || y == null) return false;
+        if (d < 1 || d > 31 || m < 1 || m > 12) return false;
+        try {
+          final dob = DateTime(y, m, d);
+          final age = DateTime.now().difference(dob).inDays ~/ 365;
+          return age >= 18;
+        } catch (_) {
+          return false;
+        }
       case _Step.country:
         return _country != null;
       case _Step.password:
@@ -429,7 +440,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
 
   Future<void> _resendSignupOtp() async {
     if (_country == null) {
-      throw AppLocalizations.of(context).signupRestartCountry;
+      throw Exception(AppLocalizations.of(context).signupRestartCountry);
     }
 
     final isCompany = _accountType == 'company';

@@ -68,7 +68,7 @@ class AuthService {
 
       await _storage.saveTokens(
         accessToken: token,
-        refreshToken: refreshTok ?? token,
+        refreshToken: refreshTok,
       );
       await _storage.saveRole(user.role);
       await _storage.saveUser(user.toJsonString());
@@ -150,7 +150,7 @@ class AuthService {
 
       await _storage.saveTokens(
         accessToken: token,
-        refreshToken: refreshTok ?? token,
+        refreshToken: refreshTok,
       );
       await _storage.saveRole(user.role);
       await _storage.saveUser(user.toJsonString());
@@ -328,7 +328,7 @@ class AuthService {
 
         await _storage.saveTokens(
           accessToken: token,
-          refreshToken: refreshTok ?? token,
+          refreshToken: refreshTok,
         );
         await _storage.saveRole(user.role);
         await _storage.saveUser(user.toJsonString());
@@ -377,7 +377,7 @@ class AuthService {
 
       await _storage.saveTokens(
         accessToken: token,
-        refreshToken: refreshTok ?? token,
+        refreshToken: refreshTok,
       );
       await _storage.saveRole(user.role);
       await _storage.saveUser(user.toJsonString());

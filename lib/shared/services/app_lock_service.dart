@@ -10,7 +10,7 @@ class AppLockService extends ChangeNotifier {
   })  : _storage = storage,
         _authService = authService;
 
-  static const Duration inactivityThreshold = Duration(hours: 2);
+  static const Duration inactivityThreshold = Duration(minutes: 15);
 
   final StorageService _storage;
   final AuthService _authService;

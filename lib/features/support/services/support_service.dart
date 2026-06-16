@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
 import '../models/support_ticket_model.dart';
@@ -37,8 +39,7 @@ class SupportService {
       if (ticket == null) throw Exception('No ticket in response: $data');
       return SupportTicket.fromJson(ticket as Map<String, dynamic>);
     } catch (e) {
-      // ignore: avoid_print
-      print('[SupportService.createTicket] ERROR: $e');
+      debugPrint('[SupportService.createTicket] ERROR: $e');
       rethrow;
     }
   }

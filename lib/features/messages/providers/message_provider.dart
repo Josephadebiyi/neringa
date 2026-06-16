@@ -117,7 +117,7 @@ class MessageNotifier extends Notifier<MessageState> {
     _seenMessageIds.clear();
     _lastMessageTime = null;
     _realtimeActive = false;
-    _realtime.unsubscribe(_msgChannel);
+    unawaited(_realtime.unsubscribe(_msgChannel));
     _msgChannel = null;
     _detachSocketListeners();
   }
@@ -635,7 +635,7 @@ class MessageNotifier extends Notifier<MessageState> {
   }
 
   void detachSocketListener() {
-    _realtime.unsubscribe(_msgChannel);
+    unawaited(_realtime.unsubscribe(_msgChannel));
     _msgChannel = null;
     _realtimeActive = false;
     _typingResetTimer?.cancel();

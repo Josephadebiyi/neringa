@@ -488,7 +488,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          if (_debugOtp != null && _debugOtp!.isNotEmpty) ...[
+          if (kDebugMode && _debugOtp != null && _debugOtp!.isNotEmpty) ...[
             const SizedBox(height: 18),
             GestureDetector(
               onTap: () async {

@@ -16,6 +16,14 @@ class MultiStepSignupScreen extends ConsumerStatefulWidget {
 }
 
 class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.go('/auth/signup');
+    });
+  }
+
   int _currentStep = 0; // 0-7: auth method → full name → email → password → phone → OTP → DoB → GDPR → role
   String? _authMethod; // 'email' or 'phone'
   String? _fullName;

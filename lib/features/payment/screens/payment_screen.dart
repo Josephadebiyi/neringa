@@ -96,7 +96,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _paypalConfig = config;
           _paypalCardsEligible = config.advancedCardsEligible;
           _applePaySupported = Platform.isIOS && config.applePayEligible;
-          if (!_applePaySupported) {
+          if (_applePaySupported) {
+            _selectedMethod = _CheckoutPaymentMethod.applePay;
+          } else {
             _selectedMethod = _CheckoutPaymentMethod.card;
           }
         });
@@ -1072,6 +1074,7 @@ class _PaymentWebView extends StatefulWidget {
 class _PaymentWebViewState extends State<_PaymentWebView> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -1084,6 +1087,11 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
         },
         onPageFinished: (_) {
           if (mounted) setState(() => _isLoading = false);
+        },
+        onWebResourceError: (error) {
+          if (error.isForMainFrame == true && mounted) {
+            setState(() { _isLoading = false; _hasError = true; });
+          }
         },
         onNavigationRequest: _onNavigationRequest,
       ));
@@ -1133,8 +1141,30 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading) const Center(child: AppLoading()),
+          if (!_hasError) WebViewWidget(controller: _controller),
+          if (_isLoading && !_hasError) const Center(child: AppLoading()),
+          if (_hasError)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Payment page could not load. Please go back and try again.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Go back'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
