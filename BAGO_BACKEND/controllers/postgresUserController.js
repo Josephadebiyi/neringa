@@ -1053,7 +1053,48 @@ export async function getWallet(req, res) {
     });
   } catch (error) {
     console.error('getWallet error:', error);
-    res.status(500).json({ message: error.message });
+    try {
+      const fallbackUser = await findProfileById(req.user.id || req.user._id);
+      const balance = Number(fallbackUser?.walletBalance ?? fallbackUser?.wallet_balance ?? fallbackUser?.balance ?? 0);
+      const escrowBalance = Number(fallbackUser?.escrowBalance ?? fallbackUser?.escrow_balance ?? 0);
+      const currency = fallbackUser?.walletCurrency || fallbackUser?.wallet_currency || fallbackUser?.preferredCurrency || 'USD';
+      return res.status(200).json({
+        success: true,
+        degraded: true,
+        message: 'Wallet summary loaded without transaction history.',
+        balance,
+        walletBalance: balance,
+        wallet_balance: balance,
+        availableBalance: balance,
+        available_balance: balance,
+        escrowBalance,
+        escrow_balance: escrowBalance,
+        currency,
+        allTimeReceived: 0,
+        allTimeExpenses: 0,
+        heldEarnings: 0,
+        transactions: [],
+        history: [],
+        data: {
+          balance,
+          walletBalance: balance,
+          wallet_balance: balance,
+          availableBalance: balance,
+          available_balance: balance,
+          escrowBalance,
+          escrow_balance: escrowBalance,
+          currency,
+          allTimeReceived: 0,
+          allTimeExpenses: 0,
+          heldEarnings: 0,
+          transactions: [],
+          history: [],
+        },
+      });
+    } catch (fallbackError) {
+      console.error('getWallet fallback error:', fallbackError);
+      res.status(500).json({ message: 'Could not load wallet data' });
+    }
   }
 }
 

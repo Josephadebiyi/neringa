@@ -561,35 +561,41 @@ export async function getWalletByUserId(userId) {
 
   if (!wallet) return null;
 
-  const history = await query(
-    `
-      select
-        wt.id,
-        wt.request_id,
-        wt.trip_id,
-        wt.type::text as type,
-        wt.amount,
-        wt.currency,
-        wt.status,
-        wt.description,
-        wt.metadata,
-        wt.created_at,
-        sr.tracking_number,
-        sr.status as shipment_status,
-        sr.amount as shipment_amount,
-        sr.currency as shipment_currency,
-        t.trip_number,
-        t.from_location as trip_from_location,
-        t.to_location as trip_to_location
-      from public.wallet_transactions wt
-      left join public.shipment_requests sr on sr.id = wt.request_id
-      left join public.trips t on t.id = coalesce(wt.trip_id, sr.trip_id)
-      where wt.user_id = $1
-      order by wt.created_at desc
-      limit 200
-    `,
-    [userId],
-  );
+  let historyRows = [];
+  try {
+    const history = await query(
+      `
+        select
+          wt.id,
+          wt.request_id,
+          wt.trip_id,
+          wt.type::text as type,
+          wt.amount,
+          wt.currency,
+          wt.status,
+          wt.description,
+          wt.metadata,
+          wt.created_at,
+          sr.tracking_number,
+          sr.status as shipment_status,
+          sr.amount as shipment_amount,
+          sr.currency as shipment_currency,
+          t.trip_number,
+          t.from_location as trip_from_location,
+          t.to_location as trip_to_location
+        from public.wallet_transactions wt
+        left join public.shipment_requests sr on sr.id = wt.request_id
+        left join public.trips t on t.id = coalesce(wt.trip_id, sr.trip_id)
+        where wt.user_id = $1
+        order by wt.created_at desc
+        limit 200
+      `,
+      [userId],
+    );
+    historyRows = history.rows;
+  } catch (error) {
+    console.warn('Wallet transaction history unavailable, returning balance only:', error.message);
+  }
   let ledgerRows = [];
   try {
     const ledgerHistory = await query(
@@ -644,16 +650,21 @@ export async function getWalletByUserId(userId) {
   } catch (error) {
     console.warn('Wallet ledger history unavailable, using wallet transactions only:', error.message);
   }
-  const totals = await queryOne(
-    `
-      select
-        coalesce(sum(amount) filter (where type::text in ('earning', 'signup_bonus', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release') and status = 'completed'), 0) as all_time_received,
-        coalesce(sum(amount) filter (where type::text in ('withdrawal', 'withdraw', 'payout', 'debit', 'escrow_hold') and status in ('completed', 'processing', 'pending')), 0) as all_time_expenses
-      from public.wallet_transactions
-      where user_id = $1
-    `,
-    [userId],
-  );
+  let totals = { all_time_received: 0, all_time_expenses: 0 };
+  try {
+    totals = await queryOne(
+      `
+        select
+          coalesce(sum(amount) filter (where type::text in ('earning', 'signup_bonus', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release') and status = 'completed'), 0) as all_time_received,
+          coalesce(sum(amount) filter (where type::text in ('withdrawal', 'withdraw', 'payout', 'debit', 'escrow_hold') and status in ('completed', 'processing', 'pending')), 0) as all_time_expenses
+        from public.wallet_transactions
+        where user_id = $1
+      `,
+      [userId],
+    );
+  } catch (error) {
+    console.warn('Wallet transaction totals unavailable, returning balance only:', error.message);
+  }
   let ledgerTotals = null;
   try {
     ledgerTotals = await queryOne(
@@ -669,7 +680,7 @@ export async function getWalletByUserId(userId) {
   } catch (error) {
     console.warn('Wallet ledger totals unavailable, using wallet transaction totals only:', error.message);
   }
-  const combinedHistory = [...history.rows, ...ledgerRows].sort((a, b) =>
+  const combinedHistory = [...historyRows, ...ledgerRows].sort((a, b) =>
     new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
   const balance = Number(wallet.available_balance || 0);
