@@ -742,7 +742,7 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Available Balance',
+                      'Total wallet',
                       style: AppTextStyles.labelMd.copyWith(
                         color: Colors.white70,
                         fontWeight: FontWeight.w800,
@@ -758,7 +758,7 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Withdrawable earnings and escrow',
+                      'Ready to withdraw + held in escrow',
                       style: AppTextStyles.caption.copyWith(
                         color: Colors.white38,
                         fontWeight: FontWeight.w700,
@@ -812,10 +812,10 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
             children: [
               Expanded(
                 child: _ProfileBalancePanel(
-                  label: 'Withdrawable',
+                  label: 'Ready to withdraw',
                   amount: available,
                   currency: displayCurrency,
-                  note: 'Ready now',
+                  note: 'Available now',
                   color: const Color(0xFFFFE7B8),
                   backgroundAsset:
                       'assets/images/wallet/withdraw_background.png',
