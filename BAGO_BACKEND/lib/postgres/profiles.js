@@ -590,6 +590,60 @@ export async function getWalletByUserId(userId) {
     `,
     [userId],
   );
+  let ledgerRows = [];
+  try {
+    const ledgerHistory = await query(
+      `
+        select
+          concat('ledger:', sl.id::text) as id,
+          sl.shipment_id as request_id,
+          sr.trip_id,
+          case
+            when sl.wallet_credit_created is true then 'earning'
+            when sl.escrow_status = 'held' then 'escrow_hold'
+            else 'pending_earning'
+          end as type,
+          coalesce(sl.converted_traveler_earning, sl.traveler_earning_amount, 0) as amount,
+          sl.traveler_wallet_currency as currency,
+          case
+            when sl.wallet_credit_created is true then 'completed'
+            when sl.escrow_status = 'held' then 'pending'
+            else coalesce(sl.payout_status, 'pending')
+          end as status,
+          case
+            when sl.wallet_credit_created is true then concat('Shipment earning', case when sr.tracking_number is not null then concat(' — ', sr.tracking_number) else '' end)
+            when sl.escrow_status = 'held' then concat('Held in escrow', case when sr.tracking_number is not null then concat(' — ', sr.tracking_number) else '' end)
+            else concat('Shipment payout pending', case when sr.tracking_number is not null then concat(' — ', sr.tracking_number) else '' end)
+          end as description,
+          sl.provider_payload as metadata,
+          sl.created_at,
+          sr.tracking_number,
+          sr.status as shipment_status,
+          sr.amount as shipment_amount,
+          sr.currency as shipment_currency,
+          t.trip_number,
+          t.from_location as trip_from_location,
+          t.to_location as trip_to_location
+        from public.shipment_ledgers sl
+        left join public.shipment_requests sr on sr.id = sl.shipment_id
+        left join public.trips t on t.id = sr.trip_id
+        where sl.traveler_id = $1
+          and not exists (
+            select 1
+            from public.wallet_transactions wt
+            where wt.user_id = $1
+              and wt.request_id = sl.shipment_id
+              and wt.type::text in ('earning', 'escrow_hold')
+          )
+        order by sl.created_at desc
+        limit 200
+      `,
+      [userId],
+    );
+    ledgerRows = ledgerHistory.rows;
+  } catch (error) {
+    console.warn('Wallet ledger history unavailable, using wallet transactions only:', error.message);
+  }
   const totals = await queryOne(
     `
       select
@@ -600,28 +654,44 @@ export async function getWalletByUserId(userId) {
     `,
     [userId],
   );
-  const ledgerTotals = await queryOne(
-    `
-      select
-        coalesce(sum(converted_traveler_earning) filter (where wallet_credit_created is true), 0) as released_earnings,
-        coalesce(sum(converted_traveler_earning) filter (where escrow_status = 'held'), 0) as held_earnings
-      from public.shipment_ledgers
-      where traveler_id = $1
-    `,
-    [userId],
+  let ledgerTotals = null;
+  try {
+    ledgerTotals = await queryOne(
+      `
+        select
+          coalesce(sum(converted_traveler_earning) filter (where wallet_credit_created is true), 0) as released_earnings,
+          coalesce(sum(converted_traveler_earning) filter (where escrow_status = 'held'), 0) as held_earnings
+        from public.shipment_ledgers
+        where traveler_id = $1
+      `,
+      [userId],
+    );
+  } catch (error) {
+    console.warn('Wallet ledger totals unavailable, using wallet transaction totals only:', error.message);
+  }
+  const combinedHistory = [...history.rows, ...ledgerRows].sort((a, b) =>
+    new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
+  const balance = Number(wallet.available_balance || 0);
+  const escrowBalance = Number(wallet.escrow_balance || 0);
 
   return {
     ...wallet,
-    balance: Number(wallet.available_balance || 0),
-    escrowBalance: Number(wallet.escrow_balance || 0),
+    balance,
+    walletBalance: balance,
+    wallet_balance: balance,
+    availableBalance: balance,
+    available_balance: balance,
+    escrowBalance,
+    escrow_balance: escrowBalance,
     allTimeReceived: Math.max(
       Number(totals?.all_time_received || 0),
       Number(ledgerTotals?.released_earnings || 0),
     ),
     allTimeExpenses: Number(totals?.all_time_expenses || 0),
     heldEarnings: Number(ledgerTotals?.held_earnings || 0),
-    history: history.rows,
+    transactions: combinedHistory,
+    history: combinedHistory,
   };
 }
 

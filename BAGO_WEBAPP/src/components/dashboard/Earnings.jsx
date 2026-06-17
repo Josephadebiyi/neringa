@@ -45,6 +45,15 @@ function transactionMeta(tx) {
     return parts.join(' · ');
 }
 
+function firstNumber(...values) {
+    for (const value of values) {
+        if (value === null || value === undefined || value === '') continue;
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+}
+
 function PayPalLogo({ size = 20 }) {
     return <img src="/paypal.svg" alt="PayPal" style={{ height: size, width: 'auto' }} />;
 }
@@ -98,14 +107,26 @@ export default function Earnings({ user, checkAuthStatus }) {
         api.get('/api/bago/getWallet').then(res => {
             if (!alive) return;
             const d = res.data?.data || res.data || {};
-            setBalance(Number(d.balance ?? d.available_balance ?? d.walletBalance ?? 0));
-            setEscrow(Number(d.escrowBalance ?? d.escrow_balance ?? 0));
-            setHistory(Array.isArray(d.history) ? d.history : []);
+            const root = res.data || {};
+            setBalance(firstNumber(
+                d.balance,
+                d.walletBalance,
+                d.wallet_balance,
+                d.availableBalance,
+                d.available_balance,
+                root.balance,
+                root.walletBalance,
+                root.wallet_balance,
+                user?.walletBalance,
+                user?.wallet_balance,
+            ));
+            setEscrow(firstNumber(d.escrowBalance, d.escrow_balance, root.escrowBalance, root.escrow_balance, user?.escrowBalance, user?.escrow_balance));
+            setHistory(Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []));
             setTotals({
-                received: Number(d.allTimeReceived ?? 0),
-                expenses: Number(d.allTimeExpenses ?? 0),
+                received: firstNumber(d.allTimeReceived, root.allTimeReceived),
+                expenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
             });
-            if (d.currency) setWalletApiCurrency(d.currency.toUpperCase());
+            if (d.currency || root.currency) setWalletApiCurrency((d.currency || root.currency).toUpperCase());
         }).catch(() => { if (alive) setWalletError(true); }).finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, []);

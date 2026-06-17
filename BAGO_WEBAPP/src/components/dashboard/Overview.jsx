@@ -27,6 +27,15 @@ function transactionMeta(tx) {
     return parts.join(' · ');
 }
 
+function firstNumber(...values) {
+    for (const value of values) {
+        if (value === null || value === undefined || value === '') continue;
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+}
+
 function BarChart({ data, activeIndex }) {
     const max = Math.max(...data.map(d => d.value), 1);
     const hasData = data.some(d => d.value > 0);
@@ -110,13 +119,25 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
             .then(res => {
                 if (!mounted) return;
                 const d = res.data?.data || res.data || {};
+                const root = res.data || {};
                 setWalletData({
-                    balance: Number(d.balance ?? d.available_balance ?? d.walletBalance ?? 0),
-                    escrow: Number(d.escrowBalance ?? d.escrow_balance ?? 0),
+                    balance: firstNumber(
+                        d.balance,
+                        d.walletBalance,
+                        d.wallet_balance,
+                        d.availableBalance,
+                        d.available_balance,
+                        root.balance,
+                        root.walletBalance,
+                        root.wallet_balance,
+                        user?.walletBalance,
+                        user?.wallet_balance,
+                    ),
+                    escrow: firstNumber(d.escrowBalance, d.escrow_balance, root.escrowBalance, root.escrow_balance, user?.escrowBalance, user?.escrow_balance),
                     history: Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []),
-                    allTimeReceived: Number(d.allTimeReceived ?? 0),
-                    allTimeExpenses: Number(d.allTimeExpenses ?? 0),
-                    currency: d.currency || user?.walletCurrency || 'USD',
+                    allTimeReceived: firstNumber(d.allTimeReceived, root.allTimeReceived),
+                    allTimeExpenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
+                    currency: d.currency || root.currency || user?.walletCurrency || user?.wallet_currency || 'USD',
                 });
             })
             .catch(() => { if (mounted) setWalletError(true); })
