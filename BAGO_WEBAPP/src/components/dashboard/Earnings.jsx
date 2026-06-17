@@ -55,7 +55,7 @@ function firstNumber(...values) {
 }
 
 function PayPalLogo({ size = 20 }) {
-    return <img src="/paypal.svg" alt="PayPal" style={{ height: size, width: 'auto' }} />;
+    return <img src="/paypal-symbol.png" alt="PayPal" style={{ height: size, width: 'auto' }} />;
 }
 
 function PaystackLogo({ size = 20 }) {

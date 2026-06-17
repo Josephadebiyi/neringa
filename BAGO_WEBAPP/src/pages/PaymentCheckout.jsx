@@ -186,7 +186,7 @@ export default function PaymentCheckout() {
                                         Secure checkout powered by PayPal. You can also pay by card through PayPal.
                                     </p>
                                 </div>
-                                <img src="/paypal.svg" alt="PayPal" className="h-6 w-auto" />
+                                <img src="/paypal-symbol.png" alt="PayPal" className="h-6 w-auto" />
                             </div>
 
                             {/* Error */}
