@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../api';
 import {
     Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw,
-    AlertCircle, CheckCircle, TrendingUp, Lock, AlertTriangle,
+    CheckCircle, TrendingUp, Lock, AlertTriangle,
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
@@ -77,7 +77,6 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [allTimeTotals, setTotals]    = useState({ received: 0, expenses: 0 });
     const [walletApiCurrency, setWalletApiCurrency] = useState(null);
     const [loadingWallet, setLoading]   = useState(true);
-    const [walletError, setWalletError] = useState(false);
 
     const [amount, setAmount]         = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -127,7 +126,9 @@ export default function Earnings({ user, checkAuthStatus }) {
                 expenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
             });
             if (d.currency || root.currency) setWalletApiCurrency((d.currency || root.currency).toUpperCase());
-        }).catch(() => { if (alive) setWalletError(true); }).finally(() => { if (alive) setLoading(false); });
+        }).catch(() => {
+            // Keep the earnings page usable if wallet history is temporarily unavailable.
+        }).finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, []);
 
@@ -195,13 +196,6 @@ export default function Earnings({ user, checkAuthStatus }) {
 
     return (
         <div className="space-y-6 font-sans animate-in fade-in duration-500">
-
-            {walletError && (
-                <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-5 py-4 text-xs font-bold text-red-600">
-                    <AlertCircle size={15} className="shrink-0" />
-                    Could not load wallet data. Please refresh the page or check your connection.
-                </div>
-            )}
 
             {/* ── Balance Hero ── */}
             <div

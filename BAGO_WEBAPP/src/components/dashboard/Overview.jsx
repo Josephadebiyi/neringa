@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Package, Clock, Star, ArrowRight, ArrowUpRight, ArrowDownLeft,
-    TrendingUp, TrendingDown, Shield, Plane, Wallet, ChevronRight, AlertCircle,
+    TrendingUp, TrendingDown, Shield, Plane, Wallet, ChevronRight,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
@@ -103,7 +103,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
         currency: 'USD',
     });
     const [loadingWallet, setLoadingWallet] = useState(true);
-    const [walletError, setWalletError] = useState(false);
     const [chartTab, setChartTab] = useState('earnings');
 
     const effectiveKycStatus =
@@ -140,7 +139,9 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     currency: d.currency || root.currency || user?.walletCurrency || user?.wallet_currency || 'USD',
                 });
             })
-            .catch(() => { if (mounted) setWalletError(true); })
+            .catch(() => {
+                // Keep the dashboard usable if wallet history is temporarily unavailable.
+            })
             .finally(() => { if (mounted) setLoadingWallet(false); });
         return () => { mounted = false; };
     }, []);
@@ -192,13 +193,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
 
     return (
         <div className="space-y-6 animate-in fade-in duration-400">
-
-            {walletError && (
-                <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-5 py-4 text-xs font-bold text-red-600">
-                    <AlertCircle size={15} className="shrink-0" />
-                    Could not load wallet data. Please refresh the page or check your connection.
-                </div>
-            )}
 
             {/* ── Top: Greeting + Month pill ── */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
