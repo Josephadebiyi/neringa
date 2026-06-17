@@ -414,9 +414,10 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
 
     const pickupAddress = p.pickupAddress || req.pickupAddress || '';
     const deliveryAddress = p.deliveryAddress || req.deliveryAddress || '';
-    const declaredValue = p.value || p.declaredValue || req.declaredValue || '';
+    const rawDeclared = p.value || p.declaredValue || req.declaredValue || 0;
+    const declaredValue = Number(rawDeclared) > 0 ? rawDeclared : '';
     const amountPaid = req.amount || req.senderTotalAmount || req.agreedPrice || '';
-    const currency = req.currency || '';
+    const currency = (req.currency || req.package?.currency || '').toUpperCase() || 'USD';
     const weight = req.weight || req.packageWeight || p.packageWeight || p.package_weight || 0;
     const category = req.category || p.category || '';
     const description = p.description || req.description || '';
@@ -584,13 +585,13 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                             {declaredValue && (
                                 <div className="p-3 bg-gray-50 rounded-[14px] border border-gray-100">
                                     <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Declared Value</p>
-                                    <p className="text-sm font-black text-[#012126]">{currency} {declaredValue}</p>
+                                    <p className="text-sm font-black text-[#012126]">{currency} {Number(declaredValue).toLocaleString()}</p>
                                 </div>
                             )}
                             {amountPaid && (
                                 <div className="p-3 bg-indigo-50/60 rounded-[14px] border border-indigo-100/50">
                                     <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Amount Paid</p>
-                                    <p className="text-sm font-black text-[#5845D8]">{currency} {amountPaid}</p>
+                                    <p className="text-sm font-black text-[#5845D8]">{currency} {Number(amountPaid).toLocaleString()}</p>
                                 </div>
                             )}
                         </div>

@@ -4,7 +4,7 @@ import api from '../../api';
 import {
     Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw,
     Package, ArrowLeft, Trash2, FileText, ShieldAlert, WifiOff,
-    Plus, Weight, ChevronLeft, ChevronRight, MapPin,
+    Plus, Weight, ChevronLeft, ChevronRight, MapPin, CheckCircle,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -201,17 +201,79 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
 
     const fetchConversations = async () => {
         try {
-            const res = await api.get('/api/bago/conversations');
-            // Handle multiple possible response shapes from the backend
-            const d = res.data;
+            const currentUserId = getUserId(user);
+
+            // Fetch all three sources in parallel
+            const [convRes, senderRes, travelerRes] = await Promise.all([
+                api.get('/api/bago/conversations').catch(() => ({ data: {} })),
+                api.get('/api/bago/recentOrder').catch(() => ({ data: {} })),
+                api.get('/api/bago/incoming-requests').catch(() => ({ data: {} })),
+            ]);
+
+            // Primary: from the dedicated conversations endpoint
+            const d   = convRes.data;
             const raw = d?.data?.conversations
                 || (Array.isArray(d?.data) ? d.data : null)
                 || d?.conversations
                 || (Array.isArray(d) ? d : null)
                 || [];
-            const currentUserId = getUserId(user);
-            const processed = asArray(raw).map(c => decorateConversation(c, currentUserId));
+
+            const convMap = {};
+            asArray(raw).forEach(c => {
+                const dec = decorateConversation(c, currentUserId);
+                if (dec._id) convMap[dec._id] = dec;
+            });
+
+            // Fallback: build conversations from shipment data
+            // This covers cases where the dedicated endpoint returns nothing
+            const senderReqs   = asArray(senderRes.data?.data || []);
+            const travelerReqs = asArray(travelerRes.data?.data || travelerRes.data?.requests || []);
+            const allReqs = [...senderReqs, ...travelerReqs];
+
+            // Build shipments-by-convId map while we're iterating
+            const byConvId = {};
+            allReqs.forEach(req => {
+                const convId = req.conversationId || req.conversation_id;
+                if (!convId) return;
+                if (!byConvId[convId]) byConvId[convId] = [];
+                const id = req._id || req.id;
+                if (!byConvId[convId].some(r => (r._id || r.id) === id)) {
+                    byConvId[convId].push(req);
+                }
+                // If this conversation wasn't in the primary fetch, synthesize it
+                if (!convMap[convId]) {
+                    const isTraveler = req.role === 'traveler'
+                        || String(req.travelerId || '') === currentUserId
+                        || String(req.traveler_id || '') === currentUserId;
+                    const otherPerson = isTraveler
+                        ? (req.sender   || { _id: req.senderId,   firstName: req.senderName   || 'Sender' })
+                        : (req.traveler || { _id: req.travelerId, firstName: req.travelerName || 'Traveler' });
+                    convMap[convId] = {
+                        _id: convId, id: convId,
+                        request: { ...req, role: req.role || (isTraveler ? 'traveler' : 'sender') },
+                        activeRequests: [],
+                        otherUser: {
+                            _id: otherPerson._id || otherPerson.id || '',
+                            id:  otherPerson._id || otherPerson.id || '',
+                            firstName: otherPerson.firstName || otherPerson.first_name || 'User',
+                        },
+                        lastMessage: 'Click to view messages',
+                        last_message: 'Click to view messages',
+                        updated_at: req.updatedAt || req.createdAt || req.created_at || new Date().toISOString(),
+                        updatedAt:  req.updatedAt || req.createdAt || req.created_at || new Date().toISOString(),
+                        sender:  isTraveler ? otherPerson : { _id: currentUserId, id: currentUserId },
+                        traveler: isTraveler ? { _id: currentUserId, id: currentUserId } : otherPerson,
+                    };
+                }
+            });
+
+            setShipmentsByConvId(byConvId);
+
+            const processed = Object.values(convMap).sort(
+                (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0),
+            );
             setConversations(processed);
+
             if (selectedConv?._id) {
                 const full = processed.find(c => c._id === selectedConv._id);
                 if (full) setSelectedConv(full);
@@ -221,30 +283,8 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         }
     };
 
-    // Fetch all requests (sender + traveler) and group by conversationId
-    const fetchAllShipments = async () => {
-        try {
-            const [senderRes, travelerRes] = await Promise.all([
-                api.get('/api/bago/recentOrder').catch(() => ({ data: {} })),
-                api.get('/api/bago/incoming-requests').catch(() => ({ data: {} })),
-            ]);
-            const senderReqs   = asArray(senderRes.data?.data || []);
-            const travelerReqs = asArray(travelerRes.data?.data || travelerRes.data?.requests || []);
-            const all = [...senderReqs, ...travelerReqs];
-
-            const map = {};
-            all.forEach(req => {
-                const convId = req.conversationId || req.conversation_id;
-                if (!convId) return;
-                if (!map[convId]) map[convId] = [];
-                const id = req._id || req.id;
-                if (!map[convId].some(r => (r._id || r.id) === id)) {
-                    map[convId].push(req);
-                }
-            });
-            setShipmentsByConvId(map);
-        } catch {}
-    };
+    // fetchAllShipments is now handled inside fetchConversations
+    const fetchAllShipments = async () => {};
 
     // ── Socket ─────────────────────────────────────────────────────────────────
 
@@ -481,6 +521,10 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
 
     // Show Add KG if ANY active shipment in this conversation is sender+accepted/intransit
     const convShipments = getConvShipments();
+    const CLOSED_STATUSES = ['completed', 'cancelled', 'canceled', 'rejected'];
+    const isChatClosed = convShipments.length > 0
+        ? convShipments.every(r => CLOSED_STATUSES.includes((r?.status || '').toLowerCase()))
+        : CLOSED_STATUSES.includes((selectedConv?.request?.status || '').toLowerCase());
     const hasAddKgShipment = convShipments.some(r => {
         const role   = r?.role || (r?.senderId === (user?._id || user?.id) ? 'sender' : 'traveler');
         const status = (r?.status || '').toLowerCase();
@@ -713,7 +757,15 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             </div>
                         )}
 
-                        {/* Message input */}
+                        {/* Message input / closed banner */}
+                        {isChatClosed ? (
+                            <div className="px-5 pb-5 pt-2 bg-white border-t border-gray-50">
+                                <div className="flex items-center justify-center gap-2 rounded-[18px] border border-gray-100 bg-gray-50 px-4 py-3.5 text-[10px] font-bold text-gray-400">
+                                    <CheckCircle size={14} className="text-green-500 shrink-0" />
+                                    This shipment is completed — chat is now read-only
+                                </div>
+                            </div>
+                        ) : (
                         <div className="px-5 pb-5 pt-2 bg-white border-t border-gray-50">
                             <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-gray-50 rounded-[18px] border border-gray-100 px-3 py-2 focus-within:border-[#5845D8]/25 focus-within:bg-white focus-within:shadow-md transition-all">
                                 <input ref={attachmentInputRef} type="file" className="hidden" onChange={handleSendAttachment} />
@@ -736,6 +788,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 </button>
                             </form>
                         </div>
+                        )}
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-10 bg-[#F6F5FC]/30">
