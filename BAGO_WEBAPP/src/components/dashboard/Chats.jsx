@@ -460,9 +460,17 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
 
     const getConvShipments = () => {
         if (!selectedConv) return [];
+        // Backend provides activeRequests directly on the conversation object
+        const fromConv = selectedConv.activeRequests || [];
+        if (fromConv.length > 0) {
+            // Enrich with role from the conversation context
+            const convRole = selectedConv.request?.role;
+            return fromConv.map(r => ({ ...r, role: r.role || convRole }));
+        }
+        // Fallback: requests fetched separately
         const fromMap = shipmentsByConvId[selectedConv._id] || [];
         if (fromMap.length > 0) return fromMap;
-        // Fallback to single request on the conv object
+        // Last resort: single request on the conv
         const r = selectedConv?.request;
         return r ? [r] : [];
     };
