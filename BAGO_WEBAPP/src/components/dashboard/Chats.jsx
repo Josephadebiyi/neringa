@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, ArrowLeft, Trash2, FileText, ShieldAlert, WifiOff } from 'lucide-react';
+import { Send, AlertTriangle, User, Paperclip, MessageCircle, RefreshCw, Package, ArrowLeft, Trash2, FileText, ShieldAlert, WifiOff, Plus, Weight } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { io } from 'socket.io-client';
 
@@ -44,6 +45,7 @@ const classifyMessage = (text) => {
 
 export default function Chats({ user, selectedConv, setSelectedConv, onTabChange }) {
     const { t } = useLanguage();
+    const navigate = useNavigate();
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
@@ -54,6 +56,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
     const [downloading, setDownloading] = useState(null);
     const [isSending, setIsSending] = useState(false);
+    const [showAddKgModal, setShowAddKgModal] = useState(false);
+    const [addKgInput, setAddKgInput] = useState('');
+    const [addKgLoading, setAddKgLoading] = useState(false);
     const messagesEndRef = useRef(null);
     const attachmentInputRef = useRef(null);
     const socketRef = useRef(null);
@@ -397,6 +402,31 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         }
     };
 
+    const handleAddKg = async () => {
+        const kg = parseFloat(addKgInput);
+        if (!kg || kg <= 0) return;
+        const reqObj = selectedConv?.request && typeof selectedConv.request === 'object' ? selectedConv.request : null;
+        const reqId = reqObj?._id || reqObj?.id;
+        if (!reqId) return;
+        setAddKgLoading(true);
+        try {
+            const res = await api.get(`/api/bago/request/${reqId}/details`);
+            const details = res.data?.data;
+            const amount = Number(details?.amount || 0);
+            const weight = Number(details?.package?.packageWeight || 1);
+            const currency = (details?.currency || 'USD').toUpperCase();
+            const pricePerKg = weight > 0 ? amount / weight : 0;
+            const estimatedAmount = parseFloat((pricePerKg * kg).toFixed(2));
+            setShowAddKgModal(false);
+            setAddKgInput('');
+            navigate(`/checkout/payment?requestId=${reqId}&additionalKg=${kg}&amount=${estimatedAmount}&currency=${currency}`);
+        } catch {
+            alert('Could not load shipment details. Please try again.');
+        } finally {
+            setAddKgLoading(false);
+        }
+    };
+
     const req = selectedConv?.request && typeof selectedConv.request === 'object'
         ? selectedConv.request
         : null;
@@ -524,6 +554,15 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                         title="Delete conversation"
                                     >
                                         <Trash2 size={16} />
+                                    </button>
+                                )}
+                                {req?.role === 'sender' && ['accepted', 'intransit'].includes((req?.status || '').toLowerCase()) && (
+                                    <button
+                                        onClick={() => setShowAddKgModal(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#5845D8]/20 bg-[#5845D8]/5 text-[#5845D8] hover:bg-[#5845D8]/10 transition-all font-black text-[8px] uppercase tracking-widest"
+                                    >
+                                        <Plus size={11} />
+                                        Add KG
                                     </button>
                                 )}
                                 <button
@@ -781,6 +820,56 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">No shipment linked</p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Add KG Modal */}
+            {showAddKgModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 animate-in fade-in duration-200 font-sans">
+                    <div className="relative bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100/50">
+                        <div className="p-7 border-b border-gray-50 flex flex-col gap-2 bg-[#5845D8]/5">
+                            <div className="w-12 h-12 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-[#5845D8]/10">
+                                <Weight size={22} />
+                            </div>
+                            <h3 className="text-lg font-black text-[#012126] uppercase tracking-tight">Add more kg</h3>
+                            <p className="text-[9px] text-gray-400 font-bold leading-relaxed">This adds weight to the active shipment in this chat. Receiver details stay the same.</p>
+                        </div>
+                        <div className="p-7 space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest block">Additional weight</label>
+                                <div className="flex items-center gap-3 px-4 py-3.5 bg-gray-50 rounded-2xl border border-transparent focus-within:border-[#5845D8]/20 focus-within:bg-white transition-all">
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        min="0.1"
+                                        value={addKgInput}
+                                        onChange={e => setAddKgInput(e.target.value)}
+                                        placeholder="0.0"
+                                        className="flex-1 bg-transparent outline-none text-base font-black text-[#012126] placeholder:text-gray-300"
+                                        autoFocus
+                                    />
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">KG</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowAddKgModal(false); setAddKgInput(''); }}
+                                    className="flex-1 py-3.5 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleAddKg}
+                                    disabled={!addKgInput || parseFloat(addKgInput) <= 0 || addKgLoading}
+                                    className="flex-[2] bg-[#5845D8] text-white py-3.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                                >
+                                    {addKgLoading ? <RefreshCw className="animate-spin" size={14} /> : <><Plus size={14} /> Send kg request</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

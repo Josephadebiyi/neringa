@@ -36,10 +36,18 @@ export default function PaymentCheckout() {
         insurance:          params.get('insurance')          === 'true',
         insuranceCost:      Number(params.get('insuranceCost') || 0),
         estimatedDeparture: params.get('estimatedDeparture') || '',
+        requestId:          params.get('requestId')          || '',
+        additionalKg:       Number(params.get('additionalKg') || 0),
     }), [params]);
 
+    const isAddKgMode = Boolean(checkout.requestId && checkout.additionalKg > 0);
+
     useEffect(() => {
-        if (!checkout.packageId || !checkout.tripId || !checkout.travelerId || checkout.amount <= 0) {
+        const invalid = isAddKgMode
+            ? (!checkout.requestId || checkout.additionalKg <= 0 || checkout.amount <= 0)
+            : (!checkout.packageId || !checkout.tripId || !checkout.travelerId || checkout.amount <= 0);
+
+        if (invalid) {
             setError('Checkout details are incomplete. Please go back and try again.');
             setLoading(false);
             return;
@@ -72,7 +80,12 @@ export default function PaymentCheckout() {
 
                     createOrder: async () => {
                         setError('');
-                        const orderRes = await api.post('/api/payments/paypal/create-order', {
+                        const orderBody = isAddKgMode ? {
+                            requestId:     checkout.requestId,
+                            additionalKg:  checkout.additionalKg,
+                            currency:      checkout.currency,
+                            paymentMethod: 'paypal',
+                        } : {
                             packageId:          checkout.packageId,
                             tripId:             checkout.tripId,
                             travelerId:         checkout.travelerId,
@@ -83,7 +96,8 @@ export default function PaymentCheckout() {
                             estimatedDeparture: checkout.estimatedDeparture,
                             termsAccepted:      true,
                             paymentMethod:      'paypal',
-                        });
+                        };
+                        const orderRes = await api.post('/api/payments/paypal/create-order', orderBody);
                         if (!orderRes.data?.orderId) {
                             throw new Error(orderRes.data?.message || 'Could not start PayPal checkout.');
                         }
@@ -97,6 +111,29 @@ export default function PaymentCheckout() {
                             const captureRes = await api.post('/api/payments/paypal/capture', { orderId: orderID });
                             if (!captureRes.data?.success) {
                                 throw new Error(captureRes.data?.message || 'Payment capture failed.');
+                            }
+
+                            if (isAddKgMode) {
+                                const addKgRes = await api.post('/api/bago/RequestPackage', {
+                                    requestId:       checkout.requestId,
+                                    additionalKg:    checkout.additionalKg,
+                                    paymentReference: orderID,
+                                    paymentProvider: 'paypal',
+                                });
+                                const updatedReq = addKgRes.data?.request || addKgRes.data?.data || addKgRes.data;
+                                navigate('/shipping-success', {
+                                    replace: true,
+                                    state: {
+                                        requestId:     updatedReq?.id || updatedReq?._id || checkout.requestId,
+                                        trackingNumber: updatedReq?.trackingNumber,
+                                        amount:        checkout.amount,
+                                        currency:      checkout.currency,
+                                        paymentMethod: 'paypal',
+                                        isAddKg:       true,
+                                        additionalKg:  checkout.additionalKg,
+                                    },
+                                });
+                                return;
                             }
 
                             const shipRes = await api.post('/api/bago/RequestPackage', {
@@ -161,7 +198,7 @@ export default function PaymentCheckout() {
             alive = false;
             try { buttonsRef.current?.close?.(); } catch (_) {}
         };
-    }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.amount, checkout.currency]);
+    }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.requestId, checkout.additionalKg, checkout.amount, checkout.currency, isAddKgMode]);
 
     return (
         <div className="min-h-screen bg-[#f5f6f8] px-4 py-5 text-[#111827]">
@@ -226,12 +263,19 @@ export default function PaymentCheckout() {
 
                     {/* Order summary */}
                     <aside className="h-fit rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_18px_42px_rgba(16,24,40,0.07)] lg:sticky lg:top-5">
+                        {isAddKgMode && (
+                            <div className="mb-4 rounded-[14px] bg-[#5845D8]/5 border border-[#5845D8]/10 px-4 py-3">
+                                <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Additional Weight</p>
+                                <p className="text-base font-black text-[#012126]">+{checkout.additionalKg} KG</p>
+                                <p className="text-[9px] text-gray-400 font-bold mt-0.5">Added to existing shipment</p>
+                            </div>
+                        )}
                         <p className="text-xs font-black uppercase tracking-widest text-gray-400">Order total</p>
                         <p className="mt-2 text-3xl font-black text-[#012126]">
                             {checkout.currency} {checkout.amount.toFixed(2)}
                         </p>
 
-                        {checkout.insurance && checkout.insuranceCost > 0 && (
+                        {!isAddKgMode && checkout.insurance && checkout.insuranceCost > 0 && (
                             <div className="mt-3 space-y-2 text-xs font-bold text-gray-500">
                                 <div className="flex justify-between">
                                     <span>Shipment</span>
@@ -249,7 +293,10 @@ export default function PaymentCheckout() {
                         )}
 
                         <p className="mt-4 text-xs font-semibold leading-relaxed text-gray-400">
-                            Payment is held securely until your shipment is delivered and confirmed.
+                            {isAddKgMode
+                                ? 'Payment is added to your active shipment and held in escrow until delivery.'
+                                : 'Payment is held securely until your shipment is delivered and confirmed.'
+                            }
                         </p>
 
                         <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 text-xs font-black text-gray-400">

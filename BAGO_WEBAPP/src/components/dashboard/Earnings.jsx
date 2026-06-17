@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../api';
 import {
     Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw,
-    CheckCircle, TrendingUp, Lock, AlertTriangle,
+    CheckCircle, AlertCircle, TrendingUp, Lock, AlertTriangle,
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
@@ -133,7 +133,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     }, []);
 
     const incomeTypes  = new Set(['earning','signup_bonus','admin_settlement','credit','release','deposit','escrow_release']);
-    const expenseTypes = new Set(['withdrawal','withdraw','payout','debit','escrow_hold']);
+    const expenseTypes = new Set(['withdrawal','withdraw','payout']);
 
     const transactions = useMemo(() => {
         return history.map(tx => ({
@@ -209,14 +209,12 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <p className="text-5xl font-black text-[#012126] tracking-tighter leading-none">
                             {loadingWallet ? <span className="opacity-30 animate-pulse">—</span> : `${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
                         </p>
-                        {escrow > 0 && (
-                            <div className="flex items-center gap-1.5 mt-3">
-                                <Lock size={11} className="text-[#012126]/50" />
-                                <p className="text-[10px] font-bold text-[#012126]/50">
-                                    {sym}{escrow.toLocaleString(undefined,{minimumFractionDigits:2})} held in escrow
-                                </p>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-1.5 mt-3">
+                            <Lock size={11} className="text-[#012126]/50" />
+                            <p className="text-[10px] font-bold text-[#012126]/50">
+                                {sym}{escrow.toLocaleString(undefined,{minimumFractionDigits:2})} in escrow
+                            </p>
+                        </div>
                     </div>
                     <div className="flex flex-col gap-3 min-w-[200px]">
                         {/* Payout method badge */}
@@ -252,7 +250,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                 <div className="lg:col-span-2 bg-white rounded-[28px] p-7 border border-gray-100 shadow-sm">
                     {/* Received / Expenses toggle */}
                     <div className="grid grid-cols-2 bg-gray-50 rounded-2xl p-1.5 mb-6 border border-gray-100">
-                        {[{ id:'received', label:'Received' }, { id:'expenses', label:'Expenses' }].map(tab => (
+                        {[{ id:'received', label:'Received' }, { id:'expenses', label:'Withdrawn' }].map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setChartMode(tab.id)}
@@ -271,7 +269,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                         {sym}{activeTotal.toLocaleString(undefined,{minimumFractionDigits:2})}
                     </p>
                     <p className="text-[10px] text-[#012126]/40 font-bold mb-6">
-                        {chartMode==='received' ? 'Total income received' : 'Total withdrawn or spent'}
+                        {chartMode==='received' ? 'Total income received' : 'Total withdrawn from wallet'}
                     </p>
 
                     {/* Bar chart */}

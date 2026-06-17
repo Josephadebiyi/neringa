@@ -1435,7 +1435,7 @@ export async function getPublicTrackingByNumber(trackingNumber) {
 export async function listRecentOrdersForUser(userId) {
   const [requestsResult, draftsResult] = await Promise.all([
     query(
-      `${requestSelect} where sr.sender_id = $1 order by sr.created_at desc`,
+      `${requestSelect} where (sr.sender_id = $1 or sr.traveler_id = $1) order by sr.created_at desc`,
       [userId],
     ),
     // Packages the user created that have no associated shipment request yet (pre-payment drafts)
