@@ -21,7 +21,7 @@ import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
-import { sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
+import { getPushProviderStatus, sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 import {
   authorizePaypalOrder,
   capturePaypalOrder,
@@ -2100,6 +2100,14 @@ app.get('/api/bago/push-diag/tokens', adminAuthenticated, async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+app.get('/api/bago/push-diag/config', adminAuthenticated, async (_req, res) => {
+  res.json({
+    success: true,
+    expectedIOSBundleId: 'com.deracali.boltexponativewind',
+    providers: getPushProviderStatus(),
+  });
 });
 
 app.post('/api/bago/push-diag/test', adminAuthenticated, async (req, res) => {

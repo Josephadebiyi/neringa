@@ -223,6 +223,37 @@ export const sendPushNotificationToToken = async (pushToken, title, body, data =
   return { ok: false, skipped: true, reason: 'unrecognized_token_format', preview: token.substring(0, 20) };
 };
 
+export const getPushProviderStatus = () => {
+  const apnsPrivateKeyConfigured = Boolean(
+    process.env.APNS_PRIVATE_KEY?.trim() || process.env.APNS_PRIVATE_KEY_PATH?.trim(),
+  );
+  const firebaseConfigured = Boolean(
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim() || process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim(),
+  );
+  const apnsBundleId = process.env.APNS_BUNDLE_ID?.trim() || '';
+
+  return {
+    apns: {
+      configured: Boolean(
+        process.env.APNS_TEAM_ID?.trim()
+          && process.env.APNS_KEY_ID?.trim()
+          && apnsBundleId
+          && apnsPrivateKeyConfigured,
+      ),
+      teamIdConfigured: Boolean(process.env.APNS_TEAM_ID?.trim()),
+      keyIdConfigured: Boolean(process.env.APNS_KEY_ID?.trim()),
+      privateKeyConfigured: apnsPrivateKeyConfigured,
+      bundleIdConfigured: Boolean(apnsBundleId),
+      bundleId: apnsBundleId || null,
+      useSandboxFirst: process.env.APNS_USE_SANDBOX === 'true',
+    },
+    fcm: {
+      configured: firebaseConfigured,
+      serviceAccountConfigured: firebaseConfigured,
+    },
+  };
+};
+
 export const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
     const row = await queryOne(
