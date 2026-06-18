@@ -1,6 +1,6 @@
 import express from 'express';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
-import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
+import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, getReferral, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewToRequest, DeleteTrip } from '../controllers/AddaTripController.js';
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
@@ -198,6 +198,7 @@ userRouter.delete('/request/:requestId', isAuthenticated, deleteRequestFromHisto
 
 // 💰 Wallet & Payments
 userRouter.get('/getWallet', isAuthenticated, getWallet);
+userRouter.get('/referral', isAuthenticated, getReferral);
 userRouter.post('/withdrawFunds', isAuthenticated, requireKycVerification, withdrawFunds);
 userRouter.post('/addFunds', isAuthenticated, requireKycVerification, addFunds);
 userRouter.post('/send-to-escrow', isAuthenticated, requireKycVerification, sendToEscrow);

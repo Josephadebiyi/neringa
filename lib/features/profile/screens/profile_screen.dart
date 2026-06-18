@@ -578,6 +578,12 @@ class _AccountTab extends StatelessWidget {
               onTap: () => context.push('/profile/withdraw'),
             ),
             BagoMenuItem(
+              label: 'Referrals',
+              leading: const Icon(Icons.card_giftcard_outlined,
+                  color: AppColors.gray600),
+              onTap: () => context.push('/profile/referrals'),
+            ),
+            BagoMenuItem(
               label: l10n.paymentsRefunds,
               leading: const Icon(Icons.receipt_long_outlined,
                   color: AppColors.gray600),

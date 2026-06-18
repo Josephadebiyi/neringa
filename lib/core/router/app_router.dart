@@ -35,6 +35,7 @@ import '../../features/profile/screens/payments_refunds_screen.dart';
 import '../../features/profile/screens/payout_methods_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/ratings_screen.dart';
+import '../../features/profile/screens/referral_screen.dart';
 import '../../features/profile/screens/saved_routes_screen.dart';
 import '../../features/profile/screens/support_screen.dart';
 import '../../features/support/screens/support_tickets_screen.dart';
@@ -306,7 +307,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── Trips ─────────────────────────────────────────────────────────────
       GoRoute(
         path: '/post-trip',
-        builder: (_, __) => const PostTripScreen(),
+        builder: (_, state) {
+          final redoTrip =
+              state.extra is TripModel ? state.extra as TripModel : null;
+          return PostTripScreen(redoTrip: redoTrip);
+        },
       ),
       GoRoute(
         path: '/edit-trip/:id',
@@ -481,6 +486,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/withdraw',
         builder: (_, __) => const WithdrawScreen(),
+      ),
+      GoRoute(
+        path: '/profile/referrals',
+        builder: (_, __) => const ReferralScreen(),
       ),
       GoRoute(
         path: '/profile/payments-refunds',

@@ -656,7 +656,7 @@ export async function getWalletByUserId(userId) {
       `
         select
           coalesce(sum(amount) filter (where type::text in ('earning', 'signup_bonus', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release') and status = 'completed'), 0) as all_time_received,
-          coalesce(sum(amount) filter (where type::text in ('withdrawal', 'withdraw', 'payout') and status in ('completed', 'processing', 'pending')), 0) as all_time_expenses
+          coalesce(sum(amount) filter (where type::text in ('withdrawal', 'withdraw', 'payout') and status = 'completed'), 0) as all_time_expenses
         from public.wallet_transactions
         where user_id = $1
       `,

@@ -44,11 +44,16 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [savingInsurance, setSavingInsurance] = useState(false);
   const [savingCurrencies, setSavingCurrencies] = useState(false);
+  const [savingReferral, setSavingReferral] = useState(false);
   const [sendingCredentialCode, setSendingCredentialCode] = useState(false);
   const [verifyingCredentialCode, setVerifyingCredentialCode] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [globalEnabled, setGlobalEnabled] = useState(true);
   const [baseCurrency, setBaseCurrency] = useState("USD");
+  const [referralEnabled, setReferralEnabled] = useState(true);
+  const [referralWelcomeBonusNgn, setReferralWelcomeBonusNgn] = useState("2000");
+  const [referralShipmentThresholdUsd, setReferralShipmentThresholdUsd] = useState("50");
+  const [referralShipmentBonusUsd, setReferralShipmentBonusUsd] = useState("2");
 
   const [africaInsurance, setAfricaInsurance] = useState<RegionInsurance>({
     fixedPrice: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, enabled: true, currency: "NGN",
@@ -92,6 +97,10 @@ export default function SettingsPage() {
       if (settingsData) {
         const nextBaseCurrency = String(settingsData.baseCurrency || "USD").trim().toUpperCase() || "USD";
         setBaseCurrency(nextBaseCurrency);
+        setReferralEnabled(settingsData.referralEnabled !== false);
+        setReferralWelcomeBonusNgn(String(settingsData.referralWelcomeBonusNgn ?? 2000));
+        setReferralShipmentThresholdUsd(String(settingsData.referralShipmentThresholdUsd ?? 50));
+        setReferralShipmentBonusUsd(String(settingsData.referralShipmentBonusUsd ?? 2));
 
         const configuredRates = settingsData.exchangeRates && typeof settingsData.exchangeRates === "object"
           ? Object.entries(settingsData.exchangeRates)
@@ -224,6 +233,28 @@ export default function SettingsPage() {
       setMessage({ type: "error", text: error.message || "FAILED TO UPDATE CURRENCY SETTINGS" });
     } finally {
       setSavingCurrencies(false);
+    }
+  };
+
+  const handleSaveReferral = async () => {
+    try {
+      setSavingReferral(true);
+      const response = await updateSettings({
+        referralEnabled,
+        referralWelcomeBonusNgn: Number(referralWelcomeBonusNgn || "0"),
+        referralShipmentThresholdUsd: Number(referralShipmentThresholdUsd || "0"),
+        referralShipmentBonusUsd: Number(referralShipmentBonusUsd || "0"),
+      });
+
+      setMessage({
+        type: response.success ? "success" : "error",
+        text: response.message || (response.success ? "Referral settings updated successfully" : "FAILED TO UPDATE REFERRAL SETTINGS"),
+      });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "FAILED TO UPDATE REFERRAL SETTINGS" });
+    } finally {
+      setSavingReferral(false);
     }
   };
 
@@ -407,6 +438,79 @@ export default function SettingsPage() {
             <Plus size={14} />
             Add Currency
           </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-8 space-y-6">
+        <div className="flex items-start justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+              <Plus size={24} />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-[#1e2749] leading-tight">Referral Rewards</h2>
+              <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-0.5">
+                Control wallet bonuses, qualifying shipment value, and program availability
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleSaveReferral}
+            disabled={savingReferral}
+            className="px-6 py-3 bg-[#1e2749] hover:bg-[#2a3663] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] transition-all shadow-lg flex items-center gap-2 disabled:opacity-50"
+          >
+            {savingReferral ? "Saving..." : "Save Referral Settings"}
+            <Save size={14} />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between rounded-3xl bg-gray-50 border border-gray-100 p-5">
+          <div>
+            <p className="text-sm font-black text-[#1e2749]">Referral program</p>
+            <p className="text-xs text-gray-400 font-bold mt-1">Turn rewards on or off without removing user referral codes.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReferralEnabled(!referralEnabled)}
+            className={`w-16 h-8 rounded-full transition-all duration-300 relative ${referralEnabled ? "bg-emerald-500" : "bg-gray-200"}`}
+          >
+            <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-sm ${referralEnabled ? "left-9" : "left-1"}`} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">
+              Welcome Bonus (NGN)
+            </label>
+            <input
+              value={referralWelcomeBonusNgn}
+              onChange={(e) => setReferralWelcomeBonusNgn(normalizeRate(e.target.value))}
+              className="w-full px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl font-bold text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-2 px-1 font-medium">Both users receive this converted to their wallet currency.</p>
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">
+              Shipment Threshold (USD)
+            </label>
+            <input
+              value={referralShipmentThresholdUsd}
+              onChange={(e) => setReferralShipmentThresholdUsd(normalizeRate(e.target.value))}
+              className="w-full px-4 py-3 bg-blue-50 border border-blue-100 rounded-2xl font-bold text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">
+              Shipment Bonus (USD)
+            </label>
+            <input
+              value={referralShipmentBonusUsd}
+              onChange={(e) => setReferralShipmentBonusUsd(normalizeRate(e.target.value))}
+              className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl font-bold text-sm"
+            />
+            <p className="text-[10px] text-gray-400 mt-2 px-1 font-medium">Paid after the referred user sends a qualifying item.</p>
+          </div>
         </div>
       </div>
 

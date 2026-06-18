@@ -9,6 +9,7 @@ import Shipments from '../components/dashboard/Shipments';
 import Deliveries from '../components/dashboard/Deliveries';
 import Chats from '../components/dashboard/Chats';
 import Earnings from '../components/dashboard/Earnings';
+import Referral from '../components/dashboard/Referral';
 import Settings from '../components/dashboard/Settings';
 import {
     LayoutDashboard,
@@ -27,6 +28,7 @@ const TAB_LABELS = {
     deliveries: 'My Deliveries',
     chats: 'Messages',
     earnings: 'Wallet & Earnings',
+    referral: 'Referrals',
     settings: 'Settings',
     insurance: 'Insurance',
 };
@@ -49,7 +51,7 @@ export default function Dashboard() {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
-        const allowed = ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'chats', 'earnings', 'settings', 'insurance'];
+        const allowed = ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'chats', 'earnings', 'referral', 'settings', 'insurance'];
         if (tab && allowed.includes(tab)) {
             setActiveTab(tab === 'messages' ? 'chats' : tab);
         }
@@ -166,6 +168,8 @@ export default function Dashboard() {
                     );
                 case 'earnings':
                     return <Earnings user={user} checkAuthStatus={checkAuthStatus} />;
+                case 'referral':
+                    return <Referral user={user} />;
                 case 'settings':
                     return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'insurance':

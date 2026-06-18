@@ -38,6 +38,7 @@ import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { recordOperationalEvent } from '../lib/postgres/operationalRecords.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
+import { applyReferralShipmentReward } from '../services/referralService.js';
 
 function normalizePaymentProvider(paymentInfo = {}) {
   return String(paymentInfo.gateway || paymentInfo.method || paymentInfo.provider || '').toLowerCase();
@@ -869,6 +870,13 @@ export async function RequestPackage(req, res) {
           error: escrowError.message,
         });
       }
+
+      await applyReferralShipmentReward({
+        senderId,
+        requestId: newRequest.id,
+        amount: requestAmount,
+        currency: requestCurrency,
+      }).catch((error) => console.warn('Referral shipment bonus failed:', error.message));
     }
 
     try {

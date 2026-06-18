@@ -5,6 +5,7 @@ import {
     Plane,
     Package,
     Wallet,
+    Gift,
     Settings,
     LogOut,
     X,
@@ -24,6 +25,7 @@ const GENERAL_ITEMS = [
 
 const ACCOUNT_ITEMS = [
     { id: 'earnings', label: 'Wallet', icon: Wallet },
+    { id: 'referral', label: 'Referrals', icon: Gift },
     { id: 'settings', label: 'Settings', icon: Settings },
 ];
 

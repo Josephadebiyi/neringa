@@ -31,6 +31,10 @@ import { queryOne } from '../lib/postgres/db.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
+import {
+  applyReferralSignupReward,
+  getReferralSummary,
+} from '../services/referralService.js';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -115,6 +119,8 @@ function buildUserResponse(user) {
     payout_method: user.payoutMethod || null,
     payoutMethodStatus: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId ? 'connected' : null),
     payout_method_status: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId ? 'connected' : null),
+    referralCode: user.referral_code || user.referralCode || null,
+    referral_code: user.referral_code || user.referralCode || null,
     bankAccountLinked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeConnectAccountId),
     bank_account_linked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeConnectAccountId),
     acceptedTerms: user.acceptedTerms ?? false,
@@ -347,6 +353,12 @@ export async function verifySignupOtp(req, res) {
 
     if (decoded.promoCode) {
       await applySignupBonus(newUser.id, decoded.promoCode);
+    }
+
+    if (decoded.referredBy) {
+      await applyReferralSignupReward(newUser.id).catch((error) =>
+        console.warn('Referral signup bonus failed:', error.message)
+      );
     }
 
     if (resend) {
@@ -684,6 +696,9 @@ export async function googleAuth(req, res) {
     }
 
     if (isNewUser) {
+      await applyReferralSignupReward(user.id).catch((error) =>
+        console.warn('Google referral signup bonus failed:', error.message)
+      );
       await sendWelcomeEmail(user.email, user.firstName || 'User', 'google').catch(() => {});
     }
 
@@ -1095,6 +1110,16 @@ export async function getWallet(req, res) {
       console.error('getWallet fallback error:', fallbackError);
       res.status(500).json({ message: 'Could not load wallet data' });
     }
+  }
+}
+
+export async function getReferral(req, res) {
+  try {
+    const data = await getReferralSummary(req.user.id || req.user._id);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('getReferral error:', error);
+    return res.status(500).json({ success: false, message: 'Could not load referral data' });
   }
 }
 

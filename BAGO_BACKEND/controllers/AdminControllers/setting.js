@@ -15,6 +15,10 @@ const DEFAULTS = {
   baseCurrency: 'USD',
   supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD', 'NGN', 'GHS', 'KES', 'ZAR'],
   exchangeRates: { USD: 1, EUR: 0.92, GBP: 0.79, CAD: 1.36, NGN: 1550, GHS: 15.2, KES: 129, ZAR: 18.5 },
+  referralEnabled: true,
+  referralWelcomeBonusNgn: 2000,
+  referralShipmentThresholdUsd: 50,
+  referralShipmentBonusUsd: 2,
   banner: null,
 };
 
@@ -78,7 +82,8 @@ export const updateInsurance = async (req, res, next) => {
 export const updateSettings = async (req, res, next) => {
   const { autoVerification, commissionPercentage, insuranceType, insurancePercentage,
           insuranceFixedAmount, banner, baseCurrency, supportedCurrencies, exchangeRates,
-          platformCommissionPercent, processingFeePercent, fxBufferPercent, senderInsurancePercent } = req.body;
+          platformCommissionPercent, processingFeePercent, fxBufferPercent, senderInsurancePercent,
+          referralEnabled, referralWelcomeBonusNgn, referralShipmentThresholdUsd, referralShipmentBonusUsd } = req.body;
   try {
     await loadSettings();
     if (typeof autoVerification === 'boolean') _cached.autoVerification = autoVerification;
@@ -97,6 +102,10 @@ export const updateSettings = async (req, res, next) => {
     if (typeof processingFeePercent === 'number' && processingFeePercent >= 0 && processingFeePercent <= 100) _cached.processingFeePercent = processingFeePercent;
     if (typeof fxBufferPercent === 'number' && fxBufferPercent >= 0 && fxBufferPercent <= 100) _cached.fxBufferPercent = fxBufferPercent;
     if (typeof senderInsurancePercent === 'number' && senderInsurancePercent >= 0 && senderInsurancePercent <= 100) _cached.senderInsurancePercent = senderInsurancePercent;
+    if (typeof referralEnabled === 'boolean') _cached.referralEnabled = referralEnabled;
+    if (typeof referralWelcomeBonusNgn === 'number' && referralWelcomeBonusNgn >= 0) _cached.referralWelcomeBonusNgn = referralWelcomeBonusNgn;
+    if (typeof referralShipmentThresholdUsd === 'number' && referralShipmentThresholdUsd >= 0) _cached.referralShipmentThresholdUsd = referralShipmentThresholdUsd;
+    if (typeof referralShipmentBonusUsd === 'number' && referralShipmentBonusUsd >= 0) _cached.referralShipmentBonusUsd = referralShipmentBonusUsd;
     await persistSettings(_cached);
     res.status(200).json({ message: 'Settings updated successfully', setting: _cached, success: true });
   } catch (error) {

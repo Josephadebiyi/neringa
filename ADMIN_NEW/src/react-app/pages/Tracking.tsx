@@ -2,8 +2,18 @@ import { useEffect, useState } from 'react';
 import { Search, Filter, Package, MapPin, User, Calendar, DollarSign, Truck, UserPlus } from 'lucide-react';
 import { getAdminAuthHeaders } from '../services/api';
 
-// Request status options (based on API data)
-const REQUEST_STATUSES = ['pending', 'accepted', 'picked_up', 'in_transit', 'customs', 'delivered', 'cancelled'];
+// Request status options accepted by the backend shipment request API.
+const REQUEST_STATUSES = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
+
+const REQUEST_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  intransit: 'In transit',
+  delivering: 'Delivering',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
 
 // Interface for package data from API
 interface Package {
@@ -297,7 +307,7 @@ export default function Tracking() {
               <div className={`text-2xl font-bold ${getStatusColor(status).split(' ')[1]}`}>
                 {count}
               </div>
-              <div className="text-gray-600 text-sm capitalize">{status.replace('_', ' ')}</div>
+              <div className="text-gray-600 text-sm capitalize">{REQUEST_STATUS_LABELS[status] || status}</div>
             </div>
           );
         })}
@@ -324,7 +334,7 @@ export default function Tracking() {
             <option value="all">All Status</option>
             {REQUEST_STATUSES.map((status) => (
               <option key={status} value={status} className="capitalize">
-                {status.replace('_', ' ')}
+                {REQUEST_STATUS_LABELS[status] || status}
               </option>
             ))}
           </select>
@@ -403,7 +413,7 @@ export default function Tracking() {
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(item.status)}`}
                     >
-                      {(item.status || 'pending').replace('_', ' ')}
+                      {REQUEST_STATUS_LABELS[item.status || 'pending'] || item.status || 'Pending'}
                     </span>
                   </td>
                   <td className="py-4 px-4">
@@ -507,7 +517,7 @@ export default function Tracking() {
                   className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {REQUEST_STATUSES.map(s => (
-                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                    <option key={s} value={s}>{REQUEST_STATUS_LABELS[s] || s}</option>
                   ))}
                 </select>
               </div>

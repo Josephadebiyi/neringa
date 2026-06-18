@@ -5,6 +5,22 @@ import App from './App.jsx';
 import './index.css';
 import { AuthProvider } from './AuthContext.jsx';
 
+if (typeof document !== 'undefined') {
+    let lastTouchEnd = 0;
+
+    document.addEventListener('touchend', (event) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, { passive: false });
+
+    document.addEventListener('gesturestart', (event) => {
+        event.preventDefault();
+    });
+}
+
 try {
     const root = document.getElementById('root');
 

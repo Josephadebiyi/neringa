@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api, { setAuthSession } from '../api';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../AuthContext';
@@ -25,11 +25,18 @@ export default function Signup() {
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     const [showOtp, setShowOtp] = useState(false);
     const [signupToken, setSignupToken] = useState('');
     const [otp, setOtp] = useState('');
     const { login } = useAuth();
+
+    useEffect(() => {
+        const ref = searchParams.get('ref') || searchParams.get('referral') || '';
+        if (!ref) return;
+        setFormData(prev => prev.referralCode ? prev : { ...prev, referralCode: ref.toUpperCase() });
+    }, [searchParams]);
 
     // Auto-detect country from phone flag
     const [detectedCountry, setDetectedCountry] = useState('');
@@ -39,7 +46,11 @@ export default function Signup() {
             setLoading(true);
             setError('');
             try {
-                const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
+                const response = await api.post('/api/bago/google-auth', {
+                    accessToken: tokenResponse.access_token,
+                    referralCode: formData.referralCode || undefined,
+                    country: formData.country || undefined,
+                });
                 if (response.data.success) {
                     setAuthSession(response.data);
                     login(response.data.user);

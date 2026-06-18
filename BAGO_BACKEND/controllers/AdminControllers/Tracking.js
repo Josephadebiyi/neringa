@@ -1,4 +1,74 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
+import { sendPushNotification } from '../../services/pushNotificationService.js';
+
+const VALID_SHIPMENT_STATUSES = new Set([
+  'pending',
+  'accepted',
+  'rejected',
+  'intransit',
+  'delivering',
+  'completed',
+  'cancelled',
+]);
+
+const STATUS_LABELS = {
+  pending: 'Pending',
+  accepted: 'Accepted',
+  rejected: 'Declined',
+  intransit: 'In transit',
+  delivering: 'Out for delivery',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+function buildTrackingNumber() {
+  return `BAGO-${String(Date.now()).toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+function normalizeMovementTracking(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function buildStatusBody({ status, location, trackingNumber }) {
+  const label = STATUS_LABELS[status] || status;
+  const locationText = location ? ` at ${location}` : '';
+  const trackingText = trackingNumber ? ` Tracking: ${trackingNumber}.` : '';
+  return `Your shipment status is now ${label}${locationText}.${trackingText}`;
+}
+
+async function notifyShipmentStatusChange(request, status, location) {
+  if (!status) return;
+
+  const label = STATUS_LABELS[status] || status;
+  const title = status === 'accepted'
+    ? 'Shipment accepted'
+    : status === 'rejected'
+      ? 'Shipment declined'
+      : status === 'completed'
+        ? 'Shipment completed'
+        : 'Shipment status updated';
+  const body = buildStatusBody({
+    status,
+    location,
+    trackingNumber: request.tracking_number,
+  });
+  const payload = {
+    type: 'shipment_status',
+    requestId: request.id,
+    status,
+    trackingNumber: request.tracking_number || '',
+  };
+
+  const recipientIds = [
+    request.sender_id,
+    request.traveler_id,
+  ].filter(Boolean);
+
+  for (const userId of [...new Set(recipientIds)]) {
+    sendPushNotification(userId, title, body, payload)
+      .catch((error) => console.warn(`Shipment ${label} push failed for user ${userId}: ${error.message}`));
+  }
+}
 
 function normalizePackage(pkg) {
   return {
@@ -224,13 +294,54 @@ export const activeShipmentLocations = async (req, res, next) => {
 export const updateRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, travelerId } = req.body;
+    const { status, travelerId, location, notes } = req.body;
+
+    if (status && !VALID_SHIPMENT_STATUSES.has(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid shipment status' });
+    }
+
+    const current = await queryOne(
+      `SELECT id, sender_id, traveler_id, package_id, trip_id, status,
+              tracking_number, movement_tracking
+       FROM public.shipment_requests
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (!current) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
 
     const fields = [];
     const values = [];
     let idx = 1;
+    let nextTrackingNumber = current.tracking_number;
+    let movementTracking = normalizeMovementTracking(current.movement_tracking);
 
-    if (status) { fields.push(`status = $${idx++}`); values.push(status); }
+    if (status) {
+      if ((status === 'accepted' || status === 'intransit') && !nextTrackingNumber) {
+        nextTrackingNumber = buildTrackingNumber();
+      }
+
+      if (['intransit', 'delivering', 'completed'].includes(status)) {
+        movementTracking = [
+          ...movementTracking,
+          {
+            status,
+            location: location || '',
+            notes: notes || '',
+            timestamp: new Date().toISOString(),
+          },
+        ];
+      }
+
+      fields.push(`status = $${idx++}`);
+      values.push(status);
+      fields.push(`tracking_number = $${idx++}`);
+      values.push(nextTrackingNumber);
+      fields.push(`movement_tracking = $${idx++}`);
+      values.push(JSON.stringify(movementTracking));
+    }
     if (travelerId) { fields.push(`traveler_id = $${idx++}`); values.push(travelerId); }
 
     if (!fields.length) {
@@ -244,8 +355,8 @@ export const updateRequest = async (req, res, next) => {
       values
     );
 
-    if (!updated) {
-      return res.status(404).json({ success: false, message: 'Request not found' });
+    if (status) {
+      await notifyShipmentStatusChange(updated, status, location);
     }
 
     return res.status(200).json({
