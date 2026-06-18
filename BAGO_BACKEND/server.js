@@ -994,6 +994,22 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 
+  // APNs credential check — logs clearly if push notifications will be broken
+  const apnsOk = process.env.APNS_TEAM_ID && process.env.APNS_KEY_ID &&
+    process.env.APNS_BUNDLE_ID &&
+    (process.env.APNS_PRIVATE_KEY || process.env.APNS_PRIVATE_KEY_PATH);
+  if (apnsOk) {
+    console.log('✅ APNs credentials present — iOS push notifications enabled');
+  } else {
+    const missing = [
+      !process.env.APNS_TEAM_ID && 'APNS_TEAM_ID',
+      !process.env.APNS_KEY_ID && 'APNS_KEY_ID',
+      !process.env.APNS_BUNDLE_ID && 'APNS_BUNDLE_ID',
+      !(process.env.APNS_PRIVATE_KEY || process.env.APNS_PRIVATE_KEY_PATH) && 'APNS_PRIVATE_KEY',
+    ].filter(Boolean).join(', ');
+    console.error(`❌ APNs credentials MISSING (${missing}) — iOS push notifications will not work. Add these to Render environment variables.`);
+  }
+
   // Keep-alive ping — prevents Render free tier from sleeping (every 13 min)
   const selfUrl = process.env.BASE_URL || 'https://neringa.onrender.com';
   setInterval(() => {

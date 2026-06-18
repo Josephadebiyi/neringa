@@ -137,6 +137,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(user: result.user, isLoading: false);
       _connectRealtime(result.user.id);
       _applyIpCurrencyIfNeeded(result.user).catchError((_) {});
+      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -200,6 +201,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
       _applyIpCurrencyIfNeeded(user).catchError((_) {});
+      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -236,6 +238,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
       _applyIpCurrencyIfNeeded(user).catchError((_) {});
+      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -251,6 +254,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
       _applyIpCurrencyIfNeeded(user).catchError((_) {});
+      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -265,6 +269,7 @@ class AuthNotifier extends Notifier<AuthState> {
     final user = await _service.restoreSession();
     if (user != null) {
       state = state.copyWith(user: user);
+      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
       return true;
     }
     return false;

@@ -126,7 +126,7 @@ export const messageController = (io) => {
             `💬 New message from ${senderName}`,
             text.length > 50 ? text.substring(0, 47) + '...' : text,
             { conversationId, type: 'chat_message' }
-          ).catch(() => {});
+          ).catch((e) => console.error('[push] chat message (socket):', e.message));
         }
       } catch (error) {
         console.error('Error sending message (socket):', error);
@@ -388,7 +388,7 @@ export const sendMessage = async (req, res) => {
         `💬 New message from ${senderName}`,
         pushPreview.length > 50 ? pushPreview.substring(0, 47) + '...' : pushPreview,
         { conversationId, type: 'chat_message' }
-      ).catch(() => {});
+      ).catch((e) => console.error('[push] chat message (REST):', e.message));
     }
 
     res.status(201).json({
