@@ -196,7 +196,7 @@ const conversationSelect = `
     left join public.packages pkg2 on pkg2.id = sr2.package_id
     where sr2.sender_id = c.sender_id
       and sr2.traveler_id = c.traveler_id
-      and lower(coalesce(sr2.status, '')) not in ('completed', 'cancelled', 'canceled', 'rejected')
+      and lower(coalesce(sr2.status::text, '')) not in ('completed', 'cancelled', 'canceled', 'rejected')
   ) active_requests on true
 `;
 
