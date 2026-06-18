@@ -1,5 +1,33 @@
 import { query, queryOne, withTransaction } from './db.js';
 
+let messagingSchemaReady = false;
+
+async function ensureMessagingSchema() {
+  if (messagingSchemaReady) return;
+
+  await query(`
+    alter table public.conversations
+      add column if not exists last_message text default '',
+      add column if not exists unread_count_sender integer not null default 0,
+      add column if not exists unread_count_traveler integer not null default 0,
+      add column if not exists deleted_by_sender boolean not null default false,
+      add column if not exists deleted_by_traveler boolean not null default false,
+      add column if not exists created_at timestamptz default timezone('utc', now()),
+      add column if not exists updated_at timestamptz default timezone('utc', now())
+  `);
+
+  await query(`
+    create table if not exists public.conversation_participants (
+      conversation_id uuid not null references public.conversations(id) on delete cascade,
+      user_id uuid not null references public.profiles(id) on delete cascade,
+      created_at timestamptz not null default timezone('utc', now()),
+      primary key (conversation_id, user_id)
+    )
+  `);
+
+  messagingSchemaReady = true;
+}
+
 function normalizeConversation(row, currentUserId = null) {
   if (!row) return null;
 
@@ -172,32 +200,103 @@ const conversationSelect = `
   ) active_requests on true
 `;
 
+const fallbackConversationSelect = `
+  select
+    c.id,
+    c.request_id,
+    c.trip_id,
+    c.sender_id,
+    c.traveler_id,
+    '' as last_message,
+    0 as unread_count_sender,
+    0 as unread_count_traveler,
+    false as deleted_by_sender,
+    false as deleted_by_traveler,
+    timezone('utc', now()) as created_at,
+    timezone('utc', now()) as updated_at,
+    null as request_status,
+    null as tracking_number,
+    null as package_id,
+    null as package_description,
+    null as package_weight,
+    null as package_from_city,
+    null as package_from_country,
+    null as package_to_city,
+    null as package_to_country,
+    null as package_image_url,
+    sender.first_name as sender_first_name,
+    sender.last_name as sender_last_name,
+    sender.email as sender_email,
+    sender.image_url as sender_image_url,
+    traveler.first_name as traveler_first_name,
+    traveler.last_name as traveler_last_name,
+    traveler.email as traveler_email,
+    traveler.image_url as traveler_image_url,
+    '[]'::json as active_requests
+  from public.conversations c
+  left join public.profiles sender on sender.id = c.sender_id
+  left join public.profiles traveler on traveler.id = c.traveler_id
+`;
+
 export async function getConversationById(conversationId, currentUserId = null) {
-  const row = await queryOne(`${conversationSelect} where c.id = $1`, [conversationId]);
+  await ensureMessagingSchema().catch((error) => {
+    console.warn('Messaging schema check skipped:', error.message);
+  });
+
+  let row;
+  try {
+    row = await queryOne(`${conversationSelect} where c.id = $1`, [conversationId]);
+  } catch (error) {
+    console.warn('Hydrated conversation fetch failed, using basic conversation:', error.message);
+    row = await queryOne(`${fallbackConversationSelect} where c.id = $1`, [conversationId]);
+  }
   return normalizeConversation(row, currentUserId);
 }
 
 export async function listUserConversations(userId) {
+  await ensureMessagingSchema().catch((error) => {
+    console.warn('Messaging schema check skipped:', error.message);
+  });
+
   await mergeDuplicateConversationsForUser(userId).catch((error) => {
     console.warn('Conversation merge skipped:', error.message);
   });
-  const result = await query(
-    `
-      ${conversationSelect}
-      where (
-        (c.sender_id = $1 and c.deleted_by_sender = false)
-        or
-        (c.traveler_id = $1 and c.deleted_by_traveler = false)
-      )
-      order by c.updated_at desc
-    `,
-    [userId],
-  );
+
+  let result;
+  try {
+    result = await query(
+      `
+        ${conversationSelect}
+        where (
+          (c.sender_id = $1 and c.deleted_by_sender = false)
+          or
+          (c.traveler_id = $1 and c.deleted_by_traveler = false)
+        )
+        order by c.updated_at desc
+      `,
+      [userId],
+    );
+  } catch (error) {
+    console.warn('Hydrated conversation list failed, using basic inbox:', error.message);
+    result = await query(
+      `
+        ${fallbackConversationSelect}
+        where c.sender_id = $1 or c.traveler_id = $1
+        order by c.id desc
+        limit 100
+      `,
+      [userId],
+    );
+  }
 
   return result.rows.map((row) => normalizeConversation(row, userId));
 }
 
 export async function resolveConversationForUser({ userId, receiverId, requestId = null, tripId = null }) {
+  await ensureMessagingSchema().catch((error) => {
+    console.warn('Messaging schema check skipped:', error.message);
+  });
+
   await mergeDuplicateConversationsForPair(userId, receiverId).catch((error) => {
     console.warn('Conversation pair merge skipped:', error.message);
   });

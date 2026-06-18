@@ -227,7 +227,7 @@ export const getConversations = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching conversations:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
