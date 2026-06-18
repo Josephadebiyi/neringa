@@ -75,7 +75,8 @@ class PushNotificationService {
     // Foreground messages
     FirebaseMessaging.onMessage.listen((message) {
       debugPrint('🔔 FCM foreground: ${message.notification?.title}');
-      _handleFcmData(message.data);
+      // Foreground chat/support UI is handled by Socket.IO so receiving a push
+      // while the app is open does not navigate the user away unexpectedly.
     });
 
     // Notification tap while app in background (not terminated)
@@ -241,7 +242,8 @@ class PushNotificationService {
 
   // ─── Shared registration ─────────────────────────────────────────────────
 
-  Future<void> _registerIfPossible(String token, {required String platform}) async {
+  Future<void> _registerIfPossible(String token,
+      {required String platform}) async {
     if (token.isEmpty) return;
     await _storage.savePushToken(token);
 
@@ -264,7 +266,8 @@ class PushNotificationService {
 
     while (retries < maxRetries) {
       try {
-        debugPrint('🔔 Registering $platform token (attempt ${retries + 1}/$maxRetries)');
+        debugPrint(
+            '🔔 Registering $platform token (attempt ${retries + 1}/$maxRetries)');
         await AuthService.instance.registerPushToken(token, platform: platform);
         debugPrint('✅ $platform push token registered');
         _pendingToken = null;

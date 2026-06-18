@@ -122,6 +122,7 @@ class _NotificationPromptHostState
   bool _notificationPromptOpen = false;
   StreamSubscription<String>? _chatTapSub;
   StreamSubscription<String>? _supportTapSub;
+  bool _chatListenerAttached = false;
   bool _supportListenerAttached = false;
 
   @override
@@ -146,6 +147,10 @@ class _NotificationPromptHostState
   void dispose() {
     _chatTapSub?.cancel();
     _supportTapSub?.cancel();
+    if (_chatListenerAttached) {
+      SocketService.instance.removeMessageListener(_handleForegroundChatEvent);
+      _chatListenerAttached = false;
+    }
     if (_supportListenerAttached) {
       SocketService.instance
           .removeSupportListener(_handleForegroundSupportEvent);
@@ -174,9 +179,63 @@ class _NotificationPromptHostState
   }
 
   void _attachSupportBannerListener() {
+    if (!_chatListenerAttached) {
+      SocketService.instance.addMessageListener(_handleForegroundChatEvent);
+      _chatListenerAttached = true;
+    }
     if (_supportListenerAttached) return;
     SocketService.instance.addSupportListener(_handleForegroundSupportEvent);
     _supportListenerAttached = true;
+  }
+
+  void _handleForegroundChatEvent(Map<String, dynamic> data) {
+    if (!mounted) return;
+
+    final auth = ref.read(authProvider);
+    final currentUserId = auth.user?.id ?? '';
+    if (!auth.isLoggedIn || currentUserId.isEmpty) return;
+
+    final senderId = data['sender']?.toString() ??
+        data['senderId']?.toString() ??
+        data['sender_id']?.toString() ??
+        '';
+    if (senderId == currentUserId) return;
+
+    final conversationId = data['conversationId']?.toString() ??
+        data['conversation_id']?.toString() ??
+        '';
+    if (conversationId.isEmpty) return;
+
+    final router = ref.read(routerProvider);
+    final currentLocation =
+        router.routerDelegate.currentConfiguration.uri.toString();
+    if (currentLocation == '/messages/$conversationId') return;
+
+    final text = data['text']?.toString().trim().isNotEmpty == true
+        ? data['text'].toString().trim()
+        : data['content']?.toString().trim() ?? '';
+
+    final bannerContext = router.routerDelegate.navigatorKey.currentContext;
+    final messenger =
+        bannerContext == null ? null : ScaffoldMessenger.maybeOf(bannerContext);
+    if (messenger == null) return;
+
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            text.isEmpty ? 'You have a new message' : 'New message: $text',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          action: SnackBarAction(
+            label: 'Open',
+            onPressed: () => router.go('/messages/$conversationId'),
+          ),
+        ),
+      );
   }
 
   void _handleForegroundSupportEvent(Map<String, dynamic> data) {
@@ -243,10 +302,6 @@ class _NotificationPromptHostState
         return;
       }
 
-      final shouldPrompt = await PushNotificationService.instance
-          .shouldShowLoginNotificationPrompt();
-      if (!mounted || !shouldPrompt) return;
-
       _notificationPromptOpen = true;
       final dialogContext = router.routerDelegate.navigatorKey.currentContext;
       if (dialogContext == null) {
@@ -288,6 +343,7 @@ class _NotificationPromptHostState
       final granted = status == ApnsAuthStatus.authorized;
       final snackContext = router.routerDelegate.navigatorKey.currentContext;
       final messenger =
+          // ignore: use_build_context_synchronously
           snackContext == null ? null : ScaffoldMessenger.maybeOf(snackContext);
       messenger?.showSnackBar(
         SnackBar(

@@ -107,6 +107,7 @@ class MessageNotifier extends Notifier<MessageState> {
     _realtime = MessageRealtimeService.instance;
     _socketMessageListener = _onSocketMessage;
     _socketConversationListener = _onSocketConversationUpdate;
+    _attachSocketListeners();
     ref.onDispose(_teardown);
     return const MessageState();
   }
@@ -185,6 +186,15 @@ class MessageNotifier extends Notifier<MessageState> {
       // Sort by createdAt to maintain order
       updated.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       state = state.copyWith(messages: updated);
+      for (final msg in newMsgs) {
+        _applyMessagePreview(
+          msg,
+          markActiveRead: msg.senderId != currentUserId,
+        );
+        if (msg.senderId != currentUserId) {
+          unawaited(_service.markAsRead(conversationId).catchError((_) {}));
+        }
+      }
 
       final newestTs = _parseTimestamp(latest.last.createdAt);
       if (newestTs != null) _lastMessageTime = newestTs;
@@ -253,6 +263,7 @@ class MessageNotifier extends Notifier<MessageState> {
         isLoading: false,
         hasMoreMessages: msgs.length == 50,
       );
+      _clearConversationUnread(conversationId);
       // msgs are ASC ordered — last item is the newest
       _lastMessageTime =
           msgs.isNotEmpty ? _parseTimestamp(msgs.last.createdAt) : null;
@@ -366,6 +377,10 @@ class MessageNotifier extends Notifier<MessageState> {
       final updated = [...state.messages, msg];
       updated.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       state = state.copyWith(messages: updated);
+      _applyMessagePreview(msg, markActiveRead: msg.senderId != currentUserId);
+      if (msg.senderId != currentUserId) {
+        unawaited(_service.markAsRead(convId).catchError((_) {}));
+      }
       _lastMessageTime = _parseTimestamp(msg.createdAt) ?? _lastMessageTime;
       debugPrint('📨 Realtime message appended: ${msg.id}');
     } catch (e) {
@@ -406,6 +421,10 @@ class MessageNotifier extends Notifier<MessageState> {
       final updated = [...state.messages, msg];
       updated.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       state = state.copyWith(messages: updated);
+      _applyMessagePreview(msg, markActiveRead: msg.senderId != currentUserId);
+      if (msg.senderId != currentUserId) {
+        unawaited(_service.markAsRead(convId).catchError((_) {}));
+      }
       _lastMessageTime = _parseTimestamp(msg.createdAt) ?? _lastMessageTime;
     } catch (e) {
       debugPrint('_onSocketMessage error: $e');
@@ -426,7 +445,11 @@ class MessageNotifier extends Notifier<MessageState> {
       }
 
       // Build updated conversation from the full socket payload (includes joins)
-      final updated = ConversationModel.fromJson(data, currentUserId);
+      var updated = ConversationModel.fromJson(data, currentUserId);
+      if (convId == state.activeConversationId) {
+        updated = updated.copyWith(unreadCount: 0);
+        unawaited(_service.markAsRead(convId).catchError((_) {}));
+      }
       var conversations = state.conversations.toList();
 
       final idx = conversations.indexWhere((c) => c.id == convId);
@@ -498,6 +521,41 @@ class MessageNotifier extends Notifier<MessageState> {
     return conversation.lastMessageTime ?? conversation.createdAt;
   }
 
+  void _applyMessagePreview(
+    MessageModel message, {
+    bool markActiveRead = false,
+  }) {
+    final idx = state.conversations.indexWhere(
+      (conversation) => conversation.id == message.conversationId,
+    );
+    if (idx < 0) return;
+
+    final updated = state.conversations.toList();
+    final current = updated[idx];
+    updated[idx] = current.copyWith(
+      lastMessage: message.content,
+      lastMessageTime: message.createdAt,
+      unreadCount: markActiveRead ? 0 : current.unreadCount,
+    );
+    final conversations = _dedupeConversations(updated);
+    state = state.copyWith(
+      conversations: conversations,
+      unreadCount: conversations.fold<int>(0, (sum, c) => sum + c.unreadCount),
+    );
+  }
+
+  void _clearConversationUnread(String conversationId) {
+    final idx = state.conversations.indexWhere((c) => c.id == conversationId);
+    if (idx < 0) return;
+
+    final updated = state.conversations.toList();
+    updated[idx] = updated[idx].copyWith(unreadCount: 0);
+    state = state.copyWith(
+      conversations: updated,
+      unreadCount: updated.fold<int>(0, (sum, c) => sum + c.unreadCount),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Socket lifecycle
   // ---------------------------------------------------------------------------
@@ -562,11 +620,17 @@ class MessageNotifier extends Notifier<MessageState> {
     );
 
     try {
-      final msg = await _service.sendMessage(
-        conversationId: convId,
-        content: content,
-        imageFile: imageFile,
-      );
+      final msg = imageFile == null && trimmedContent.isNotEmpty
+          ? await _sendTextMessageFast(
+              conversationId: convId,
+              senderId: currentUserId,
+              content: trimmedContent,
+            )
+          : await _service.sendMessage(
+              conversationId: convId,
+              content: content,
+              imageFile: imageFile,
+            );
 
       if (msg.id.isNotEmpty) {
         // Register real ID so realtime/socket don't re-add it
@@ -585,6 +649,7 @@ class MessageNotifier extends Notifier<MessageState> {
           }
         }
         state = state.copyWith(messages: updated, isSending: false);
+        _applyMessagePreview(msg);
       } else {
         state = state.copyWith(isSending: false);
       }
@@ -608,6 +673,34 @@ class MessageNotifier extends Notifier<MessageState> {
           messages: rolled, isSending: false, error: e.toString());
       rethrow;
     }
+  }
+
+  Future<MessageModel> _sendTextMessageFast({
+    required String conversationId,
+    required String senderId,
+    required String content,
+  }) async {
+    if (SocketService.instance.isConnected) {
+      try {
+        final response = await SocketService.instance.sendMessageViaSocket(
+          conversationId: conversationId,
+          senderId: senderId,
+          text: content,
+        );
+        final data = response['data'];
+        final rawMessage = data is Map ? data['message'] : null;
+        if (rawMessage is Map) {
+          return MessageModel.fromJson(Map<String, dynamic>.from(rawMessage));
+        }
+      } catch (e) {
+        debugPrint('Socket send failed, falling back to REST: $e');
+      }
+    }
+
+    return _service.sendMessage(
+      conversationId: conversationId,
+      content: content,
+    );
   }
 
   // ---------------------------------------------------------------------------

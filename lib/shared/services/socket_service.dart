@@ -1,5 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 
 import '../../core/constants/api_constants.dart';
 import 'storage_service.dart';
@@ -14,7 +16,7 @@ class SocketService {
   SocketService._();
   static final SocketService instance = SocketService._();
 
-  IO.Socket? _socket;
+  socket_io.Socket? _socket;
   bool _connected = false;
   String? _currentUserId;
   String? _activeConversationId;
@@ -37,12 +39,12 @@ class SocketService {
       return;
     }
 
-    final baseUrl = ApiConstants.baseUrl;
+    const baseUrl = ApiConstants.baseUrl;
     debugPrint('SocketService: Connecting to $baseUrl');
 
-    _socket = IO.io(
+    _socket = socket_io.io(
       baseUrl,
-      IO.OptionBuilder()
+      socket_io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .enableAutoConnect()
           .enableReconnection()
@@ -135,12 +137,20 @@ class SocketService {
 
     // Support / CRM messages
     _socket!.on('support_message', (data) {
-      final mapped = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data as Map);
-      for (final l in _supportListeners) { l(mapped); }
+      final mapped = data is Map<String, dynamic>
+          ? data
+          : Map<String, dynamic>.from(data as Map);
+      for (final l in _supportListeners) {
+        l(mapped);
+      }
     });
     _socket!.on('support_agent_joined', (data) {
-      final mapped = data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data as Map);
-      for (final l in _supportListeners) { l({...mapped, '_event': 'agent_joined'}); }
+      final mapped = data is Map<String, dynamic>
+          ? data
+          : Map<String, dynamic>.from(data as Map);
+      for (final l in _supportListeners) {
+        l({...mapped, '_event': 'agent_joined'});
+      }
     });
 
     _socket!.connect();
@@ -169,20 +179,47 @@ class SocketService {
     _activeConversationId = null;
   }
 
-  /// Send a message via socket (fast path)
-  void sendMessageViaSocket({
+  /// Send a message via socket (fast path).
+  Future<Map<String, dynamic>> sendMessageViaSocket({
     required String conversationId,
     required String senderId,
     required String text,
-  }) {
-    if (_connected && _socket != null) {
-      _socket!.emit('send_message', {
+  }) async {
+    if (!_connected || _socket == null) {
+      throw Exception('Socket is not connected');
+    }
+
+    final completer = Completer<Map<String, dynamic>>();
+    _socket!.emitWithAck(
+      'send_message',
+      {
         'conversationId': conversationId,
         'senderId': senderId,
         'text': text,
-      });
-      debugPrint('SocketService: Message sent via socket');
+      },
+      ack: (data) {
+        try {
+          final mapped = data is Map<String, dynamic>
+              ? data
+              : Map<String, dynamic>.from(data as Map);
+          if (!completer.isCompleted) completer.complete(mapped);
+        } catch (e) {
+          if (!completer.isCompleted) {
+            completer.completeError(Exception('Invalid socket response'));
+          }
+        }
+      },
+    );
+    debugPrint('SocketService: Message sent via socket');
+
+    final response = await completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () => throw TimeoutException('Socket send timed out'),
+    );
+    if (response['success'] != true) {
+      throw Exception(response['message']?.toString() ?? 'Message failed');
     }
+    return response;
   }
 
   /// Register a listener for new messages

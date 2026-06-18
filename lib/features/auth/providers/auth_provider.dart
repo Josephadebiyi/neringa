@@ -136,11 +136,6 @@ class AuthNotifier extends Notifier<AuthState> {
       final result = await _service.login(email: email, password: password);
       state = state.copyWith(user: result.user, isLoading: false);
       _connectRealtime(result.user.id);
-      PushNotificationService.instance
-          .prepareForSignedInUserSilently()
-          .catchError((e) {
-        debugPrint('Auth login: push notification prep failed: $e');
-      });
       _applyIpCurrencyIfNeeded(result.user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -204,11 +199,6 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      PushNotificationService.instance
-          .prepareForSignedInUserSilently()
-          .catchError((e) {
-        debugPrint('Auth verifyOtp: push notification prep failed: $e');
-      });
       _applyIpCurrencyIfNeeded(user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -245,11 +235,6 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await _service.googleSignIn();
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      PushNotificationService.instance
-          .prepareForSignedInUserSilently()
-          .catchError((e) {
-        debugPrint('Auth googleSignIn: push notification prep failed: $e');
-      });
       _applyIpCurrencyIfNeeded(user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -265,11 +250,6 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await _service.appleSignIn();
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      PushNotificationService.instance
-          .prepareForSignedInUserSilently()
-          .catchError((e) {
-        debugPrint('Auth appleSignIn: push notification prep failed: $e');
-      });
       _applyIpCurrencyIfNeeded(user).catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -285,7 +265,6 @@ class AuthNotifier extends Notifier<AuthState> {
     final user = await _service.restoreSession();
     if (user != null) {
       state = state.copyWith(user: user);
-      await PushNotificationService.instance.refreshAfterAuthChange();
       return true;
     }
     return false;

@@ -76,16 +76,18 @@ export const messageController = (io) => {
       console.log(`User ${socket.id} joined conversation ${conversationId}`);
     });
 
-    socket.on('send_message', async ({ conversationId, senderId, text }) => {
+    socket.on('send_message', async ({ conversationId, senderId, text }, ack) => {
       try {
         // Reject if the claimed senderId doesn't match the authenticated socket user
         if (socket.data.userId && socket.data.userId !== senderId?.toString()) {
+          if (typeof ack === 'function') ack({ success: false, message: 'Sender identity mismatch' });
           socket.emit('error', { message: 'Sender identity mismatch' });
           return;
         }
         const result = await createConversationMessage({ conversationId, senderId, text });
 
         if (!result) {
+          if (typeof ack === 'function') ack({ success: false, message: 'Conversation not found' });
           socket.emit('error', { message: 'Conversation not found' });
           return;
         }
@@ -105,6 +107,16 @@ export const messageController = (io) => {
         io.to(conversation.sender?._id?.toString()).emit('update_conversation', conversation);
         io.to(conversation.traveler?._id?.toString()).emit('update_conversation', conversation);
 
+        if (typeof ack === 'function') {
+          ack({
+            success: true,
+            data: {
+              message,
+              conversation,
+            },
+          });
+        }
+
         // Send push notification to recipient
         const { recipientId, senderName } = getChatNotificationTarget(conversation, senderId);
 
@@ -119,8 +131,10 @@ export const messageController = (io) => {
       } catch (error) {
         console.error('Error sending message (socket):', error);
         if (error.code === 'CONVERSATION_CLOSED') {
+          if (typeof ack === 'function') ack({ success: false, message: 'This conversation is closed' });
           socket.emit('error', { message: 'This conversation is closed' });
         } else {
+          if (typeof ack === 'function') ack({ success: false, message: error.message || 'Failed to send message' });
           socket.emit('error', { message: 'Failed to send message' });
         }
       }
