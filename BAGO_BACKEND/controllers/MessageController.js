@@ -255,10 +255,14 @@ export const getMessages = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      const updatedConv = await getConversationById(conversationId, userId);
-      io.to(conversationId.toString()).emit('update_conversation', updatedConv);
-      if (conversation.sender?._id) io.to(conversation.sender._id.toString()).emit('update_conversation', updatedConv);
-      if (conversation.traveler?._id) io.to(conversation.traveler._id.toString()).emit('update_conversation', updatedConv);
+      try {
+        const updatedConv = await getConversationById(conversationId, userId);
+        io.to(conversationId.toString()).emit('update_conversation', updatedConv);
+        if (conversation.sender?._id) io.to(conversation.sender._id.toString()).emit('update_conversation', updatedConv);
+        if (conversation.traveler?._id) io.to(conversation.traveler._id.toString()).emit('update_conversation', updatedConv);
+      } catch (emitError) {
+        console.warn('Message fetch conversation update emit skipped:', emitError.message);
+      }
     }
 
     res.status(200).json({
@@ -268,7 +272,7 @@ export const getMessages = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching messages:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
@@ -386,7 +390,7 @@ export const sendMessage = async (req, res) => {
     if (error.code === 'UNAUTHORIZED') {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
