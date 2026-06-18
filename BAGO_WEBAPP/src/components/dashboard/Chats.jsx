@@ -46,7 +46,7 @@ const classifyMessage = (text) => {
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 const CHAT_STATUS_LABEL = {
-    draft:       'Searching Traveler',
+    draft:       'Payment not completed',
     pending:     'Awaiting Acceptance',
     accepted:    'Active',
     intransit:   'In Transit',
@@ -408,7 +408,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                 setNewMessage('');
                 fetchConversations();
             }
-        } catch {}
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to send message. Please try again.');
+        }
         finally { setIsSending(false); }
     };
 

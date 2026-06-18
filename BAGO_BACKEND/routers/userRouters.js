@@ -213,7 +213,7 @@ userRouter.get('/conversations/unread', isAuthenticated, getUnreadCount);
 userRouter.post('/conversations/resolve', isAuthenticated, requireKycVerification, resolveConversation);
 userRouter.post('/conversations/mark-read', isAuthenticated, markMessagesRead);
 userRouter.get('/conversations/:conversationId/messages', isAuthenticated, getMessages);
-userRouter.post('/conversations/:conversationId/send', isAuthenticated, requireKycVerification, sendMessage);
+userRouter.post('/conversations/:conversationId/send', isAuthenticated, sendMessage);
 userRouter.delete('/conversations/:conversationId', isAuthenticated, requireKycVerification, deleteConversation);
 userRouter.get("/getNotifications", isAuthenticated, getNotifications)
 userRouter.put("/markNotificationAsRead/:notificationId", isAuthenticated, markNotificationAsRead)

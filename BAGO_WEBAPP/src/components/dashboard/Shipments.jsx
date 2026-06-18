@@ -27,7 +27,7 @@ const statusLabel = (req) => {
     if (s === 'delivering' && !req?.senderReceived) return 'Delivered — Awaiting Your Confirmation';
     if (s === 'delivering') return 'Package Delivered';
     const map = {
-        draft:      'Searching for Traveler',
+        draft:      'Payment not completed',
         pending:    'Awaiting Traveler Acceptance',
         accepted:   'Accepted — In Progress',
         intransit:  'In Transit',
