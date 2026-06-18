@@ -137,13 +137,13 @@ const conversationSelect = `
     c.trip_id,
     c.sender_id,
     c.traveler_id,
-    c.last_message,
+    coalesce(nullif(c.last_message, ''), latest_message.content, '') as last_message,
     c.unread_count_sender,
     c.unread_count_traveler,
     c.deleted_by_sender,
     c.deleted_by_traveler,
     c.created_at,
-    c.updated_at,
+    coalesce(c.updated_at, latest_message.created_at, c.created_at) as updated_at,
     sr.status as request_status,
     sr.tracking_number,
     pkg.id as package_id,
@@ -168,6 +168,13 @@ const conversationSelect = `
   left join public.packages pkg on pkg.id = sr.package_id
   left join public.profiles sender on sender.id = c.sender_id
   left join public.profiles traveler on traveler.id = c.traveler_id
+  left join lateral (
+    select m.content, m.created_at
+    from public.messages m
+    where m.conversation_id = c.id
+    order by m.created_at desc
+    limit 1
+  ) latest_message on true
   left join lateral (
     select json_agg(
       json_build_object(
@@ -207,13 +214,13 @@ const fallbackConversationSelect = `
     c.trip_id,
     c.sender_id,
     c.traveler_id,
-    '' as last_message,
+    coalesce(latest_message.content, '') as last_message,
     0 as unread_count_sender,
     0 as unread_count_traveler,
     false as deleted_by_sender,
     false as deleted_by_traveler,
     timezone('utc', now()) as created_at,
-    timezone('utc', now()) as updated_at,
+    coalesce(latest_message.created_at, timezone('utc', now())) as updated_at,
     null as request_status,
     null as tracking_number,
     null as package_id,
@@ -236,6 +243,13 @@ const fallbackConversationSelect = `
   from public.conversations c
   left join public.profiles sender on sender.id = c.sender_id
   left join public.profiles traveler on traveler.id = c.traveler_id
+  left join lateral (
+    select m.content, m.created_at
+    from public.messages m
+    where m.conversation_id = c.id
+    order by m.created_at desc
+    limit 1
+  ) latest_message on true
 `;
 
 export async function getConversationById(conversationId, currentUserId = null) {
@@ -272,7 +286,7 @@ export async function listUserConversations(userId) {
           or
           (c.traveler_id = $1 and c.deleted_by_traveler = false)
         )
-        order by c.updated_at desc
+        order by updated_at desc
       `,
       [userId],
     );
@@ -282,7 +296,7 @@ export async function listUserConversations(userId) {
       `
         ${fallbackConversationSelect}
         where c.sender_id = $1 or c.traveler_id = $1
-        order by c.id desc
+        order by updated_at desc
         limit 100
       `,
       [userId],

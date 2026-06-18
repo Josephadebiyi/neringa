@@ -80,7 +80,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                       borderRadius: BorderRadius.circular(22),
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.search_rounded, color: AppColors.black),
+                      icon: const Icon(Icons.search_rounded,
+                          color: AppColors.black),
                       onPressed: () => _searchFocus.requestFocus(),
                     ),
                   ),
@@ -102,21 +103,27 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                   style: AppTextStyles.bodyMd.copyWith(color: AppColors.black),
                   decoration: InputDecoration(
                     hintText: 'Search chats, names, or routes',
-                    hintStyle: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.gray500),
+                    hintStyle:
+                        AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        color: AppColors.gray500),
                     suffixIcon: state.searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.close_rounded, color: AppColors.gray500),
+                            icon: const Icon(Icons.close_rounded,
+                                color: AppColors.gray500),
                             onPressed: () {
                               _searchCtrl.clear();
-                              ref.read(messageProvider.notifier).clearSearchQuery();
+                              ref
+                                  .read(messageProvider.notifier)
+                                  .clearSearchQuery();
                             },
                           )
                         : null,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                   ),
                 ),
               ),
@@ -141,35 +148,36 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                             ),
                           ],
                         )
-                  : RefreshIndicator(
-                      onRefresh: () =>
-                          ref.read(messageProvider.notifier).loadConversations(),
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                        children: [
-                          const BagoInfoBanner(
-                            icon: Icons.verified_user_outlined,
-                            message:
-                                'Chat safely by staying within Bago. We protect your payments and data.',
+                      : RefreshIndicator(
+                          onRefresh: () => ref
+                              .read(messageProvider.notifier)
+                              .loadConversations(),
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                            children: [
+                              const BagoInfoBanner(
+                                icon: Icons.verified_user_outlined,
+                                message:
+                                    'Chat safely by staying within Bago. We protect your payments and data.',
+                              ),
+                              const SizedBox(height: 28),
+                              if (conversations.isEmpty)
+                                BagoEmptyState(
+                                  icon: Icons.chat_bubble_outline_rounded,
+                                  title: state.searchQuery.isEmpty
+                                      ? 'No messages yet'
+                                      : 'No results found',
+                                  subtitle: state.searchQuery.isEmpty
+                                      ? 'When you contact a carrier or sender, your chats will appear here.'
+                                      : 'Try searching by name, message, request, or route.',
+                                )
+                              else
+                                ...conversations.map(
+                                  (c) => _ConversationTile(conv: c),
+                                ),
+                            ],
                           ),
-                          const SizedBox(height: 28),
-                          if (conversations.isEmpty)
-                            BagoEmptyState(
-                              icon: Icons.chat_bubble_outline_rounded,
-                              title: state.searchQuery.isEmpty
-                                  ? 'No messages yet'
-                                  : 'No results found',
-                              subtitle: state.searchQuery.isEmpty
-                                  ? 'When you contact a carrier or sender, your chats will appear here.'
-                                  : 'Try searching by name, message, request, or route.',
-                            )
-                          else
-                            ...conversations.map(
-                              (c) => _ConversationTile(conv: c),
-                            ),
-                        ],
-                      ),
-                    ),
+                        ),
             ),
           ],
         ),
@@ -184,6 +192,7 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preview = conv.lastMessage?.trim() ?? '';
     return ListTile(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       onTap: () => context.push('/messages/${conv.id}'),
@@ -220,16 +229,16 @@ class _ConversationTile extends StatelessWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
-      subtitle: conv.lastMessage != null
+      subtitle: preview.isNotEmpty
           ? Text(
-              conv.lastMessage!,
+              preview,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.bodySm.copyWith(
-                color: conv.unreadCount > 0 ? AppColors.black : AppColors.gray500,
-                fontWeight: conv.unreadCount > 0
-                    ? FontWeight.w700
-                    : FontWeight.normal,
+                color:
+                    conv.unreadCount > 0 ? AppColors.black : AppColors.gray500,
+                fontWeight:
+                    conv.unreadCount > 0 ? FontWeight.w700 : FontWeight.normal,
               ),
             )
           : null,
@@ -239,7 +248,8 @@ class _ConversationTile extends StatelessWidget {
           if (conv.lastMessageTime != null)
             Text(
               _timeLabel(conv.lastMessageTime!),
-              style: AppTextStyles.captionBold.copyWith(color: AppColors.gray500),
+              style:
+                  AppTextStyles.captionBold.copyWith(color: AppColors.gray500),
             ),
           if (conv.unreadCount > 0) ...[
             const SizedBox(height: 6),
