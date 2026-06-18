@@ -63,20 +63,37 @@ class _ReferralScreenState extends State<ReferralScreen> {
       : 'https://sendwithbago.com/signup?ref=${Uri.encodeComponent(_code)}';
 
   double get _totalEarned {
+    final summaryAmount =
+        NumberFormatHelper.maybeClean(_settings['referralTotalEarnedAmount']);
+    if (summaryAmount != null) return summaryAmount;
+
     double total = 0;
     for (final reward in _rewards) {
-      final amount = double.tryParse(
-              (reward['referrer_amount'] ?? reward['referred_amount'] ?? 0)
-                  .toString()) ??
-          0;
+      final amount = NumberFormatHelper.clean(
+        reward['viewer_amount'] ??
+            reward['referrer_amount'] ??
+            reward['referred_amount'],
+        0,
+      );
       total += amount;
     }
     return total;
   }
 
   String get _currency {
+    final settingsCurrency = (_settings['referralTotalEarnedCurrency'] ??
+            _settings['walletCurrency'] ??
+            _settings['referralWelcomeBonusCurrency'])
+        ?.toString()
+        .trim();
+    if (settingsCurrency != null && settingsCurrency.isNotEmpty) {
+      return settingsCurrency.toUpperCase();
+    }
+
     for (final reward in _rewards) {
-      final value = reward['referrer_currency'] ?? reward['referred_currency'];
+      final value = reward['viewer_currency'] ??
+          reward['referrer_currency'] ??
+          reward['referred_currency'];
       if (value != null && value.toString().trim().isNotEmpty) {
         return value.toString().toUpperCase();
       }
@@ -308,6 +325,8 @@ class _ReferralUserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final earnedCurrency =
+        (user['referrer_earned_currency'] ?? currency).toString().toUpperCase();
     final name = [
       user['first_name']?.toString(),
       user['last_name']?.toString(),
@@ -344,7 +363,7 @@ class _ReferralUserTile extends StatelessWidget {
             children: [
               _StageChip(label: 'Account created', done: signupComplete),
               _StageChip(label: 'Qualified shipment', done: shipmentComplete),
-              _StageChip(label: '$currency $earned earned', done: true),
+              _StageChip(label: '$earnedCurrency $earned earned', done: true),
             ],
           ),
         ],
@@ -395,6 +414,12 @@ class _EmptyCard extends StatelessWidget {
 }
 
 class NumberFormatHelper {
+  static double? maybeClean(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
   static double clean(dynamic value, double fallback) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? fallback;

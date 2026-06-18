@@ -40,10 +40,16 @@ export default function Referral({ user }) {
     }, [data?.code, user]);
 
     const rewards = data?.rewards || [];
-    const currency = rewards.find((r) => r.referrer_currency)?.referrer_currency || user?.walletCurrency || user?.preferredCurrency || 'USD';
-    const totalEarned = rewards.reduce((sum, reward) => {
+    const settings = data?.settings || {};
+    const currency = settings.referralTotalEarnedCurrency
+        || settings.walletCurrency
+        || rewards.find((r) => r.viewer_currency)?.viewer_currency
+        || user?.walletCurrency
+        || user?.preferredCurrency
+        || 'USD';
+    const totalEarned = settings.referralTotalEarnedAmount ?? rewards.reduce((sum, reward) => {
         const userId = user?.id || user?._id;
-        return sum + Number(reward.referrer_id === userId ? reward.referrer_amount : reward.referred_amount || 0);
+        return sum + Number(reward.viewer_amount ?? (reward.referrer_id === userId ? reward.referrer_amount : reward.referred_amount) ?? 0);
     }, 0);
 
     const copyValue = async (value, label) => {
@@ -61,7 +67,6 @@ export default function Referral({ user }) {
         );
     }
 
-    const settings = data?.settings || {};
     const referredUsers = data?.referredUsers || [];
     const welcomeDisplay = rewardMoney(
         settings,
@@ -175,7 +180,7 @@ export default function Referral({ user }) {
                                 </div>
                                 <div className="md:text-right">
                                     <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">Earned</p>
-                                    <p className="text-lg font-black text-[#012126]">{money(person.referrer_earned, currency)}</p>
+                                    <p className="text-lg font-black text-[#012126]">{money(person.referrer_earned, person.referrer_earned_currency || currency)}</p>
                                 </div>
                             </div>
                         ))}

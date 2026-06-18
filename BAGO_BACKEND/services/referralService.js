@@ -69,10 +69,24 @@ async function getWallet(client, userId) {
 
 async function getWalletCurrency(userId) {
   const row = await queryOne(
-    `SELECT currency FROM public.wallet_accounts WHERE user_id = $1`,
+    `
+      SELECT COALESCE(w.currency, p.earning_currency, p.preferred_currency, p.currency, 'USD') AS currency
+      FROM public.profiles p
+      LEFT JOIN public.wallet_accounts w ON w.user_id = p.id
+      WHERE p.id = $1
+    `,
     [userId],
   );
   return (row?.currency || 'USD').toUpperCase();
+}
+
+async function convertRewardAmount(amount, fromCurrency, toCurrency) {
+  const numeric = Number(amount || 0);
+  const from = (fromCurrency || toCurrency || 'USD').toUpperCase();
+  const to = (toCurrency || from || 'USD').toUpperCase();
+  if (!numeric || numeric <= 0) return 0;
+  if (from === to) return numeric;
+  return convertCurrency(numeric, from, to);
 }
 
 async function creditWallet(client, { userId, amount, currency, description, metadata }) {
@@ -224,11 +238,42 @@ export async function getReferralSummary(userId) {
     [userId],
   );
 
+  const displayRewards = [];
+  let totalEarnedAmount = 0;
+  const earnedByReferredId = new Map();
+
+  for (const reward of rewards.rows) {
+    const isReferrer = String(reward.referrer_id) === String(userId);
+    const sourceAmount = isReferrer ? reward.referrer_amount : reward.referred_amount;
+    const sourceCurrency = isReferrer ? reward.referrer_currency : reward.referred_currency;
+    const displayAmount = await convertRewardAmount(sourceAmount, sourceCurrency, walletCurrency);
+    const displayReward = {
+      ...reward,
+      viewer_amount: displayAmount,
+      viewer_currency: walletCurrency,
+    };
+    displayRewards.push(displayReward);
+    totalEarnedAmount += displayAmount;
+
+    if (isReferrer) {
+      const referredId = String(reward.referred_id);
+      earnedByReferredId.set(referredId, (earnedByReferredId.get(referredId) || 0) + displayAmount);
+    }
+  }
+
+  const referredUsers = referred.rows.map((row) => ({
+    ...row,
+    referrer_earned: earnedByReferredId.get(String(row.id)) || 0,
+    referrer_earned_currency: walletCurrency,
+  }));
+
   return {
     code,
     settings: {
       referralEnabled: settings.referralEnabled !== false,
       walletCurrency,
+      referralTotalEarnedAmount: Number(totalEarnedAmount.toFixed(4)),
+      referralTotalEarnedCurrency: walletCurrency,
       referralWelcomeBonusNgn: welcomeBonusBase,
       referralWelcomeBonusAmount: welcomeBonusAmount,
       referralWelcomeBonusCurrency: walletCurrency,
@@ -237,8 +282,8 @@ export async function getReferralSummary(userId) {
       referralShipmentBonusAmount: shipmentBonusAmount,
       referralShipmentBonusCurrency: walletCurrency,
     },
-    referredUsers: referred.rows,
-    rewards: rewards.rows,
+    referredUsers,
+    rewards: displayRewards,
   };
 }
 
