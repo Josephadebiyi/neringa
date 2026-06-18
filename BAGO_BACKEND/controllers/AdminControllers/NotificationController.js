@@ -63,13 +63,21 @@ export const sendNotification = async (req, res) => {
 
     let sentCount = 0;
     const results = [];
+    const deliverySummary = {};
     for (const token of uniqueTokens) {
       try {
-        const result = await sendPushNotificationToToken(token, title, body);
+        const result = await sendPushNotificationToToken(token, title, body, { type: 'broadcast' });
         results.push(result);
         if (result?.ok) sentCount++;
+        const key = result?.ok
+          ? `${result.provider || 'unknown'}:sent`
+          : `${result?.provider || 'unknown'}:${result?.reason || result?.code || result?.error || 'failed'}`;
+        deliverySummary[key] = (deliverySummary[key] || 0) + 1;
       } catch (e) {
-        results.push({ ok: false, error: e.message });
+        const result = { ok: false, error: e.message };
+        results.push(result);
+        const key = `unknown:${e.message || 'failed'}`;
+        deliverySummary[key] = (deliverySummary[key] || 0) + 1;
       }
     }
 
@@ -81,6 +89,7 @@ export const sendNotification = async (req, res) => {
       recipientCount: rows.length,
       pushTokenCount: uniqueTokens.size,
       inAppNotifications: storedCount,
+      deliverySummary,
       results,
       message: `Broadcast sent to ${rows.length} users (${sentCount} push, ${storedCount} in-app)`,
     });

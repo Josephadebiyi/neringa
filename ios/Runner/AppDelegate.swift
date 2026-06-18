@@ -52,6 +52,7 @@ import PayPal
       pushMethodChannel?.invokeMethod("onNotificationTap", arguments: data)
       pendingNotificationData = nil
     }
+    registerForRemoteNotificationsIfAuthorized(application: UIApplication.shared)
 
     // KYC overlay channel — shows Bago's branded startup screen
     let kycOverlayChannel = FlutterMethodChannel(
@@ -106,6 +107,9 @@ import PayPal
         result(self.currentDeviceToken)
       case "getPermissionStatus":
         self.getPermissionStatus(result: result)
+      case "registerForRemoteNotifications":
+        self.registerForRemoteNotificationsIfAuthorized(application: UIApplication.shared)
+        result(true)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -169,6 +173,19 @@ import PayPal
         } else {
           result(granted)
         }
+      }
+    }
+  }
+
+  private func registerForRemoteNotificationsIfAuthorized(application: UIApplication) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      guard settings.authorizationStatus == .authorized ||
+              settings.authorizationStatus == .provisional ||
+              settings.authorizationStatus == .ephemeral else {
+        return
+      }
+      DispatchQueue.main.async {
+        application.registerForRemoteNotifications()
       }
     }
   }

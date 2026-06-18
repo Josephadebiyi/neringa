@@ -45,6 +45,7 @@ class PushNotificationService {
       _initAndroid();
     } else {
       _channel.setMethodCallHandler(_handleIosMethodCall);
+      unawaited(_registerIosIfAuthorized());
     }
   }
 
@@ -209,6 +210,9 @@ class PushNotificationService {
           await _registerIfPossible(token, platform: 'ios');
         }
         break;
+      case 'onDeviceTokenError':
+        debugPrint('❌ APNs token registration error: ${call.arguments}');
+        break;
       case 'onNotificationTap':
         final args = call.arguments as Map?;
         final type = args?['type']?.toString() ?? '';
@@ -229,14 +233,28 @@ class PushNotificationService {
 
   Future<void> _syncIosDeviceToken() async {
     try {
-      final token = await _channel.invokeMethod<String>('getDeviceToken');
-      final normalized = token?.trim() ?? '';
-      if (normalized.isNotEmpty) {
+      await _channel.invokeMethod<bool>('registerForRemoteNotifications');
+      for (var attempt = 0; attempt < 8; attempt++) {
+        final token = await _channel.invokeMethod<String>('getDeviceToken');
+        final normalized = token?.trim() ?? '';
+        if (normalized.isEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          continue;
+        }
         _pendingToken = normalized;
         await _registerIfPossible(normalized, platform: 'ios');
+        return;
       }
+      debugPrint('🔔 iOS device token still unavailable after registration');
     } catch (e) {
       debugPrint('🔔 iOS getDeviceToken error: $e');
+    }
+  }
+
+  Future<void> _registerIosIfAuthorized() async {
+    final status = await notificationAuthorizationStatus();
+    if (status == ApnsAuthStatus.authorized) {
+      await _syncIosDeviceToken();
     }
   }
 
