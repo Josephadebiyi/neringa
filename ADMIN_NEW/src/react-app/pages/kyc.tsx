@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash, CheckCircle2, ExternalLink } from "lucide-react";
-import { getAllKyc, verifyKyc } from "../services/api";
+import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash, CheckCircle2, ExternalLink, RefreshCw, Link } from "lucide-react";
+import { getAllKyc, verifyKyc, syncDojahKycStatuses, syncDojahKycUser, syncDojahKycByReference } from "../services/api";
 
 interface KycVerifiedData {
   fullName?: string;
@@ -41,7 +41,10 @@ export default function KYCVerificationManager() {
   const [kycItems, setKycItems] = useState<KYCItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   const [previewKYC, setPreviewKYC] = useState<KYCItem | null>(null);
+  const [manualRefId, setManualRefId] = useState("");
 
   useEffect(() => {
     fetchKYCData();
@@ -83,6 +86,56 @@ export default function KYCVerificationManager() {
     } catch (error: any) {
       console.error("Failed to verify KYC:", error);
       alert(error?.message || "An error occurred while updating verification status");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSyncDojahStatuses = async () => {
+    try {
+      setSyncing(true);
+      setSyncMessage("");
+      const result = await syncDojahKycStatuses();
+      const summary = result?.data?.summary || {};
+      const summaryText = Object.entries(summary)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(" · ");
+      setSyncMessage(summaryText || result?.message || "Dojah statuses synced");
+      await fetchKYCData();
+    } catch (error: any) {
+      setSyncMessage(error?.message || "Dojah sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSyncSingleDojahUser = async (userId: string) => {
+    try {
+      setProcessing(true);
+      const result = await syncDojahKycUser(userId);
+      setSyncMessage(result?.message || "Dojah status synced");
+      await fetchKYCData();
+      setPreviewKYC(null);
+    } catch (error: any) {
+      alert(error?.message || "Dojah sync failed");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSyncByReference = async (userId: string) => {
+    const ref = manualRefId.trim();
+    if (!ref) { alert("Paste the Dojah referenceId first"); return; }
+    if (!confirm(`Sync Dojah result for referenceId:\n${ref}`)) return;
+    try {
+      setProcessing(true);
+      const result = await syncDojahKycByReference(userId, ref);
+      setSyncMessage(result?.message || "Sync complete");
+      setManualRefId("");
+      await fetchKYCData();
+      setPreviewKYC(null);
+    } catch (error: any) {
+      alert(error?.message || "Sync by reference failed");
     } finally {
       setProcessing(false);
     }
@@ -145,7 +198,21 @@ export default function KYCVerificationManager() {
           <h1 className="text-3xl font-bold text-gray-900">KYC Verification Manager</h1>
           <p className="text-gray-600">Review Dojah and manual identity verification submissions</p>
         </div>
+        <button
+          onClick={handleSyncDojahStatuses}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 bg-[#5240E8] text-white px-5 py-3 rounded-xl font-bold hover:bg-[#4030C8] disabled:opacity-50 transition-all"
+        >
+          <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Syncing Dojah..." : "Sync Dojah Statuses"}
+        </button>
       </div>
+
+      {syncMessage && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+          {syncMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -383,7 +450,44 @@ export default function KYCVerificationManager() {
                 </div>
               )}
 
+              {/* Manual reference sync — for NOT_STARTED users whose webhook was missed */}
+              {previewKYC.user.kycStatus !== "approved" && previewKYC.user.kycStatus !== "blocked_duplicate" && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-1">
+                    <Link className="w-3 h-3" />
+                    Sync by Dojah Reference ID (use when user passed on Dojah but shows NOT_STARTED)
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualRefId}
+                      onChange={(e) => setManualRefId(e.target.value)}
+                      placeholder="Paste Dojah referenceId..."
+                      className="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                    <button
+                      onClick={() => handleSyncByReference(previewKYC.user._id)}
+                      disabled={processing || !manualRefId.trim()}
+                      className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${processing ? "animate-spin" : ""}`} />
+                      Sync
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3">
+                {previewKYC.user.kycProvider === "dojah" && previewKYC.user.kycStatus !== "approved" && (
+                  <button
+                    onClick={() => handleSyncSingleDojahUser(previewKYC.user._id)}
+                    disabled={processing}
+                    className="bg-[#5240E8] hover:bg-[#4030C8] disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${processing ? "animate-spin" : ""}`} />
+                    <span>{processing ? "Syncing..." : "Sync Dojah"}</span>
+                  </button>
+                )}
                 {isManualReview(previewKYC) && (
                   <button
                     onClick={() => handleVerification(previewKYC.user._id, "approved")}

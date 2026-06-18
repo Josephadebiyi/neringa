@@ -147,6 +147,27 @@ export async function verifyKyc(userId: string, status: string) {
   });
 }
 
+export async function syncDojahKycStatuses() {
+  return apiCall(`${ADMIN_API}/kyc/sync-dojah`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function syncDojahKycUser(userId: string) {
+  return apiCall(`${ADMIN_API}/kyc/users/${userId}/sync-dojah`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function syncDojahKycByReference(userId: string, referenceId: string) {
+  return apiCall(`${ADMIN_API}/kyc/users/${userId}/sync-dojah-reference`, {
+    method: 'POST',
+    body: JSON.stringify({ referenceId }),
+  });
+}
+
 // Tracking
 export async function getTracking() {
   return apiCall(`${ADMIN_API}/tracking`);

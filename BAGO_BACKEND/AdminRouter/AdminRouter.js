@@ -70,6 +70,9 @@ import {
   getUserKYCDetails,
   getKYCStatistics,
   updateKYCStatus,
+  syncDojahKYCStatus,
+  syncDojahKYCByReference,
+  syncUnverifiedDojahKYCStatuses,
 } from '../controllers/AdminControllers/KYCViewController.js';
 import {
   getAllWithdrawals,
@@ -198,6 +201,9 @@ AdminRouter.get("/kyc/users", adminAuthenticated, getAllUsersKYC);
 AdminRouter.get("/kyc/users/:userId", adminAuthenticated, validateUuidParam('userId'), getUserKYCDetails);
 AdminRouter.get("/kyc/statistics", adminAuthenticated, getKYCStatistics);
 AdminRouter.put("/kyc/users/:userId/status", adminAuthenticated, validateUuidParam('userId'), updateKYCStatus);
+AdminRouter.post("/kyc/sync-dojah", adminAuthenticated, syncUnverifiedDojahKYCStatuses);
+AdminRouter.post("/kyc/users/:userId/sync-dojah", adminAuthenticated, validateUuidParam('userId'), syncDojahKYCStatus);
+AdminRouter.post("/kyc/users/:userId/sync-dojah-reference", adminAuthenticated, validateUuidParam('userId'), syncDojahKYCByReference);
 
 // Insurance Settings
 AdminRouter.get("/insurance/settings", adminAuthenticated, getInsuranceSettings);
