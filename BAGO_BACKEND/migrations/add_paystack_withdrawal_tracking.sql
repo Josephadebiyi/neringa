@@ -3,7 +3,7 @@
 -- so they can't use wallet_transactions. This table fills that gap.
 CREATE TABLE IF NOT EXISTS public.paystack_pending_withdrawals (
     id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     text        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    user_id     uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     reference   text        NOT NULL UNIQUE,
     amount      numeric     NOT NULL,
     currency    text        NOT NULL DEFAULT 'NGN',
