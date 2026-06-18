@@ -525,8 +525,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     const convShipments = getConvShipments();
     const CLOSED_STATUSES = ['completed', 'cancelled', 'canceled', 'rejected'];
     const isChatClosed = convShipments.length > 0
-        ? convShipments.every(r => CLOSED_STATUSES.includes((r?.status || '').toLowerCase()))
-        : CLOSED_STATUSES.includes((selectedConv?.request?.status || '').toLowerCase());
+        && convShipments.every(r => CLOSED_STATUSES.includes((r?.status || '').toLowerCase()));
     const hasAddKgShipment = convShipments.some(r => {
         const role   = r?.role || (r?.senderId === (user?._id || user?.id) ? 'sender' : 'traveler');
         const status = (r?.status || '').toLowerCase();
