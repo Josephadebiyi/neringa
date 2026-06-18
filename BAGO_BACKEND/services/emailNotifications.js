@@ -5,7 +5,6 @@ import { resend } from './resendClient.js';
  * Sends professional HTML emails using Resend
  */
 
-const BAGO_LOGO_WHITE = 'https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png';
 const BAGO_BANNER_URL = process.env.BAGO_BANNER_URL || 'https://neringa.onrender.com/email-banner.png';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
 
@@ -275,17 +274,6 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
           <!-- Brand banner -->
           <tr>
             <td align="center" style="padding:0; margin:0; background:#2B0EA8;">
-              <!--[if mso]>
-              <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="background:#2B0EA8;">
-                <tr><td style="padding:32px 28px; text-align:center;">
-                  <img src="${BAGO_LOGO_WHITE}" alt="Bago" width="120" style="display:block; margin:0 auto; border:0;" />
-                  <p style="margin:12px 0 0; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#ffffff;">
-                    Send More &middot; Travel Smarter &middot; Earn Along the Way
-                  </p>
-                </td></tr>
-              </table>
-              <![endif]-->
-              <!--[if !mso]><!-->
               <a href="${FRONTEND_URL}" target="_blank" style="text-decoration:none; display:block; line-height:0; font-size:0;">
                 <img src="${BAGO_BANNER_URL}"
                   alt="Bago — Send More. Travel Smarter. Earn Along the Way."
@@ -293,7 +281,6 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
                   style="display:block; width:100%; max-width:600px; height:auto; border:0;"
                 />
               </a>
-              <!--<![endif]-->
             </td>
           </tr>
 
