@@ -62,10 +62,13 @@ const getApnsPrivateKey = () => {
   return null;
 };
 
-const getApnsHost = () =>
-  process.env.APNS_USE_SANDBOX === 'true'
-    ? 'https://api.sandbox.push.apple.com'
-    : 'https://api.push.apple.com';
+const getApnsHosts = () => {
+  const sandbox = 'https://api.sandbox.push.apple.com';
+  const production = 'https://api.push.apple.com';
+  return process.env.APNS_USE_SANDBOX === 'true'
+    ? [sandbox, production]
+    : [production, sandbox];
+};
 
 const base64UrlEncode = (value) =>
   Buffer.from(value).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -89,46 +92,56 @@ const sendApnsToToken = async (pushToken, title, body, data = {}) => {
 
   try {
     const jwt  = buildApnsJwt();
-    const host = getApnsHost();
     const payloadStr = JSON.stringify({
       aps: { alert: { title, body }, sound: 'default', badge: 1 },
       ...data,
     });
 
-    const client = http2.connect(host);
+    const hosts = getApnsHosts();
+    let lastResult = null;
 
-    return await new Promise((resolve, reject) => {
-      const req = client.request({
-        ':method': 'POST',
-        ':path': `/3/device/${token}`,
-        'authorization': `bearer ${jwt}`,
-        'apns-topic': bundleId,
-        'apns-push-type': 'alert',
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(payloadStr),
+    for (const host of hosts) {
+      const client = http2.connect(host);
+      const result = await new Promise((resolve, reject) => {
+        const req = client.request({
+          ':method': 'POST',
+          ':path': `/3/device/${token}`,
+          'authorization': `bearer ${jwt}`,
+          'apns-topic': bundleId,
+          'apns-push-type': 'alert',
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(payloadStr),
+        });
+
+        req.setEncoding('utf8');
+        let responseData = '';
+        let statusCode;
+
+        req.on('response', (headers) => { statusCode = headers[':status']; });
+        req.on('data', (chunk) => { responseData += chunk; });
+        req.on('end', () => {
+          client.close();
+          const environment = host.includes('sandbox') ? 'sandbox' : 'production';
+          if (statusCode === 200) {
+            resolve({ ok: true, provider: 'apns', environment });
+          } else {
+            const parsed = parseJsonSafely(responseData);
+            const reason = parsed?.reason || `apns_http_${statusCode}`;
+            const permanent = APNS_PERMANENT_TOKEN_REASONS.has(reason);
+            resolve({ ok: false, provider: 'apns', environment, status: statusCode, reason, permanent });
+          }
+        });
+        req.on('error', (err) => { client.close(); reject(err); });
+        req.write(payloadStr);
+        req.end();
       });
 
-      req.setEncoding('utf8');
-      let responseData = '';
-      let statusCode;
+      if (result.ok) return result;
+      lastResult = result;
+      if (result.reason !== 'BadDeviceToken') break;
+    }
 
-      req.on('response', (headers) => { statusCode = headers[':status']; });
-      req.on('data', (chunk) => { responseData += chunk; });
-      req.on('end', () => {
-        client.close();
-        if (statusCode === 200) {
-          resolve({ ok: true, provider: 'apns' });
-        } else {
-          const parsed = parseJsonSafely(responseData);
-          const reason = parsed?.reason || `apns_http_${statusCode}`;
-          const permanent = APNS_PERMANENT_TOKEN_REASONS.has(reason);
-          resolve({ ok: false, provider: 'apns', status: statusCode, reason, permanent });
-        }
-      });
-      req.on('error', (err) => { client.close(); reject(err); });
-      req.write(payloadStr);
-      req.end();
-    });
+    return lastResult || { ok: false, provider: 'apns', reason: 'apns_no_result' };
   } catch (err) {
     return { ok: false, provider: 'apns', error: err.message };
   }

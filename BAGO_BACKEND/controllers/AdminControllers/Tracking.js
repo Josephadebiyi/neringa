@@ -37,7 +37,7 @@ function buildStatusBody({ status, location, trackingNumber }) {
 }
 
 async function notifyShipmentStatusChange(request, status, location) {
-  if (!status) return;
+  if (!status) return [];
 
   const label = STATUS_LABELS[status] || status;
   const title = status === 'accepted'
@@ -64,10 +64,37 @@ async function notifyShipmentStatusChange(request, status, location) {
     request.traveler_id,
   ].filter(Boolean);
 
+  const results = [];
   for (const userId of [...new Set(recipientIds)]) {
-    sendPushNotification(userId, title, body, payload)
-      .catch((error) => console.warn(`Shipment ${label} push failed for user ${userId}: ${error.message}`));
+    try {
+      const deliveries = await sendPushNotification(userId, title, body, payload);
+      const sent = Array.isArray(deliveries) && deliveries.some((delivery) => delivery?.ok);
+      const skipped = Array.isArray(deliveries) && deliveries.every((delivery) => delivery?.skipped);
+      const reasons = Array.isArray(deliveries)
+        ? deliveries.map((delivery) => delivery?.reason || delivery?.code || delivery?.error || delivery?.provider).filter(Boolean)
+        : [];
+      results.push({
+        userId,
+        sent,
+        skipped,
+        tokenCount: Array.isArray(deliveries) ? deliveries.length : 0,
+        reasons,
+      });
+      if (!sent) {
+        console.warn(`Shipment ${label} push not delivered for user ${userId}: ${reasons.join(', ') || 'no token/result'}`);
+      }
+    } catch (error) {
+      console.warn(`Shipment ${label} push failed for user ${userId}: ${error.message}`);
+      results.push({
+        userId,
+        sent: false,
+        skipped: false,
+        tokenCount: 0,
+        reasons: [error.message],
+      });
+    }
   }
+  return results;
 }
 
 function normalizePackage(pkg) {
@@ -355,14 +382,15 @@ export const updateRequest = async (req, res, next) => {
       values
     );
 
-    if (status) {
-      await notifyShipmentStatusChange(updated, status, location);
-    }
+    const notificationResults = status
+      ? await notifyShipmentStatusChange(updated, status, location)
+      : [];
 
     return res.status(200).json({
       success: true,
       message: 'Request updated successfully',
       data: updated,
+      notificationResults,
     });
   } catch (error) {
     next(error);
