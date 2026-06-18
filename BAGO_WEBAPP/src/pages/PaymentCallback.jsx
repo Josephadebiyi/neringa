@@ -24,7 +24,7 @@ export default function PaymentCallback() {
 
     const completePayment = async (reference) => {
         try {
-            const raw = sessionStorage.getItem('bagoPendingShipment');
+            const raw = localStorage.getItem('bagoPendingShipment');
             if (!raw) {
                 setStatus('error');
                 setMessage('Payment session expired. Please try again.');
@@ -47,7 +47,7 @@ export default function PaymentCallback() {
                 termsAccepted: true,
             });
 
-            sessionStorage.removeItem('bagoPendingShipment');
+            localStorage.removeItem('bagoPendingShipment');
 
             if ([200, 201, 202].includes(res.status) || res.data?.success) {
                 const req = res.data.request;

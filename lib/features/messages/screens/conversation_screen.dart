@@ -130,11 +130,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final initials = conv?.initials ?? '?';
     final isClosed = conv?.isClosed == true;
     final requestStatus = conv?.requestStatus?.toLowerCase() ?? '';
-    final shipmentSummary = [
-      if ((conv?.packageTitle ?? '').trim().isNotEmpty)
-        conv!.packageTitle!.trim(),
-      if ((conv?.routeLabel ?? '').trim().isNotEmpty) conv!.routeLabel!.trim(),
-    ].join(' • ');
+    final activeShipments = _activeShipmentsForConversation(conv);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -201,21 +197,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               children: [
                 Column(
                   children: [
-                    if (shipmentSummary.isNotEmpty)
-                      _ActiveShipmentChatCard(
-                        summary: shipmentSummary,
-                        trackingNumber: conv?.trackingNumber,
-                        requestId: conv?.requestId,
-                        isClosed: isClosed,
-                        onOpen: (conv?.requestId ?? '').trim().isEmpty
-                            ? null
-                            : () => context
-                                .push('/shipment-request/${conv!.requestId}'),
-                        onAddKg: isClosed ||
-                                conv?.currentUserIsSender != true ||
-                                (conv?.requestId ?? '').isEmpty
-                            ? null
-                            : () => _showAddKgSheet(conv!),
+                    if (activeShipments.isNotEmpty && conv != null)
+                      _ActiveShipmentSlider(
+                        shipments: activeShipments,
+                        currentUserIsSender: conv.currentUserIsSender,
+                        onOpen: (shipment) => context
+                            .push('/shipment-request/${shipment.requestId}'),
+                        onAddKg: (shipment) => _showAddKgSheet(
+                          conv,
+                          requestId: shipment.requestId,
+                          trackingNumber: shipment.trackingNumber,
+                        ),
                       ),
                     if (isClosed)
                       _ClosedChatBanner(
@@ -310,6 +302,30 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               ],
             ),
     );
+  }
+
+  List<ChatShipmentSummary> _activeShipmentsForConversation(
+      ConversationModel? conversation) {
+    if (conversation == null) return const [];
+    final active = conversation.activeShipments
+        .where((shipment) => !shipment.isClosed)
+        .where((shipment) => shipment.summary.trim().isNotEmpty)
+        .toList();
+    if (active.isNotEmpty) return active;
+
+    final fallback = ChatShipmentSummary(
+      requestId: conversation.requestId ?? '',
+      status: conversation.requestStatus,
+      packageTitle: conversation.packageTitle,
+      routeLabel: conversation.routeLabel,
+      trackingNumber: conversation.trackingNumber,
+    );
+    if (fallback.requestId.trim().isEmpty ||
+        fallback.summary.trim().isEmpty ||
+        fallback.isClosed) {
+      return const [];
+    }
+    return [fallback];
   }
 
   void _onTyping() {
@@ -420,7 +436,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
   }
 
-  Future<void> _showAddKgSheet(ConversationModel conversation) async {
+  Future<void> _showAddKgSheet(
+    ConversationModel conversation, {
+    required String requestId,
+    String? trackingNumber,
+  }) async {
     final kgController = TextEditingController();
     await showModalBottomSheet<void>(
       context: context,
@@ -499,44 +519,51 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         return;
                       }
                       Navigator.pop(sheetContext);
-                      final requestId = conversation.requestId?.trim() ?? '';
-                      final request =
-                          await ShipmentService.instance.getRequestDetails(
-                        requestId,
-                      );
-                      final existingWeight = request.packageWeight ?? 0;
-                      final pricePerKg = existingWeight > 0
-                          ? request.agreedPrice / existingWeight
-                          : 0.0;
-                      final estimatedShipping = pricePerKg > 0
-                          ? double.parse((kg * pricePerKg).toStringAsFixed(2))
-                          : 0.0;
-                      final draft = {
-                        'type': 'additional_kg',
-                        'additionalKg': kg,
-                        'additionalRequestId': request.id,
-                        'packageId': request.packageId,
-                        'tripId': request.tripId,
-                        'travelerId': request.carrierId,
-                        'currency': request.currency.isNotEmpty
-                            ? request.currency
-                            : 'USD',
-                        'shippingAmount': estimatedShipping,
-                        'insuranceAmount': 0.0,
-                        'totalAmount': estimatedShipping,
-                        'insurance': false,
-                        'fromLocation':
-                            request.fromLocation ?? conversation.routeLabel,
-                        'toLocation': request.toLocation,
-                        'message':
-                            'Additional ${kg.toStringAsFixed(kg.truncateToDouble() == kg ? 0 : 1)}kg for shipment ${conversation.trackingNumber ?? request.id}',
-                        'expiresAt': DateTime.now()
-                            .add(ShipmentCheckoutService.draftLifetime)
-                            .toIso8601String(),
-                      };
-                      await ShipmentCheckoutService.instance.saveDraft(draft);
-                      if (!mounted) return;
-                      context.push('/payment', extra: draft);
+                      try {
+                        final request =
+                            await ShipmentService.instance.getRequestDetails(
+                          requestId.trim(),
+                        );
+                        final existingWeight = request.packageWeight ?? 0;
+                        final pricePerKg = existingWeight > 0
+                            ? request.agreedPrice / existingWeight
+                            : 0.0;
+                        final estimatedShipping = pricePerKg > 0
+                            ? double.parse((kg * pricePerKg).toStringAsFixed(2))
+                            : 0.0;
+                        final draft = {
+                          'type': 'additional_kg',
+                          'additionalKg': kg,
+                          'additionalRequestId': request.id,
+                          'packageId': request.packageId,
+                          'tripId': request.tripId,
+                          'travelerId': request.carrierId,
+                          'currency': request.currency.isNotEmpty
+                              ? request.currency
+                              : 'USD',
+                          'shippingAmount': estimatedShipping,
+                          'insuranceAmount': 0.0,
+                          'totalAmount': estimatedShipping,
+                          'insurance': false,
+                          'fromLocation':
+                              request.fromLocation ?? conversation.routeLabel,
+                          'toLocation': request.toLocation,
+                          'message':
+                              'Additional ${kg.toStringAsFixed(kg.truncateToDouble() == kg ? 0 : 1)}kg for shipment ${trackingNumber ?? request.id}',
+                          'expiresAt': DateTime.now()
+                              .add(ShipmentCheckoutService.draftLifetime)
+                              .toIso8601String(),
+                        };
+                        await ShipmentCheckoutService.instance.saveDraft(draft);
+                        if (!mounted) return;
+                        context.push('/payment', extra: draft);
+                      } catch (_) {
+                        if (!mounted) return;
+                        AppSnackBar.show(context,
+                          message: 'Could not load shipment details. Please try again.',
+                          type: SnackBarType.error,
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -709,6 +736,95 @@ class _MessageList extends StatelessWidget {
 
   static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+class _ActiveShipmentSlider extends StatefulWidget {
+  const _ActiveShipmentSlider({
+    required this.shipments,
+    required this.currentUserIsSender,
+    required this.onOpen,
+    required this.onAddKg,
+  });
+
+  final List<ChatShipmentSummary> shipments;
+  final bool currentUserIsSender;
+  final ValueChanged<ChatShipmentSummary> onOpen;
+  final ValueChanged<ChatShipmentSummary> onAddKg;
+
+  @override
+  State<_ActiveShipmentSlider> createState() => _ActiveShipmentSliderState();
+}
+
+class _ActiveShipmentSliderState extends State<_ActiveShipmentSlider> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shipments = widget.shipments;
+    if (shipments.length == 1) {
+      final shipment = shipments.first;
+      return _ActiveShipmentChatCard(
+        summary: shipment.summary,
+        trackingNumber: shipment.trackingNumber,
+        requestId: shipment.requestId,
+        isClosed: shipment.isClosed,
+        onOpen: () => widget.onOpen(shipment),
+        onAddKg: widget.currentUserIsSender && !shipment.isClosed
+            ? () => widget.onAddKg(shipment)
+            : null,
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 184,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: shipments.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (context, index) {
+              final shipment = shipments[index];
+              return _ActiveShipmentChatCard(
+                summary: shipment.summary,
+                trackingNumber: shipment.trackingNumber,
+                requestId: shipment.requestId,
+                isClosed: shipment.isClosed,
+                onOpen: () => widget.onOpen(shipment),
+                onAddKg: widget.currentUserIsSender && !shipment.isClosed
+                    ? () => widget.onAddKg(shipment)
+                    : null,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(shipments.length, (dotIndex) {
+            final selected = dotIndex == _index;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: selected ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : AppColors.gray300,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
 }
 
 class _ActiveShipmentChatCard extends StatelessWidget {

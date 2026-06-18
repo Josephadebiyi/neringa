@@ -342,6 +342,24 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
+    const handleVerifyEmailChange = async () => {
+        if (!emailOtp || emailOtp.length < 4) return;
+        setLoading(true);
+        setError('');
+        try {
+            await api.post('/api/bago/user/verify-email-change', { otp: emailOtp });
+            setShowEmailOtp(false);
+            setEmailOtp('');
+            setNewEmail('');
+            setSuccessMessage('Email address updated successfully.');
+            if (checkAuthStatus) checkAuthStatus();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Invalid or expired code. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleStartBankSetup = async () => {
         setError('');
         setSuccessMessage('');
@@ -579,7 +597,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest">{t('verify')}</button>
+                                    <button onClick={handleVerifyEmailChange} disabled={!emailOtp || emailOtp.length < 4 || loading} className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50">{loading ? '...' : t('verify')}</button>
                                     <button onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">{t('cancel')}</button>
                                 </div>
                             </div>

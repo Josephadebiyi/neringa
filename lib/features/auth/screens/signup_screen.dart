@@ -1163,8 +1163,12 @@ class _StepOtpState extends State<_StepOtp> {
               if (_canResend)
                 GestureDetector(
                   onTap: () async {
-                    await widget.onResend();
-                    _startTimer();
+                    try {
+                      await widget.onResend();
+                      _startTimer();
+                    } catch (_) {
+                      // onResend shows its own error snackbar via the parent screen
+                    }
                   },
                   child: Text(' — ${l10n.resend}',
                       style: AppTextStyles.labelMd.copyWith(color: AppColors.primary)),

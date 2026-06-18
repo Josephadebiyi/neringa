@@ -257,7 +257,7 @@ class MessageNotifier extends Notifier<MessageState> {
       _lastMessageTime =
           msgs.isNotEmpty ? _parseTimestamp(msgs.last.createdAt) : null;
 
-      unawaited(_service.markAsRead(conversationId));
+      unawaited(_service.markAsRead(conversationId).catchError((_) {}));
       _attachSocketListeners();
       SocketService.instance.joinConversation(conversationId);
 

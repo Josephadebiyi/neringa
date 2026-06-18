@@ -463,6 +463,13 @@ export const withdrawFundsPaystack = async (req, res) => {
       return res.status(400).json({ success: false, message: result.message || 'Transfer failed' });
     }
 
+    // Track the pending withdrawal so webhook handlers can restore balance on async failure
+    await pgQuery(
+      `INSERT INTO public.paystack_pending_withdrawals (user_id, reference, amount, currency)
+       VALUES ($1, $2, $3, $4) ON CONFLICT (reference) DO NOTHING`,
+      [user.id, reference, withdrawalAmount, 'NGN'],
+    ).catch(() => {}); // non-fatal: balance was already debited successfully
+
     return res.status(200).json({
       success: true,
       message: 'Withdrawal initiated successfully',
@@ -854,6 +861,7 @@ async function handleFailedTransfer(data) {
     const userFaultPattern = /invalid account|account not found|invalid recipient|recipient not found|account number|no such account|dormant account/i;
     const isUserFault = userFaultPattern.test(failureReason);
 
+    // Stripe/non-Paystack withdrawal path: wallet_transactions record exists
     const tx = await queryOne(
       `SELECT user_id, amount, currency FROM public.wallet_transactions
        WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
@@ -890,6 +898,40 @@ async function handleFailedTransfer(data) {
           { type: 'withdrawal_failed', reference, isUserFault }
         ),
       ]);
+    } else {
+      // Paystack (African currency) withdrawal path: balance lives in profiles
+      const ppw = await queryOne(
+        `UPDATE public.paystack_pending_withdrawals
+         SET status = 'failed', updated_at = NOW()
+         WHERE reference = $1 AND status = 'pending'
+         RETURNING user_id, amount, currency`,
+        [reference]
+      );
+      if (ppw) {
+        await pgQuery(
+          `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+          [ppw.user_id, ppw.amount]
+        );
+        const displayAmount = `${ppw.currency} ${Number(ppw.amount).toFixed(2)}`;
+        const userMessage = isUserFault
+          ? `Your withdrawal of ${displayAmount} failed — your bank account details may be incorrect. Please update your payout account and try again. Your balance has been restored.`
+          : `Your withdrawal of ${displayAmount} could not be processed. Your balance has been restored. Please contact support if this continues.`;
+        await Promise.allSettled([
+          createNotification({
+            userId: ppw.user_id,
+            title: 'Withdrawal failed',
+            body: userMessage,
+            type: 'withdrawal_failed',
+            payload: { reference, isUserFault },
+          }),
+          sendPushNotification(
+            ppw.user_id,
+            'Withdrawal failed',
+            userMessage,
+            { type: 'withdrawal_failed', reference, isUserFault }
+          ),
+        ]);
+      }
     }
     console.log(`❌ Transfer failed: ${reference} — ${failureReason}`);
   } catch (error) {
@@ -900,6 +942,8 @@ async function handleFailedTransfer(data) {
 async function handleReversedTransfer(data) {
   try {
     const { reference } = data;
+
+    // Stripe/non-Paystack withdrawal path
     const tx = await queryOne(
       `SELECT user_id, amount, currency FROM public.wallet_transactions
        WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
@@ -930,6 +974,37 @@ async function handleReversedTransfer(data) {
           { type: 'withdrawal_failed', reference }
         ),
       ]);
+    } else {
+      // Paystack (African currency) withdrawal path
+      const ppw = await queryOne(
+        `UPDATE public.paystack_pending_withdrawals
+         SET status = 'failed', updated_at = NOW()
+         WHERE reference = $1 AND status = 'pending'
+         RETURNING user_id, amount, currency`,
+        [reference]
+      );
+      if (ppw) {
+        await pgQuery(
+          `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+          [ppw.user_id, ppw.amount]
+        );
+        const displayAmount = `${ppw.currency} ${Number(ppw.amount).toFixed(2)}`;
+        await Promise.allSettled([
+          createNotification({
+            userId: ppw.user_id,
+            title: 'Withdrawal reversed',
+            body: `Your withdrawal of ${displayAmount} was reversed by your bank. Your balance has been restored.`,
+            type: 'withdrawal_failed',
+            payload: { reference },
+          }),
+          sendPushNotification(
+            ppw.user_id,
+            'Withdrawal reversed',
+            `Your withdrawal of ${displayAmount} was reversed. Your balance has been restored.`,
+            { type: 'withdrawal_failed', reference }
+          ),
+        ]);
+      }
     }
     console.log(`🔄 Transfer reversed: ${reference}`);
   } catch (error) {

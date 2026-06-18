@@ -389,8 +389,19 @@ export default function SendPackage() {
                 const authorizationUrl = psRes.data?.authorization_url || psRes.data?.data?.authorization_url;
                 const reference = psRes.data?.reference || psRes.data?.data?.reference;
                 if (!authorizationUrl || !reference) throw new Error('Payment checkout could not start.');
+                localStorage.setItem('bagoPendingShipment', JSON.stringify({
+                    packageId,
+                    tripId: selectedTrip._id,
+                    travelerId: String(selectedTrip.user?._id || selectedTrip.user || ''),
+                    amount: Number(totalCost),
+                    currency,
+                    estimatedDeparture: selectedTrip.departureDate || '',
+                    insurance: formData.insuranceProtection,
+                    insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                }));
                 window.open(authorizationUrl, '_blank', 'noopener,noreferrer');
                 setPendingPayment({ provider: 'paystack', packageId, reference, authorizationUrl });
+                setLoading(false);
             } catch (err) {
                 showPaymentError(setError, 'We could not continue checkout right now. Please try again in a few minutes.', err);
                 setLoading(false);
