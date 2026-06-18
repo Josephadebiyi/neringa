@@ -166,6 +166,236 @@ const firstReferenceId = (event = {}) =>
   event?.entity?.reference_id ||
   '';
 
+export const dojahReferenceFromPayload = (payload = {}) =>
+  firstReferenceId(payload) ||
+  payload?.referenceId ||
+  payload?.reference_id ||
+  payload?.data?.referenceId ||
+  payload?.data?.reference_id ||
+  payload?.data?.metadata?.referenceId ||
+  payload?.data?.metadata?.reference_id ||
+  payload?.metadata?.referenceId ||
+  payload?.metadata?.reference_id ||
+  '';
+
+async function applyDojahEventToUser(userId, event, {
+  referenceId = '',
+  notify = true,
+  source = 'dojah_api',
+} = {}) {
+  const rawStatus = firstWebhookValue(
+    event?.status,
+    event?.verificationStatus,
+    event?.verification_status,
+    event?.decision,
+    event?.result,
+    event?.verification?.status,
+    event?.entity?.status,
+    event?.entity?.verification_status,
+    event?.entity?.verificationStatus,
+    event?.data?.status,
+    event?.data?.verification_status,
+    event?.data?.verificationStatus,
+    event?.data?.decision,
+    event?.data?.result,
+  );
+
+  const webhookShape = {
+    data: {
+      ...event,
+      metadata: {
+        ...(event?.metadata || event?.data?.metadata || {}),
+        userId,
+        user_id: userId,
+        referenceId,
+        reference_id: referenceId,
+      },
+    },
+    status: rawStatus,
+    referenceId,
+    reference_id: referenceId,
+    source,
+  };
+
+  const userRow = await queryOne(
+    `SELECT email, first_name, last_name FROM public.profiles WHERE id = $1`,
+    [userId],
+  ).catch(() => null);
+  const userEmail = userRow?.email;
+  const userName = [userRow?.first_name, userRow?.last_name].filter(Boolean).join(' ') || 'there';
+
+  if (isApprovedStatus(rawStatus)) {
+    const approval = await markKycApproved(userId, {
+      provider: 'dojah',
+      kycVerifiedData: webhookShape,
+    });
+    if (approval?.duplicate) {
+      if (notify && userEmail) sendKycDeclinedEmail(userEmail, userName, approval.reason).catch(() => {});
+      if (notify) {
+        sendPushNotification(
+          userId,
+          'Verification Not Approved',
+          'This identity appears to already be linked to another Bago account.',
+          { type: 'kyc_duplicate' },
+        ).catch(() => {});
+      }
+      return { status: 'blocked_duplicate', rawStatus, duplicate: true, reason: approval.reason };
+    }
+    if (notify && userEmail) sendKycApprovedEmail(userEmail, userName).catch(() => {});
+    if (notify) {
+      sendPushNotification(
+        userId,
+        'Identity Verified! ✅',
+        'Your identity has been verified. You now have full access to all Bago features.',
+        { type: 'kyc_approved' },
+      ).catch(() => {});
+    }
+    return { status: 'approved', rawStatus };
+  }
+
+  if (isDeclinedStatus(rawStatus)) {
+    const reason = event?.reason || event?.failureReason || event?.data?.reason || event?.data?.failureReason || 'Dojah verification declined';
+    await query(
+      `UPDATE public.profiles
+       SET kyc_status = 'declined',
+           kyc_provider = 'dojah',
+           kyc_failure_reason = $2,
+           kyc_verified_data = $3,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [userId, reason, webhookShape],
+    );
+    if (notify && userEmail) sendKycDeclinedEmail(userEmail, userName, reason).catch(() => {});
+    if (notify) {
+      sendPushNotification(
+        userId,
+        'Verification Not Approved',
+        'Your identity verification was not approved. Please check your details and try again.',
+        { type: 'kyc_declined' },
+      ).catch(() => {});
+    }
+    return { status: 'declined', rawStatus, reason };
+  }
+
+  if (isPendingStatus(rawStatus)) {
+    await query(
+      `UPDATE public.profiles
+       SET kyc_status = 'pending',
+           kyc_provider = 'dojah',
+           kyc_verified_data = $2,
+           updated_at = NOW()
+       WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
+      [userId, webhookShape],
+    ).catch(() => {});
+    return { status: 'pending', rawStatus };
+  }
+
+  return { status: 'unknown', rawStatus };
+}
+
+export async function syncDojahReferenceForUser(userId, referenceId, { notify = false } = {}) {
+  if (!DOJAH_APP_ID || !DOJAH_SECRET) {
+    return { success: false, status: 'not_configured', message: 'Dojah API credentials are not configured.' };
+  }
+
+  const ref = String(referenceId || '').trim();
+  if (!userId || !ref) {
+    return { success: false, status: 'missing_reference', message: 'No Dojah referenceId is stored for this user.' };
+  }
+
+  try {
+    const dojahResp = await axios.get('https://api.dojah.io/api/v1/kyc/easyonboard', {
+      params: { referenceId: ref },
+      headers: { AppId: DOJAH_APP_ID, Authorization: DOJAH_SECRET },
+      timeout: 10000,
+    });
+
+    const event = dojahResp.data?.data ?? dojahResp.data;
+    const result = await applyDojahEventToUser(userId, event, {
+      referenceId: ref,
+      notify,
+      source: 'admin_dojah_sync',
+    });
+    return { success: true, referenceId: ref, ...result };
+  } catch (error) {
+    return {
+      success: false,
+      status: 'sync_failed',
+      referenceId: ref,
+      message: error.response?.data?.message || error.message || 'Dojah sync failed.',
+    };
+  }
+}
+
+export const syncExistingDojahResult = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const user = await queryOne(
+      `SELECT kyc_status AS "kycStatus",
+              kyc_provider AS "kycProvider",
+              kyc_verified_data AS "kycVerifiedData"
+       FROM public.profiles
+       WHERE id = $1`,
+      [userId],
+    );
+
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (['approved', 'blocked_duplicate', 'declined'].includes(user.kycStatus)) {
+      return res.json({ success: true, kycStatus: user.kycStatus, source: 'db' });
+    }
+
+    if (user.kycProvider !== 'dojah') {
+      return res.json({
+        success: true,
+        kycStatus: user.kycStatus || 'not_started',
+        source: 'db',
+        canStartNewSession: true,
+      });
+    }
+
+    const referenceId = dojahReferenceFromPayload(user.kycVerifiedData || {});
+    if (!referenceId) {
+      return res.json({
+        success: true,
+        kycStatus: user.kycStatus || 'not_started',
+        source: 'db',
+        canStartNewSession: true,
+        reason: 'missing_reference',
+      });
+    }
+
+    const result = await syncDojahReferenceForUser(userId, referenceId, { notify: true });
+    const finalStatus = ['approved', 'declined', 'blocked_duplicate'].includes(result.status)
+      ? result.status
+      : (user.kycStatus || 'pending');
+
+    return res.json({
+      success: true,
+      kycStatus: finalStatus,
+      source: result.success ? 'dojah_api' : 'db',
+      canStartNewSession: false,
+      referenceId,
+      syncStatus: result.status,
+      message: result.message || null,
+    });
+  } catch (err) {
+    console.error('syncExistingDojahResult error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to check existing Dojah result' });
+  }
+};
+
+const lookupUserIdByEmail = async (email = '') => {
+  const e = email.toString().trim().toLowerCase();
+  if (!e) return null;
+  const row = await queryOne(
+    `SELECT id FROM public.profiles WHERE lower(email) = $1 LIMIT 1`,
+    [e],
+  ).catch(() => null);
+  return row?.id || null;
+};
+
 const lookupUserIdByDojahReference = async (referenceId = '') => {
   const ref = referenceId.toString().trim();
   if (!ref) return null;
@@ -254,6 +484,10 @@ export const startDojahSession = async (req, res) => {
     await query(
       `UPDATE public.profiles
        SET kyc_provider = 'dojah',
+           kyc_status = CASE
+             WHEN kyc_status IN ('approved', 'blocked_duplicate', 'declined') THEN kyc_status
+             ELSE 'pending'
+           END,
            kyc_verified_data = CASE
              WHEN kyc_status IN ('approved', 'blocked_duplicate') THEN kyc_verified_data
              ELSE jsonb_strip_nulls(jsonb_build_object(
@@ -330,12 +564,26 @@ export const dojahWebhook = async (req, res) => {
       // sandbox sometimes puts it at the top level
       event?.data?.entity?.id;
     const referenceId = firstReferenceId(event);
-    const userId = userIdFromReferenceId(rawUserId) || await lookupUserIdByDojahReference(referenceId);
+
+    // Email from Dojah payload — used as last-resort user lookup
+    const webhookEmail =
+      event?.data?.entity?.email ||
+      event?.data?.metadata?.email ||
+      event?.entity?.email ||
+      event?.data?.email ||
+      event?.email ||
+      '';
+
+    const userId =
+      userIdFromReferenceId(rawUserId) ||
+      await lookupUserIdByDojahReference(referenceId) ||
+      await lookupUserIdByEmail(webhookEmail);
 
     if (!userId) {
-      console.warn('Dojah webhook: no userId found in payload');
+      console.warn('Dojah webhook: no userId found in payload', { rawUserId, referenceId, webhookEmail: webhookEmail || '(none)' });
       return res.status(200).json({ received: true, note: 'no userId in payload' });
     }
+    console.log(`Dojah webhook: matched userId=${userId} via ${userIdFromReferenceId(rawUserId) ? 'referenceId-format' : referenceId ? 'stored-reference' : 'email'}`);
 
     // Fetch user profile for notifications
     const userRow = await queryOne(
