@@ -81,7 +81,8 @@ const buildApnsJwt = () => {
   const header  = { alg: 'ES256', kid: keyId };
   const payload = { iss: teamId, iat: Math.floor(Date.now() / 1000) };
   const unsigned = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(payload))}`;
-  const signature = crypto.sign('sha256', Buffer.from(unsigned), privateKey);
+  // APNs requires ES256 with raw R||S encoding (IEEE P1363), not DER
+  const signature = crypto.sign('sha256', Buffer.from(unsigned), { key: privateKey, dsaEncoding: 'ieee-p1363' });
   return `${unsigned}.${base64UrlEncode(signature)}`;
 };
 
@@ -109,6 +110,8 @@ const sendApnsToToken = async (pushToken, title, body, data = {}) => {
           'authorization': `bearer ${jwt}`,
           'apns-topic': bundleId,
           'apns-push-type': 'alert',
+          'apns-priority': '10',
+          'apns-expiration': String(Math.floor(Date.now() / 1000) + 86400 * 7),
           'content-type': 'application/json',
           'content-length': Buffer.byteLength(payloadStr),
         });
@@ -254,9 +257,12 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
       try {
         const result = await sendPushNotificationToToken(token, title, body, data);
         results.push(result);
-        if (result.ok) console.log(`✅ Push sent to user ${userId} via ${result.provider}`);
+        if (result.ok) console.log(`✅ Push sent to user ${userId} via ${result.provider}${result.environment ? ` (${result.environment})` : ''}`);
         else if (result.skipped) console.log(`⏭ Push skipped: ${result.reason}`);
-        else if (result.permanent) {
+        else {
+          console.warn(`⚠️ Push failed for user ${userId}: provider=${result.provider} reason=${result.reason || result.error || 'unknown'} env=${result.environment || 'unknown'}`);
+        }
+        if (result.permanent) {
           await removePushTokenForUser(
             userId,
             token,
