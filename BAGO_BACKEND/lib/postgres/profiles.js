@@ -25,7 +25,20 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS payout_method TEXT,
       ADD COLUMN IF NOT EXISTS payout_method_status TEXT,
       ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN NOT NULL DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS accepted_terms_at TIMESTAMPTZ
+      ADD COLUMN IF NOT EXISTS accepted_terms_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS referral_code TEXT,
+      ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS has_used_referral_discount BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS profiles_referral_code_idx
+      ON public.profiles (upper(referral_code))
+      WHERE referral_code IS NOT NULL
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS profiles_referred_by_idx
+      ON public.profiles (referred_by)
+      WHERE referred_by IS NOT NULL
   `);
   await query(`
     UPDATE public.profiles

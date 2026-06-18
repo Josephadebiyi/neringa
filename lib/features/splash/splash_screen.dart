@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:async';
 
 import '../../core/theme/app_colors.dart';
+import '../auth/providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({
@@ -32,6 +33,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final Animation<double> _streakTravel;
   Timer? _failsafeTimer;
   late final bool _isReplaySplash;
+  bool _navigationScheduled = false;
 
   @override
   void initState() {
@@ -81,6 +83,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    if (!_isReplaySplash && !auth.isInitialising) {
+      _scheduleHomeNavigation();
+    }
+
     if (!_isReplaySplash) {
       return Scaffold(
         backgroundColor: AppColors.primary,
@@ -189,5 +196,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         ),
       ),
     );
+  }
+
+  void _scheduleHomeNavigation() {
+    if (_navigationScheduled) return;
+    _navigationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.go('/home');
+    });
   }
 }

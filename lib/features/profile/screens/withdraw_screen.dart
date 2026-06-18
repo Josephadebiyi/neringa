@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -203,10 +204,21 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         _amountCtrl.clear();
         await _fetchBalance();
       }
-    } catch (e) {
+    } on DioException catch (e) {
       if (mounted) {
-        AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+        AppSnackBar.show(
+          context,
+          message: ApiService.parseError(e),
+          type: SnackBarType.error,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          message: 'Withdrawal could not be submitted. Please try again.',
+          type: SnackBarType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

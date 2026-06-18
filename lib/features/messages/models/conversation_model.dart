@@ -1,5 +1,48 @@
 import '../../../core/utils/json_parser.dart';
 
+class ChatShipmentSummary {
+  const ChatShipmentSummary({
+    required this.requestId,
+    this.status,
+    this.packageTitle,
+    this.routeLabel,
+    this.trackingNumber,
+  });
+
+  final String requestId;
+  final String? status;
+  final String? packageTitle;
+  final String? routeLabel;
+  final String? trackingNumber;
+
+  bool get isClosed => ['completed', 'cancelled', 'canceled', 'rejected']
+      .contains(status?.toLowerCase());
+
+  String get summary => [
+        if ((packageTitle ?? '').trim().isNotEmpty) packageTitle!.trim(),
+        if ((routeLabel ?? '').trim().isNotEmpty) routeLabel!.trim(),
+      ].join(' • ');
+
+  factory ChatShipmentSummary.fromRequest(Map<String, dynamic> request) {
+    final package = request['package'] as Map<String, dynamic>?;
+    final fromCity = package?['fromCity']?.toString().trim() ?? '';
+    final toCity = package?['toCity']?.toString().trim() ?? '';
+    final routeLabel =
+        [fromCity, toCity].where((part) => part.isNotEmpty).join(' → ');
+    return ChatShipmentSummary(
+      requestId: request['_id']?.toString() ??
+          request['id']?.toString() ??
+          request['requestId']?.toString() ??
+          '',
+      status: request['status']?.toString(),
+      packageTitle:
+          package?['description']?.toString() ?? package?['title']?.toString(),
+      routeLabel: routeLabel.isEmpty ? null : routeLabel,
+      trackingNumber: request['trackingNumber']?.toString(),
+    );
+  }
+}
+
 class ConversationModel {
   final String id;
   final String otherUserId;
@@ -15,6 +58,7 @@ class ConversationModel {
   final String? packageTitle;
   final String? routeLabel;
   final String? trackingNumber;
+  final List<ChatShipmentSummary> activeShipments;
   final bool currentUserIsSender;
 
   const ConversationModel({
@@ -32,6 +76,7 @@ class ConversationModel {
     this.packageTitle,
     this.routeLabel,
     this.trackingNumber,
+    this.activeShipments = const [],
     this.currentUserIsSender = false,
   });
 
@@ -54,6 +99,7 @@ class ConversationModel {
     String? packageTitle,
     String? routeLabel,
     String? trackingNumber,
+    List<ChatShipmentSummary>? activeShipments,
     bool? currentUserIsSender,
   }) {
     return ConversationModel(
@@ -71,6 +117,7 @@ class ConversationModel {
       packageTitle: packageTitle ?? this.packageTitle,
       routeLabel: routeLabel ?? this.routeLabel,
       trackingNumber: trackingNumber ?? this.trackingNumber,
+      activeShipments: activeShipments ?? this.activeShipments,
       currentUserIsSender: currentUserIsSender ?? this.currentUserIsSender,
     );
   }
@@ -115,6 +162,17 @@ class ConversationModel {
               json['participantAvatar']?.toString(),
     );
     final package = request?['package'] as Map<String, dynamic>?;
+    final activeRequestsRaw =
+        json['activeRequests'] ?? json['active_requests'] ?? const [];
+    final activeShipments = activeRequestsRaw is List
+        ? activeRequestsRaw
+            .whereType<Map>()
+            .map((e) =>
+                ChatShipmentSummary.fromRequest(Map<String, dynamic>.from(e)))
+            .where((item) => item.requestId.trim().isNotEmpty)
+            .where((item) => !item.isClosed)
+            .toList()
+        : <ChatShipmentSummary>[];
     final fromCity = package?['fromCity']?.toString().trim() ?? '';
     final toCity = package?['toCity']?.toString().trim() ?? '';
     final routeLabel =
@@ -160,6 +218,7 @@ class ConversationModel {
       routeLabel: routeLabel.isEmpty ? null : routeLabel,
       trackingNumber: request?['trackingNumber']?.toString() ??
           json['trackingNumber']?.toString(),
+      activeShipments: activeShipments,
       currentUserIsSender: isSender,
     );
   }

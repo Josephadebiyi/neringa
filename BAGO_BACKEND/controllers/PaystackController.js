@@ -419,7 +419,9 @@ export const withdrawFundsPaystack = async (req, res) => {
       [user.id]
     );
 
-    if (!profile || profile.kyc_status !== 'approved') {
+    const kycStatus = String(profile?.kyc_status || '').trim().toLowerCase();
+    const hasPassedKyc = ['approved', 'verified', 'completed'].includes(kycStatus);
+    if (!profile || !hasPassedKyc) {
       return res.status(403).json({
         success: false,
         code: 'KYC_REQUIRED',

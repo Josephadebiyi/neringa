@@ -269,6 +269,12 @@ final class PayPalNativeCardViewController: UIViewController {
   private let nameField = UITextField()
   private let errorLabel = UILabel()
   private let payButton = UIButton(type: .system)
+  private let bagoBackground = UIColor(red: 0.957, green: 0.965, blue: 0.984, alpha: 1.0)
+  private let bagoPrimary = UIColor(red: 0.360, green: 0.270, blue: 1.000, alpha: 1.0)
+  private let bagoText = UIColor(red: 0.063, green: 0.082, blue: 0.125, alpha: 1.0)
+  private let bagoMutedText = UIColor(red: 0.431, green: 0.471, blue: 0.553, alpha: 1.0)
+  private let bagoFieldBorder = UIColor(red: 0.878, green: 0.890, blue: 0.914, alpha: 1.0)
+  private let bagoFieldBackground = UIColor.white
 
   init(
     clientId: String,
@@ -294,7 +300,8 @@ final class PayPalNativeCardViewController: UIViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     title = "Bank card"
-    view.backgroundColor = .systemBackground
+    overrideUserInterfaceStyle = .light
+    view.backgroundColor = bagoBackground
     navigationItem.leftBarButtonItem = UIBarButtonItem(
       barButtonSystemItem: .close,
       target: self,
@@ -333,11 +340,12 @@ final class PayPalNativeCardViewController: UIViewController {
     let titleLabel = UILabel()
     titleLabel.text = "Enter your card details"
     titleLabel.font = .systemFont(ofSize: 32, weight: .black)
+    titleLabel.textColor = bagoText
     titleLabel.numberOfLines = 0
 
     let subtitle = UILabel()
     subtitle.text = "Pay \(currency) \(String(format: "%.2f", amount)). PayPal securely processes your card. Bago never stores card numbers or CVV."
-    subtitle.textColor = .secondaryLabel
+    subtitle.textColor = bagoMutedText
     subtitle.font = .systemFont(ofSize: 16, weight: .semibold)
     subtitle.numberOfLines = 0
 
@@ -358,7 +366,7 @@ final class PayPalNativeCardViewController: UIViewController {
 
     payButton.setTitle("Pay \(currency) \(String(format: "%.2f", amount))", for: .normal)
     payButton.titleLabel?.font = .systemFont(ofSize: 18, weight: .black)
-    payButton.backgroundColor = UIColor(red: 0.36, green: 0.27, blue: 1.0, alpha: 1.0)
+    payButton.backgroundColor = bagoPrimary
     payButton.tintColor = .white
     payButton.layer.cornerRadius = 18
     payButton.heightAnchor.constraint(equalToConstant: 58).isActive = true
@@ -379,8 +387,13 @@ final class PayPalNativeCardViewController: UIViewController {
 
   private func styleField(_ field: UITextField) {
     field.borderStyle = .none
-    field.backgroundColor = .secondarySystemBackground
+    field.backgroundColor = bagoFieldBackground
+    field.textColor = bagoText
+    field.tintColor = bagoPrimary
+    field.keyboardAppearance = .light
     field.layer.cornerRadius = 16
+    field.layer.borderColor = bagoFieldBorder.cgColor
+    field.layer.borderWidth = 1
     field.font = .systemFont(ofSize: 17, weight: .semibold)
     field.heightAnchor.constraint(equalToConstant: 56).isActive = true
     field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 1))

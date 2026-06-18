@@ -9,6 +9,22 @@ const SHIPMENT_TRIGGER = 'shipment_over_threshold';
 async function ensureReferralInfrastructure(clientOrQuery = null) {
   const exec = clientOrQuery?.query ? (sql, params) => clientOrQuery.query(sql, params) : query;
   await exec(`
+    ALTER TABLE public.profiles
+      ADD COLUMN IF NOT EXISTS referral_code TEXT,
+      ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS has_used_referral_discount BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  await exec(`
+    CREATE INDEX IF NOT EXISTS profiles_referral_code_idx
+      ON public.profiles (upper(referral_code))
+      WHERE referral_code IS NOT NULL
+  `);
+  await exec(`
+    CREATE INDEX IF NOT EXISTS profiles_referred_by_idx
+      ON public.profiles (referred_by)
+      WHERE referred_by IS NOT NULL
+  `);
+  await exec(`
     CREATE TABLE IF NOT EXISTS public.referral_rewards (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       referrer_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -87,6 +103,17 @@ async function convertRewardAmount(amount, fromCurrency, toCurrency) {
   if (!numeric || numeric <= 0) return 0;
   if (from === to) return numeric;
   return convertCurrency(numeric, from, to);
+}
+
+async function safeConvertRewardAmount(amount, fromCurrency, toCurrency) {
+  try {
+    return await convertRewardAmount(amount, fromCurrency, toCurrency);
+  } catch (error) {
+    console.warn(
+      `Referral conversion failed ${fromCurrency || 'unknown'} -> ${toCurrency || 'unknown'}: ${error.message}`,
+    );
+    return null;
+  }
 }
 
 async function creditWallet(client, { userId, amount, currency, description, metadata }) {
@@ -195,8 +222,8 @@ export async function getReferralSummary(userId) {
   const walletCurrency = await getWalletCurrency(userId);
   const welcomeBonusBase = Number(settings.referralWelcomeBonusNgn ?? 2000);
   const shipmentBonusBase = Number(settings.referralShipmentBonusUsd ?? 2);
-  const welcomeBonusAmount = await convertCurrency(welcomeBonusBase, 'NGN', walletCurrency);
-  const shipmentBonusAmount = await convertCurrency(shipmentBonusBase, 'USD', walletCurrency);
+  const welcomeBonusAmount = await safeConvertRewardAmount(welcomeBonusBase, 'NGN', walletCurrency);
+  const shipmentBonusAmount = await safeConvertRewardAmount(shipmentBonusBase, 'USD', walletCurrency);
 
   const referred = await query(
     `
@@ -246,18 +273,27 @@ export async function getReferralSummary(userId) {
     const isReferrer = String(reward.referrer_id) === String(userId);
     const sourceAmount = isReferrer ? reward.referrer_amount : reward.referred_amount;
     const sourceCurrency = isReferrer ? reward.referrer_currency : reward.referred_currency;
-    const displayAmount = await convertRewardAmount(sourceAmount, sourceCurrency, walletCurrency);
+    const displayAmount =
+      (await safeConvertRewardAmount(sourceAmount, sourceCurrency, walletCurrency)) ?? Number(sourceAmount || 0);
+    const displayCurrency =
+      displayAmount === Number(sourceAmount || 0) && (sourceCurrency || '').toUpperCase() !== walletCurrency
+        ? (sourceCurrency || walletCurrency || 'USD').toUpperCase()
+        : walletCurrency;
     const displayReward = {
       ...reward,
       viewer_amount: displayAmount,
-      viewer_currency: walletCurrency,
+      viewer_currency: displayCurrency,
     };
     displayRewards.push(displayReward);
-    totalEarnedAmount += displayAmount;
+    if (displayCurrency === walletCurrency) {
+      totalEarnedAmount += displayAmount;
+    }
 
     if (isReferrer) {
       const referredId = String(reward.referred_id);
-      earnedByReferredId.set(referredId, (earnedByReferredId.get(referredId) || 0) + displayAmount);
+      if (displayCurrency === walletCurrency) {
+        earnedByReferredId.set(referredId, (earnedByReferredId.get(referredId) || 0) + displayAmount);
+      }
     }
   }
 

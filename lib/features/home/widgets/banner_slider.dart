@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -23,6 +24,12 @@ class _BannerSliderState extends State<BannerSlider> {
   @override
   void initState() {
     super.initState();
+    final cached = BannerService.instance.cachedActiveBanners;
+    if (cached.isNotEmpty) {
+      _banners = cached;
+      _loading = false;
+      if (cached.length > 1) _startTimer();
+    }
     _load();
   }
 
@@ -64,7 +71,7 @@ class _BannerSliderState extends State<BannerSlider> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return _Placeholder();
+      return const SizedBox.shrink();
     }
     if (_banners.isEmpty) {
       return const SizedBox.shrink();
@@ -101,27 +108,14 @@ class _BannerCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          url,
+        child: CachedNetworkImage(
+          imageUrl: url,
           fit: BoxFit.cover,
           width: double.infinity,
-          loadingBuilder: (_, child, progress) =>
-              progress == null ? child : _Placeholder(),
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          fadeInDuration: const Duration(milliseconds: 120),
+          placeholder: (_, __) => const SizedBox.shrink(),
+          errorWidget: (_, __, ___) => const SizedBox.shrink(),
         ),
-      ),
-    );
-  }
-}
-
-class _Placeholder extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 160,
-      decoration: BoxDecoration(
-        color: AppColors.gray100,
-        borderRadius: BorderRadius.circular(16),
       ),
     );
   }

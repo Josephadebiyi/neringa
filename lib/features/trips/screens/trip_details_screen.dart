@@ -116,6 +116,7 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
                   trip: resolvedTrip,
                   userCurrency: userCurrency,
                   onDelete: () => _confirmDelete(context, resolvedTrip.id),
+                  onRedo: () => context.push('/post-trip', extra: resolvedTrip),
                 ),
     );
   }
@@ -164,11 +165,13 @@ class _TripBody extends StatelessWidget {
     required this.trip,
     required this.userCurrency,
     required this.onDelete,
+    required this.onRedo,
   });
 
   final TripModel trip;
   final String userCurrency;
   final VoidCallback onDelete;
+  final VoidCallback onRedo;
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +181,8 @@ class _TripBody extends StatelessWidget {
         ? tripCurrency
         : userCurrency.trim().toUpperCase();
     final userCurrencyLabel = userCurrency.trim().toUpperCase();
+    final isHistory = trip.isHistorical;
+    final tripNumber = trip.displayTripNumber;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -215,7 +220,11 @@ class _TripBody extends StatelessWidget {
               children: [
                 _TripInfoRow(
                     label: l10n.statusLabel,
-                    value: formatTripStatusLabel(trip.status)),
+                    value: isHistory
+                        ? 'History'
+                        : formatTripStatusLabel(trip.status)),
+                if (tripNumber.isNotEmpty)
+                  _TripInfoRow(label: 'Trip number', value: '#$tripNumber'),
                 _TripInfoRow(
                     label: l10n.travelTypeLabel, value: trip.travelMeans),
                 _TripInfoRow(
@@ -286,32 +295,37 @@ class _TripBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primarySoft,
+              color: isHistory ? AppColors.gray100 : AppColors.primarySoft,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Text(
-              l10n.tripEditApprovalMessage,
-              style: AppTextStyles.bodySm
-                  .copyWith(color: AppColors.primary, height: 1.4),
+              isHistory
+                  ? 'This trip is now history. It cannot be edited, but you can redo it to publish a new copy with updated dates.'
+                  : l10n.tripEditApprovalMessage,
+              style: AppTextStyles.bodySm.copyWith(
+                  color: isHistory ? AppColors.gray600 : AppColors.primary,
+                  height: 1.4),
             ),
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                final tripId = trip.id.trim();
-                if (tripId.isEmpty) {
-                  AppSnackBar.show(
-                    context,
-                    message: l10n.tripMissingReference,
-                    type: SnackBarType.error,
-                  );
-                  return;
-                }
-                context.push('/edit-trip/${Uri.encodeComponent(tripId)}',
-                    extra: trip);
-              },
+              onPressed: isHistory
+                  ? onRedo
+                  : () {
+                      final tripId = trip.id.trim();
+                      if (tripId.isEmpty) {
+                        AppSnackBar.show(
+                          context,
+                          message: l10n.tripMissingReference,
+                          type: SnackBarType.error,
+                        );
+                        return;
+                      }
+                      context.push('/edit-trip/${Uri.encodeComponent(tripId)}',
+                          extra: trip);
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -320,31 +334,32 @@ class _TripBody extends StatelessWidget {
                 minimumSize: const Size.fromHeight(56),
               ),
               child: Text(
-                l10n.editTrip,
+                isHistory ? 'Redo trip' : l10n.editTrip,
                 style: AppTextStyles.labelLg
                     .copyWith(color: Colors.white, fontWeight: FontWeight.w800),
               ),
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: onDelete,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
-                shape: const StadiumBorder(),
-                elevation: 0,
-                minimumSize: const Size.fromHeight(56),
-              ),
-              child: Text(
-                l10n.deleteTrip,
-                style: AppTextStyles.labelLg.copyWith(
-                    color: AppColors.error, fontWeight: FontWeight.w800),
+          if (!isHistory)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onDelete,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  side: const BorderSide(color: AppColors.error),
+                  shape: const StadiumBorder(),
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(56),
+                ),
+                child: Text(
+                  l10n.deleteTrip,
+                  style: AppTextStyles.labelLg.copyWith(
+                      color: AppColors.error, fontWeight: FontWeight.w800),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

@@ -7,7 +7,7 @@ interface Banner {
   title: string;
   imageUrl: string;
   linkUrl?: string;
-  isActive: boolean;
+  isActive: boolean;  
   sortOrder: number;
   createdAt: string;
 }

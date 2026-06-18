@@ -425,6 +425,7 @@ authRoutes.forEach(route => app.use(route, authLimiter));
   '/api/paystack/verify-bank-otp',
   '/api/paystack/withdraw',
   '/api/payouts/connect/dashboard-link',
+  '/api/payouts/paypal/withdraw',
   '/api/payouts/change-method/request-otp',
   '/api/payouts/change-method/verify-otp',
   '/api/payouts/withdraw',
@@ -697,6 +698,14 @@ schema('/api/payouts/withdraw', {
   stringOrNumbers: ['amount'],
   max: { amount: 20, currency: 3 },
 });
+schema('/api/payouts/paypal/withdraw', {
+  allowed: ['amount', 'currency', 'method'],
+  required: ['amount', 'currency'],
+  strings: ['currency', 'method'],
+  stringOrNumbers: ['amount'],
+  enums: { method: ['paypal'] },
+  max: { amount: 20, currency: 3, method: 20 },
+});
 schema('/api/bago/register-token', {
   allowed: ['token', 'deviceToken', 'pushToken'],
   strings: ['token', 'deviceToken', 'pushToken'],
@@ -856,7 +865,7 @@ app.post('/api/paystack/initialize', isAuthenticated, requireKycVerification, in
 app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
 app.post('/api/paystack/add-bank', isAuthenticated, addBankAccount);
 app.post('/api/paystack/verify-bank-otp', isAuthenticated, verifyBankOTP);
-app.post('/api/paystack/withdraw', isAuthenticated, withdrawFundsPaystack);
+app.post('/api/paystack/withdraw', isAuthenticated, requireKycVerification, withdrawFundsPaystack);
 app.get('/api/paystack/banks', getPaystackBanks);
 app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
@@ -866,7 +875,7 @@ app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by sig
 // captured funds in escrow until the shipment is completed.
 app.get('/api/config/paypal', isAuthenticated, getPaypalConfig);
 app.post('/api/payouts/paypal/connect', isAuthenticated, requireKycVerification, connectPaypalPayout);
-app.post('/api/payouts/paypal/withdraw', isAuthenticated, withdrawPaypalPayout);
+app.post('/api/payouts/paypal/withdraw', isAuthenticated, requireKycVerification, withdrawPaypalPayout);
 app.post('/api/payments/paypal/create-order', isAuthenticated, createPaypalOrder);
 app.post('/api/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
 app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalOrder);

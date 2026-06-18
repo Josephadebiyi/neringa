@@ -36,153 +36,164 @@ class TripTicketCard extends ConsumerWidget {
     final date = _formatDate(trip.departureDate);
     final statusColor = _statusColor(trip.status);
     final bookedKg = trip.soldKg + trip.reservedKg;
+    final isHistory = ownerView && trip.isHistorical;
+    final tripNumber = trip.displayTripNumber;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.07),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      _ModeBadge(icon: _travelMeansIcon(trip.travelMeans)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          ownerView
-                              ? formatTripStatusLabel(trip.status)
-                              : NameFormatter.firstNameOnly(
-                                  trip.carrierName,
-                                  fallback: 'Traveler',
-                                ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.labelMd.copyWith(
-                            color: ownerView ? statusColor : AppColors.gray700,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        ownerView
-                            ? '${trip.currency} ${trip.pricePerKg.toStringAsFixed(0)}/kg'
-                            : price.primary,
-                        style: AppTextStyles.h3.copyWith(
-                          color: AppColors.black,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _AirportBlock(
-                          code: fromCode,
-                          city: from,
-                          alignEnd: false,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 110,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            _RouteLine(
-                                icon: _travelMeansIcon(trip.travelMeans)),
-                            const SizedBox(height: 8),
-                            Text(
-                              date,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.gray400,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: _AirportBlock(
-                          code: toCode,
-                          city: to,
-                          alignEnd: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            CustomPaint(
-              painter: _TicketDividerPainter(),
-              child: const SizedBox(height: 18, width: double.infinity),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+      child: Opacity(
+        opacity: isHistory ? 0.62 : 1,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isHistory ? AppColors.gray100 : AppColors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: isHistory ? Border.all(color: AppColors.border) : null,
+            boxShadow: isHistory
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.07),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                child: Column(
+                  children: [
+                    Row(
                       children: [
-                        _MiniPill(
-                          icon: Icons.luggage_rounded,
-                          label:
-                              '${trip.availableKg.toStringAsFixed(0)} kg free',
-                        ),
-                        if (ownerView)
-                          _MiniPill(
-                            icon: Icons.inventory_2_outlined,
-                            label: '${bookedKg.toStringAsFixed(0)} kg booked',
-                          )
-                        else if (trip.averageRating != null)
-                          _MiniPill(
-                            icon: Icons.star_rounded,
-                            label: trip.averageRating!.toStringAsFixed(1),
+                        _ModeBadge(icon: _travelMeansIcon(trip.travelMeans)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            ownerView && tripNumber.isNotEmpty
+                                ? 'Trip #$tripNumber · ${isHistory ? 'History' : formatTripStatusLabel(trip.status)}'
+                                : ownerView
+                                    ? formatTripStatusLabel(trip.status)
+                                    : NameFormatter.firstNameOnly(
+                                        trip.carrierName,
+                                        fallback: 'Traveler',
+                                      ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.labelMd.copyWith(
+                              color:
+                                  ownerView ? statusColor : AppColors.gray700,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
+                        ),
+                        Text(
+                          ownerView
+                              ? '${trip.currency} ${trip.pricePerKg.toStringAsFixed(0)}/kg'
+                              : price.primary,
+                          style: AppTextStyles.h3.copyWith(
+                            color: AppColors.black,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.black,
-                      borderRadius: BorderRadius.circular(18),
+                    const SizedBox(height: 18),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _AirportBlock(
+                            code: fromCode,
+                            city: from,
+                            alignEnd: false,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 110,
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 12),
+                              _RouteLine(
+                                  icon: _travelMeansIcon(trip.travelMeans)),
+                              const SizedBox(height: 8),
+                              Text(
+                                date,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.gray400,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: _AirportBlock(
+                            code: toCode,
+                            city: to,
+                            alignEnd: true,
+                          ),
+                        ),
+                      ],
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      actionLabel ?? (ownerView ? 'Details' : 'Select'),
-                      style: AppTextStyles.labelSm.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                  ],
+                ),
+              ),
+              CustomPaint(
+                painter: _TicketDividerPainter(),
+                child: const SizedBox(height: 18, width: double.infinity),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _MiniPill(
+                            icon: Icons.luggage_rounded,
+                            label:
+                                '${trip.availableKg.toStringAsFixed(0)} kg free',
+                          ),
+                          if (ownerView)
+                            _MiniPill(
+                              icon: Icons.inventory_2_outlined,
+                              label: '${bookedKg.toStringAsFixed(0)} kg booked',
+                            )
+                          else if (trip.averageRating != null)
+                            _MiniPill(
+                              icon: Icons.star_rounded,
+                              label: trip.averageRating!.toStringAsFixed(1),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Container(
+                      height: 38,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.black,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        actionLabel ?? (ownerView ? 'Details' : 'Select'),
+                        style: AppTextStyles.labelSm.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

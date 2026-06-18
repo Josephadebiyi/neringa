@@ -8,8 +8,6 @@ import 'app.dart';
 import 'firebase_options.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/storage_service.dart';
-import 'shared/services/supabase_service.dart';
-import 'shared/services/app_settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,31 +37,12 @@ void _applySystemUi() {
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
-  ]).timeout(const Duration(seconds: 2)).catchError((e) {
-    debugPrint('Orientation setup skipped: $e');
-  });
+  ]).timeout(const Duration(seconds: 2)).catchError((_) {});
 }
 
 void _finishStartup() {
-  _clearKeychainOnFreshInstall().catchError((e) {
-    debugPrint('Fresh install cleanup error: $e');
-  });
+  _clearKeychainOnFreshInstall().catchError((_) {});
   _initFirebase();
-  try {
-    PushNotificationService.instance.startListening();
-  } catch (e) {
-    debugPrint('Push listener setup error: $e');
-  }
-  SupabaseService.init().timeout(const Duration(seconds: 5)).catchError((e) {
-    debugPrint('Supabase init error: $e');
-  });
-  AppSettingsService.instance
-      .fetchPublicSettings()
-      .timeout(const Duration(seconds: 6))
-      .catchError((e) {
-    debugPrint('AppSettings fetch error: $e');
-    return AppSettingsService.fallbackSnapshot;
-  });
 }
 
 /// Clears keychain on the first launch after a fresh install.
@@ -80,18 +59,21 @@ Future<void> _clearKeychainOnFreshInstall() async {
           .clearAll()
           .timeout(const Duration(seconds: 3), onTimeout: () {});
       await prefs.setBool(key, true);
-      debugPrint('Fresh install: keychain cleared.');
     }
-  } catch (e) {
-    debugPrint('Fresh install check failed (non-fatal): $e');
-  }
+  } catch (_) {}
 }
 
 void _initFirebase() {
-  if (Firebase.apps.isNotEmpty) return;
+  if (Firebase.apps.isNotEmpty) {
+    try {
+      PushNotificationService.instance.startListening();
+    } catch (_) {}
+    return;
+  }
   Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
-      .then<void>((_) {})
-      .catchError((e) {
-    debugPrint('Firebase init error (non-fatal): $e');
-  });
+      .then<void>((_) {
+    try {
+      PushNotificationService.instance.startListening();
+    } catch (_) {}
+  }).catchError((_) {});
 }

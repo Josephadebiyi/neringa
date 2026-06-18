@@ -14,13 +14,18 @@ export const requireKycVerification = (req, res, next) => {
       });
     }
 
+    const kycStatus = String(user.kycStatus || user.kyc_status || '')
+      .trim()
+      .toLowerCase();
+    const hasPassedKyc = ['approved', 'verified', 'completed'].includes(kycStatus);
+
     // Check if user is KYC verified
-    if (user.kycStatus !== 'approved') {
+    if (!hasPassedKyc) {
       return res.status(403).json({
         success: false,
-        message: `KYC verification required. Current status: ${user.kycStatus || 'not_started'}`,
+        message: `KYC verification required. Current status: ${kycStatus || 'not_started'}`,
         code: 'VERIFICATION_REQUIRED',
-        kycStatus: user.kycStatus,
+        kycStatus: kycStatus || user.kycStatus,
       });
     }
 

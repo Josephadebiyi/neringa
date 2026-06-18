@@ -15,9 +15,6 @@ class SupabaseService {
     const publishableKey = ApiConstants.supabasePublishableKey;
 
     if (url.isEmpty || publishableKey.isEmpty) {
-      debugPrint(
-        'Supabase init skipped: missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY dart-define.',
-      );
       return;
     }
 
@@ -28,7 +25,6 @@ class SupabaseService {
     );
 
     _initialised = true;
-    debugPrint('Supabase initialized for Flutter client.');
   }
 
   static SupabaseClient? get client =>
