@@ -5,7 +5,9 @@ import { resend } from './resendClient.js';
  * Sends professional HTML emails using Resend
  */
 
-const BAGO_LOGO = 'https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png';
+const BAGO_LOGO_WHITE = 'https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png';
+// Banner hosted on our own domain — zero CDN dependency
+const BAGO_BANNER_URL = process.env.BAGO_BANNER_URL || 'https://sendwithbago.com/email-banner.png';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
 
 /**
@@ -271,12 +273,36 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
       <td align="center">
         <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background:#ffffff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.06); overflow:hidden;">
 
-          <!-- Header -->
+          <!-- Banner header — full-width brand banner with PNG + HTML fallback -->
           <tr>
-            <td bgcolor="#5240E8" style="padding:24px 28px; text-align:center; background:linear-gradient(90deg,#5240E8 0%, #6B5CFF 100%);">
-              <a href="${FRONTEND_URL}" target="_blank" style="text-decoration:none; display:inline-block;">
-                <img src="${BAGO_LOGO}" alt="Bago" width="140" style="display:block; border:0;"/>
+            <td align="center" style="padding:0; margin:0; background:#2B0EA8;">
+              <!--[if !mso]><!-->
+              <a href="${FRONTEND_URL}" target="_blank" style="text-decoration:none; display:block; line-height:0; font-size:0;">
+                <img src="${BAGO_BANNER_URL}"
+                  alt="Bago — Send More. Travel Smarter. Earn Along the Way."
+                  width="600"
+                  style="display:block; width:100%; max-width:600px; height:auto; border:0; line-height:0; font-size:0;"
+                  onerror="this.style.display='none'; document.getElementById('bago-html-banner').style.display='block';"
+                />
               </a>
+              <!--<![endif]-->
+              <!-- HTML fallback banner (always visible in Outlook; shown if PNG fails to load) -->
+              <table id="bago-html-banner" role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                style="background:linear-gradient(135deg,#1A0070 0%,#2D0EA8 30%,#5240E8 70%,#6B5CFF 100%); mso-hide:none;">
+                <tr>
+                  <td style="padding:32px 28px; text-align:center;">
+                    <a href="${FRONTEND_URL}" target="_blank" style="text-decoration:none; display:inline-block;">
+                      <img src="${BAGO_LOGO_WHITE}" alt="Bago" width="120"
+                        style="display:block; margin:0 auto; border:0;" />
+                    </a>
+                    <p style="margin:12px 0 0; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:rgba(255,255,255,0.85); letter-spacing:0.3px;">
+                      <strong style="color:#ffffff; font-weight:800;">Send</strong> More &nbsp;&middot;&nbsp;
+                      <strong style="color:#ffffff; font-weight:800;">Travel</strong> Smarter &nbsp;&middot;&nbsp;
+                      <strong style="color:#ffffff; font-weight:800;">Earn</strong> Along the Way
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
