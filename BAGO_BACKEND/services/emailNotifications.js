@@ -6,8 +6,6 @@ import { resend } from './resendClient.js';
  */
 
 const BAGO_LOGO_WHITE = 'https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png';
-// Banner hosted on our own domain — zero CDN dependency
-const BAGO_BANNER_URL = process.env.BAGO_BANNER_URL || 'https://sendwithbago.com/email-banner.png';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
 
 /**
@@ -273,22 +271,11 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
       <td align="center">
         <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background:#ffffff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.06); overflow:hidden;">
 
-          <!-- Banner header — full-width brand banner with PNG + HTML fallback -->
+          <!-- Brand banner — HTML gradient, works in all email clients -->
           <tr>
             <td align="center" style="padding:0; margin:0; background:#2B0EA8;">
-              <!--[if !mso]><!-->
-              <a href="${FRONTEND_URL}" target="_blank" style="text-decoration:none; display:block; line-height:0; font-size:0;">
-                <img src="${BAGO_BANNER_URL}"
-                  alt="Bago — Send More. Travel Smarter. Earn Along the Way."
-                  width="600"
-                  style="display:block; width:100%; max-width:600px; height:auto; border:0; line-height:0; font-size:0;"
-                  onerror="this.style.display='none'; document.getElementById('bago-html-banner').style.display='block';"
-                />
-              </a>
-              <!--<![endif]-->
-              <!-- HTML fallback banner (always visible in Outlook; shown if PNG fails to load) -->
-              <table id="bago-html-banner" role="presentation" cellpadding="0" cellspacing="0" width="100%"
-                style="background:linear-gradient(135deg,#1A0070 0%,#2D0EA8 30%,#5240E8 70%,#6B5CFF 100%); mso-hide:none;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                style="background:linear-gradient(135deg,#1A0070 0%,#2D0EA8 30%,#5240E8 70%,#6B5CFF 100%);">
                 <tr>
                   <td style="padding:32px 28px; text-align:center;">
                     <a href="${FRONTEND_URL}" target="_blank" style="text-decoration:none; display:inline-block;">
