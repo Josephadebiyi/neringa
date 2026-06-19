@@ -188,12 +188,18 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
     setState(() => _submitting = true);
     try {
+      final otp = await _requestWithdrawalOtp();
+      if (otp == null || otp.isEmpty) {
+        return;
+      }
+
       final path = _africanCurrencies.contains(currency.toUpperCase())
           ? ApiConstants.withdrawFunds
           : ApiConstants.paypalWithdraw;
       await ApiService.instance.post(path, data: {
         'amount': amount,
         'currency': currency,
+        'otp': otp,
         if (!_africanCurrencies.contains(currency.toUpperCase()))
           'method': 'paypal',
       });
@@ -223,6 +229,76 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<String?> _requestWithdrawalOtp() async {
+    try {
+      final response = await ApiService.instance
+          .post(ApiConstants.withdrawalRequestOtp, data: {});
+      final data = response.data;
+      final destination = data is Map ? data['destination']?.toString() : null;
+      if (!mounted) return null;
+      return _showWithdrawalOtpDialog(destination);
+    } on DioException catch (e) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          message: ApiService.parseError(e),
+          type: SnackBarType.error,
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<String?> _showWithdrawalOtpDialog(String? destination) async {
+    final otpCtrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm withdrawal'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              destination == null
+                  ? 'Enter the 6-digit code sent to your email.'
+                  : 'Enter the 6-digit code sent to $destination.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: otpCtrl,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Withdrawal code',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final otp = otpCtrl.text.trim();
+              if (otp.length == 6) Navigator.of(ctx).pop(otp);
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    otpCtrl.dispose();
+    return result;
   }
 
   @override

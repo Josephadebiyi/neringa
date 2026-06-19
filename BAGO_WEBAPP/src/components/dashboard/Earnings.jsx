@@ -83,6 +83,8 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [status, setStatus]         = useState({ type: '', msg: '' });
     const [chartMode, setChartMode]   = useState('received');
     const [showModal, setShowModal]   = useState(false);
+    const [otpCode, setOtpCode]       = useState('');
+    const [otpDestination, setOtpDestination] = useState('');
 
     const walletCurrency = (walletApiCurrency || user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
     const sym             = getSymbol(walletCurrency);
@@ -179,14 +181,35 @@ export default function Earnings({ user, checkAuthStatus }) {
         setSubmitting(true);
         setStatus({ type:'', msg:'' });
         try {
+            const otpRes = await api.post('/api/bago/withdrawal/request-otp', {});
+            setOtpDestination(otpRes.data?.destination || 'your email');
+            setOtpCode('');
+            setShowModal(true);
+        } catch (err) {
+            setStatus({ type:'error', msg: err.response?.data?.message || 'Could not send withdrawal code. Please try again.' });
+        } finally { setSubmitting(false); }
+    };
+
+    const handleConfirmWithdrawalOtp = async (e) => {
+        e?.preventDefault();
+        const otp = otpCode.trim();
+        if (!/^\d{6}$/.test(otp)) {
+            setStatus({ type:'error', msg:'Enter the 6-digit withdrawal code.' });
+            return;
+        }
+        setSubmitting(true);
+        setStatus({ type:'', msg:'' });
+        try {
             const endpoint = isAfrican ? '/api/bago/withdrawFunds' : '/api/payouts/paypal/withdraw';
-            const payload  = { amount: amountNum, currency: walletCurrency };
+            const payload  = { amount: amountNum, currency: walletCurrency, otp };
             if (!isAfrican) payload.method = 'paypal';
             else payload.description = 'Withdrawal via Bank Transfer';
             const res = await api.post(endpoint, payload);
             if (res.data.success) {
                 setStatus({ type:'success', msg:'Withdrawal submitted successfully!' });
                 setAmount('');
+                setOtpCode('');
+                setShowModal(false);
                 if (checkAuthStatus) await checkAuthStatus();
             }
         } catch (err) {
@@ -430,6 +453,56 @@ export default function Earnings({ user, checkAuthStatus }) {
                     </button>
                 </div>
             </div>
+
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+                    <form
+                        onSubmit={handleConfirmWithdrawalOtp}
+                        className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
+                    >
+                        <div className="mb-5 flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5845D8]/10">
+                                <Lock size={18} className="text-[#5845D8]" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-tight text-[#012126]">
+                                    Confirm withdrawal
+                                </h3>
+                                <p className="text-[10px] font-bold text-gray-400">
+                                    Code sent to {otpDestination || 'your email'}
+                                </p>
+                            </div>
+                        </div>
+                        <input
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            inputMode="numeric"
+                            autoFocus
+                            placeholder="000000"
+                            className="mb-4 h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-center text-2xl font-black tracking-[0.4em] text-[#012126] outline-none focus:border-[#5845D8]"
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowModal(false);
+                                    setOtpCode('');
+                                }}
+                                className="h-12 rounded-2xl bg-gray-100 text-[10px] font-black uppercase tracking-widest text-[#012126]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={submitting || otpCode.length !== 6}
+                                className="h-12 rounded-2xl bg-[#1B24FF] text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-40"
+                            >
+                                {submitting ? 'Checking...' : 'Confirm'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
 
             {/* ── Transaction History ── */}
             <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">

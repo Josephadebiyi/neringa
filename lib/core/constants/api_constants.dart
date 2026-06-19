@@ -125,6 +125,8 @@ class ApiConstants {
   // ---------------------------------------------------------------------------
   static const String walletBalance = '/api/bago/getWallet';
   static const String referral = '/api/bago/referral';
+  static const String withdrawalRequestOtp =
+      '/api/bago/withdrawal/request-otp';
   // Backend: POST /withdrawFunds
   static const String withdrawFunds = '/api/bago/withdrawFunds';
   static const String paymentMethods = '/api/payments/cards';
