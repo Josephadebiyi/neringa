@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 
@@ -29,6 +30,7 @@ class ApiService {
       ),
     );
 
+    _dio.interceptors.add(_DeviceFingerprintInterceptor());
     _dio.interceptors.add(_AuthInterceptor());
   }
 
@@ -137,6 +139,41 @@ class ApiService {
       return 'No internet connection.';
     }
     return 'An unexpected error occurred.';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Device fingerprint interceptor — generates a persistent UUID on first use
+// and injects it as X-Device-Fingerprint on every request
+// ---------------------------------------------------------------------------
+String _generateUuidV4() {
+  final rand = Random.secure();
+  final bytes = List<int>.generate(16, (_) => rand.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  String hex(int b) => b.toRadixString(16).padLeft(2, '0');
+  final b = bytes.map(hex).toList();
+  return '${b[0]}${b[1]}${b[2]}${b[3]}-${b[4]}${b[5]}-${b[6]}${b[7]}-${b[8]}${b[9]}-${b[10]}${b[11]}${b[12]}${b[13]}${b[14]}${b[15]}';
+}
+
+class _DeviceFingerprintInterceptor extends Interceptor {
+  final _storage = StorageService.instance;
+  String? _cachedFp;
+
+  @override
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    if (_cachedFp == null) {
+      _cachedFp = await _storage.getDeviceFingerprint();
+      if (_cachedFp == null || _cachedFp!.isEmpty) {
+        _cachedFp = _generateUuidV4();
+        await _storage.saveDeviceFingerprint(_cachedFp!);
+      }
+    }
+    options.headers['X-Device-Fingerprint'] = _cachedFp;
+    handler.next(options);
   }
 }
 

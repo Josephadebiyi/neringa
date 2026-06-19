@@ -71,6 +71,78 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     return null;
   }
 
+  Future<void> _finishWithStatus(String finalStatus) async {
+    await ref
+        .read(authProvider.notifier)
+        .refreshProfile()
+        .timeout(const Duration(seconds: 5))
+        .catchError((_) {});
+    if (!mounted) return;
+
+    final String message;
+    final SnackBarType snackType;
+    if (finalStatus == 'approved') {
+      message = 'Your identity has been verified!';
+      snackType = SnackBarType.success;
+    } else if (finalStatus == 'declined') {
+      message =
+          'Verification was not approved. Please check your profile for details or try again.';
+      snackType = SnackBarType.error;
+    } else if (finalStatus == 'blocked_duplicate') {
+      message =
+          'This identity is already linked to another account. Please contact support.';
+      snackType = SnackBarType.error;
+    } else {
+      message = 'Verification submitted. We\'ll update your status shortly.';
+      snackType = SnackBarType.info;
+    }
+    AppSnackBar.show(context, message: message, type: snackType);
+    context.go(widget.fromOnboarding ? '/home' : '/profile');
+  }
+
+  Future<String> _syncReferenceUntilFinal(
+    String referenceId, {
+    int attempts = 12,
+    Duration initialTimeout = const Duration(seconds: 15),
+  }) async {
+    String finalStatus = 'pending';
+    try {
+      final syncResp = await ApiService.instance.post(
+          ApiConstants.kycDojahSyncResult,
+          data: {'referenceId': referenceId}).timeout(initialTimeout);
+      final synced = syncResp.data?['kycStatus']?.toString() ?? '';
+      if (synced == 'approved' ||
+          synced == 'declined' ||
+          synced == 'blocked_duplicate') {
+        return synced;
+      }
+    } catch (_) {}
+
+    for (int i = 0; i < attempts; i++) {
+      await Future.delayed(const Duration(seconds: 5));
+      try {
+        final syncResp = await ApiService.instance
+            .post(ApiConstants.kycDojahSyncResult, data: {
+          'referenceId': referenceId
+        }).timeout(const Duration(seconds: 10));
+        var status = syncResp.data?['kycStatus']?.toString() ?? '';
+        if (status == 'pending' || status.isEmpty) {
+          final resp = await ApiService.instance
+              .get(ApiConstants.kycStatus)
+              .timeout(const Duration(seconds: 4));
+          status = resp.data?['kycStatus']?.toString() ?? '';
+        }
+        if (status == 'approved' ||
+            status == 'declined' ||
+            status == 'blocked_duplicate') {
+          finalStatus = status;
+          break;
+        }
+      } catch (_) {}
+    }
+    return finalStatus;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -94,6 +166,25 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     final email = user?.email ?? '';
     final name = _splitName(user?.fullName ?? '');
     final dob = _formatDob(user?.dateOfBirth);
+
+    // Avoid charging/starting another Dojah session when a previous attempt
+    // already has a final result available from Dojah.
+    try {
+      final existing = await ApiService.instance.post(
+          ApiConstants.kycDojahSyncExisting,
+          data: {}).timeout(const Duration(seconds: 12));
+      final existingStatus = existing.data?['kycStatus']?.toString() ?? '';
+      final canStartNewSession = existing.data?['canStartNewSession'] == true;
+      if (existingStatus == 'approved' ||
+          existingStatus == 'declined' ||
+          existingStatus == 'blocked_duplicate' ||
+          (existingStatus == 'pending' && !canStartNewSession)) {
+        await _finishWithStatus(existingStatus);
+        return;
+      }
+    } catch (_) {
+      // If the preflight check is unavailable, fall back to the normal launch.
+    }
 
     final referenceId = _newDojahReferenceId();
 
@@ -162,33 +253,37 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       try {
         await _kycOverlay.invokeMethod('hide');
       } catch (_) {}
+      final finalStatus = await _syncReferenceUntilFinal(
+        referenceId,
+        attempts: 3,
+        initialTimeout: const Duration(seconds: 10),
+      );
       if (!mounted) return;
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'Verification session timed out. Please try again.';
-      });
+      await _finishWithStatus(finalStatus);
       return;
-    } on PlatformException catch (error) {
+    } on PlatformException {
       try {
         await _kycOverlay.invokeMethod('hide');
       } catch (_) {}
+      final finalStatus = await _syncReferenceUntilFinal(
+        referenceId,
+        attempts: 2,
+        initialTimeout: const Duration(seconds: 8),
+      );
       if (!mounted) return;
-      setState(() {
-        _hasError = true;
-        _errorMessage = error.message?.trim().isNotEmpty == true
-            ? error.message!
-            : 'Dojah could not start verification. Please try again.';
-      });
+      await _finishWithStatus(finalStatus);
       return;
-    } catch (error) {
+    } catch (_) {
       try {
         await _kycOverlay.invokeMethod('hide');
       } catch (_) {}
+      final finalStatus = await _syncReferenceUntilFinal(
+        referenceId,
+        attempts: 2,
+        initialTimeout: const Duration(seconds: 8),
+      );
       if (!mounted) return;
-      setState(() {
-        _hasError = true;
-        _errorMessage = error.toString().replaceFirst('Bad state: ', '');
-      });
+      await _finishWithStatus(finalStatus);
       return;
     }
 
@@ -205,74 +300,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       return;
     }
 
-    // Ask the backend to actively pull the result from Dojah's API right now.
-    // This resolves the status immediately without waiting for the webhook.
-    String finalStatus = 'pending';
-    try {
-      final syncResp = await ApiService.instance
-          .post(ApiConstants.kycDojahSyncResult, data: {
-        'referenceId': referenceId
-      }).timeout(const Duration(seconds: 15));
-      final synced = syncResp.data?['kycStatus']?.toString() ?? '';
-      if (synced == 'approved' ||
-          synced == 'declined' ||
-          synced == 'blocked_duplicate') {
-        finalStatus = synced;
-      }
-    } catch (_) {}
-
-    // If the first sync-result call didn't resolve it yet, keep asking the
-    // backend to actively pull by referenceId. Dojah can take a little while to
-    // index a just-completed session, especially on live mobile flows.
-    if (finalStatus == 'pending') {
-      for (int i = 0; i < 12; i++) {
-        await Future.delayed(const Duration(seconds: 5));
-        try {
-          final syncResp = await ApiService.instance
-              .post(ApiConstants.kycDojahSyncResult, data: {
-            'referenceId': referenceId
-          }).timeout(const Duration(seconds: 10));
-          var s = syncResp.data?['kycStatus']?.toString() ?? '';
-          if (s == 'pending' || s.isEmpty) {
-            final resp = await ApiService.instance
-                .get(ApiConstants.kycStatus)
-                .timeout(const Duration(seconds: 4));
-            s = resp.data?['kycStatus']?.toString() ?? '';
-          }
-          if (s == 'approved' || s == 'declined' || s == 'blocked_duplicate') {
-            finalStatus = s;
-            break;
-          }
-        } catch (_) {}
-      }
-    }
-
-    await ref
-        .read(authProvider.notifier)
-        .refreshProfile()
-        .timeout(const Duration(seconds: 5))
-        .catchError((_) {});
-    if (!mounted) return;
-
-    final String message;
-    final SnackBarType snackType;
-    if (finalStatus == 'approved') {
-      message = 'Your identity has been verified!';
-      snackType = SnackBarType.success;
-    } else if (finalStatus == 'declined') {
-      message =
-          'Verification was not approved. Please check your profile for details or try again.';
-      snackType = SnackBarType.error;
-    } else if (finalStatus == 'blocked_duplicate') {
-      message =
-          'This identity is already linked to another account. Please contact support.';
-      snackType = SnackBarType.error;
-    } else {
-      message = 'Verification submitted. We\'ll update your status shortly.';
-      snackType = SnackBarType.info;
-    }
-    AppSnackBar.show(context, message: message, type: snackType);
-    context.go(widget.fromOnboarding ? '/home' : '/profile');
+    final finalStatus = await _syncReferenceUntilFinal(referenceId);
+    await _finishWithStatus(finalStatus);
   }
 
   Future<void> _retry() async {

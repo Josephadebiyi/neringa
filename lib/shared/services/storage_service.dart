@@ -22,6 +22,7 @@ class StorageService {
   static const _quickUnlockEnabledKey = 'quick_unlock_enabled';
   static const _appPasscodeKey = 'app_passcode';
   static const _lastUnlockAtKey = 'last_unlock_at';
+  static const _deviceFingerprintKey = 'device_fingerprint';
 
   Future<String?> _safeRead(String key) async {
     try {
@@ -187,6 +188,12 @@ class StorageService {
       debugPrint('StorageService clearAll failed: $e');
     }
   }
+
+  // ---------- Device fingerprint --------------------------------------
+  Future<String?> getDeviceFingerprint() => _safeRead(_deviceFingerprintKey);
+
+  Future<void> saveDeviceFingerprint(String id) =>
+      _safeWrite(_deviceFingerprintKey, id);
 
   // ---------- Generic -------------------------------------------------
   Future<void> write(String key, String value) => _safeWrite(key, value);

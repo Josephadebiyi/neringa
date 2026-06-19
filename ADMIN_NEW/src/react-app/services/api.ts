@@ -535,4 +535,29 @@ export async function adminSetWalletCurrency(userId: string, newCurrency: string
   });
 }
 
+// Flagged / Banned Users
+export async function getFlaggedUsers(page = 1, limit = 50, source?: string) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (source) params.set('source', source);
+  return apiCall(`${ADMIN_API}/flagged-users?${params}`);
+}
+
+export async function flagUserById(userId: string, reason: string) {
+  return apiCall(`${ADMIN_API}/users/${userId}/flag`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function unflagUserById(userId: string) {
+  return apiCall(`${ADMIN_API}/users/${userId}/unflag`, { method: 'POST' });
+}
+
+export async function banUserWithDevice(userId: string, reason: string) {
+  return apiCall(`${ADMIN_API}/users/${userId}/ban-with-device`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export { API_BASE, ADMIN_API, MAIN_API };

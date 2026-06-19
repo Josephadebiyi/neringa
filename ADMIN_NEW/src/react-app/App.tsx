@@ -28,6 +28,7 @@ import OrdersPage from "./pages/Orders"
 import BannersPage from "./pages/Banners"
 import ProfilePage from "./pages/Profile"
 import ItemCategoriesPage from "./pages/ItemCategories"
+import FlaggedUsersPage from "./pages/FlaggedUsers"
 
 export default function App() {
   return (
@@ -143,6 +144,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <KYCVerificationManager />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/flagged-users"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <FlaggedUsersPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

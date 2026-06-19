@@ -6,6 +6,8 @@ import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewT
 import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { requireKycVerification } from '../middleware/kycMiddleware.js';
+import { requireInternalWalletMutation, requireVerifiedContact } from '../middleware/securityGuards.js';
+import { requestWithdrawalOtp, requireWithdrawalOtp } from '../controllers/WithdrawalOtpController.js';
 import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
@@ -15,7 +17,7 @@ import { getConversations, getMessages, resolveConversation, sendMessage, delete
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
-import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus, syncDojahResult } from '../controllers/DojahController.js';
+import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus, syncDojahResult, syncExistingDojahResult } from '../controllers/DojahController.js';
 import { submitManualKyc, getManualKycStatus } from '../controllers/ManualKycController.js';
 import { myCoverWebhook } from '../controllers/MyCoverWebhookController.js';
 import {
@@ -163,6 +165,7 @@ userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
 userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
 userRouter.post('/kyc/dojah/sync-result', isAuthenticated, syncDojahResult);
+userRouter.post('/kyc/dojah/sync-existing', isAuthenticated, syncExistingDojahResult);
 userRouter.get('/kyc/status', isAuthenticated, getKycStatus);  // app polls this after widget onSuccess
 userRouter.get('/insurance/mycover/webhook', (_req, res) => res.status(200).json({ success: true })); // URL verification by MyCover.ai
 userRouter.post('/insurance/mycover/webhook', myCoverWebhook); // event delivery by MyCover.ai servers
@@ -199,12 +202,13 @@ userRouter.delete('/request/:requestId', isAuthenticated, deleteRequestFromHisto
 // 💰 Wallet & Payments
 userRouter.get('/getWallet', isAuthenticated, getWallet);
 userRouter.get('/referral', isAuthenticated, getReferral);
-userRouter.post('/withdrawFunds', isAuthenticated, requireKycVerification, withdrawFunds);
-userRouter.post('/addFunds', isAuthenticated, requireKycVerification, addFunds);
-userRouter.post('/send-to-escrow', isAuthenticated, requireKycVerification, sendToEscrow);
-userRouter.post('/release-from-escrow', isAuthenticated, requireKycVerification, releaseFromEscrow);
-userRouter.post('/add-to-escrow', isAuthenticated, requireKycVerification, addToEscrow);
-userRouter.post("/remove-cancelled-escrow", isAuthenticated, requireKycVerification, handleCancelledRequestEscrow);
+userRouter.post('/withdrawal/request-otp', isAuthenticated, requireKycVerification, requireVerifiedContact, requestWithdrawalOtp);
+userRouter.post('/withdrawFunds', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFunds);
+userRouter.post('/addFunds', isAuthenticated, requireKycVerification, requireInternalWalletMutation, addFunds);
+userRouter.post('/send-to-escrow', isAuthenticated, requireKycVerification, requireInternalWalletMutation, sendToEscrow);
+userRouter.post('/release-from-escrow', isAuthenticated, requireKycVerification, requireInternalWalletMutation, releaseFromEscrow);
+userRouter.post('/add-to-escrow', isAuthenticated, requireKycVerification, requireInternalWalletMutation, addToEscrow);
+userRouter.post("/remove-cancelled-escrow", isAuthenticated, requireKycVerification, requireInternalWalletMutation, handleCancelledRequestEscrow);
 
 
 

@@ -419,6 +419,7 @@ authRoutes.forEach(route => app.use(route, authLimiter));
 // Stricter limits on sensitive financial operations (not KYC — users need to retry)
 [
   '/api/bago/withdrawFunds',
+  '/api/bago/withdrawal/request-otp',
   '/api/bago/paystack/initialize',
   '/api/bago/paystack/add-bank',
   '/api/paystack/add-bank',
@@ -637,11 +638,11 @@ schema('/api/paystack/verify-bank-otp', {
   max: { otp: 12 },
 });
 schema('/api/paystack/withdraw', {
-  allowed: ['amount', 'currency'],
+  allowed: ['amount', 'currency', 'otp'],
   required: ['amount'],
   stringOrNumbers: ['amount'],
-  strings: ['currency'],
-  max: { amount: 20, currency: 3 },
+  strings: ['currency', 'otp'],
+  max: { amount: 20, currency: 3, otp: 12 },
 });
 schema('/api/payments/create-intent', {
   allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
@@ -692,19 +693,22 @@ schema('/api/payouts/change-method/verify-otp', {
   max: { otp: 12 },
 });
 schema('/api/payouts/withdraw', {
-  allowed: ['amount', 'currency'],
+  allowed: ['amount', 'currency', 'otp'],
   required: ['amount', 'currency'],
-  strings: ['currency'],
+  strings: ['currency', 'otp'],
   stringOrNumbers: ['amount'],
-  max: { amount: 20, currency: 3 },
+  max: { amount: 20, currency: 3, otp: 12 },
 });
 schema('/api/payouts/paypal/withdraw', {
-  allowed: ['amount', 'currency', 'method'],
+  allowed: ['amount', 'currency', 'method', 'otp'],
   required: ['amount', 'currency'],
-  strings: ['currency', 'method'],
+  strings: ['currency', 'method', 'otp'],
   stringOrNumbers: ['amount'],
   enums: { method: ['paypal'] },
-  max: { amount: 20, currency: 3, method: 20 },
+  max: { amount: 20, currency: 3, method: 20, otp: 12 },
+});
+schema('/api/bago/withdrawal/request-otp', {
+  allowed: [],
 });
 schema('/api/bago/register-token', {
   allowed: ['token', 'deviceToken', 'pushToken'],
@@ -806,6 +810,8 @@ import { startCurrencyRateSync } from './cron/currencyCron.js';
 import { isAuthenticated } from './Auth/UserAuthentication.js';
 import { adminAuthenticated } from './Auth/AdminAuthentication.js';
 import { requireKycVerification } from './middleware/kycMiddleware.js';
+import { requireVerifiedContact } from './middleware/securityGuards.js';
+import { requireWithdrawalOtp } from './controllers/WithdrawalOtpController.js';
 
 // ✅ Paystack Controller
 import {
@@ -865,7 +871,7 @@ app.post('/api/paystack/initialize', isAuthenticated, requireKycVerification, in
 app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
 app.post('/api/paystack/add-bank', isAuthenticated, addBankAccount);
 app.post('/api/paystack/verify-bank-otp', isAuthenticated, verifyBankOTP);
-app.post('/api/paystack/withdraw', isAuthenticated, requireKycVerification, withdrawFundsPaystack);
+app.post('/api/paystack/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFundsPaystack);
 app.get('/api/paystack/banks', getPaystackBanks);
 app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
@@ -875,7 +881,7 @@ app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by sig
 // captured funds in escrow until the shipment is completed.
 app.get('/api/config/paypal', isAuthenticated, getPaypalConfig);
 app.post('/api/payouts/paypal/connect', isAuthenticated, requireKycVerification, connectPaypalPayout);
-app.post('/api/payouts/paypal/withdraw', isAuthenticated, requireKycVerification, withdrawPaypalPayout);
+app.post('/api/payouts/paypal/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawPaypalPayout);
 app.post('/api/payments/paypal/create-order', isAuthenticated, createPaypalOrder);
 app.post('/api/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
 app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalOrder);

@@ -30,6 +30,7 @@ import {
   PanelLeftOpen,
   ImagePlay,
   Package,
+  UserX,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -59,6 +60,7 @@ const allNavItems: NavItemDef[] = [
   { icon: Ticket,          label: "Promo Codes",        path: "/promo-codes",      roles: ["SUPER_ADMIN"] },
   { icon: MessageCircle,   label: "Support Tickets",    path: "/support",          roles: ["SUPER_ADMIN", "SUPPORT_ADMIN"] },
   { icon: ShieldAlert,     label: "Disputes",           path: "/disputes",         roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
+  { icon: UserX,           label: "Flagged Users",      path: "/flagged-users",    roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
   { icon: RotateCcw,       label: "Refunds",            path: "/refund",           roles: ["SUPER_ADMIN"] },
   { icon: CreditCard,      label: "Withdrawals",        path: "/withdrawals",      roles: ["SUPER_ADMIN"] },
   { icon: Send,            label: "Broadcast Center",   path: "/push-notification", roles: ["SUPER_ADMIN"] },

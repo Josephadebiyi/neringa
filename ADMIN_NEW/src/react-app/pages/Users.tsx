@@ -36,7 +36,12 @@ interface User {
   signupMethod?: 'email' | 'google' | 'apple';
   signupSource?: 'ios' | 'android' | 'web' | 'app';
   kycStatus?: string;
+  kycProvider?: string;
   kycData?: any;
+  emailVerified?: boolean;
+  identityFieldsLocked?: boolean;
+  verifiedFullLegalName?: string | null;
+  verifiedDateOfBirth?: string | null;
   earningCurrency?: string;
   earningCurrencyLocked?: boolean;
   walletBalance?: number;
@@ -207,6 +212,13 @@ export default function Users() {
   );
 
   const totalPages = Math.ceil(totalCount / limit);
+  const kycPassed = (status?: string) => ['approved', 'verified', 'completed'].includes((status || '').toLowerCase());
+  const sourceLabel = (source?: string) => {
+    const normalized = (source || '').toLowerCase();
+    if (normalized === 'ios' || normalized === 'android') return normalized.toUpperCase();
+    if (normalized === 'web') return 'WEB';
+    return 'APP';
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -273,7 +285,7 @@ export default function Users() {
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Country</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Role</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Auth</th>
-                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Verified</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Profile</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Escrow</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Actions</th>
                 </tr>
@@ -325,22 +337,42 @@ export default function Users() {
                           {user.signupMethod || 'email'}
                         </span>
                       </td>
-                      {/* Verified: phone for senders, KYC for travelers */}
+                      {/* App/Web profile verification state */}
                       <td className="py-5 px-8">
-                        {user.earningCurrencyLocked ? (
-                          <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${user.kycStatus === 'approved' || user.kycStatus === 'verified' ? 'bg-green-50 text-green-600 border-green-100' :
-                            user.kycStatus === 'rejected' ? 'bg-red-50 text-red-600 border-red-100' :
-                              'bg-amber-50 text-amber-600 border-amber-100'
-                            }`}>
-                            {user.kycStatus === 'approved' || user.kycStatus === 'verified' ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-                            KYC: {user.kycStatus || 'none'}
-                          </span>
-                        ) : (
-                          <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5 w-fit ${user.phoneVerified ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
-                            {user.phoneVerified ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-                            {user.phoneVerified ? 'Phone ✓' : 'Phone pending'}
-                          </span>
-                        )}
+                        <div className="space-y-1.5 min-w-[190px]">
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-gray-50 text-gray-500 border border-gray-100">
+                              {sourceLabel(user.signupSource)}
+                            </span>
+                            <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${user.status === 'verified' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                              Profile: {user.status || 'pending'}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1 ${user.emailVerified ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                              {user.emailVerified ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                              Email {user.emailVerified ? '✓' : 'pending'}
+                            </span>
+                            <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1 ${user.phoneVerified ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                              {user.phoneVerified ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                              Phone {user.phoneVerified ? '✓' : 'pending'}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1 ${kycPassed(user.kycStatus) ? 'bg-green-50 text-green-600 border-green-100' :
+                              user.kycStatus === 'declined' || user.kycStatus === 'failed_verification' || user.kycStatus === 'blocked_duplicate' ? 'bg-red-50 text-red-600 border-red-100' :
+                                'bg-amber-50 text-amber-600 border-amber-100'
+                              }`}>
+                              {kycPassed(user.kycStatus) ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                              KYC: {user.kycStatus || 'none'}
+                            </span>
+                            {user.identityFieldsLocked && (
+                              <span className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100">
+                                Locked
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       {/* Escrow */}
                       <td className="py-5 px-8">

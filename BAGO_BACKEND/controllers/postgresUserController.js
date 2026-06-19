@@ -27,7 +27,7 @@ import {
   adminChangeEarningCurrency,
   clearOtpAndUpdatePassword,
 } from '../lib/postgres/profiles.js';
-import { queryOne } from '../lib/postgres/db.js';
+import { query, queryOne } from '../lib/postgres/db.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
@@ -70,6 +70,24 @@ function getAllowedAppleAudiences() {
     .flatMap((value) => (value || '').split(','))
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+async function checkDeviceFingerprint(req) {
+  const fp = (req.headers['x-device-fingerprint'] || '').trim();
+  if (!fp) return { fp: null, banned: false };
+  const row = await queryOne(
+    `SELECT fingerprint FROM public.banned_device_fingerprints WHERE fingerprint = $1 LIMIT 1`,
+    [fp],
+  ).catch(() => null);
+  return { fp, banned: !!row };
+}
+
+async function storeDeviceFingerprint(userId, fp) {
+  if (!fp) return;
+  await query(
+    `UPDATE public.profiles SET device_fingerprint = $1, updated_at = NOW() WHERE id = $2 AND (device_fingerprint IS NULL OR device_fingerprint = $1)`,
+    [fp, userId],
+  ).catch(() => {});
 }
 
 function buildUserResponse(user) {
@@ -330,6 +348,13 @@ export async function verifySignupOtp(req, res) {
       });
     }
 
+    const { fp, banned: deviceBanned } = await checkDeviceFingerprint(req);
+    if (deviceBanned) {
+      return res.status(403).json({
+        message: 'This device has been restricted. Please contact support if you believe this is an error.',
+      });
+    }
+
     // Use pre-hashed password from token (passwordHash field); legacy tokens may have plain password field
     const passwordHash = decoded.passwordHash || await bcrypt.hash(decoded.password, 10);
     const paymentGateway = getPaymentGateway(decoded.country);
@@ -350,6 +375,8 @@ export async function verifySignupOtp(req, res) {
       signupSource: decoded.signupSource || 'app',
       emailVerified: true,
     });
+
+    await storeDeviceFingerprint(newUser.id, fp);
 
     if (decoded.promoCode) {
       await applySignupBonus(newUser.id, decoded.promoCode);
@@ -679,6 +706,11 @@ export async function googleAuth(req, res) {
       });
     }
 
+    const { fp: googleFp, banned: googleDeviceBanned } = await checkDeviceFingerprint(req);
+    if (googleDeviceBanned) {
+      return res.status(403).json({ success: false, message: 'This device has been restricted. Please contact support.' });
+    }
+
     const googlePlatform = req.headers['x-platform'] || 'app';
     const { user, isNewUser } = await createOrUpdateGoogleProfile({
       email: email.toLowerCase(),
@@ -694,6 +726,8 @@ export async function googleAuth(req, res) {
     if (user.banned) {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
     }
+
+    await storeDeviceFingerprint(user.id, googleFp);
 
     if (isNewUser) {
       await applyReferralSignupReward(user.id).catch((error) =>
@@ -797,6 +831,11 @@ export async function appleAuth(req, res) {
     const appleSub = decoded.sub;
     const resolvedEmail = email || decoded.email || null;
 
+    const { fp: appleFp, banned: appleDeviceBanned } = await checkDeviceFingerprint(req);
+    if (appleDeviceBanned) {
+      return res.status(403).json({ success: false, message: 'This device has been restricted. Please contact support.' });
+    }
+
     const applePlatform = req.headers['x-platform'] || 'ios';
     const { user, isNewUser } = await createOrUpdateAppleProfile({
       appleSub,
@@ -809,6 +848,8 @@ export async function appleAuth(req, res) {
     if (user.banned) {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
     }
+
+    await storeDeviceFingerprint(user.id, appleFp);
 
     if (isNewUser) {
       await sendWelcomeEmail(user.email, user.firstName || 'User', 'apple').catch(() => {});

@@ -85,6 +85,25 @@ class UserModel {
 
   bool get isCompany => accountType == 'company';
 
+  String get firstName {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    return parts.isNotEmpty ? parts.first : '';
+  }
+
+  String get lastName {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.length <= 1) return '';
+    return parts.sublist(1).join(' ');
+  }
+
   /// Display name: company name for companies, first name for individuals
   String get displayName => isCompany
       ? (companyName?.isNotEmpty == true ? companyName! : fullName)

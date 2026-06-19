@@ -141,6 +141,14 @@ export const edit = async (req, res, next) => {
   const updates = req.body;
 
   try {
+    if (updates.full_name && (!updates.firstName || !updates.lastName)) {
+      const parts = String(updates.full_name).trim().split(/\s+/).filter(Boolean);
+      if (parts.length > 0) {
+        updates.firstName = updates.firstName || parts[0];
+        updates.lastName = updates.lastName || (parts.length > 1 ? parts.slice(1).join(' ') : '');
+      }
+    }
+
     const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'country'];
     const updateKeys = Object.keys(updates).filter(k => allowed.includes(k));
 
@@ -150,6 +158,25 @@ export const edit = async (req, res, next) => {
 
     // Read old preferred currency BEFORE the update so wallet conversion has a fallback
     let oldPreferredCurrency = null;
+    const identityUpdateKeys = updateKeys.filter((key) => ['firstName', 'lastName', 'dateOfBirth'].includes(key));
+    if (identityUpdateKeys.length > 0) {
+      const profile = await queryOne(
+        `SELECT kyc_status, identity_fields_locked FROM public.profiles WHERE id = $1`,
+        [userId],
+      );
+      const kycStatus = String(profile?.kyc_status || '').trim().toLowerCase();
+      const identityLocked =
+        profile?.identity_fields_locked === true ||
+        ['approved', 'verified', 'completed'].includes(kycStatus);
+      if (identityLocked) {
+        return res.status(403).json({
+          success: false,
+          code: 'IDENTITY_FIELDS_LOCKED',
+          message: 'Name and date of birth are locked after identity verification.',
+        });
+      }
+    }
+
     if (updateKeys.includes('preferredCurrency')) {
       const current = await queryOne(
         `SELECT preferred_currency FROM public.profiles WHERE id = $1`, [userId]
