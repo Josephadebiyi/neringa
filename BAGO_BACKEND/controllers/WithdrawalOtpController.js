@@ -5,6 +5,8 @@ import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { resend } from '../services/resendClient.js';
 
 const OTP_TTL_MINUTES = Number(process.env.WITHDRAWAL_OTP_TTL_MINUTES || 10);
+const WITHDRAWAL_OTP_FROM =
+  process.env.WITHDRAWAL_OTP_FROM || 'Bago <no-reply@sendwithbago.com>';
 
 function hashOtp(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -61,8 +63,8 @@ export async function requestWithdrawalOtp(req, res) {
       [profile.id, hashOtp(otp), OTP_TTL_MINUTES],
     );
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Bago <no-reply@sendwithbago.com>',
+    const { data: emailData, error: emailError } = await resend.emails.send({
+      from: WITHDRAWAL_OTP_FROM,
       to: profile.email,
       subject: 'Confirm your Bago withdrawal',
       html: generateOtpEmailHtml({
@@ -71,6 +73,25 @@ export async function requestWithdrawalOtp(req, res) {
         subtitle: 'Use this code to confirm your wallet withdrawal.',
         expiryNote: `This code expires in ${OTP_TTL_MINUTES} minutes.`,
       }),
+    });
+    if (emailError) {
+      console.error('Withdrawal OTP email rejected by provider:', {
+        userId: profile.id,
+        to: maskEmail(profile.email),
+        from: WITHDRAWAL_OTP_FROM,
+        error: emailError.message || emailError.name || emailError,
+      });
+      return res.status(502).json({
+        success: false,
+        code: 'WITHDRAWAL_OTP_EMAIL_FAILED',
+        message: 'Could not send the withdrawal code. Please contact support or try again shortly.',
+      });
+    }
+
+    console.log('Withdrawal OTP email accepted:', {
+      userId: profile.id,
+      to: maskEmail(profile.email),
+      id: emailData?.id || null,
     });
 
     return res.json({
