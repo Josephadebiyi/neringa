@@ -48,6 +48,12 @@ async function ensurePaypalInfrastructure() {
   await query(`alter table public.paypal_payments add column if not exists paypal_capture_id text unique`);
   await query(`alter table public.paypal_payments add column if not exists error_message text`);
   await query(`
+    alter table public.wallet_transactions
+      add column if not exists updated_at timestamptz not null default timezone('utc', now())
+  `).catch((error) => {
+    console.warn('wallet_transactions.updated_at could not be ensured:', error.message);
+  });
+  await query(`
     create table if not exists public.payment_events (
       id bigserial primary key,
       provider text not null,
@@ -295,6 +301,7 @@ export async function withdrawPaypalPayout(req, res) {
   const senderBatchId = `BAGO-PAYPAL-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
   try {
+    await ensurePaypalInfrastructure();
     const prepared = await withTransaction(async (client) => {
       const accountResult = await client.query(
         `
