@@ -238,7 +238,14 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       final data = response.data;
       final destination = data is Map ? data['destination']?.toString() : null;
       if (!mounted) return null;
-      return _showWithdrawalOtpDialog(destination);
+      AppSnackBar.show(
+        context,
+        message: destination == null
+            ? 'Withdrawal code sent to your email.'
+            : 'Withdrawal code sent to $destination.',
+        type: SnackBarType.success,
+      );
+      return _showWithdrawalOtpSheet(destination);
     } on DioException catch (e) {
       if (mounted) {
         AppSnackBar.show(
@@ -251,51 +258,98 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
   }
 
-  Future<String?> _showWithdrawalOtpDialog(String? destination) async {
+  Future<String?> _showWithdrawalOtpSheet(String? destination) async {
     final otpCtrl = TextEditingController();
-    final result = await showDialog<String>(
+    String? errorText;
+    final result = await showModalBottomSheet<String>(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirm withdrawal'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              destination == null
-                  ? 'Enter the 6-digit code sent to your email.'
-                  : 'Enter the 6-digit code sent to $destination.',
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: otpCtrl,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Withdrawal code',
-                counterText: '',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final otp = otpCtrl.text.trim();
-              if (otp.length == 6) Navigator.of(ctx).pop(otp);
-            },
-            child: const Text('Confirm'),
-          ),
-        ],
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Enter withdrawal code',
+                    style: AppTextStyles.h3.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    destination == null
+                        ? 'Enter the 6-digit code sent to your email.'
+                        : 'Enter the 6-digit code sent to $destination.',
+                    style:
+                        AppTextStyles.bodyMd.copyWith(color: AppColors.gray500),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: otpCtrl,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      if (errorText != null) {
+                        setSheetState(() => errorText = null);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: '6-digit code',
+                      counterText: '',
+                      errorText: errorText,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            final otp = otpCtrl.text.trim();
+                            if (otp.length != 6) {
+                              setSheetState(() {
+                                errorText = 'Enter the 6-digit code.';
+                              });
+                              return;
+                            }
+                            Navigator.of(ctx).pop(otp);
+                          },
+                          child: const Text('Confirm'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
     otpCtrl.dispose();
     return result;

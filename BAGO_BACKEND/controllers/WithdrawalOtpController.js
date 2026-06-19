@@ -1,10 +1,9 @@
 import crypto from 'crypto';
-import { Resend } from 'resend';
 
 import { query, queryOne } from '../lib/postgres/db.js';
 import { generateOtpEmailHtml } from '../services/emailNotifications.js';
+import { resend } from '../services/resendClient.js';
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const OTP_TTL_MINUTES = Number(process.env.WITHDRAWAL_OTP_TTL_MINUTES || 10);
 
 function hashOtp(value) {
@@ -63,7 +62,7 @@ export async function requestWithdrawalOtp(req, res) {
     );
 
     await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Bago <no-reply@bago.app>',
+      from: process.env.RESEND_FROM || 'Bago <no-reply@sendwithbago.com>',
       to: profile.email,
       subject: 'Confirm your Bago withdrawal',
       html: generateOtpEmailHtml({

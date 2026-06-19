@@ -364,13 +364,67 @@ export async function withdrawPaypalPayout(req, res) {
     });
 
     transactionId = prepared.transactionId;
-    const payout = await createPaypalPayoutApi({
-      email: prepared.paypalEmail,
-      amount,
-      currency: walletCurrency,
-      senderBatchId,
-      note: 'Bago wallet withdrawal',
-    });
+    let payout;
+    try {
+      payout = await createPaypalPayoutApi({
+        email: prepared.paypalEmail,
+        amount,
+        currency: walletCurrency,
+        senderBatchId,
+        note: 'Bago wallet withdrawal',
+      });
+    } catch (payoutError) {
+      const paypalIssue = String(
+        payoutError?.details?.name ||
+        payoutError?.details?.error ||
+        payoutError?.details?.message ||
+        payoutError?.message ||
+        '',
+      ).toLowerCase();
+      const isAuthorizationIssue =
+        payoutError?.statusCode === 401 ||
+        payoutError?.statusCode === 403 ||
+        paypalIssue.includes('authorization');
+
+      if (!isAuthorizationIssue) throw payoutError;
+
+      await query(
+        `
+          update public.wallet_transactions
+          set status = 'pending',
+              description = 'PayPal withdrawal pending manual approval',
+              metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+              updated_at = timezone('utc', now())
+          where id = $1
+        `,
+        [
+          transactionId,
+          {
+            manualReviewRequired: true,
+            manualReviewReason: 'paypal_payouts_not_authorized',
+            paypalError: {
+              statusCode: payoutError.statusCode || null,
+              message: payoutError.message || null,
+              name: payoutError.details?.name || payoutError.details?.error || null,
+              debugId: payoutError.details?.debug_id || payoutError.details?.debugId || null,
+            },
+          },
+        ],
+      );
+
+      console.warn(
+        'PayPal payouts authorization failed; withdrawal left pending for manual review:',
+        payoutError.details?.debug_id || payoutError.message,
+      );
+
+      return res.json({
+        success: true,
+        message: 'Withdrawal submitted for approval. Funds will be sent after review.',
+        status: 'pending',
+        manualReviewRequired: true,
+      });
+    }
+
     await query(
       `
         update public.wallet_transactions
