@@ -629,9 +629,12 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       `
         select 
           sr.id, sr.sender_id, sr.traveler_id, sr.trip_id, sr.amount, sr.currency,
-          sr.tracking_number, sr.payment_info, sr.insurance_cost, p.package_weight
+          sr.tracking_number, sr.payment_info, sr.insurance_cost, sr.traveler_payout,
+          sr.platform_commission, sr.processing_fee, sr.fx_buffer,
+          p.package_weight, t.price_per_kg
         from public.shipment_requests sr
         join public.packages p on p.id = sr.package_id
+        left join public.trips t on t.id = sr.trip_id
         where sr.id = $1 for update
       `,
       [requestId],
@@ -683,13 +686,19 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       const storedTravelerPayout = toNumber(request.traveler_payout);
       let travelerEarningAmount = storedTravelerPayout;
       if (travelerEarningAmount <= 0) {
-        const config = await getFullPricingConfig();
-        const surchargeMultiplier =
-          (1 + Number(config.platformCommissionPercent || 0) / 100) *
-          (1 +
-            Number(config.processingFeePercent || 0) / 100 +
-            Number(config.fxBufferPercent || 0) / 100);
-        travelerEarningAmount = Number(((rawAmount - insuranceFee) / surchargeMultiplier).toFixed(2));
+        const weight = toNumber(request.package_weight);
+        const pricePerKg = toNumber(request.price_per_kg);
+        if (weight > 0 && pricePerKg > 0) {
+          travelerEarningAmount = Number((weight * pricePerKg).toFixed(2));
+        } else {
+          const config = await getFullPricingConfig();
+          const surchargeMultiplier =
+            (1 + Number(config.platformCommissionPercent || 0) / 100) *
+            (1 +
+              Number(config.processingFeePercent || 0) / 100 +
+              Number(config.fxBufferPercent || 0) / 100);
+          travelerEarningAmount = Number(((rawAmount - insuranceFee) / surchargeMultiplier).toFixed(2));
+        }
       }
       const commissionAmount = toNumber(request.platform_commission ?? Math.max(0, rawAmount - insuranceFee - travelerEarningAmount));
       const paymentProcessingFee = toNumber(request.processing_fee);

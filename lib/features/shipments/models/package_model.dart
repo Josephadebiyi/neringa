@@ -96,8 +96,7 @@ class PackageModel {
   String get statusLabel => status.label;
   double get senderDisplayAmount =>
       senderTotalAmount > 0 ? senderTotalAmount : price;
-  double get travelerDisplayAmount =>
-      travelerPayout > 0 ? travelerPayout : price;
+  double get travelerDisplayAmount => travelerPayout > 0 ? travelerPayout : 0.0;
   double amountForRole(String? role) {
     final normalizedRole = role?.toLowerCase().trim();
     if (normalizedRole == 'traveler' || normalizedRole == 'carrier') {
@@ -224,6 +223,13 @@ class PackageModel {
         travelerPayout: _firstDouble([
           json['travelerPayout'],
           json['traveler_payout'],
+          json['travelerEarningAmount'],
+          json['traveler_earning_amount'],
+          json['travelerEarnings'],
+          json['traveler_earnings'],
+          json['shipmentAmount'],
+          json['shipment_amount'],
+          _calculatedTravelerPayout(json),
         ]),
         insurance: json['insurance'] == true,
         insuranceCost: (json['insuranceCost'] as num?)?.toDouble() ??
@@ -356,6 +362,25 @@ class PackageModel {
       if (text.isNotEmpty && text != 'null') return text;
     }
     return '';
+  }
+
+  static double _calculatedTravelerPayout(Map<String, dynamic> json) {
+    final weight = _firstDouble([
+      json['weight'],
+      json['packageWeight'],
+      json['package_weight'],
+      _mapValue(json['package'], 'packageWeight'),
+      _mapValue(json['package'], 'package_weight'),
+      _mapValue(json['package'], 'weight'),
+    ]);
+    final pricePerKg = _firstDouble([
+      json['pricePerKg'],
+      json['price_per_kg'],
+      _mapValue(json['trip'], 'pricePerKg'),
+      _mapValue(json['trip'], 'price_per_kg'),
+    ]);
+    if (weight <= 0 || pricePerKg <= 0) return 0.0;
+    return weight * pricePerKg;
   }
 
   static String? _optionalString(String value) {

@@ -98,8 +98,7 @@ class RequestModel {
   bool get isAccepted => status == RequestStatus.accepted;
   double get senderDisplayAmount =>
       senderTotalAmount > 0 ? senderTotalAmount : agreedPrice;
-  double get travelerDisplayAmount =>
-      travelerPayout > 0 ? travelerPayout : agreedPrice;
+  double get travelerDisplayAmount => travelerPayout > 0 ? travelerPayout : 0.0;
   double amountForRole(String? role) {
     final normalizedRole = role?.toLowerCase().trim();
     if (normalizedRole == 'traveler' || normalizedRole == 'carrier') {
@@ -121,6 +120,9 @@ class RequestModel {
     final sender = json['sender'] as Map<String, dynamic>?;
     final carrier = json['carrier'] as Map<String, dynamic>?;
     final package = json['package'] as Map<String, dynamic>?;
+    final trip = json['trip'] is Map<String, dynamic>
+        ? json['trip'] as Map<String, dynamic>
+        : null;
     final recipient = (json['recipient_details'] ??
         json['recipientDetails'] ??
         package?['recipient_details'] ??
@@ -136,7 +138,23 @@ class RequestModel {
     final travelerPayout = JsonParser.parseDoubleFirst(json, [
       'travelerPayout',
       'traveler_payout',
+      'travelerEarningAmount',
+      'traveler_earning_amount',
+      'travelerEarnings',
+      'traveler_earnings',
+      'shipmentAmount',
+      'shipment_amount',
     ]);
+    final packageWeight = package != null
+        ? JsonParser.parseDoubleFirst(
+            package, ['packageWeight', 'package_weight', 'weight'])
+        : JsonParser.parseDoubleFirst(
+            json, ['packageWeight', 'package_weight', 'weight']);
+    final tripPricePerKg = trip != null
+        ? JsonParser.parseDoubleFirst(trip, ['pricePerKg', 'price_per_kg'])
+        : JsonParser.parseDoubleFirst(json, ['pricePerKg', 'price_per_kg']);
+    final calculatedTravelerPayout =
+        travelerPayout > 0 ? travelerPayout : packageWeight * tripPricePerKg;
     return RequestModel(
       id: JsonParser.parseId(json),
       packageId: json['packageId']?.toString() ??
@@ -155,7 +173,7 @@ class RequestModel {
       status: RequestStatus.fromString(rawStatus),
       agreedPrice: senderTotal,
       senderTotalAmount: senderTotal,
-      travelerPayout: travelerPayout,
+      travelerPayout: calculatedTravelerPayout,
       currency: json['currency']?.toString() ??
           json['preferredCurrency']?.toString() ??
           json['preferred_currency']?.toString() ??
@@ -184,9 +202,7 @@ class RequestModel {
           json['packageTitle']?.toString(),
       packageDescription: package?['description']?.toString() ??
           json['packageDescription']?.toString(),
-      packageWeight: package != null
-          ? JsonParser.parseDoubleFirst(package, ['packageWeight', 'weight'])
-          : JsonParser.parseDoubleFirst(json, ['packageWeight', 'weight']),
+      packageWeight: packageWeight,
       fromLocation: json['fromLocation']?.toString() ??
           json['originCity']?.toString() ??
           package?['fromCity']?.toString(),

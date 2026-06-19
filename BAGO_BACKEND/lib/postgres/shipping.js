@@ -14,6 +14,25 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(numericValue) ? numericValue : fallback;
 }
 
+function roundMoney(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return 0;
+  return Number(numericValue.toFixed(2));
+}
+
+function calculateTravelerPayoutFromRow(row) {
+  const storedPayout = toNumber(row?.traveler_payout);
+  if (storedPayout > 0) return roundMoney(storedPayout);
+
+  const packageWeight = toNumber(row?.package_weight);
+  const pricePerKg = toNumber(row?.trip_price_per_kg ?? row?.price_per_kg);
+  if (packageWeight > 0 && pricePerKg > 0) {
+    return roundMoney(packageWeight * pricePerKg);
+  }
+
+  return 0;
+}
+
 async function ensureShipmentBreakdownColumns(client) {
   const exec = client?.query ? (sql) => client.query(sql) : (sql) => query(sql);
   await exec(`
@@ -155,6 +174,8 @@ function normalizeMovementTracking(entries) {
 
 function normalizeRequest(row) {
   if (!row) return null;
+  const senderTotalAmount = toNumber(row.amount);
+  const travelerPayout = calculateTravelerPayoutFromRow(row);
   const sender = row.sender_id ? {
     _id: row.sender_id,
     id: row.sender_id,
@@ -220,6 +241,8 @@ function normalizeRequest(row) {
       toLocation: row.trip_to_location,
       departureDate: row.trip_departure_date,
       arrivalDate: row.trip_arrival_date,
+      pricePerKg: toNumber(row.trip_price_per_kg),
+      currency: row.trip_currency || row.currency,
     } : null,
     trackingNumber: row.tracking_number,
     image: row.image_url || row.package_image_url || null,
@@ -228,10 +251,10 @@ function normalizeRequest(row) {
     senderReceived: row.sender_received,
     handoverPin: row.handover_pin || null,
     handoverPinUsed: row.handover_pin_used || false,
-    amount: toNumber(row.amount),
-    agreedPrice: toNumber(row.amount),
-    senderTotalAmount: toNumber(row.amount),
-    travelerPayout: toNumber(row.traveler_payout, toNumber(row.amount)),
+    amount: senderTotalAmount,
+    agreedPrice: senderTotalAmount,
+    senderTotalAmount,
+    travelerPayout,
     platformCommission: toNumber(row.platform_commission),
     processingFee: toNumber(row.processing_fee),
     fxBuffer: toNumber(row.fx_buffer),
@@ -340,6 +363,8 @@ const requestSelect = `
     t.to_location as trip_to_location,
     t.departure_date as trip_departure_date,
     t.arrival_date as trip_arrival_date,
+    t.price_per_kg as trip_price_per_kg,
+    t.currency as trip_currency,
     c.id as conversation_id
   from public.shipment_requests sr
   left join public.profiles sender on sender.id = sr.sender_id
@@ -637,7 +662,7 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
           coalesce(sum(
             case
               when sr.status in ('accepted', 'intransit', 'delivering', 'completed')
-                then coalesce(sr.traveler_payout, sr.amount, 0)
+                then coalesce(nullif(sr.traveler_payout, 0), coalesce(pkg.package_weight, 0) * coalesce(t.price_per_kg, 0), 0)
               else 0
             end
           ), 0) as traveler_earnings,
@@ -774,7 +799,7 @@ export async function getTripById(id) {
           coalesce(sum(
             case
               when sr.status in ('accepted', 'intransit', 'delivering', 'completed')
-                then coalesce(sr.traveler_payout, sr.amount, 0)
+                then coalesce(nullif(sr.traveler_payout, 0), coalesce(pkg.package_weight, 0) * coalesce(t.price_per_kg, 0), 0)
               else 0
             end
           ), 0) as traveler_earnings,
@@ -1347,12 +1372,20 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
           `SELECT COALESCE(SUM(amount), 0) AS amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' AND status='completed'`,
           [request.id, request.traveler_id],
         );
-        const travelerCreditAmount = toNumber(escrowTxResult.rows[0]?.amount) ||
-          (twCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, twCurrency) : rawAmount);
+        const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
+        const travelerPayout = calculateTravelerPayoutFromRow(request);
+        const intendedCreditAmount = travelerPayout > 0
+          ? (twCurrency !== requestCurrency ? await convertCurrency(travelerPayout, requestCurrency, twCurrency) : travelerPayout)
+          : 0;
+        const travelerCreditAmount = heldAmount > 0 && intendedCreditAmount > 0
+          ? Math.min(heldAmount, intendedCreditAmount)
+          : heldAmount || intendedCreditAmount ||
+            (twCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, twCurrency) : rawAmount);
+        const travelerEscrowReleaseAmount = heldAmount || travelerCreditAmount;
 
         await client.query(
-          `update public.wallet_accounts set available_balance = available_balance + $2, escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
-          [request.traveler_id, travelerCreditAmount],
+          `update public.wallet_accounts set available_balance = available_balance + $2, escrow_balance = greatest(0, escrow_balance - $3), updated_at = timezone('utc', now()) where user_id = $1`,
+          [request.traveler_id, travelerCreditAmount, travelerEscrowReleaseAmount],
         );
         await client.query(
           `insert into public.wallet_transactions (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
@@ -1360,7 +1393,7 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
           [travelerWallet.id, request.traveler_id, request.id, request.trip_id,
            travelerCreditAmount, twCurrency,
            `Earned for delivering ${request.tracking_number || request.id}`,
-           JSON.stringify({ requestId: request.id })],
+           JSON.stringify({ requestId: request.id, heldAmount: travelerEscrowReleaseAmount, travelerPayout })],
         );
         await client.query(
           `
@@ -1818,29 +1851,38 @@ export async function redeemHandoverToken({ requestId, pin, travelerId }) {
         if (!alreadyCredited.rows[0]) {
           const twCurrency = (travelerWallet.currency || 'USD').toUpperCase();
           const escrowTxResult = await client.query(
-            `SELECT amount FROM public.wallet_transactions
+            `SELECT COALESCE(SUM(amount), 0) AS amount FROM public.wallet_transactions
              WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold'
-             ORDER BY created_at DESC LIMIT 1`,
+               AND status='completed'`,
             [request.id, request.traveler_id],
           );
-          const heldAmount = escrowTxResult.rows[0] ? toNumber(escrowTxResult.rows[0].amount) : 0;
-          if (heldAmount > 0) {
+          const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
+          const requestCurrency = (request.currency || 'USD').toUpperCase();
+          const travelerPayout = calculateTravelerPayoutFromRow(request);
+          const intendedCreditAmount = travelerPayout > 0
+            ? (twCurrency !== requestCurrency ? await convertCurrency(travelerPayout, requestCurrency, twCurrency) : travelerPayout)
+            : 0;
+          const travelerCreditAmount = heldAmount > 0 && intendedCreditAmount > 0
+            ? Math.min(heldAmount, intendedCreditAmount)
+            : heldAmount || intendedCreditAmount;
+          const travelerEscrowReleaseAmount = heldAmount || travelerCreditAmount;
+          if (travelerCreditAmount > 0 || travelerEscrowReleaseAmount > 0) {
             await client.query(
               `UPDATE public.wallet_accounts
                SET escrow_balance = GREATEST(0, escrow_balance - $2),
-                   available_balance = available_balance + $2,
+                   available_balance = available_balance + $3,
                    updated_at = timezone('utc', now())
                WHERE user_id = $1`,
-              [request.traveler_id, heldAmount],
+              [request.traveler_id, travelerEscrowReleaseAmount, travelerCreditAmount],
             );
             await client.query(
               `INSERT INTO public.wallet_transactions
                  (wallet_id, user_id, request_id, trip_id, type, amount, currency, status, description, metadata)
                VALUES ($1,$2,$3,$4,'earning',$5,$6,'completed',$7,$8)`,
               [travelerWallet.id, request.traveler_id, request.id, request.trip_id,
-               heldAmount, twCurrency,
+               travelerCreditAmount, twCurrency,
                `Earnings from handover PIN — ${request.tracking_number || request.id}`,
-               JSON.stringify({ requestId: request.id, method: 'handover_pin' })],
+               JSON.stringify({ requestId: request.id, method: 'handover_pin', heldAmount: travelerEscrowReleaseAmount, travelerPayout })],
             );
           }
         }
