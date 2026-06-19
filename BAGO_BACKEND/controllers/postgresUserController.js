@@ -682,8 +682,8 @@ export async function googleAuth(req, res) {
     const googlePlatform = req.headers['x-platform'] || 'app';
     const { user, isNewUser } = await createOrUpdateGoogleProfile({
       email: email.toLowerCase(),
-      firstName: givenName || 'User',
-      lastName: familyName || 'Bago',
+      firstName: givenName || '',
+      lastName: familyName || '',
       imageUrl: picture || null,
       referralCode: referralCode || null,
       promoCode: promoCode || null,

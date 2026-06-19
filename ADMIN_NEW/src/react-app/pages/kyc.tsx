@@ -31,6 +31,11 @@ interface UserData {
   kycVerifiedData?: KycVerifiedData;
   kycFailureReason?: string;
   profileImage?: string;
+  // verified identity columns (written by markKycApproved from Dojah data)
+  verifiedFullLegalName?: string;
+  verifiedFirstName?: string;
+  verifiedLastName?: string;
+  verifiedDateOfBirth?: string;
 }
 
 interface KYCItem {
@@ -272,12 +277,14 @@ export default function KYCVerificationManager() {
                   {item.user.kycProvider && (
                     <div className="text-xs text-gray-500 font-medium">Provider: {item.user.kycProvider}</div>
                   )}
-                  {item.user.kycVerifiedData?.fullName && item.user.kycVerifiedData.fullName !== `${item.user.firstName} ${item.user.lastName}` && (
-                    <div className="text-xs text-blue-600 font-medium">Verified as: {item.user.kycVerifiedData.fullName}</div>
+                  {(item.user.verifiedFullLegalName || (item.user.verifiedFirstName && item.user.verifiedLastName)) && (
+                    <div className="text-xs text-blue-600 font-semibold">
+                      ✓ {item.user.verifiedFullLegalName || `${item.user.verifiedFirstName} ${item.user.verifiedLastName}`}
+                    </div>
                   )}
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    <span>DOB: {formatDate(item.user.kycVerifiedData?.dateOfBirth || item.user.dateOfBirth)}</span>
+                    <span>DOB: {formatDate(item.user.verifiedDateOfBirth || item.user.kycVerifiedData?.dateOfBirth || item.user.dateOfBirth)}</span>
                   </div>
                 </div>
 
@@ -373,60 +380,66 @@ export default function KYCVerificationManager() {
                     {previewKYC.user.kycProvider === "manual" ? "Manual Identity Submission" : "Dojah Verified Identity"}
                   </h3>
                 </div>
-                {previewKYC.user.kycVerifiedData ? (
+                {(previewKYC.user.verifiedFullLegalName || previewKYC.user.verifiedFirstName || previewKYC.user.kycVerifiedData) ? (
                   <div className="grid grid-cols-1 gap-3 text-sm">
                     <div className="flex items-start gap-3">
                       <User className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Full Name</div>
-                        <div className="text-gray-900 font-semibold">{previewKYC.user.kycVerifiedData.fullName || "—"}</div>
+                        <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Full Name (from Dojah)</div>
+                        <div className="text-gray-900 font-semibold">
+                          {previewKYC.user.verifiedFullLegalName ||
+                            [previewKYC.user.verifiedFirstName, previewKYC.user.verifiedLastName].filter(Boolean).join(' ') ||
+                            previewKYC.user.kycVerifiedData?.fullName || "—"}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <Calendar className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Date of Birth</div>
-                        <div className="text-gray-900 font-semibold">{formatDate(previewKYC.user.kycVerifiedData.dateOfBirth)}</div>
+                        <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Date of Birth (from Dojah)</div>
+                        <div className="text-gray-900 font-semibold">
+                          {formatDate(previewKYC.user.verifiedDateOfBirth || previewKYC.user.kycVerifiedData?.dateOfBirth)}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <Hash className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <div>
                         <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Document Number</div>
-                        <div className="text-gray-900 font-semibold font-mono">{previewKYC.user.kycVerifiedData.documentNumber || previewKYC.user.kycVerifiedData.idNumber || "—"}</div>
+                        <div className="text-gray-900 font-semibold font-mono">{previewKYC.user.kycVerifiedData?.documentNumber || previewKYC.user.kycVerifiedData?.idNumber || "—"}</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <Globe className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <div>
                         <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Issuing Country</div>
-                        <div className="text-gray-900 font-semibold">{previewKYC.user.kycVerifiedData.issuingCountry || "—"}</div>
+                        <div className="text-gray-900 font-semibold">{previewKYC.user.kycVerifiedData?.issuingCountry || "—"}</div>
                       </div>
                     </div>
-                    {previewKYC.user.kycProvider === "manual" && (
+                    {previewKYC.user.kycProvider === "manual" && previewKYC.user.kycVerifiedData && (
                       <div className="pt-3 border-t border-blue-100 space-y-3">
                         <div>
                           <div className="text-xs text-blue-500 font-medium uppercase tracking-wider">Document Type</div>
-                          <div className="text-gray-900 font-semibold capitalize">{documentLabel(previewKYC.user.kycVerifiedData.idType)}</div>
+                          <div className="text-gray-900 font-semibold capitalize">{documentLabel(previewKYC.user.kycVerifiedData?.idType)}</div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {previewKYC.user.kycVerifiedData.idFrontUrl && (
+                          {previewKYC.user.kycVerifiedData?.idFrontUrl && (
                             <a href={previewKYC.user.kycVerifiedData.idFrontUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-50">
                               Front ID <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
-                          {previewKYC.user.kycVerifiedData.idBackUrl && (
+                          {previewKYC.user.kycVerifiedData?.idBackUrl && (
                             <a href={previewKYC.user.kycVerifiedData.idBackUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-50">
                               Back ID <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
-                          {previewKYC.user.kycVerifiedData.livenessUrl && (
+                          {previewKYC.user.kycVerifiedData?.livenessUrl && (
                             <a href={previewKYC.user.kycVerifiedData.livenessUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-50">
                               Liveness Video <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
                         </div>
-                        {previewKYC.user.kycVerifiedData.submittedAt && (
+                        {previewKYC.user.kycVerifiedData?.submittedAt && (
                           <div className="text-xs text-blue-600">Submitted at: {formatDate(previewKYC.user.kycVerifiedData.submittedAt)}</div>
                         )}
                       </div>

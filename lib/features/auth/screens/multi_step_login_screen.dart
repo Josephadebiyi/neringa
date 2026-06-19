@@ -39,10 +39,63 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
     setState(() => _currentStep = 1);
   }
 
+  Future<void> _promptForNameIfNeeded() async {
+    final user = ref.read(authProvider).user;
+    if (user == null || !mounted) return;
+    if (user.firstName.trim().isNotEmpty && user.lastName.trim().isNotEmpty) return;
+
+    final firstCtrl = TextEditingController(text: user.firstName.trim());
+    final lastCtrl  = TextEditingController(text: user.lastName.trim());
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Complete your profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Please enter your name so we know what to call you.', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: firstCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'First name', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: lastCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Last name', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          StatefulBuilder(builder: (ctx2, setSt) => TextButton(
+            onPressed: () async {
+              final first = firstCtrl.text.trim();
+              final last  = lastCtrl.text.trim();
+              if (first.isEmpty || last.isEmpty) return;
+              try {
+                await ref.read(authProvider.notifier).updateProfile({'firstName': first, 'lastName': last});
+              } catch (_) {}
+              if (ctx2.mounted) Navigator.of(ctx2).pop();
+            },
+            child: const Text('Save'),
+          )),
+        ],
+      ),
+    );
+
+    firstCtrl.dispose();
+    lastCtrl.dispose();
+  }
+
   Future<void> _handleGoogleAuth() async {
     try {
       setState(() => _isLoading = true);
       await ref.read(authProvider.notifier).googleSignIn();
+      await _promptForNameIfNeeded();
       if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) {
