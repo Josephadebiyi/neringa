@@ -738,11 +738,14 @@ export const syncDojahResult = async (req, res) => {
 
     // Check current status first — if already approved/declined, nothing to do.
     const existing = await queryOne(
-      `SELECT kyc_status AS "kycStatus" FROM public.profiles WHERE id = $1`,
+      `SELECT kyc_status AS "kycStatus",
+              kyc_verified_data AS "kycVerifiedData"
+       FROM public.profiles WHERE id = $1`,
       [userId],
     );
-    if (['approved', 'blocked_duplicate'].includes(existing?.kycStatus)) {
-      return res.json({ success: true, kycStatus: existing.kycStatus, source: 'db' });
+    const currentStatus = effectiveStoredKycStatus(existing?.kycStatus, existing?.kycVerifiedData);
+    if (['approved', 'blocked_duplicate'].includes(currentStatus)) {
+      return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
     }
 
     // Store the sync reference for recovery. Do not mark as pending here:
@@ -763,7 +766,7 @@ export const syncDojahResult = async (req, res) => {
       [userId, referenceId],
     ).catch(() => {});
 
-    let finalStatus = existing?.kycStatus || 'not_started';
+    let finalStatus = currentStatus || 'not_started';
     let source = 'db';
 
     // Actively pull the result from Dojah's API.

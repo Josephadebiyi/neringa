@@ -10,7 +10,7 @@ import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
 
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 120000;
+const POLL_TIMEOUT_MS = 300000;
 const ISO_COUNTRY_CODES = [
     'AF', 'AX', 'AL', 'DZ', 'AS', 'AD', 'AO', 'AI', 'AQ', 'AG', 'AR', 'AM', 'AW', 'AU', 'AT', 'AZ',
     'BS', 'BH', 'BD', 'BB', 'BY', 'BE', 'BZ', 'BJ', 'BM', 'BT', 'BO', 'BQ', 'BA', 'BW', 'BV', 'BR',
@@ -111,11 +111,11 @@ export default function Verify() {
             setPageLoading(true);
             const res = await api.get('/api/bago/kyc/status');
             const status = normalizeKycStatus(
-                user?.kycStatus ||
-                user?.kyc_status ||
                 res.data?.kycStatus ||
                 res.data?.kyc_status ||
-                res.data?.status
+                res.data?.status ||
+                user?.kycStatus ||
+                user?.kyc_status
             );
             setKycStatus(status);
             if (status === 'approved') {
@@ -240,11 +240,13 @@ export default function Verify() {
             setDojahCreds(null);
             const activeReferenceId = referenceId || dojahCreds?.referenceId || data?.referenceId || data?.reference_id;
             if (activeReferenceId) {
-                setKycStatus('pending');
                 setStep('status');
-                await syncDojahResult(activeReferenceId);
+                const finalStatus = await syncDojahResult(activeReferenceId);
+                if (finalStatus === 'not_started') {
+                    setStep('consent');
+                    setError('Verification was not completed. Please finish the steps in the secure window and submit your documents.');
+                }
             } else {
-                setKycStatus('pending');
                 setStep('status');
                 await fetchKycStatus();
                 await refreshUser();
@@ -559,7 +561,7 @@ function StatusCard({ kycStatus, navigate, onResubmit }) {
                 <div className="flex items-start gap-4 p-6 bg-amber-50 rounded-3xl border border-amber-100">
                     <Clock className="text-amber-500 shrink-0 animate-pulse" size={24} />
                     <p className="text-sm text-amber-700 font-medium leading-relaxed">
-                        We are reviewing your documents. This usually takes 5–30 minutes. We will notify you once complete.
+                        We are reviewing your documents. This usually takes about 5 minutes. We will notify you once complete.
                     </p>
                 </div>
                 <div className="flex flex-col gap-3">
