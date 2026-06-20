@@ -210,6 +210,8 @@ class PackageModel {
         price: _firstDouble([
           json['senderTotalAmount'],
           json['sender_total_amount'],
+          json['senderShippingFee'],
+          json['sender_shipping_fee'],
           json['price'],
           json['amount'],
           _mapValue(json['package'], 'pricePerKg'),
@@ -217,6 +219,8 @@ class PackageModel {
         senderTotalAmount: _firstDouble([
           json['senderTotalAmount'],
           json['sender_total_amount'],
+          json['senderShippingFee'],
+          json['sender_shipping_fee'],
           json['amount'],
           json['price'],
         ]),

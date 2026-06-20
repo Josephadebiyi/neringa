@@ -131,6 +131,8 @@ class RequestModel {
     final senderTotal = JsonParser.parseDoubleFirst(json, [
       'senderTotalAmount',
       'sender_total_amount',
+      'senderShippingFee',
+      'sender_shipping_fee',
       'amount',
       'agreedPrice',
       'price',

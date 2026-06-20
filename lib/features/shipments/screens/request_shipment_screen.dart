@@ -246,7 +246,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     setState(() => _isSubmitting = true);
     try {
       // Reuse the existing draft package for the same shipment while its
-      // 30-minute checkout window is still valid.
+      // 20-minute checkout window is still valid.
       final existingDraft = await ShipmentCheckoutService.instance.loadDraft();
       final reusableDraft = _isReusableDraftForCurrentShipment(
         existingDraft,

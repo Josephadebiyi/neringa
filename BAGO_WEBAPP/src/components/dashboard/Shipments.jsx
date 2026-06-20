@@ -482,7 +482,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
     const deliveryAddress = p.deliveryAddress || req.deliveryAddress || '';
     const rawDeclared = p.value || p.declaredValue || req.declaredValue || 0;
     const declaredValue = Number(rawDeclared) > 0 ? rawDeclared : '';
-    const amountPaid = req.amount || req.senderTotalAmount || req.agreedPrice || '';
+    const amountPaid = req.senderTotalAmount || req.sender_total_amount || req.senderShippingFee || req.sender_shipping_fee || req.amount || req.agreedPrice || '';
     const currency = (req.currency || req.package?.currency || '').toUpperCase() || 'USD';
     const weight = req.weight || req.packageWeight || p.packageWeight || p.package_weight || 0;
     const category = req.category || p.category || '';

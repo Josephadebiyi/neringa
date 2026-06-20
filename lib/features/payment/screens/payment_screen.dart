@@ -512,7 +512,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── Shared failure helper ─────────────────────────────────────────────────
   // Keep the original expiry on failure so repeated attempts reuse the same
-  // shipment draft without extending its 30-minute window.
+  // shipment draft without extending its 20-minute window.
   void _failWithDraft(
     String provider,
     String errorMsg, {
@@ -1090,7 +1090,10 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
         },
         onWebResourceError: (error) {
           if (error.isForMainFrame == true && mounted) {
-            setState(() { _isLoading = false; _hasError = true; });
+            setState(() {
+              _isLoading = false;
+              _hasError = true;
+            });
           }
         },
         onNavigationRequest: _onNavigationRequest,
@@ -1150,7 +1153,8 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                    const Icon(Icons.error_outline,
+                        size: 48, color: Colors.redAccent),
                     const SizedBox(height: 16),
                     const Text(
                       'Payment page could not load. Please go back and try again.',
