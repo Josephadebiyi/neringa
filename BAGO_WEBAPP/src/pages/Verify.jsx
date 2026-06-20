@@ -52,6 +52,18 @@ const normalizeCountryCode = (value) => {
     return byName?.code || '';
 };
 
+// ─── Date formatter for Dojah (expects DD-MM-YYYY) ───────────────────────────
+
+const formatDob = (raw) => {
+    if (!raw) return undefined;
+    // Already DD-MM-YYYY
+    if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) return raw;
+    // Convert YYYY-MM-DD → DD-MM-YYYY
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    return undefined;
+};
+
 // ─── Status normaliser ────────────────────────────────────────────────────────
 
 const normalizeKycStatus = (raw) => {
@@ -103,7 +115,7 @@ export default function Verify() {
     const [selectedCountry, setSelectedCountry] = useState('');
     const [countryDetecting, setCountryDetecting] = useState(true);
 
-    const [dojahCreds, setDojahCreds]       = useState(null); // { appId, publicKey, widgetId, userId }
+    const [dojahCreds, setDojahCreds]       = useState(null); // { appId, publicKey, widgetId, userId, referenceId }
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError]                 = useState('');
 
@@ -181,21 +193,50 @@ export default function Verify() {
         setError('');
         try {
             if (!selectedCountry) throw new Error('Please choose your country before starting.');
+
+            // Preflight: check if there's already a final result from a previous session.
+            // Mirrors the Flutter preflight call to /kyc/dojah/sync-existing.
+            try {
+                const preflightRes = await api.post('/api/bago/kyc/dojah/sync-existing', {});
+                const preflightStatus = preflightRes.data?.kycStatus;
+                const canStartNew    = preflightRes.data?.canStartNewSession !== false;
+
+                if (preflightStatus === 'approved' || preflightStatus === 'blocked_duplicate') {
+                    setKycStatus(preflightStatus);
+                    await refreshUser();
+                    return;
+                }
+                if (preflightStatus === 'declined' && canStartNew === false) {
+                    setKycStatus('declined');
+                    return;
+                }
+                if (preflightStatus === 'pending' && !canStartNew) {
+                    setKycStatus('pending');
+                    startPolling();
+                    return;
+                }
+            } catch { /* preflight failure is non-fatal — proceed normally */ }
+
             const res  = await api.post('/api/bago/kyc/dojah/start', { country: selectedCountry });
             const data = res.data || {};
-            const appId     = data.appId     || data.appID     || data.app_id;
-            const publicKey = data.publicKey || data.public_key;
-            const widgetId  = data.widgetId  || data.widget_id;
+            const appId       = data.appId       || data.appID     || data.app_id;
+            const publicKey   = data.publicKey   || data.public_key;
+            const widgetId    = data.widgetId    || data.widget_id;
+            const referenceId = data.referenceId || data.reference_id;
             if (!appId || !publicKey || !widgetId) {
                 throw new Error('Verification service is not configured. Please contact support.');
             }
-            // Clear any Dojah session cache so the widget always starts fresh
+            // Clear Dojah session cache from both localStorage and sessionStorage
+            // so the widget always opens a brand-new session with the fresh referenceId.
             try {
                 Object.keys(localStorage)
                     .filter((k) => /dojah/i.test(k))
                     .forEach((k) => localStorage.removeItem(k));
+                Object.keys(sessionStorage)
+                    .filter((k) => /dojah/i.test(k))
+                    .forEach((k) => sessionStorage.removeItem(k));
             } catch { /* ignore private-mode errors */ }
-            setDojahCreds({ appId, publicKey, widgetId, userId: data.userId });
+            setDojahCreds({ appId, publicKey, widgetId, userId: data.userId, referenceId });
             setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
@@ -205,37 +246,45 @@ export default function Verify() {
     };
 
     // ── Dojah response handler ─────────────────────────────────────────────────
-    // Per Dojah docs: do NOT pass referenceId to the widget — passing a completed
-    // session's referenceId causes the widget to skip all steps and fire success
-    // immediately. Instead we capture Dojah's own reference_id from data here.
     const handleDojahResponse = async (type, data) => {
         if (type === 'success') {
+            // Capture the creds snapshot before clearing them
+            const credsCopy = dojahCreds;
             setDojahCreds(null);
             setStep('status');
-            // Dojah's reference from the callback — this is what their API recognises
-            const dojahRef = data?.reference_id || data?.referenceId;
+
+            // Prefer the referenceId we sent (guaranteed fresh).
+            // Fall back to what Dojah returned in the callback.
+            const ourRef    = credsCopy?.referenceId;
+            const callbackRef = data?.reference_id || data?.referenceId;
+            const syncRef   = ourRef || callbackRef;
+
+            // If Dojah returned a DIFFERENT reference, it resumed an old session.
+            // Still sync — but use our reference so we query the correct session.
+            const isStaleResumption = callbackRef && ourRef && callbackRef !== ourRef;
+            if (isStaleResumption) {
+                // Dojah found a previous session — sync its result without exposing widget jank
+                console.warn('Dojah resumed old session:', callbackRef, '— syncing with our reference:', ourRef);
+            }
+
             try {
-                // Optimistically show pending while we confirm with the backend
                 setKycStatus('pending');
-                if (dojahRef) {
-                    const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', { referenceId: dojahRef });
+                if (syncRef) {
+                    const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', { referenceId: syncRef });
                     const status  = normalizeKycStatus(syncRes.data?.kycStatus || syncRes.data?.kyc_status);
                     setKycStatus(status);
                     if (['approved', 'declined', 'blocked_duplicate'].includes(status)) {
                         await refreshUser();
                     } else {
-                        // Dojah may still be processing — poll until we get a final status
                         startPolling();
                     }
                 } else {
-                    // No reference ID in callback — poll as fallback
                     startPolling();
                 }
             } catch {
                 startPolling();
             }
         } else if (type === 'close') {
-            // User dismissed the widget without completing
             setDojahCreds(null);
             setStep('consent');
         } else if (type === 'error') {
@@ -243,7 +292,6 @@ export default function Verify() {
             setStep('consent');
             setError(typeof data === 'string' ? data : 'Verification encountered an error. Please try again.');
         }
-        // 'loading' and 'begin' events are informational — no action needed
     };
 
     // ── Render ─────────────────────────────────────────────────────────────────
@@ -272,10 +320,9 @@ export default function Verify() {
                 <div className="w-20" />
             </nav>
 
-            {/* Dojah widget — mounts invisibly and auto-opens its overlay.
-                key=mountKey forces a full remount (fresh session) every time.
-                No referenceId prop — passing one resumes old sessions and skips steps.
-                No email in userData — Dojah uses email+appId to find previous sessions. */}
+            {/* Dojah widget — always receives a FRESH referenceId generated by the
+                backend for this specific attempt. This prevents the widget from
+                resuming any previous session stored server-side by Dojah. */}
             {step === 'verifying' && dojahCreds && (
                 <DojahErrorBoundary onError={() => {
                     setDojahCreds(null);
@@ -287,15 +334,19 @@ export default function Verify() {
                         publicKey={dojahCreds.publicKey}
                         type="custom"
                         config={{ widget_id: dojahCreds.widgetId }}
+                        referenceId={dojahCreds.referenceId || undefined}
                         userData={{
                             first_name: user?.firstName || undefined,
                             last_name:  user?.lastName  || undefined,
+                            dob:        user?.dateOfBirth ? formatDob(user.dateOfBirth) : undefined,
                             residence_country: selectedCountry || undefined,
                         }}
                         metadata={{
-                            user_id: dojahCreds.userId,
-                            userId:  dojahCreds.userId,
-                            country: selectedCountry,
+                            user_id:      dojahCreds.userId,
+                            userId:       dojahCreds.userId,
+                            referenceId:  dojahCreds.referenceId,
+                            reference_id: dojahCreds.referenceId,
+                            country:      selectedCountry,
                         }}
                         response={handleDojahResponse}
                     />
