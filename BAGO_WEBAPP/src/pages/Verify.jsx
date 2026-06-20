@@ -89,12 +89,16 @@ export default function Verify() {
     const normalizeKycStatus = (raw) => {
         const status = String(raw || '').trim().toLowerCase();
         if (['approved', 'verified', 'completed'].includes(status)) return 'approved';
-        if (['pending', 'pending_admin_review', 'pending_review', 'admin_review', 'manual_review', 'processing', 'under_review'].includes(status)) return 'pending';
+        if (['pending', 'pending_admin_review', 'pending_review', 'admin_review', 'manual_review', 'under_review'].includes(status)) return 'pending';
         if (['declined', 'rejected', 'failed', 'failed_verification', 'blocked_duplicate', 'expired'].includes(status)) return 'declined';
         return status || 'not_started';
     };
 
     const currentUserKycStatus = () => normalizeKycStatus(user?.kycStatus || user?.kyc_status);
+    const trustedProfileKycStatus = () => {
+        const status = currentUserKycStatus();
+        return ['approved', 'declined', 'blocked_duplicate'].includes(status) ? status : 'not_started';
+    };
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) navigate('/login?redirect=/verify');
@@ -130,19 +134,17 @@ export default function Verify() {
             const status = normalizeKycStatus(
                 res.data?.kycStatus ||
                 res.data?.kyc_status ||
-                res.data?.status ||
-                user?.kycStatus ||
-                user?.kyc_status
+                res.data?.status
             );
             setKycStatus(status);
             if (status === 'approved') {
                 setStep('status');
                 setDojahCreds(null);
-            } else if (status === 'pending' || status === 'processing') {
+            } else if (status === 'pending') {
                 startPolling();
             }
         } catch {
-            setKycStatus(currentUserKycStatus());
+            setKycStatus(trustedProfileKycStatus());
         } finally {
             setPageLoading(false);
         }
@@ -323,7 +325,7 @@ export default function Verify() {
             )}
 
             <main className="max-w-2xl mx-auto px-6 py-12 md:py-20">
-                {(kycStatus === 'approved' || kycStatus === 'pending' || kycStatus === 'processing') ? (
+                {(kycStatus === 'approved' || kycStatus === 'pending') ? (
                     <StatusCard
                         kycStatus={kycStatus}
                         navigate={navigate}
