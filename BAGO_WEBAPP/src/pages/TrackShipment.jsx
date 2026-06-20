@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import {
@@ -35,10 +35,22 @@ const Navbar = () => {
 
 export default function TrackShipment() {
     const { t } = useLanguage();
-    const [trackingNumber, setTrackingNumber] = useState('');
+    const [searchParams] = useSearchParams();
+    const [trackingNumber, setTrackingNumber] = useState(
+        searchParams.get('number') || searchParams.get('id') || ''
+    );
     const [shipment, setShipment] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // Auto-search when a tracking number is pre-filled from email link
+    useEffect(() => {
+        const preFilledNumber = searchParams.get('number') || searchParams.get('id');
+        if (preFilledNumber) {
+            handleTrack();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleTrack = async (e) => {
         if (e) e.preventDefault();

@@ -203,7 +203,7 @@ export async function sendReceiverShippingStartedEmail(receiverEmail, receiverNa
       from: 'Bago Shipping <no-reply@sendwithbago.com>',
       to: receiverEmail,
       subject: `📦 Package On The Way - ${trackingNumber}`,
-      html: generateEmailTemplate('Package En Route to You', content, 'Track Package', `${FRONTEND_URL}/tracking/${trackingNumber}`),
+      html: generateEmailTemplate('Package En Route to You', content, 'Track Package', `${FRONTEND_URL}/track?number=${trackingNumber}`),
     });
 
     console.log(`✅ Sent receiver notification email to ${receiverEmail}`);
@@ -242,7 +242,7 @@ export async function sendReceiverShipmentAcceptedEmail(receiverEmail, receiverN
       from: 'Bago Shipping <no-reply@sendwithbago.com>',
       to: receiverEmail,
       subject: `📦 Your Bago shipment is confirmed - ${trackingNumber}`,
-      html: generateEmailTemplate('Shipment Confirmed', content, 'Track Package', `${FRONTEND_URL}/tracking/${trackingNumber}`),
+      html: generateEmailTemplate('Shipment Confirmed', content, 'Track Package', `${FRONTEND_URL}/track?number=${trackingNumber}`),
     });
 
     console.log(`✅ Sent receiver accepted email to ${receiverEmail}`);
@@ -333,6 +333,79 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
   `;
 }
 
+function formatMoney(amount, currency = 'USD') {
+  const value = Number(amount || 0);
+  return `${String(currency || 'USD').toUpperCase()} ${Number.isFinite(value) ? value.toFixed(2) : '0.00'}`;
+}
+
+export async function sendWithdrawalSubmittedEmail(userEmail, userName, { amount, currency, reference, method } = {}) {
+  if (!resend || !userEmail) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const displayAmount = formatMoney(amount, currency);
+    const methodText = method ? String(method).replace(/_/g, ' ') : 'your payout account';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        We have received your withdrawal request for <strong>${displayAmount}</strong>. It is now being processed.
+      </p>
+      <div style="background:#eff6ff; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5240E8;">
+        <p style="margin:0; font-size:14px; color:#374151; line-height:1.6;">
+          Funds should reach ${methodText} within <strong>2-3 working days</strong>. We will email you again once the withdrawal has been processed.
+        </p>
+      </div>
+      ${reference ? `<p style="margin:0; font-family:Arial, sans-serif; font-size:13px; color:#6b7280; line-height:1.6;">Reference: <strong>${reference}</strong></p>` : ''}
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: 'Withdrawal request received',
+      html: generateEmailTemplate('Withdrawal Request Received', content, 'Open Bago App', FRONTEND_URL),
+    });
+    console.log(`✅ Sent withdrawal submitted email to ${userEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send withdrawal submitted email:', error);
+    return false;
+  }
+}
+
+export async function sendWithdrawalProcessedEmail(userEmail, userName, { amount, currency, reference, method } = {}) {
+  if (!resend || !userEmail) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const displayAmount = formatMoney(amount, currency);
+    const methodText = method ? String(method).replace(/_/g, ' ') : 'your payout account';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Your withdrawal of <strong>${displayAmount}</strong> has been processed.
+      </p>
+      <div style="background:#f0fdf4; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #22c55e;">
+        <p style="margin:0; font-size:14px; color:#374151; line-height:1.6;">
+          The funds have been sent to ${methodText}. Depending on your bank or payout provider, it may still take a short while to appear in your account.
+        </p>
+      </div>
+      ${reference ? `<p style="margin:0; font-family:Arial, sans-serif; font-size:13px; color:#6b7280; line-height:1.6;">Reference: <strong>${reference}</strong></p>` : ''}
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: 'Withdrawal processed',
+      html: generateEmailTemplate('Withdrawal Processed', content, 'Open Bago App', FRONTEND_URL),
+    });
+    console.log(`✅ Sent withdrawal processed email to ${userEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send withdrawal processed email:', error);
+    return false;
+  }
+}
+
 /**
  * Send email notification for request accepted
  */
@@ -364,7 +437,7 @@ export async function sendRequestAcceptedEmail(senderEmail, senderName, traveler
       from: 'Bago Shipping <no-reply@sendwithbago.com>',
       to: senderEmail,
       subject: `✅ Your Shipping Request Has Been Accepted!`,
-      html: generateEmailTemplate('Request Accepted', content, 'Track Shipment', `${FRONTEND_URL}/tracking/${trackingNumber || ''}`),
+      html: generateEmailTemplate('Request Accepted', content, 'Track Shipment', `${FRONTEND_URL}/track?number=${trackingNumber || ''}`),
     });
 
     console.log(`✅ Sent request accepted email to ${senderEmail}`);
@@ -404,7 +477,7 @@ export async function sendInTransitEmail(senderEmail, senderName, packageDetails
       from: 'Bago Shipping <no-reply@sendwithbago.com>',
       to: senderEmail,
       subject: `🚀 Your Package is In Transit - ${trackingNumber}`,
-      html: generateEmailTemplate('Package In Transit', content, 'Track Shipment', `${FRONTEND_URL}/tracking/${trackingNumber}`),
+      html: generateEmailTemplate('Package In Transit', content, 'Track Shipment', `${FRONTEND_URL}/track?number=${trackingNumber}`),
     });
 
     console.log(`✅ Sent in-transit email to ${senderEmail}`);
@@ -444,7 +517,7 @@ export async function sendOutForDeliveryEmail(senderEmail, senderName, packageDe
       from: 'Bago Shipping <no-reply@sendwithbago.com>',
       to: senderEmail,
       subject: `📬 Out for Delivery - ${trackingNumber}`,
-      html: generateEmailTemplate('Out for Delivery', content, 'Track Shipment', `${FRONTEND_URL}/tracking/${trackingNumber}`),
+      html: generateEmailTemplate('Out for Delivery', content, 'Track Shipment', `${FRONTEND_URL}/track?number=${trackingNumber}`),
     });
 
     console.log(`✅ Sent out-for-delivery email to ${senderEmail}`);
@@ -846,7 +919,7 @@ export async function sendKycDeclinedEmail(userEmail, userName, reason = '') {
       from: 'Bago <no-reply@sendwithbago.com>',
       to: userEmail,
       subject: 'Identity Verification Was Not Approved',
-      html: generateEmailTemplate('Verification Not Approved', content, 'Try Again', FRONTEND_URL),
+      html: generateEmailTemplate('Verification Not Approved', content, 'Try Again', `${FRONTEND_URL}/dashboard`),
     });
     console.log(`✅ Sent KYC declined email to ${userEmail}`);
     return true;
@@ -922,7 +995,7 @@ export async function sendShipmentLabelEmail({ toEmail, toName, trackingNumber, 
         <p style="margin:0; font-family:monospace; font-size:22px; font-weight:900; color:#111827; letter-spacing:3px;">${trackingNumber || requestId}</p>
       </div>
       <p style="margin:16px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#6b7280;">
-        Track your shipment live at <a href="${FRONTEND_URL}/tracking/${trackingNumber || requestId}" style="color:#5240E8; font-weight:600;">sendwithbago.com</a>
+        Track your shipment live at <a href="${FRONTEND_URL}/track?number=${trackingNumber || requestId}" style="color:#5240E8; font-weight:600;">sendwithbago.com</a>
       </p>
     `;
 
@@ -930,7 +1003,7 @@ export async function sendShipmentLabelEmail({ toEmail, toName, trackingNumber, 
       from: 'Bago Shipments <shipping@sendwithbago.com>',
       to: toEmail,
       subject: `Your Bago Shipping Label — ${trackingNumber || requestId}`,
-      html: generateEmailTemplate('Your Shipping Label', content, 'Track Shipment', `${FRONTEND_URL}/tracking/${trackingNumber || requestId}`),
+      html: generateEmailTemplate('Your Shipping Label', content, 'Track Shipment', `${FRONTEND_URL}/track?number=${trackingNumber || requestId}`),
       attachments: [{
         filename: `bago-label-${trackingNumber || requestId}.pdf`,
         content: pdfBuffer,
