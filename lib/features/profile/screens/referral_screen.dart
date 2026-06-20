@@ -135,7 +135,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
                     onCopyLink: () => _copy(_referralLink, 'Referral link'),
                   ),
                   const SizedBox(height: 16),
-                  _RulesCard(settings: _settings),
+                  _RulesCard(settings: _settings, displayCurrency: _currency),
                   const SizedBox(height: 20),
                   Text('Referred users',
                       style: AppTextStyles.h3.copyWith(
@@ -254,9 +254,10 @@ class _CopyButton extends StatelessWidget {
 }
 
 class _RulesCard extends StatelessWidget {
-  const _RulesCard({required this.settings});
+  const _RulesCard({required this.settings, required this.displayCurrency});
 
   final Map<String, dynamic> settings;
+  final String displayCurrency;
 
   @override
   Widget build(BuildContext context) {
@@ -266,6 +267,7 @@ class _RulesCard extends StatelessWidget {
       currencyKey: 'referralWelcomeBonusCurrency',
       baseAmountKey: 'referralWelcomeBonusNgn',
       baseCurrency: 'NGN',
+      displayCurrency: displayCurrency,
       defaultBaseAmount: 2000,
     );
     final threshold = NumberFormatHelper.rewardDisplay(
@@ -274,6 +276,7 @@ class _RulesCard extends StatelessWidget {
       currencyKey: 'referralShipmentThresholdCurrency',
       baseAmountKey: 'referralShipmentThresholdUsd',
       baseCurrency: 'USD',
+      displayCurrency: displayCurrency,
       defaultBaseAmount: 50,
     );
     final shipment = NumberFormatHelper.rewardDisplay(
@@ -282,6 +285,7 @@ class _RulesCard extends StatelessWidget {
       currencyKey: 'referralShipmentBonusCurrency',
       baseAmountKey: 'referralShipmentBonusUsd',
       baseCurrency: 'USD',
+      displayCurrency: displayCurrency,
       defaultBaseAmount: 2,
     );
     return Container(
@@ -479,12 +483,13 @@ class NumberFormatHelper {
     required String currencyKey,
     required String baseAmountKey,
     required String baseCurrency,
+    required String displayCurrency,
     required double defaultBaseAmount,
   }) {
     final configuredCurrency = settings[currencyKey]?.toString().trim();
     final currency = configuredCurrency != null && configuredCurrency.isNotEmpty
         ? configuredCurrency.toUpperCase()
-        : baseCurrency.toUpperCase();
+        : displayCurrency.toUpperCase();
     final amount = maybeClean(settings[amountKey]);
     final baseAmount =
         cleanPositive(settings[baseAmountKey], defaultBaseAmount);

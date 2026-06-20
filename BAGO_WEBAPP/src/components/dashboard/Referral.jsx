@@ -33,9 +33,12 @@ function convertFallback(amount, fromCurrency, toCurrency) {
     return Number(((numeric * toRate) / fromRate).toFixed(4));
 }
 
-function rewardMoney(settings, amountKey, currencyKey, baseAmountKey, baseCurrency, displayCurrency) {
+function rewardMoney(settings, amountKey, currencyKey, baseAmountKey, baseCurrency, displayCurrency, defaultBaseAmount = 0) {
     const amount = Number(settings?.[amountKey]);
-    const baseAmount = Number(settings?.[baseAmountKey]);
+    const configuredBaseAmount = Number(settings?.[baseAmountKey]);
+    const baseAmount = Number.isFinite(configuredBaseAmount) && configuredBaseAmount > 0
+        ? configuredBaseAmount
+        : Number(defaultBaseAmount || 0);
     const currency = String(settings?.[currencyKey] || displayCurrency || baseCurrency).toUpperCase();
     const hasPositiveAmount = Number.isFinite(amount) && amount > 0;
     const hasPositiveBase = Number.isFinite(baseAmount) && baseAmount > 0;
@@ -113,6 +116,7 @@ export default function Referral({ user }) {
         'referralWelcomeBonusNgn',
         'NGN',
         currency,
+        2000,
     );
     const shipmentDisplay = rewardMoney(
         settings,
@@ -121,6 +125,7 @@ export default function Referral({ user }) {
         'referralShipmentBonusUsd',
         'USD',
         currency,
+        2,
     );
     const thresholdDisplay = rewardMoney(
         settings,
@@ -129,6 +134,7 @@ export default function Referral({ user }) {
         'referralShipmentThresholdUsd',
         'USD',
         currency,
+        50,
     );
 
     return (
