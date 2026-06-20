@@ -22,6 +22,8 @@ import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
+import { sendWithdrawalProcessedEmail, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 
@@ -131,7 +133,17 @@ export const initializePaystackPayment = async (req, res) => {
         on conflict (provider, event_type, provider_reference) do update
         set payload = excluded.payload
       `,
-      ['paystack', 'payment_initialized', reference, requestId || null, paymentMetadata],
+      [
+        'paystack',
+        'payment_initialized',
+        reference,
+        requestId || null,
+        {
+          ...paymentMetadata,
+          authorizationUrl: result?.authorization_url || result?.data?.authorization_url || null,
+          accessCode: result?.access_code || result?.data?.access_code || null,
+        },
+      ],
     ).catch((eventError) => {
       console.error('Failed to persist payment initialization event:', eventError);
     });
@@ -415,7 +427,7 @@ export const withdrawFundsPaystack = async (req, res) => {
     }
 
     const profile = await queryOne(
-      `SELECT available_balance, paystack_recipient_code, kyc_status FROM public.profiles WHERE id = $1`,
+      `SELECT available_balance, paystack_recipient_code, kyc_status, email, first_name, last_name FROM public.profiles WHERE id = $1`,
       [user.id]
     );
 
@@ -436,6 +448,7 @@ export const withdrawFundsPaystack = async (req, res) => {
     if ((profile.available_balance || 0) < withdrawalAmount) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
+    await assertNoActiveWithdrawal(null, user.id);
 
     const reference = `BAGO-WD-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
@@ -471,6 +484,16 @@ export const withdrawFundsPaystack = async (req, res) => {
        VALUES ($1, $2, $3, $4) ON CONFLICT (reference) DO NOTHING`,
       [user.id, reference, withdrawalAmount, 'NGN'],
     ).catch(() => {}); // non-fatal: balance was already debited successfully
+    await sendWithdrawalSubmittedEmail(
+      profile.email || user.email,
+      [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim(),
+      {
+        amount: withdrawalAmount,
+        currency: 'NGN',
+        reference,
+        method: 'bank account',
+      },
+    ).catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -480,7 +503,12 @@ export const withdrawFundsPaystack = async (req, res) => {
     });
   } catch (error) {
     console.error('Withdraw funds Paystack error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to initiate withdrawal', error: error.message });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      code: error.code,
+      message: error.message || 'Failed to initiate withdrawal',
+      error: error.message,
+    });
   }
 };
 
@@ -823,8 +851,10 @@ async function handleSuccessfulTransfer(data) {
     const { reference } = data;
     // Find the wallet transaction by reference stored in metadata
     const tx = await queryOne(
-      `SELECT user_id, amount, currency FROM public.wallet_transactions
-       WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
+      `SELECT wt.user_id, wt.amount, wt.currency, p.email, p.first_name, p.last_name
+       FROM public.wallet_transactions wt
+       LEFT JOIN public.profiles p ON p.id = wt.user_id
+       WHERE wt.type = 'withdrawal' AND wt.metadata->>'reference' = $1 LIMIT 1`,
       [reference]
     );
     if (tx) {
@@ -847,7 +877,46 @@ async function handleSuccessfulTransfer(data) {
           `Your withdrawal of ${displayAmount} is on its way to your bank.`,
           { type: 'withdrawal_success', reference }
         ),
+        sendWithdrawalProcessedEmail(
+          tx.email,
+          [tx.first_name, tx.last_name].filter(Boolean).join(' ').trim(),
+          { amount: tx.amount, currency: tx.currency, reference, method: 'bank account' },
+        ),
       ]);
+    } else {
+      const ppw = await queryOne(
+        `UPDATE public.paystack_pending_withdrawals ppw
+         SET status = 'completed', updated_at = NOW()
+         FROM public.profiles p
+         WHERE ppw.user_id = p.id
+           AND ppw.reference = $1
+           AND ppw.status = 'pending'
+         RETURNING ppw.user_id, ppw.amount, ppw.currency, p.email, p.first_name, p.last_name`,
+        [reference],
+      );
+      if (ppw) {
+        const displayAmount = `${ppw.currency} ${Number(ppw.amount).toFixed(2)}`;
+        await Promise.allSettled([
+          createNotification({
+            userId: ppw.user_id,
+            title: 'Withdrawal successful!',
+            body: `Your withdrawal of ${displayAmount} has been processed.`,
+            type: 'withdrawal_success',
+            payload: { reference },
+          }),
+          sendPushNotification(
+            ppw.user_id,
+            'Withdrawal successful!',
+            `Your withdrawal of ${displayAmount} has been processed.`,
+            { type: 'withdrawal_success', reference },
+          ),
+          sendWithdrawalProcessedEmail(
+            ppw.email,
+            [ppw.first_name, ppw.last_name].filter(Boolean).join(' ').trim(),
+            { amount: ppw.amount, currency: ppw.currency, reference, method: 'bank account' },
+          ),
+        ]);
+      }
     }
     console.log(`✅ Transfer successful: ${reference}`);
   } catch (error) {

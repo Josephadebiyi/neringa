@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import {
     Package, Clock, ChevronRight, AlertTriangle, ShieldCheck,
     RefreshCw, X, MessageSquare, User, ArrowLeft, ZoomIn, MapPin,
+    CreditCard,
 } from 'lucide-react';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
@@ -76,7 +78,34 @@ const getReceiverInfo = (req) => {
     };
 };
 
+const PAYMENT_DRAFT_TTL_MS = 20 * 60 * 1000;
+
+const isPaymentDraft = (req) => {
+    const status = String(req?.status || '').toLowerCase();
+    const paymentStatus = String(req?.paymentStatus || req?.payment_status || '').toLowerCase();
+    return status === 'draft' || ['pending_payment', 'payment_pending', 'unpaid'].includes(paymentStatus);
+};
+
+const isDraftExpired = (req) => {
+    if (!isPaymentDraft(req)) return false;
+    const expiresAt = req?.paymentExpiresAt || req?.payment_expires_at;
+    const expiresTime = expiresAt ? new Date(expiresAt).getTime() : NaN;
+    if (Number.isFinite(expiresTime)) return Date.now() > expiresTime;
+    const created = new Date(req?.createdAt || req?.created_at || 0).getTime();
+    return Number.isFinite(created) && Date.now() - created > PAYMENT_DRAFT_TTL_MS;
+};
+
+const paymentDraftMinutesLeft = (req) => {
+    const expiresAt = req?.paymentExpiresAt || req?.payment_expires_at;
+    const expiresTime = expiresAt ? new Date(expiresAt).getTime() : NaN;
+    const fallbackTime = new Date(req?.createdAt || req?.created_at || 0).getTime() + PAYMENT_DRAFT_TTL_MS;
+    const target = Number.isFinite(expiresTime) ? expiresTime : fallbackTime;
+    if (!Number.isFinite(target)) return null;
+    return Math.max(0, Math.ceil((target - Date.now()) / 60000));
+};
+
 export default function Shipments({ onNavigateToChat }) {
+    const navigate = useNavigate();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedRequest, setSelectedRequest] = useState(null);
@@ -93,13 +122,27 @@ export default function Shipments({ onNavigateToChat }) {
         try {
             const res = await api.get('/api/bago/recentOrder');
             const payload = res.data?.data || res.data?.requests || res.data || [];
-            const myShipments = asArray(payload).filter(r => r?.role === 'sender');
+            const myShipments = asArray(payload).filter(r => r?.role === 'sender' && !isDraftExpired(r));
             setRequests(myShipments);
         } catch {
             // silently fail — UI shows empty state
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleContinuePayment = (req) => {
+        const checkout = req?.resumeCheckout || req?.resume_checkout || {};
+        const url = checkout.url || checkout.authorizationUrl || checkout.authorization_url;
+        if (url) {
+            if (/^https?:\/\//i.test(url)) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            } else {
+                navigate(url);
+            }
+            return;
+        }
+        navigate('/search', { state: { message: 'Please select the traveler again to restart payment.' } });
     };
 
     const handleRaiseDispute = async (e) => {
@@ -207,6 +250,8 @@ export default function Shipments({ onNavigateToChat }) {
                         const id = rid(req);
                         const img = packageImage(req);
                         const s = (req.status || '').toLowerCase();
+                        const paymentDraft = isPaymentDraft(req);
+                        const minutesLeft = paymentDraftMinutesLeft(req);
                         return (
                             <div key={id || index} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
                                 {/* Package image */}
@@ -236,7 +281,14 @@ export default function Shipments({ onNavigateToChat }) {
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-1">
-                                        {req.trackingNumber ? (
+                                        {paymentDraft ? (
+                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-lg border border-amber-100 shadow-sm">
+                                                <CreditCard size={10} className="text-amber-600" />
+                                                <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">
+                                                    Continue payment{minutesLeft !== null ? ` · ${minutesLeft}m left` : ''}
+                                                </span>
+                                            </div>
+                                        ) : req.trackingNumber ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
                                                 <Clock size={10} className="text-[#5845D8]" />
                                                 <span className="text-[9px] font-black text-[#012126] uppercase tracking-widest">
@@ -251,21 +303,21 @@ export default function Shipments({ onNavigateToChat }) {
                                                 </span>
                                             </div>
                                         )}
-                                        {req.travelerName ? (
+                                        {!paymentDraft && req.travelerName ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50/60 rounded-lg border border-indigo-100/50 shadow-sm">
                                                 <User size={10} className="text-[#5845D8]" />
                                                 <span className="text-[9px] font-black text-[#012126]/70 uppercase tracking-widest">
                                                     Traveler: {req.travelerName}
                                                 </span>
                                             </div>
-                                        ) : (
+                                        ) : !paymentDraft ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
                                                 <User size={10} className="text-gray-300" />
                                                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                                                     No Traveler Yet
                                                 </span>
                                             </div>
-                                        )}
+                                        ) : null}
                                         {s === 'accepted' && (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-lg border border-green-100 shadow-sm">
                                                 <ShieldCheck size={10} />
@@ -278,7 +330,7 @@ export default function Shipments({ onNavigateToChat }) {
                                 {/* Status + actions */}
                                 <div className="flex flex-col items-center md:items-end gap-3">
                                     <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${statusColor(req)}`}>
-                                        {statusLabel(req)}
+                                        {paymentDraft ? 'Payment not completed' : statusLabel(req)}
                                     </span>
 
                                     {s === 'delivering' && !req.senderReceived && (
@@ -312,6 +364,15 @@ export default function Shipments({ onNavigateToChat }) {
                                     )}
 
                                     <div className="flex gap-2 flex-wrap justify-center md:justify-end">
+                                        {paymentDraft ? (
+                                            <button
+                                                onClick={() => handleContinuePayment(req)}
+                                                className="flex items-center gap-1.5 px-4 py-2 bg-[#5845D8] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-sm"
+                                            >
+                                                <CreditCard size={14} />
+                                                Continue Payment
+                                            </button>
+                                        ) : (
                                         <button
                                             onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}
                                             disabled={!req.conversationId}
@@ -320,6 +381,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         >
                                             <MessageSquare size={14} />
                                         </button>
+                                        )}
                                         <button
                                             onClick={() => setViewingDetails(req)}
                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5845D8]/8 text-[#5845D8] rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#5845D8]/15 transition-all shadow-sm"
@@ -327,6 +389,7 @@ export default function Shipments({ onNavigateToChat }) {
                                             <Package size={14} />
                                             View Details
                                         </button>
+                                        {!paymentDraft && (
                                         <button
                                             onClick={() => handleDownloadPDF(id, req.trackingNumber)}
                                             disabled={!id || downloading === id || !req.trackingNumber}
@@ -336,6 +399,8 @@ export default function Shipments({ onNavigateToChat }) {
                                             {downloading === id ? <RefreshCw size={14} className="animate-spin" /> : null}
                                             {downloading === id ? 'Downloading…' : 'Download Label'}
                                         </button>
+                                        )}
+                                        {!paymentDraft && (
                                         <button
                                             onClick={() => setSelectedRequest(req)}
                                             className="flex items-center gap-1.5 px-3 py-1.5 border border-red-50 text-red-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-all shadow-sm"
@@ -343,6 +408,7 @@ export default function Shipments({ onNavigateToChat }) {
                                             <AlertTriangle size={14} />
                                             Report Issue
                                         </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>

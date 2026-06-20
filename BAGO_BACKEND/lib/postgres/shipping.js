@@ -384,6 +384,8 @@ const requestSelect = `
   ) c on true
 `;
 
+const PAYMENT_DRAFT_TTL_MINUTES = 20;
+
 export async function findProfileWithWallet(userId) {
   const row = await queryOne(
     `
@@ -1471,19 +1473,46 @@ export async function listRecentOrdersForUser(userId) {
       `${requestSelect} where (sr.sender_id = $1 or sr.traveler_id = $1) order by sr.created_at desc`,
       [userId],
     ),
-    // Packages the user created that have no associated shipment request yet (pre-payment drafts)
+    // Packages the user created that have no associated shipment request yet (pre-payment drafts).
+    // They are only useful briefly: after the payment window expires, hide them from user dashboards.
     query(
       `select p.*,
               pr.first_name as sender_first_name, pr.last_name as sender_last_name,
-              pr.email as sender_email, pr.image_url as sender_image_url
+              pr.email as sender_email, pr.image_url as sender_image_url,
+              pp.trip_id as paypal_trip_id,
+              pp.traveler_id as paypal_traveler_id,
+              pp.amount as paypal_amount,
+              pp.currency as paypal_currency,
+              pp.insurance_cost as paypal_insurance_cost,
+              pp.raw_response as paypal_raw_response,
+              pe.provider_reference as paystack_reference,
+              pe.payload as paystack_payload
        from public.packages p
        left join public.profiles pr on pr.id = p.user_id
+       left join lateral (
+         select trip_id, traveler_id, amount, currency, insurance_cost, raw_response, created_at
+         from public.paypal_payments
+         where package_id = p.id
+           and status in ('created', 'pending')
+         order by created_at desc
+         limit 1
+       ) pp on true
+       left join lateral (
+         select provider_reference, payload, created_at
+         from public.payment_events
+         where provider = 'paystack'
+           and event_type = 'payment_initialized'
+           and payload ->> 'packageId' = p.id::text
+         order by created_at desc
+         limit 1
+       ) pe on true
        where p.user_id = $1
+         and p.created_at >= timezone('utc', now()) - ($2::text || ' minutes')::interval
          and not exists (
            select 1 from public.shipment_requests sr where sr.package_id = p.id
          )
        order by p.created_at desc`,
-      [userId],
+      [userId, PAYMENT_DRAFT_TTL_MINUTES],
     ),
   ]);
 
@@ -1502,6 +1531,42 @@ export async function listRecentOrdersForUser(userId) {
 
   const drafts = draftsResult.rows.map((row) => {
     const pkg = normalizePackage(row);
+    const paystackPayload = row.paystack_payload || {};
+    const paypalCheckout = row.paypal_trip_id && row.paypal_traveler_id
+      ? {
+          provider: 'paypal',
+          packageId: row.id,
+          tripId: row.paypal_trip_id,
+          travelerId: row.paypal_traveler_id,
+          amount: Number(row.paypal_amount || 0),
+          currency: row.paypal_currency || row.currency || 'USD',
+          insurance: Number(row.paypal_insurance_cost || 0) > 0,
+          insuranceCost: Number(row.paypal_insurance_cost || 0),
+          url: `/checkout/payment?${new URLSearchParams({
+            packageId: String(row.id),
+            tripId: String(row.paypal_trip_id),
+            travelerId: String(row.paypal_traveler_id),
+            amount: String(Number(row.paypal_amount || 0).toFixed(2)),
+            currency: String(row.paypal_currency || row.currency || 'USD').toUpperCase(),
+            insurance: String(Number(row.paypal_insurance_cost || 0) > 0),
+            insuranceCost: String(Number(row.paypal_insurance_cost || 0)),
+          }).toString()}`,
+        }
+      : null;
+    const paystackCheckout = row.paystack_reference
+      ? {
+          provider: 'paystack',
+          packageId: row.id,
+          tripId: paystackPayload.tripId || null,
+          travelerId: paystackPayload.travelerId || null,
+          amount: Number(paystackPayload.amount || 0),
+          currency: paystackPayload.currency || row.currency || 'NGN',
+          reference: row.paystack_reference,
+          authorizationUrl: paystackPayload.authorizationUrl || null,
+          url: paystackPayload.authorizationUrl || null,
+        }
+      : null;
+    const paymentExpiresAt = new Date(new Date(row.created_at).getTime() + PAYMENT_DRAFT_TTL_MINUTES * 60 * 1000).toISOString();
     return {
       _id: row.id,
       id: row.id,
@@ -1526,6 +1591,9 @@ export async function listRecentOrdersForUser(userId) {
       amount: 0, agreedPrice: 0,
       currency: row.currency || '',
       status: 'draft',
+      paymentStatus: 'pending_payment',
+      paymentExpiresAt,
+      resumeCheckout: paypalCheckout || paystackCheckout,
       insurance: false, insuranceCost: 0, insurancePolicyId: null,
       paymentInfo: {},
       estimatedDeparture: null, estimatedArrival: null,

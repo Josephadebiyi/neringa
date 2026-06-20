@@ -3,10 +3,11 @@ import cloudinary from 'cloudinary';
 import { Resend } from 'resend';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
-import { generateOtpEmailHtml } from '../services/emailNotifications.js';
+import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { updatePreferredCurrency, findProfileById } from '../lib/postgres/profiles.js';
 import { initiateTransfer } from '../services/paystackService.js';
+import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -331,6 +332,9 @@ export const withdrawFunds = async (req, res) => {
           p.stripe_connect_account_id,
           p.stripe_onboarding_complete,
           p.paystack_recipient_code,
+          p.email,
+          p.first_name,
+          p.last_name,
           wa.id as wallet_id,
           wa.available_balance,
           wa.currency
@@ -390,6 +394,7 @@ export const withdrawFunds = async (req, res) => {
     if (Number(account.available_balance || 0) < Number(amount)) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
+    await assertNoActiveWithdrawal(null, userId);
 
     const amountUsd = walletCurrency === 'USD'
       ? Number(amount)
@@ -453,7 +458,6 @@ export const withdrawFunds = async (req, res) => {
         }),
       ]
     );
-
     // Trigger the actual payout
     try {
       if (selectedMethod === 'bank') {
@@ -472,6 +476,16 @@ export const withdrawFunds = async (req, res) => {
           [userId, reference, JSON.stringify({ transferCode: result.transferCode })]
         );
       }
+      await sendWithdrawalSubmittedEmail(
+        account.email,
+        [account.first_name, account.last_name].filter(Boolean).join(' ').trim(),
+        {
+          amount: Number(amount),
+          currency: walletCurrency,
+          reference,
+          method: selectedMethod === 'bank' ? 'bank account' : 'Stripe Connect',
+        },
+      ).catch(() => {});
     } catch (payoutError) {
       // Rollback: restore balance and mark transaction failed
       await pgQuery(
@@ -502,7 +516,11 @@ export const withdrawFunds = async (req, res) => {
     });
   } catch (error) {
     console.error('withdrawFunds error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      code: error.code,
+      message: error.message,
+    });
   }
 };
 

@@ -3,6 +3,8 @@ import { findProfileById } from '../lib/postgres/profiles.js';
 import { getPackageById, getTripById, getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
+import { sendWithdrawalProcessedEmail, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 import {
   capturePaypalOrder as capturePaypalOrderApi,
   createPaypalOrder as createPaypalOrderApi,
@@ -16,6 +18,16 @@ import {
 } from '../services/paypalService.js';
 
 let paypalInfraReady = false;
+
+function serializePaypalPayoutError(error) {
+  return {
+    statusCode: error?.statusCode || null,
+    message: error?.message || null,
+    name: error?.details?.name || error?.details?.error || null,
+    debugId: error?.details?.debug_id || error?.details?.debugId || null,
+    details: error?.details || null,
+  };
+}
 
 async function ensurePaypalInfrastructure() {
   if (paypalInfraReady) return;
@@ -306,6 +318,7 @@ export async function withdrawPaypalPayout(req, res) {
       const accountResult = await client.query(
         `
           select p.bank_details, p.payout_provider, p.payout_method, p.payout_status,
+                 p.email, p.first_name, p.last_name,
                  wa.id as wallet_id, wa.available_balance, wa.currency
           from public.profiles p
           join public.wallet_accounts wa on wa.user_id = p.id
@@ -337,6 +350,7 @@ export async function withdrawPaypalPayout(req, res) {
         err.statusCode = 400;
         throw err;
       }
+      await assertNoActiveWithdrawal(client, userId);
 
       await client.query(
         `
@@ -367,6 +381,8 @@ export async function withdrawPaypalPayout(req, res) {
         walletId: account.wallet_id,
         transactionId: txResult.rows[0]?.id,
         paypalEmail,
+        userEmail: account.email,
+        userName: [account.first_name, account.last_name].filter(Boolean).join(' ').trim(),
       };
     });
 
@@ -409,12 +425,7 @@ export async function withdrawPaypalPayout(req, res) {
           {
             manualReviewRequired: true,
             manualReviewReason: 'paypal_payouts_not_authorized',
-            paypalError: {
-              statusCode: payoutError.statusCode || null,
-              message: payoutError.message || null,
-              name: payoutError.details?.name || payoutError.details?.error || null,
-              debugId: payoutError.details?.debug_id || payoutError.details?.debugId || null,
-            },
+            paypalError: serializePaypalPayoutError(payoutError),
           },
         ],
       );
@@ -424,6 +435,13 @@ export async function withdrawPaypalPayout(req, res) {
         payoutError.details?.debug_id || payoutError.message,
       );
 
+      await sendWithdrawalSubmittedEmail(prepared.userEmail, prepared.userName, {
+        amount,
+        currency: walletCurrency,
+        reference: senderBatchId,
+        method: 'PayPal',
+      }).catch(() => {});
+
       return res.json({
         success: true,
         message: 'Withdrawal submitted for approval. Funds will be sent after review.',
@@ -431,6 +449,13 @@ export async function withdrawPaypalPayout(req, res) {
         manualReviewRequired: true,
       });
     }
+
+    await sendWithdrawalSubmittedEmail(prepared.userEmail, prepared.userName, {
+      amount,
+      currency: walletCurrency,
+      reference: senderBatchId,
+      method: 'PayPal',
+    }).catch(() => {});
 
     await query(
       `
@@ -442,6 +467,12 @@ export async function withdrawPaypalPayout(req, res) {
       `,
       [transactionId, { paypalPayout: payout }],
     );
+    await sendWithdrawalProcessedEmail(prepared.userEmail, prepared.userName, {
+      amount,
+      currency: walletCurrency,
+      reference: senderBatchId,
+      method: 'PayPal',
+    }).catch(() => {});
     res.json({
       success: true,
       message: 'PayPal withdrawal submitted.',
@@ -458,7 +489,13 @@ export async function withdrawPaypalPayout(req, res) {
               updated_at = timezone('utc', now())
           where id = $1
         `,
-        [transactionId, { error: error.message }],
+        [
+          transactionId,
+          {
+            error: error.message,
+            paypalError: error?.details || error?.statusCode ? serializePaypalPayoutError(error) : undefined,
+          },
+        ],
       ).catch(() => {});
       await query(
         `

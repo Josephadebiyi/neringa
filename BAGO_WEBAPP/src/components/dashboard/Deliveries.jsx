@@ -3,7 +3,7 @@ import api from '../../api';
 import {
     Package, Clock, CheckCircle, RefreshCw, X,
     MessageSquare, User, Camera, ShieldCheck, AlertTriangle,
-    ZoomIn, MapPin, ArrowRight,
+    ZoomIn, MapPin, ArrowRight, Truck,
 } from 'lucide-react';
 
 const asArray = (v) => Array.isArray(v) ? v : [];
@@ -21,6 +21,21 @@ const fv = (obj, paths, fb = '') => {
     return fb;
 };
 
+const STATUS_UPDATE_OPTIONS = [
+    {
+        value: 'intransit',
+        label: 'In Transit',
+        description: 'The shipment has been picked up and is moving to the destination.',
+        icon: Clock,
+    },
+    {
+        value: 'delivered',
+        label: 'Delivered to Recipient',
+        description: 'The item has reached the receiver. The sender must still confirm before funds are released.',
+        icon: CheckCircle,
+    },
+];
+
 export default function Deliveries({ onNavigateToChat }) {
     const [deliveries, setDeliveries] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -30,6 +45,7 @@ export default function Deliveries({ onNavigateToChat }) {
     const [detailsViewed, setDetailsViewed] = useState({});
     const [statusNote, setStatusNote] = useState('');
     const [statusLocation, setStatusLocation] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [proofImage, setProofImage] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
@@ -45,6 +61,23 @@ export default function Deliveries({ onNavigateToChat }) {
     }, [toast.show]);
 
     const notify = (msg, ok = true) => setToast({ show: true, msg, ok });
+
+    const resetStatusModal = () => {
+        setUpdatingStatus(null);
+        setSelectedStatus('');
+        setStatusNote('');
+        setStatusLocation('');
+        setProofImage(null);
+    };
+
+    const openStatusModal = (req) => {
+        const status = String(req?.status || '').toLowerCase();
+        setUpdatingStatus(req);
+        setSelectedStatus(status === 'intransit' ? 'delivered' : 'intransit');
+        setStatusNote('');
+        setStatusLocation('');
+        setProofImage(null);
+    };
 
     const fetchDeliveries = async () => {
         setLoading(true);
@@ -85,7 +118,7 @@ export default function Deliveries({ onNavigateToChat }) {
             notify(status === 'delivered'
                 ? 'Sender notified. Funds stay in escrow until they confirm receipt.'
                 : 'Status updated.');
-            setUpdatingStatus(null); setStatusNote(''); setStatusLocation(''); setProofImage(null);
+            resetStatusModal();
             fetchDeliveries();
         } catch {
             notify('Failed to update status. Please try again.', false);
@@ -127,6 +160,19 @@ export default function Deliveries({ onNavigateToChat }) {
             case 'accepted':   return 'text-indigo-600 bg-indigo-50';
             case 'rejected':   return 'text-red-600 bg-red-50';
             default:           return 'text-gray-600 bg-gray-50';
+        }
+    };
+
+    const statusLabel = (s) => {
+        switch ((s || '').toLowerCase()) {
+            case 'accepted': return 'Accepted';
+            case 'intransit': return 'In Transit';
+            case 'delivering': return 'Delivered — Awaiting Sender';
+            case 'completed': return 'Completed';
+            case 'rejected': return 'Rejected';
+            case 'cancelled':
+            case 'canceled': return 'Cancelled';
+            default: return 'Processing';
         }
     };
 
@@ -217,7 +263,7 @@ export default function Deliveries({ onNavigateToChat }) {
 
                                 <div className="flex flex-col items-center md:items-end gap-3">
                                     <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${statusColor(req.status)}`}>
-                                        {isPending ? 'Awaiting Your Response' : req.status}
+                                        {isPending ? 'Awaiting Your Response' : statusLabel(req.status)}
                                     </span>
                                     <div className="flex gap-2 flex-wrap justify-center">
                                         {isPending ? (
@@ -247,7 +293,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                             <>
                                                 {status !== 'completed' && status !== 'rejected' && (
                                                     <button
-                                                        onClick={() => setUpdatingStatus(req)}
+                                                        onClick={() => openStatusModal(req)}
                                                         className="flex items-center gap-1.5 bg-[#5845D8] text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/10"
                                                     >
                                                         <CheckCircle size={13} /> Update Status
@@ -334,17 +380,38 @@ export default function Deliveries({ onNavigateToChat }) {
                             </div>
                         </div>
                         <div className="p-6 space-y-5">
-                            <div className="grid grid-cols-2 gap-3">
-                                <button onClick={() => handleUpdateStatus(rid(updatingStatus), 'intransit')}
-                                    className="flex flex-col items-center gap-2 p-4 bg-blue-50/50 text-blue-600 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all group">
-                                    <Clock size={20} className="group-hover:scale-110 transition-transform" />
-                                    <span className="text-[8px] font-black uppercase tracking-widest">In Transit</span>
-                                </button>
-                                <button onClick={() => handleUpdateStatus(rid(updatingStatus), 'delivered')}
-                                    className="flex flex-col items-center gap-2 p-4 bg-green-50/50 text-green-600 rounded-2xl border border-green-100 hover:bg-green-100 transition-all group">
-                                    <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
-                                    <span className="text-[8px] font-black uppercase tracking-widest">Delivered</span>
-                                </button>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Select the new status</label>
+                                <div className="space-y-2">
+                                    {STATUS_UPDATE_OPTIONS.map((option) => {
+                                        const Icon = option.icon;
+                                        const active = selectedStatus === option.value;
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setSelectedStatus(option.value)}
+                                                className={`w-full rounded-2xl border p-4 text-left transition-all ${
+                                                    active
+                                                        ? 'border-[#5845D8] bg-[#5845D8]/8 shadow-sm'
+                                                        : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                                                        active ? 'bg-[#5845D8] text-white' : 'bg-white text-gray-400'
+                                                    }`}>
+                                                        <Icon size={17} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-[#012126] uppercase tracking-widest">{option.label}</p>
+                                                        <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-500">{option.description}</p>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                             <div className="space-y-4 pt-2">
                                 <div className="space-y-1.5">
@@ -354,7 +421,9 @@ export default function Deliveries({ onNavigateToChat }) {
                                         className="w-full px-5 py-3.5 bg-gray-50 rounded-xl border border-transparent outline-none focus:border-[#5845D8]/20 focus:bg-white text-xs font-bold transition-all" />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Proof Photo (required for delivery)</label>
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                                        Proof Photo {selectedStatus === 'delivered' ? '(required)' : '(optional)'}
+                                    </label>
                                     <div className="flex items-center gap-4">
                                         <label className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-[#5845D8]/5 text-[#5845D8] rounded-xl border border-[#5845D8]/10 cursor-pointer hover:bg-[#5845D8]/10 transition-all">
                                             <Camera size={16} />
@@ -375,9 +444,25 @@ export default function Deliveries({ onNavigateToChat }) {
                                     </div>
                                 </div>
                             </div>
+                            {selectedStatus === 'delivered' && !proofImage && (
+                                <div className="flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-amber-800">
+                                    <Truck size={15} className="mt-0.5 shrink-0" />
+                                    <p className="text-[10px] font-bold leading-relaxed">
+                                        Upload a delivery proof photo before marking this shipment as delivered.
+                                    </p>
+                                </div>
+                            )}
                             <div className="flex gap-3 pt-4 border-t border-gray-50">
-                                <button onClick={() => setUpdatingStatus(null)}
+                                <button onClick={resetStatusModal}
                                     className="flex-1 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600">Cancel</button>
+                                <button
+                                    onClick={() => handleUpdateStatus(rid(updatingStatus), selectedStatus)}
+                                    disabled={!selectedStatus || isSubmitting || (selectedStatus === 'delivered' && !proofImage)}
+                                    className="flex-[2] bg-[#5845D8] text-white py-3 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? <RefreshCw className="animate-spin" size={14} /> : <CheckCircle size={14} />}
+                                    OK, Update Status
+                                </button>
                             </div>
                         </div>
                     </div>

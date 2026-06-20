@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-import { query, queryOne } from '../lib/postgres/db.js';
+import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { resend } from '../services/resendClient.js';
 
@@ -120,38 +120,54 @@ export async function requireWithdrawalOtp(req, res, next) {
       });
     }
 
-    const profile = await queryOne(
-      `SELECT id, payout_otp_hash, payout_otp_expires_at
-       FROM public.profiles
-       WHERE id = $1`,
-      [req.user?.id],
-    );
+    const verification = await withTransaction(async (client) => {
+      const result = await client.query(
+        `SELECT id, payout_otp_hash, payout_otp_expires_at
+         FROM public.profiles
+         WHERE id = $1
+         FOR UPDATE`,
+        [req.user?.id],
+      );
+      const profile = result.rows[0];
 
-    const expiresAt = profile?.payout_otp_expires_at ? new Date(profile.payout_otp_expires_at) : null;
-    if (!profile?.payout_otp_hash || !expiresAt || expiresAt < new Date()) {
-      return res.status(400).json({
+      const expiresAt = profile?.payout_otp_expires_at ? new Date(profile.payout_otp_expires_at) : null;
+      if (!profile?.payout_otp_hash || !expiresAt || expiresAt < new Date()) {
+        return {
+          ok: false,
+          status: 400,
+          code: 'WITHDRAWAL_OTP_EXPIRED',
+          message: 'Withdrawal confirmation code expired. Request a new code.',
+        };
+      }
+
+      if (!otpMatches(profile.payout_otp_hash, otp)) {
+        return {
+          ok: false,
+          status: 400,
+          code: 'WITHDRAWAL_OTP_INVALID',
+          message: 'Invalid withdrawal confirmation code.',
+        };
+      }
+
+      await client.query(
+        `UPDATE public.profiles
+         SET payout_otp_hash = NULL,
+             payout_otp_expires_at = NULL,
+             updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [profile.id],
+      );
+
+      return { ok: true };
+    });
+
+    if (!verification.ok) {
+      return res.status(verification.status).json({
         success: false,
-        code: 'WITHDRAWAL_OTP_EXPIRED',
-        message: 'Withdrawal confirmation code expired. Request a new code.',
+        code: verification.code,
+        message: verification.message,
       });
     }
-
-    if (!otpMatches(profile.payout_otp_hash, otp)) {
-      return res.status(400).json({
-        success: false,
-        code: 'WITHDRAWAL_OTP_INVALID',
-        message: 'Invalid withdrawal confirmation code.',
-      });
-    }
-
-    await query(
-      `UPDATE public.profiles
-       SET payout_otp_hash = NULL,
-           payout_otp_expires_at = NULL,
-           updated_at = timezone('utc', now())
-       WHERE id = $1`,
-      [profile.id],
-    );
 
     return next();
   } catch (error) {

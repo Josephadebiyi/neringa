@@ -11,6 +11,16 @@ const VALID_SHIPMENT_STATUSES = new Set([
   'cancelled',
 ]);
 
+const ADMIN_VISIBLE_SHIPMENT_STATUSES = new Set([
+  'pending',
+  'accepted',
+  'rejected',
+  'intransit',
+  'delivering',
+  'completed',
+  'cancelled',
+]);
+
 const STATUS_LABELS = {
   pending: 'Pending',
   accepted: 'Accepted',
@@ -148,6 +158,21 @@ function normalizeRequest(req) {
   };
 }
 
+function isAdminVisibleRequest(req) {
+  const status = String(req?.status || '').trim().toLowerCase();
+  if (!ADMIN_VISIBLE_SHIPMENT_STATUSES.has(status)) return false;
+  if (['draft', 'pending_payment', 'payment_pending', 'unpaid'].includes(status)) return false;
+
+  const paymentStatus = String(req?.payment_status || '').trim().toLowerCase();
+  const paymentInfoStatus = String(req?.payment_info?.status || '').trim().toLowerCase();
+  const paidLike = new Set(['paid', 'paid_escrow', 'authorized', 'captured', 'released']);
+  const terminalNoPaymentStatuses = new Set(['rejected', 'cancelled']);
+
+  if (terminalNoPaymentStatuses.has(status)) return true;
+  if (status === 'pending') return paidLike.has(paymentStatus) || paidLike.has(paymentInfoStatus);
+  return true;
+}
+
 export const tracking = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, insured } = req.query;
@@ -173,22 +198,23 @@ export const tracking = async (req, res, next) => {
           `SELECT id, sender_id, traveler_id, package_id, trip_id, status,
                   insurance, insurance_cost, insurance_policy_id, insurance_policy_data,
                   insurance_status, insurance_error,
-                  amount, currency, tracking_number, created_at, updated_at
+                  amount, currency, tracking_number, payment_status, payment_info, created_at, updated_at
            FROM public.shipment_requests WHERE package_id = $1`,
           [pkg.id]
         );
         return {
           package: normalizePackage(pkg),
-          requests: requests.rows.map(normalizeRequest),
+          requests: requests.rows.filter(isAdminVisibleRequest).map(normalizeRequest),
         };
       })
     );
+    const visibleTrackingData = trackingData.filter((item) => item.requests.length > 0);
 
     res.status(200).json({
       success: true,
       error: false,
       message: 'Successful operation',
-      data: trackingData,
+      data: visibleTrackingData,
       totalCount: countResult?.total || 0,
       page: Number(page),
       limit: Number(limit),

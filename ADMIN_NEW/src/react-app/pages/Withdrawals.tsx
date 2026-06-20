@@ -16,6 +16,13 @@ interface WithdrawalRequest {
   failure_reason?: string | null;
   description?: string;
   currency?: string;
+  provider?: string | null;
+  manualReviewRequired?: boolean;
+  manualReviewReason?: string | null;
+  paypalStatus?: string | null;
+  paypalErrorMessage?: string | null;
+  paypalDebugId?: string | null;
+  source?: string;
 }
 
 export default function Withdrawals() {
@@ -256,6 +263,31 @@ export default function Withdrawals() {
                         {withdrawal.description || 'Withdrawal'}
                       </span>
                     </div>
+                    {(withdrawal.provider || withdrawal.paypalStatus || withdrawal.manualReviewRequired || withdrawal.paypalErrorMessage) && (
+                      <div className="mt-2 space-y-1 text-xs">
+                        {withdrawal.provider && (
+                          <div className="font-semibold uppercase tracking-wide text-gray-500">
+                            Provider: {withdrawal.provider}
+                          </div>
+                        )}
+                        {withdrawal.manualReviewRequired && (
+                          <div className="rounded bg-amber-50 px-2 py-1 font-medium text-amber-700">
+                            Manual review: {withdrawal.manualReviewReason || 'Provider action required'}
+                          </div>
+                        )}
+                        {withdrawal.paypalStatus && (
+                          <div className="rounded bg-blue-50 px-2 py-1 font-medium text-blue-700">
+                            PayPal status: {withdrawal.paypalStatus}
+                          </div>
+                        )}
+                        {withdrawal.paypalErrorMessage && (
+                          <div className="rounded bg-red-50 px-2 py-1 font-medium text-red-700">
+                            PayPal error: {withdrawal.paypalErrorMessage}
+                            {withdrawal.paypalDebugId ? ` (${withdrawal.paypalDebugId})` : ''}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-2">

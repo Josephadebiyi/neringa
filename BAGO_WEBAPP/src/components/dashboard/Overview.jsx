@@ -173,7 +173,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
         return days;
     })();
 
-    // 7-day sparkline values for Insights panel
     const sparkValues = chartData.map(d => d.value);
 
     const recentTxs = [...walletData.history].slice(0, 8);
@@ -317,7 +316,21 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                         </div>
                     </div>
 
-                    <BarChart data={chartData} activeIndex={6} />
+                    <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+                        <div className="relative min-h-[150px] overflow-hidden rounded-2xl bg-[#012126]">
+                            <img
+                                src="/assets/faster-shipping-banner.png"
+                                alt="Bago shipping"
+                                className="absolute inset-0 h-full w-full object-cover opacity-95"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#012126]/85 via-[#012126]/20 to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-4">
+                                <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/60">Move smarter</p>
+                                <p className="mt-1 text-sm font-black leading-tight text-white">Send packages with verified travelers.</p>
+                            </div>
+                        </div>
+                        <BarChart data={chartData} activeIndex={6} />
+                    </div>
 
                     {/* Quick actions */}
                     <div className="flex gap-3 mt-5 pt-4 border-t border-gray-50">
@@ -351,7 +364,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                         </button>
                     </div>
 
-                    {/* All-time total */}
                     <div className="bg-[#F5F4FC] rounded-2xl px-4 py-4 mb-4">
                         <p className="text-[8px] font-black text-[#5845D8]/60 uppercase tracking-widest mb-1">Total Earned</p>
                         <p className="text-3xl font-black text-[#012126] tracking-tight leading-none">
@@ -360,7 +372,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                         <p className="text-[9px] text-gray-400 font-medium mt-1">All time · {walletCurrency}</p>
                     </div>
 
-                    {/* 7-day sparkline */}
                     <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">7-Day Trend</p>
@@ -371,7 +382,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                         <Sparkline data={sparkValues} color="#5845D8" height={52} />
                     </div>
 
-                    {/* Stats row */}
                     <div className="grid grid-cols-2 gap-3 mt-auto">
                         <div className="bg-gray-50 rounded-xl p-3 text-center">
                             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">This Month</p>
@@ -385,7 +395,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                         </div>
                     </div>
 
-                    {/* KYC nudge inside insights if not verified */}
                     {effectiveKycStatus !== 'approved' && (
                         <button
                             onClick={handleStartKyc}

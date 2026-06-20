@@ -5,6 +5,8 @@ import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { resend } from '../services/resendClient.js';
 import { getClientIP, getLocationFromIP } from '../services/ipGeolocation.js';
+import { sendWithdrawalProcessedEmail, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 const PLATFORM_FEE_PERCENT = Number(process.env.STRIPE_PLATFORM_FEE_PERCENT || 10) / 100;
@@ -1578,6 +1580,7 @@ export async function createStripePayout(req, res) {
         error.statusCode = 400;
         throw error;
       }
+      await assertNoActiveWithdrawal(client, userId);
 
       await client.query(
         `update public.wallet_accounts set available_balance = available_balance - $2, updated_at = timezone('utc', now()) where user_id = $1`,
@@ -1601,6 +1604,16 @@ export async function createStripePayout(req, res) {
       return { transactionId: tx.rows[0].id };
     });
     withdrawalTransactionId = withdrawal.transactionId;
+    await sendWithdrawalSubmittedEmail(
+      profile.email,
+      [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim(),
+      {
+        amount: majorAmount,
+        currency: currency.toUpperCase(),
+        reference: withdrawalTransactionId,
+        method: 'Stripe Express',
+      },
+    ).catch(() => {});
 
     transfer = await requireStripe().transfers.create({
       amount,
@@ -1636,6 +1649,16 @@ export async function createStripePayout(req, res) {
         },
       ],
     );
+    await sendWithdrawalProcessedEmail(
+      profile.email,
+      [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim(),
+      {
+        amount: majorAmount,
+        currency: currency.toUpperCase(),
+        reference: payout.id,
+        method: 'Stripe Express',
+      },
+    ).catch(() => {});
 
     return res.json({ success: true, payoutId: payout.id, transferId: transfer.id, status: payout.status });
   } catch (error) {
