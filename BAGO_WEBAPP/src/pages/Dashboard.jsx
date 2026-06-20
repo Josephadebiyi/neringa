@@ -65,8 +65,25 @@ export default function Dashboard() {
         }
         const params = new URLSearchParams(location.search);
         if (params.get('kyc_check')) {
-            fetchKycStatus();
             navigate('/dashboard', { replace: true });
+            // Fetch the real status then show a contextual message
+            api.get('/api/bago/kyc/status').then(res => {
+                const status = res.data?.kycStatus || 'not_started';
+                setKycStatus(status);
+                if (status === 'approved') {
+                    setMsg('✅ Identity verified! You now have full access to Bago.');
+                } else if (['pending', 'processing', 'under_review'].includes(status)) {
+                    setMsg('Your verification is under review. We\'ll notify you by email once it\'s done.');
+                } else if (['declined', 'rejected', 'failed'].includes(status)) {
+                    setMsg('Your verification was not approved. Please go to Verify to try again.');
+                } else {
+                    setMsg('Please complete your identity verification to unlock all Bago features.');
+                }
+                setTimeout(() => setMsg(''), 8000);
+            }).catch(() => {
+                setMsg('Please complete your identity verification to unlock all Bago features.');
+                setTimeout(() => setMsg(''), 8000);
+            });
         }
     }, [location.state, location.search, navigate]);
 
@@ -336,6 +353,22 @@ export default function Dashboard() {
                         <div className="mb-5 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3 text-amber-900 font-bold animate-in slide-in-from-top duration-300">
                             <AlertCircle className="text-amber-500 shrink-0" size={20} />
                             {msg}
+                        </div>
+                    )}
+                    {!msg && effectiveKycStatus === 'not_started' && (
+                        <div className="mb-5 bg-[#5845D8]/5 border border-[#5845D8]/20 p-4 rounded-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
+                            <div className="flex items-center gap-3">
+                                <Shield className="text-[#5845D8] shrink-0" size={20} />
+                                <span className="text-[#5845D8] font-bold text-sm">
+                                    Complete identity verification to unlock all Bago features.
+                                </span>
+                            </div>
+                            <Link
+                                to="/verify"
+                                className="shrink-0 bg-[#5845D8] text-white text-xs font-black uppercase tracking-widest px-4 py-2 rounded-xl hover:bg-[#4736C0] transition-colors"
+                            >
+                                Verify Now
+                            </Link>
                         </div>
                     )}
                     {renderTabContent()}
