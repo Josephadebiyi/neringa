@@ -229,6 +229,29 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 </div>
             </div>
 
+            {/* ── KYC Banner ── */}
+            {effectiveKycStatus !== 'approved' && (
+                <div className="bg-gradient-to-r from-[#5845D8] to-[#7B6BE8] rounded-[24px] p-5 flex items-center justify-between shadow-lg shadow-[#5845D8]/20">
+                    <div className="flex items-center gap-4">
+                        <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
+                            <Shield size={22} className="text-white" />
+                        </div>
+                        <div>
+                            <p className="text-white font-black text-sm uppercase tracking-tight">Verify Your Identity</p>
+                            <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest mt-0.5">
+                                Complete KYC to post trips and earn
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleStartKyc}
+                        className="bg-white text-[#5845D8] px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all shrink-0"
+                    >
+                        Verify Now
+                    </button>
+                </div>
+            )}
+
             {/* ── 3 Stat Cards ── */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Total Shipments */}
@@ -497,28 +520,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 )}
             </div>
 
-            {/* ── KYC Banner ── */}
-            {effectiveKycStatus !== 'approved' && (
-                <div className="bg-gradient-to-r from-[#5845D8] to-[#7B6BE8] rounded-[24px] p-5 flex items-center justify-between shadow-lg shadow-[#5845D8]/20">
-                    <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
-                            <Shield size={22} className="text-white" />
-                        </div>
-                        <div>
-                            <p className="text-white font-black text-sm uppercase tracking-tight">Verify Your Identity</p>
-                            <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest mt-0.5">
-                                Complete KYC to post trips and earn
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={handleStartKyc}
-                        className="bg-white text-[#5845D8] px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all shrink-0"
-                    >
-                        Verify Now
-                    </button>
-                </div>
-            )}
         </div>
     );
 }

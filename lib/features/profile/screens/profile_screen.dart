@@ -241,6 +241,11 @@ class _AboutTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Carrier KYC banner ────────────────────────────────────────────
+        if (isCarrier && !isVerified) ...[
+          _CarrierKycBanner(kycStatus: kycStatus),
+          const SizedBox(height: 24),
+        ],
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -373,11 +378,6 @@ class _AboutTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        // ── Carrier KYC banner ────────────────────────────────────────────
-        if (isCarrier && !isVerified) ...[
-          _CarrierKycBanner(kycStatus: kycStatus),
-          const SizedBox(height: 24),
-        ],
         BagoSectionLabel(l10n.verificationStatus),
         BagoMenuGroup(
           children: [
