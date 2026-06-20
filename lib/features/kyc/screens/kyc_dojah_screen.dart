@@ -71,6 +71,37 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     return null;
   }
 
+  bool _isClosedOrStartupResult(String raw) {
+    final lower = raw.toLowerCase().trim();
+    return lower.isEmpty ||
+        lower == 'closed' ||
+        lower == 'close' ||
+        lower == 'cancelled' ||
+        lower == 'canceled' ||
+        lower == 'dismissed' ||
+        lower == 'opened' ||
+        lower == 'open' ||
+        lower == 'loaded' ||
+        lower == 'started' ||
+        lower == 'start' ||
+        lower == 'initiated' ||
+        lower == 'initialized' ||
+        lower == 'initialised';
+  }
+
+  bool _isSubmissionResult(String raw) {
+    final lower = raw.toLowerCase().trim();
+    return lower.contains('submit') ||
+        lower.contains('review') ||
+        lower.contains('pending') ||
+        lower.contains('success') ||
+        lower.contains('complete') ||
+        lower.contains('approve') ||
+        lower.contains('declin') ||
+        lower.contains('reject') ||
+        lower.contains('fail');
+  }
+
   Future<void> _finishWithStatus(String finalStatus) async {
     await ref
         .read(authProvider.notifier)
@@ -301,8 +332,13 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
 
     final lower = result.toLowerCase().trim();
 
-    if (lower == 'closed' || lower.isEmpty) {
+    if (_isClosedOrStartupResult(lower)) {
       Navigator.of(context).pop();
+      return;
+    }
+
+    if (!_isSubmissionResult(lower)) {
+      await _finishWithStatus('not_started');
       return;
     }
 

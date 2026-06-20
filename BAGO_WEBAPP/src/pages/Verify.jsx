@@ -58,6 +58,21 @@ const normalizeCountryCode = (value) => {
     return byName?.code || '';
 };
 
+const dojahPayloadText = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value.toLowerCase();
+    try {
+        return JSON.stringify(value).toLowerCase();
+    } catch {
+        return String(value).toLowerCase();
+    }
+};
+
+const hasDojahSubmissionSignal = (value) => {
+    const text = dojahPayloadText(value);
+    return /submit|submitted|review|pending|approved|verified|completed|declined|rejected|failed|failure/.test(text);
+};
+
 // Steps: 'status' | 'consent' | 'verifying'
 export default function Verify() {
     const { user, isAuthenticated, loading: authLoading, checkAuthStatus, refreshUser } = useAuth();
@@ -241,10 +256,15 @@ export default function Verify() {
 
     const handleDojahResponse = async (type, data) => {
         if (type === 'success') {
-            // Dojah fires 'success' on SDK init when a previous session exists.
-            // Ignore it if it fires within 3 seconds of mount — the user hasn't submitted yet.
+            // Dojah can fire 'success' during SDK startup. Only treat it as a
+            // completed submission when the payload carries a review/final state.
             const elapsed = sdkMountedAtRef.current ? Date.now() - sdkMountedAtRef.current : 9999;
-            if (elapsed < 3000) {
+            if (elapsed < 3000 || !hasDojahSubmissionSignal(data)) {
+                if (elapsed >= 3000) {
+                    setDojahCreds(null);
+                    setStep('consent');
+                    setError('Verification was not submitted. Please complete every step in the secure window before leaving it.');
+                }
                 return;
             }
             sdkMountedAtRef.current = null;
