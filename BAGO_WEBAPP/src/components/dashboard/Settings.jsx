@@ -119,7 +119,7 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
                     type="button"
                     disabled={disabled}
                     onClick={() => setOpen(o => !o)}
-                    className="h-full flex items-center gap-1 px-2.5 py-2 bg-gray-50 border border-transparent rounded-xl text-[10px] font-black text-[#012126] hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="h-full flex items-center gap-1 px-2.5 py-2 bg-gray-50 border border-transparent rounded-xl text-[10px] font-black text-[#111827] hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                     <span className="text-sm">{selected.flag}</span>
                     <span>{dialCode}</span>
@@ -136,7 +136,7 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
                                     placeholder="Search country..."
-                                    className="flex-1 bg-transparent outline-none text-[10px] font-bold text-[#012126] placeholder:text-gray-400"
+                                    className="flex-1 bg-transparent outline-none text-[10px] font-bold text-[#111827] placeholder:text-gray-400"
                                 />
                             </div>
                         </div>
@@ -149,7 +149,7 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
                                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#5845D8]/5 transition-all ${dialCode === c.dial ? 'bg-[#5845D8]/10' : ''}`}
                                 >
                                     <span className="text-base">{c.flag}</span>
-                                    <span className="flex-1 text-[10px] font-bold text-[#012126] truncate">{c.name}</span>
+                                    <span className="flex-1 text-[10px] font-bold text-[#111827] truncate">{c.name}</span>
                                     <span className="text-[10px] font-black text-[#5845D8]">{c.dial}</span>
                                 </button>
                             ))}
@@ -163,7 +163,7 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
                 onChange={handleLocal}
                 disabled={disabled}
                 placeholder={placeholder}
-                className="min-w-0 flex-1 px-3 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[10px] text-[#012126] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="min-w-0 flex-1 px-3 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[10px] text-[#111827] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
         </div>
     );
@@ -441,13 +441,13 @@ export default function Settings({ user, checkAuthStatus }) {
     };
 
     return (
-        <div className="space-y-6 max-w-[1200px] pb-10 font-sans text-[#012126]">
+        <div className="space-y-6 max-w-[1200px] pb-10 font-sans text-[#111827]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Profile Edit */}
                 <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <User className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('personalInfo')}</h3>
+                        <h3 className="font-black text-[#111827] text-[10px] uppercase tracking-widest">{t('personalInfo')}</h3>
                     </div>
 
                     <div className="flex justify-center mb-5 relative group">
@@ -512,7 +512,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                 </label>
                                 {earningLocked ? (
                                     <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#5845D8]/10">
-                                        <span className="font-black text-[13px] text-[#012126] uppercase tracking-tight">{preferredCurrency}</span>
+                                        <span className="font-black text-[13px] text-[#111827] uppercase tracking-tight">{preferredCurrency}</span>
                                         <span className="ml-auto text-[7px] font-black text-[#5845D8]/60 uppercase tracking-widest bg-[#5845D8]/10 px-2 py-0.5 rounded-full">Locked</span>
                                     </div>
                                 ) : (
@@ -549,7 +549,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <Mail className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
+                        <h3 className="font-black text-[#111827] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
                     </div>
 
                     <div className="space-y-4">
@@ -611,7 +611,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="flex items-center justify-between border-b border-gray-50 pb-3 mb-4">
                     <div className="flex items-center gap-2">
                         <Shield className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#012126] text-[10px] uppercase tracking-widest">Phone Number</h3>
+                        <h3 className="font-black text-[#111827] text-[10px] uppercase tracking-widest">Phone Number</h3>
                     </div>
                     {phoneVerified || phoneSuccess ? (
                         <span className="flex items-center gap-1 text-green-600 font-black text-[8px] uppercase tracking-widest">
@@ -687,7 +687,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#5845D8]/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
                 <div className="flex items-center gap-3 border-b border-gray-50 pb-4 mb-6">
                     <Landmark className="text-[#5845D8]" size={18} />
-                    <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">{t('withdrawalMethods')}</h3>
+                    <h3 className="font-black text-[#111827] text-[11px] uppercase tracking-widest">{t('withdrawalMethods')}</h3>
                 </div>
 
                 {user?.kycStatus !== 'approved' && !user?.isKycCompleted && (
@@ -712,7 +712,7 @@ export default function Settings({ user, checkAuthStatus }) {
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col gap-4 group hover:border-[#5845D8]/20 transition-all">
                                 <div className="flex items-center gap-3">
                                     <span className="w-5 h-5 rounded-full bg-[#003087] text-white flex items-center justify-center text-[8px] font-black shrink-0">P</span>
-                                    <h4 className="text-[10px] font-black text-[#012126] uppercase tracking-widest">PayPal Payout Email</h4>
+                                    <h4 className="text-[10px] font-black text-[#111827] uppercase tracking-widest">PayPal Payout Email</h4>
                                 </div>
                                 <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-wide opacity-70">
                                     Earnings in {preferredCurrency || 'USD'} are sent to your PayPal account after delivery is confirmed.
@@ -750,7 +750,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                             value={paypalEmail}
                                             onChange={e => setPaypalEmail(e.target.value)}
                                             placeholder="your@paypal.com"
-                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[11px] font-medium text-[#012126] outline-none focus:border-[#003087]/30 transition-all placeholder:text-gray-300"
+                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[11px] font-medium text-[#111827] outline-none focus:border-[#003087]/30 transition-all placeholder:text-gray-300"
                                         />
                                         <div className="flex gap-2">
                                             <button
@@ -790,7 +790,7 @@ export default function Settings({ user, checkAuthStatus }) {
                     {showBankOption && (
                         <div className="space-y-4">
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
-                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#012126] mb-4 uppercase tracking-widest">
+                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#111827] mb-4 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
                                     Bank Transfer ({preferredCurrency})
                                 </h4>
@@ -816,7 +816,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                             const selectedBank = banks.find(bank => String(bank.code) === e.target.value);
                                             setBankName(selectedBank?.name || '');
                                         }}
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight"
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
                                     >
                                         <option value="">Select bank</option>
                                         {banks.map((bank) => (
@@ -828,7 +828,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                         value={accountNumber}
                                         onChange={(e) => setAccountNumber(e.target.value)}
                                         placeholder={t('accountNumber')}
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#012126] shadow-sm tracking-widest"
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest"
                                     />
                                     <input
                                         type="text"
@@ -836,7 +836,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                         onChange={(e) => setAccountHolderName(e.target.value)}
                                         placeholder={t('accountHolderName')}
                                         readOnly
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[11px] font-black text-[#012126] shadow-sm uppercase tracking-tight opacity-70"
+                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight opacity-70"
                                     />
                                     {!showBankOtp ? (
                                         <button
@@ -856,13 +856,13 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 value={bankOtp}
                                                 onChange={(e) => setBankOtp(e.target.value)}
                                                 placeholder="000000"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-[#5845D8]/20 outline-none text-center text-sm font-black tracking-[8px] text-[#012126] shadow-sm"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-[#5845D8]/20 outline-none text-center text-sm font-black tracking-[8px] text-[#111827] shadow-sm"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={handleVerifyBankOtp}
                                                 disabled={bankLoading}
-                                                className="w-full bg-[#012126] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
                                                 {bankLoading ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                                                 Confirm payout account
@@ -878,7 +878,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="mt-8 pt-6 border-t border-gray-50 flex justify-end">
                     <button
                         onClick={handleUpdateProfile}
-                        className="px-6 py-3 bg-[#012126] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0a262c] transition-all flex items-center gap-2 shadow-lg"
+                        className="px-6 py-3 bg-[#5845D8] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center gap-2 shadow-lg"
                     >
                         {loading ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                         {t('saveDetails')}
@@ -889,7 +889,7 @@ export default function Settings({ user, checkAuthStatus }) {
 
             {/* Status Messages */}
             {successMessage && (
-                <div className="fixed bottom-10 right-10 bg-[#012126] text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50 border border-white/20 backdrop-blur-md">
+                <div className="fixed bottom-10 right-10 bg-[#5845D8] text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50 border border-white/20 backdrop-blur-md">
                     <CheckCircle className="text-green-400" size={18} />
                     <span className="font-black text-[11px] uppercase tracking-wide">{successMessage}</span>
                     <button onClick={() => setSuccessMessage('')} className="ml-3 opacity-40 hover:opacity-100 transition-opacity">✕</button>
@@ -908,7 +908,7 @@ export default function Settings({ user, checkAuthStatus }) {
 
 const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountNumber, accountHolderName, setAccountHolderName }) => (
     <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-        <h4 className="flex items-center gap-2 text-sm font-black text-[#012126] mb-4">
+        <h4 className="flex items-center gap-2 text-sm font-black text-[#111827] mb-4">
             <span className="w-6 h-6 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[10px]">2</span>
             Nigerian Bank Transfer (NGN)
         </h4>
@@ -918,21 +918,21 @@ const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountN
                 value={bankName}
                 onChange={(e) => setBankName(e.target.value)}
                 placeholder="Bank Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#111827]"
             />
             <input
                 type="text"
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
                 placeholder="Account Number"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#111827]"
             />
             <input
                 type="text"
                 value={accountHolderName}
                 onChange={(e) => setAccountHolderName(e.target.value)}
                 placeholder="Account Holder Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-100 focus:border-[#5845D8] outline-none text-sm font-bold text-[#012126]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-100 focus:border-[#5845D8] outline-none text-sm font-bold text-[#111827]"
             />
         </div>
     </div>

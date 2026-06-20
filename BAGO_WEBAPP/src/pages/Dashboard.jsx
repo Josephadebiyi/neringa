@@ -176,7 +176,7 @@ export default function Dashboard() {
                     return (
                         <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100 shadow-sm">
                             <Shield size={48} className="text-[#5845D8]/30 mx-auto mb-5" />
-                            <h3 className="text-lg font-black text-[#012126] mb-2 uppercase tracking-tight">
+                            <h3 className="text-lg font-black text-[#111827] mb-2 uppercase tracking-tight">
                                 Insurance Coming Soon
                             </h3>
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest opacity-70">
@@ -193,14 +193,15 @@ export default function Dashboard() {
                         />
                     );
             }
-        } catch {
+        } catch (error) {
+            console.error('Dashboard section crashed:', activeTab, error);
             return (
                 <div className="min-h-[60vh] flex items-center justify-center p-8">
                     <div className="text-center max-w-sm">
                         <div className="w-20 h-20 bg-red-50 text-red-400 rounded-full flex items-center justify-center mx-auto mb-6">
                             <LayoutDashboard size={40} />
                         </div>
-                        <h3 className="text-xl font-black text-[#012126] mb-3">Something Went Wrong</h3>
+                        <h3 className="text-xl font-black text-[#111827] mb-3">Something Went Wrong</h3>
                         <p className="text-gray-500 font-medium mb-8">Trouble loading this section.</p>
                         <div className="flex flex-col gap-3">
                             <button
@@ -224,7 +225,7 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#012126]">
+            <div className="min-h-screen flex items-center justify-center bg-[#5845D8]">
                 <div className="flex flex-col items-center gap-6">
                     <div className="relative">
                         <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-[#5845D8]" />
@@ -274,13 +275,13 @@ export default function Dashboard() {
                     {/* Left: hamburger + tab label */}
                     <div className="flex items-center gap-3 min-w-0">
                         <button
-                            className="md:hidden p-2 rounded-xl bg-gray-50 text-[#012126] hover:bg-gray-100 shrink-0"
+                            className="md:hidden p-2 rounded-xl bg-gray-50 text-[#111827] hover:bg-gray-100 shrink-0"
                             onClick={() => setSidebarOpen(true)}
                         >
                             <Menu size={20} />
                         </button>
                         <div>
-                            <h1 className="text-sm font-black text-[#012126] uppercase tracking-widest leading-none">
+                            <h1 className="text-sm font-black text-[#111827] uppercase tracking-widest leading-none">
                                 {tabLabel}
                             </h1>
                             <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5 hidden sm:block">
@@ -294,7 +295,7 @@ export default function Dashboard() {
                         <Search size={13} className="text-gray-400 shrink-0" />
                         <input
                             placeholder="Search shipments, trips, earnings…"
-                            className="bg-transparent text-[11px] outline-none text-[#012126] placeholder:text-gray-300 w-full font-medium"
+                            className="bg-transparent text-[11px] outline-none text-[#111827] placeholder:text-gray-300 w-full font-medium"
                         />
                         <kbd className="hidden xl:flex items-center gap-0.5 text-[8px] font-bold text-gray-300 bg-gray-100 px-1.5 py-0.5 rounded-md shrink-0">⌘F</kbd>
                     </div>
@@ -314,7 +315,7 @@ export default function Dashboard() {
 
                         <div className="flex items-center gap-2.5 pl-3 border-l border-gray-100">
                             <div className="text-right hidden md:block">
-                                <p className="text-[11px] font-black text-[#012126] leading-tight">
+                                <p className="text-[11px] font-black text-[#111827] leading-tight">
                                     {user?.firstName} {user?.lastName}
                                 </p>
                                 <p className="text-[9px] text-gray-400 font-medium truncate max-w-[150px]">

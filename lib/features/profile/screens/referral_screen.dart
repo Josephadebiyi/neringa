@@ -200,10 +200,14 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _CopyButton(
-              label: code.isEmpty ? 'No code yet' : code, onTap: onCopyCode),
+            label: code.isEmpty ? 'Generating referral code...' : code,
+            onTap: code.isEmpty ? null : onCopyCode,
+          ),
           const SizedBox(height: 10),
           _CopyButton(
-              label: link.isEmpty ? 'No link yet' : link, onTap: onCopyLink),
+            label: link.isEmpty ? 'Referral link will appear when ready' : link,
+            onTap: link.isEmpty ? null : onCopyLink,
+          ),
         ],
       ),
     );
@@ -214,7 +218,7 @@ class _CopyButton extends StatelessWidget {
   const _CopyButton({required this.label, required this.onTap});
 
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -237,7 +241,11 @@ class _CopyButton extends StatelessWidget {
                   style: AppTextStyles.labelMd.copyWith(
                       color: AppColors.white, fontWeight: FontWeight.w800)),
             ),
-            const Icon(Icons.copy_rounded, color: AppColors.white, size: 16),
+            Icon(Icons.copy_rounded,
+                color: onTap == null
+                    ? AppColors.white.withOpacity(0.35)
+                    : AppColors.white,
+                size: 16),
           ],
         ),
       ),
@@ -414,6 +422,18 @@ class _EmptyCard extends StatelessWidget {
 }
 
 class NumberFormatHelper {
+  static const Map<String, double> _fallbackRates = {
+    'USD': 1,
+    'EUR': 0.92,
+    'GBP': 0.78,
+    'NGN': 1500,
+    'GHS': 15,
+    'KES': 130,
+    'ZAR': 18.5,
+    'CAD': 1.35,
+    'AUD': 1.5,
+  };
+
   static double? maybeClean(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toDouble();
@@ -425,6 +445,21 @@ class NumberFormatHelper {
     return double.tryParse(value?.toString() ?? '') ?? fallback;
   }
 
+  static double convertFallback(
+    double amount,
+    String fromCurrency,
+    String toCurrency,
+  ) {
+    final from = fromCurrency.toUpperCase();
+    final to = toCurrency.toUpperCase();
+    if (amount <= 0) return 0;
+    if (from == to) return amount;
+    final fromRate = from == 'USD' ? 1.0 : _fallbackRates[from];
+    final toRate = to == 'USD' ? 1.0 : _fallbackRates[to];
+    if (fromRate == null || toRate == null) return 0;
+    return (amount * toRate) / fromRate;
+  }
+
   static String rewardDisplay(
     Map<String, dynamic> settings, {
     required String amountKey,
@@ -432,12 +467,20 @@ class NumberFormatHelper {
     required String baseAmountKey,
     required String baseCurrency,
   }) {
-    final currency = settings[currencyKey]?.toString().trim();
+    final configuredCurrency = settings[currencyKey]?.toString().trim();
+    final currency = configuredCurrency != null && configuredCurrency.isNotEmpty
+        ? configuredCurrency.toUpperCase()
+        : baseCurrency.toUpperCase();
+    final amount = maybeClean(settings[amountKey]);
+    final baseAmount = clean(settings[baseAmountKey], 0);
+    final hasPositiveAmount = amount != null && amount > 0;
+    final hasPositiveBase = baseAmount > 0;
     if (settings[amountKey] != null &&
-        currency != null &&
-        currency.isNotEmpty) {
-      return '${currency.toUpperCase()} ${clean(settings[amountKey], 0).toStringAsFixed(2)}';
+        currency.isNotEmpty &&
+        (hasPositiveAmount || !hasPositiveBase)) {
+      return '${currency.toUpperCase()} ${(amount ?? 0).toStringAsFixed(2)}';
     }
-    return '$baseCurrency ${clean(settings[baseAmountKey], 0).toStringAsFixed(2)}';
+    final fallback = convertFallback(baseAmount, baseCurrency, currency);
+    return '$currency ${fallback.toStringAsFixed(2)}';
   }
 }

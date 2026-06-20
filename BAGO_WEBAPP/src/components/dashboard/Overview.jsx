@@ -50,7 +50,7 @@ function BarChart({ data, activeIndex }) {
                             className="w-full rounded-lg transition-all duration-700"
                             style={{
                                 height: `${pct}%`,
-                                backgroundColor: isActive ? '#5845D8' : d.value > 0 ? '#012126' : '#E9EAF0',
+                                backgroundColor: isActive ? '#5845D8' : d.value > 0 ? '#5845D8' : '#E9EAF0',
                                 opacity: isActive ? 1 : d.value > 0 ? 0.3 : 1,
                                 boxShadow: isActive ? '0 6px 20px #5845D840' : 'none',
                             }}
@@ -196,7 +196,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
             {/* ── Top: Greeting + Month pill ── */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-[#012126] tracking-tight">
+                    <h1 className="text-2xl font-black text-[#111827] tracking-tight">
                         Hello, {firstName} 👋
                     </h1>
                     <p className="text-[11px] text-gray-400 font-medium mt-1">
@@ -205,7 +205,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 </div>
 
                 {/* Month-over-month pill */}
-                <div className="flex items-stretch gap-0 bg-[#012126] rounded-2xl overflow-hidden shrink-0 divide-x divide-white/8">
+                <div className="flex items-stretch gap-0 bg-[#5845D8] rounded-2xl overflow-hidden shrink-0 divide-x divide-white/8">
                     <div className="px-5 py-3 text-center">
                         <p className="text-[8px] text-white/40 uppercase tracking-widest font-bold mb-1">This Month</p>
                         <p className="text-2xl font-black text-white leading-none">{thisMonth}</p>
@@ -231,48 +231,48 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
 
             {/* ── 3 Stat Cards ── */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Cream — Total Shipments */}
+                {/* Total Shipments */}
                 <div
-                    className="bg-[#FBF9F0] border border-[#EDE8D0] rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md transition-all"
+                    className="bg-white border border-[#5845D8]/10 rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md hover:border-[#5845D8]/25 transition-all"
                     onClick={() => navigate('/dashboard?tab=shipments')}
                 >
                     <div>
-                        <p className="text-[8px] font-black text-[#8B7E52] uppercase tracking-widest mb-1">Total Shipments</p>
-                        <p className="text-3xl font-black text-[#3D3410] tracking-tight leading-none">
+                        <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Total Shipments</p>
+                        <p className="text-3xl font-black text-[#111827] tracking-tight leading-none">
                             {userStats?.completedBookings ?? '—'}
                         </p>
-                        <p className="text-[9px] text-[#8B7E52] font-medium mt-1">completed deliveries</p>
+                        <p className="text-[9px] text-gray-400 font-medium mt-1">completed deliveries</p>
                     </div>
-                    <div className="w-10 h-10 bg-[#EDE8D0] group-hover:bg-[#D4CC9A] rounded-xl flex items-center justify-center transition-all">
-                        <Package size={18} className="text-[#8B7E52]" />
+                    <div className="w-10 h-10 bg-[#5845D8]/8 group-hover:bg-[#5845D8] rounded-xl flex items-center justify-center transition-all">
+                        <Package size={18} className="text-[#5845D8] group-hover:text-white" />
                     </div>
                 </div>
 
-                {/* Blue — Active Deliveries */}
+                {/* Active Deliveries */}
                 <div
-                    className="bg-[#EEF4FF] border border-[#CCDAFF] rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md transition-all"
+                    className="bg-white border border-[#5845D8]/10 rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md hover:border-[#5845D8]/25 transition-all"
                     onClick={() => navigate('/dashboard?tab=deliveries')}
                 >
                     <div>
-                        <p className="text-[8px] font-black text-[#4A6FA5] uppercase tracking-widest mb-1">Active Deliveries</p>
-                        <p className="text-3xl font-black text-[#1A3A6B] tracking-tight leading-none">
+                        <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Active Deliveries</p>
+                        <p className="text-3xl font-black text-[#111827] tracking-tight leading-none">
                             {userStats?.activePackages ?? '—'}
                         </p>
-                        <p className="text-[9px] text-[#4A6FA5] font-medium mt-1">in transit now</p>
+                        <p className="text-[9px] text-gray-400 font-medium mt-1">in transit now</p>
                     </div>
-                    <div className="w-10 h-10 bg-[#CCDAFF] group-hover:bg-[#99BAFF] rounded-xl flex items-center justify-center transition-all">
-                        <Clock size={18} className="text-[#4A6FA5]" />
+                    <div className="w-10 h-10 bg-[#5845D8]/8 group-hover:bg-[#5845D8] rounded-xl flex items-center justify-center transition-all">
+                        <Clock size={18} className="text-[#5845D8] group-hover:text-white" />
                     </div>
                 </div>
 
-                {/* Gray — Wallet Balance */}
+                {/* Wallet Balance */}
                 <div
-                    className="bg-[#F5F5F5] border border-[#E5E5E5] rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md transition-all"
+                    className="bg-white border border-[#5845D8]/10 rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md hover:border-[#5845D8]/25 transition-all"
                     onClick={() => navigate('/dashboard?tab=earnings')}
                 >
                     <div>
-                        <p className="text-[8px] font-black text-[#6B6B6B] uppercase tracking-widest mb-1">Wallet Balance</p>
-                        <p className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
+                        <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Wallet Balance</p>
+                        <p className="text-2xl font-black text-[#111827] tracking-tight leading-none">
                             {loadingWallet
                                 ? <span className="opacity-30 animate-pulse">—</span>
                                 : `${sym}${walletData.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
@@ -283,8 +283,8 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                             </p>
                         )}
                     </div>
-                    <div className="w-10 h-10 bg-[#E5E5E5] group-hover:bg-[#D0D0D0] rounded-xl flex items-center justify-center transition-all">
-                        <Wallet size={18} className="text-[#6B6B6B]" />
+                    <div className="w-10 h-10 bg-[#5845D8]/8 group-hover:bg-[#5845D8] rounded-xl flex items-center justify-center transition-all">
+                        <Wallet size={18} className="text-[#5845D8] group-hover:text-white" />
                     </div>
                 </div>
             </div>
@@ -296,7 +296,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 <div className="lg:col-span-3 bg-white border border-gray-100 rounded-[24px] shadow-sm p-6">
                     <div className="flex items-center justify-between mb-5">
                         <div>
-                            <h3 className="text-sm font-black text-[#012126] tracking-tight">Shipment Activity</h3>
+                            <h3 className="text-sm font-black text-[#111827] tracking-tight">Shipment Activity</h3>
                             <p className="text-[9px] text-gray-400 font-medium mt-0.5">Past 7 days</p>
                         </div>
                         <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
@@ -317,13 +317,13 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-                        <div className="relative min-h-[150px] overflow-hidden rounded-2xl bg-[#012126]">
+                        <div className="relative min-h-[150px] overflow-hidden rounded-2xl bg-[#5845D8]">
                             <img
                                 src="/assets/faster-shipping-banner.png"
                                 alt="Bago shipping"
                                 className="absolute inset-0 h-full w-full object-cover opacity-95"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#012126]/85 via-[#012126]/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#5845D8]/85 via-[#5845D8]/20 to-transparent" />
                             <div className="absolute bottom-0 left-0 right-0 p-4">
                                 <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/60">Move smarter</p>
                                 <p className="mt-1 text-sm font-black leading-tight text-white">Send packages with verified travelers.</p>
@@ -342,7 +342,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                         </Link>
                         <Link
                             to="/search"
-                            className="flex-1 flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 text-[#012126]/60 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all"
+                            className="flex-1 flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 text-[#111827]/60 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all"
                         >
                             <Package size={12} /> Send Package
                         </Link>
@@ -353,7 +353,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 <div className="lg:col-span-2 bg-white border border-gray-100 rounded-[24px] shadow-sm p-6 flex flex-col">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h3 className="text-sm font-black text-[#012126] tracking-tight">Earnings Insight</h3>
+                            <h3 className="text-sm font-black text-[#111827] tracking-tight">Earnings Insight</h3>
                             <p className="text-[9px] text-gray-400 font-medium mt-0.5">All-time income</p>
                         </div>
                         <button
@@ -366,7 +366,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
 
                     <div className="bg-[#F5F4FC] rounded-2xl px-4 py-4 mb-4">
                         <p className="text-[8px] font-black text-[#5845D8]/60 uppercase tracking-widest mb-1">Total Earned</p>
-                        <p className="text-3xl font-black text-[#012126] tracking-tight leading-none">
+                        <p className="text-3xl font-black text-[#111827] tracking-tight leading-none">
                             {sym}{allTimeFormatted}
                         </p>
                         <p className="text-[9px] text-gray-400 font-medium mt-1">All time · {walletCurrency}</p>
@@ -385,12 +385,12 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     <div className="grid grid-cols-2 gap-3 mt-auto">
                         <div className="bg-gray-50 rounded-xl p-3 text-center">
                             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">This Month</p>
-                            <p className="text-lg font-black text-[#012126] leading-none">{thisMonth}</p>
+                            <p className="text-lg font-black text-[#111827] leading-none">{thisMonth}</p>
                             <p className="text-[8px] text-gray-400 font-medium mt-0.5">shipments</p>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-3 text-center">
                             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Completed</p>
-                            <p className="text-lg font-black text-[#012126] leading-none">{userStats?.completedBookings ?? 0}</p>
+                            <p className="text-lg font-black text-[#111827] leading-none">{userStats?.completedBookings ?? 0}</p>
                             <p className="text-[8px] text-gray-400 font-medium mt-0.5">all time</p>
                         </div>
                     </div>
@@ -414,7 +414,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
             <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
                     <div>
-                        <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">Transaction History</h3>
+                        <h3 className="text-sm font-black text-[#111827] uppercase tracking-tight">Transaction History</h3>
                         <p className="text-[9px] text-gray-400 font-medium mt-0.5">
                             {recentTxs.length > 0 ? `${recentTxs.length} recent entries` : 'No transactions yet'}
                         </p>
@@ -462,7 +462,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                                                 : <ArrowDownLeft size={14} className="text-emerald-600" />}
                                         </div>
                                         <div>
-                                            <span className="text-[10px] font-black text-[#012126] tracking-tight block truncate max-w-[130px]">
+                                            <span className="text-[10px] font-black text-[#111827] tracking-tight block truncate max-w-[130px]">
                                                 {transactionTitle(tx, isOut)}
                                             </span>
                                             <span className="text-[8px] text-gray-400 font-medium capitalize">{tx.type?.replace(/_/g, ' ')}</span>

@@ -11,6 +11,38 @@ import api from '../api';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 120000;
+const KYC_COUNTRIES = [
+    { code: 'NG', name: 'Nigeria' },
+    { code: 'GH', name: 'Ghana' },
+    { code: 'KE', name: 'Kenya' },
+    { code: 'ZA', name: 'South Africa' },
+    { code: 'UG', name: 'Uganda' },
+    { code: 'RW', name: 'Rwanda' },
+    { code: 'TZ', name: 'Tanzania' },
+    { code: 'CM', name: 'Cameroon' },
+    { code: 'SN', name: 'Senegal' },
+    { code: 'CI', name: "Cote d'Ivoire" },
+    { code: 'SL', name: 'Sierra Leone' },
+    { code: 'ZM', name: 'Zambia' },
+    { code: 'BJ', name: 'Benin' },
+    { code: 'TG', name: 'Togo' },
+    { code: 'ET', name: 'Ethiopia' },
+    { code: 'CD', name: 'DR Congo' },
+    { code: 'MZ', name: 'Mozambique' },
+    { code: 'ZW', name: 'Zimbabwe' },
+    { code: 'MW', name: 'Malawi' },
+    { code: 'GN', name: 'Guinea' },
+];
+
+const normalizeCountryCode = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    const upper = text.toUpperCase();
+    const byCode = KYC_COUNTRIES.find((country) => country.code === upper);
+    if (byCode) return byCode.code;
+    const byName = KYC_COUNTRIES.find((country) => country.name.toUpperCase() === upper);
+    return byName?.code || '';
+};
 
 // Steps: 'status' | 'consent' | 'verifying'
 export default function Verify() {
@@ -27,6 +59,7 @@ export default function Verify() {
     // Consent
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [selectedCountry, setSelectedCountry] = useState(() => normalizeCountryCode(user?.country || user?.countryCode || user?.country_code));
 
     // Dojah
     const [dojahCreds, setDojahCreds] = useState(null);
@@ -48,6 +81,12 @@ export default function Verify() {
         if (!authLoading && !isAuthenticated) navigate('/login?redirect=/verify');
         else if (isAuthenticated) fetchKycStatus();
     }, [authLoading, isAuthenticated]);
+
+    useEffect(() => {
+        if (!selectedCountry) {
+            setSelectedCountry(normalizeCountryCode(user?.country || user?.countryCode || user?.country_code));
+        }
+    }, [selectedCountry, user]);
 
     useEffect(() => {
         return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -112,13 +151,14 @@ export default function Verify() {
             }
             const userId = user?.id || user?._id;
             if (!userId) throw new Error('Could not start verification. Please log in again.');
+            if (!selectedCountry) throw new Error('Please choose your country before starting verification.');
             const randomToken = window.crypto?.randomUUID?.()
                 || (window.crypto?.getRandomValues
                     ? Array.from(window.crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
                     : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
             const nextReferenceId = `bago-${randomToken}`;
             const res = await api.post('/api/bago/kyc/dojah/start', {
-                country: user?.country,
+                country: selectedCountry,
                 referenceId: nextReferenceId,
             });
             const rawCreds = res.data || {};
@@ -128,6 +168,7 @@ export default function Verify() {
                 publicKey: rawCreds.publicKey || rawCreds.public_key,
                 widgetId: rawCreds.widgetId || rawCreds.widget_id,
                 referenceId: rawCreds.referenceId || rawCreds.reference_id || nextReferenceId,
+                country: rawCreds.country || selectedCountry,
             };
             if (!resolvedCreds.appId || !resolvedCreds.publicKey || !resolvedCreds.widgetId) {
                 throw new Error('Verification widget is not configured. Please contact support.');
@@ -144,18 +185,18 @@ export default function Verify() {
     };
 
     const syncDojahResult = async (activeReferenceId) => {
-        let finalStatus = 'pending';
+        let finalStatus = 'not_started';
         try {
             const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', {
                 referenceId: activeReferenceId,
             });
             const synced = normalizeKycStatus(syncRes.data?.kycStatus || syncRes.data?.kyc_status || syncRes.data?.status);
-            if (['approved', 'declined', 'blocked_duplicate'].includes(synced)) {
+            if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(synced)) {
                 finalStatus = synced;
             }
         } catch (_) {}
 
-        if (finalStatus === 'pending') {
+        if (finalStatus === 'not_started') {
             for (let i = 0; i < 12; i += 1) {
                 await new Promise(resolve => setTimeout(resolve, 5000));
                 try {
@@ -167,7 +208,7 @@ export default function Verify() {
                         const statusRes = await api.get('/api/bago/kyc/status');
                         status = normalizeKycStatus(statusRes.data?.kycStatus || statusRes.data?.kyc_status || statusRes.data?.status);
                     }
-                    if (['approved', 'declined', 'blocked_duplicate'].includes(status)) {
+                    if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(status)) {
                         finalStatus = status;
                         break;
                     }
@@ -260,6 +301,8 @@ export default function Verify() {
                     <LandingCard onStart={() => setStep('consent')} t={t} />
                 ) : step === 'consent' ? (
                     <ConsentCard
+                        selectedCountry={selectedCountry}
+                        setSelectedCountry={setSelectedCountry}
                         termsAccepted={termsAccepted}
                         setTermsAccepted={setTermsAccepted}
                         privacyAccepted={privacyAccepted}
@@ -343,8 +386,18 @@ function LandingCard({ onStart, t }) {
     );
 }
 
-function ConsentCard({ termsAccepted, setTermsAccepted, privacyAccepted, setPrivacyAccepted, actionLoading, error, onContinue }) {
-    const canContinue = termsAccepted && privacyAccepted && !actionLoading;
+function ConsentCard({
+    selectedCountry,
+    setSelectedCountry,
+    termsAccepted,
+    setTermsAccepted,
+    privacyAccepted,
+    setPrivacyAccepted,
+    actionLoading,
+    error,
+    onContinue,
+}) {
+    const canContinue = Boolean(selectedCountry) && termsAccepted && privacyAccepted && !actionLoading;
     return (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
@@ -358,6 +411,26 @@ function ConsentCard({ termsAccepted, setTermsAccepted, privacyAccepted, setPriv
                 <p className="text-sm text-gray-600 font-medium leading-relaxed">
                     To verify your identity we collect and process your personal data, including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.
                 </p>
+                <div>
+                    <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">
+                        Country for verification
+                    </label>
+                    <select
+                        value={selectedCountry}
+                        onChange={(event) => setSelectedCountry(event.target.value)}
+                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10"
+                    >
+                        <option value="">Select your country</option>
+                        {KYC_COUNTRIES.map((country) => (
+                            <option key={country.code} value={country.code}>
+                                {country.name}
+                            </option>
+                        ))}
+                    </select>
+                    <p className="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                        This lets us open the right Dojah verification flow.
+                    </p>
+                </div>
                 <div className="space-y-3">
                     <p className="font-black text-xs uppercase tracking-wider text-gray-700">What we collect</p>
                     {[

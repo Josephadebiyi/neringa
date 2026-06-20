@@ -222,19 +222,19 @@ export default function Earnings({ user, checkAuthStatus }) {
 
             {/* ── Balance Hero ── */}
             <div
-                className="rounded-[28px] p-7 relative overflow-hidden text-[#012126]"
+                className="rounded-[28px] p-7 relative overflow-hidden text-[#111827]"
                 style={{ background: 'linear-gradient(135deg, #e8f4fd 0%, #f0ebff 50%, #fef9ec 100%)' }}
             >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#5845D8]/8 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
                 <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <div>
-                        <p className="text-[9px] font-black text-[#012126]/50 uppercase tracking-widest mb-2">Available Balance</p>
-                        <p className="text-5xl font-black text-[#012126] tracking-tighter leading-none">
+                        <p className="text-[9px] font-black text-[#111827]/50 uppercase tracking-widest mb-2">Available Balance</p>
+                        <p className="text-5xl font-black text-[#111827] tracking-tighter leading-none">
                             {loadingWallet ? <span className="opacity-30 animate-pulse">—</span> : `${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
                         </p>
                         <div className="flex items-center gap-1.5 mt-3">
-                            <Lock size={11} className="text-[#012126]/50" />
-                            <p className="text-[10px] font-bold text-[#012126]/50">
+                            <Lock size={11} className="text-[#111827]/50" />
+                            <p className="text-[10px] font-bold text-[#111827]/50">
                                 {sym}{escrow.toLocaleString(undefined,{minimumFractionDigits:2})} in escrow
                             </p>
                         </div>
@@ -248,7 +248,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 <PayPalLogo size={22} />
                             )}
                             <div>
-                                <p className="text-[10px] font-black text-[#012126] uppercase tracking-tight">
+                                <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
                                     {isAfrican ? 'Paystack Bank Transfer' : 'PayPal Payout'}
                                 </p>
                                 <p className={`text-[8px] font-bold uppercase tracking-wider ${hasPayoutMethod ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -277,7 +277,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             <button
                                 key={tab.id}
                                 onClick={() => setChartMode(tab.id)}
-                                className={`h-12 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${chartMode===tab.id ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'text-[#012126]/40 hover:text-[#012126]'}`}
+                                className={`h-12 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${chartMode===tab.id ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/15' : 'text-[#111827]/40 hover:text-[#111827]'}`}
                             >
                                 {tab.label}
                             </button>
@@ -286,12 +286,12 @@ export default function Earnings({ user, checkAuthStatus }) {
 
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingUp size={13} className="text-[#5845D8]" />
-                        <span className="text-[10px] font-black text-[#012126]/40 uppercase tracking-widest">All time</span>
+                        <span className="text-[10px] font-black text-[#111827]/40 uppercase tracking-widest">All time</span>
                     </div>
-                    <p className="text-5xl font-black text-[#012126] tracking-tighter leading-none mb-1">
+                    <p className="text-5xl font-black text-[#111827] tracking-tighter leading-none mb-1">
                         {sym}{activeTotal.toLocaleString(undefined,{minimumFractionDigits:2})}
                     </p>
-                    <p className="text-[10px] text-[#012126]/40 font-bold mb-6">
+                    <p className="text-[10px] text-[#111827]/40 font-bold mb-6">
                         {chartMode==='received' ? 'Total income received' : 'Total withdrawn from wallet'}
                     </p>
 
@@ -301,11 +301,11 @@ export default function Earnings({ user, checkAuthStatus }) {
                             <div key={day.key} className="flex h-full flex-col items-center justify-end gap-1.5">
                                 <div className="relative flex h-full w-full items-end justify-center rounded-full bg-gray-100 overflow-hidden">
                                     <div
-                                        className={`w-full rounded-full transition-all duration-500 ${chartMode==='received' ? 'bg-[#5845D8]' : 'bg-[#012126]'}`}
+                                        className={`w-full rounded-full transition-all duration-500 ${chartMode==='received' ? 'bg-[#5845D8]' : 'bg-[#5845D8]'}`}
                                         style={{ height:`${Math.max(8,(day.value/maxChart)*100)}%`, opacity:day.value>0?1:0.15 }}
                                     />
                                 </div>
-                                <span className="text-[8px] font-black uppercase tracking-widest text-[#012126]/40">{day.label}</span>
+                                <span className="text-[8px] font-black uppercase tracking-widest text-[#111827]/40">{day.label}</span>
                             </div>
                         ))}
                     </div>
@@ -317,7 +317,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center">
                             <ArrowUpRight size={16} className="text-orange-500" />
                         </div>
-                        <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">Withdraw</h3>
+                        <h3 className="text-sm font-black text-[#111827] uppercase tracking-tight">Withdraw</h3>
                     </div>
 
                     {/* No payout method warning */}
@@ -351,7 +351,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 value={amount}
                                 onChange={e => setAmount(e.target.value)}
                                 placeholder="0.00"
-                                className="bg-transparent text-4xl font-black text-[#012126] outline-none w-32 text-center placeholder:text-gray-200"
+                                className="bg-transparent text-4xl font-black text-[#111827] outline-none w-32 text-center placeholder:text-gray-200"
                             />
                         </div>
                     </div>
@@ -360,14 +360,14 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={() => setAmount(minimum.toFixed(2))}
-                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-100 transition-all"
+                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#111827] uppercase tracking-widest hover:bg-gray-100 transition-all"
                         >
                             Minimum
                         </button>
                         <button
                             onClick={() => balance > 0 && setAmount(balance.toFixed(2))}
                             disabled={balance <= 0}
-                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-100 transition-all disabled:opacity-30"
+                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#111827] uppercase tracking-widest hover:bg-gray-100 transition-all disabled:opacity-30"
                         >
                             Withdraw all
                         </button>
@@ -375,22 +375,22 @@ export default function Earnings({ user, checkAuthStatus }) {
 
                     {/* Summary */}
                     <div className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4 space-y-3 text-[10px] font-bold">
-                        <div className="flex justify-between text-[#012126]">
+                        <div className="flex justify-between text-[#111827]">
                             <span className="text-[#5845D8]">Amount</span>
                             <span className="font-black">{sym}{amountNum.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between text-[#012126]">
+                        <div className="flex justify-between text-[#111827]">
                             <span className="text-[#5845D8]">Bago fee</span>
                             <span className="font-black text-emerald-600">No fee</span>
                         </div>
-                        <div className="flex justify-between text-[#012126]">
+                        <div className="flex justify-between text-[#111827]">
                             <span className="text-[#5845D8]">Method</span>
                             <span className="font-black flex items-center gap-1.5">
                                 {isAfrican ? <PaystackLogo size={14} /> : <PayPalLogo size={13} />}
                                 {isAfrican ? 'Paystack' : 'PayPal'}
                             </span>
                         </div>
-                        <div className="border-t border-gray-200 pt-2 flex justify-between text-[#012126]">
+                        <div className="border-t border-gray-200 pt-2 flex justify-between text-[#111827]">
                             <span className="text-[#5845D8]">Minimum</span>
                             <span className="font-black">{sym}{minimum.toFixed(2)}</span>
                         </div>
@@ -413,7 +413,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             </div>
                         )}
                         <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black text-[#012126] uppercase tracking-tight">
+                            <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
                                 {isAfrican ? 'Paystack Bank Transfer' : 'PayPal'}
                             </p>
                             <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
@@ -465,7 +465,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 <Lock size={18} className="text-[#5845D8]" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-black uppercase tracking-tight text-[#012126]">
+                                <h3 className="text-sm font-black uppercase tracking-tight text-[#111827]">
                                     Confirm withdrawal
                                 </h3>
                                 <p className="text-[10px] font-bold text-gray-400">
@@ -479,7 +479,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             inputMode="numeric"
                             autoFocus
                             placeholder="000000"
-                            className="mb-4 h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-center text-2xl font-black tracking-[0.4em] text-[#012126] outline-none focus:border-[#5845D8]"
+                            className="mb-4 h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-center text-2xl font-black tracking-[0.4em] text-[#111827] outline-none focus:border-[#5845D8]"
                         />
                         <div className="grid grid-cols-2 gap-3">
                             <button
@@ -488,7 +488,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     setShowModal(false);
                                     setOtpCode('');
                                 }}
-                                className="h-12 rounded-2xl bg-gray-100 text-[10px] font-black uppercase tracking-widest text-[#012126]"
+                                className="h-12 rounded-2xl bg-gray-100 text-[10px] font-black uppercase tracking-widest text-[#111827]"
                             >
                                 Cancel
                             </button>
@@ -511,7 +511,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <div className="w-8 h-8 rounded-full bg-[#5845D8]/6 flex items-center justify-center">
                             <RefreshCw size={14} className="text-[#5845D8]" />
                         </div>
-                        <h3 className="text-sm font-black text-[#012126] uppercase tracking-tight">
+                        <h3 className="text-sm font-black text-[#111827] uppercase tracking-tight">
                             {t('transactionHistory') || 'Transaction History'}
                         </h3>
                     </div>
@@ -539,7 +539,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                             {isOut ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
                                         </div>
                                         <div>
-                                            <p className="font-black text-[#012126] text-[11px] uppercase tracking-tight mb-0.5">
+                                            <p className="font-black text-[#111827] text-[11px] uppercase tracking-tight mb-0.5">
                                                 {transactionTitle(tx, isOut)}
                                             </p>
                                             <div className="flex items-center gap-2">

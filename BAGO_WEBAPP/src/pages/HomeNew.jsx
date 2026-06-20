@@ -195,7 +195,12 @@ const HeroSection = () => {
                             <a href="#" className="hover:scale-105 transition-transform duration-300">
                                 <img src="/app-store.svg" alt="App Store" className="h-9 w-auto" />
                             </a>
-                            <a href="#" className="hover:scale-105 transition-transform duration-300">
+                            <a
+                                href="https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind&hl=en"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:scale-105 transition-transform duration-300"
+                            >
                                 <img src="/google-play.svg" alt="Google Play" className="h-9 w-auto" />
                             </a>
                         </div>

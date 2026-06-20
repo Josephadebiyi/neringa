@@ -13,11 +13,30 @@ const ALLOWED_WITHDRAWAL_STATUSES = new Set([
   'failed',
 ]);
 
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function normalizeWithdrawalRow(row) {
-  const metadata = row.metadata || {};
+  const metadata = parseJsonObject(row.metadata);
+  const bankDetails = parseJsonObject(row.bank_details);
   const paypalError = metadata.paypalError || null;
   const paypalPayout = metadata.paypalPayout || null;
-  const provider = metadata.provider || metadata.method || (paypalError || paypalPayout ? 'paypal' : row.provider || null);
+  const provider =
+    metadata.provider ||
+    metadata.method ||
+    row.payout_provider ||
+    row.payout_method ||
+    (bankDetails.paypalEmail || bankDetails.paypal_email ? 'paypal' : null) ||
+    (bankDetails.recipientCode || bankDetails.accountNumber || row.paystack_recipient_code ? 'paystack' : null) ||
+    (paypalError || paypalPayout ? 'paypal' : row.provider || null);
   const failureReason =
     row.failure_reason ||
     metadata.failure_reason ||
@@ -30,6 +49,19 @@ function normalizeWithdrawalRow(row) {
     ...row,
     metadata,
     provider,
+    payoutDetails: {
+      provider,
+      method: row.payout_method || metadata.method || provider || null,
+      status: row.payout_method_status || row.payout_status || null,
+      currency: row.payout_currency || row.currency || bankDetails.currency || null,
+      reference: metadata.reference || row.reference || null,
+      paypalEmail: metadata.paypalEmail || bankDetails.paypalEmail || bankDetails.paypal_email || null,
+      bankName: bankDetails.bankName || bankDetails.bank_name || null,
+      bankCode: bankDetails.bankCode || bankDetails.bank_code || null,
+      accountNumber: bankDetails.accountNumber || bankDetails.account_number || null,
+      accountName: bankDetails.accountName || bankDetails.account_name || bankDetails.accountHolderName || null,
+      recipientCode: bankDetails.recipientCode || bankDetails.recipient_code || row.paystack_recipient_code || null,
+    },
     manualReviewRequired: metadata.manualReviewRequired === true,
     manualReviewReason: metadata.manualReviewReason || null,
     paypalStatus:
@@ -90,7 +122,9 @@ export const getAllWithdrawals = async (req, res, next) => {
         `
           SELECT wt.id, wt.user_id, wt.amount, wt.status, wt.description, wt.currency,
                  wt.created_at, wt.updated_at, wt.metadata,
-                 p.first_name, p.last_name, p.email,
+                 p.first_name, p.last_name, p.email, p.bank_details,
+                 p.payout_provider, p.payout_method, p.payout_method_status, p.payout_status, p.payout_currency,
+                 p.paystack_recipient_code,
                  NULL::text AS provider,
                  NULL::text AS failure_reason,
                  CASE WHEN lower(coalesce(wt.status, '')) IN ('completed', 'paid') THEN wt.updated_at ELSE NULL END AS processed_at,
@@ -104,7 +138,9 @@ export const getAllWithdrawals = async (req, res, next) => {
                  'Paystack bank withdrawal' AS description, ppw.currency,
                  ppw.created_at, ppw.updated_at,
                  jsonb_build_object('provider', 'paystack', 'reference', ppw.reference) AS metadata,
-                 p.first_name, p.last_name, p.email,
+                 p.first_name, p.last_name, p.email, p.bank_details,
+                 p.payout_provider, p.payout_method, p.payout_method_status, p.payout_status, p.payout_currency,
+                 p.paystack_recipient_code,
                  'paystack' AS provider,
                  NULL::text AS failure_reason,
                  CASE WHEN lower(coalesce(ppw.status, '')) IN ('completed', 'paid') THEN ppw.updated_at ELSE NULL END AS processed_at,
@@ -120,7 +156,9 @@ export const getAllWithdrawals = async (req, res, next) => {
       result = await query(
         `SELECT t.id, t.user_id, t.amount, t.status, t.description, t.currency,
                 t.created_at, t.updated_at, '{}'::jsonb AS metadata,
-                p.first_name, p.last_name, p.email,
+                p.first_name, p.last_name, p.email, p.bank_details,
+                p.payout_provider, p.payout_method, p.payout_method_status, p.payout_status, p.payout_currency,
+                p.paystack_recipient_code,
                 NULL::text AS provider,
                 NULL::text AS failure_reason,
                 CASE WHEN lower(coalesce(t.status, '')) IN ('completed', 'paid') THEN t.updated_at ELSE NULL END AS processed_at,

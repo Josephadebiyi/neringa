@@ -23,7 +23,12 @@ export default function Footer() {
                         <a href="#" className="block">
                             <img src="/app-store.svg" alt="Download on App Store" className="h-10 hover:opacity-80 transition" />
                         </a>
-                        <a href="#" className="block">
+                        <a
+                            href="https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind&hl=en"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                        >
                             <img src="/google-play.svg" alt="Get it on Google Play" className="h-10 hover:opacity-80 transition" />
                         </a>
                     </div>

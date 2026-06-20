@@ -84,7 +84,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
 
     return (
         <aside className={`
-            fixed left-0 top-0 h-screen w-64 bg-[#012126] flex flex-col z-40
+            fixed left-0 top-0 h-screen w-64 bg-[#5845D8] flex flex-col z-40
             transition-transform duration-300 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
             md:translate-x-0

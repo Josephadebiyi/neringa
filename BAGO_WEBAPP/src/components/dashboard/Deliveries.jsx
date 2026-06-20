@@ -185,7 +185,7 @@ export default function Deliveries({ onNavigateToChat }) {
     return (
         <div className="space-y-6 font-sans">
             <div className="mb-8 px-1">
-                <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">My Deliveries</h2>
+                <h2 className="text-lg font-black text-[#111827] tracking-tight uppercase">My Deliveries</h2>
                 <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">
                     Packages you are carrying — accept requests and update delivery status
                 </p>
@@ -196,7 +196,7 @@ export default function Deliveries({ onNavigateToChat }) {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Package size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#012126] mb-1.5 uppercase tracking-tight">No delivery requests yet</h3>
+                    <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">No delivery requests yet</h3>
                     <p className="text-gray-400 text-[10px] max-w-xs mx-auto font-bold uppercase tracking-wider opacity-60 leading-relaxed">
                         When senders match their package to your trip, requests will appear here for you to accept or reject.
                     </p>
@@ -224,30 +224,30 @@ export default function Deliveries({ onNavigateToChat }) {
                                 <div className="flex-1 text-center md:text-left">
                                     <div className="flex items-center justify-center md:justify-start gap-1.5 mb-1.5 cursor-pointer"
                                         onClick={() => setViewingDetails(req)}>
-                                        <span className="text-xs font-black text-[#012126] uppercase tracking-tight">
+                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
                                             {req.originCity || p.fromCity || '—'}
                                         </span>
                                         <ArrowRight size={12} className="text-gray-300" />
-                                        <span className="text-xs font-black text-[#012126] uppercase tracking-tight">
+                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
                                             {req.destinationCity || p.toCity || '—'}
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-2">
                                         <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
                                             <Clock size={10} className="text-[#5845D8]" />
-                                            <span className="text-[9px] font-black text-[#012126] uppercase tracking-widest">
+                                            <span className="text-[9px] font-black text-[#111827] uppercase tracking-widest">
                                                 {req.trackingNumber || 'PENDING'}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50/50 rounded-lg border border-indigo-100/50 shadow-sm">
                                             <User size={10} className="text-[#5845D8]" />
-                                            <span className="text-[9px] font-black text-[#012126]/70 uppercase tracking-widest">
+                                            <span className="text-[9px] font-black text-[#111827]/70 uppercase tracking-widest">
                                                 Sender: {req.senderName || req.sender?.firstName || '—'}
                                             </span>
                                         </div>
                                         {p.packageWeight ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
-                                                <span className="text-[9px] font-black text-[#012126]/60 uppercase tracking-widest">
+                                                <span className="text-[9px] font-black text-[#111827]/60 uppercase tracking-widest">
                                                     {p.packageWeight} KG
                                                 </span>
                                             </div>
@@ -270,7 +270,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                             <>
                                                 <button
                                                     onClick={() => { setViewingDetails(req); setAcceptedTerms([false, false, false]); }}
-                                                    className="flex items-center gap-1.5 bg-gray-100 text-[#012126] px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all shadow-sm"
+                                                    className="flex items-center gap-1.5 bg-gray-100 text-[#111827] px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all shadow-sm"
                                                 >
                                                     <Package size={13} /> Inspect
                                                 </button>
@@ -311,7 +311,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                         <button
                                             onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}
                                             disabled={!req.conversationId}
-                                            className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="p-2 rounded-xl border border-gray-100 text-[#111827] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                             title={req.conversationId ? 'Chat with Sender' : 'Chat available after acceptance'}
                                         >
                                             <MessageSquare size={13} />
@@ -333,7 +333,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                 <AlertTriangle size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">Report an Issue</h3>
+                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">Report an Issue</h3>
                                 <p className="text-[9px] text-red-600 font-black mt-1 uppercase tracking-widest opacity-70">
                                     Order #{selectedDispute.trackingNumber || 'Pending'}
                                 </p>
@@ -355,7 +355,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                 <button type="button" onClick={() => setSelectedDispute(null)}
                                     className="flex-1 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600">Cancel</button>
                                 <button type="submit" disabled={isSubmitting}
-                                    className="flex-[2] bg-[#012126] text-white py-4 rounded-xl font-black text-xs uppercase tracking-[2px] shadow-lg hover:bg-red-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                                    className="flex-[2] bg-[#5845D8] text-white py-4 rounded-xl font-black text-xs uppercase tracking-[2px] shadow-lg hover:bg-red-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                                     {isSubmitting ? <RefreshCw className="animate-spin" size={16} /> : 'Submit Report'}
                                 </button>
                             </div>
@@ -373,7 +373,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                 <ShieldCheck size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">Update Delivery Status</h3>
+                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">Update Delivery Status</h3>
                                 <p className="text-[9px] text-gray-500 font-black mt-1 uppercase tracking-widest opacity-70">
                                     Order #{updatingStatus.trackingNumber}
                                 </p>
@@ -404,7 +404,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                                         <Icon size={17} />
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-black text-[#012126] uppercase tracking-widest">{option.label}</p>
+                                                        <p className="text-[10px] font-black text-[#111827] uppercase tracking-widest">{option.label}</p>
                                                         <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-500">{option.description}</p>
                                                     </div>
                                                 </div>
@@ -475,7 +475,7 @@ export default function Deliveries({ onNavigateToChat }) {
                     <div className="bg-white w-full max-w-4xl rounded-[28px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
                         <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
                             <div>
-                                <h3 className="text-lg font-black text-[#012126] uppercase tracking-tight">Package Inspection</h3>
+                                <h3 className="text-lg font-black text-[#111827] uppercase tracking-tight">Package Inspection</h3>
                                 <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest opacity-70">
                                     Review all details before accepting
                                 </p>
@@ -493,7 +493,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                 {imgFor(viewingDetails) ? (
                                     <>
                                         <img src={imgFor(viewingDetails)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Package" />
-                                        <div className="absolute bottom-4 right-4 px-4 py-2 rounded-xl bg-white/95 text-[#012126] text-[9px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2">
+                                        <div className="absolute bottom-4 right-4 px-4 py-2 rounded-xl bg-white/95 text-[#111827] text-[9px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2">
                                             <ZoomIn size={14} /> Zoom
                                         </div>
                                     </>
@@ -525,7 +525,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                 ].filter(([, v]) => v && v.trim() && v !== ' ' && v !== 'undefined undefined' && v !== ' KG').map(([label, value]) => (
                                     <div key={label} className="p-4 bg-gray-50 rounded-[14px] border border-gray-100">
                                         <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-                                        <p className="text-sm font-black text-[#012126] break-words">{value}</p>
+                                        <p className="text-sm font-black text-[#111827] break-words">{value}</p>
                                     </div>
                                 ))}
                             </div>
@@ -534,7 +534,7 @@ export default function Deliveries({ onNavigateToChat }) {
                             {(pkg(viewingDetails).description || viewingDetails.description) && (
                                 <div className="space-y-2">
                                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Item Description</p>
-                                    <div className="p-5 bg-gray-50 rounded-[20px] border border-gray-100 text-xs font-bold leading-relaxed text-[#012126]">
+                                    <div className="p-5 bg-gray-50 rounded-[20px] border border-gray-100 text-xs font-bold leading-relaxed text-[#111827]">
                                         {pkg(viewingDetails).description || viewingDetails.description}
                                     </div>
                                 </div>
@@ -607,7 +607,7 @@ export default function Deliveries({ onNavigateToChat }) {
                                 </>
                             ) : (
                                 <button onClick={() => setViewingDetails(null)}
-                                    className="flex-1 bg-gray-100 text-[#012126] py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all">
+                                    className="flex-1 bg-gray-100 text-[#111827] py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all">
                                     Close
                                 </button>
                             )}

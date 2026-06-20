@@ -695,7 +695,9 @@ const AppStoreBadge = () => (
 
 const GooglePlayBadge = () => (
     <a
-        href="#"
+        href="https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind&hl=en"
+        target="_blank"
+        rel="noopener noreferrer"
         className="inline-flex items-center gap-2.5 bg-black px-4 py-2.5 rounded-xl border border-white/20 hover:bg-[#1a1a1a] transition-all hover:scale-105 duration-200 shadow-md"
     >
         <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0">

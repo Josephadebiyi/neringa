@@ -133,7 +133,7 @@ export default function Trips() {
         return (
             <div className={`rounded-[20px] border shadow-sm overflow-hidden transition-all ${isHistory ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100 hover:shadow-md hover:-translate-y-0.5'}`}>
                 {/* Top — boarding pass header */}
-                <div className={`px-5 pt-5 pb-5 relative overflow-hidden ${isHistory ? 'bg-[#012126]/70' : 'bg-[#012126]'}`}>
+                <div className={`px-5 pt-5 pb-5 relative overflow-hidden ${isHistory ? 'bg-[#5845D8]/70' : 'bg-[#5845D8]'}`}>
                     <div className="absolute top-0 right-0 w-24 h-24 bg-[#5845D8]/15 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none" />
 
                     <div className="flex items-center justify-between mb-4 relative z-10">
@@ -204,7 +204,7 @@ export default function Trips() {
                             <p className="text-[7px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('availableSpace')}</p>
                             <div className="flex items-center gap-1">
                                 <Weight size={10} className="text-[#5845D8]/60" />
-                                <p className="text-[#012126] font-black text-[11px]">{trip.availableKg} KG</p>
+                                <p className="text-[#111827] font-black text-[11px]">{trip.availableKg} KG</p>
                             </div>
                         </div>
                         {trip.travelerEarnings > 0 && (
@@ -272,7 +272,7 @@ export default function Trips() {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => startEditing(trip)}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-100 rounded-xl text-[10px] font-black text-[#012126] uppercase tracking-widest hover:bg-gray-50 transition-all"
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-100 rounded-xl text-[10px] font-black text-[#111827] uppercase tracking-widest hover:bg-gray-50 transition-all"
                             >
                                 <Edit3 size={13} /> {t('edit')}
                             </button>
@@ -293,7 +293,7 @@ export default function Trips() {
         <div className="space-y-6 font-sans">
             <div className="flex items-center justify-between mb-8 px-1">
                 <div>
-                    <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">{t('myTrips')}</h2>
+                    <h2 className="text-lg font-black text-[#111827] tracking-tight uppercase">{t('myTrips')}</h2>
                     <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">{t('manageFlightBusRoutes')}</p>
                 </div>
                 <button
@@ -310,7 +310,7 @@ export default function Trips() {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Plane size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#012126] mb-1.5 text-center uppercase tracking-tight">{t('noActiveTrips')}</h3>
+                    <h3 className="text-sm font-black text-[#111827] mb-1.5 text-center uppercase tracking-tight">{t('noActiveTrips')}</h3>
                     <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-8 font-bold uppercase tracking-wider opacity-60 leading-relaxed">{t('noActiveTripsDesc')}</p>
                 </div>
             ) : (
@@ -342,7 +342,7 @@ export default function Trips() {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
                     <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                            <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">{t('editTrip')}</h3>
+                            <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">{t('editTrip')}</h3>
                             <button onClick={() => setEditingTrip(null)} className="p-1.5 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-gray-600"><X size={20} /></button>
                         </div>
                         <form onSubmit={handleUpdateTrip} className="p-6 space-y-5">

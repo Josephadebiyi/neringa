@@ -22,7 +22,85 @@ interface WithdrawalRequest {
   paypalStatus?: string | null;
   paypalErrorMessage?: string | null;
   paypalDebugId?: string | null;
+  payoutDetails?: {
+    provider?: string | null;
+    method?: string | null;
+    status?: string | null;
+    currency?: string | null;
+    reference?: string | null;
+    paypalEmail?: string | null;
+    bankName?: string | null;
+    bankCode?: string | null;
+    accountNumber?: string | null;
+    accountName?: string | null;
+    recipientCode?: string | null;
+  };
   source?: string;
+}
+
+function payoutSearchText(withdrawal: WithdrawalRequest) {
+  const details = withdrawal.payoutDetails || {};
+  return [
+    withdrawal.provider,
+    details.provider,
+    details.method,
+    details.paypalEmail,
+    details.bankName,
+    details.bankCode,
+    details.accountNumber,
+    details.accountName,
+    details.recipientCode,
+    details.reference,
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function hasPayoutDestination(withdrawal: WithdrawalRequest) {
+  const details = withdrawal.payoutDetails || {};
+  return Boolean(
+    details.paypalEmail ||
+    details.accountNumber ||
+    details.recipientCode ||
+    details.reference,
+  );
+}
+
+function PayoutDetailsBlock({ withdrawal }: { withdrawal: WithdrawalRequest }) {
+  const details = withdrawal.payoutDetails || {};
+  const rows = [
+    ['Provider', details.provider || withdrawal.provider],
+    ['Method', details.method],
+    ['Status', details.status],
+    ['Currency', details.currency || withdrawal.currency],
+    ['PayPal email', details.paypalEmail],
+    ['Bank name', details.bankName],
+    ['Bank code', details.bankCode],
+    ['Account number', details.accountNumber],
+    ['Account name', details.accountName],
+    ['Recipient code', details.recipientCode],
+    ['Reference', details.reference],
+  ].filter(([, value]) => value);
+
+  if (rows.length === 0) {
+    return (
+      <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+        No payout destination is available. Do not approve until the user adds a payout method.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
+      <div className="mb-2 font-bold uppercase tracking-wide text-gray-500">Payout destination</div>
+      <div className="grid gap-1">
+        {rows.map(([label, value]) => (
+          <div key={label} className="grid grid-cols-[110px_minmax(0,1fr)] gap-2">
+            <span className="font-semibold text-gray-500">{label}</span>
+            <span className="break-all font-medium text-gray-900">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function Withdrawals() {
@@ -65,7 +143,7 @@ export default function Withdrawals() {
   };
 
   const handleBatchApprove = async () => {
-    const pending = withdrawals.filter(w => w.status === 'pending');
+    const pending = withdrawals.filter(w => w.status === 'pending' && hasPayoutDestination(w));
     if (pending.length === 0) return;
     if (!confirm(`Approve all ${pending.length} pending withdrawal request(s)?`)) return;
     try {
@@ -84,7 +162,8 @@ export default function Withdrawals() {
       withdrawal.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       withdrawal.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       withdrawal.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      withdrawal.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      withdrawal.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payoutSearchText(withdrawal).includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || withdrawal.status === statusFilter;
 
@@ -120,6 +199,7 @@ export default function Withdrawals() {
   const totalProcessedAmount = withdrawals
     .filter(w => w.status === 'completed')
     .reduce((sum, w) => sum + w.amount, 0);
+  const approvablePendingCount = withdrawals.filter(w => w.status === 'pending' && hasPayoutDestination(w)).length;
 
   if (loading) {
     return (
@@ -140,11 +220,11 @@ export default function Withdrawals() {
         <div className="flex space-x-2">
           <button
             onClick={handleBatchApprove}
-            disabled={batchLoading || withdrawals.filter(w => w.status === 'pending').length === 0}
+            disabled={batchLoading || approvablePendingCount === 0}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors"
           >
             {batchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            <span>Batch Approve ({withdrawals.filter(w => w.status === 'pending').length})</span>
+            <span>Batch Approve ({approvablePendingCount})</span>
           </button>
         </div>
       </div>
@@ -288,6 +368,7 @@ export default function Withdrawals() {
                         )}
                       </div>
                     )}
+                    <PayoutDetailsBlock withdrawal={withdrawal} />
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-2">
@@ -332,7 +413,9 @@ export default function Withdrawals() {
                         <>
                           <button 
                             onClick={() => handleUpdateStatus(withdrawal.id, 'completed')}
-                            className="text-green-600 hover:text-green-800 text-sm font-medium"
+                            disabled={!hasPayoutDestination(withdrawal)}
+                            title={!hasPayoutDestination(withdrawal) ? 'Payout destination is missing' : 'Approve withdrawal'}
+                            className="text-green-600 hover:text-green-800 text-sm font-medium disabled:cursor-not-allowed disabled:text-gray-300"
                           >
                             Approve
                           </button>

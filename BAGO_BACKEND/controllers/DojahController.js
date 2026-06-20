@@ -178,6 +178,28 @@ export const dojahReferenceFromPayload = (payload = {}) =>
   payload?.metadata?.reference_id ||
   '';
 
+const dojahStatusFromPayload = (payload = {}) => firstWebhookValue(
+  payload?.status,
+  payload?.verificationStatus,
+  payload?.verification_status,
+  payload?.decision,
+  payload?.result,
+  payload?.data?.status,
+  payload?.data?.verificationStatus,
+  payload?.data?.verification_status,
+  payload?.data?.decision,
+  payload?.data?.result,
+  payload?.data?.entity?.status,
+  payload?.data?.entity?.verification_status,
+  payload?.data?.entity?.verificationStatus,
+);
+
+const effectiveStoredKycStatus = (status, payload = {}) => {
+  const normalized = String(status || 'not_started').trim().toLowerCase() || 'not_started';
+  if (normalized !== 'pending') return normalized;
+  return isPendingStatus(dojahStatusFromPayload(payload)) ? 'pending' : 'not_started';
+};
+
 async function applyDojahEventToUser(userId, event, {
   referenceId = '',
   notify = true,
@@ -342,14 +364,15 @@ export const syncExistingDojahResult = async (req, res) => {
     );
 
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    if (['approved', 'blocked_duplicate', 'declined'].includes(user.kycStatus)) {
-      return res.json({ success: true, kycStatus: user.kycStatus, source: 'db' });
+    const currentStatus = effectiveStoredKycStatus(user.kycStatus, user.kycVerifiedData);
+    if (['approved', 'blocked_duplicate', 'declined'].includes(currentStatus)) {
+      return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
     }
 
     if (user.kycProvider !== 'dojah') {
       return res.json({
         success: true,
-        kycStatus: user.kycStatus || 'not_started',
+        kycStatus: currentStatus,
         source: 'db',
         canStartNewSession: true,
       });
@@ -359,7 +382,7 @@ export const syncExistingDojahResult = async (req, res) => {
     if (!referenceId) {
       return res.json({
         success: true,
-        kycStatus: user.kycStatus || 'not_started',
+        kycStatus: currentStatus,
         source: 'db',
         canStartNewSession: true,
         reason: 'missing_reference',
@@ -367,15 +390,16 @@ export const syncExistingDojahResult = async (req, res) => {
     }
 
     const result = await syncDojahReferenceForUser(userId, referenceId, { notify: true });
-    const finalStatus = ['approved', 'declined', 'blocked_duplicate'].includes(result.status)
+    const finalStatus = ['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)
       ? result.status
-      : (user.kycStatus || 'pending');
+      : currentStatus;
+    const canStartNewSession = !['approved', 'blocked_duplicate', 'pending'].includes(finalStatus);
 
     return res.json({
       success: true,
       kycStatus: finalStatus,
       source: result.success ? 'dojah_api' : 'db',
-      canStartNewSession: false,
+      canStartNewSession,
       referenceId,
       syncStatus: result.status,
       message: result.message || null,
@@ -456,7 +480,8 @@ export const getKycProvider = async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/bago/kyc/dojah/start
-// Records that user started Dojah KYC, returns widget config
+// Stores the Dojah reference and returns widget config. The user is only moved
+// to pending after Dojah confirms a submitted/review status.
 // ---------------------------------------------------------------------------
 export const startDojahSession = async (req, res) => {
   try {
@@ -485,12 +510,12 @@ export const startDojahSession = async (req, res) => {
       `UPDATE public.profiles
        SET kyc_provider = 'dojah',
            kyc_status = CASE
-             WHEN kyc_status IN ('approved', 'blocked_duplicate', 'declined') THEN kyc_status
-             ELSE 'pending'
+             WHEN kyc_status IN ('approved', 'blocked_duplicate', 'declined', 'pending') THEN kyc_status
+             ELSE COALESCE(NULLIF(kyc_status, ''), 'not_started')
            END,
            kyc_verified_data = CASE
              WHEN kyc_status IN ('approved', 'blocked_duplicate') THEN kyc_verified_data
-             ELSE jsonb_strip_nulls(jsonb_build_object(
+             ELSE COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_strip_nulls(jsonb_build_object(
                'provider', 'dojah',
                'referenceId', $2,
                'reference_id', $2,
@@ -679,14 +704,19 @@ export const getKycStatus = async (req, res) => {
 
     const row = await queryOne(
       `SELECT kyc_status AS "kycStatus", kyc_provider AS "kycProvider",
-              kyc_failure_reason AS "kycFailureReason"
+              kyc_failure_reason AS "kycFailureReason",
+              kyc_verified_data AS "kycVerifiedData"
        FROM public.profiles WHERE id = $1`,
       [userId],
     );
 
     if (!row) return res.status(404).json({ success: false, message: 'User not found' });
 
-    res.json({ success: true, kycStatus: row.kycStatus, kycProvider: row.kycProvider });
+    res.json({
+      success: true,
+      kycStatus: effectiveStoredKycStatus(row.kycStatus, row.kycVerifiedData),
+      kycProvider: row.kycProvider,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -715,11 +745,12 @@ export const syncDojahResult = async (req, res) => {
       return res.json({ success: true, kycStatus: existing.kycStatus, source: 'db' });
     }
 
-    // Immediately mark as pending so the app knows it was submitted.
+    // Store the sync reference for recovery. Do not mark as pending here:
+    // timeout/error callbacks can reach this endpoint before Dojah confirms
+    // that the user actually submitted verification.
     await query(
       `UPDATE public.profiles
-       SET kyc_status = 'pending',
-           kyc_provider = 'dojah',
+       SET kyc_provider = 'dojah',
            kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
              'provider', 'dojah',
              'referenceId', $2,
@@ -732,8 +763,8 @@ export const syncDojahResult = async (req, res) => {
       [userId, referenceId],
     ).catch(() => {});
 
-    let finalStatus = 'pending';
-    let source = 'pending_only';
+    let finalStatus = existing?.kycStatus || 'not_started';
+    let source = 'db';
 
     // Actively pull the result from Dojah's API.
     if (DOJAH_APP_ID && DOJAH_SECRET) {
@@ -766,6 +797,7 @@ export const syncDojahResult = async (req, res) => {
         console.log(`Dojah sync: referenceId=${referenceId} rawStatus=${rawStatus}`);
 
         const approved = isApprovedStatus(rawStatus);
+        const pending = isPendingStatus(rawStatus);
         const declined = isDeclinedStatus(rawStatus);
 
         if (approved) {
@@ -819,6 +851,18 @@ export const syncDojahResult = async (req, res) => {
             [userId, reason, { data: event, status: rawStatus, referenceId }],
           );
           finalStatus = 'declined';
+          source = 'dojah_api';
+        } else if (pending) {
+          await query(
+            `UPDATE public.profiles
+             SET kyc_status = 'pending',
+                 kyc_provider = 'dojah',
+                 kyc_verified_data = $3,
+                 updated_at = NOW()
+             WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate', 'declined')`,
+            [userId, referenceId, { data: event, status: rawStatus, referenceId }],
+          ).catch(() => {});
+          finalStatus = 'pending';
           source = 'dojah_api';
         }
       } catch (err) {

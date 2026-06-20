@@ -228,7 +228,7 @@ export default function Shipments({ onNavigateToChat }) {
     return (
         <div className="space-y-6 font-sans">
             <div className="mb-8 px-1">
-                <h2 className="text-lg font-black text-[#012126] tracking-tight uppercase">My Shipments</h2>
+                <h2 className="text-lg font-black text-[#111827] tracking-tight uppercase">My Shipments</h2>
                 <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">
                     Packages you have sent — track and manage your deliveries
                 </p>
@@ -239,7 +239,7 @@ export default function Shipments({ onNavigateToChat }) {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Package size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#012126] mb-1.5 uppercase tracking-tight">No shipments yet</h3>
+                    <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">No shipments yet</h3>
                     <p className="text-gray-400 text-[10px] max-w-xs mx-auto font-bold uppercase tracking-wider opacity-60 leading-relaxed">
                         Once you send a package with a Bago traveler, your shipments will appear here.
                     </p>
@@ -272,11 +272,11 @@ export default function Shipments({ onNavigateToChat }) {
                                         className="flex items-center justify-center md:justify-start gap-1.5 mb-2 cursor-pointer"
                                         onClick={() => setViewingDetails(req)}
                                     >
-                                        <span className="text-xs font-black text-[#012126] uppercase tracking-tight">
+                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
                                             {originCity(req)}
                                         </span>
                                         <ChevronRight size={12} className="text-gray-300" />
-                                        <span className="text-xs font-black text-[#012126] uppercase tracking-tight">
+                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
                                             {destinationCity(req)}
                                         </span>
                                     </div>
@@ -291,7 +291,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         ) : req.trackingNumber ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
                                                 <Clock size={10} className="text-[#5845D8]" />
-                                                <span className="text-[9px] font-black text-[#012126] uppercase tracking-widest">
+                                                <span className="text-[9px] font-black text-[#111827] uppercase tracking-widest">
                                                     {req.trackingNumber}
                                                 </span>
                                             </div>
@@ -306,7 +306,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         {!paymentDraft && req.travelerName ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50/60 rounded-lg border border-indigo-100/50 shadow-sm">
                                                 <User size={10} className="text-[#5845D8]" />
-                                                <span className="text-[9px] font-black text-[#012126]/70 uppercase tracking-widest">
+                                                <span className="text-[9px] font-black text-[#111827]/70 uppercase tracking-widest">
                                                     Traveler: {req.travelerName}
                                                 </span>
                                             </div>
@@ -376,7 +376,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         <button
                                             onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}
                                             disabled={!req.conversationId}
-                                            className="p-2 rounded-xl border border-gray-100 text-[#012126] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="p-2 rounded-xl border border-gray-100 text-[#111827] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                             title={req.conversationId ? 'Chat with Traveler' : 'Chat available once traveler accepts'}
                                         >
                                             <MessageSquare size={14} />
@@ -426,7 +426,7 @@ export default function Shipments({ onNavigateToChat }) {
                                 <AlertTriangle size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#012126] uppercase tracking-tight">Report an Issue</h3>
+                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">Report an Issue</h3>
                                 <p className="text-[9px] text-red-600 font-black mt-1 uppercase tracking-widest opacity-70">
                                     Order #{selectedRequest.trackingNumber || 'Pending'}
                                 </p>
@@ -516,7 +516,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                 <img src={imgUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Package" />
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
-                                        <ZoomIn size={20} className="text-[#012126]" />
+                                        <ZoomIn size={20} className="text-[#111827]" />
                                     </div>
                                 </div>
                                 <div className="absolute bottom-3 right-3 bg-black/40 text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg backdrop-blur-sm">
@@ -535,7 +535,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                     {description && (
                         <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm">
                             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">Item Description</p>
-                            <p className="text-sm font-bold leading-relaxed text-[#012126]">{description}</p>
+                            <p className="text-sm font-bold leading-relaxed text-[#111827]">{description}</p>
                         </div>
                     )}
 
@@ -550,7 +550,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                     </div>
                                     <div>
                                         <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Pickup Address</p>
-                                        <p className="text-sm font-bold text-[#012126]">{pickupAddress}</p>
+                                        <p className="text-sm font-bold text-[#111827]">{pickupAddress}</p>
                                     </div>
                                 </div>
                             )}
@@ -561,7 +561,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                     </div>
                                     <div>
                                         <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Delivery Address</p>
-                                        <p className="text-sm font-bold text-[#012126]">{deliveryAddress}</p>
+                                        <p className="text-sm font-bold text-[#111827]">{deliveryAddress}</p>
                                     </div>
                                 </div>
                             )}
@@ -608,12 +608,12 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                         <div className="flex items-center gap-3">
                             <div>
                                 <p className="text-[7px] font-black text-gray-400 uppercase mb-1">From</p>
-                                <p className="text-sm font-black text-[#012126] uppercase">{from}</p>
+                                <p className="text-sm font-black text-[#111827] uppercase">{from}</p>
                             </div>
                             <div className="flex-1 h-[2px] bg-gradient-to-r from-[#5845D8]/20 via-[#5845D8] to-[#5845D8]/20 rounded-full" />
                             <div className="text-right">
                                 <p className="text-[7px] font-black text-gray-400 uppercase mb-1">To</p>
-                                <p className="text-sm font-black text-[#012126] uppercase">{to}</p>
+                                <p className="text-sm font-black text-[#111827] uppercase">{to}</p>
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-2 gap-3">
@@ -625,7 +625,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                             </div>
                             <div>
                                 <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Traveler</p>
-                                <p className="text-[10px] font-black text-[#012126]">
+                                <p className="text-[10px] font-black text-[#111827]">
                                     {req.travelerName || 'Not yet assigned'}
                                 </p>
                             </div>
@@ -639,19 +639,19 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                             {weight ? (
                                 <div className="p-3 bg-gray-50 rounded-[14px] border border-gray-100">
                                     <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Weight</p>
-                                    <p className="text-sm font-black text-[#012126]">{weight} KG</p>
+                                    <p className="text-sm font-black text-[#111827]">{weight} KG</p>
                                 </div>
                             ) : null}
                             {category && (
                                 <div className="p-3 bg-gray-50 rounded-[14px] border border-gray-100">
                                     <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Category</p>
-                                    <p className="text-sm font-black text-[#012126] uppercase truncate">{category}</p>
+                                    <p className="text-sm font-black text-[#111827] uppercase truncate">{category}</p>
                                 </div>
                             )}
                             {declaredValue && (
                                 <div className="p-3 bg-gray-50 rounded-[14px] border border-gray-100">
                                     <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Declared Value</p>
-                                    <p className="text-sm font-black text-[#012126]">{currency} {Number(declaredValue).toLocaleString()}</p>
+                                    <p className="text-sm font-black text-[#111827]">{currency} {Number(declaredValue).toLocaleString()}</p>
                                 </div>
                             )}
                             {amountPaid && (
@@ -671,7 +671,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                 <User size={18} />
                             </div>
                             <div>
-                                <p className="text-sm font-black text-[#012126]">{receiver.name || 'Not provided'}</p>
+                                <p className="text-sm font-black text-[#111827]">{receiver.name || 'Not provided'}</p>
                                 <p className="text-[9px] text-gray-500 font-bold">{receiver.phone || 'No phone'}</p>
                                 {receiver.email && <p className="text-[9px] text-gray-400 font-bold break-all">{receiver.email}</p>}
                             </div>
@@ -699,7 +699,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                             <button
                                 onClick={() => onDownload(id, req.trackingNumber)}
                                 disabled={!id || downloading === id}
-                                className="w-full flex items-center justify-center gap-2 bg-[#012126] text-white py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
+                                className="w-full flex items-center justify-center gap-2 bg-[#5845D8] text-white py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
                             >
                                 {downloading === id ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
                                 {downloading === id ? 'Downloading…' : 'Download Shipping Label'}

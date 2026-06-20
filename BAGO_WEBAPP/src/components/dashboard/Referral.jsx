@@ -2,6 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Copy, Gift, Loader2, Share2, Users, Wallet } from 'lucide-react';
 import api from '../../api';
 
+const FALLBACK_RATES = {
+    USD: 1,
+    EUR: 0.92,
+    GBP: 0.78,
+    NGN: 1500,
+    GHS: 15,
+    KES: 130,
+    ZAR: 18.5,
+    CAD: 1.35,
+    AUD: 1.5,
+};
+
 function money(amount, currency = 'USD') {
     return `${currency} ${Number(amount || 0).toLocaleString(undefined, {
         minimumFractionDigits: 2,
@@ -9,11 +21,36 @@ function money(amount, currency = 'USD') {
     })}`;
 }
 
-function rewardMoney(settings, amountKey, currencyKey, baseAmountKey, baseCurrency) {
-    if (settings?.[amountKey] != null && settings?.[currencyKey]) {
-        return money(settings[amountKey], settings[currencyKey]);
+function convertFallback(amount, fromCurrency, toCurrency) {
+    const numeric = Number(amount || 0);
+    const from = String(fromCurrency || toCurrency || 'USD').toUpperCase();
+    const to = String(toCurrency || from || 'USD').toUpperCase();
+    if (!numeric || numeric <= 0) return 0;
+    if (from === to) return numeric;
+    const fromRate = from === 'USD' ? 1 : FALLBACK_RATES[from];
+    const toRate = to === 'USD' ? 1 : FALLBACK_RATES[to];
+    if (!fromRate || !toRate) return 0;
+    return Number(((numeric * toRate) / fromRate).toFixed(4));
+}
+
+function rewardMoney(settings, amountKey, currencyKey, baseAmountKey, baseCurrency, displayCurrency) {
+    const amount = Number(settings?.[amountKey]);
+    const baseAmount = Number(settings?.[baseAmountKey]);
+    const currency = String(settings?.[currencyKey] || displayCurrency || baseCurrency).toUpperCase();
+    const hasPositiveAmount = Number.isFinite(amount) && amount > 0;
+    const hasPositiveBase = Number.isFinite(baseAmount) && baseAmount > 0;
+    if ((hasPositiveAmount || !hasPositiveBase) && settings?.[amountKey] != null && currency) {
+        return money(amount, currency);
     }
-    return money(settings?.[baseAmountKey] ?? 0, baseCurrency);
+    return money(hasPositiveBase ? convertFallback(baseAmount, baseCurrency, currency) : 0, currency);
+}
+
+function objectList(value) {
+    return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') : [];
+}
+
+function objectValue(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
 export default function Referral({ user }) {
@@ -39,8 +76,8 @@ export default function Referral({ user }) {
         return code ? `${origin}/signup?ref=${encodeURIComponent(code)}` : '';
     }, [data?.code, user]);
 
-    const rewards = data?.rewards || [];
-    const settings = data?.settings || {};
+    const rewards = objectList(data?.rewards);
+    const settings = objectValue(data?.settings);
     const currency = settings.referralTotalEarnedCurrency
         || settings.walletCurrency
         || rewards.find((r) => r.viewer_currency)?.viewer_currency
@@ -67,13 +104,14 @@ export default function Referral({ user }) {
         );
     }
 
-    const referredUsers = data?.referredUsers || [];
+    const referredUsers = objectList(data?.referredUsers);
     const welcomeDisplay = rewardMoney(
         settings,
         'referralWelcomeBonusAmount',
         'referralWelcomeBonusCurrency',
         'referralWelcomeBonusNgn',
         'NGN',
+        currency,
     );
     const shipmentDisplay = rewardMoney(
         settings,
@@ -81,11 +119,12 @@ export default function Referral({ user }) {
         'referralShipmentBonusCurrency',
         'referralShipmentBonusUsd',
         'USD',
+        currency,
     );
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="rounded-[30px] bg-[#012126] text-white p-8 overflow-hidden relative">
+            <div className="rounded-[30px] bg-[#5845D8] text-white p-8 overflow-hidden relative">
                 <div className="absolute right-0 top-0 w-72 h-72 bg-[#5845D8]/30 rounded-full blur-3xl translate-x-24 -translate-y-24" />
                 <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 items-end">
                     <div>
@@ -110,21 +149,23 @@ export default function Referral({ user }) {
                 <div className="lg:col-span-2 bg-white rounded-[28px] border border-gray-100 p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-5">
                         <Share2 size={18} className="text-[#5845D8]" />
-                        <h3 className="font-black text-[#012126] text-lg">Your invite link</h3>
+                        <h3 className="font-black text-[#111827] text-lg">Your invite link</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3">
                         <button
                             onClick={() => copyValue(data?.code, 'code')}
+                            disabled={!data?.code}
                             className="bg-[#5845D8]/8 text-[#5845D8] rounded-2xl px-5 py-4 font-black tracking-widest flex items-center justify-between"
                         >
-                            {data?.code || 'NO CODE'}
+                            {data?.code || 'Generating referral code...'}
                             <Copy size={15} />
                         </button>
                         <button
                             onClick={() => copyValue(link, 'link')}
-                            className="bg-gray-50 rounded-2xl px-5 py-4 text-left text-sm font-bold text-[#012126] flex items-center justify-between gap-4 overflow-hidden"
+                            disabled={!link}
+                            className="bg-gray-50 rounded-2xl px-5 py-4 text-left text-sm font-bold text-[#111827] flex items-center justify-between gap-4 overflow-hidden"
                         >
-                            <span className="truncate">{link}</span>
+                            <span className="truncate">{link || 'Referral link will appear when your code is ready'}</span>
                             <Copy size={15} className="text-[#5845D8] shrink-0" />
                         </button>
                     </div>
@@ -136,11 +177,11 @@ export default function Referral({ user }) {
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
                             <Wallet size={16} className="text-[#5845D8]" />
-                            <span className="text-sm font-bold text-[#012126]">You and your friend each get {welcomeDisplay} after signup</span>
+                            <span className="text-sm font-bold text-[#111827]">You and your friend each get {welcomeDisplay} after signup</span>
                         </div>
                         <div className="flex items-center gap-3">
                             <CheckCircle size={16} className="text-emerald-600" />
-                            <span className="text-sm font-bold text-[#012126]">Earn another {shipmentDisplay} when they send an item over USD {Number(settings.referralShipmentThresholdUsd || 50).toLocaleString()}</span>
+                            <span className="text-sm font-bold text-[#111827]">Earn another {shipmentDisplay} when they send an item over USD {Number(settings.referralShipmentThresholdUsd || 50).toLocaleString()}</span>
                         </div>
                     </div>
                 </div>
@@ -149,7 +190,7 @@ export default function Referral({ user }) {
             <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                     <div>
-                        <h3 className="font-black text-[#012126] text-lg">Referred users</h3>
+                        <h3 className="font-black text-[#111827] text-lg">Referred users</h3>
                         <p className="text-gray-400 text-xs font-bold">Track who used your code and their completion stage.</p>
                     </div>
                     <div className="flex items-center gap-2 text-[#5845D8] font-black text-sm">
@@ -167,7 +208,7 @@ export default function Referral({ user }) {
                         {referredUsers.map((person) => (
                             <div key={person.id} className="p-5 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
                                 <div>
-                                    <p className="font-black text-[#012126]">{[person.first_name, person.last_name].filter(Boolean).join(' ') || person.email}</p>
+                                    <p className="font-black text-[#111827]">{[person.first_name, person.last_name].filter(Boolean).join(' ') || person.email}</p>
                                     <p className="text-xs text-gray-400 font-bold">{person.email}</p>
                                     <div className="flex flex-wrap gap-2 mt-3">
                                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${person.signup_completed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
@@ -180,7 +221,7 @@ export default function Referral({ user }) {
                                 </div>
                                 <div className="md:text-right">
                                     <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">Earned</p>
-                                    <p className="text-lg font-black text-[#012126]">{money(person.referrer_earned, person.referrer_earned_currency || currency)}</p>
+                                    <p className="text-lg font-black text-[#111827]">{money(person.referrer_earned, person.referrer_earned_currency || currency)}</p>
                                 </div>
                             </div>
                         ))}

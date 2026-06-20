@@ -92,6 +92,10 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       message =
           'This identity is already linked to another account. Please contact support.';
       snackType = SnackBarType.error;
+    } else if (finalStatus == 'not_started') {
+      message =
+          'Verification was not completed. You can start again when ready.';
+      snackType = SnackBarType.info;
     } else {
       message = 'Verification submitted. We\'ll update your status shortly.';
       snackType = SnackBarType.info;
@@ -105,7 +109,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
     int attempts = 12,
     Duration initialTimeout = const Duration(seconds: 15),
   }) async {
-    String finalStatus = 'pending';
+    String finalStatus = 'not_started';
     try {
       final syncResp = await ApiService.instance.post(
           ApiConstants.kycDojahSyncResult,
@@ -113,7 +117,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       final synced = syncResp.data?['kycStatus']?.toString() ?? '';
       if (synced == 'approved' ||
           synced == 'declined' ||
-          synced == 'blocked_duplicate') {
+          synced == 'blocked_duplicate' ||
+          synced == 'pending') {
         return synced;
       }
     } catch (_) {}
@@ -134,7 +139,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         }
         if (status == 'approved' ||
             status == 'declined' ||
-            status == 'blocked_duplicate') {
+            status == 'blocked_duplicate' ||
+            status == 'pending') {
           finalStatus = status;
           break;
         }

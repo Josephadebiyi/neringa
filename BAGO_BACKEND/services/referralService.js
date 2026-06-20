@@ -5,6 +5,17 @@ import { sendPushNotification } from './pushNotificationService.js';
 
 const WELCOME_TRIGGER = 'welcome';
 const SHIPMENT_TRIGGER = 'shipment_over_threshold';
+const REFERRAL_FALLBACK_RATES = {
+  USD: 1,
+  EUR: 0.92,
+  GBP: 0.78,
+  NGN: 1500,
+  GHS: 15,
+  KES: 130,
+  ZAR: 18.5,
+  CAD: 1.35,
+  AUD: 1.5,
+};
 
 async function ensureReferralInfrastructure(clientOrQuery = null) {
   const exec = clientOrQuery?.query ? (sql, params) => clientOrQuery.query(sql, params) : query;
@@ -105,15 +116,48 @@ async function convertRewardAmount(amount, fromCurrency, toCurrency) {
   return convertCurrency(numeric, from, to);
 }
 
+function fallbackConvertRewardAmount(amount, fromCurrency, toCurrency) {
+  const numeric = Number(amount || 0);
+  const from = (fromCurrency || toCurrency || 'USD').toUpperCase();
+  const to = (toCurrency || from || 'USD').toUpperCase();
+  if (!numeric || numeric <= 0) return 0;
+  if (from === to) return numeric;
+  const fromRate = from === 'USD' ? 1 : REFERRAL_FALLBACK_RATES[from];
+  const toRate = to === 'USD' ? 1 : REFERRAL_FALLBACK_RATES[to];
+  if (!fromRate || !toRate) return 0;
+  return Number(((numeric * toRate) / fromRate).toFixed(4));
+}
+
 async function safeConvertRewardAmount(amount, fromCurrency, toCurrency) {
   try {
-    return await convertRewardAmount(amount, fromCurrency, toCurrency);
+    const converted = await convertRewardAmount(amount, fromCurrency, toCurrency);
+    if (Number(converted) > 0 || Number(amount || 0) <= 0) return converted;
+    return fallbackConvertRewardAmount(amount, fromCurrency, toCurrency);
   } catch (error) {
     console.warn(
       `Referral conversion failed ${fromCurrency || 'unknown'} -> ${toCurrency || 'unknown'}: ${error.message}`,
     );
-    return null;
+    return fallbackConvertRewardAmount(amount, fromCurrency, toCurrency);
   }
+}
+
+function referralDisplayAmount(convertedAmount, walletCurrency, baseAmount, baseCurrency) {
+  const converted = Number(convertedAmount);
+  const base = Number(baseAmount || 0);
+  const hasPositiveConverted = Number.isFinite(converted) && converted > 0;
+  const hasPositiveBase = Number.isFinite(base) && base > 0;
+  const currency = (walletCurrency || baseCurrency || 'USD').toUpperCase();
+  if (hasPositiveConverted || !hasPositiveBase) {
+    return {
+      amount: Number((Number.isFinite(converted) ? converted : 0).toFixed(4)),
+      currency,
+    };
+  }
+  const fallback = fallbackConvertRewardAmount(base, baseCurrency, currency);
+  return {
+    amount: Number((fallback || 0).toFixed(4)),
+    currency,
+  };
 }
 
 async function creditWallet(client, { userId, amount, currency, description, metadata }) {
@@ -224,6 +268,8 @@ export async function getReferralSummary(userId) {
   const shipmentBonusBase = Number(settings.referralShipmentBonusUsd ?? 2);
   const welcomeBonusAmount = await safeConvertRewardAmount(welcomeBonusBase, 'NGN', walletCurrency);
   const shipmentBonusAmount = await safeConvertRewardAmount(shipmentBonusBase, 'USD', walletCurrency);
+  const welcomeDisplay = referralDisplayAmount(welcomeBonusAmount, walletCurrency, welcomeBonusBase, 'NGN');
+  const shipmentDisplay = referralDisplayAmount(shipmentBonusAmount, walletCurrency, shipmentBonusBase, 'USD');
 
   const referred = await query(
     `
@@ -311,12 +357,12 @@ export async function getReferralSummary(userId) {
       referralTotalEarnedAmount: Number(totalEarnedAmount.toFixed(4)),
       referralTotalEarnedCurrency: walletCurrency,
       referralWelcomeBonusNgn: welcomeBonusBase,
-      referralWelcomeBonusAmount: welcomeBonusAmount,
-      referralWelcomeBonusCurrency: walletCurrency,
+      referralWelcomeBonusAmount: welcomeDisplay.amount,
+      referralWelcomeBonusCurrency: welcomeDisplay.currency,
       referralShipmentThresholdUsd: Number(settings.referralShipmentThresholdUsd ?? 50),
       referralShipmentBonusUsd: shipmentBonusBase,
-      referralShipmentBonusAmount: shipmentBonusAmount,
-      referralShipmentBonusCurrency: walletCurrency,
+      referralShipmentBonusAmount: shipmentDisplay.amount,
+      referralShipmentBonusCurrency: shipmentDisplay.currency,
     },
     referredUsers,
     rewards: displayRewards,

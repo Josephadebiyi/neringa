@@ -535,14 +535,14 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className="flex h-[calc(100vh-130px)] bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm font-sans text-[#012126]">
+        <div className="flex h-[calc(100vh-130px)] bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm font-sans text-[#111827]">
 
             {/* ── Col 1: Conversation list ── */}
             <div className={`flex-shrink-0 w-full md:w-[280px] border-r border-gray-100 flex flex-col bg-[#FAFAFA] ${selectedConv ? 'hidden md:flex' : 'flex'}`}>
                 <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
                     <div className="flex items-center gap-2">
                         <MessageCircle size={16} className="text-[#5845D8]" />
-                        <h3 className="font-black text-[#012126] text-[11px] uppercase tracking-widest">Messages</h3>
+                        <h3 className="font-black text-[#111827] text-[11px] uppercase tracking-widest">Messages</h3>
                     </div>
                     {conversations.length > 0 && (
                         <span className="px-2 py-0.5 bg-[#5845D8] text-white rounded-full text-[9px] font-black">
@@ -587,7 +587,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-0.5">
-                                            <p className={`text-[11px] font-black truncate tracking-tight ${isActive ? 'text-[#5845D8]' : 'text-[#012126]'}`}>
+                                            <p className={`text-[11px] font-black truncate tracking-tight ${isActive ? 'text-[#5845D8]' : 'text-[#111827]'}`}>
                                                 {conv.otherUser?.firstName || 'User'}
                                             </p>
                                             <p className="text-[8px] text-gray-300 font-medium whitespace-nowrap ml-1">
@@ -595,7 +595,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                             </p>
                                         </div>
                                         {fromCity && toCity && (
-                                            <p className="text-[8px] font-black text-[#012126]/40 uppercase tracking-wider mb-0.5">
+                                            <p className="text-[8px] font-black text-[#111827]/40 uppercase tracking-wider mb-0.5">
                                                 {fromCity} → {toCity}
                                             </p>
                                         )}
@@ -630,7 +630,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     {selectedConv.otherUser?.firstName?.charAt(0) || <User size={14} />}
                                 </div>
                                 <div>
-                                    <p className="font-black text-[#012126] text-[12px] tracking-tight">
+                                    <p className="font-black text-[#111827] text-[12px] tracking-tight">
                                         {selectedConv.otherUser?.firstName || 'User'}
                                     </p>
                                     <div className="flex items-center gap-1.5">
@@ -666,7 +666,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
 
                         {/* Mobile shipment strip */}
                         {convShipments.length > 0 && (
-                            <div className="xl:hidden flex items-center gap-2.5 px-4 py-2 bg-[#012126] border-b border-white/5 flex-shrink-0">
+                            <div className="xl:hidden flex items-center gap-2.5 px-4 py-2 bg-[#5845D8] border-b border-white/5 flex-shrink-0">
                                 <Package size={12} className="text-[#5845D8] shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-white text-[9px] font-black truncate">
@@ -704,7 +704,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                         <div className={`relative max-w-[78%] px-4 py-3 rounded-2xl text-[11px] font-medium shadow-sm ${
                                             isMe
                                                 ? 'bg-[#5845D8] text-white rounded-tr-sm'
-                                                : 'bg-white text-[#012126] border border-gray-100 rounded-tl-sm'
+                                                : 'bg-white text-[#111827] border border-gray-100 rounded-tl-sm'
                                         }`}>
                                             {msg.fileUrl && (msg.type === 'image' || msg.mimeType?.startsWith('image/')) && (
                                                 <a href={msg.fileUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl mb-2">
@@ -778,7 +778,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     value={newMessage}
                                     onChange={e => { setNewMessage(e.target.value); if (warningType) setWarningType(null); }}
                                     placeholder="Type a message…"
-                                    className="flex-1 bg-transparent outline-none text-[12px] text-[#012126] placeholder:text-gray-300 font-medium"
+                                    className="flex-1 bg-transparent outline-none text-[12px] text-[#111827] placeholder:text-gray-300 font-medium"
                                 />
                                 <button
                                     type="submit"
@@ -796,7 +796,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                         <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-5 shadow-xl shadow-gray-200/50 border border-gray-100">
                             <MessageCircle size={30} className="text-[#5845D8]/30" />
                         </div>
-                        <h3 className="text-sm font-black text-[#012126] mb-2 uppercase tracking-wider">Select a conversation</h3>
+                        <h3 className="text-sm font-black text-[#111827] mb-2 uppercase tracking-wider">Select a conversation</h3>
                         <p className="text-[10px] text-gray-400 font-medium max-w-[220px] leading-relaxed">
                             Choose a conversation from the list on the left to start chatting
                         </p>
@@ -845,7 +845,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     const pickupAddr   = p.pickupAddress || s?.pickupAddress || '';
                                     const deliveryAddr = p.deliveryAddress || s?.deliveryAddress || '';
                                     return (
-                                        <div className="bg-[#012126] rounded-[20px] p-5 relative overflow-hidden">
+                                        <div className="bg-[#5845D8] rounded-[20px] p-5 relative overflow-hidden">
                                             <div className="absolute top-0 right-0 w-24 h-24 bg-[#5845D8]/20 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none" />
                                             <div className="relative z-10">
                                                 {/* Status */}
@@ -984,7 +984,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             <div className="w-12 h-12 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-[#5845D8]/10">
                                 <Weight size={22} />
                             </div>
-                            <h3 className="text-lg font-black text-[#012126] uppercase tracking-tight">Add Extra Weight</h3>
+                            <h3 className="text-lg font-black text-[#111827] uppercase tracking-tight">Add Extra Weight</h3>
                             <p className="text-[9px] text-gray-400 font-bold leading-relaxed">
                                 This adds weight to the active shipment. The receiver's details and destination stay the same.
                             </p>
@@ -996,7 +996,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     <select
                                         value={activeShipmentIdx}
                                         onChange={e => setActiveShipmentIdx(Number(e.target.value))}
-                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-xs font-bold text-[#012126] outline-none"
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-xs font-bold text-[#111827] outline-none"
                                     >
                                         {convShipments.map((s, i) => (
                                             <option key={i} value={i}>
@@ -1014,7 +1014,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                         value={addKgInput}
                                         onChange={e => setAddKgInput(e.target.value)}
                                         placeholder="0.0"
-                                        className="flex-1 bg-transparent outline-none text-base font-black text-[#012126] placeholder:text-gray-300"
+                                        className="flex-1 bg-transparent outline-none text-base font-black text-[#111827] placeholder:text-gray-300"
                                         autoFocus
                                     />
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">KG</span>
@@ -1045,7 +1045,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 <AlertTriangle size={22} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-lg font-black text-[#012126] uppercase tracking-tight">Report an Issue</h3>
+                                <h3 className="text-lg font-black text-[#111827] uppercase tracking-tight">Report an Issue</h3>
                                 <p className="text-[9px] text-red-500 font-black mt-0.5 uppercase tracking-widest">Bago Support Mediation</p>
                             </div>
                         </div>
@@ -1069,7 +1069,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     Cancel
                                 </button>
                                 <button type="submit" disabled={isSubmittingDispute}
-                                    className="flex-[2] bg-[#012126] text-white py-3.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-red-600 flex items-center justify-center gap-2 disabled:opacity-50">
+                                    className="flex-[2] bg-[#5845D8] text-white py-3.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-red-600 flex items-center justify-center gap-2 disabled:opacity-50">
                                     {isSubmittingDispute ? <RefreshCw className="animate-spin" size={14} /> : 'Submit Report'}
                                 </button>
                             </div>
