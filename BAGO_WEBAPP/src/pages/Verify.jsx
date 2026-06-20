@@ -303,8 +303,12 @@ export default function Verify() {
                     appID={dojahCreds.appId}
                     publicKey={dojahCreds.publicKey}
                     type="custom"
-                    config={{ widget_id: dojahCreds.widgetId }}
-                    userData={{ email: user?.email || undefined }}
+                    config={{ widget_id: dojahCreds.widgetId, webhook: true }}
+                    userData={{
+                        email: user?.email || undefined,
+                        residence_country: dojahCreds.country || selectedCountry || undefined,
+                    }}
+                    govData={{}}
                     metadata={{
                         userId: dojahCreds.userId,
                         user_id: dojahCreds.userId,
@@ -313,6 +317,7 @@ export default function Verify() {
                         country: dojahCreds.country,
                     }}
                     referenceId={dojahCreds.referenceId}
+                    reference_id={dojahCreds.referenceId}
                     response={handleDojahResponse}
                 />
             )}

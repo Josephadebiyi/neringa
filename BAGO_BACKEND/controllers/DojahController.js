@@ -39,6 +39,32 @@ const DOJAH_WIDGET_NG = process.env.DOJAH_WIDGET_NG || process.env.DOJAH_WIDGET_
 const DOJAH_WIDGET_KE = process.env.DOJAH_WIDGET_KE || process.env.DOJAH_WIDGET_ID_KE || '';
 const DOJAH_WIDGET_NG_KE = process.env.DOJAH_WIDGET_NG_KE || process.env.DOJAH_WIDGET_ID_NG_KE || '';
 const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH_WIDGET_ID_GLOBAL || process.env.DOJAH_WIDGET_ID || '';
+const DOJAH_VERIFICATION_URL = 'https://api.dojah.io/api/v1/kyc/verification';
+const DOJAH_LEGACY_EASYONBOARD_URL = 'https://api.dojah.io/api/v1/kyc/easyonboard';
+
+const dojahAuthHeaders = () => ({ AppId: DOJAH_APP_ID, Authorization: DOJAH_SECRET });
+
+const fetchDojahVerificationByReference = async (referenceId) => {
+  const ref = String(referenceId || '').trim();
+  if (!ref) throw new Error('referenceId required');
+
+  try {
+    return await axios.get(DOJAH_VERIFICATION_URL, {
+      params: { reference_id: ref },
+      headers: dojahAuthHeaders(),
+      timeout: 10000,
+    });
+  } catch (error) {
+    const status = error.response?.status;
+    if (![400, 404, 422].includes(status)) throw error;
+
+    return axios.get(DOJAH_LEGACY_EASYONBOARD_URL, {
+      params: { referenceId: ref },
+      headers: dojahAuthHeaders(),
+      timeout: 10000,
+    });
+  }
+};
 
 const widgetConfigForCountry = (country = '', clientWidgetId = '') => {
   const code = country.toUpperCase().trim();
@@ -326,11 +352,7 @@ export async function syncDojahReferenceForUser(userId, referenceId, { notify = 
   }
 
   try {
-    const dojahResp = await axios.get('https://api.dojah.io/api/v1/kyc/easyonboard', {
-      params: { referenceId: ref },
-      headers: { AppId: DOJAH_APP_ID, Authorization: DOJAH_SECRET },
-      timeout: 10000,
-    });
+    const dojahResp = await fetchDojahVerificationByReference(ref);
 
     const event = dojahResp.data?.data ?? dojahResp.data;
     const result = await applyDojahEventToUser(userId, event, {
@@ -772,11 +794,7 @@ export const syncDojahResult = async (req, res) => {
     // Actively pull the result from Dojah's API.
     if (DOJAH_APP_ID && DOJAH_SECRET) {
       try {
-        const dojahResp = await axios.get('https://api.dojah.io/api/v1/kyc/easyonboard', {
-          params: { referenceId },
-          headers: { AppId: DOJAH_APP_ID, Authorization: DOJAH_SECRET },
-          timeout: 10000,
-        });
+        const dojahResp = await fetchDojahVerificationByReference(referenceId);
 
         const event = dojahResp.data?.data ?? dojahResp.data;
         const rawStatus = firstWebhookValue(
