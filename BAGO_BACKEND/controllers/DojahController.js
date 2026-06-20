@@ -155,10 +155,6 @@ const DOJAH_APPROVED_STATUSES = new Set([
 
 const DOJAH_PENDING_STATUSES = new Set([
   'pending',
-  'submitted',
-  'processing',
-  'in_progress',
-  'review',
   'manual_review',
   'under_review',
 ]);
