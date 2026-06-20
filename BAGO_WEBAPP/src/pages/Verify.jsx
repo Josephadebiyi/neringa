@@ -58,20 +58,6 @@ const normalizeCountryCode = (value) => {
     return byName?.code || '';
 };
 
-const dojahPayloadText = (value) => {
-    if (!value) return '';
-    if (typeof value === 'string') return value.toLowerCase();
-    try {
-        return JSON.stringify(value).toLowerCase();
-    } catch {
-        return String(value).toLowerCase();
-    }
-};
-
-const hasDojahSubmissionSignal = (value) => {
-    const text = dojahPayloadText(value);
-    return /submit|submitted|review|pending|approved|verified|completed|declined|rejected|failed|failure/.test(text);
-};
 
 // Steps: 'status' | 'consent' | 'verifying'
 export default function Verify() {
@@ -80,9 +66,9 @@ export default function Verify() {
 
     const navigate = useNavigate();
     const pollRef = useRef(null);
-    // Timestamp when Dojah SDK was mounted — used to ignore premature success events
-    // that fire on SDK init before the user has actually submitted anything
     const sdkMountedAtRef = useRef(null);
+    // Prevents the 'close' event from resetting state while 'success' is being processed
+    const processingSuccessRef = useRef(false);
 
     const [kycStatus, setKycStatus] = useState('not_started');
     const [pageLoading, setPageLoading] = useState(true);
@@ -217,77 +203,53 @@ export default function Verify() {
         }
     };
 
-    const syncDojahResult = async (activeReferenceId) => {
-        let finalStatus = 'not_started';
-        try {
-            const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', {
-                referenceId: activeReferenceId,
-            });
-            const synced = normalizeKycStatus(syncRes.data?.kycStatus || syncRes.data?.kyc_status || syncRes.data?.status);
-            if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(synced)) {
-                finalStatus = synced;
-            }
-        } catch (_) {}
-
-        if (finalStatus === 'not_started') {
-            for (let i = 0; i < 12; i += 1) {
-                await new Promise(resolve => setTimeout(resolve, 5000));
-                try {
-                    const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', {
-                        referenceId: activeReferenceId,
-                    });
-                    let status = normalizeKycStatus(syncRes.data?.kycStatus || syncRes.data?.kyc_status || syncRes.data?.status);
-                    if (!status || status === 'pending') {
-                        const statusRes = await api.get('/api/bago/kyc/status');
-                        status = normalizeKycStatus(statusRes.data?.kycStatus || statusRes.data?.kyc_status || statusRes.data?.status);
-                    }
-                    if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(status)) {
-                        finalStatus = status;
-                        break;
-                    }
-                } catch (_) {}
-            }
-        }
-
-        setKycStatus(finalStatus);
-        await refreshUser();
-        return finalStatus;
-    };
-
     const handleDojahResponse = async (type, data) => {
         if (type === 'success') {
-            // Dojah can fire 'success' during SDK startup. Only treat it as a
-            // completed submission when the payload carries a review/final state.
-            const elapsed = sdkMountedAtRef.current ? Date.now() - sdkMountedAtRef.current : 9999;
-            if (elapsed < 3000 || !hasDojahSubmissionSignal(data)) {
-                if (elapsed >= 3000) {
-                    setDojahCreds(null);
-                    setStep('consent');
-                    setError('Verification was not submitted. Please complete every step in the secure window before leaving it.');
-                }
-                return;
-            }
+            // Guard against duplicate calls
+            if (processingSuccessRef.current) return;
+            processingSuccessRef.current = true;
             sdkMountedAtRef.current = null;
             setDojahCreds(null);
+
             const activeReferenceId = referenceId || dojahCreds?.referenceId || data?.referenceId || data?.reference_id;
-            if (activeReferenceId) {
-                setStep('status');
-                const finalStatus = await syncDojahResult(activeReferenceId);
-                if (finalStatus === 'not_started') {
-                    setStep('consent');
-                    setError('Verification was not completed. Please finish the steps in the secure window and submit your documents.');
+            try {
+                let finalStatus = 'not_started';
+                if (activeReferenceId) {
+                    // Ask the backend to actively pull the result from Dojah's API.
+                    // For a premature/fake success (old session), Dojah has no record
+                    // for the new referenceId and returns not_started immediately.
+                    // For a real submission, Dojah returns pending/approved right away.
+                    const syncRes = await api.post('/api/bago/kyc/dojah/sync-result', { referenceId: activeReferenceId });
+                    finalStatus = normalizeKycStatus(syncRes.data?.kycStatus || syncRes.data?.kyc_status || syncRes.data?.status);
                 }
-            } else {
-                setStep('status');
-                await fetchKycStatus();
-                await refreshUser();
+
+                if (['approved', 'declined', 'blocked_duplicate'].includes(finalStatus)) {
+                    setKycStatus(finalStatus);
+                    setStep('status');
+                    await refreshUser();
+                } else if (finalStatus === 'pending') {
+                    setKycStatus('pending');
+                    setStep('status');
+                    startPolling();
+                } else {
+                    // Backend has no record for this referenceId — Dojah fired success
+                    // prematurely (resumed an old session). Let the user retry.
+                    setKycStatus('not_started');
+                    setStep('consent');
+                    setError('Verification was not completed. Please finish all steps in the secure window before closing it.');
+                }
+            } catch {
+                setStep('consent');
+                setError('Could not confirm your verification status. Please try again.');
+            } finally {
+                processingSuccessRef.current = false;
             }
         } else if (type === 'close') {
+            // If success is already being processed, don't reset — let it finish.
+            if (processingSuccessRef.current) return;
             sdkMountedAtRef.current = null;
             setStep('consent');
             setDojahCreds(null);
-            // Session creation sets status to pending before the user actually submits.
-            // Closing without submitting should always let them restart from scratch.
             setKycStatus('not_started');
         } else if (type === 'error') {
             sdkMountedAtRef.current = null;
