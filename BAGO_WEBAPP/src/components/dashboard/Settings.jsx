@@ -274,8 +274,8 @@ export default function Settings({ user, checkAuthStatus }) {
     const hasConnectedPayout = Boolean(
         payoutProvider === 'paypal' ||
         payoutMethod === 'paypal' ||
-        (payoutStatus === 'active' && payoutProvider !== 'stripe') ||
-        payoutMethodStatus === 'connected'
+        (payoutStatus === 'active' && payoutProvider === 'paypal') ||
+        (payoutMethodStatus === 'connected' && payoutProvider === 'paypal')
     );
     const connectedPaypalEmail = user?.bankDetails?.paypalEmail || user?.bank_details?.paypalEmail || '';
     const hasBankPayout = Boolean(

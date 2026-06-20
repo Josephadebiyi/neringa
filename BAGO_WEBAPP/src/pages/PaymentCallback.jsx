@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Loader } from 'lucide-react';
 import api from '../api';
 
 const PAYMENT_PENDING_MESSAGE =
@@ -66,12 +66,12 @@ export default function PaymentCallback() {
                 }, 1500);
             } else {
                 console.error('[payment-callback]', res.data);
-                setStatus('error');
+                setStatus('pending');
                 setMessage(PAYMENT_PENDING_MESSAGE);
             }
         } catch (err) {
             console.error('[payment-callback]', err);
-            setStatus('error');
+            setStatus('pending');
             setMessage(PAYMENT_PENDING_MESSAGE);
         }
     };
@@ -111,6 +111,22 @@ export default function PaymentCallback() {
                             className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#4838B5] transition-all"
                         >
                             Try Again
+                        </button>
+                    </>
+                )}
+
+                {status === 'pending' && (
+                    <>
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-[#5845D8]/10 rounded-full mb-6">
+                            <Clock size={40} className="text-[#5845D8]" />
+                        </div>
+                        <h1 className="text-2xl font-black text-gray-900 mb-2">Payment Still Confirming</h1>
+                        <p className="text-gray-500 text-sm mb-6">{message}</p>
+                        <button
+                            onClick={() => navigate('/dashboard?tab=shipments')}
+                            className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#4838B5] transition-all"
+                        >
+                            View Shipments
                         </button>
                     </>
                 )}

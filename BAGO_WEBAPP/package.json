@@ -10,7 +10,6 @@
     },
     "dependencies": {
         "@react-oauth/google": "^0.13.4",
-        "@stripe/stripe-js": "9.8.0",
         "axios": "^1.7.4",
         "dojah-kyc-sdk-react": "0.0.6",
         "framer-motion": "^10.16.4",

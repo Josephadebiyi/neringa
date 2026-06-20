@@ -68,7 +68,7 @@
 -keepclassmembernames class kotlinx.** { volatile <fields>; }
 -dontwarn kotlinx.coroutines.**
 
-# ── OkHttp / Okio (used by Supabase, Stripe) ─────────────────────────────────
+# ── OkHttp / Okio (used by Supabase) ──────────────────────────────────────────
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn javax.annotation.**
@@ -84,17 +84,6 @@
 # ── Supabase ──────────────────────────────────────────────────────────────────
 -keep class io.supabase.** { *; }
 -dontwarn io.supabase.**
-
-# ── Stripe ────────────────────────────────────────────────────────────────────
--dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivity$g
--dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivityStarter$Args
--dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivityStarter$Error
--dontwarn com.stripe.android.pushProvisioning.PushProvisioningActivityStarter
--dontwarn com.stripe.android.pushProvisioning.PushProvisioningEphemeralKeyProvider
--dontwarn com.stripe.android.pushProvisioning.EphemeralKeyUpdateListener
--keep class com.stripe.** { *; }
--keep interface com.stripe.** { *; }
--keep class com.reactnativestripesdk.** { *; }
 
 # ── Firebase / FCM ────────────────────────────────────────────────────────────
 -keep class com.google.firebase.** { *; }

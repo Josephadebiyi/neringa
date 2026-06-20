@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -59,6 +59,7 @@ function App() {
                         <Route path="/shipping-success" element={<ShippingSuccess />} />
                         <Route path="/payment/callback" element={<PaymentCallback />} />
                         <Route path="/checkout/payment" element={<PaymentCheckout />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </BrowserRouter>
             </LanguageProvider>

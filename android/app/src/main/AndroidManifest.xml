@@ -43,15 +43,6 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Stripe return URL for redirect-based payment flows -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.deracali.boltexponativewind.payments" android:host="safepay" />
-                <data android:scheme="com.deracali.boltexponativewind.payments" android:host="stripe-redirect" />
-                <data android:scheme="com.deracali.boltexponativewind.payments" android:host="financial_connections_redirect" />
-            </intent-filter>
             <!-- PayPal native SDK: handles return from PayPal checkout -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

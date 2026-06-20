@@ -1466,7 +1466,14 @@ export function LanguageProvider({ children }) {
     }, []);
 
     const t = (key) => {
-        return translations[currentLanguage]?.[key] || translations.en[key] || key;
+        const value = translations[currentLanguage]?.[key] || translations.en[key];
+        if (value) return value;
+        return String(key || '')
+            .replace(/(Button|Btn|Label|Desc|Title|Header)$/g, '')
+            .replace(/_/g, ' ')
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .trim()
+            .replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
     const value = {
