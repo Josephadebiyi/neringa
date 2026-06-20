@@ -78,6 +78,7 @@ export default function Verify() {
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState(() => normalizeCountryCode(user?.country || user?.countryCode || user?.country_code));
+    const [countryDetecting, setCountryDetecting] = useState(true);
 
     // Dojah
     const [dojahCreds, setDojahCreds] = useState(null);
@@ -100,11 +101,23 @@ export default function Verify() {
         else if (isAuthenticated) fetchKycStatus();
     }, [authLoading, isAuthenticated]);
 
+    // Detect country from IP on first load; fall back to profile country
     useEffect(() => {
-        if (!selectedCountry) {
-            setSelectedCountry(normalizeCountryCode(user?.country || user?.countryCode || user?.country_code));
-        }
-    }, [selectedCountry, user]);
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(4000) });
+                const json = await res.json();
+                const detected = normalizeCountryCode(json?.country_code || json?.country);
+                if (!cancelled && detected) setSelectedCountry(detected);
+            } catch {
+                // IP detection failed — keep whatever was set from user profile
+            } finally {
+                if (!cancelled) setCountryDetecting(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     useEffect(() => {
         return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -317,6 +330,7 @@ export default function Verify() {
                     <ConsentCard
                         selectedCountry={selectedCountry}
                         setSelectedCountry={setSelectedCountry}
+                        countryDetecting={countryDetecting}
                         termsAccepted={termsAccepted}
                         setTermsAccepted={setTermsAccepted}
                         privacyAccepted={privacyAccepted}
@@ -403,6 +417,7 @@ function LandingCard({ onStart, t }) {
 function ConsentCard({
     selectedCountry,
     setSelectedCountry,
+    countryDetecting,
     termsAccepted,
     setTermsAccepted,
     privacyAccepted,
@@ -432,9 +447,13 @@ function ConsentCard({
                     <select
                         value={selectedCountry}
                         onChange={(event) => setSelectedCountry(event.target.value)}
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10"
+                        disabled={countryDetecting}
+                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10 disabled:opacity-60"
                     >
-                        <option value="">Select your country</option>
+                        {countryDetecting
+                            ? <option value="">Detecting your location…</option>
+                            : <option value="">Select your country</option>
+                        }
                         {KYC_COUNTRIES.map((country) => (
                             <option key={country.code} value={country.code}>
                                 {country.flag} {country.name}
@@ -442,7 +461,7 @@ function ConsentCard({
                         ))}
                     </select>
                     <p className="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                        This lets us open the right Dojah verification flow.
+                        {countryDetecting ? 'Detecting from your IP…' : 'You can change this if it looks wrong.'}
                     </p>
                 </div>
                 <div className="space-y-3">
