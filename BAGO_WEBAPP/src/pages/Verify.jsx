@@ -64,6 +64,25 @@ const normalizeKycStatus = (raw) => {
     return 'not_started';
 };
 
+// ─── Error boundary to prevent Dojah widget crashes taking down the whole app ─
+
+class DojahErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { crashed: false };
+    }
+    static getDerivedStateFromError() {
+        return { crashed: true };
+    }
+    render() {
+        if (this.state.crashed) {
+            this.props.onError?.();
+            return null;
+        }
+        return this.props.children;
+    }
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Verify() {
@@ -176,8 +195,7 @@ export default function Verify() {
                     .filter((k) => /dojah/i.test(k))
                     .forEach((k) => localStorage.removeItem(k));
             } catch { /* ignore private-mode errors */ }
-            // Unique key forces React to fully remount the widget each time
-            setDojahCreds({ appId, publicKey, widgetId, userId: data.userId, mountKey: Date.now() });
+            setDojahCreds({ appId, publicKey, widgetId, userId: data.userId });
             setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
@@ -259,24 +277,29 @@ export default function Verify() {
                 No referenceId prop — passing one resumes old sessions and skips steps.
                 No email in userData — Dojah uses email+appId to find previous sessions. */}
             {step === 'verifying' && dojahCreds && (
-                <Dojah
-                    key={dojahCreds.mountKey}
-                    appID={dojahCreds.appId}
-                    publicKey={dojahCreds.publicKey}
-                    type="custom"
-                    config={{ widget_id: dojahCreds.widgetId }}
-                    userData={{
-                        first_name: user?.firstName || undefined,
-                        last_name:  user?.lastName  || undefined,
-                        residence_country: selectedCountry || undefined,
-                    }}
-                    metadata={{
-                        user_id: dojahCreds.userId,
-                        userId:  dojahCreds.userId,
-                        country: selectedCountry,
-                    }}
-                    response={handleDojahResponse}
-                />
+                <DojahErrorBoundary onError={() => {
+                    setDojahCreds(null);
+                    setStep('consent');
+                    setError('Verification widget failed to load. Please try again.');
+                }}>
+                    <Dojah
+                        appID={dojahCreds.appId}
+                        publicKey={dojahCreds.publicKey}
+                        type="custom"
+                        config={{ widget_id: dojahCreds.widgetId }}
+                        userData={{
+                            first_name: user?.firstName || undefined,
+                            last_name:  user?.lastName  || undefined,
+                            residence_country: selectedCountry || undefined,
+                        }}
+                        metadata={{
+                            user_id: dojahCreds.userId,
+                            userId:  dojahCreds.userId,
+                            country: selectedCountry,
+                        }}
+                        response={handleDojahResponse}
+                    />
+                </DojahErrorBoundary>
             )}
 
             <main className="max-w-2xl mx-auto px-6 py-12 md:py-20">
