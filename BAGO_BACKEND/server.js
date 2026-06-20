@@ -215,7 +215,10 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+  res.setHeader(
+    'Permissions-Policy',
+    'geolocation=(), camera=(self "https://app.dojah.io" "https://*.dojah.io"), microphone=(self "https://app.dojah.io" "https://*.dojah.io")',
+  );
   next();
 });
 
