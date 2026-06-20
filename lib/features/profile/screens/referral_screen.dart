@@ -266,15 +266,17 @@ class _RulesCard extends StatelessWidget {
       currencyKey: 'referralWelcomeBonusCurrency',
       baseAmountKey: 'referralWelcomeBonusNgn',
       baseCurrency: 'NGN',
+      defaultBaseAmount: 2000,
     );
-    final threshold =
-        NumberFormatHelper.clean(settings['referralShipmentThresholdUsd'], 50);
+    final threshold = NumberFormatHelper.cleanPositive(
+        settings['referralShipmentThresholdUsd'], 50);
     final shipment = NumberFormatHelper.rewardDisplay(
       settings,
       amountKey: 'referralShipmentBonusAmount',
       currencyKey: 'referralShipmentBonusCurrency',
       baseAmountKey: 'referralShipmentBonusUsd',
       baseCurrency: 'USD',
+      defaultBaseAmount: 2,
     );
     return Container(
       padding: const EdgeInsets.all(18),
@@ -445,6 +447,11 @@ class NumberFormatHelper {
     return double.tryParse(value?.toString() ?? '') ?? fallback;
   }
 
+  static double cleanPositive(dynamic value, double fallback) {
+    final parsed = clean(value, fallback);
+    return parsed > 0 ? parsed : fallback;
+  }
+
   static double convertFallback(
     double amount,
     String fromCurrency,
@@ -466,13 +473,15 @@ class NumberFormatHelper {
     required String currencyKey,
     required String baseAmountKey,
     required String baseCurrency,
+    required double defaultBaseAmount,
   }) {
     final configuredCurrency = settings[currencyKey]?.toString().trim();
     final currency = configuredCurrency != null && configuredCurrency.isNotEmpty
         ? configuredCurrency.toUpperCase()
         : baseCurrency.toUpperCase();
     final amount = maybeClean(settings[amountKey]);
-    final baseAmount = clean(settings[baseAmountKey], 0);
+    final baseAmount =
+        cleanPositive(settings[baseAmountKey], defaultBaseAmount);
     final hasPositiveAmount = amount != null && amount > 0;
     final hasPositiveBase = baseAmount > 0;
     if (settings[amountKey] != null &&

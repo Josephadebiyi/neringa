@@ -70,11 +70,12 @@ export default function Referral({ user }) {
         return () => { alive = false; };
     }, []);
 
+    const referralCode = data?.code || user?.referralCode || user?.referral_code || '';
+
     const link = useMemo(() => {
-        const code = data?.code || user?.referralCode || user?.referral_code || '';
         const origin = typeof window !== 'undefined' ? window.location.origin : 'https://sendwithbago.com';
-        return code ? `${origin}/signup?ref=${encodeURIComponent(code)}` : '';
-    }, [data?.code, user]);
+        return referralCode ? `${origin}/signup?ref=${encodeURIComponent(referralCode)}` : '';
+    }, [referralCode]);
 
     const rewards = objectList(data?.rewards);
     const settings = objectValue(data?.settings);
@@ -153,11 +154,11 @@ export default function Referral({ user }) {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3">
                         <button
-                            onClick={() => copyValue(data?.code, 'code')}
-                            disabled={!data?.code}
+                            onClick={() => copyValue(referralCode, 'code')}
+                            disabled={!referralCode}
                             className="bg-[#5845D8]/8 text-[#5845D8] rounded-2xl px-5 py-4 font-black tracking-widest flex items-center justify-between"
                         >
-                            {data?.code || 'Generating referral code...'}
+                            {referralCode || 'Generating referral code...'}
                             <Copy size={15} />
                         </button>
                         <button

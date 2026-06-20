@@ -160,6 +160,11 @@ function referralDisplayAmount(convertedAmount, walletCurrency, baseAmount, base
   };
 }
 
+function positiveSetting(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+}
+
 async function creditWallet(client, { userId, amount, currency, description, metadata }) {
   if (!amount || amount <= 0) return;
   const wallet = await getWallet(client, userId);
@@ -264,8 +269,8 @@ export async function getReferralSummary(userId) {
   await ensureReferralInfrastructure();
 
   const walletCurrency = await getWalletCurrency(userId);
-  const welcomeBonusBase = Number(settings.referralWelcomeBonusNgn ?? 2000);
-  const shipmentBonusBase = Number(settings.referralShipmentBonusUsd ?? 2);
+  const welcomeBonusBase = positiveSetting(settings.referralWelcomeBonusNgn, 2000);
+  const shipmentBonusBase = positiveSetting(settings.referralShipmentBonusUsd, 2);
   const welcomeBonusAmount = await safeConvertRewardAmount(welcomeBonusBase, 'NGN', walletCurrency);
   const shipmentBonusAmount = await safeConvertRewardAmount(shipmentBonusBase, 'USD', walletCurrency);
   const welcomeDisplay = referralDisplayAmount(welcomeBonusAmount, walletCurrency, welcomeBonusBase, 'NGN');
@@ -359,7 +364,7 @@ export async function getReferralSummary(userId) {
       referralWelcomeBonusNgn: welcomeBonusBase,
       referralWelcomeBonusAmount: welcomeDisplay.amount,
       referralWelcomeBonusCurrency: welcomeDisplay.currency,
-      referralShipmentThresholdUsd: Number(settings.referralShipmentThresholdUsd ?? 50),
+      referralShipmentThresholdUsd: positiveSetting(settings.referralShipmentThresholdUsd, 50),
       referralShipmentBonusUsd: shipmentBonusBase,
       referralShipmentBonusAmount: shipmentDisplay.amount,
       referralShipmentBonusCurrency: shipmentDisplay.currency,
@@ -383,7 +388,7 @@ export async function applyReferralSignupReward(referredId) {
     referrerId: referred.referred_by,
     referredId,
     trigger: WELCOME_TRIGGER,
-    amountBase: Number(settings.referralWelcomeBonusNgn ?? 2000),
+    amountBase: positiveSetting(settings.referralWelcomeBonusNgn, 2000),
     baseCurrency: 'NGN',
     title: 'Referral welcome bonus',
   });
@@ -400,7 +405,7 @@ export async function applyReferralShipmentReward({ senderId, requestId, amount,
   if (!referred?.referred_by) return null;
 
   const amountUsd = await convertCurrency(Number(amount || 0), currency || 'USD', 'USD');
-  const thresholdUsd = Number(settings.referralShipmentThresholdUsd ?? 50);
+  const thresholdUsd = positiveSetting(settings.referralShipmentThresholdUsd, 50);
   if (amountUsd < thresholdUsd) return null;
 
   return rewardPair({
@@ -408,7 +413,7 @@ export async function applyReferralShipmentReward({ senderId, requestId, amount,
     referredId: senderId,
     trigger: SHIPMENT_TRIGGER,
     requestId,
-    amountBase: Number(settings.referralShipmentBonusUsd ?? 2),
+    amountBase: positiveSetting(settings.referralShipmentBonusUsd, 2),
     baseCurrency: 'USD',
     title: 'Referral shipment bonus',
   });
