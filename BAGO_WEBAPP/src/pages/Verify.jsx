@@ -65,6 +65,9 @@ export default function Verify() {
 
     const navigate = useNavigate();
     const pollRef = useRef(null);
+    // Timestamp when Dojah SDK was mounted — used to ignore premature success events
+    // that fire on SDK init before the user has actually submitted anything
+    const sdkMountedAtRef = useRef(null);
 
     const [kycStatus, setKycStatus] = useState('not_started');
     const [pageLoading, setPageLoading] = useState(true);
@@ -189,6 +192,7 @@ export default function Verify() {
             }
             setReferenceId(resolvedCreds.referenceId);
             setDojahCreds(resolvedCreds);
+            sdkMountedAtRef.current = Date.now();
             setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
@@ -237,6 +241,13 @@ export default function Verify() {
 
     const handleDojahResponse = async (type, data) => {
         if (type === 'success') {
+            // Dojah fires 'success' on SDK init when a previous session exists.
+            // Ignore it if it fires within 3 seconds of mount — the user hasn't submitted yet.
+            const elapsed = sdkMountedAtRef.current ? Date.now() - sdkMountedAtRef.current : 9999;
+            if (elapsed < 3000) {
+                return;
+            }
+            sdkMountedAtRef.current = null;
             setDojahCreds(null);
             const activeReferenceId = referenceId || dojahCreds?.referenceId || data?.referenceId || data?.reference_id;
             if (activeReferenceId) {
@@ -252,9 +263,14 @@ export default function Verify() {
                 await refreshUser();
             }
         } else if (type === 'close') {
+            sdkMountedAtRef.current = null;
             setStep('consent');
             setDojahCreds(null);
+            // Session creation sets status to pending before the user actually submits.
+            // Closing without submitting should always let them restart from scratch.
+            setKycStatus('not_started');
         } else if (type === 'error') {
+            sdkMountedAtRef.current = null;
             setError(typeof data === 'string' ? data : 'Verification encountered an error. Please try again.');
             setStep('consent');
             setDojahCreds(null);

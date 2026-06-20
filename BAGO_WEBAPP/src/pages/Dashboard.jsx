@@ -65,7 +65,6 @@ export default function Dashboard() {
         }
         const params = new URLSearchParams(location.search);
         if (params.get('kyc_check')) {
-            setMsg('Identity verification submitted! Status will update once processing is complete.');
             fetchKycStatus();
             navigate('/dashboard', { replace: true });
         }
