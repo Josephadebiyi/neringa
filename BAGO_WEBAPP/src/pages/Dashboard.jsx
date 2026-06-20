@@ -355,22 +355,6 @@ export default function Dashboard() {
                             {msg}
                         </div>
                     )}
-                    {!msg && effectiveKycStatus === 'not_started' && (
-                        <div className="mb-5 bg-[#5845D8]/5 border border-[#5845D8]/20 p-4 rounded-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
-                            <div className="flex items-center gap-3">
-                                <Shield className="text-[#5845D8] shrink-0" size={20} />
-                                <span className="text-[#5845D8] font-bold text-sm">
-                                    Complete identity verification to unlock all Bago features.
-                                </span>
-                            </div>
-                            <Link
-                                to="/verify"
-                                className="shrink-0 bg-[#5845D8] text-white text-xs font-black uppercase tracking-widest px-4 py-2 rounded-xl hover:bg-[#4736C0] transition-colors"
-                            >
-                                Verify Now
-                            </Link>
-                        </div>
-                    )}
                     {renderTabContent()}
                 </div>
             </main>
