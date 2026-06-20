@@ -185,6 +185,10 @@ export default function Verify() {
             const userId = user?.id || user?._id;
             if (!userId) throw new Error('Could not start verification. Please log in again.');
             if (!selectedCountry) throw new Error('Please choose your country before starting verification.');
+            stopPolling();
+            setKycStatus('not_started');
+            setDojahCreds(null);
+            setReferenceId('');
             const randomToken = window.crypto?.randomUUID?.()
                 || (window.crypto?.getRandomValues
                     ? Array.from(window.crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
@@ -219,7 +223,12 @@ export default function Verify() {
     };
 
     const handleDojahResponse = async (type, data) => {
-        if (type === 'success') {
+        const eventType = String(type || '').toLowerCase();
+        if (eventType === 'loading' || eventType === 'begin') {
+            return;
+        }
+
+        if (eventType === 'success') {
             // Guard against duplicate calls
             if (processingSuccessRef.current) return;
             processingSuccessRef.current = true;
@@ -259,14 +268,14 @@ export default function Verify() {
             } finally {
                 processingSuccessRef.current = false;
             }
-        } else if (type === 'close') {
+        } else if (eventType === 'close') {
             // If success is already being processed, don't reset — let it finish.
             if (processingSuccessRef.current) return;
             sdkMountedAtRef.current = null;
             setStep('consent');
             setDojahCreds(null);
             setKycStatus('not_started');
-        } else if (type === 'error') {
+        } else if (eventType === 'error') {
             sdkMountedAtRef.current = null;
             setError(typeof data === 'string' ? data : 'Verification encountered an error. Please try again.');
             setStep('consent');

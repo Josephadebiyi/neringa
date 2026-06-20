@@ -528,8 +528,8 @@ export const startDojahSession = async (req, res) => {
       `UPDATE public.profiles
        SET kyc_provider = 'dojah',
            kyc_status = CASE
-             WHEN kyc_status IN ('approved', 'blocked_duplicate', 'declined', 'pending') THEN kyc_status
-             ELSE COALESCE(NULLIF(kyc_status, ''), 'not_started')
+             WHEN kyc_status IN ('approved', 'blocked_duplicate', 'declined') THEN kyc_status
+             ELSE 'not_started'
            END,
            kyc_verified_data = CASE
              WHEN kyc_status IN ('approved', 'blocked_duplicate') THEN kyc_verified_data
