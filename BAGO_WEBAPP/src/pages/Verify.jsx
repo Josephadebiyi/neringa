@@ -170,7 +170,14 @@ export default function Verify() {
             if (!appId || !publicKey || !widgetId) {
                 throw new Error('Verification service is not configured. Please contact support.');
             }
-            setDojahCreds({ appId, publicKey, widgetId, userId: data.userId });
+            // Clear any Dojah session cache so the widget always starts fresh
+            try {
+                Object.keys(localStorage)
+                    .filter((k) => /dojah/i.test(k))
+                    .forEach((k) => localStorage.removeItem(k));
+            } catch { /* ignore private-mode errors */ }
+            // Unique key forces React to fully remount the widget each time
+            setDojahCreds({ appId, publicKey, widgetId, userId: data.userId, mountKey: Date.now() });
             setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
@@ -248,10 +255,12 @@ export default function Verify() {
             </nav>
 
             {/* Dojah widget — mounts invisibly and auto-opens its overlay.
-                IMPORTANT: we do NOT pass referenceId here. Passing a completed
-                session's referenceId causes it to skip all verification steps. */}
+                key=mountKey forces a full remount (fresh session) every time.
+                No referenceId prop — passing one resumes old sessions and skips steps.
+                No email in userData — Dojah uses email+appId to find previous sessions. */}
             {step === 'verifying' && dojahCreds && (
                 <Dojah
+                    key={dojahCreds.mountKey}
                     appID={dojahCreds.appId}
                     publicKey={dojahCreds.publicKey}
                     type="custom"
@@ -259,13 +268,12 @@ export default function Verify() {
                     userData={{
                         first_name: user?.firstName || undefined,
                         last_name:  user?.lastName  || undefined,
-                        email:      user?.email     || undefined,
                         residence_country: selectedCountry || undefined,
                     }}
                     metadata={{
-                        user_id:  dojahCreds.userId,
-                        userId:   dojahCreds.userId,
-                        country:  selectedCountry,
+                        user_id: dojahCreds.userId,
+                        userId:  dojahCreds.userId,
+                        country: selectedCountry,
                     }}
                     response={handleDojahResponse}
                 />
