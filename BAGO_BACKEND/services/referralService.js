@@ -271,10 +271,13 @@ export async function getReferralSummary(userId) {
   const walletCurrency = await getWalletCurrency(userId);
   const welcomeBonusBase = positiveSetting(settings.referralWelcomeBonusNgn, 2000);
   const shipmentBonusBase = positiveSetting(settings.referralShipmentBonusUsd, 2);
+  const shipmentThresholdBase = positiveSetting(settings.referralShipmentThresholdUsd, 50);
   const welcomeBonusAmount = await safeConvertRewardAmount(welcomeBonusBase, 'NGN', walletCurrency);
   const shipmentBonusAmount = await safeConvertRewardAmount(shipmentBonusBase, 'USD', walletCurrency);
+  const shipmentThresholdAmount = await safeConvertRewardAmount(shipmentThresholdBase, 'USD', walletCurrency);
   const welcomeDisplay = referralDisplayAmount(welcomeBonusAmount, walletCurrency, welcomeBonusBase, 'NGN');
   const shipmentDisplay = referralDisplayAmount(shipmentBonusAmount, walletCurrency, shipmentBonusBase, 'USD');
+  const thresholdDisplay = referralDisplayAmount(shipmentThresholdAmount, walletCurrency, shipmentThresholdBase, 'USD');
 
   const referred = await query(
     `
@@ -364,7 +367,9 @@ export async function getReferralSummary(userId) {
       referralWelcomeBonusNgn: welcomeBonusBase,
       referralWelcomeBonusAmount: welcomeDisplay.amount,
       referralWelcomeBonusCurrency: welcomeDisplay.currency,
-      referralShipmentThresholdUsd: positiveSetting(settings.referralShipmentThresholdUsd, 50),
+      referralShipmentThresholdUsd: shipmentThresholdBase,
+      referralShipmentThresholdAmount: thresholdDisplay.amount,
+      referralShipmentThresholdCurrency: thresholdDisplay.currency,
       referralShipmentBonusUsd: shipmentBonusBase,
       referralShipmentBonusAmount: shipmentDisplay.amount,
       referralShipmentBonusCurrency: shipmentDisplay.currency,

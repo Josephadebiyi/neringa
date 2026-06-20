@@ -268,8 +268,14 @@ class _RulesCard extends StatelessWidget {
       baseCurrency: 'NGN',
       defaultBaseAmount: 2000,
     );
-    final threshold = NumberFormatHelper.cleanPositive(
-        settings['referralShipmentThresholdUsd'], 50);
+    final threshold = NumberFormatHelper.rewardDisplay(
+      settings,
+      amountKey: 'referralShipmentThresholdAmount',
+      currencyKey: 'referralShipmentThresholdCurrency',
+      baseAmountKey: 'referralShipmentThresholdUsd',
+      baseCurrency: 'USD',
+      defaultBaseAmount: 50,
+    );
     final shipment = NumberFormatHelper.rewardDisplay(
       settings,
       amountKey: 'referralShipmentBonusAmount',
@@ -295,7 +301,7 @@ class _RulesCard extends StatelessWidget {
           _RuleLine(text: 'You and your friend each get $welcome after signup'),
           _RuleLine(
               text:
-                  'Earn another $shipment when they send an item over USD ${threshold.toStringAsFixed(0)}'),
+                  'Earn another $shipment when they send an item over $threshold'),
         ],
       ),
     );

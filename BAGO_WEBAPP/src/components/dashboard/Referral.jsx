@@ -122,6 +122,14 @@ export default function Referral({ user }) {
         'USD',
         currency,
     );
+    const thresholdDisplay = rewardMoney(
+        settings,
+        'referralShipmentThresholdAmount',
+        'referralShipmentThresholdCurrency',
+        'referralShipmentThresholdUsd',
+        'USD',
+        currency,
+    );
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -182,7 +190,7 @@ export default function Referral({ user }) {
                         </div>
                         <div className="flex items-center gap-3">
                             <CheckCircle size={16} className="text-emerald-600" />
-                            <span className="text-sm font-bold text-[#111827]">Earn another {shipmentDisplay} when they send an item over USD {Number(settings.referralShipmentThresholdUsd || 50).toLocaleString()}</span>
+                            <span className="text-sm font-bold text-[#111827]">Earn another {shipmentDisplay} when they send an item over {thresholdDisplay}</span>
                         </div>
                     </div>
                 </div>
