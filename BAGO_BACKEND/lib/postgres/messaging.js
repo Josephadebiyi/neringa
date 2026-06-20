@@ -1,4 +1,5 @@
 import { query, queryOne, withTransaction } from './db.js';
+import { maskPublicUserName } from '../privacy/publicUser.js';
 
 let messagingSchemaReady = false;
 
@@ -32,7 +33,7 @@ function normalizeConversation(row, currentUserId = null) {
   if (!row) return null;
 
   const sender = row.sender_id
-    ? {
+    ? maskPublicUserName({
         _id: row.sender_id,
         id: row.sender_id,
         firstName: row.sender_first_name,
@@ -40,11 +41,11 @@ function normalizeConversation(row, currentUserId = null) {
         email: row.sender_email,
         image: row.sender_image_url,
         avatar: row.sender_image_url,
-      }
+      }, 'Sender')
     : null;
 
   const traveler = row.traveler_id
-    ? {
+    ? maskPublicUserName({
         _id: row.traveler_id,
         id: row.traveler_id,
         firstName: row.traveler_first_name,
@@ -52,7 +53,7 @@ function normalizeConversation(row, currentUserId = null) {
         email: row.traveler_email,
         image: row.traveler_image_url,
         avatar: row.traveler_image_url,
-      }
+      }, 'Traveler')
     : null;
 
   return {
@@ -108,7 +109,7 @@ function normalizeMessage(row) {
     id: row.id,
     conversation: row.conversation_id,
     conversationId: row.conversation_id,
-    sender: {
+    sender: maskPublicUserName({
       _id: row.sender_id,
       id: row.sender_id,
       firstName: row.sender_first_name,
@@ -116,7 +117,7 @@ function normalizeMessage(row) {
       email: row.sender_email,
       image: row.sender_image_url,
       avatar: row.sender_image_url,
-    },
+    }, 'User'),
     text: row.content,
     content: row.content,
     type: metadata.type || 'text',

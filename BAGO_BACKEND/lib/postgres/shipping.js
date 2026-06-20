@@ -8,6 +8,7 @@ import {
   isTripPubliclyVisible,
   syncTripCapacity,
 } from './tripCapacity.js';
+import { maskPublicUserName, publicDisplayName } from '../privacy/publicUser.js';
 
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
@@ -150,7 +151,7 @@ function normalizeTrip(row) {
     travelerEarnings: toNumber(row.traveler_earnings),
     payoutAmount: toNumber(row.traveler_earnings),
     payoutStatus: row.payout_status || 'pending',
-    user: row.user_id ? normalizeProfile({
+    user: row.user_id ? maskPublicUserName(normalizeProfile({
       id: row.user_id,
       first_name: row.first_name,
       last_name: row.last_name,
@@ -158,7 +159,7 @@ function normalizeTrip(row) {
       image_url: row.image_url,
       kyc_status: row.kyc_status,
       selected_avatar: row.selected_avatar,
-    }) : null,
+    }), 'Traveler') : null,
   };
 }
 
@@ -176,7 +177,7 @@ function normalizeRequest(row) {
   if (!row) return null;
   const senderTotalAmount = toNumber(row.amount);
   const travelerPayout = calculateTravelerPayoutFromRow(row);
-  const sender = row.sender_id ? {
+  const sender = row.sender_id ? maskPublicUserName({
     _id: row.sender_id,
     id: row.sender_id,
     firstName: row.sender_first_name,
@@ -184,8 +185,8 @@ function normalizeRequest(row) {
     email: row.sender_email,
     avatar: row.sender_image_url,
     image: row.sender_image_url,
-  } : null;
-  const traveler = row.traveler_id ? {
+  }, 'Sender') : null;
+  const traveler = row.traveler_id ? maskPublicUserName({
     _id: row.traveler_id,
     id: row.traveler_id,
     firstName: row.traveler_first_name,
@@ -195,7 +196,7 @@ function normalizeRequest(row) {
     image: row.traveler_image_url,
     balance: toNumber(row.traveler_balance),
     escrowBalance: toNumber(row.traveler_escrow_balance),
-  } : null;
+  }, 'Traveler') : null;
   const packageModel = normalizePackage({
     id: row.package_id,
     user_id: row.package_owner_id,
@@ -278,11 +279,11 @@ function normalizeRequest(row) {
     termsAcceptedAt: row.terms_accepted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    senderName: sender ? `${sender.firstName || ''} ${sender.lastName || ''}`.trim() : null,
+    senderName: sender ? publicDisplayName(sender.firstName, sender.lastName, 'Sender') : null,
     senderEmail: sender?.email || null,
-    travelerName: traveler ? `${traveler.firstName || ''} ${traveler.lastName || ''}`.trim() : null,
+    travelerName: traveler ? publicDisplayName(traveler.firstName, traveler.lastName, 'Traveler') : null,
     travelerEmail: traveler?.email || null,
-    carrierName: traveler ? `${traveler.firstName || ''} ${traveler.lastName || ''}`.trim() : null,
+    carrierName: traveler ? publicDisplayName(traveler.firstName, traveler.lastName, 'Traveler') : null,
     carrierAvatar: traveler?.avatar || null,
     conversationId: row.conversation_id,
     role: row.role || null,
@@ -1575,11 +1576,11 @@ export async function listRecentOrdersForUser(userId) {
       carrierId: null,
       packageId: row.id,
       tripId: null,
-      sender: {
+      sender: maskPublicUserName({
         _id: userId, id: userId,
         firstName: row.sender_first_name, lastName: row.sender_last_name,
         email: row.sender_email, avatar: row.sender_image_url, image: row.sender_image_url,
-      },
+      }, 'Sender'),
       traveler: null, carrier: null,
       package: pkg,
       trip: null,
@@ -1600,7 +1601,7 @@ export async function listRecentOrdersForUser(userId) {
       dispute: null,
       termsAccepted: false, termsAcceptedAt: null,
       createdAt: row.created_at, updatedAt: row.updated_at,
-      senderName: `${row.sender_first_name || ''} ${row.sender_last_name || ''}`.trim(),
+      senderName: publicDisplayName(row.sender_first_name, row.sender_last_name, 'Sender'),
       senderEmail: row.sender_email || null,
       travelerName: null, travelerEmail: null,
       carrierName: null, carrierAvatar: null,

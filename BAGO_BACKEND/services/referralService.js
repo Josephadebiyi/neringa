@@ -2,6 +2,7 @@ import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { convertCurrency } from './currencyConverter.js';
 import { getAppSettings } from '../controllers/AdminControllers/setting.js';
 import { sendPushNotification } from './pushNotificationService.js';
+import { abbreviateLastName } from '../lib/privacy/publicUser.js';
 
 const WELCOME_TRIGGER = 'welcome';
 const SHIPMENT_TRIGGER = 'shipment_over_threshold';
@@ -353,6 +354,7 @@ export async function getReferralSummary(userId) {
 
   const referredUsers = referred.rows.map((row) => ({
     ...row,
+    last_name: abbreviateLastName(row.last_name),
     referrer_earned: earnedByReferredId.get(String(row.id)) || 0,
     referrer_earned_currency: walletCurrency,
   }));

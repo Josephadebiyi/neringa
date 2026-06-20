@@ -1,6 +1,7 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { recordOperationalEvent } from './operationalRecords.js';
 import { ensureTripCapacityColumns } from './tripCapacity.js';
+import { maskPublicUserName } from '../privacy/publicUser.js';
 
 const DEFAULT_AFRICAN_CURRENCIES = ['NGN', 'GHS', 'KES', 'UGX', 'TZS', 'ZAR', 'RWF'];
 
@@ -54,7 +55,7 @@ function normalizeReviewRow(row) {
   if (!row) return null;
 
   const reviewer = row.user_id
-    ? {
+    ? maskPublicUserName({
         _id: row.user_id,
         id: row.user_id,
         firstName: row.user_first_name,
@@ -63,7 +64,7 @@ function normalizeReviewRow(row) {
         image: row.user_image_url,
         avatar: row.user_image_url,
         selectedAvatar: row.user_selected_avatar,
-      }
+      }, 'User')
     : null;
 
   return {
@@ -95,7 +96,7 @@ function normalizeTripRow(row, reviews = []) {
     : 0;
 
   const user = row.user_id
-    ? {
+    ? maskPublicUserName({
         _id: row.user_id,
         id: row.user_id,
         firstName: row.user_first_name,
@@ -105,7 +106,7 @@ function normalizeTripRow(row, reviews = []) {
         avatar: row.user_image_url,
         selectedAvatar: row.user_selected_avatar,
         bio: row.user_bio || null,
-      }
+      }, 'Traveler')
     : null;
   const status = normalizeTripStatus(row);
 
