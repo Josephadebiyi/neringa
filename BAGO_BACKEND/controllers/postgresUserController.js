@@ -72,6 +72,12 @@ function getAllowedAppleAudiences() {
     .filter(Boolean);
 }
 
+function getClientIp(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) return xff.split(',')[0].trim().replace(/^::ffff:/, '');
+  return (req.socket?.remoteAddress || req.ip || '').replace(/^::ffff:/, '');
+}
+
 async function checkDeviceFingerprint(req) {
   const fp = (req.headers['x-device-fingerprint'] || '').trim();
   if (!fp) return { fp: null, banned: false };
@@ -82,11 +88,46 @@ async function checkDeviceFingerprint(req) {
   return { fp, banned: !!row };
 }
 
+async function checkBannedIp(ip) {
+  if (!ip) return false;
+  const row = await queryOne(
+    `SELECT ip_address FROM public.banned_ips WHERE ip_address = $1 LIMIT 1`,
+    [ip],
+  ).catch(() => null);
+  return !!row;
+}
+
+async function checkBannedName(firstName, lastName) {
+  const normalized = `${firstName || ''} ${lastName || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!normalized) return false;
+  const row = await queryOne(
+    `SELECT normalized FROM public.banned_names WHERE normalized = $1 LIMIT 1`,
+    [normalized],
+  ).catch(() => null);
+  return !!row;
+}
+
 async function storeDeviceFingerprint(userId, fp) {
   if (!fp) return;
   await query(
     `UPDATE public.profiles SET device_fingerprint = $1, updated_at = NOW() WHERE id = $2 AND (device_fingerprint IS NULL OR device_fingerprint = $1)`,
     [fp, userId],
+  ).catch(() => {});
+}
+
+async function storeSignupIp(userId, ip) {
+  if (!ip) return;
+  await query(
+    `UPDATE public.profiles SET signup_ip = $1, updated_at = NOW() WHERE id = $2 AND signup_ip IS NULL`,
+    [ip, userId],
+  ).catch(() => {});
+}
+
+async function updateLastLoginIp(userId, ip) {
+  if (!ip) return;
+  await query(
+    `UPDATE public.profiles SET last_login_ip = $1, updated_at = NOW() WHERE id = $2`,
+    [ip, userId],
   ).catch(() => {});
 }
 
@@ -348,6 +389,23 @@ export async function verifySignupOtp(req, res) {
       });
     }
 
+    // Check if this name is on the permanent ban list
+    const nameBanned = await checkBannedName(decoded.firstName, decoded.lastName);
+    if (nameBanned) {
+      return res.status(403).json({
+        message: 'Account registration is not permitted. If you believe this is a mistake, please contact support@sendwithbago.com.',
+      });
+    }
+
+    // Check if the signup IP is banned
+    const signupIp = getClientIp(req);
+    const ipBanned = await checkBannedIp(signupIp);
+    if (ipBanned) {
+      return res.status(403).json({
+        message: 'Account registration is not permitted from this network. If you believe this is a mistake, please contact support@sendwithbago.com.',
+      });
+    }
+
     const { fp, banned: deviceBanned } = await checkDeviceFingerprint(req);
     if (deviceBanned) {
       return res.status(403).json({
@@ -377,6 +435,7 @@ export async function verifySignupOtp(req, res) {
     });
 
     await storeDeviceFingerprint(newUser.id, fp);
+    await storeSignupIp(newUser.id, signupIp);
 
     if (decoded.promoCode) {
       await applySignupBonus(newUser.id, decoded.promoCode);
@@ -543,7 +602,13 @@ export async function signIn(req, res) {
     }
 
     if (user.banned) {
-      return res.status(403).json({ message: 'Account has been suspended' });
+      return res.status(403).json({ message: 'Account has been suspended. If you believe this is a mistake, please contact support@sendwithbago.com.' });
+    }
+
+    // Block banned IPs at login too
+    const loginIp = getClientIp(req);
+    if (loginIp && await checkBannedIp(loginIp)) {
+      return res.status(403).json({ message: 'Access from this network is not permitted. If you believe this is a mistake, please contact support@sendwithbago.com.' });
     }
 
     // Brute-force lockout
@@ -594,6 +659,7 @@ export async function signIn(req, res) {
 
     const { accessToken, refreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    updateLastLoginIp(user.id, loginIp).catch(() => {});
 
     const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', accessToken, {

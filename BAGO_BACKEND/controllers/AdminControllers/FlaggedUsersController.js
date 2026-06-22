@@ -1,4 +1,16 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
+import { sendAccountBannedEmail } from '../../services/emailNotifications.js';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const normalizeFullName = (first = '', last = '') =>
+  `${first} ${last}`.toLowerCase().replace(/\s+/g, ' ').trim();
+
+const getClientIp = (req) => {
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) return xff.split(',')[0].trim();
+  return (req.socket?.remoteAddress || req.ip || '').replace(/^::ffff:/, '');
+};
 
 // GET /admin/flagged-users
 export const getFlaggedUsers = async (req, res) => {
@@ -121,41 +133,196 @@ export const unflagUser = async (req, res) => {
   }
 };
 
-// POST /admin/users/:userId/ban-with-device
-// Bans the user AND adds their device fingerprint to the banned list so new accounts from the same device are auto-flagged
-export const banWithDevice = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { reason = 'Admin ban' } = req.body;
+// ─── Internal: apply ban to one profile row and send email ───────────────────
+async function applyBanToUser(userId, reason, { sendEmail = true } = {}) {
+  const user = await queryOne(
+    `UPDATE public.profiles
+     SET banned      = TRUE,
+         is_flagged  = TRUE,
+         flag_reason = COALESCE($2, flag_reason),
+         flag_source = 'auto_ban',
+         flagged_at  = COALESCE(flagged_at, NOW()),
+         updated_at  = NOW()
+     WHERE id = $1 AND banned = FALSE
+     RETURNING id, email,
+               first_name AS "firstName", last_name AS "lastName",
+               device_fingerprint AS "deviceFingerprint",
+               signup_ip AS "signupIp", last_login_ip AS "lastLoginIp"`,
+    [userId, reason],
+  );
+  if (!user) return null; // already banned or not found
 
-    const user = await queryOne(
-      `UPDATE public.profiles
-       SET banned      = TRUE,
-           is_flagged  = TRUE,
-           flag_reason = $2,
-           flag_source = 'admin_ban',
-           flagged_at  = COALESCE(flagged_at, NOW()),
-           updated_at  = NOW()
-       WHERE id = $1
-       RETURNING id, email, device_fingerprint AS "deviceFingerprint"`,
-      [userId, reason],
+  if (sendEmail && user.email) {
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'there';
+    sendAccountBannedEmail(user.email, name, reason).catch(() => {});
+  }
+  return user;
+}
+
+// ─── Internal: register identifiers in ban tables ─────────────────────────────
+async function registerBanIdentifiers(userId, { name, signupIp, lastLoginIp, deviceFingerprint, reason }) {
+  const tasks = [];
+
+  if (name) {
+    tasks.push(
+      query(
+        `INSERT INTO public.banned_names (full_name, normalized, banned_user_id, reason)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (normalized) DO NOTHING`,
+        [name.toUpperCase(), name.toLowerCase(), userId, reason],
+      ).catch(() => {}),
     );
+  }
 
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+  for (const ip of [signupIp, lastLoginIp].filter(Boolean)) {
+    tasks.push(
+      query(
+        `INSERT INTO public.banned_ips (ip_address, banned_user_id, reason)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (ip_address) DO NOTHING`,
+        [ip, userId, reason],
+      ).catch(() => {}),
+    );
+  }
 
-    if (user.deviceFingerprint) {
-      await query(
+  if (deviceFingerprint) {
+    tasks.push(
+      query(
         `INSERT INTO public.banned_device_fingerprints (fingerprint, banned_user_id, reason)
          VALUES ($1, $2, $3)
          ON CONFLICT (fingerprint) DO NOTHING`,
-        [user.deviceFingerprint, userId, reason],
-      ).catch(() => {});
+        [deviceFingerprint, userId, reason],
+      ).catch(() => {}),
+    );
+  }
+
+  await Promise.allSettled(tasks);
+}
+
+// POST /admin/users/:userId/ban-with-device
+// Comprehensive ban: blocks by device fingerprint, full name, AND IP address.
+// Scans all existing users for matches and auto-bans them with an email notification.
+export const banWithDevice = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { reason = 'Violation of Bago Terms of Service' } = req.body;
+
+    // 1. Load the primary user's identifiers before banning
+    const profile = await queryOne(
+      `SELECT id, email,
+              first_name AS "firstName", last_name AS "lastName",
+              device_fingerprint AS "deviceFingerprint",
+              signup_ip AS "signupIp", last_login_ip AS "lastLoginIp"
+       FROM public.profiles WHERE id = $1`,
+      [userId],
+    );
+    if (!profile) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // 2. Ban the primary account and send email
+    await applyBanToUser(userId, reason, { sendEmail: true });
+
+    // Ensure the user is marked banned even if already banned
+    await query(
+      `UPDATE public.profiles
+       SET banned = TRUE, is_flagged = TRUE,
+           flag_reason = COALESCE(flag_reason, $2),
+           flag_source = COALESCE(flag_source, 'admin_ban'),
+           flagged_at  = COALESCE(flagged_at, NOW()),
+           updated_at  = NOW()
+       WHERE id = $1`,
+      [userId, reason],
+    );
+
+    // Send ban email to the primary user if not already sent
+    if (profile.email) {
+      const name = [profile.firstName, profile.lastName].filter(Boolean).join(' ') || 'there';
+      sendAccountBannedEmail(profile.email, name, reason).catch(() => {});
+    }
+
+    const normalizedName = normalizeFullName(profile.firstName, profile.lastName);
+
+    // 3. Register all identifiers in ban tables
+    await registerBanIdentifiers(userId, {
+      name: normalizedName,
+      signupIp:        profile.signupIp,
+      lastLoginIp:     profile.lastLoginIp,
+      deviceFingerprint: profile.deviceFingerprint,
+      reason,
+    });
+
+    // 4. Scan existing users for matching name, IPs, or device fingerprint
+    const matchConditions = [];
+    const matchParams = [userId]; // $1 = exclude self
+    let pIdx = 2;
+
+    if (normalizedName) {
+      matchConditions.push(
+        `lower(concat_ws(' ', first_name, last_name)) = $${pIdx++}`,
+      );
+      matchParams.push(normalizedName);
+    }
+
+    const ipsToCheck = [profile.signupIp, profile.lastLoginIp].filter(Boolean);
+    if (ipsToCheck.length) {
+      matchConditions.push(`(signup_ip = ANY($${pIdx}) OR last_login_ip = ANY($${pIdx}))`);
+      matchParams.push(ipsToCheck);
+      pIdx++;
+    }
+
+    if (profile.deviceFingerprint) {
+      matchConditions.push(`device_fingerprint = $${pIdx++}`);
+      matchParams.push(profile.deviceFingerprint);
+    }
+
+    const linkedAccounts = [];
+
+    if (matchConditions.length > 0) {
+      const matches = await query(
+        `SELECT id, email,
+                first_name AS "firstName", last_name AS "lastName",
+                signup_ip AS "signupIp", last_login_ip AS "lastLoginIp",
+                device_fingerprint AS "deviceFingerprint",
+                banned
+         FROM public.profiles
+         WHERE id != $1
+           AND (${matchConditions.join(' OR ')})`,
+        matchParams,
+      );
+
+      for (const match of matches.rows) {
+        const matchReason = `Account linked to permanently banned user — created multiple accounts. ${reason}`;
+        const banned = await applyBanToUser(match.id, matchReason, { sendEmail: true });
+
+        // Register their identifiers too
+        await registerBanIdentifiers(match.id, {
+          name: normalizeFullName(match.firstName, match.lastName),
+          signupIp:    match.signupIp,
+          lastLoginIp: match.lastLoginIp,
+          deviceFingerprint: match.deviceFingerprint,
+          reason: matchReason,
+        });
+
+        linkedAccounts.push({
+          userId: match.id,
+          email:  match.email,
+          name:   [match.firstName, match.lastName].filter(Boolean).join(' '),
+          alreadyBanned: match.banned,
+          newlyBanned: !!banned,
+        });
+      }
     }
 
     return res.json({
       success: true,
-      message: 'User banned' + (user.deviceFingerprint ? ' and device fingerprint blocked' : ' (no device fingerprint stored)'),
-      data: { userId: user.id, email: user.email, deviceBanned: !!user.deviceFingerprint },
+      message: `User permanently banned. ${linkedAccounts.length} linked account(s) also banned.`,
+      data: {
+        userId:          profile.id,
+        email:           profile.email,
+        nameBanned:      !!normalizedName,
+        ipsBanned:       ipsToCheck,
+        deviceBanned:    !!profile.deviceFingerprint,
+        linkedAccounts,
+      },
     });
   } catch (err) {
     console.error('banWithDevice error:', err);
