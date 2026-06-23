@@ -387,68 +387,13 @@ export async function withdrawPaypalPayout(req, res) {
     });
 
     transactionId = prepared.transactionId;
-    let payout;
-    try {
-      payout = await createPaypalPayoutApi({
-        email: prepared.paypalEmail,
-        amount,
-        currency: walletCurrency,
-        senderBatchId,
-        note: 'Bago wallet withdrawal',
-      });
-    } catch (payoutError) {
-      const paypalIssue = String(
-        payoutError?.details?.name ||
-        payoutError?.details?.error ||
-        payoutError?.details?.message ||
-        payoutError?.message ||
-        '',
-      ).toLowerCase();
-      const isAuthorizationIssue =
-        payoutError?.statusCode === 401 ||
-        payoutError?.statusCode === 403 ||
-        paypalIssue.includes('authorization');
-
-      if (!isAuthorizationIssue) throw payoutError;
-
-      await query(
-        `
-          update public.wallet_transactions
-          set status = 'pending',
-              description = 'PayPal withdrawal pending manual approval',
-              metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
-              updated_at = timezone('utc', now())
-          where id = $1
-        `,
-        [
-          transactionId,
-          {
-            manualReviewRequired: true,
-            manualReviewReason: 'paypal_payouts_not_authorized',
-            paypalError: serializePaypalPayoutError(payoutError),
-          },
-        ],
-      );
-
-      console.warn(
-        'PayPal payouts authorization failed; withdrawal left pending for manual review:',
-        payoutError.details?.debug_id || payoutError.message,
-      );
-
-      await sendWithdrawalSubmittedEmail(prepared.userEmail, prepared.userName, {
-        amount,
-        currency: walletCurrency,
-        reference: senderBatchId,
-        method: 'PayPal',
-      }).catch(() => {});
-
-      return res.json({
-        success: true,
-        message: 'Withdrawal submitted for approval. Funds will be sent after review.',
-        status: 'pending',
-        manualReviewRequired: true,
-      });
-    }
+    const payout = await createPaypalPayoutApi({
+      email: prepared.paypalEmail,
+      amount,
+      currency: walletCurrency,
+      senderBatchId,
+      note: 'Bago wallet withdrawal',
+    });
 
     await sendWithdrawalSubmittedEmail(prepared.userEmail, prepared.userName, {
       amount,
@@ -507,9 +452,12 @@ export async function withdrawPaypalPayout(req, res) {
         [userId, amount],
       ).catch(() => {});
     }
+    const isAuthError = error?.statusCode === 401 || error?.statusCode === 403;
     res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message || 'PayPal withdrawal could not be submitted.',
+      message: isAuthError
+        ? 'PayPal withdrawals are temporarily unavailable. Your balance has been restored. Please try again later or contact support.'
+        : (error.message || 'PayPal withdrawal could not be submitted. Your balance has been restored.'),
     });
   }
 }
