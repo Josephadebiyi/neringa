@@ -52,18 +52,6 @@ const normalizeCountryCode = (value) => {
     return byName?.code || '';
 };
 
-// ─── Date formatter for Dojah (expects DD-MM-YYYY) ───────────────────────────
-
-const formatDob = (raw) => {
-    if (!raw) return undefined;
-    // Already DD-MM-YYYY
-    if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) return raw;
-    // Convert YYYY-MM-DD → DD-MM-YYYY
-    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-    return undefined;
-};
-
 // ─── Status normaliser ────────────────────────────────────────────────────────
 
 const normalizeKycStatus = (raw) => {
@@ -396,6 +384,7 @@ export default function Verify() {
                         userData={{
                             first_name: user?.firstName || undefined,
                             last_name:  user?.lastName  || undefined,
+                            email:      user?.email     || undefined,
                             residence_country: selectedCountry || undefined,
                         }}
                         metadata={{
