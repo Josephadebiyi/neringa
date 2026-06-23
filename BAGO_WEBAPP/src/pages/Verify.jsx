@@ -396,7 +396,6 @@ export default function Verify() {
                         userData={{
                             first_name: user?.firstName || undefined,
                             last_name:  user?.lastName  || undefined,
-                            dob:        user?.dateOfBirth ? formatDob(user.dateOfBirth) : undefined,
                             residence_country: selectedCountry || undefined,
                         }}
                         metadata={{
