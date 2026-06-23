@@ -1,6 +1,6 @@
 import { query as defaultQuery } from '../lib/postgres/db.js';
 
-const ACTIVE_WITHDRAWAL_STATUSES = ['pending', 'processing', 'approved'];
+const ACTIVE_WITHDRAWAL_STATUSES = ['pending', 'pending_admin_approval', 'processing', 'approved'];
 
 export async function findActiveWithdrawal(clientOrDb, userId) {
   const runner = clientOrDb?.query ? clientOrDb : null;
@@ -12,7 +12,7 @@ export async function findActiveWithdrawal(clientOrDb, userId) {
       FROM public.wallet_transactions
       WHERE user_id = $1
         AND type = 'withdrawal'
-        AND lower(coalesce(status, 'pending')) = ANY($2::text[])
+        AND lower(coalesce(status::text, 'pending')) = ANY($2::text[])
       ORDER BY created_at DESC
       LIMIT 1
     `,
@@ -28,7 +28,7 @@ export async function findActiveWithdrawal(clientOrDb, userId) {
       SELECT id, status, amount, currency, created_at, 'paystack_pending_withdrawals' AS source
       FROM public.paystack_pending_withdrawals
       WHERE user_id = $1
-        AND lower(coalesce(status, 'pending')) = ANY($2::text[])
+        AND lower(coalesce(status::text, 'pending')) = ANY($2::text[])
       ORDER BY created_at DESC
       LIMIT 1
     `,

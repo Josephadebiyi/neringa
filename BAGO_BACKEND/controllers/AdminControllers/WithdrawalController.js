@@ -128,7 +128,7 @@ export const getAllWithdrawals = async (req, res, next) => {
                  p.paystack_recipient_code,
                  NULL::text AS provider,
                  NULL::text AS failure_reason,
-                 CASE WHEN lower(coalesce(wt.status, '')) IN ('completed', 'paid') THEN wt.updated_at ELSE NULL END AS processed_at,
+                 CASE WHEN lower(coalesce(wt.status::text, '')) IN ('completed', 'paid') THEN wt.updated_at ELSE NULL END AS processed_at,
                  'wallet_transactions' AS source
           FROM public.wallet_transactions wt
           LEFT JOIN public.profiles p ON p.id = wt.user_id
@@ -144,11 +144,11 @@ export const getAllWithdrawals = async (req, res, next) => {
                  p.paystack_recipient_code,
                  'paystack' AS provider,
                  NULL::text AS failure_reason,
-                 CASE WHEN lower(coalesce(ppw.status, '')) IN ('completed', 'paid') THEN ppw.updated_at ELSE NULL END AS processed_at,
+                 CASE WHEN lower(coalesce(ppw.status::text, '')) IN ('completed', 'paid') THEN ppw.updated_at ELSE NULL END AS processed_at,
                  'paystack_pending_withdrawals' AS source
           FROM public.paystack_pending_withdrawals ppw
           LEFT JOIN public.profiles p ON p.id = ppw.user_id
-          WHERE lower(coalesce(ppw.status, 'pending')) <> 'cancelled'
+          WHERE lower(coalesce(ppw.status::text, 'pending')) <> 'cancelled'
           ORDER BY created_at DESC
         `
       );
