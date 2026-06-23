@@ -95,6 +95,12 @@ import {
   flagUser,
   unflagUser,
   banWithDevice,
+  getRiskyUsers,
+  getLinkedAccounts,
+  getSecurityEvents,
+  approveKyc,
+  rejectKyc,
+  setAccountStatus,
 } from '../controllers/AdminControllers/FlaggedUsersController.js';
 
 const AdminRouter = express.Router();
@@ -229,6 +235,13 @@ AdminRouter.get("/flagged-users", adminAuthenticated, can('users.manage'), getFl
 AdminRouter.post("/users/:userId/flag", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.flag', 'profile', 'userId'), flagUser);
 AdminRouter.post("/users/:userId/unflag", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.unflag', 'profile', 'userId'), unflagUser);
 AdminRouter.post("/users/:userId/ban-with-device", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.ban_with_device', 'profile', 'userId'), banWithDevice);
+// ── Security / anti-abuse endpoints ──────────────────────────────────────────
+AdminRouter.get("/security/risky-users", adminAuthenticated, can('users.manage'), getRiskyUsers);
+AdminRouter.get("/security/linked-accounts/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), getLinkedAccounts);
+AdminRouter.get("/security/events", adminAuthenticated, can('users.manage'), getSecurityEvents);
+AdminRouter.post("/users/:userId/approve-kyc", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.approve_kyc', 'profile', 'userId'), approveKyc);
+AdminRouter.post("/users/:userId/reject-kyc", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.reject_kyc', 'profile', 'userId'), rejectKyc);
+AdminRouter.post("/users/:userId/set-status", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.set_status', 'profile', 'userId'), setAccountStatus);
 
 // Item Categories Management
 AdminRouter.get("/item-categories", adminAuthenticated, adminListItemCategories);

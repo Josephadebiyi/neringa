@@ -17,7 +17,7 @@ import { getConversations, getMessages, resolveConversation, sendMessage, delete
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
-import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus, syncDojahResult, syncExistingDojahResult } from '../controllers/DojahController.js';
+import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus, syncDojahResult, syncExistingDojahResult, kycPreCheck, updateLegalName } from '../controllers/DojahController.js';
 import { submitManualKyc, getManualKycStatus } from '../controllers/ManualKycController.js';
 import { myCoverWebhook } from '../controllers/MyCoverWebhookController.js';
 import {
@@ -162,6 +162,8 @@ userRouter.post("/KycVerifications", isAuthenticated, KycVerifications)
 userRouter.get("/getKyc", isAuthenticated, getKyc)
 // KYC provider routing (Dojah or manual upload)
 userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
+userRouter.get('/kyc/pre-check', isAuthenticated, kycPreCheck);
+userRouter.post('/kyc/update-legal-name', isAuthenticated, updateLegalName);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
 userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
 userRouter.post('/kyc/dojah/sync-result', isAuthenticated, syncDojahResult);

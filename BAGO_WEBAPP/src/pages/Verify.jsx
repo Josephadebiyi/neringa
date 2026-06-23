@@ -106,8 +106,12 @@ export default function Verify() {
 
     const [kycStatus, setKycStatus]     = useState('not_started');
     const [pageLoading, setPageLoading] = useState(true);
-    // 'status' shows the landing / status card; 'consent' shows the consent form;
-    // 'verifying' means the Dojah overlay is active
+    // 'status'   — landing / status card
+    // 'consent'  — consent form
+    // 'verifying'— Dojah overlay is active
+    // 'name'     — user must enter legal name before proceeding
+    // 'review'   — account under security review
+    // 'blocked'  — permanently blocked
     const [step, setStep]               = useState('status');
 
     const [termsAccepted, setTermsAccepted]     = useState(false);
@@ -115,9 +119,15 @@ export default function Verify() {
     const [selectedCountry, setSelectedCountry] = useState('');
     const [countryDetecting, setCountryDetecting] = useState(true);
 
+    // Name collection
+    const [legalFirstName, setLegalFirstName] = useState(user?.firstName || '');
+    const [legalLastName,  setLegalLastName]  = useState(user?.lastName  || '');
+    const [nameSaving,     setNameSaving]     = useState(false);
+
     const [dojahCreds, setDojahCreds]       = useState(null); // { appId, publicKey, widgetId, userId, referenceId }
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError]                 = useState('');
+    const [blockMsg, setBlockMsg]           = useState('');
 
     // ── Auth guard ─────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -150,10 +160,40 @@ export default function Verify() {
     // ── Cleanup polling on unmount ─────────────────────────────────────────────
     useEffect(() => () => stopPolling(), []);
 
-    // ── KYC status fetch ───────────────────────────────────────────────────────
+    // ── KYC status + pre-check ────────────────────────────────────────────────
     const fetchKycStatus = async () => {
         try {
             setPageLoading(true);
+
+            // Run the security pre-check first
+            try {
+                const preRes = await api.get('/api/bago/kyc/pre-check');
+                const preData = preRes.data || {};
+
+                if (preData.status === 'already_verified') {
+                    setKycStatus('approved');
+                    setPageLoading(false);
+                    return;
+                }
+                if (preData.status === 'pending_name' || preData.nameRequired) {
+                    setStep('name');
+                    setPageLoading(false);
+                    return;
+                }
+                if (preData.status === 'pending_security_review') {
+                    setStep('review');
+                    setBlockMsg(preData.message || '');
+                    setPageLoading(false);
+                    return;
+                }
+                if (preData.status === 'blocked') {
+                    setStep('blocked');
+                    setBlockMsg(preData.message || '');
+                    setPageLoading(false);
+                    return;
+                }
+            } catch { /* pre-check failure is non-fatal — fall through to normal status fetch */ }
+
             const res    = await api.get('/api/bago/kyc/status');
             const status = normalizeKycStatus(res.data?.kycStatus || res.data?.kyc_status);
             setKycStatus(status);
@@ -162,6 +202,24 @@ export default function Verify() {
             setKycStatus('not_started');
         } finally {
             setPageLoading(false);
+        }
+    };
+
+    // ── Save legal name (when user is in pending_name step) ───────────────────
+    const handleSaveLegalName = async () => {
+        setNameSaving(true);
+        setError('');
+        try {
+            await api.post('/api/bago/kyc/update-legal-name', {
+                firstName: legalFirstName.trim(),
+                lastName:  legalLastName.trim(),
+            });
+            // Re-run pre-check to see if they can proceed now
+            await fetchKycStatus();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Could not save name. Please try again.');
+        } finally {
+            setNameSaving(false);
         }
     };
 
@@ -355,46 +413,72 @@ export default function Verify() {
 
             <main className="max-w-2xl mx-auto px-6 py-12 md:py-20">
 
-                {/* ── Status screens (approved / pending) ── */}
-                {kycStatus === 'approved' && (
-                    <ApprovedCard navigate={navigate} />
-                )}
-
-                {kycStatus === 'pending' && step !== 'verifying' && (
-                    <PendingCard
-                        navigate={navigate}
-                        onResubmit={() => { stopPolling(); setKycStatus('not_started'); setStep('consent'); }}
+                {/* ── Security gate steps (shown before any KYC flow) ── */}
+                {step === 'name' && (
+                    <NameCollectionCard
+                        firstName={legalFirstName}
+                        lastName={legalLastName}
+                        onFirstNameChange={setLegalFirstName}
+                        onLastNameChange={setLegalLastName}
+                        saving={nameSaving}
+                        error={error}
+                        onSave={handleSaveLegalName}
                     />
                 )}
 
-                {/* ── Not-started / declined flow ── */}
-                {(kycStatus === 'not_started' || kycStatus === 'declined') && (
+                {step === 'review' && (
+                    <ReviewCard message={blockMsg} navigate={navigate} />
+                )}
+
+                {step === 'blocked' && (
+                    <BlockedCard message={blockMsg} navigate={navigate} />
+                )}
+
+                {/* ── Normal KYC flow (only shown when not in a security gate step) ── */}
+                {!['name', 'review', 'blocked'].includes(step) && (
                     <>
-                        {step === 'status' && (
-                            <LandingCard
-                                declined={kycStatus === 'declined'}
-                                onStart={() => { setError(''); setStep('consent'); }}
-                                t={t}
+                        {/* Status screens (approved / pending) */}
+                        {kycStatus === 'approved' && (
+                            <ApprovedCard navigate={navigate} />
+                        )}
+
+                        {kycStatus === 'pending' && step !== 'verifying' && (
+                            <PendingCard
+                                navigate={navigate}
+                                onResubmit={() => { stopPolling(); setKycStatus('not_started'); setStep('consent'); }}
                             />
                         )}
 
-                        {step === 'consent' && (
-                            <ConsentCard
-                                selectedCountry={selectedCountry}
-                                setSelectedCountry={setSelectedCountry}
-                                countryDetecting={countryDetecting}
-                                termsAccepted={termsAccepted}
-                                setTermsAccepted={setTermsAccepted}
-                                privacyAccepted={privacyAccepted}
-                                setPrivacyAccepted={setPrivacyAccepted}
-                                actionLoading={actionLoading}
-                                error={error}
-                                onContinue={handleStartVerification}
-                            />
-                        )}
+                        {/* Not-started / declined flow */}
+                        {(kycStatus === 'not_started' || kycStatus === 'declined') && (
+                            <>
+                                {step === 'status' && (
+                                    <LandingCard
+                                        declined={kycStatus === 'declined'}
+                                        onStart={() => { setError(''); setStep('consent'); }}
+                                        t={t}
+                                    />
+                                )}
 
-                        {step === 'verifying' && (
-                            <VerifyingCard />
+                                {step === 'consent' && (
+                                    <ConsentCard
+                                        selectedCountry={selectedCountry}
+                                        setSelectedCountry={setSelectedCountry}
+                                        countryDetecting={countryDetecting}
+                                        termsAccepted={termsAccepted}
+                                        setTermsAccepted={setTermsAccepted}
+                                        privacyAccepted={privacyAccepted}
+                                        setPrivacyAccepted={setPrivacyAccepted}
+                                        actionLoading={actionLoading}
+                                        error={error}
+                                        onContinue={handleStartVerification}
+                                    />
+                                )}
+
+                                {step === 'verifying' && (
+                                    <VerifyingCard />
+                                )}
+                            </>
                         )}
                     </>
                 )}
@@ -659,6 +743,131 @@ function PendingCard({ navigate, onResubmit }) {
                         Re-submit Documents
                     </button>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Name collection gate ─────────────────────────────────────────────────────
+function NameCollectionCard({ firstName, lastName, onFirstNameChange, onLastNameChange, saving, error, onSave }) {
+    const canSave = firstName.trim().length >= 2 && lastName.trim().length >= 2 && !saving;
+    return (
+        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
+                <div className="w-16 h-16 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-4">
+                    <Shield size={30} className="text-[#5845D8]" />
+                </div>
+                <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Confirm Your Legal Name</h1>
+                <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Required before identity verification</p>
+            </div>
+            <div className="p-8 md:p-12 space-y-6">
+                <p className="text-sm text-gray-600 font-medium leading-relaxed">
+                    Please enter your full legal name exactly as it appears on your government-issued ID. This is required for identity verification.
+                </p>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">First Name</label>
+                        <input
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => onFirstNameChange(e.target.value)}
+                            placeholder="e.g. Aanuoluwapo"
+                            autoComplete="given-name"
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10"
+                        />
+                    </div>
+                    <div>
+                        <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">Last Name</label>
+                        <input
+                            type="text"
+                            value={lastName}
+                            onChange={(e) => onLastNameChange(e.target.value)}
+                            placeholder="e.g. Johnson"
+                            autoComplete="family-name"
+                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10"
+                        />
+                    </div>
+                </div>
+                {error && (
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+                        <AlertCircle size={18} className="shrink-0" />
+                        <p className="text-xs font-bold">{error}</p>
+                    </div>
+                )}
+                <button
+                    onClick={onSave}
+                    disabled={!canSave}
+                    className="w-full bg-[#5845D8] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-3"
+                >
+                    {saving ? <Loader2 className="animate-spin" size={20} /> : <><span>Confirm Name & Continue</span><ArrowRight size={20} /></>}
+                </button>
+                <p className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest">
+                    Use your legal name exactly as it appears on your ID
+                </p>
+            </div>
+        </div>
+    );
+}
+
+// ─── Security review gate ─────────────────────────────────────────────────────
+function ReviewCard({ navigate }) {
+    return (
+        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-amber-50/50">
+                <div className="w-20 h-20 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-6">
+                    <Clock size={40} className="text-amber-500 animate-pulse" />
+                </div>
+                <h1 className="text-3xl font-black mb-2 tracking-tight uppercase">Account Under Review</h1>
+                <p className="text-gray-400 font-bold text-xs uppercase tracking-[3px]">Security verification in progress</p>
+            </div>
+            <div className="p-8 md:p-12 space-y-6">
+                <div className="flex items-start gap-4 p-6 bg-amber-50 rounded-3xl border border-amber-100">
+                    <Clock className="text-amber-500 shrink-0 mt-0.5" size={24} />
+                    <p className="text-sm text-amber-700 font-medium leading-relaxed">
+                        Your account is currently under review by our security team. We will notify you by email once the review is complete. This usually takes 1–2 business days.
+                    </p>
+                </div>
+                <p className="text-xs text-gray-500 font-medium text-center leading-relaxed">
+                    If you believe this is a mistake, please contact{' '}
+                    <a href="mailto:support@sendwithbago.com" className="text-[#5845D8] font-bold hover:underline">
+                        support@sendwithbago.com
+                    </a>
+                </p>
+                <button onClick={() => navigate('/dashboard')} className="w-full bg-[#012126] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0a262c] transition-all">
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Hard block gate ──────────────────────────────────────────────────────────
+function BlockedCard({ navigate }) {
+    return (
+        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-red-50/50">
+                <div className="w-20 h-20 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-6">
+                    <AlertCircle size={40} className="text-red-500" />
+                </div>
+                <h1 className="text-2xl font-black mb-2 tracking-tight uppercase">Verification Unavailable</h1>
+                <p className="text-gray-400 font-bold text-xs uppercase tracking-[3px]">Account restricted</p>
+            </div>
+            <div className="p-8 md:p-12 space-y-6">
+                <div className="flex items-start gap-4 p-6 bg-red-50 rounded-3xl border border-red-100">
+                    <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
+                    <p className="text-sm text-red-700 font-medium leading-relaxed">
+                        Your account cannot proceed with verification at this time. Due to our internal security and compliance policy, we are unable to allow this account to proceed.
+                    </p>
+                </div>
+                <p className="text-xs text-gray-500 font-medium text-center leading-relaxed">
+                    If you believe this is a mistake, please contact{' '}
+                    <a href="mailto:support@sendwithbago.com" className="text-[#5845D8] font-bold hover:underline">
+                        support@sendwithbago.com
+                    </a>
+                </p>
+                <button onClick={() => navigate('/dashboard')} className="w-full bg-[#012126] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0a262c] transition-all">
+                    Back to Dashboard
+                </button>
             </div>
         </div>
     );

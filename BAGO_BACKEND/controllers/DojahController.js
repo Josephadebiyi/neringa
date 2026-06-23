@@ -4,6 +4,7 @@ import { query, queryOne } from '../lib/postgres/db.js';
 import { markKycApproved } from '../lib/postgres/accounts.js';
 import { sendKycApprovedEmail, sendKycSubmittedEmail, sendKycDeclinedEmail } from '../services/emailNotifications.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
+import { runPreKycChecks } from '../services/securityService.js';
 
 // ---------------------------------------------------------------------------
 // Dojah-supported countries (ISO 3166-1 alpha-2)
@@ -510,6 +511,18 @@ export const startDojahSession = async (req, res) => {
       return res.status(503).json({ success: false, message: 'Dojah is not configured on the server' });
     }
 
+    // ── Pre-KYC security gate (runs before any Dojah session is created) ──────
+    const gate = await runPreKycChecks(req.user, req);
+    if (!gate.allowed) {
+      return res.status(403).json({
+        success: false,
+        blocked: true,
+        status:       gate.status,
+        nameRequired: gate.nameRequired || false,
+        message:      gate.message,
+      });
+    }
+
     const country = (req.body?.country || req.query?.country || '').toUpperCase().trim();
     const referenceId = (req.body?.referenceId || req.query?.referenceId || `bago-${crypto.randomUUID()}`).toString().trim();
     const widgetConfig = widgetConfigForCountry(country, req.body?.widgetId);
@@ -892,5 +905,72 @@ export const syncDojahResult = async (req, res) => {
   } catch (err) {
     console.error('syncDojahResult error:', err);
     return res.status(500).json({ success: false, message: 'Failed to sync result' });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/bago/kyc/pre-check
+// Lightweight endpoint the Verify page calls before showing anything to the user.
+// Runs all security checks without creating a Dojah session.
+// ---------------------------------------------------------------------------
+export const kycPreCheck = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(401).json({ success: false });
+
+    // Already approved — skip all checks
+    if (user.kycStatus === 'approved' || user.isKycCompleted) {
+      return res.json({ success: true, allowed: true, status: 'already_verified', kycStatus: 'approved' });
+    }
+
+    const gate = await runPreKycChecks(user, req);
+    return res.json({
+      success: true,
+      allowed: gate.allowed,
+      status: gate.status,
+      message: gate.allowed ? null : gate.message,
+      nameRequired: gate.nameRequired || false,
+      kycStatus: user.kycStatus,
+    });
+  } catch (err) {
+    console.error('kycPreCheck error:', err);
+    return res.status(500).json({ success: false, message: 'Security check failed' });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/bago/kyc/update-legal-name
+// Called when the user is told their name needs to be corrected before KYC.
+// ---------------------------------------------------------------------------
+export const updateLegalName = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false });
+
+    const { firstName, lastName } = req.body;
+    const { validateLegalName } = await import('../services/securityService.js');
+
+    const nameCheck = validateLegalName(`${firstName || ''} ${lastName || ''}`.trim());
+    if (!nameCheck.valid) {
+      return res.status(400).json({ success: false, message: nameCheck.reason });
+    }
+
+    await query(
+      `UPDATE public.profiles
+       SET first_name = $2, last_name = $3,
+           legal_name_submitted = concat($2, ' ', $3),
+           account_status = CASE
+             WHEN account_status = 'pending_name' THEN 'active'
+             ELSE account_status
+           END,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [userId, firstName.trim(), lastName.trim()],
+    );
+
+    return res.json({ success: true, message: 'Name updated successfully' });
+  } catch (err) {
+    console.error('updateLegalName error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update name' });
   }
 };

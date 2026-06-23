@@ -218,6 +218,7 @@ async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
         givenName: payload.given_name,
         familyName: payload.family_name,
         picture: payload.picture,
+        googleSub: payload.sub,
       };
     } catch (error) {
       try {
@@ -239,6 +240,7 @@ async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
           givenName: payload.given_name,
           familyName: payload.family_name,
           picture: payload.picture,
+          googleSub: payload.sub,
         };
       } catch (tokenInfoError) {
         console.warn(
@@ -263,6 +265,7 @@ async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
       givenName: response.data.given_name,
       familyName: response.data.family_name,
       picture: response.data.picture,
+      googleSub: response.data.sub,
     };
   }
 
@@ -436,6 +439,13 @@ export async function verifySignupOtp(req, res) {
 
     await storeDeviceFingerprint(newUser.id, fp);
     await storeSignupIp(newUser.id, signupIp);
+    const emailSignupUa = (req.headers['user-agent'] || '').slice(0, 300);
+    if (emailSignupUa) {
+      await query(
+        `UPDATE public.profiles SET user_agent = $1, updated_at = NOW() WHERE id = $2 AND user_agent IS NULL`,
+        [emailSignupUa, newUser.id],
+      ).catch(() => {});
+    }
 
     if (decoded.promoCode) {
       await applySignupBonus(newUser.id, decoded.promoCode);
@@ -759,6 +769,7 @@ export async function googleAuth(req, res) {
       givenName,
       familyName,
       picture,
+      googleSub,
     } = await resolveGoogleProfile({
       idToken,
       accessToken,
@@ -770,6 +781,22 @@ export async function googleAuth(req, res) {
         success: false,
         message: 'Google account email could not be resolved',
       });
+    }
+
+    // Block if Google sub matches a banned account
+    if (googleSub) {
+      const bannedBySub = await queryOne(
+        `SELECT id FROM public.profiles WHERE google_sub = $1 AND banned = TRUE LIMIT 1`,
+        [googleSub],
+      ).catch(() => null);
+      if (bannedBySub) {
+        return res.status(403).json({ success: false, message: 'Account has been suspended. Contact support@sendwithbago.com if you believe this is a mistake.' });
+      }
+    }
+
+    const googleIp = getClientIp(req);
+    if (googleIp && await checkBannedIp(googleIp)) {
+      return res.status(403).json({ success: false, message: 'Account registration is not permitted from this network. Contact support@sendwithbago.com if you believe this is a mistake.' });
     }
 
     const { fp: googleFp, banned: googleDeviceBanned } = await checkDeviceFingerprint(req);
@@ -794,6 +821,25 @@ export async function googleAuth(req, res) {
     }
 
     await storeDeviceFingerprint(user.id, googleFp);
+    await storeSignupIp(user.id, googleIp);
+
+    // Store google_sub for duplicate detection (do once, never overwrite with null)
+    if (googleSub) {
+      await query(
+        `UPDATE public.profiles SET google_sub = $1, updated_at = NOW()
+         WHERE id = $2 AND google_sub IS NULL`,
+        [googleSub, user.id],
+      ).catch(() => {});
+    }
+
+    // Store browser UA
+    const googleUa = (req.headers['user-agent'] || '').slice(0, 300);
+    if (googleUa) {
+      await query(
+        `UPDATE public.profiles SET user_agent = $1, updated_at = NOW() WHERE id = $2 AND user_agent IS NULL`,
+        [googleUa, user.id],
+      ).catch(() => {});
+    }
 
     if (isNewUser) {
       await applyReferralSignupReward(user.id).catch((error) =>
