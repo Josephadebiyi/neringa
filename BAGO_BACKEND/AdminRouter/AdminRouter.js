@@ -77,7 +77,8 @@ import {
 } from '../controllers/AdminControllers/KYCViewController.js';
 import {
   getAllWithdrawals,
-  updateWithdrawalStatus
+  updateWithdrawalStatus,
+  approveWithdrawal,
 } from '../controllers/AdminControllers/WithdrawalController.js';
 import {
   requestAdminCredentialChange,
@@ -227,6 +228,7 @@ AdminRouter.put("/insurance/settings", adminAuthenticated, can('insurance.manage
 // Withdrawal / Payout Management
 AdminRouter.get("/withdrawals", adminAuthenticated, can('finance.withdrawals.manage'), getAllWithdrawals);
 AdminRouter.put("/withdrawals/:transactionId/status", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), audit('admin.withdrawal.status.update', 'wallet_transaction', 'transactionId'), updateWithdrawalStatus);
+AdminRouter.post("/withdrawals/:transactionId/approve", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), audit('admin.withdrawal.approve', 'wallet_transaction', 'transactionId'), approveWithdrawal);
 AdminRouter.post("/credentials/request-change", adminAuthenticated, requestAdminCredentialChange);
 AdminRouter.post("/credentials/verify-change", adminAuthenticated, verifyAdminCredentialChange);
 

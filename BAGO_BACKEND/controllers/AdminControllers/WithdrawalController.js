@@ -2,9 +2,10 @@ import { query, withTransaction } from '../../lib/postgres/db.js';
 import { sendWithdrawalProcessedEmail } from '../../services/emailNotifications.js';
 
 const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected']);
-const REFUNDABLE_STATUSES = new Set(['pending', 'processing', 'approved']);
+const REFUNDABLE_STATUSES = new Set(['pending', 'pending_admin_approval', 'processing', 'approved']);
 const ALLOWED_WITHDRAWAL_STATUSES = new Set([
   'pending',
+  'pending_admin_approval',
   'approved',
   'rejected',
   'processing',
@@ -374,6 +375,117 @@ export const updateWithdrawalStatus = async (req, res, next) => {
     if (error.statusCode) {
       return res.status(error.statusCode).json({ success: false, message: error.message });
     }
+    next(error);
+  }
+};
+
+// ── Admin: approve a pending_admin_approval withdrawal and call the payout API ──
+export const approveWithdrawal = async (req, res, next) => {
+  const { transactionId } = req.params;
+  const adminId = req.admin?.id || null;
+
+  try {
+    const txResult = await query(
+      `SELECT wt.*,
+              wa.id AS wallet_account_id,
+              p.email, p.first_name, p.last_name,
+              p.bank_details, p.paystack_recipient_code
+       FROM public.wallet_transactions wt
+       JOIN public.wallet_accounts wa ON wa.id = wt.wallet_id
+       JOIN public.profiles p ON p.id = wt.user_id
+       WHERE wt.id = $1 AND wt.type = 'withdrawal' AND wt.status = 'pending_admin_approval'`,
+      [transactionId],
+    );
+    const tx = txResult.rows[0];
+    if (!tx) {
+      return res.status(404).json({ success: false, message: 'Withdrawal not found or not pending approval.' });
+    }
+
+    const metadata = typeof tx.metadata === 'object' ? tx.metadata : JSON.parse(tx.metadata || '{}');
+    const provider = metadata.provider || metadata.method;
+    const amount = Number(tx.amount);
+    const currency = tx.currency;
+
+    // Lock it to processing so duplicate admin clicks can't double-send
+    await query(
+      `UPDATE public.wallet_transactions
+       SET status = 'processing',
+           metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+           updated_at = timezone('utc', now())
+       WHERE id = $1`,
+      [transactionId, { adminApproved: true, adminId, approvedAt: new Date().toISOString() }],
+    );
+
+    try {
+      if (provider === 'paypal') {
+        const bankDetails = typeof tx.bank_details === 'object' ? tx.bank_details : JSON.parse(tx.bank_details || '{}');
+        const paypalEmail = metadata.paypalEmail || bankDetails.paypalEmail || bankDetails.paypal_email;
+        if (!paypalEmail) throw new Error('No PayPal email on file for this user.');
+        const senderBatchId = metadata.senderBatchId || `BAGO-PAYPAL-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+        const { createPaypalPayout } = await import('../../services/paypalService.js');
+        const payout = await createPaypalPayout({ email: paypalEmail, amount, currency, senderBatchId, note: 'Bago wallet withdrawal' });
+        await query(
+          `UPDATE public.wallet_transactions
+           SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
+           WHERE id = $1`,
+          [transactionId, { paypalPayout: payout, payoutInitiatedAt: new Date().toISOString() }],
+        );
+
+      } else if (provider === 'paystack' || provider === 'bank') {
+        const recipientCode = metadata.recipientCode || tx.paystack_recipient_code;
+        if (!recipientCode) throw new Error('No Paystack recipient code for this user.');
+        const reference = metadata.reference || `BAGO-WD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+        const { initiateTransfer } = await import('../../services/paystackService.js');
+        const result = await initiateTransfer({
+          amount: metadata.payoutAmount || amount,
+          recipientCode,
+          currency,
+          reason: 'Bago wallet withdrawal',
+          reference,
+        });
+        if (!result.success) throw new Error(result.message || 'Paystack transfer failed');
+        await query(
+          `UPDATE public.wallet_transactions
+           SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
+           WHERE id = $1`,
+          [transactionId, { transferCode: result.transferCode, payoutReference: reference, payoutInitiatedAt: new Date().toISOString() }],
+        );
+
+      } else {
+        throw new Error(`Unknown payout provider: ${provider || 'none'}`);
+      }
+
+      await sendWithdrawalProcessedEmail(
+        tx.email,
+        [tx.first_name, tx.last_name].filter(Boolean).join(' ').trim(),
+        { amount, currency, reference: metadata.reference || transactionId, method: provider },
+      ).catch(() => {});
+
+      return res.json({ success: true, message: 'Withdrawal approved and payout initiated.' });
+
+    } catch (payoutError) {
+      // Payout API failed — restore balance and mark failed
+      await query(
+        `UPDATE public.wallet_accounts
+         SET available_balance = available_balance + $2, updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [tx.wallet_account_id, amount],
+      ).catch(() => {});
+      await query(
+        `UPDATE public.wallet_transactions
+         SET status = 'failed',
+             metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+             updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [transactionId, { error: payoutError.message, failedAt: new Date().toISOString(), adminId }],
+      ).catch(() => {});
+      return res.status(502).json({
+        success: false,
+        message: `Payout failed: ${payoutError.message}. Balance has been restored.`,
+      });
+    }
+
+  } catch (error) {
     next(error);
   }
 };

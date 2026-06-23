@@ -438,16 +438,17 @@ export const withdrawFunds = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
-    // Record as pending
+    // Record as pending_admin_approval — admin must approve before payout API is called
     await pgQuery(
       `INSERT INTO public.wallet_transactions
         (wallet_id, user_id, type, amount, currency, status, description, metadata)
-       VALUES ($1, $2, 'withdrawal', $3, $4, 'pending', $5, $6)`,
+       VALUES ($1, $2, 'withdrawal', $3, $4, 'pending_admin_approval', $5, $6)`,
       [
         account.wallet_id, userId, amount, walletCurrency,
         `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}`,
         JSON.stringify({
           method: selectedMethod,
+          provider: selectedMethod === 'bank' ? 'paystack' : 'stripe',
           amountUsd,
           reference,
           requestedAmount: Number(amount),
@@ -455,59 +456,25 @@ export const withdrawFunds = async (req, res) => {
           payoutAmount,
           feeCurrency: walletCurrency,
           feeRule: selectedMethod === 'bank' ? 'paystack_ngn_200' : 'stripe_connect',
+          recipientCode: account.paystack_recipient_code,
         }),
       ]
     );
-    // Trigger the actual payout
-    try {
-      if (selectedMethod === 'bank') {
-        const result = await initiateTransfer({
-          amount: payoutAmount,
-          recipientCode: account.paystack_recipient_code,
-          currency: walletCurrency,
-          reason: 'Bago wallet withdrawal',
-          reference,
-        });
-        if (!result.success) throw new Error(result.message || 'Paystack transfer failed');
-        await pgQuery(
-          `UPDATE public.wallet_transactions
-           SET status = 'processing', metadata = metadata || $3::jsonb
-           WHERE user_id = $1 AND metadata->>'reference' = $2`,
-          [userId, reference, JSON.stringify({ transferCode: result.transferCode })]
-        );
-      }
-      await sendWithdrawalSubmittedEmail(
-        account.email,
-        [account.first_name, account.last_name].filter(Boolean).join(' ').trim(),
-        {
-          amount: Number(amount),
-          currency: walletCurrency,
-          reference,
-          method: selectedMethod === 'bank' ? 'bank account' : 'Stripe Connect',
-        },
-      ).catch(() => {});
-    } catch (payoutError) {
-      // Rollback: restore balance and mark transaction failed
-      await pgQuery(
-        `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
-        [userId, amount]
-      );
-      await pgQuery(
-        `UPDATE public.wallet_transactions SET status = 'failed', metadata = metadata || $3::jsonb
-         WHERE user_id = $1 AND metadata->>'reference' = $2`,
-        [userId, reference, JSON.stringify({ error: payoutError.message })]
-      );
-      console.error(`[withdraw] Payout failed for user ${userId}:`, payoutError.message);
-      return res.status(502).json({
-        success: false,
-        message: 'Your withdrawal could not be processed. Your balance has been restored. Please try again.',
-        code: 'PAYOUT_FAILED',
-      });
-    }
+
+    await sendWithdrawalSubmittedEmail(
+      account.email,
+      [account.first_name, account.last_name].filter(Boolean).join(' ').trim(),
+      {
+        amount: Number(amount),
+        currency: walletCurrency,
+        reference,
+        method: selectedMethod === 'bank' ? 'bank account' : 'Stripe Connect',
+      },
+    ).catch(() => {});
 
     return res.status(200).json({
       success: true,
-      message: 'Withdrawal initiated. Funds will arrive within 1–3 business days.',
+      message: 'Withdrawal request submitted. An admin will review and process it shortly.',
       reference,
       requestedAmount: Number(amount),
       withdrawalFee,

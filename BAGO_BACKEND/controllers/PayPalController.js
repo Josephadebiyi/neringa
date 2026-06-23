@@ -3,7 +3,7 @@ import { findProfileById } from '../lib/postgres/profiles.js';
 import { getPackageById, getTripById, getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
-import { sendWithdrawalProcessedEmail, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 import {
   capturePaypalOrder as capturePaypalOrderApi,
@@ -365,7 +365,7 @@ export async function withdrawPaypalPayout(req, res) {
         `
           insert into public.wallet_transactions
             (wallet_id, user_id, type, amount, currency, status, description, metadata)
-          values ($1,$2,'withdrawal',$3,$4,'pending',$5,$6)
+          values ($1,$2,'withdrawal',$3,$4,'pending_admin_approval',$5,$6)
           returning id
         `,
         [
@@ -387,14 +387,8 @@ export async function withdrawPaypalPayout(req, res) {
     });
 
     transactionId = prepared.transactionId;
-    const payout = await createPaypalPayoutApi({
-      email: prepared.paypalEmail,
-      amount,
-      currency: walletCurrency,
-      senderBatchId,
-      note: 'Bago wallet withdrawal',
-    });
 
+    // Do NOT call PayPal API yet — admin must review and approve first
     await sendWithdrawalSubmittedEmail(prepared.userEmail, prepared.userName, {
       amount,
       currency: walletCurrency,
@@ -402,26 +396,10 @@ export async function withdrawPaypalPayout(req, res) {
       method: 'PayPal',
     }).catch(() => {});
 
-    await query(
-      `
-        update public.wallet_transactions
-        set status = 'processing',
-            metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
-            updated_at = timezone('utc', now())
-        where id = $1
-      `,
-      [transactionId, { paypalPayout: payout }],
-    );
-    await sendWithdrawalProcessedEmail(prepared.userEmail, prepared.userName, {
-      amount,
-      currency: walletCurrency,
-      reference: senderBatchId,
-      method: 'PayPal',
-    }).catch(() => {});
     res.json({
       success: true,
-      message: 'PayPal withdrawal submitted.',
-      payout,
+      message: 'Withdrawal request submitted. An admin will review and process it shortly.',
+      status: 'pending_admin_approval',
     });
   } catch (error) {
     console.error('withdrawPaypalPayout failed:', error.message);
