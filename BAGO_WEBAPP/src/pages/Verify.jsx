@@ -58,7 +58,7 @@ const normalizeKycStatus = (raw) => {
     const s = String(raw || '').trim().toLowerCase();
     if (['approved', 'verified', 'completed'].includes(s)) return 'approved';
     if (['pending', 'pending_admin_review', 'pending_review', 'admin_review',
-         'manual_review', 'processing', 'under_review'].includes(s)) return 'pending';
+         'manual_review', 'processing', 'under_review', 'submitted'].includes(s)) return 'pending';
     if (['declined', 'rejected', 'failed', 'failed_verification',
          'blocked_duplicate', 'expired'].includes(s)) return 'declined';
     return 'not_started';
@@ -384,7 +384,6 @@ export default function Verify() {
                         userData={{
                             first_name: user?.firstName || undefined,
                             last_name:  user?.lastName  || undefined,
-                            email:      user?.email     || undefined,
                             residence_country: selectedCountry || undefined,
                         }}
                         metadata={{
