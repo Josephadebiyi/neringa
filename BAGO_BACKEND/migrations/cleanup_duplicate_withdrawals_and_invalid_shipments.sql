@@ -14,14 +14,14 @@ WITH duplicate_wallet_withdrawals AS (
           user_id,
           amount,
           currency,
-          lower(coalesce(status, 'pending')),
+          lower(coalesce(status::text, 'pending')),
           coalesce(metadata ->> 'provider', metadata ->> 'method', ''),
           date_trunc('minute', created_at)
         ORDER BY created_at ASC, id ASC
       ) AS rn
     FROM public.wallet_transactions
     WHERE type = 'withdrawal'
-      AND lower(coalesce(status, 'pending')) IN ('pending', 'processing', 'approved')
+      AND lower(coalesce(status::text, 'pending')) IN ('pending', 'processing', 'approved')
       AND coalesce(metadata ->> 'duplicateCleared', 'false') <> 'true'
   ) ranked
   WHERE rn > 1
@@ -63,12 +63,12 @@ WITH duplicate_paystack_withdrawals AS (
           user_id,
           amount,
           currency,
-          lower(coalesce(status, 'pending')),
+          lower(coalesce(status::text, 'pending')),
           date_trunc('minute', created_at)
         ORDER BY created_at ASC, id ASC
       ) AS rn
     FROM public.paystack_pending_withdrawals
-    WHERE lower(coalesce(status, 'pending')) IN ('pending', 'processing', 'approved')
+    WHERE lower(coalesce(status::text, 'pending')) IN ('pending', 'processing', 'approved')
   ) ranked
   WHERE rn > 1
 ),
@@ -97,18 +97,18 @@ SET status = 'cancelled',
       'adminClearedInvalid', true,
       'clearedReason', 'invalid_or_unpaid_status',
       'clearedAt', timezone('utc', now()),
-      'previousStatus', sr.status
+      'previousStatus', sr.status::text
     ),
     updated_at = timezone('utc', now())
 WHERE coalesce(sr.payment_info ->> 'adminClearedInvalid', 'false') <> 'true'
   AND sr.created_at < timezone('utc', now()) - interval '30 minutes'
   AND (
     sr.status IS NULL
-    OR trim(sr.status) = ''
-    OR lower(sr.status) IN ('draft', 'pending_payment', 'payment_pending', 'unpaid')
+    OR trim(sr.status::text) = ''
+    OR lower(sr.status::text) IN ('draft', 'pending_payment', 'payment_pending', 'unpaid')
     OR (
-      lower(sr.status) = 'pending'
-      AND lower(coalesce(sr.payment_status, '')) NOT IN ('paid', 'paid_escrow', 'authorized', 'captured', 'released')
+      lower(sr.status::text) = 'pending'
+      AND lower(coalesce(sr.payment_status::text, '')) NOT IN ('paid', 'paid_escrow', 'authorized', 'captured', 'released')
       AND lower(coalesce(sr.payment_info ->> 'status', '')) NOT IN ('paid', 'paid_escrow', 'authorized', 'captured', 'released')
     )
   );
