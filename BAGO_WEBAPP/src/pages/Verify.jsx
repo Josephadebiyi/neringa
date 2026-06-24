@@ -106,7 +106,6 @@ export default function Verify() {
     const [termsAccepted, setTermsAccepted]     = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState('');
-    const [countryDetecting, setCountryDetecting] = useState(true);
 
     // Name collection
     const [legalFirstName, setLegalFirstName] = useState(user?.firstName || '');
@@ -141,9 +140,7 @@ export default function Verify() {
                 const json = await res.json();
                 const detected = normalizeCountryCode(json?.country_code || json?.country);
                 if (!cancelled && detected) setSelectedCountry(detected);
-            } catch { /* keep profile fallback */ } finally {
-                if (!cancelled) setCountryDetecting(false);
-            }
+            } catch { /* keep profile fallback */ }
         })();
         return () => { cancelled = true; };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -252,8 +249,6 @@ export default function Verify() {
         setActionLoading(true);
         setError('');
         try {
-            if (!selectedCountry) throw new Error('Please choose your country before starting.');
-
             // Determine provider
             let provider = 'dojah';
             try {
@@ -517,9 +512,6 @@ export default function Verify() {
 
                                 {step === 'consent' && (
                                     <ConsentCard
-                                        selectedCountry={selectedCountry}
-                                        setSelectedCountry={setSelectedCountry}
-                                        countryDetecting={countryDetecting}
                                         termsAccepted={termsAccepted}
                                         setTermsAccepted={setTermsAccepted}
                                         privacyAccepted={privacyAccepted}
@@ -609,12 +601,11 @@ function LandingCard({ declined, onStart, t }) {
 }
 
 function ConsentCard({
-    selectedCountry, setSelectedCountry, countryDetecting,
     termsAccepted, setTermsAccepted,
     privacyAccepted, setPrivacyAccepted,
     actionLoading, error, onContinue,
 }) {
-    const canContinue = Boolean(selectedCountry) && termsAccepted && privacyAccepted && !actionLoading;
+    const canContinue = termsAccepted && privacyAccepted && !actionLoading;
     return (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
@@ -628,30 +619,6 @@ function ConsentCard({
                 <p className="text-sm text-gray-600 font-medium leading-relaxed">
                     To verify your identity we collect and process your personal data, including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.
                 </p>
-
-                {/* Country picker */}
-                <div>
-                    <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">
-                        Country for verification
-                    </label>
-                    <select
-                        value={selectedCountry}
-                        onChange={(e) => setSelectedCountry(e.target.value)}
-                        disabled={countryDetecting}
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10 disabled:opacity-60"
-                    >
-                        {countryDetecting
-                            ? <option value="">Detecting your location…</option>
-                            : <option value="">Select your country</option>
-                        }
-                        {KYC_COUNTRIES.map((c) => (
-                            <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
-                        ))}
-                    </select>
-                    <p className="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                        {countryDetecting ? 'Detecting from your IP…' : 'You can change this if it looks wrong.'}
-                    </p>
-                </div>
 
                 {/* What we collect */}
                 <div className="space-y-3">

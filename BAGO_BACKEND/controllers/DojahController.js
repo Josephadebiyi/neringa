@@ -477,7 +477,7 @@ export const getKycProvider = async (req, res) => {
   }
 
   // Prembly is the primary provider when configured. Dojah is the fallback.
-  const premblyConfigured = !!process.env.PREMBLY_API_KEY;
+  const premblyConfigured = !!(process.env.PREMBLY_WIDGET_KEY || process.env.PREMBLY_API_KEY);
   if (premblyConfigured) {
     return res.json({ success: true, provider: 'prembly', country });
   }
