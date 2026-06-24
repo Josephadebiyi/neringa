@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     Shield, ChevronLeft, CheckCircle, Clock, AlertCircle,
-    ArrowRight, Loader2, Lock, Globe, ExternalLink,
+    ArrowRight, Loader2, Lock, Globe,
 } from 'lucide-react';
 import Dojah from 'dojah-kyc-sdk-react';
+import useIdentityPayKYC from 'prembly-react-kyc';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
@@ -113,8 +114,8 @@ export default function Verify() {
     const [nameSaving,     setNameSaving]     = useState(false);
 
     const [dojahCreds, setDojahCreds]       = useState(null); // { appId, publicKey, widgetId, userId, referenceId }
-    const [premblyData, setPremblyData]     = useState(null); // { verificationUrl, verificationRef }
-    const premblyWindowRef                  = useRef(null);
+    const [premblyConfig, setPremblyConfig] = useState(null); // { widgetKey, widgetId } — fetched from backend
+    const [premblyActive, setPremblyActive] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError]                 = useState('');
     const [blockMsg, setBlockMsg]           = useState('');
@@ -150,17 +151,16 @@ export default function Verify() {
     // ── Cleanup polling on unmount ─────────────────────────────────────────────
     useEffect(() => () => stopPolling(), []);
 
-    // ── Listen for Prembly callback postMessage ────────────────────────────────
+    // ── Fetch Prembly widget config from backend (never hardcoded in bundle) ──
     useEffect(() => {
-        const onMessage = (e) => {
-            if (e.data?.type === 'prembly_complete') {
-                premblyWindowRef.current?.close();
-                premblyWindowRef.current = null;
+        if (!isAuthenticated) return;
+        api.get('/api/config/app').then((res) => {
+            const { premblyWidgetKey, premblyWidgetId } = res.data || {};
+            if (premblyWidgetKey && premblyWidgetId) {
+                setPremblyConfig({ widgetKey: premblyWidgetKey, widgetId: premblyWidgetId });
             }
-        };
-        window.addEventListener('message', onMessage);
-        return () => window.removeEventListener('message', onMessage);
-    }, []);
+        }).catch(() => {});
+    }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── KYC status + pre-check ────────────────────────────────────────────────
     const fetchKycStatus = async () => {
@@ -273,15 +273,9 @@ export default function Verify() {
                     }
                 } catch { /* non-fatal */ }
 
-                const res  = await api.post('/api/bago/kyc/prembly/start', { country: selectedCountry });
-                const { verificationUrl, verificationRef } = res.data || {};
-                if (!verificationUrl) throw new Error('Verification service is not available. Please try again.');
-
-                setPremblyData({ verificationUrl, verificationRef });
+                if (!premblyConfig) throw new Error('Verification service is not available right now. Please try again.');
                 setStep('verifying');
-                // Open the Prembly-hosted verification page in a new tab — no keys exposed
-                premblyWindowRef.current = window.open(verificationUrl, '_blank', 'noopener');
-                startPolling();
+                setPremblyActive(true);
                 return;
             }
 
@@ -367,6 +361,40 @@ export default function Verify() {
         }
     };
 
+    // ── Prembly SDK response handler ──────────────────────────────────────────
+    const handlePremblyResponse = async (response) => {
+        setPremblyActive(false);
+        const code = String(response?.code || '');
+
+        if (code === 'E02') {
+            // User cancelled — return to consent
+            setStep('consent');
+            return;
+        }
+
+        if (code === '00') {
+            // Success — sync with backend then poll
+            setStep('status');
+            setKycStatus('pending');
+            try {
+                const syncRes = await api.post('/api/bago/kyc/prembly/sync-result', {});
+                const status  = normalizeKycStatus(syncRes.data?.kycStatus);
+                setKycStatus(status);
+                if (['approved', 'declined', 'blocked_duplicate'].includes(status)) {
+                    await refreshUser();
+                } else {
+                    startPolling();
+                }
+            } catch {
+                startPolling();
+            }
+        } else {
+            // Failed / other error
+            setStep('consent');
+            setError(response?.message || 'Verification was not successful. Please try again.');
+        }
+    };
+
     // ── Render ─────────────────────────────────────────────────────────────────
 
     if (authLoading || pageLoading) {
@@ -392,6 +420,19 @@ export default function Verify() {
                 <Link to="/"><img src="/bago_logo.png" alt="Bago" className="h-8 w-auto" /></Link>
                 <div className="w-20" />
             </nav>
+
+            {/* Prembly SDK widget — keys fetched from backend at runtime, never bundled */}
+            {premblyActive && premblyConfig && (
+                <PremblyKycWidget
+                    widgetKey={premblyConfig.widgetKey}
+                    widgetId={premblyConfig.widgetId}
+                    firstName={user?.firstName || ''}
+                    lastName={user?.lastName  || ''}
+                    email={user?.email        || ''}
+                    userId={user?.id          || ''}
+                    onResponse={handlePremblyResponse}
+                />
+            )}
 
             {/* Dojah widget — always receives a FRESH referenceId generated by the
                 backend for this specific attempt. This prevents the widget from
@@ -489,16 +530,8 @@ export default function Verify() {
                                     />
                                 )}
 
-                                {step === 'verifying' && !premblyData && (
+                                {step === 'verifying' && (
                                     <VerifyingCard />
-                                )}
-
-                                {step === 'verifying' && premblyData && (
-                                    <PremblyVerifyingCard
-                                        onOpenTab={() => {
-                                            premblyWindowRef.current = window.open(premblyData.verificationUrl, '_blank', 'noopener');
-                                        }}
-                                    />
                                 )}
                             </>
                         )}
@@ -863,37 +896,20 @@ function ReviewCard({ navigate }) {
     );
 }
 
-// ─── Prembly verifying card ───────────────────────────────────────────────────
-function PremblyVerifyingCard({ onOpenTab }) {
-    return (
-        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
-                <div className="w-16 h-16 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-4">
-                    <Shield size={30} className="text-[#5845D8]" />
-                </div>
-                <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Verification in Progress</h1>
-                <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Complete the steps in the verification window</p>
-            </div>
-            <div className="p-8 md:p-12 flex flex-col items-center gap-6">
-                <div className="flex items-start gap-4 p-5 bg-[#5845D8]/5 rounded-3xl border border-[#5845D8]/10 w-full">
-                    <Loader2 className="animate-spin text-[#5845D8] shrink-0 mt-0.5" size={20} />
-                    <p className="text-sm text-gray-600 font-medium leading-relaxed">
-                        A verification window has opened. Complete all steps there — this page will update automatically when you are done.
-                    </p>
-                </div>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest text-center">
-                    Window didn't open?
-                </p>
-                <button
-                    onClick={onOpenTab}
-                    className="flex items-center gap-2 text-[#5845D8] font-black text-sm uppercase tracking-widest hover:underline"
-                >
-                    <ExternalLink size={16} />
-                    Open Verification Window
-                </button>
-            </div>
-        </div>
-    );
+// ─── Prembly SDK widget — auto-opens on mount ─────────────────────────────────
+function PremblyKycWidget({ widgetKey, widgetId, firstName, lastName, email, userId, onResponse }) {
+    const config = {
+        widget_key:  widgetKey,
+        widget_id:   widgetId,
+        first_name:  firstName,
+        last_name:   lastName,
+        email,
+        metadata:    { user_id: userId },
+        callback:    onResponse,
+    };
+    const verifyWithIdentity = useIdentityPayKYC(config);
+    useEffect(() => { verifyWithIdentity(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    return null;
 }
 
 // ─── Hard block gate ──────────────────────────────────────────────────────────
