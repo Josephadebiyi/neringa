@@ -451,14 +451,14 @@ export async function runPreKycChecks(user, req) {
     return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
   }
 
-  // Score ≥ 65: elevated but not conclusive — queue for review, don't block KYC immediately
+  // Score 65–89: elevated but not conclusive — flag for admin review, allow KYC to proceed
   if (score >= 65) {
     await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'review', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_medium', ip, deviceFp, userAgent });
     await query(
-      `UPDATE public.profiles SET account_status = 'pending_security_review',
-         is_flagged = TRUE, flag_reason = $2, flag_source = 'auto_flag',
-         flagged_at = COALESCE(flagged_at, NOW()), updated_at = NOW()
-       WHERE id = $1 AND account_status = 'active'`,
+      `UPDATE public.profiles
+         SET is_flagged = TRUE, flag_reason = $2, flag_source = 'auto_flag',
+             flagged_at = COALESCE(flagged_at, NOW()), updated_at = NOW()
+       WHERE id = $1 AND is_flagged IS DISTINCT FROM TRUE`,
       [user.id, `Auto-flagged: elevated risk score ${score} (${signals.slice(0, 3).join(', ')})`],
     ).catch(() => {});
     listActiveAdminEmails().then((emails) => {
@@ -471,7 +471,7 @@ export async function runPreKycChecks(user, req) {
         }).catch(() => {});
       }
     }).catch(() => {});
-    return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
+    // Allow KYC to continue — admin will review the submitted result
   }
 
   // 6. All clear
